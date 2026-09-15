@@ -1,0 +1,164 @@
+## TITLE('DNA Profiling: offspring HLA genotype from two markers')
+## DESCRIPTION
+## Determine a possible offspring HLA genotype by combining one intact two-marker haplotype from each parent. This seed-driven WeBWorK problem replaces generated static variants for the black-and-white two-marker HLA family.
+## ENDDESCRIPTION
+## KEYWORDS('HLA genotype','haplotype inheritance','DNA profiling','offspring genotype')
+## DBsubject('DNA Profiling')
+## DBchapter('HLA genotyping')
+## DBsection('Offspring genotypes')
+## Level(3)
+## Date('2026-09-15')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+## Language(en)
+## SOURCE('Adapted from biology-problems/problems/dna_profiling-problems/hla_genotype.py at 601277c0c4add743b125bff7e3032cf2910160e4; website invocation: -n 2 --bw')
+## LICENSE('Educational content CC-BY-4.0; derived source code LGPL-3.0-or-later')
+
+DOCUMENT();
+
+loadMacros(
+  'PGstandard.pl',
+  'PGML.pl',
+  'parserRadioButtons.pl',
+  'PGcourse.pl',
+);
+
+$showPartialCorrectAnswers = 0;
+
+# The local generator preserves biologyproblems.org's two-marker, black-and-white
+# inheritance model while using only problemSeed for reproducible variation.
+$local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+@marker_prefixes = ('A', 'B');
+@marker_digits = (1, 2, 3, 4, 5, 6, 7, 8, 9);
+%used_markers = ();
+
+sub create_haplotype {
+  my @haplotype = ();
+
+  foreach my $prefix (@marker_prefixes) {
+    my $marker;
+    do {
+      my $digit_index = $local_random->random(0, $#marker_digits, 1);
+      $marker = $prefix . $marker_digits[$digit_index];
+    } while ($used_markers{$marker});
+    $used_markers{$marker} = 1;
+    push @haplotype, $marker;
+  }
+
+  return [@haplotype];
+}
+
+sub ordered_pair {
+  my ($first, $second) = @_;
+  return ($first, $second) if $first lt $second;
+  return ($second, $first);
+}
+
+# Match the generator's markersToString output: A alleles then B alleles,
+# with each locus sorted lexically.
+sub genotype_text {
+  my ($first_haplotype, $second_haplotype) = @_;
+  my ($first_a, $second_a) = ordered_pair($first_haplotype->[0], $second_haplotype->[0]);
+  my ($first_b, $second_b) = ordered_pair($first_haplotype->[1], $second_haplotype->[1]);
+  return join(',', $first_a, $second_a, $first_b, $second_b);
+}
+
+# The upstream generator rejects an intact parental haplotype here, leaving
+# exactly one A marker from one haplotype and one B marker from the other.
+sub recombinant_haplotype {
+  my ($first_haplotype, $second_haplotype) = @_;
+  my ($take_a, $take_b);
+
+  do {
+    $take_a = $local_random->random(0, 1, 1);
+    $take_b = $local_random->random(0, 1, 1);
+  } while ($take_a == $take_b);
+
+  my $a_marker = $take_a == 0 ? $first_haplotype->[0] : $second_haplotype->[0];
+  my $b_marker = $take_b == 0 ? $first_haplotype->[1] : $second_haplotype->[1];
+  return [$a_marker, $b_marker];
+}
+
+@mother_haplotypes = (create_haplotype(), create_haplotype());
+@father_haplotypes = (create_haplotype(), create_haplotype());
+
+$mother_one = join(',', @{ $mother_haplotypes[0] });
+$mother_two = join(',', @{ $mother_haplotypes[1] });
+$father_one = join(',', @{ $father_haplotypes[0] });
+$father_two = join(',', @{ $father_haplotypes[1] });
+
+$maternal_choice_index = $local_random->random(0, 1, 1);
+$paternal_choice_index = $local_random->random(0, 1, 1);
+$correct_choice = genotype_text(
+  $mother_haplotypes[$maternal_choice_index],
+  $father_haplotypes[$paternal_choice_index],
+);
+$mother_union = genotype_text($mother_haplotypes[0], $mother_haplotypes[1]);
+$father_union = genotype_text($father_haplotypes[0], $father_haplotypes[1]);
+$first_recombinant = genotype_text(
+  recombinant_haplotype($mother_haplotypes[0], $mother_haplotypes[1]),
+  recombinant_haplotype($father_haplotypes[0], $father_haplotypes[1]),
+);
+
+# The static generator deduplicated its choice list after creation. Keep five
+# student-facing choices here by retrying the second recombinant when it lands
+# on the same recombinant genotype as the first one.
+do {
+  $second_recombinant = genotype_text(
+    recombinant_haplotype($mother_haplotypes[0], $mother_haplotypes[1]),
+    recombinant_haplotype($father_haplotypes[0], $father_haplotypes[1]),
+  );
+} while ($second_recombinant eq $first_recombinant);
+
+@choices = (
+  $correct_choice,
+  $mother_union,
+  $father_union,
+  $first_recombinant,
+  $second_recombinant,
+);
+
+# A manual Fisher-Yates pass avoids deprecated choice helpers and stays stable
+# for one problemSeed.
+for (my $last_index = $#choices; $last_index > 0; $last_index--) {
+  my $swap_index = $local_random->random(0, $last_index, 1);
+  my $temporary_choice = $choices[$last_index];
+  $choices[$last_index] = $choices[$swap_index];
+  $choices[$swap_index] = $temporary_choice;
+}
+
+$answer = RadioButtons(
+  [@choices],
+  $correct_choice,
+  labels        => ['A', 'B', 'C', 'D', 'E'],
+  displayLabels => 1,
+  randomize     => 0,
+  noindex       => 1,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+BEGIN_PGML
+
+HLA genotyping serves as a key component in immunogenetics. It identifies unique alleles on paired
+chromosomes and is particularly vital in organ transplantation for matching donors and recipients.
+Finding a correct match reduces the chance for graft rejection.
+
+The mother has **[$mother_one]** on one chromosome and **[$mother_two]** on the other chromosome.
+
+The father has **[$father_one]** on one chromosome and **[$father_two]** on the other chromosome.
+
+Which one of the following combinations is a possible genotype for their offspring?
+
+[_]{$answer}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+One intact haplotype comes from the mother and one comes from the father. A possible offspring
+genotype is [$correct_choice].
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

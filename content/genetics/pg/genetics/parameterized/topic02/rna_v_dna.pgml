@@ -1,0 +1,216 @@
+## TITLE('Differences Between RNA and DNA')
+## DESCRIPTION
+## Select the statement that is TRUE or FALSE about differences between RNA and DNA.
+## ENDDESCRIPTION
+## KEYWORDS('differences between RNA and DNA','true/false','multiple choice')
+## DBsubject('Molecular Biology')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+  "PGstandard.pl",
+  "PGML.pl",
+  "PGchoicemacros.pl",
+  "parserRadioButtons.pl",
+  "PGcourse.pl",
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 1;
+
+#==========================================================
+# AUTO-GENERATED GROUPS FROM YAML
+#==========================================================
+
+@true_groups = (
+  [
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> is usually double-stranded (duplex), whereas <span style="color: orangered; font-weight:700;">RNA</span> is usually single-stranded (simplex)',
+    '<span style="color: orangered; font-weight:700;">RNA</span> is usually single-stranded (simplex), whereas <span style="color: mediumblue; font-weight:700;">DNA</span> is usually double-stranded (duplex)',
+  ],
+  [
+    'uracil in <span style="color: orangered; font-weight:700;">RNA</span> takes the place of thymine in <span style="color: mediumblue; font-weight:700;">DNA</span>',
+    'thymine in <span style="color: mediumblue; font-weight:700;">DNA</span> takes the place of uracil in <span style="color: orangered; font-weight:700;">RNA</span>',
+  ],
+  [
+    'the <span style="color: mediumblue; font-weight:700;">DNA</span> sugar is dexoyribose, <span style="color: orangered; font-weight:700;">RNA</span> has a different sugar',
+    'the <span style="color: orangered; font-weight:700;">RNA</span> sugar is ribose, <span style="color: mediumblue; font-weight:700;">DNA</span> has a different sugar',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">RNA</span> nucleotides have a 2&prime; hydroxide (-OH) group, <span style="color: mediumblue; font-weight:700;">DNA</span> does not',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> nucleotides are missing the 2&prime; hydroxide (-OH) group',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> contains one less hydroxyl (-OH) group than <span style="color: orangered; font-weight:700;">RNA</span>',
+  ],
+  [
+    'double-stranded <span style="color: orangered; font-weight:700;">RNA</span> is mostly in the A-form helix, whereas double-stranded <span style="color: mediumblue; font-weight:700;">DNA</span> is mostly in the B-form helix',
+    'double-stranded <span style="color: mediumblue; font-weight:700;">DNA</span> is mostly in the B-form helix, whereas double-stranded <span style="color: orangered; font-weight:700;">RNA</span> is mostly in the A-form helix',
+  ],
+  [
+    'Both <span style="color: mediumblue; font-weight:700;">DNA</span> and <span style="color: orangered; font-weight:700;">RNA</span> have a negative charge',
+  ],
+  [
+    'Both double-stranded <span style="color: mediumblue; font-weight:700;">DNA</span> and double-stranded <span style="color: orangered; font-weight:700;">RNA</span> have major and minor grooves',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> has a regular consistent structure, whereas <span style="color: orangered; font-weight:700;">RNA</span> adopts a wide variety of tertiary structures',
+    '<span style="color: orangered; font-weight:700;">RNA</span> adopts a wide variety of tertiary structures',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> has a regular consistent structure',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">RNA</span> can form a double-stranded helix',
+    'Both <span style="color: mediumblue; font-weight:700;">DNA</span> and <span style="color: orangered; font-weight:700;">RNA</span> can form a double-stranded helix',
+  ],
+);
+@false_groups = (
+  [
+    '<span style="color: orangered; font-weight:700;">RNA</span> is usually double-stranded (duplex), whereas <span style="color: mediumblue; font-weight:700;">DNA</span> is usually single-stranded (simplex)',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> is usually single-stranded (simplex), whereas <span style="color: orangered; font-weight:700;">RNA</span> is usually double-stranded (duplex)',
+  ],
+  [
+    'uracil in <span style="color: mediumblue; font-weight:700;">DNA</span> takes the place of thymine in <span style="color: orangered; font-weight:700;">RNA</span>',
+    'thymine in <span style="color: orangered; font-weight:700;">RNA</span> takes the place of uracil in <span style="color: mediumblue; font-weight:700;">DNA</span>',
+    'uracil in <span style="color: orangered; font-weight:700;">RNA</span> takes the place of cytosine in <span style="color: mediumblue; font-weight:700;">DNA</span>',
+    'uracil in <span style="color: orangered; font-weight:700;">RNA</span> takes the place of guanine in <span style="color: mediumblue; font-weight:700;">DNA</span>',
+    'uracil in <span style="color: orangered; font-weight:700;">RNA</span> takes the place of adenine in <span style="color: mediumblue; font-weight:700;">DNA</span>',
+    'thymine in <span style="color: mediumblue; font-weight:700;">DNA</span> takes the place of cytosine in <span style="color: orangered; font-weight:700;">RNA</span>',
+    'thymine in <span style="color: mediumblue; font-weight:700;">DNA</span> takes the place of guanine in <span style="color: orangered; font-weight:700;">RNA</span>',
+    'thymine in <span style="color: mediumblue; font-weight:700;">DNA</span> takes the place of adenine in <span style="color: orangered; font-weight:700;">RNA</span>',
+  ],
+  [
+    'the <span style="color: mediumblue; font-weight:700;">DNA</span> sugar is ribose, <span style="color: orangered; font-weight:700;">RNA</span> has a different sugar',
+    'the <span style="color: orangered; font-weight:700;">RNA</span> sugar is deoxyribose, <span style="color: mediumblue; font-weight:700;">DNA</span> has a different sugar',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> nucleotides have a 2&prime; hydroxide (-OH) group, <span style="color: orangered; font-weight:700;">RNA</span> does not',
+    '<span style="color: orangered; font-weight:700;">RNA</span> nucleotides are missing the 2&prime; hydroxide (-OH) group compared to <span style="color: mediumblue; font-weight:700;">DNA</span>',
+    '<span style="color: orangered; font-weight:700;">RNA</span> nucleotides have an extra 4&prime; hydroxide (-OH) group, <span style="color: mediumblue; font-weight:700;">DNA</span> does not',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> nucleotides are missing the 4&prime; hydroxide (-OH) group compared to <span style="color: orangered; font-weight:700;">RNA</span>',
+    '<span style="color: orangered; font-weight:700;">RNA</span> contains one less hydroxyl (-OH) group than <span style="color: mediumblue; font-weight:700;">DNA</span>',
+  ],
+  [
+    'double-stranded <span style="color: mediumblue; font-weight:700;">DNA</span> is mostly in the A-form helix, whereas double-stranded <span style="color: orangered; font-weight:700;">RNA</span> is mostly in the B-form helix',
+    'double-stranded <span style="color: orangered; font-weight:700;">RNA</span> is mostly in the B-form helix, whereas double-stranded <span style="color: mediumblue; font-weight:700;">DNA</span> is mostly in the A-form helix',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> has a negative charge, <span style="color: orangered; font-weight:700;">RNA</span> has a positive charge',
+    '<span style="color: orangered; font-weight:700;">RNA</span> has a negative charge, <span style="color: mediumblue; font-weight:700;">DNA</span> has a positive charge',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> has a positive charge, <span style="color: orangered; font-weight:700;">RNA</span> has a negative charge',
+    '<span style="color: orangered; font-weight:700;">RNA</span> has a positive charge, <span style="color: mediumblue; font-weight:700;">DNA</span> has a negative charge',
+    'Both <span style="color: mediumblue; font-weight:700;">DNA</span> and <span style="color: orangered; font-weight:700;">RNA</span> have a positive charge',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">RNA</span> is made of nucleotides, <span style="color: mediumblue; font-weight:700;">DNA</span> is made of amino acids',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> is made of nucleotides, <span style="color: orangered; font-weight:700;">RNA</span> is made of amino acids',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> has a sugar-phosphate backbone, <span style="color: orangered; font-weight:700;">RNA</span> does not',
+    '<span style="color: orangered; font-weight:700;">RNA</span> has a sugar-phosphate backbone, <span style="color: mediumblue; font-weight:700;">DNA</span> does not',
+  ],
+  [
+    'double-stranded <span style="color: mediumblue; font-weight:700;">DNA</span> has major and minor grooves, double-stranded <span style="color: orangered; font-weight:700;">RNA</span> does not',
+    'double-stranded <span style="color: orangered; font-weight:700;">RNA</span> has major and minor grooves, double-stranded <span style="color: mediumblue; font-weight:700;">DNA</span> does not',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">RNA</span> has a regular consistent structure, whereas <span style="color: mediumblue; font-weight:700;">DNA</span> adopts a wide variety of tertiary structures',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> adopts a wide variety of tertiary structures',
+    '<span style="color: orangered; font-weight:700;">RNA</span> has a regular consistent structure',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">RNA</span> cannot form a double-stranded helix',
+    '<span style="color: mediumblue; font-weight:700;">DNA</span> can form a double-stranded helix, but <span style="color: orangered; font-weight:700;">RNA</span> cannot',
+  ],
+);
+
+#==========================================================
+# GLOBAL SETTINGS
+#==========================================================
+
+$topic = 'differences between <span style="color: orangered; font-weight:700;">RNA</span> and <span style="color: mediumblue; font-weight:700;">DNA</span>';
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+my @mode_choices = ("TRUE", "FALSE");
+$mode = $mode_choices[$local_random->random(0, $#mode_choices, 1)];
+$num_distractors = 4;
+#==========================================================
+# SELECT GROUP
+#==========================================================
+
+my (@selected_group, @opposite_groups);
+
+if ($mode eq "TRUE") {
+  $group_index      = $local_random->random(0, scalar(@true_groups)-1, 1);
+  @selected_group   = @{ $true_groups[$group_index] };
+  @opposite_groups  = @false_groups;
+} else {
+  $group_index      = $local_random->random(0, scalar(@false_groups)-1, 1);
+  @selected_group   = @{ $false_groups[$group_index] };
+  @opposite_groups  = @true_groups;
+}
+
+#==========================================================
+# PICK CORRECT + DISTRACTORS
+#==========================================================
+
+my $correct_index = $local_random->random(0, $#selected_group, 1);
+$correct = $selected_group[$correct_index];
+
+my @available_group_indices = (0 .. $#opposite_groups);
+my @selected_distractor_indices = ();
+
+while (@selected_distractor_indices < $num_distractors && @available_group_indices > 0) {
+  my $random_index = $local_random->random(0, scalar(@available_group_indices)-1, 1);
+  push @selected_distractor_indices, splice(@available_group_indices, $random_index, 1);
+}
+
+@distractors = ();
+foreach my $group_idx (@selected_distractor_indices) {
+  my @group = @{ $opposite_groups[$group_idx] };
+  my $distractor_index = $local_random->random(0, $#group, 1);
+  my $distractor = $group[$distractor_index];
+  push @distractors, $distractor;
+}
+
+@choices = ($correct, @distractors);
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# RADIO BUTTONS WITH A/B/C/D/E LABELS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => ['A','B','C','D','E'],
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+[@ $mode eq "TRUE" ? "Which one of the following statements is <span style='color: #127663;'><strong>TRUE</strong></span> about $topic?" : "Which one of the following statements is <span style='color: #ba372a;'><strong>FALSE</strong></span> about $topic?" @]*
+
+[_]{$rb}
+
+END_PGML
+
+ENDDOCUMENT();

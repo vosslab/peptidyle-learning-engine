@@ -1,0 +1,141 @@
+## DESCRIPTION
+## Select the inheritance pattern that corresponds to the given definition.
+## ENDDESCRIPTION
+## KEYWORDS('inheritance patterns','definitions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>heterozygotes equally express both alleles in the phenotype</strong>',
+    'plural_choice' => 'inheritance patterns',
+    'singular_item' => 'definition',
+    'choices' => [
+      'codominance',
+      'complete dominance',
+      'epistasis',
+      'incomplete dominance',
+    ],
+    'correct' => 'codominance',
+  },
+  {
+    'item_name' => '<strong>one allele masks the effect of another allele</strong>',
+    'plural_choice' => 'inheritance patterns',
+    'singular_item' => 'definition',
+    'choices' => [
+      'codominance',
+      'complete dominance',
+      'epistasis',
+      'incomplete dominance',
+    ],
+    'correct' => 'complete dominance',
+  },
+  {
+    'item_name' => '<strong>one gene suppresses the effect of another gene that is NOT its allele</strong>',
+    'plural_choice' => 'inheritance patterns',
+    'singular_item' => 'definition',
+    'choices' => [
+      'codominance',
+      'complete dominance',
+      'epistasis',
+      'incomplete dominance',
+    ],
+    'correct' => 'epistasis',
+  },
+  {
+    'item_name' => '<strong>heterozygote appearance is a blended phenotype of both homozygous phenotypes</strong>',
+    'plural_choice' => 'inheritance patterns',
+    'singular_item' => 'definition',
+    'choices' => [
+      'codominance',
+      'complete dominance',
+      'epistasis',
+      'incomplete dominance',
+    ],
+    'correct' => 'incomplete dominance',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

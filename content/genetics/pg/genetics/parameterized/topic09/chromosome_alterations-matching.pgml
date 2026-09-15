@@ -1,0 +1,244 @@
+## DESCRIPTION
+## Match each of the following alterations to chromosome structure with their corresponding descriptions.
+## ENDDESCRIPTION
+## KEYWORDS('alterations to chromosome structure','descriptions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'non-disjunction' => [
+    'the failure of sister chromatids to separate properly during cell division',
+    'the failure of homologous <span style="color: #008672; font-weight:700;">chromosome</span>s to separate properly during cell division',
+  ],
+  'deletion' => [
+    'portion of the <span style="color: #008672; font-weight:700;">chromosome</span> is missing',
+    'a sequence of DNA is left out during DNA replication',
+    'a part of a <span style="color: #008672; font-weight:700;">chromosome</span> is left out during DNA replication',
+    'when a <span style="color: #008672; font-weight:700;">chromosome</span> breaks a part of it is lost',
+    'can result from <span style="color: #a16c04; font-weight:700;">genes</span> recombination where a part of a <span style="color: #008672; font-weight:700;">chromosome</span> is lost',
+    '<span style="color: #008672; font-weight:700;">chromosome</span> in which is missing a group of <span style="color: #43861a; font-weight:700;">genes</span>',
+  ],
+  'duplications' => [
+    'portion of the <span style="color: #008672; font-weight:700;">chromosome</span> has been copied, resulting in extra genetic material',
+    'portion of the <span style="color: #008672; font-weight:700;">chromosome</span> has been copied, resulting extra copies of a gene',
+    'can result from <span style="color: #a16c04; font-weight:700;">genes</span> recombination where a part of a <span style="color: #008672; font-weight:700;">chromosome</span> is replicated',
+    '<span style="color: #008672; font-weight:700;">chromosome</span> that has an extra copy of a group of <span style="color: #43861a; font-weight:700;">genes</span>',
+  ],
+  'reciprocal translocation' => [
+    'can change a metacentric <span style="color: #008672; font-weight:700;">chromosome</span> into a submetacentric <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'a pair of non-homologous <span style="color: #008672; font-weight:700;">chromosome</span>s swapping <span style="color: #43861a; font-weight:700;">genes</span> with each other',
+    'the exchange of broken <span style="color: #008672; font-weight:700;">chromosome</span> segments between two nonhomologous <span style="color: #008672; font-weight:700;">chromosome</span>s',
+    'two detached fragments of two different <span style="color: #008672; font-weight:700;">chromosome</span>s are switched',
+    'the Philadelphia <span style="color: #008672; font-weight:700;">chromosome</span> is formed from this alteration of <span style="color: #008672; font-weight:700;">chromosome</span>s 9 and 22',
+    'segments from two different <span style="color: #008672; font-weight:700;">chromosome</span>s have been exchanged',
+  ],
+  'non-reciprocal translocation' => [
+    'the transferring of a <span style="color: #008672; font-weight:700;">chromosome</span> segment from one <span style="color: #008672; font-weight:700;">chromosome</span> to another non-homologous <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'the one-way transfer of a chromosomal segment from one non-homologous <span style="color: #008672; font-weight:700;">chromosome</span> to another',
+    'a complete <span style="color: #008672; font-weight:700;">chromosome</span> that also has a group of <span style="color: #43861a; font-weight:700;">genes</span> from another <span style="color: #008672; font-weight:700;">chromosome</span>',
+  ],
+  'paracentric inversion' => [
+    'can change two monocentric <span style="color: #008672; font-weight:700;">chromosome</span>s into an acentric <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'can change two monocentric <span style="color: #008672; font-weight:700;">chromosome</span>s into a dicentric <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'the <span style="color: #56225d; font-weight:700;">reversal</span> of the gene order within a <span style="color: #008672; font-weight:700;">chromosome</span> that does NOT include the <span style="color: #c1480a; font-weight:700;">centromere</span>',
+    'two breaks and <span style="color: #56225d; font-weight:700;">reversal</span> of the <span style="color: #43861a; font-weight:700;">genes</span> occur on one arm of the <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'does NOT include the <span style="color: #c1480a; font-weight:700;">centromere</span> and both breaks occur in one arm of the <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'a portion of a single <span style="color: #008672; font-weight:700;">chromosome</span> arm has broken off, turned upside down, and reattached',
+    'a portion of a single <span style="color: #008672; font-weight:700;">chromosome</span> arm has broken off, <span style="color: #56225d; font-weight:700;">reverse</span>d, and reattached in its original place',
+    'can result from <span style="color: #a16c04; font-weight:700;">genes</span> recombination where a part of a single <span style="color: #008672; font-weight:700;">chromosome</span> arm is <span style="color: #56225d; font-weight:700;">reverse</span>d',
+    'a group of <span style="color: #43861a; font-weight:700;">genes</span> on one arm of the <span style="color: #008672; font-weight:700;">chromosome</span> is the <span style="color: #56225d; font-weight:700;">reverse</span> of the normal order',
+  ],
+  'pericentric inversion' => [
+    'a pair of homologous <span style="color: #008672; font-weight:700;">chromosome</span>s that both have duplicated <span style="color: #43861a; font-weight:700;">genes</span> and missing <span style="color: #43861a; font-weight:700;">genes</span>',
+    'the <span style="color: #56225d; font-weight:700;">reversal</span> of the gene order in a <span style="color: #008672; font-weight:700;">chromosome</span> that includes the <span style="color: #c1480a; font-weight:700;">centromere</span>',
+    'two breaks and <span style="color: #56225d; font-weight:700;">reversal</span> of the <span style="color: #43861a; font-weight:700;">genes</span> occurs on both arms or sides of the <span style="color: #c1480a; font-weight:700;">centromere</span>',
+    '<span style="color: #c1480a; font-weight:700;">centromere</span> is included in the <span style="color: #56225d; font-weight:700;">reverse</span>d loop that is formed during synapsis',
+    '<span style="color: #56225d; font-weight:700;">reversal</span> of the <span style="color: #43861a; font-weight:700;">genes</span> that includes both arms of the <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'includes the <span style="color: #c1480a; font-weight:700;">centromere</span> and there is a break point in each arm',
+    'a portion of a <span style="color: #008672; font-weight:700;">chromosome</span> that includes both arms has broken off, turned upside down, and reattached',
+    'a portion of a <span style="color: #008672; font-weight:700;">chromosome</span> that includes both arms has broken off, <span style="color: #56225d; font-weight:700;">reverse</span>d, and reattached',
+    'a group of <span style="color: #43861a; font-weight:700;">genes</span> including the <span style="color: #c1480a; font-weight:700;">centromere</span> is the <span style="color: #56225d; font-weight:700;">reverse</span> of the normal order',
+  ],
+  'Robertsonian translocation' => [
+    'can change two acrocentric <span style="color: #008672; font-weight:700;">chromosome</span>s into a metacentric <span style="color: #008672; font-weight:700;">chromosome</span>',
+    'fusion of two <span style="color: #008672; font-weight:700;">chromosome</span>s that have short p arms',
+    'caused by breaks at or near the <span style="color: #c1480a; font-weight:700;">centromere</span>s of two acrocentric <span style="color: #008672; font-weight:700;">chromosome</span>s',
+    'in humans, these alterations only occur with <span style="color: #008672; font-weight:700;">chromosome</span>s 13, 14, 15, 21, and 22',
+    'entire <span style="color: #008672; font-weight:700;">chromosome</span> has attached to another at the <span style="color: #c1480a; font-weight:700;">centromere</span>',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 5;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'non-disjunction' => 'non-disjunction',
+  'deletion' => 'deletion',
+  'duplications' => 'duplications',
+  'reciprocal translocation' => 'reciprocal translocation',
+  'non-reciprocal translocation' => 'non-reciprocal translocation',
+  'paracentric inversion' => 'paracentric inversion',
+  'pericentric inversion' => 'pericentric inversion',
+  'Robertsonian translocation' => 'Robertsonian translocation',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following alterations to chromosome structure with their corresponding descriptions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

@@ -1,0 +1,226 @@
+## DESCRIPTION
+## Match each of the following chi2 terms with their corresponding definitions.
+## ENDDESCRIPTION
+## KEYWORDS('chi2 terms','definitions')
+## DBsubject('Biostatistics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'critical value' => [
+    'found in a table for a given degrees of freedom and <span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+    'the boundary of how extreme a test statistic we need to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+    'the cutoff used to compare against the observed <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+  ],
+  'chi-square (&chi;&sup2;) test statistic' => [
+    'if this value is large, then there is stronger evidence to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    'the bigger this number, the smaller the <span style="color: #c21460; font-weight:700;">p-value</span>',
+    'the sum of the normalized square difference between observed and expected data',
+    'a measure of the discrepancy between the observed and expected data sets',
+  ],
+  'level of significance, &alpha;' => [
+    'the statistical cutoff of the result for the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> to be <span style="color: #4d8426; font-weight:700;">supported</span> or not',
+    'a constant probability that provides a cutoff for falsification of the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+    'the fixed probability for whether or NOT the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be <span style="color: #4d8426; font-weight:700;">supported</span>',
+    'a fixed probability cutoff whether the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be or cannot be <span style="color: #4d8426; font-weight:700;">supported</span>',
+    'standard cutoff probability used to determine statistic significance',
+    'biologists use a probability of 0.05 (5%) for this value',
+  ],
+  'p-value' => [
+    'the probability of getting a result that is either the same or more extreme than the actual observations',
+    'if this value is small, then there is stronger evidence to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    'the smaller this number, the bigger the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+    'a small value suggests the observed data are NOT consistent with the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+  ],
+  'null hypothesis, H<sub>0</sub>' => [
+    'we attempt to find evidence against this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
+    'we want to <span style="color: #eb1601; font-weight:700;">faill to support</span>this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
+    'this hypothesis makes it easier to calculate the expected values',
+  ],
+  'alternative hypothesis, H<sub>a</sub>' => [
+    'we are attempting to <span style="color: #4d8426; font-weight:700;">support</span>this hypothesis indirectly by using the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
+    'if the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> cannot be <span style="color: #4d8426; font-weight:700;">supported</span> , then this opposing hypothesis is <span style="color: #4d8426; font-weight:700;">supported</span>',
+    'this hypothesis represents a deviation or bias from the expected pattern',
+    'for this hypothesis, the expected values are often impossible to calculate',
+    'we aim to <span style="color: #4d8426; font-weight:700;">support</span>this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test',
+  ],
+  'degrees of freedom' => [
+    'usually one less than the number of observed categories (rows in the table)',
+    'represents how many independent values can vary after constraints are applied',
+    'in most <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> tests, it is the number of observed categories (rows in the table) minus one',
+    'this number determines which row of the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> <span style="color: #4424d6; font-weight:700;">critical value</span> table you should use',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 5;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'critical value' => '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+  'chi-square (&chi;&sup2;) test statistic' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+  'level of significance, &alpha;' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+  'p-value' => '<span style="color: #c21460; font-weight:700;">p-value</span>',
+  'null hypothesis, H<sub>0</sub>' => '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+  'alternative hypothesis, H<sub>a</sub>' => '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+  'degrees of freedom' => '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following chi-square (&chi;&sup2;) terms with their corresponding definitions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

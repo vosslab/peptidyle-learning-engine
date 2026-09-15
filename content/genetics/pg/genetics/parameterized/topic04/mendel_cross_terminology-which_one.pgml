@@ -1,0 +1,800 @@
+## DESCRIPTION
+## Select the Mendelian cross or generational stage that corresponds to the given description.
+## ENDDESCRIPTION
+## KEYWORDS('Mendelian crosses and generational stages','descriptions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>a type of cross where the <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> is crossed with the <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross that uses a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> organism to determine the genetic makeup of another <span style="color: #003fff; font-weight:700;">dominant</span> organism</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross involving an individual which is <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> for all genes of interest</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross involving an individuals with a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> and an unknown <span style="color: #076dad; font-weight:700;">genotype</span>, mated with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross where a test organism showing a <span style="color: #003fff; font-weight:700;">dominant</span> trait is crossed with one showing all <span style="color: #00775f; font-weight:700;">recessive</span> traits</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross between a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual with an individual of an unknown <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross of an individual of <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> and unknown <span style="color: #076dad; font-weight:700;">genotype</span> and an individual with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a genetic cross in which a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> is paired with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a genetic cross to identify the <span style="color: #076dad; font-weight:700;">genotype</span> of an organism with a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> by crossing it with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a cross used to determine whether an individual with a <span style="color: #003fff; font-weight:700;">dominant</span> trait is <span style="color: #6c6c00; font-weight:700;">homozygous</span> or heterozygous</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a cross to uncover the <span style="color: #076dad; font-weight:700;">genotype</span> of an individual with the <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> by mating it with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> organism</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a cross designed to reveal the <span style="color: #076dad; font-weight:700;">genotype</span> of a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> individual by pairing it with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross where <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids are crossed with one of the <span style="color: #0067cc; font-weight:700;">parental</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross when <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals are crossed with one of the two parents</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+  },
+  {
+    'item_name' => '<strong>a cross involving <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids and one of their <span style="color: #0067cc; font-weight:700;">parental</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+  },
+  {
+    'item_name' => '<strong>a mating event where <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals are bred with one of the original <span style="color: #0067cc; font-weight:700;">parental</span> types</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+  },
+  {
+    'item_name' => '<strong>a genetic cross to trace the <span style="color: #935d00; font-weight:700;">inheritance</span> of a specific trait back to one of the original parents</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+  },
+  {
+    'item_name' => '<strong>a genetic cross that involves the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation being mated with one of the parent types</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross between two individuals who have distinct <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross between two true-breeding individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross that mates two true-breeding individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a genetic cross between two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different traits</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a cross involving two true-breeding organisms with distinct traits</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a mating event that pairs two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different characteristics</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a genetic cross to combine traits from two different true-breeding parents</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a cross between two true-breeding organisms that each display distinct, <span style="color: #6c6c00; font-weight:700;">homozygous</span> traits</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a cross that brings together two true-breeding individuals who are <span style="color: #6c6c00; font-weight:700;">homozygous</span> for different sets of traits</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  },
+  {
+    'item_name' => '<strong>a type of cross designed to test the role of <span style="color: #0067cc; font-weight:700;">parental</span> sex on a given <span style="color: #935d00; font-weight:700;">inheritance</span> pattern</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>two separate crosses where the traits of the male and female in one cross are switched in another cross</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>a genetic cross that examines the impact of <span style="color: #0067cc; font-weight:700;">parental</span> sex on <span style="color: #935d00; font-weight:700;">inheritance</span> patterns</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>two distinct mating events where male and female traits are swapped between the crosses</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>a pair of crosses that reverses the sexes associated with specific traits</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>a set of two crosses to investigate if the sex of the parent influences the <span style="color: #935d00; font-weight:700;">inheritance</span> of traits</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>two distinct crosses where the male and female <span style="color: #0067cc; font-weight:700;">parental</span> traits are reversed in the subsequent cross</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>two paired crosses that switch the roles of male and female parents to investigate the influence of <span style="color: #0067cc; font-weight:700;">parental</span> sex on trait <span style="color: #935d00; font-weight:700;">inheritance</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #0067cc; font-weight:700;">parental</span> generation in a <span style="color: #007576; font-weight:700;">hybrid cross</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>this generation includes two true-breeding individuals with different traits in a <span style="color: #007576; font-weight:700;">hybrid cross</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>this generation consists of two true-breeding individuals, each exhibiting different traits, participating in a <span style="color: #007576; font-weight:700;">hybrid cross</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>this generation consists of two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span> for a <span style="color: #007576; font-weight:700;">hybrid cross</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>the original <span style="color: #0067cc; font-weight:700;">parental</span> generation in a <span style="color: #007576; font-weight:700;">hybrid cross</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>a generation with two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span> in a <span style="color: #007576; font-weight:700;">hybrid cross</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>the starting generation consisting of true-breeding parents in a <span style="color: #007576; font-weight:700;">hybrid cross</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>the initial generation of a <span style="color: #007576; font-weight:700;">hybrid cross</span> that includes two <span style="color: #6c6c00; font-weight:700;">homozygous</span>, true-breeding organisms with distinct <span style="color: #cc0066; font-weight:700;">phenotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  },
+  {
+    'item_name' => '<strong>the first generation in a cross; the offspring of the <span style="color: #0067cc; font-weight:700;">parental</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>hybrid offspring of the <span style="color: #0067cc; font-weight:700;">parental</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the first generation of offspring from the <span style="color: #0067cc; font-weight:700;">parental</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the first generation derived from a genetic cross between members of the <span style="color: #0067cc; font-weight:700;">parental</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the first generation of hybrids resulting from a cross between two <span style="color: #0067cc; font-weight:700;">parental</span> organisms</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the initial offspring derived from a cross between two <span style="color: #0067cc; font-weight:700;">parental</span> types</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the first generational step in assessing genetic variance, originating from the <span style="color: #0067cc; font-weight:700;">parental</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the immediate progeny produced by the cross of two distinct <span style="color: #0067cc; font-weight:700;">parental</span> <span style="color: #076dad; font-weight:700;">genotype</span></strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the second generation in a cross; the offspring of the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the second generation produced when <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals are self-crossed or fertilized with each other</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the offspring of the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation; the "grandchildren" of the <span style="color: #0067cc; font-weight:700;">parental</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the offspring from the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation, and considered the &apos;grandchildren&apos; of the initial <span style="color: #0067cc; font-weight:700;">parental</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the second generation of offspring, descended from the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the offspring resulting from either self-fertilization or cross-fertilization of <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the subsequent generation derived from interbreeding or self-breeding of <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+  {
+    'item_name' => '<strong>the generation resulting from the mating of <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids</strong>',
+    'plural_choice' => 'Mendelian crosses and generational stages',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">test cross</span>',
+      '<span style="color: #c80085; font-weight:700;">P generation</span>',
+      '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+      '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

@@ -1,0 +1,470 @@
+## DESCRIPTION
+## Select the chi2 term that corresponds to the given definition.
+## ENDDESCRIPTION
+## KEYWORDS('chi2 terms','definitions','which one','multiple choice')
+## DBsubject('Biostatistics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>found in a table for a given degrees of freedom and <span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+  },
+  {
+    'item_name' => '<strong>the boundary of how extreme a test statistic we need to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+  },
+  {
+    'item_name' => '<strong>the cutoff used to compare against the observed <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+  },
+  {
+    'item_name' => '<strong>if this value is large, then there is stronger evidence to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+  },
+  {
+    'item_name' => '<strong>the bigger this number, the smaller the <span style="color: #c21460; font-weight:700;">p-value</span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+  },
+  {
+    'item_name' => '<strong>the sum of the normalized square difference between observed and expected data</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+  },
+  {
+    'item_name' => '<strong>a measure of the discrepancy between the observed and expected data sets</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+  },
+  {
+    'item_name' => '<strong>the statistical cutoff of the result for the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> to be <span style="color: #4d8426; font-weight:700;">supported</span> or not</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+  },
+  {
+    'item_name' => '<strong>a constant probability that provides a cutoff for falsification of the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+  },
+  {
+    'item_name' => '<strong>the fixed probability for whether or NOT the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be <span style="color: #4d8426; font-weight:700;">supported</span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+  },
+  {
+    'item_name' => '<strong>a fixed probability cutoff whether the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> can be or cannot be <span style="color: #4d8426; font-weight:700;">supported</span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+  },
+  {
+    'item_name' => '<strong>standard cutoff probability used to determine statistic significance</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+  },
+  {
+    'item_name' => '<strong>biologists use a probability of 0.05 (5%) for this value</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+  },
+  {
+    'item_name' => '<strong>the probability of getting a result that is either the same or more extreme than the actual observations</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #c21460; font-weight:700;">p-value</span>',
+  },
+  {
+    'item_name' => '<strong>if this value is small, then there is stronger evidence to <span style="color: #4d8426; font-weight:700;">support</span>the <span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #c21460; font-weight:700;">p-value</span>',
+  },
+  {
+    'item_name' => '<strong>the smaller this number, the bigger the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #c21460; font-weight:700;">p-value</span>',
+  },
+  {
+    'item_name' => '<strong>a small value suggests the observed data are NOT consistent with the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #c21460; font-weight:700;">p-value</span>',
+  },
+  {
+    'item_name' => '<strong>we attempt to find evidence against this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+  },
+  {
+    'item_name' => '<strong>we want to <span style="color: #eb1601; font-weight:700;">faill to support</span>this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+  },
+  {
+    'item_name' => '<strong>this hypothesis makes it easier to calculate the expected values</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+  },
+  {
+    'item_name' => '<strong>we are attempting to <span style="color: #4d8426; font-weight:700;">support</span>this hypothesis indirectly by using the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+    ],
+    'correct' => '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+  },
+  {
+    'item_name' => '<strong>if the <span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span> cannot be <span style="color: #4d8426; font-weight:700;">supported</span> , then this opposing hypothesis is <span style="color: #4d8426; font-weight:700;">supported</span></strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+  },
+  {
+    'item_name' => '<strong>this hypothesis represents a deviation or bias from the expected pattern</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+  },
+  {
+    'item_name' => '<strong>for this hypothesis, the expected values are often impossible to calculate</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+  },
+  {
+    'item_name' => '<strong>we aim to <span style="color: #4d8426; font-weight:700;">support</span>this hypothesis in our <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+  },
+  {
+    'item_name' => '<strong>usually one less than the number of observed categories (rows in the table)</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+  },
+  {
+    'item_name' => '<strong>represents how many independent values can vary after constraints are applied</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #8601af; font-weight:700;">level of significance, &alpha;</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+  },
+  {
+    'item_name' => '<strong>in most <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> tests, it is the number of observed categories (rows in the table) minus one</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> test statistic',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+  },
+  {
+    'item_name' => '<strong>this number determines which row of the <span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> <span style="color: #4424d6; font-weight:700;">critical value</span> table you should use</strong>',
+    'plural_choice' => '<span style="color: #aa6701; font-weight:700;">chi-square (&chi;&sup2;)</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #4424d6; font-weight:700;">critical value</span>',
+      '<span style="color: #c21460; font-weight:700;">p-value</span>',
+      '<span style="color: #0247fe; font-weight:700;">null hypothesis, H<sub>0</sub></span>',
+      '<span style="color: #cf4b03; font-weight:700;">alternative hypothesis, H<sub>a</sub></span>',
+      '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+    ],
+    'correct' => '<span style="color: #687f19; font-weight:700;">degrees of freedom</span>',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

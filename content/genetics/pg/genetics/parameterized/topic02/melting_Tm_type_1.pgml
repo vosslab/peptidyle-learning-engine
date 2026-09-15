@@ -1,0 +1,166 @@
+## TITLE('Melting Temperature (Tm) of DNA')
+## DESCRIPTION
+## Select the statement that is TRUE or FALSE about melting temperature (Tm) of DNA.
+## ENDDESCRIPTION
+## KEYWORDS('melting temperature (Tm) of DNA','true/false','multiple choice')
+## DBsubject('Molecular Biology')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+  "PGstandard.pl",
+  "PGML.pl",
+  "PGchoicemacros.pl",
+  "parserRadioButtons.pl",
+  "PGcourse.pl",
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 1;
+
+#==========================================================
+# AUTO-GENERATED GROUPS FROM YAML
+#==========================================================
+
+@true_groups = (
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span> base pairing content <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span> base pairing content <span style="color: #a719db; font-weight:700;">decreases</span>.',
+  ],
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span> base pairing content <span style="color: #a719db; font-weight:700;">decreases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span> base pairing content <span style="color: #b74300; font-weight:700;">increases</span>.',
+  ],
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand is the temperature <br/>at which half of strands are single-stranded and the other half are double-stranded.',
+  ],
+);
+@false_groups = (
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span> base pairing content <span style="color: #a719db; font-weight:700;">decreases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span> base pairing content <span style="color: #b74300; font-weight:700;">increases</span>.',
+  ],
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span> base pairing content <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span> base pairing content <span style="color: #a719db; font-weight:700;">decreases</span>.',
+  ],
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of purine nucleobases, <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of purine nucleobases, <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of purine nucleobases, <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of purine nucleobases, <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #000000; font-weight:700;">guanine (G)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+  ],
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of pyrimidine nucleobases, <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of pyrimidine nucleobases, <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of pyrimidine nucleobases, <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of pyrimidine nucleobases, <span style="color: #003fff; font-weight:700;">cytosine (C)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+  ],
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of nucleobases with ketone groups, <span style="color: #000000; font-weight:700;">guanine (G)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of nucleobases with ketone groups, <span style="color: #000000; font-weight:700;">guanine (G)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of nucleobases with ketone groups, <span style="color: #000000; font-weight:700;">guanine (G)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of nucleobases with ketone groups, <span style="color: #000000; font-weight:700;">guanine (G)</span> + <span style="color: #d40000; font-weight:700;">thymine (T)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+  ],
+  [
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of nucleobases with amino groups <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #003fff; font-weight:700;">cytosine (C)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of nucleobases with amino groups, <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #003fff; font-weight:700;">cytosine (C)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes up <span style="color: #b74300; font-weight:700;">(increases)</span> <br/>when the amount of nucleobases with amino groups, <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #003fff; font-weight:700;">cytosine (C)</span>, <span style="color: #b74300; font-weight:700;">increases</span>.',
+    'The melting temperature (T<sub>m</sub>) of a DNA strand goes down <span style="color: #a719db; font-weight:700;">(decreases)</span> <br/>when the amount of nucleobases with amino groups, <span style="color: #007a00; font-weight:700;">adenine (A)</span> + <span style="color: #003fff; font-weight:700;">cytosine (C)</span>, <span style="color: #a719db; font-weight:700;">decreases</span>.',
+  ],
+);
+
+#==========================================================
+# GLOBAL SETTINGS
+#==========================================================
+
+$topic = 'melting temperature (T<sub>m</sub>) of DNA';
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+my @mode_choices = ("TRUE", "FALSE");
+$mode = $mode_choices[$local_random->random(0, $#mode_choices, 1)];
+$num_distractors = 4;
+#==========================================================
+# SELECT GROUP
+#==========================================================
+
+my (@selected_group, @opposite_groups);
+
+if ($mode eq "TRUE") {
+  $group_index      = $local_random->random(0, scalar(@true_groups)-1, 1);
+  @selected_group   = @{ $true_groups[$group_index] };
+  @opposite_groups  = @false_groups;
+} else {
+  $group_index      = $local_random->random(0, scalar(@false_groups)-1, 1);
+  @selected_group   = @{ $false_groups[$group_index] };
+  @opposite_groups  = @true_groups;
+}
+
+#==========================================================
+# PICK CORRECT + DISTRACTORS
+#==========================================================
+
+my $correct_index = $local_random->random(0, $#selected_group, 1);
+$correct = $selected_group[$correct_index];
+
+my @available_group_indices = (0 .. $#opposite_groups);
+my @selected_distractor_indices = ();
+
+while (@selected_distractor_indices < $num_distractors && @available_group_indices > 0) {
+  my $random_index = $local_random->random(0, scalar(@available_group_indices)-1, 1);
+  push @selected_distractor_indices, splice(@available_group_indices, $random_index, 1);
+}
+
+@distractors = ();
+foreach my $group_idx (@selected_distractor_indices) {
+  my @group = @{ $opposite_groups[$group_idx] };
+  my $distractor_index = $local_random->random(0, $#group, 1);
+  my $distractor = $group[$distractor_index];
+  push @distractors, $distractor;
+}
+
+@choices = ($correct, @distractors);
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# RADIO BUTTONS WITH A/B/C/D/E LABELS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => ['A','B','C','D','E'],
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+[@ $mode eq "TRUE" ? "Which one of the following statements is <span style='color: #127663;'><strong>TRUE</strong></span> about $topic?" : "Which one of the following statements is <span style='color: #ba372a;'><strong>FALSE</strong></span> about $topic?" @]*
+
+[_]{$rb}
+
+END_PGML
+
+ENDDOCUMENT();

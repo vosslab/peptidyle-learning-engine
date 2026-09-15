@@ -1,0 +1,228 @@
+## TITLE('Mitosis and Meiosis Cell Division')
+## DESCRIPTION
+## Select the statement that is TRUE or FALSE about mitosis and meiosis cell division.
+## ENDDESCRIPTION
+## KEYWORDS('mitosis and meiosis cell division','true/false','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+  "PGstandard.pl",
+  "PGML.pl",
+  "PGchoicemacros.pl",
+  "parserRadioButtons.pl",
+  "PGcourse.pl",
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 1;
+
+#==========================================================
+# AUTO-GENERATED GROUPS FROM YAML
+#==========================================================
+
+@true_groups = (
+  [
+    'Each daughter cell formed by <span style="color: orangered; font-weight:700;">mitosis</span> has the same kinds of chromosomes as the parent cell',
+    'Each daughter cell formed by <span style="color: mediumblue; font-weight:700;">meiosis</span> has half the number of chromosomes as the parent cell',
+  ],
+  [
+    'In <span style="color: orangered; font-weight:700;">mitosis</span>, the parent cell and the daughter cells are genetically identical',
+    'The daughter cells produced at the end of <span style="color: mediumblue; font-weight:700;">meiosis</span> are genetically different from the original parent cell',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> daughter cells contain half of the genetic material which is a mix of both the maternal and paternal genes',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> is cell division that produces two (2) daughter cells',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> is cell division that produces four (4) daughter cells',
+  ],
+  [
+    'In diploid organisms, the final cells resulting from <span style="color: mediumblue; font-weight:700;">meiosis</span> cell division are haploid',
+    'In diploid organisms, the final cells resulting from <span style="color: orangered; font-weight:700;">mitosis</span> cell division are diploid',
+  ],
+  [
+    'Both <span style="color: mediumblue; font-weight:700;">meiosis</span> and <span style="color: orangered; font-weight:700;">mitosis</span> start with one cell',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> produces new cells to help organisms grow in size and repair damaged tissue',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> produces new gamete cells, such as sperm and egg',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> goes through cytokinesis cell division once',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> goes through cytokinesis cell division twice',
+  ],
+  [
+    'Cross-over regularly happens in <span style="color: mediumblue; font-weight:700;">meiosis</span>, but NOT in <span style="color: orangered; font-weight:700;">mitosis</span>',
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> almost never involves crossing over of the chromosomes',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> normally occurs in somatic cells of organisms and facilitates growth and development',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> occurs only in specialized germline cells and facilitates sexual reproduction',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> occurs only in specialized germline cells and produces gametes.',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> occurs in two phases, that is, <span style="color: mediumblue; font-weight:700;">meiosis I</span> and <span style="color: mediumblue; font-weight:700;">meiosis II</span>',
+  ],
+  [
+    'During the process of <span style="color: mediumblue; font-weight:700;">meiosis</span> several processes occur that cause genetic variation among organisms',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">Meiosis I</span> is the only stage where homologous chromosomes pair up and exchange genetic material',
+  ],
+  [
+    'Only sexually reproductive organisms utilize <span style="color: mediumblue; font-weight:700;">meiosis</span>',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> is a special type of cell division that produces sex cells for reproduction',
+    'Both sexual and asexual organisms go through the process of <span style="color: orangered; font-weight:700;">mitosis</span>',
+  ],
+);
+@false_groups = (
+  [
+    'Each daughter cell formed by <span style="color: mediumblue; font-weight:700;">meiosis</span> has the same kinds of chromosomes as the parent cell',
+    'Each daughter cell formed by <span style="color: orangered; font-weight:700;">mitosis</span> has half the number of chromosomes as the parent cell',
+  ],
+  [
+    'In <span style="color: mediumblue; font-weight:700;">meiosis</span>, the parent cell and the daughter cells are genetically identical',
+    'The daughter cells produced at the end of <span style="color: orangered; font-weight:700;">mitosis</span> are completely different from the original parent cell',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> is cell division that produces two (2) daughter cells',
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> is cell division that produces four (4) daughter cells',
+  ],
+  [
+    'In diploid organisms, the final cells resulting from <span style="color: mediumblue; font-weight:700;">meiosis</span> cell division are diploid',
+    'In diploid organisms, the final cells resulting from <span style="color: orangered; font-weight:700;">mitosis</span> cell division are haploid',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> starts with two cells and <span style="color: orangered; font-weight:700;">mitosis</span> starts with only one cell',
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> starts with two cells and <span style="color: mediumblue; font-weight:700;">meiosis</span> starts with only one cell',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> produces new cells to help organisms grow in size and repair damaged tissue',
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> produces new gamete cells, such as sperm and egg',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> goes through cytokinesis cell division once',
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> goes through cytokinesis cell division twice',
+  ],
+  [
+    'Cross-over regularly happens in <span style="color: orangered; font-weight:700;">mitosis</span>, but NOT in <span style="color: mediumblue; font-weight:700;">meiosis</span>',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> does NOT involve crossing over of the chromosomes',
+  ],
+  [
+    '<span style="color: mediumblue; font-weight:700;">Meiosis</span> normally occurs in somatic cells of organisms and facilitates growth and development',
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> occurs only in specialized germline cells and facilitates sexual reproduction',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> occurs in two phases, that is, <span style="color: orangered; font-weight:700;">mitosis I</span> and <span style="color: orangered; font-weight:700;">mitosis II</span>',
+  ],
+  [
+    'During the process of <span style="color: orangered; font-weight:700;">mitosis</span> several processes occur that cause genetic variation among organisms',
+  ],
+  [
+    '<span style="color: orangered; font-weight:700;">Mitosis I</span> is the only stage where homologous chromosomes pair up and exchange genetic material',
+    '<span style="color: orangered; font-weight:700;">Mitosis II</span> is the only stage where homologous chromosomes pair up and exchange genetic material',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis I</span> is the only stage where sister chromatids pair up and exchange genetic material',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis II</span> is the only stage where sister chromatids pair up and exchange genetic material',
+    '<span style="color: mediumblue; font-weight:700;">Meiosis II</span> is the only stage where homologous chromosomes pair up and exchange genetic material',
+  ],
+  [
+    'Only sexually reproductive organisms utilize <span style="color: orangered; font-weight:700;">mitosis</span>',
+    '<span style="color: orangered; font-weight:700;">Mitosis</span> is a special type of cell division that produces sex cells for reproduction',
+    'Both sexual and asexual organisms go through the process of <span style="color: mediumblue; font-weight:700;">meiosis</span>',
+  ],
+);
+
+#==========================================================
+# GLOBAL SETTINGS
+#==========================================================
+
+$topic = '<span style="color: orangered; font-weight:700;">mitosis</span> and <span style="color: mediumblue; font-weight:700;">meiosis</span> cell division';
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+my @mode_choices = ("TRUE", "FALSE");
+$mode = $mode_choices[$local_random->random(0, $#mode_choices, 1)];
+$num_distractors = 4;
+#==========================================================
+# SELECT GROUP
+#==========================================================
+
+my (@selected_group, @opposite_groups);
+
+if ($mode eq "TRUE") {
+  $group_index      = $local_random->random(0, scalar(@true_groups)-1, 1);
+  @selected_group   = @{ $true_groups[$group_index] };
+  @opposite_groups  = @false_groups;
+} else {
+  $group_index      = $local_random->random(0, scalar(@false_groups)-1, 1);
+  @selected_group   = @{ $false_groups[$group_index] };
+  @opposite_groups  = @true_groups;
+}
+
+#==========================================================
+# PICK CORRECT + DISTRACTORS
+#==========================================================
+
+my $correct_index = $local_random->random(0, $#selected_group, 1);
+$correct = $selected_group[$correct_index];
+
+my @available_group_indices = (0 .. $#opposite_groups);
+my @selected_distractor_indices = ();
+
+while (@selected_distractor_indices < $num_distractors && @available_group_indices > 0) {
+  my $random_index = $local_random->random(0, scalar(@available_group_indices)-1, 1);
+  push @selected_distractor_indices, splice(@available_group_indices, $random_index, 1);
+}
+
+@distractors = ();
+foreach my $group_idx (@selected_distractor_indices) {
+  my @group = @{ $opposite_groups[$group_idx] };
+  my $distractor_index = $local_random->random(0, $#group, 1);
+  my $distractor = $group[$distractor_index];
+  push @distractors, $distractor;
+}
+
+@choices = ($correct, @distractors);
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# RADIO BUTTONS WITH A/B/C/D/E LABELS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => ['A','B','C','D','E'],
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+[@ $mode eq "TRUE" ? "Which one of the following statements is <span style='color: #127663;'><strong>TRUE</strong></span> about $topic?" : "Which one of the following statements is <span style='color: #ba372a;'><strong>FALSE</strong></span> about $topic?" @]*
+
+[_]{$rb}
+
+END_PGML
+
+ENDDOCUMENT();

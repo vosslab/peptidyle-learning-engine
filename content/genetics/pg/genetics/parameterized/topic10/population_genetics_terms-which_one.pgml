@@ -1,0 +1,236 @@
+## DESCRIPTION
+## Select the population genetic term that corresponds to the given definition.
+## ENDDESCRIPTION
+## KEYWORDS('population genetic terms','definitions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>unpredictable changes in the nucleotides that form a DNA sequence</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      'gene flow',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'mutation',
+  },
+  {
+    'item_name' => '<strong>only process that creates new <span style="color: #b74300; font-weight:700;">genetic</span> variations</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'mutation',
+  },
+  {
+    'item_name' => '<strong>a random change in the allele frequencies within a population</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+  },
+  {
+    'item_name' => '<strong>stronger in small populations and decrease the overall fitness of that population</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'gene flow',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+  },
+  {
+    'item_name' => '<strong>movement of alleles between populations</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'gene flow',
+      'random mating',
+      'assortative mating',
+    ],
+    'correct' => 'gene flow',
+  },
+  {
+    'item_name' => '<strong>mating in which partner choice is independent of genotype and phenotype</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'random mating',
+  },
+  {
+    'item_name' => '<strong>mating in which every individual has an equal chance of pairing with any compatible mate</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'gene flow',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'random mating',
+  },
+  {
+    'item_name' => '<strong>mating between individuals with similar phenotypes</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'gene flow',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'assortative mating',
+  },
+  {
+    'item_name' => '<strong>mating between <span style="color: #b74300; font-weight:700;">genetic</span>ally related individuals</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'consanguineous mating',
+  },
+  {
+    'item_name' => '<strong>mating between relatives, such as first cousins</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'gene flow',
+      'random mating',
+      'assortative mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'consanguineous mating',
+  },
+  {
+    'item_name' => '<strong>type of mating that reduces heterozygotes and increases homozygotes</strong>',
+    'plural_choice' => 'population <span style="color: #b74300; font-weight:700;">genetic</span> terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'mutation',
+      '<span style="color: #b74300; font-weight:700;">genetic</span> drift',
+      'gene flow',
+      'random mating',
+      'consanguineous mating',
+    ],
+    'correct' => 'consanguineous mating',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

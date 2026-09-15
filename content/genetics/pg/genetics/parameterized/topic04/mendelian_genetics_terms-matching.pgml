@@ -1,0 +1,306 @@
+## DESCRIPTION
+## Match each of the following Mendelian genetics terms with their corresponding definitions.
+## ENDDESCRIPTION
+## KEYWORDS('Mendelian genetics terms','definitions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'character' => [
+    'a single heritable feature that varies among individuals, such as seed shape',
+    'a single heritable feature that varies among individuals, such as seed color',
+    'a single heritable feature that varies among individuals, such as flower position',
+    'a single heritable feature that varies among individuals, such as stem length',
+    'a single heritable feature that varies among individuals, such as eye color',
+    'a single feature that can be inherited and varies among organisms, like seed shape',
+    'a single feature that can be inherited and varies among organisms, like seed color',
+    'a single feature that can be inherited and varies among organisms, like flower position',
+    'a single feature that can be inherited and varies among organisms, like stem length',
+    'a single feature that can be inherited and varies among organisms, like eye color',
+    'one <span style="color: #003fff; font-weight:700;">observable</span> feature category of a group of organisms, such as flower color',
+    'one <span style="color: #003fff; font-weight:700;">observable</span> feature category of a group of organisms, such as hair color',
+    'one <span style="color: #003fff; font-weight:700;">observable</span> feature category of a group of organisms, such as seed color',
+    'a single feature, such as hair color, noticeable in a particular organismal group',
+  ],
+  'trait' => [
+    'each variant for a <span style="color: #076dad; font-weight:700;">character</span>, such as purple or white color for flowers',
+    'each variant for a <span style="color: #076dad; font-weight:700;">character</span>, such as green or yellow color for seeds',
+    'each variant for a <span style="color: #076dad; font-weight:700;">character</span>, such as round or wrinkled seeds in flowers',
+    'a distinct variant of a <span style="color: #076dad; font-weight:700;">character</span> of an organism, such as purple or white color for flowers',
+    'a distinct variant of a <span style="color: #076dad; font-weight:700;">character</span> of an organism, such as short or long stems in flowers',
+    'a single variation in an inherited <span style="color: #076dad; font-weight:700;">character</span>',
+    'a specific form of a heritable feature, like purple color in flowers',
+    'green or yellow as specific forms of the seed color <span style="color: #076dad; font-weight:700;">character</span>',
+    'examples of a <span style="color: #076dad; font-weight:700;">character</span>&apos;s form include round or wrinkled seeds in plants',
+    'specific expression of a <span style="color: #076dad; font-weight:700;">character</span>, such as short or long stem lengths in plants',
+  ],
+  'genotype' => [
+    'the genetic constitution of an organism',
+    'combination of <span style="color: #6c6c00; font-weight:700;">alleles</span> that determines a specific <span style="color: #b74300; font-weight:700;">trait</span>',
+    'genetic content of an organism that contributes to a specific <span style="color: #b74300; font-weight:700;">trait</span>',
+    'chemical makeup of DNA that factors into a particular <span style="color: #007576; font-weight:700;">phenotype</span>',
+    'Mendel referred to this as the "internal nature" of an organism',
+    'Mendel labeled this as an organism&apos;s "internal makeup"',
+    '<span style="color: #6c6c00; font-weight:700;">allele</span> combinations that specify a <span style="color: #b74300; font-weight:700;">trait</span>',
+    'the genetic makeup contributing to particular <span style="color: #b74300; font-weight:700;">traits</span>',
+    'DNA composition affecting a certain <span style="color: #007576; font-weight:700;">phenotype</span>',
+  ],
+  'phenotype' => [
+    'all the <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span> of an organism',
+    'all the <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span> of an individual, such as eye color and blood type',
+    'all the <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span> of an individual, such as height and blood type',
+    'all the <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span> of an individual, such as height and eye color',
+    'the <span style="color: #003fff; font-weight:700;">observable</span> expression of DNA in an organism',
+    'all the physical <span style="color: #b74300; font-weight:700;">traits</span> of an organism',
+    'all <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span> due to how its <span style="color: #d40000; font-weight:700;">genes</span> interact with the environment',
+    'the complete set of <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span> of an organism',
+    'Mendel referred to this as the "external resemblance" of an organism',
+    'all <span style="color: #b74300; font-weight:700;">traits</span> that can all be observed in an organism',
+    'all <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span>, like eye color or blood type',
+    'all <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span> such as height or blood type in an individual',
+    'the manifestation of DNA as all <span style="color: #003fff; font-weight:700;">observable</span> <span style="color: #b74300; font-weight:700;">traits</span>',
+    'the physical expression of an organism&apos;s entire genetic content',
+    'Mendel described this as an organism&apos;s "external appearance"',
+  ],
+  'alleles' => [
+    'different versions of the same gene, such as A or a',
+    'one of two or more versions of DNA sequence at a given genomic location',
+    'one of two or more alternative forms of a gene at the same site in a chromosome',
+    'alternative forms of a specific gene',
+    'variants of the gene',
+    'alternative DNA sequences at a locus',
+    'variations at one gene locus',
+    'variants at a gene locus that code for specific <span style="color: #b74300; font-weight:700;">traits</span>',
+    'variants of a gene, for example A or a',
+    'one version among multiple DNA sequences at a locus',
+    'different gene forms at the same chromosomal location',
+    'alternatives of a specific gene',
+    'variants of a specific gene located at a locus',
+    'alternative versions of DNA at a gene site',
+    'different forms at a single gene locus',
+  ],
+  'gamete' => [
+    'a haploid reproductive cell having the half number of chromosomes',
+    'a general term for either male (sperm) or female (egg) germ cells, which unite to form the zygote',
+    'a haploid cell (e.g., sperm or egg) that fuses with another haploid cell during fertilization in organisms',
+    'sex, or reproductive, cell containing only one set of dissimilar chromosomes',
+    'reproductive cells carrying only one copy of each chromosome in preparation for fertilization',
+    'a reproductive cell with half the chromosome number',
+    'either a male sperm or female egg cell that forms a zygote upon fusion',
+    'haploid cells like sperm or egg that merge during fertilization',
+    'reproductive cells with a single set of non-<span style="color: #0067cc; font-weight:700;">identical</span> chromosomes',
+  ],
+  'heterozygous' => [
+    'when two copies of a gene are different',
+    'different <span style="color: #6c6c00; font-weight:700;">alleles</span> at one or more corresponding chromosomal loci',
+    'two different <span style="color: #6c6c00; font-weight:700;">alleles</span> of a given gene',
+    'different inherited versions of a gene from each biological parent',
+    'possession of a pair of differing <span style="color: #6c6c00; font-weight:700;">alleles</span>',
+    'presence of two different gene copies',
+    'two unalike <span style="color: #6c6c00; font-weight:700;">alleles</span> for a particular gene',
+    'two different <span style="color: #6c6c00; font-weight:700;">alleles</span> for a gene',
+  ],
+  'homozygous' => [
+    'the two copies of a gene are <span style="color: #0067cc; font-weight:700;">identical</span>',
+    '<span style="color: #0067cc; font-weight:700;">identical</span> <span style="color: #6c6c00; font-weight:700;">alleles</span> at one or more corresponding chromosomal loci',
+    'two <span style="color: #0067cc; font-weight:700;">identical</span> <span style="color: #6c6c00; font-weight:700;">alleles</span> of a given gene',
+    '<span style="color: #0067cc; font-weight:700;">identical</span> inherited versions of a gene from each biological parent',
+    'possession of a pair of <span style="color: #0067cc; font-weight:700;">identical</span> <span style="color: #6c6c00; font-weight:700;">alleles</span>',
+    'both gene copies are the same',
+    '<span style="color: #0067cc; font-weight:700;">identical</span> forms of a gene at corresponding chromosome locations',
+    'two of the same <span style="color: #6c6c00; font-weight:700;">allele</span> for a specific gene',
+    'same version of a gene inherited from each parent',
+    '<span style="color: #0067cc; font-weight:700;">identical</span> <span style="color: #6c6c00; font-weight:700;">alleles</span> for a gene',
+  ],
+  'dominant' => [
+    'describes a <span style="color: #b74300; font-weight:700;">trait</span> that masks the expression of another <span style="color: #b74300; font-weight:700;">trait</span> when both versions of the gene are present',
+    'describes a <span style="color: #b74300; font-weight:700;">trait</span> that masks the expression of another <span style="color: #b74300; font-weight:700;">trait</span> when the <span style="color: #6c6c00; font-weight:700;">alleles</span> for both <span style="color: #b74300; font-weight:700;">traits</span> are present',
+    'if two copies of a gene are different, this <span style="color: #6c6c00; font-weight:700;">allele</span> will be expressed',
+    'an <span style="color: #6c6c00; font-weight:700;">allele</span> that masks another <span style="color: #6c6c00; font-weight:700;">allele</span> in the presence of both <span style="color: #6c6c00; font-weight:700;">alleles</span>',
+    'masks another <span style="color: #b74300; font-weight:700;">trait</span>&apos;s expression when both <span style="color: #6c6c00; font-weight:700;">alleles</span> are present',
+  ],
+  'recessive' => [
+    'describes a <span style="color: #b74300; font-weight:700;">trait</span> whose expression is masked by another <span style="color: #b74300; font-weight:700;">trait</span> when both versions of the gene are present',
+    'describes a <span style="color: #b74300; font-weight:700;">trait</span> whose expression is masked by another <span style="color: #b74300; font-weight:700;">trait</span> when the <span style="color: #6c6c00; font-weight:700;">alleles</span> for both <span style="color: #b74300; font-weight:700;">traits</span> are present',
+    'if two copies of a gene are different, this <span style="color: #6c6c00; font-weight:700;">allele</span> will be masked',
+    'an <span style="color: #6c6c00; font-weight:700;">allele</span> masked by another <span style="color: #6c6c00; font-weight:700;">allele</span> in the presence of both <span style="color: #6c6c00; font-weight:700;">alleles</span>',
+    'this <span style="color: #6c6c00; font-weight:700;">allele</span> is masked if both <span style="color: #6c6c00; font-weight:700;">alleles</span> differ',
+    'this <span style="color: #6c6c00; font-weight:700;">allele</span> is hidden by another <span style="color: #6c6c00; font-weight:700;">allele</span> when both <span style="color: #6c6c00; font-weight:700;">alleles</span> are present',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 4;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'character' => '<span style="color: #076dad; font-weight:700;">character</span>',
+  'trait' => '<span style="color: #b74300; font-weight:700;">trait</span>',
+  'genotype' => '<span style="color: #935d00; font-weight:700;">genotype</span>',
+  'phenotype' => '<span style="color: #007576; font-weight:700;">phenotype</span>',
+  'alleles' => '<span style="color: #6c6c00; font-weight:700;">alleles</span>',
+  'gamete' => '<span style="color: #3b7600; font-weight:700;">gamete</span>',
+  'heterozygous' => '<span style="color: #007a00; font-weight:700;">heterozygous</span>',
+  'homozygous' => '<span style="color: #c80085; font-weight:700;">homozygous</span>',
+  'dominant' => '<span style="color: #00775f; font-weight:700;">dominant</span>',
+  'recessive' => '<span style="color: #a719db; font-weight:700;">recessive</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following Mendelian genetics terms with their corresponding definitions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

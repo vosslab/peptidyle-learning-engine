@@ -1,0 +1,256 @@
+## DESCRIPTION
+## Match each of the following Mendel's Foundational Principles of Genetics with their corresponding descriptions.
+## ENDDESCRIPTION
+## KEYWORDS('Mendel&apos;s Foundational Principles of Genetics','descriptions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'Principle of Paired&nbsp;Factors' => [
+    'Each organism has two <span style="color: #d40000; font-weight:700;">alleles</span> that make up the <span style="color: #935d00; font-weight:700;">characters</span> for a given trait.',
+    'Character is represented in an organism by two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'For a given characteristic, each trait consists of two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'Each organism has two <span style="color: #d40000; font-weight:700;">alleles</span> for each gene.',
+    'Genotypes for specific traits are determined by two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'Two <span style="color: #d40000; font-weight:700;">alleles</span> contribute to an organism&apos;s characteristic.',
+    'An organism possesses two <span style="color: #d40000; font-weight:700;">alleles</span> for each specific trait.',
+    'The genetic makeup for a particular characteristic in an organism involves two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'A single trait in an organism is influenced by two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'The presence of two <span style="color: #d40000; font-weight:700;">alleles</span> accounts for each trait in an organism.',
+    'An organism has two <span style="color: #d40000; font-weight:700;">alleles</span> that make up the <span style="color: #935d00; font-weight:700;">characters</span> for a specific trait.',
+    'Each trait in an organism is determined by two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'Two <span style="color: #d40000; font-weight:700;">alleles</span> define each specific trait in an organism.',
+    'Two <span style="color: #d40000; font-weight:700;">alleles</span> determine a single trait in the offspring.',
+    'Each organism has two <span style="color: #d40000; font-weight:700;">alleles</span> that influence a given characteristic.',
+    'For every characteristic, an organism possesses two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'The genetic makeup for each character involves two <span style="color: #d40000; font-weight:700;">alleles</span>.',
+  ],
+  'Principle of Dominance' => [
+    'Out of the two <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> for the same gene, only one is able to express its effect.',
+    'For each character there is a <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span>, the trait is determined by that <span style="color: #d40000; font-weight:700;">allele</span>.',
+    'For each <span style="color: #935d00; font-weight:700;">characters</span> there is a <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span>, the <span style="color: #007576; font-weight:700;">phenotype</span> is determined by that <span style="color: #d40000; font-weight:700;">allele</span>.',
+    'Recessive <span style="color: #d40000; font-weight:700;">alleles</span> are NOT expressed in the <span style="color: #007576; font-weight:700;">phenotype</span> of the hybrid organism.',
+    'Dominant <span style="color: #d40000; font-weight:700;">alleles</span> are the ones that determine the <span style="color: #007576; font-weight:700;">phenotype</span> of the hybrid organism.',
+    'Some <span style="color: #d40000; font-weight:700;">alleles</span> are <span style="color: #6c6c00; font-weight:700;">dominant</span>, which means that their <span style="color: #007576; font-weight:700;">phenotype</span> will mask the <span style="color: #076dad; font-weight:700;">recessive</span> <span style="color: #007576; font-weight:700;">phenotype</span>.',
+    'Dominant <span style="color: #d40000; font-weight:700;">alleles</span> mask the expression of their <span style="color: #076dad; font-weight:700;">recessive</span> counterparts.',
+    'In cases where contrasting <span style="color: #d40000; font-weight:700;">alleles</span> are present, the <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span> determines the <span style="color: #007576; font-weight:700;">phenotype</span>.',
+    'Dominant <span style="color: #d40000; font-weight:700;">alleles</span> express their effects even when present in just a single copy.',
+    'If contrasting <span style="color: #d40000; font-weight:700;">alleles</span> are present, the <span style="color: #6c6c00; font-weight:700;">dominant</span> one determines the <span style="color: #007576; font-weight:700;">phenotype</span>.',
+    'Presence of a <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span> overrides the expression of the <span style="color: #076dad; font-weight:700;">recessive</span> <span style="color: #d40000; font-weight:700;">allele</span>.',
+    'When <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> exist, the <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">alleles</span> determines the organism&apos;s traits.',
+    'In a set of differing <span style="color: #d40000; font-weight:700;">alleles</span>, one will usually mask the effect of the other.',
+    'When two <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> are present, one usually determines the observable traits.',
+    'One <span style="color: #d40000; font-weight:700;">allele</span>&apos;s traits will often be expressed over another <span style="color: #d40000; font-weight:700;">allele</span>&apos;s when both are present.',
+    'The observable traits with mixed <span style="color: #d40000; font-weight:700;">alleles</span> are usually determined by one <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span>.',
+    'When <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> are present, the effect of one will generally dominate.',
+  ],
+  'Law of Segregation' => [
+    'Each parent contributes just one of their two <span style="color: #d40000; font-weight:700;">alleles</span> to its offspring.',
+    'Two <span style="color: #a719db; font-weight:700;">factors</span> of a character get randomly distributed to <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #007a00; font-weight:700;">gametes</span>.',
+    'When the <span style="color: #007a00; font-weight:700;">gametes</span> are formed, the <span style="color: #a719db; font-weight:700;">factors</span> <span style="color: #0067cc; font-weight:700;">separate</span> and are distributed as units to each <span style="color: #007a00; font-weight:700;">gamete</span>.',
+    'Allele pairs <span style="color: #0067cc; font-weight:700;">separate</span> during the formation of <span style="color: #007a00; font-weight:700;">gametes</span>.',
+    'Two <span style="color: #d40000; font-weight:700;">alleles</span> for each trait <span style="color: #0067cc; font-weight:700;">separate</span> during the formation of <span style="color: #007a00; font-weight:700;">gametes</span>.',
+    'A <span style="color: #007a00; font-weight:700;">gamete</span> carries only one <span style="color: #d40000; font-weight:700;">allele</span> for a gene but NOT both the <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'Pairs of <span style="color: #d40000; font-weight:700;">alleles</span> <span style="color: #0067cc; font-weight:700;">separate</span> during <span style="color: #007a00; font-weight:700;">gamete</span> formation.',
+    'During <span style="color: #007a00; font-weight:700;">gamete</span> formation, <span style="color: #d40000; font-weight:700;">allele</span> pairs are <span style="color: #0067cc; font-weight:700;">separate</span>d into individual <span style="color: #007a00; font-weight:700;">gametes</span>.',
+    'Each parent passes a single <span style="color: #d40000; font-weight:700;">allele</span> for each trait to the offspring during sexual reproduction.',
+    'One <span style="color: #d40000; font-weight:700;">allele</span> from each gene pair is transmitted to an individual <span style="color: #007a00; font-weight:700;">gamete</span>.',
+    'During the creation of <span style="color: #007a00; font-weight:700;">gametes</span>, <span style="color: #d40000; font-weight:700;">alleles</span> are distributed individually.',
+    'Alleles from each parent are <span style="color: #0067cc; font-weight:700;">separate</span>d into individual <span style="color: #007a00; font-weight:700;">gametes</span>.',
+    'During the creation of <span style="color: #007a00; font-weight:700;">gametes</span>, each parent contributes a single <span style="color: #d40000; font-weight:700;">allele</span> for each characteristic.',
+    'A <span style="color: #007a00; font-weight:700;">gamete</span> carries just one of the two <span style="color: #d40000; font-weight:700;">alleles</span> for each characteristic.',
+    'Two <span style="color: #d40000; font-weight:700;">alleles</span> for a character are randomly distributed into <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #007a00; font-weight:700;">gametes</span>.',
+  ],
+  'Law of Independent&nbsp;Assortment' => [
+    'Two <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #00775f; font-weight:700;">characters</span> will be inherited <span style="color: #0067cc; font-weight:700;">separate</span>ly from each other.',
+    'Inheritance of genes at one location does NOT influence the inheritance of genes at another location.',
+    'The segregation of one gene pair doesn&apos;t affect the segregation of another.',
+    'Inheritance patterns for one trait do NOT interfere with those of another trait.',
+    'The segregation of one pair of <span style="color: #d40000; font-weight:700;">alleles</span> is NOT influenced by another pair.',
+    'Traits from <span style="color: #c80085; font-weight:700;">different</span> genes are passed down <span style="color: #0067cc; font-weight:700;">separate</span>ly from one another.',
+    'The inheritance of one gene has no bearing on the inheritance of another gene located at a <span style="color: #c80085; font-weight:700;">different</span> location.',
+    'Genes at one location have no impact on the inheritance of genes at a <span style="color: #0067cc; font-weight:700;">separate</span> location.',
+    'The <span style="color: #a719db; font-weight:700;">factors</span> affecting one characteristic don&apos;t alter the <span style="color: #a719db; font-weight:700;">factors</span> affecting another characteristic during <span style="color: #007a00; font-weight:700;">gamete</span> creation.',
+    'Traits inherited from <span style="color: #c80085; font-weight:700;">different</span> genes do NOT influence each other.',
+    'Sorting one pair of <span style="color: #d40000; font-weight:700;">alleles</span> into <span style="color: #007a00; font-weight:700;">gametes</span> does NOT alter the sorting of another pair of <span style="color: #d40000; font-weight:700;">alleles</span>.',
+    'No connection exists between the inheritance patterns of one trait and those of a <span style="color: #c80085; font-weight:700;">different</span> trait.',
+    'During the creation of <span style="color: #007a00; font-weight:700;">gametes</span>, the grouping of one set of <span style="color: #d40000; font-weight:700;">alleles</span> doesn&apos;t affect the grouping of another set.',
+    'Each pair of traits is passed down without any impact on the passage of other pairs during the creation of <span style="color: #007a00; font-weight:700;">gametes</span>.',
+    'The inheritance of one gene does NOT impact the inheritance of another <span style="color: #0067cc; font-weight:700;">separate</span> gene.',
+    'The inheritance of one trait doesn&apos;t influence the inheritance of another.',
+    'Alleles for <span style="color: #c80085; font-weight:700;">different</span> traits are passed down without influencing each other.',
+    'Traits from <span style="color: #0067cc; font-weight:700;">separate</span> genes do NOT affect each other during the reproductive process.',
+    'In the process of forming <span style="color: #007a00; font-weight:700;">gametes</span>, each set of <span style="color: #d40000; font-weight:700;">alleles</span> sorts without impacting another set.',
+    'The inheritance of one set of <span style="color: #d40000; font-weight:700;">alleles</span> has no impact on another set.',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 4;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'Principle of Paired&nbsp;Factors' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  'Principle of Dominance' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  'Law of Segregation' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  'Law of Independent&nbsp;Assortment' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following Mendel&apos;s Foundational Principles of Genetics with their corresponding descriptions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

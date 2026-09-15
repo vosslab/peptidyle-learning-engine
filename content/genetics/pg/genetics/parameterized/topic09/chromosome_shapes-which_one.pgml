@@ -1,0 +1,470 @@
+## DESCRIPTION
+## Select the category of chromosome shape that corresponds to the given shape description.
+## ENDDESCRIPTION
+## KEYWORDS('categories of chromosome shape','shape descriptions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span>that lacks a <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+  },
+  {
+    'item_name' => '<strong>spindle fibers cannot attach and the <span style="color: #a719db; font-weight:700;">chromosome</span>is lost when the cell divides</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+  },
+  {
+    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>lacking spindle fiber attachment</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+  },
+  {
+    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>with no <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+  },
+  {
+    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>lacking a <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+  },
+  {
+    'item_name' => '<strong>the short arm of the <span style="color: #a719db; font-weight:700;">chromosome</span>is so short that it is hard to observe</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter V during metaphase before anaphase separation</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #b74300; font-weight:700;">centromere</span>is located very close to one end of the <span style="color: #a719db; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter I after anaphase separation</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #b74300; font-weight:700;">centromere</span>is closer to the end rather than the center</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #b74300; font-weight:700;">centromere</span>is very offset from the center leading to a very short arm</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #a719db; font-weight:700;">chromosome</span>with one very long arm and one very short arm</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  },
+  {
+    'item_name' => '<strong>an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span>that has two <span style="color: #b74300; font-weight:700;">centromeres</span> that often appear in cancer cells</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+  },
+  {
+    'item_name' => '<strong>an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span>with two <span style="color: #b74300; font-weight:700;">centromeres</span> that often appear in cancer cells</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+  },
+  {
+    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>due to unpredictable spindle fiber attachment</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #a719db; font-weight:700;">chromosome</span>with formed through the fusion of two <span style="color: #a719db; font-weight:700;">chromosome</span>segments, each with a <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+  },
+  {
+    'item_name' => '<strong>genomic rearrangements placing two <span style="color: #b74300; font-weight:700;">centromeres</span> on the same <span style="color: #a719db; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+  },
+  {
+    'item_name' => '<strong>the two arms of the <span style="color: #a719db; font-weight:700;">chromosomes</span> are almost equal</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter V after anaphase separation</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles a perfect letter X during metaphase</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #b74300; font-weight:700;">centromere</span>is located midway between the ends of the <span style="color: #a719db; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #a719db; font-weight:700;">chromosome</span>with a <span style="color: #b74300; font-weight:700;">centromere</span>placed in the center</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #b74300; font-weight:700;">centromere</span>divides the <span style="color: #a719db; font-weight:700;">chromosome</span>into two arms with equal length</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #a719db; font-weight:700;">chromosome</span>with two arms of equal length</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter J after anaphase separation</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+  },
+  {
+    'item_name' => '<strong>a <span style="color: #a719db; font-weight:700;">chromosome</span>with slightly shorter p arm relative to q arm</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #b74300; font-weight:700;">centromere</span>situated so that one arm is somewhat shorter than the other</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+  },
+  {
+    'item_name' => '<strong>a slight asymmetry in the length of the two <span style="color: #a719db; font-weight:700;">chromosome</span>arms</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #b74300; font-weight:700;">centromere</span>slightly offset from the center</strong>',
+    'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span>shape',
+    'singular_item' => 'shape description',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+      '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+      '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+      '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+      '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

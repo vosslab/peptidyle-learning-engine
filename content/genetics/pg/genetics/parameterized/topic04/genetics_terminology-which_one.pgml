@@ -1,0 +1,534 @@
+## DESCRIPTION
+## Select the genetic term that corresponds to the given definition.
+## ENDDESCRIPTION
+## KEYWORDS('genetic terms','definitions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>a cell or organism that a single set of chromosomes</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">haploid</span>',
+  },
+  {
+    'item_name' => '<strong>a cell or organism that has paired chromosomes</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">diploid</span>',
+  },
+  {
+    'item_name' => '<strong>the unit of inheritance passed from parents to offspring</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">gene</span>',
+  },
+  {
+    'item_name' => '<strong>the main elements of heredity</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">gene</span>',
+  },
+  {
+    'item_name' => '<strong>the study of heredity and the variation of inherited characteristics</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">genetics</span>',
+  },
+  {
+    'item_name' => '<strong>the study of the effect of genetic differences on organisms</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">genetics</span>',
+  },
+  {
+    'item_name' => '<strong>study of genes, genetic variation, and heredity in organisms</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">genetics</span>',
+  },
+  {
+    'item_name' => '<strong>scientific study of how genes control the characteristics of plants and animals</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">genetics</span>',
+  },
+  {
+    'item_name' => '<strong>study of both trait and molecular inheritance mechanisms of genes</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">genetics</span>',
+  },
+  {
+    'item_name' => '<strong>the study of heredity and how genes control the inherited characteristics</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+    ],
+    'correct' => '<span style="color: #007a00; font-weight:700;">genetics</span>',
+  },
+  {
+    'item_name' => '<strong>the set of instructions that tell a cell how to make a specific protein</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+  },
+  {
+    'item_name' => '<strong>the set of rules used by living cells to translate information encoded within genetic material into proteins</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+  },
+  {
+    'item_name' => '<strong>the set of instructions that converts the sequence of nucleotides into an amino acid sequence in proteins</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+  },
+  {
+    'item_name' => '<strong>the code our body uses to convert the instructions contained in our DNA the essential materials of life</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+  },
+  {
+    'item_name' => '<strong>the study of all of the genes in an organism</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">genomics</span>',
+  },
+  {
+    'item_name' => '<strong>the structure, function, evolution, and mapping of <span style="color: #6c6c00; font-weight:700;">genomes</span></strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+    ],
+    'correct' => '<span style="color: #c80085; font-weight:700;">genomics</span>',
+  },
+  {
+    'item_name' => '<strong>an organism&apos;s complete set of DNA</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+  },
+  {
+    'item_name' => '<strong>complete set of DNA in an organism</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+  },
+  {
+    'item_name' => '<strong>complete set of DNA in a cell or organism</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+  },
+  {
+    'item_name' => '<strong>location of a <span style="color: #b74300; font-weight:700;">gene</span>on a chromosome</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">locus</span>',
+  },
+  {
+    'item_name' => '<strong>where on a chromosome a specific <span style="color: #b74300; font-weight:700;">gene</span>is located</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">locus</span>',
+  },
+  {
+    'item_name' => '<strong>a specific, fixed position on a chromosome of a particular gene</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">locus</span>',
+  },
+  {
+    'item_name' => '<strong>a spot or "address" on a chromosome at which a <span style="color: #b74300; font-weight:700;">gene</span>for a particular trait is located</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">locus</span>',
+  },
+  {
+    'item_name' => '<strong>the physical position of a <span style="color: #b74300; font-weight:700;">gene</span>within a chromosome</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #935d00; font-weight:700;">locus</span>',
+  },
+  {
+    'item_name' => '<strong>variation resulting from a single base pair change</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+  },
+  {
+    'item_name' => '<strong>most common type of genetic variation among people</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+  },
+  {
+    'item_name' => '<strong>a genomic variant at a single base position in the DNA</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+  },
+  {
+    'item_name' => '<strong>a substitution of a single nucleotide at a specific position in the genome</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+  },
+  {
+    'item_name' => '<strong>two similar but different copies of a chromosome</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>one chromosome from the mother and one chromosome from the father</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #007a00; font-weight:700;">genetics</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>two chromosomes which carry the same genes, one from each parental source</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>chromosomes which contain the same genes in the same order along their chromosomal arms</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">gene</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>chromosomes of similar length, <span style="color: #b74300; font-weight:700;">gene</span>position, and centromere location</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #007576; font-weight:700;">diploid</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #935d00; font-weight:700;">locus</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>two chromosomes containing identical genetic loci although possibly different allelic forms</strong>',
+    'plural_choice' => '<span style="color: #a719db; font-weight:700;">genetic terms</span>',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">haploid</span>',
+      '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+      '<span style="color: #c80085; font-weight:700;">genomics</span>',
+      '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+      '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+    ],
+    'correct' => '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

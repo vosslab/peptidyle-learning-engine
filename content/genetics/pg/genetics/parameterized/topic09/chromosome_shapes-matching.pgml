@@ -1,0 +1,220 @@
+## DESCRIPTION
+## Match each of the following categories of chromosome shape with their corresponding shape descriptions.
+## ENDDESCRIPTION
+## KEYWORDS('categories of chromosome shape','shape descriptions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'Acentric' => [
+    'an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span>that lacks a <span style="color: #b74300; font-weight:700;">centromere</span>',
+    'spindle fibers cannot attach and the <span style="color: #a719db; font-weight:700;">chromosome</span>is lost when the cell divides',
+    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>lacking spindle fiber attachment',
+    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>with no <span style="color: #b74300; font-weight:700;">centromere</span>',
+    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>lacking a <span style="color: #b74300; font-weight:700;">centromere</span>',
+  ],
+  'Acrocentric' => [
+    'the short arm of the <span style="color: #a719db; font-weight:700;">chromosome</span>is so short that it is hard to observe',
+    'the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter V during metaphase before anaphase separation',
+    'the <span style="color: #b74300; font-weight:700;">centromere</span>is located very close to one end of the <span style="color: #a719db; font-weight:700;">chromosome</span>',
+    'the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter I after anaphase separation',
+    'the <span style="color: #b74300; font-weight:700;">centromere</span>is closer to the end rather than the center',
+    'the <span style="color: #b74300; font-weight:700;">centromere</span>is very offset from the center leading to a very short arm',
+    'a <span style="color: #a719db; font-weight:700;">chromosome</span>with one very long arm and one very short arm',
+  ],
+  'Dicentric' => [
+    'an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span>that has two <span style="color: #b74300; font-weight:700;">centromeres</span> that often appear in cancer cells',
+    'an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span>with two <span style="color: #b74300; font-weight:700;">centromeres</span> that often appear in cancer cells',
+    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span>due to unpredictable spindle fiber attachment',
+    'a <span style="color: #a719db; font-weight:700;">chromosome</span>with formed through the fusion of two <span style="color: #a719db; font-weight:700;">chromosome</span>segments, each with a <span style="color: #b74300; font-weight:700;">centromere</span>',
+    'genomic rearrangements placing two <span style="color: #b74300; font-weight:700;">centromeres</span> on the same <span style="color: #a719db; font-weight:700;">chromosome</span>',
+  ],
+  'Metacentric' => [
+    'the two arms of the <span style="color: #a719db; font-weight:700;">chromosomes</span> are almost equal',
+    'the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter V after anaphase separation',
+    'the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles a perfect letter X during metaphase',
+    'the <span style="color: #b74300; font-weight:700;">centromere</span>is located midway between the ends of the <span style="color: #a719db; font-weight:700;">chromosome</span>',
+    'a <span style="color: #a719db; font-weight:700;">chromosome</span>with a <span style="color: #b74300; font-weight:700;">centromere</span>placed in the center',
+    'the <span style="color: #b74300; font-weight:700;">centromere</span>divides the <span style="color: #a719db; font-weight:700;">chromosome</span>into two arms with equal length',
+    'a <span style="color: #a719db; font-weight:700;">chromosome</span>with two arms of equal length',
+  ],
+  'Submetacentric' => [
+    'the <span style="color: #a719db; font-weight:700;">chromosome</span>most resembles the letter J after anaphase separation',
+    'a <span style="color: #a719db; font-weight:700;">chromosome</span>with slightly shorter p arm relative to q arm',
+    'the <span style="color: #b74300; font-weight:700;">centromere</span>situated so that one arm is somewhat shorter than the other',
+    'a slight asymmetry in the length of the two <span style="color: #a719db; font-weight:700;">chromosome</span>arms',
+    'the <span style="color: #b74300; font-weight:700;">centromere</span>slightly offset from the center',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 5;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'Acentric' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
+  'Acrocentric' => '<span style="color: #007a00; font-weight:700;">Acrocentric</span>',
+  'Dicentric' => '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
+  'Metacentric' => '<span style="color: #0067cc; font-weight:700;">Metacentric</span>',
+  'Submetacentric' => '<span style="color: #c80085; font-weight:700;">Submetacentric</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following categories of chromosome shape with their corresponding shape descriptions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

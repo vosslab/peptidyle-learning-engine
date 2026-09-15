@@ -1,0 +1,233 @@
+## DESCRIPTION
+## Match each of the following Meiosis terms with their corresponding definitions.
+## ENDDESCRIPTION
+## KEYWORDS('Meiosis terms','definitions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'homologous chromosomes' => [
+    'two similar but different copies of a chromosome',
+    'one chromosome from the mother and one chromosome from the father',
+    'two chromosomes which carry the same genes, one from each parental source',
+    'chromosomes which contain the same genes in the same order along their chromosomal arms',
+    'chromosomes of similar length, gene position, and centromere location',
+    'two chromosomes containing identical genetic loci although possibly different allelic forms',
+    'chromosome pairs (one from each parent) that are similar in length, gene position, and centromere location',
+  ],
+  'homologous' => [
+    'not an exact copy but having the same structural features and pattern of genes',
+    'corresponding or similar in position, value, structure, or function',
+    'similar in structure and evolutionary origin, though NOT necessarily in function',
+    'corresponding or alike in certain critical attributes',
+    'denoting organs or parts corresponding in evolutionary origin and similar to some extent in structure',
+    'having a similar position, structure, value, or purpose',
+  ],
+  'synapsis' => [
+    'process of pairing of homologous (maternal and paternal) chromosomes',
+    'the lengthwise pairing of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+    'the joining of the two <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+    'the matching-up of homologous pairs prior to their segregation',
+    '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span> pair with their counterparts and remain bound',
+    'pairing of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> prior to their separation into daughter cells',
+  ],
+  'sister chromatids' => [
+    'two identical copies of a single replicated chromosome joined at the centromere',
+    'two identical copies of the same chromosome formed by DNA replication',
+    'two identical copies of the same chromosome attached to each other by the centromere',
+    'a single duplicated chromosome with a common centromere',
+    'identical copies (chromatids) of a chromosome formed by DNA replication',
+    'two identical copies of a chromosome joined together by a common centromere',
+    'two identical chromatids that are formed by replication of a chromosome',
+    'two identical copies of one chromosome specifically created for cell division',
+  ],
+  'crossing over' => [
+    'the exchange of genes between <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>, resulting in a mixture of parental characteristics',
+    'two <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> line up and parts of the chromosomes can be exchanged',
+    'the exchange of genes between two <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>, resulting in a mixture of parental characteristics',
+    'the exchange of genetic material between <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+    'the actual exchange of segments between <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+    'a process by which parts of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> are interchanged',
+  ],
+  'chiasmata' => [
+    'the physical link between non-sister chromatids of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> that remain after crossing over',
+    'the point of contact between paired chromatids that marks a crossover site',
+    'specialized chromatin structures that link <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> together',
+    'the visible link between two (non-sister) chromatids belonging to <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+    'the region where <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> stay connected after crossing over',
+    'a point of overlap of paired chromatids at which exchange of genetic material has taken place',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 4;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'homologous chromosomes' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  'homologous' => '<span style="color: #007576; font-weight:700;">homologous</span>',
+  'synapsis' => 'synapsis',
+  'sister chromatids' => 'sister chromatids',
+  'crossing over' => 'crossing over',
+  'chiasmata' => 'chiasmata',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following Meiosis terms with their corresponding definitions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

@@ -1,0 +1,920 @@
+## DESCRIPTION
+## Select the Mendel's Foundational Principle of Genetics that corresponds to the given description.
+## ENDDESCRIPTION
+## KEYWORDS('Mendel&apos;s Foundational Principles of Genetics','descriptions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>Each organism has two <span style="color: #d40000; font-weight:700;">alleles</span> that make up the <span style="color: #935d00; font-weight:700;">characters</span> for a given trait.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Character is represented in an organism by two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>For a given characteristic, each trait consists of two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Each organism has two <span style="color: #d40000; font-weight:700;">alleles</span> for each gene.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Genotypes for specific traits are determined by two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Two <span style="color: #d40000; font-weight:700;">alleles</span> contribute to an organism&apos;s characteristic.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>An organism possesses two <span style="color: #d40000; font-weight:700;">alleles</span> for each specific trait.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>The genetic makeup for a particular characteristic in an organism involves two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>A single trait in an organism is influenced by two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>The presence of two <span style="color: #d40000; font-weight:700;">alleles</span> accounts for each trait in an organism.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>An organism has two <span style="color: #d40000; font-weight:700;">alleles</span> that make up the <span style="color: #935d00; font-weight:700;">characters</span> for a specific trait.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Each trait in an organism is determined by two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Two <span style="color: #d40000; font-weight:700;">alleles</span> define each specific trait in an organism.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Two <span style="color: #d40000; font-weight:700;">alleles</span> determine a single trait in the offspring.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Each organism has two <span style="color: #d40000; font-weight:700;">alleles</span> that influence a given characteristic.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>For every characteristic, an organism possesses two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>The genetic makeup for each character involves two <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+  },
+  {
+    'item_name' => '<strong>Out of the two <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> for the same gene, only one is able to express its effect.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>For each character there is a <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span>, the trait is determined by that <span style="color: #d40000; font-weight:700;">allele</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>For each <span style="color: #935d00; font-weight:700;">characters</span> there is a <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span>, the <span style="color: #007576; font-weight:700;">phenotype</span> is determined by that <span style="color: #d40000; font-weight:700;">allele</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>Recessive <span style="color: #d40000; font-weight:700;">alleles</span> are NOT expressed in the <span style="color: #007576; font-weight:700;">phenotype</span> of the hybrid organism.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>Dominant <span style="color: #d40000; font-weight:700;">alleles</span> are the ones that determine the <span style="color: #007576; font-weight:700;">phenotype</span> of the hybrid organism.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>Some <span style="color: #d40000; font-weight:700;">alleles</span> are <span style="color: #6c6c00; font-weight:700;">dominant</span>, which means that their <span style="color: #007576; font-weight:700;">phenotype</span> will mask the <span style="color: #076dad; font-weight:700;">recessive</span> <span style="color: #007576; font-weight:700;">phenotype</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>Dominant <span style="color: #d40000; font-weight:700;">alleles</span> mask the expression of their <span style="color: #076dad; font-weight:700;">recessive</span> counterparts.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>In cases where contrasting <span style="color: #d40000; font-weight:700;">alleles</span> are present, the <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span> determines the <span style="color: #007576; font-weight:700;">phenotype</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>Dominant <span style="color: #d40000; font-weight:700;">alleles</span> express their effects even when present in just a single copy.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>If contrasting <span style="color: #d40000; font-weight:700;">alleles</span> are present, the <span style="color: #6c6c00; font-weight:700;">dominant</span> one determines the <span style="color: #007576; font-weight:700;">phenotype</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>Presence of a <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span> overrides the expression of the <span style="color: #076dad; font-weight:700;">recessive</span> <span style="color: #d40000; font-weight:700;">allele</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>When <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> exist, the <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">alleles</span> determines the organism&apos;s traits.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>In a set of differing <span style="color: #d40000; font-weight:700;">alleles</span>, one will usually mask the effect of the other.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>When two <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> are present, one usually determines the observable traits.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>One <span style="color: #d40000; font-weight:700;">allele</span>&apos;s traits will often be expressed over another <span style="color: #d40000; font-weight:700;">allele</span>&apos;s when both are present.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>The observable traits with mixed <span style="color: #d40000; font-weight:700;">alleles</span> are usually determined by one <span style="color: #6c6c00; font-weight:700;">dominant</span> <span style="color: #d40000; font-weight:700;">allele</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>When <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #d40000; font-weight:700;">alleles</span> are present, the effect of one will generally dominate.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+  },
+  {
+    'item_name' => '<strong>Each parent contributes just one of their two <span style="color: #d40000; font-weight:700;">alleles</span> to its offspring.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Two <span style="color: #a719db; font-weight:700;">factors</span> of a character get randomly distributed to <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #007a00; font-weight:700;">gametes</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>When the <span style="color: #007a00; font-weight:700;">gametes</span> are formed, the <span style="color: #a719db; font-weight:700;">factors</span> <span style="color: #0067cc; font-weight:700;">separate</span> and are distributed as units to each <span style="color: #007a00; font-weight:700;">gamete</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Allele pairs <span style="color: #0067cc; font-weight:700;">separate</span> during the formation of <span style="color: #007a00; font-weight:700;">gametes</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Two <span style="color: #d40000; font-weight:700;">alleles</span> for each trait <span style="color: #0067cc; font-weight:700;">separate</span> during the formation of <span style="color: #007a00; font-weight:700;">gametes</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>A <span style="color: #007a00; font-weight:700;">gamete</span> carries only one <span style="color: #d40000; font-weight:700;">allele</span> for a gene but NOT both the <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Pairs of <span style="color: #d40000; font-weight:700;">alleles</span> <span style="color: #0067cc; font-weight:700;">separate</span> during <span style="color: #007a00; font-weight:700;">gamete</span> formation.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>During <span style="color: #007a00; font-weight:700;">gamete</span> formation, <span style="color: #d40000; font-weight:700;">allele</span> pairs are <span style="color: #0067cc; font-weight:700;">separate</span>d into individual <span style="color: #007a00; font-weight:700;">gametes</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Each parent passes a single <span style="color: #d40000; font-weight:700;">allele</span> for each trait to the offspring during sexual reproduction.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>One <span style="color: #d40000; font-weight:700;">allele</span> from each gene pair is transmitted to an individual <span style="color: #007a00; font-weight:700;">gamete</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>During the creation of <span style="color: #007a00; font-weight:700;">gametes</span>, <span style="color: #d40000; font-weight:700;">alleles</span> are distributed individually.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Alleles from each parent are <span style="color: #0067cc; font-weight:700;">separate</span>d into individual <span style="color: #007a00; font-weight:700;">gametes</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>During the creation of <span style="color: #007a00; font-weight:700;">gametes</span>, each parent contributes a single <span style="color: #d40000; font-weight:700;">allele</span> for each characteristic.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>A <span style="color: #007a00; font-weight:700;">gamete</span> carries just one of the two <span style="color: #d40000; font-weight:700;">alleles</span> for each characteristic.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Two <span style="color: #d40000; font-weight:700;">alleles</span> for a character are randomly distributed into <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #007a00; font-weight:700;">gametes</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+  },
+  {
+    'item_name' => '<strong>Two <span style="color: #c80085; font-weight:700;">different</span> <span style="color: #00775f; font-weight:700;">characters</span> will be inherited <span style="color: #0067cc; font-weight:700;">separate</span>ly from each other.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Inheritance of genes at one location does NOT influence the inheritance of genes at another location.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>The segregation of one gene pair doesn&apos;t affect the segregation of another.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Inheritance patterns for one trait do NOT interfere with those of another trait.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>The segregation of one pair of <span style="color: #d40000; font-weight:700;">alleles</span> is NOT influenced by another pair.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Traits from <span style="color: #c80085; font-weight:700;">different</span> genes are passed down <span style="color: #0067cc; font-weight:700;">separate</span>ly from one another.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>The inheritance of one gene has no bearing on the inheritance of another gene located at a <span style="color: #c80085; font-weight:700;">different</span> location.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Genes at one location have no impact on the inheritance of genes at a <span style="color: #0067cc; font-weight:700;">separate</span> location.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>The <span style="color: #a719db; font-weight:700;">factors</span> affecting one characteristic don&apos;t alter the <span style="color: #a719db; font-weight:700;">factors</span> affecting another characteristic during <span style="color: #007a00; font-weight:700;">gamete</span> creation.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Traits inherited from <span style="color: #c80085; font-weight:700;">different</span> genes do NOT influence each other.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Sorting one pair of <span style="color: #d40000; font-weight:700;">alleles</span> into <span style="color: #007a00; font-weight:700;">gametes</span> does NOT alter the sorting of another pair of <span style="color: #d40000; font-weight:700;">alleles</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>No connection exists between the inheritance patterns of one trait and those of a <span style="color: #c80085; font-weight:700;">different</span> trait.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>During the creation of <span style="color: #007a00; font-weight:700;">gametes</span>, the grouping of one set of <span style="color: #d40000; font-weight:700;">alleles</span> doesn&apos;t affect the grouping of another set.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Each pair of traits is passed down without any impact on the passage of other pairs during the creation of <span style="color: #007a00; font-weight:700;">gametes</span>.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>The inheritance of one gene does NOT impact the inheritance of another <span style="color: #0067cc; font-weight:700;">separate</span> gene.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>The inheritance of one trait doesn&apos;t influence the inheritance of another.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Alleles for <span style="color: #c80085; font-weight:700;">different</span> traits are passed down without influencing each other.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>Traits from <span style="color: #0067cc; font-weight:700;">separate</span> genes do NOT affect each other during the reproductive process.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>In the process of forming <span style="color: #007a00; font-weight:700;">gametes</span>, each set of <span style="color: #d40000; font-weight:700;">alleles</span> sorts without impacting another set.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+  {
+    'item_name' => '<strong>The inheritance of one set of <span style="color: #d40000; font-weight:700;">alleles</span> has no impact on another set.</strong>',
+    'plural_choice' => 'Mendel&apos;s Foundational Principles of Genetics',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #cc0066; font-weight:700;">Principle of Paired&nbsp;Factors</span>',
+      '<span style="color: #b74300; font-weight:700;">Principle of Dominance</span>',
+      '<span style="color: #003fff; font-weight:700;">Law of Segregation</span>',
+      '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">Law of Independent&nbsp;Assortment</span>',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

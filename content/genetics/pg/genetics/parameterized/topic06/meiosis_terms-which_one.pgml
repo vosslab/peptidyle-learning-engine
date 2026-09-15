@@ -1,0 +1,561 @@
+## DESCRIPTION
+## Select the Meiosis term that corresponds to the given definition.
+## ENDDESCRIPTION
+## KEYWORDS('Meiosis terms','definitions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>two similar but different copies of a chromosome</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'chiasmata',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>one chromosome from the mother and one chromosome from the father</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>two chromosomes which carry the same genes, one from each parental source</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>chromosomes which contain the same genes in the same order along their chromosomal arms</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'crossing over',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>chromosomes of similar length, gene position, and centromere location</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      'synapsis',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>two chromosomes containing identical genetic loci although possibly different allelic forms</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'crossing over',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>chromosome pairs (one from each parent) that are similar in length, gene position, and centromere location</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+    ],
+    'correct' => '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+  },
+  {
+    'item_name' => '<strong>not an exact copy but having the same structural features and pattern of genes</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">homologous</span>',
+  },
+  {
+    'item_name' => '<strong>corresponding or similar in position, value, structure, or function</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">homologous</span>',
+  },
+  {
+    'item_name' => '<strong>similar in structure and evolutionary origin, though NOT necessarily in function</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">homologous</span>',
+  },
+  {
+    'item_name' => '<strong>corresponding or alike in certain critical attributes</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">homologous</span>',
+  },
+  {
+    'item_name' => '<strong>denoting organs or parts corresponding in evolutionary origin and similar to some extent in structure</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'chiasmata',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">homologous</span>',
+  },
+  {
+    'item_name' => '<strong>having a similar position, structure, value, or purpose</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+    ],
+    'correct' => '<span style="color: #007576; font-weight:700;">homologous</span>',
+  },
+  {
+    'item_name' => '<strong>process of pairing of homologous (maternal and paternal) chromosomes</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'chiasmata',
+    ],
+    'correct' => 'synapsis',
+  },
+  {
+    'item_name' => '<strong>the lengthwise pairing of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span></strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      'synapsis',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'synapsis',
+  },
+  {
+    'item_name' => '<strong>the joining of the two <span style="color: #d40000; font-weight:700;">homologous chromosomes</span></strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'crossing over',
+    ],
+    'correct' => 'synapsis',
+  },
+  {
+    'item_name' => '<strong>the matching-up of homologous pairs prior to their segregation</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'chiasmata',
+    ],
+    'correct' => 'synapsis',
+  },
+  {
+    'item_name' => '<strong><span style="color: #d40000; font-weight:700;">homologous chromosomes</span> pair with their counterparts and remain bound</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => 'synapsis',
+  },
+  {
+    'item_name' => '<strong>pairing of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> prior to their separation into daughter cells</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'synapsis',
+  },
+  {
+    'item_name' => '<strong>two identical copies of a single replicated chromosome joined at the centromere</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>two identical copies of the same chromosome formed by DNA replication</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>two identical copies of the same chromosome attached to each other by the centromere</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>a single duplicated chromosome with a common centromere</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>identical copies (chromatids) of a chromosome formed by DNA replication</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>two identical copies of a chromosome joined together by a common centromere</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>two identical chromatids that are formed by replication of a chromosome</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>two identical copies of one chromosome specifically created for cell division</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+    ],
+    'correct' => 'sister chromatids',
+  },
+  {
+    'item_name' => '<strong>the exchange of genes between <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>, resulting in a mixture of parental characteristics</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'crossing over',
+  },
+  {
+    'item_name' => '<strong>two <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> line up and parts of the chromosomes can be exchanged</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      'synapsis',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'crossing over',
+  },
+  {
+    'item_name' => '<strong>the exchange of genes between two <span style="color: #d40000; font-weight:700;">homologous chromosomes</span>, resulting in a mixture of parental characteristics</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      'synapsis',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'crossing over',
+  },
+  {
+    'item_name' => '<strong>the exchange of genetic material between <span style="color: #d40000; font-weight:700;">homologous chromosomes</span></strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+    ],
+    'correct' => 'crossing over',
+  },
+  {
+    'item_name' => '<strong>the actual exchange of segments between <span style="color: #d40000; font-weight:700;">homologous chromosomes</span></strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'crossing over',
+    ],
+    'correct' => 'crossing over',
+  },
+  {
+    'item_name' => '<strong>a process by which parts of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> are interchanged</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      'sister chromatids',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'crossing over',
+  },
+  {
+    'item_name' => '<strong>the physical link between non-sister chromatids of <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> that remain after crossing over</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'sister chromatids',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'chiasmata',
+  },
+  {
+    'item_name' => '<strong>the point of contact between paired chromatids that marks a crossover site</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'chiasmata',
+    ],
+    'correct' => 'chiasmata',
+  },
+  {
+    'item_name' => '<strong>specialized chromatin structures that link <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> together</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'chiasmata',
+  },
+  {
+    'item_name' => '<strong>the visible link between two (non-sister) chromatids belonging to <span style="color: #d40000; font-weight:700;">homologous chromosomes</span></strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #007576; font-weight:700;">homologous</span>',
+      'synapsis',
+      'sister chromatids',
+      'chiasmata',
+    ],
+    'correct' => 'chiasmata',
+  },
+  {
+    'item_name' => '<strong>the region where <span style="color: #d40000; font-weight:700;">homologous chromosomes</span> stay connected after crossing over</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      '<span style="color: #d40000; font-weight:700;">homologous chromosomes</span>',
+      'synapsis',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'chiasmata',
+  },
+  {
+    'item_name' => '<strong>a point of overlap of paired chromatids at which exchange of genetic material has taken place</strong>',
+    'plural_choice' => 'Meiosis terms',
+    'singular_item' => 'definition',
+    'choices' => [
+      'synapsis',
+      'sister chromatids',
+      'crossing over',
+      'chiasmata',
+    ],
+    'correct' => 'chiasmata',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

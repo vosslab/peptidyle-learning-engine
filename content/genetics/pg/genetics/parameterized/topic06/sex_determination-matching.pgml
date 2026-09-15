@@ -1,0 +1,222 @@
+## DESCRIPTION
+## Match each of the following sex determination systems with their corresponding descriptions.
+## ENDDESCRIPTION
+## KEYWORDS('sex determination systems','descriptions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'X-Y system' => [
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> are heterogametic and <span style="color: #cc0066; font-weight:700;">females &female;</span> are homogametic',
+    '<span style="color: #cc0066; font-weight:700;">females &female;</span> are homogametic and  <span style="color: #076dad; font-weight:700;">males &male;</span> are heterogametic',
+    'sex is determined by which chromosome is contained in the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> cell',
+    'found in most mammals, as well as some insects including Drosophila',
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> have two different kinds of <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span>',
+    '<span style="color: #cc0066; font-weight:700;">females &female;</span> have two of the same kind of <span style="color: #00775f; font-weight:700;">sex chromosome</span>',
+    'sex of an offspring depends on which of two <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span> are contained with the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span>',
+  ],
+  'X-O system' => [
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> are diploid, but only have one <span style="color: #00775f; font-weight:700;">sex chromosome</span>',
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> only have one <span style="color: #00775f; font-weight:700;">sex chromosome</span>, while <span style="color: #cc0066; font-weight:700;">females &female;</span> have two',
+    '<span style="color: #cc0066; font-weight:700;">females &female;</span> have two homologous <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span>,  <span style="color: #076dad; font-weight:700;">males &male;</span> have only one',
+    'sex is determined on whether or NOT the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> contains a <span style="color: #00775f; font-weight:700;">sex chromosome</span>',
+    'found in a number of insects, including the grasshoppers, cockroaches, and crickets',
+    'sex of the offspring depends on whether or NOT a <span style="color: #00775f; font-weight:700;">sex chromosome</span> is present in the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span>',
+    'sex of the offspring depends on whether or NOT a <span style="color: #00775f; font-weight:700;">sex chromosome</span> is present in the  <span style="color: #076dad; font-weight:700;">male &male;</span>gamete',
+    ' <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> normally contain either one <span style="color: #00775f; font-weight:700;">sex chromosome</span> or no <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span> at all',
+    'sex of an offspring depends on if the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> contains a <span style="color: #00775f; font-weight:700;">sex chromosome</span> or if it is missing',
+  ],
+  'Z-W system' => [
+    '<span style="color: #cc0066; font-weight:700;">females &female;</span> are heterogametic and  <span style="color: #076dad; font-weight:700;">males &male;</span> are homogametic',
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> are homogametic and <span style="color: #cc0066; font-weight:700;">females &female;</span> are heterogametic',
+    'sex of an offspring depends on which <span style="color: #00775f; font-weight:700;">sex chromosome</span> is contained with the <span style="color: #cc0066; font-weight:700;">female &female;</span><span style="color: #c80085; font-weight:700;">egg (ovum)</span>',
+    'sex is determined by the type of <span style="color: #00775f; font-weight:700;">sex chromosome</span> in the <span style="color: #c80085; font-weight:700;">egg (ovum)</span>',
+    'found in most birds, many reptiles, and some insects',
+    'this system is the reverse of the system found in humans',
+    '<span style="color: #cc0066; font-weight:700;">females &female;</span> have two different kinds of <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span>',
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> have two of the same kind of <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span>',
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> have two of the same <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span>',
+  ],
+  'Haplo-Diploid system' => [
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> develop from unfertilized eggs and thus have no fathers',
+    'only system where  <span style="color: #076dad; font-weight:700;">males &male;</span> have no fathers',
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> only have one copy of every chromosome',
+    ' <span style="color: #076dad; font-weight:700;">males &male;</span> carry only one copy of each chromosome',
+    'found in insects, such as ants and bees',
+    'unfertilized eggs develop into  <span style="color: #076dad; font-weight:700;">males &male;</span>',
+    'sex is based on whether or NOT the <span style="color: #cc0066; font-weight:700;">female &female;</span><span style="color: #c80085; font-weight:700;">egg (ovum)</span> is exposed to <span style="color: #007576; font-weight:700;">sperm</span>',
+    'there are no <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span>',
+    'fertilized eggs (with <span style="color: #007576; font-weight:700;">sperm</span>) develop into <span style="color: #cc0066; font-weight:700;">females &female;</span>, unfertilized eggs develop into  <span style="color: #076dad; font-weight:700;">males &male;</span>',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 4;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'X-Y system' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  'X-O system' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  'Z-W system' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  'Haplo-Diploid system' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following sex determination systems with their corresponding descriptions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

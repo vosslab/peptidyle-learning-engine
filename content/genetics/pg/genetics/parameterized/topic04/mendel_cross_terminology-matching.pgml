@@ -1,0 +1,255 @@
+## DESCRIPTION
+## Match each of the following Mendelian crosses and generational stages with their corresponding descriptions.
+## ENDDESCRIPTION
+## KEYWORDS('Mendelian crosses and generational stages','descriptions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'test cross' => [
+    'a type of cross where the <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> is crossed with the <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+    'a type of cross that uses a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> organism to determine the genetic makeup of another <span style="color: #003fff; font-weight:700;">dominant</span> organism',
+    'a type of cross involving an individual which is <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> for all genes of interest',
+    'a type of cross involving an individuals with a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> and an unknown <span style="color: #076dad; font-weight:700;">genotype</span>, mated with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual',
+    'a type of cross where a test organism showing a <span style="color: #003fff; font-weight:700;">dominant</span> trait is crossed with one showing all <span style="color: #00775f; font-weight:700;">recessive</span> traits',
+    'a type of cross between a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual with an individual of an unknown <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+    'a type of cross of an individual of <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> and unknown <span style="color: #076dad; font-weight:700;">genotype</span> and an individual with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+    'a genetic cross in which a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> is paired with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+    'a genetic cross to identify the <span style="color: #076dad; font-weight:700;">genotype</span> of an organism with a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> by crossing it with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual',
+    'a cross used to determine whether an individual with a <span style="color: #003fff; font-weight:700;">dominant</span> trait is <span style="color: #6c6c00; font-weight:700;">homozygous</span> or heterozygous',
+    'a cross to uncover the <span style="color: #076dad; font-weight:700;">genotype</span> of an individual with the <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> by mating it with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> organism',
+    'a cross designed to reveal the <span style="color: #076dad; font-weight:700;">genotype</span> of a <span style="color: #003fff; font-weight:700;">dominant</span> <span style="color: #cc0066; font-weight:700;">phenotype</span> individual by pairing it with a <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #00775f; font-weight:700;">recessive</span> individual',
+  ],
+  'backcross' => [
+    'a type of cross where <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids are crossed with one of the <span style="color: #0067cc; font-weight:700;">parental</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+    'a type of cross when <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals are crossed with one of the two parents',
+    'a cross involving <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids and one of their <span style="color: #0067cc; font-weight:700;">parental</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+    'a mating event where <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals are bred with one of the original <span style="color: #0067cc; font-weight:700;">parental</span> types',
+    'a genetic cross to trace the <span style="color: #935d00; font-weight:700;">inheritance</span> of a specific trait back to one of the original parents',
+    'a genetic cross that involves the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation being mated with one of the parent types',
+  ],
+  'hybrid cross' => [
+    'a type of cross between two individuals who have distinct <span style="color: #6c6c00; font-weight:700;">homozygous</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+    'a type of cross between two true-breeding individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span>',
+    'a type of cross that mates two true-breeding individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span>',
+    'a genetic cross between two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different traits',
+    'a cross involving two true-breeding organisms with distinct traits',
+    'a mating event that pairs two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different characteristics',
+    'a genetic cross to combine traits from two different true-breeding parents',
+    'a cross between two true-breeding organisms that each display distinct, <span style="color: #6c6c00; font-weight:700;">homozygous</span> traits',
+    'a cross that brings together two true-breeding individuals who are <span style="color: #6c6c00; font-weight:700;">homozygous</span> for different sets of traits',
+  ],
+  'reciprocal cross' => [
+    'a type of cross designed to test the role of <span style="color: #0067cc; font-weight:700;">parental</span> sex on a given <span style="color: #935d00; font-weight:700;">inheritance</span> pattern',
+    'two separate crosses where the traits of the male and female in one cross are switched in another cross',
+    'a genetic cross that examines the impact of <span style="color: #0067cc; font-weight:700;">parental</span> sex on <span style="color: #935d00; font-weight:700;">inheritance</span> patterns',
+    'two distinct mating events where male and female traits are swapped between the crosses',
+    'a pair of crosses that reverses the sexes associated with specific traits',
+    'a set of two crosses to investigate if the sex of the parent influences the <span style="color: #935d00; font-weight:700;">inheritance</span> of traits',
+    'two distinct crosses where the male and female <span style="color: #0067cc; font-weight:700;">parental</span> traits are reversed in the subsequent cross',
+    'two paired crosses that switch the roles of male and female parents to investigate the influence of <span style="color: #0067cc; font-weight:700;">parental</span> sex on trait <span style="color: #935d00; font-weight:700;">inheritance</span>',
+  ],
+  'P generation' => [
+    'the <span style="color: #0067cc; font-weight:700;">parental</span> generation in a <span style="color: #007576; font-weight:700;">hybrid cross</span>',
+    'this generation includes two true-breeding individuals with different traits in a <span style="color: #007576; font-weight:700;">hybrid cross</span>',
+    'this generation consists of two true-breeding individuals, each exhibiting different traits, participating in a <span style="color: #007576; font-weight:700;">hybrid cross</span>',
+    'this generation consists of two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span> for a <span style="color: #007576; font-weight:700;">hybrid cross</span>',
+    'the original <span style="color: #0067cc; font-weight:700;">parental</span> generation in a <span style="color: #007576; font-weight:700;">hybrid cross</span>',
+    'a generation with two <span style="color: #6c6c00; font-weight:700;">homozygous</span> individuals with different <span style="color: #cc0066; font-weight:700;">phenotype</span> in a <span style="color: #007576; font-weight:700;">hybrid cross</span>',
+    'the starting generation consisting of true-breeding parents in a <span style="color: #007576; font-weight:700;">hybrid cross</span>',
+    'the initial generation of a <span style="color: #007576; font-weight:700;">hybrid cross</span> that includes two <span style="color: #6c6c00; font-weight:700;">homozygous</span>, true-breeding organisms with distinct <span style="color: #cc0066; font-weight:700;">phenotype</span>',
+  ],
+  'F<sub>1</sub> generation' => [
+    'the first generation in a cross; the offspring of the <span style="color: #0067cc; font-weight:700;">parental</span> generation',
+    'hybrid offspring of the <span style="color: #0067cc; font-weight:700;">parental</span> generation',
+    'the first generation of offspring from the <span style="color: #0067cc; font-weight:700;">parental</span> generation',
+    'the first generation derived from a genetic cross between members of the <span style="color: #0067cc; font-weight:700;">parental</span> generation',
+    'the first generation of hybrids resulting from a cross between two <span style="color: #0067cc; font-weight:700;">parental</span> organisms',
+    'the initial offspring derived from a cross between two <span style="color: #0067cc; font-weight:700;">parental</span> types',
+    'the first generational step in assessing genetic variance, originating from the <span style="color: #0067cc; font-weight:700;">parental</span> generation',
+    'the immediate progeny produced by the cross of two distinct <span style="color: #0067cc; font-weight:700;">parental</span> <span style="color: #076dad; font-weight:700;">genotype</span>',
+  ],
+  'F<sub>2</sub> generation' => [
+    'the second generation in a cross; the offspring of the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation',
+    'the second generation produced when <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals are self-crossed or fertilized with each other',
+    'the offspring of the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation; the "grandchildren" of the <span style="color: #0067cc; font-weight:700;">parental</span> generation',
+    'the offspring from the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation, and considered the &apos;grandchildren&apos; of the initial <span style="color: #0067cc; font-weight:700;">parental</span> generation',
+    'the second generation of offspring, descended from the <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> generation',
+    'the offspring resulting from either self-fertilization or cross-fertilization of <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> individuals',
+    'the subsequent generation derived from interbreeding or self-breeding of <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids',
+    'the generation resulting from the mating of <span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span> hybrids',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 4;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'test cross' => '<span style="color: #d40000; font-weight:700;">test cross</span>',
+  'backcross' => '<span style="color: #3b7600; font-weight:700;">backcross</span>',
+  'hybrid cross' => '<span style="color: #007576; font-weight:700;">hybrid cross</span>',
+  'reciprocal cross' => '<span style="color: #a719db; font-weight:700;">reciprocal cross</span>',
+  'P generation' => '<span style="color: #c80085; font-weight:700;">P generation</span>',
+  'F<sub>1</sub> generation' => '<span style="color: #b74300; font-weight:700;">F<sub>1</sub> generation</span>',
+  'F<sub>2</sub> generation' => '<span style="color: #007a00; font-weight:700;">F<sub>2</sub> generation</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following Mendelian crosses and generational stages with their corresponding descriptions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

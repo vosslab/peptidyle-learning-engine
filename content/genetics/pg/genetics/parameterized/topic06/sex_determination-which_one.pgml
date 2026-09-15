@@ -1,0 +1,501 @@
+## DESCRIPTION
+## Select the sex determination system that corresponds to the given description.
+## ENDDESCRIPTION
+## KEYWORDS('sex determination systems','descriptions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> are heterogametic and <span style="color: #cc0066; font-weight:700;">females &female;</span> are homogametic</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  },
+  {
+    'item_name' => '<strong><span style="color: #cc0066; font-weight:700;">females &female;</span> are homogametic and  <span style="color: #076dad; font-weight:700;">males &male;</span> are heterogametic</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  },
+  {
+    'item_name' => '<strong>sex is determined by which chromosome is contained in the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> cell</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  },
+  {
+    'item_name' => '<strong>found in most mammals, as well as some insects including Drosophila</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> have two different kinds of <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  },
+  {
+    'item_name' => '<strong><span style="color: #cc0066; font-weight:700;">females &female;</span> have two of the same kind of <span style="color: #00775f; font-weight:700;">sex chromosome</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  },
+  {
+    'item_name' => '<strong>sex of an offspring depends on which of two <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span> are contained with the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> are diploid, but only have one <span style="color: #00775f; font-weight:700;">sex chromosome</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> only have one <span style="color: #00775f; font-weight:700;">sex chromosome</span>, while <span style="color: #cc0066; font-weight:700;">females &female;</span> have two</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong><span style="color: #cc0066; font-weight:700;">females &female;</span> have two homologous <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span>,  <span style="color: #076dad; font-weight:700;">males &male;</span> have only one</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong>sex is determined on whether or NOT the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> contains a <span style="color: #00775f; font-weight:700;">sex chromosome</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong>found in a number of insects, including the grasshoppers, cockroaches, and crickets</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong>sex of the offspring depends on whether or NOT a <span style="color: #00775f; font-weight:700;">sex chromosome</span> is present in the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong>sex of the offspring depends on whether or NOT a <span style="color: #00775f; font-weight:700;">sex chromosome</span> is present in the  <span style="color: #076dad; font-weight:700;">male &male;</span>gamete</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> normally contain either one <span style="color: #00775f; font-weight:700;">sex chromosome</span> or no <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span> at all</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong>sex of an offspring depends on if the  <span style="color: #076dad; font-weight:700;">male &male;</span><span style="color: #007576; font-weight:700;">sperm</span> contains a <span style="color: #00775f; font-weight:700;">sex chromosome</span> or if it is missing</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+  },
+  {
+    'item_name' => '<strong><span style="color: #cc0066; font-weight:700;">females &female;</span> are heterogametic and  <span style="color: #076dad; font-weight:700;">males &male;</span> are homogametic</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> are homogametic and <span style="color: #cc0066; font-weight:700;">females &female;</span> are heterogametic</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong>sex of an offspring depends on which <span style="color: #00775f; font-weight:700;">sex chromosome</span> is contained with the <span style="color: #cc0066; font-weight:700;">female &female;</span><span style="color: #c80085; font-weight:700;">egg (ovum)</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong>sex is determined by the type of <span style="color: #00775f; font-weight:700;">sex chromosome</span> in the <span style="color: #c80085; font-weight:700;">egg (ovum)</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong>found in most birds, many reptiles, and some insects</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong>this system is the reverse of the system found in humans</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong><span style="color: #cc0066; font-weight:700;">females &female;</span> have two different kinds of <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> have two of the same kind of <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> have two of the same <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> develop from unfertilized eggs and thus have no fathers</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong>only system where  <span style="color: #076dad; font-weight:700;">males &male;</span> have no fathers</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> only have one copy of every chromosome</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong> <span style="color: #076dad; font-weight:700;">males &male;</span> carry only one copy of each chromosome</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong>found in insects, such as ants and bees</strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong>unfertilized eggs develop into  <span style="color: #076dad; font-weight:700;">males &male;</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong>sex is based on whether or NOT the <span style="color: #cc0066; font-weight:700;">female &female;</span><span style="color: #c80085; font-weight:700;">egg (ovum)</span> is exposed to <span style="color: #007576; font-weight:700;">sperm</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong>there are no <span style="color: #00775f; font-weight:700;">sex&nbsp;chromosomes</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+  {
+    'item_name' => '<strong>fertilized eggs (with <span style="color: #007576; font-weight:700;">sperm</span>) develop into <span style="color: #cc0066; font-weight:700;">females &female;</span>, unfertilized eggs develop into  <span style="color: #076dad; font-weight:700;">males &male;</span></strong>',
+    'plural_choice' => 'sex determination systems',
+    'singular_item' => 'description',
+    'choices' => [
+      '<span style="color: #b74300; font-weight:700;">X-Y system</span>',
+      '<span style="color: #3b7600; font-weight:700;">X-O system</span>',
+      '<span style="color: #0067cc; font-weight:700;">Z-W system</span>',
+      '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+    ],
+    'correct' => '<span style="color: #a719db; font-weight:700;">Haplo-Diploid system</span>',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+

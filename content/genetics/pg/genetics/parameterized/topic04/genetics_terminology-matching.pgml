@@ -1,0 +1,239 @@
+## DESCRIPTION
+## Match each of the following genetic terms with their corresponding definitions.
+## ENDDESCRIPTION
+## KEYWORDS('genetic terms','definitions')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserPopUp.pl',
+    'parserUtils.pl',
+    'PGgraders.pl',
+    'PGcourse.pl'
+);
+our @ALPHABET = ('A' .. 'Z');
+
+# ================================
+# Full matching data
+# ================================
+%match_data = (
+  'haploid' => [
+    'a cell or organism that a single set of chromosomes',
+  ],
+  'diploid' => [
+    'a cell or organism that has paired chromosomes',
+  ],
+  'gene ' => [
+    'the unit of inheritance passed from parents to offspring',
+    'the main elements of heredity',
+  ],
+  'genetics' => [
+    'the study of heredity and the variation of inherited characteristics',
+    'the study of the effect of genetic differences on organisms',
+    'study of genes, genetic variation, and heredity in organisms',
+    'scientific study of how genes control the characteristics of plants and animals',
+    'study of both trait and molecular inheritance mechanisms of genes',
+    'the study of heredity and how genes control the inherited characteristics',
+  ],
+  'genetic code' => [
+    'the set of instructions that tell a cell how to make a specific protein',
+    'the set of rules used by living cells to translate information encoded within genetic material into proteins',
+    'the set of instructions that converts the sequence of nucleotides into an amino acid sequence in proteins',
+    'the code our body uses to convert the instructions contained in our DNA the essential materials of life',
+  ],
+  'genomics' => [
+    'the study of all of the genes in an organism',
+    'the structure, function, evolution, and mapping of <span style="color: #6c6c00; font-weight:700;">genomes</span>',
+  ],
+  'genome ' => [
+    'an organism&apos;s complete set of DNA',
+    'complete set of DNA in an organism',
+    'complete set of DNA in a cell or organism',
+  ],
+  'locus' => [
+    'location of a <span style="color: #b74300; font-weight:700;">gene</span>on a chromosome',
+    'where on a chromosome a specific <span style="color: #b74300; font-weight:700;">gene</span>is located',
+    'a specific, fixed position on a chromosome of a particular gene',
+    'a spot or "address" on a chromosome at which a <span style="color: #b74300; font-weight:700;">gene</span>for a particular trait is located',
+    'the physical position of a <span style="color: #b74300; font-weight:700;">gene</span>within a chromosome',
+  ],
+  'single nucleotide polymorphism (SNP)' => [
+    'variation resulting from a single base pair change',
+    'most common type of genetic variation among people',
+    'a genomic variant at a single base position in the DNA',
+    'a substitution of a single nucleotide at a specific position in the genome',
+  ],
+  'homologous chromosomes' => [
+    'two similar but different copies of a chromosome',
+    'one chromosome from the mother and one chromosome from the father',
+    'two chromosomes which carry the same genes, one from each parental source',
+    'chromosomes which contain the same genes in the same order along their chromosomal arms',
+    'chromosomes of similar length, <span style="color: #b74300; font-weight:700;">gene</span>position, and centromere location',
+    'two chromosomes containing identical genetic loci although possibly different allelic forms',
+  ],
+);
+
+# -------------------------------
+# Select N random keys
+# -------------------------------
+my $n = 5;
+@all_keys = PGsort(sub { $_[0] lt $_[1] }, keys %match_data);
+my $local_seed = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+my $local_random = new PGrandom($local_seed);
+
+my @indices = (0 .. $#all_keys);
+my @shuffled = ();
+while (@indices) {
+  my $pick = $local_random->random(0, $#indices, 1);
+  push @shuffled, splice(@indices, $pick, 1);
+}
+my @selected_keys = @all_keys[@shuffled[0..$n-1]];
+
+# -------------------------------
+# Build question/answer pairs
+# -------------------------------
+# Each entry: [prompt, choice]
+@q_and_a = ();
+foreach my $key (@selected_keys) {
+  my $values_ref = $match_data{$key};
+  my $i = $local_random->random(0, $#$values_ref, 1);
+  my $value = $values_ref->[$i];
+  push @q_and_a, [ $value, $key ];
+}
+
+# -------------------------------
+# Randomize the questions
+# -------------------------------
+my @q_indices = (0 .. $#q_and_a);
+my @q_shuffled = ();
+while (@q_indices) {
+  my $pick = $local_random->random(0, $#q_indices, 1);
+  push @q_shuffled, $q_and_a[splice(@q_indices, $pick, 1)];
+}
+@q_and_a = @q_shuffled;
+
+# -------------------------------
+# Sort the choices alphabetically
+# -------------------------------
+@answers = ();
+push(@answers, (map { $_->[1] } @q_and_a));
+@answers_sorted = PGsort(sub { $_[0] lt $_[1] }, @answers);
+
+# -------------------------------
+# HTML-safe answer labels
+# -------------------------------
+%answer_html = (
+  'haploid' => '<span style="color: #d40000; font-weight:700;">haploid</span>',
+  'diploid' => '<span style="color: #007576; font-weight:700;">diploid</span>',
+  'gene ' => '<span style="color: #b74300; font-weight:700;">gene</span>',
+  'genetics' => '<span style="color: #007a00; font-weight:700;">genetics</span>',
+  'genetic code' => '<span style="color: #003fff; font-weight:700;">genetic code</span>',
+  'genomics' => '<span style="color: #c80085; font-weight:700;">genomics</span>',
+  'genome ' => '<span style="color: #6c6c00; font-weight:700;">genome</span>',
+  'locus' => '<span style="color: #935d00; font-weight:700;">locus</span>',
+  'single nucleotide polymorphism (SNP)' => '<span style="color: #3b7600; font-weight:700;">single nucleotide polymorphism (SNP)</span>',
+  'homologous chromosomes' => '<span style="color: #00775f; font-weight:700;">homologous chromosomes</span>',
+);
+
+@answers_sorted_html = map { $answer_html{$_} || $_ } @answers_sorted;
+
+# -------------------------------
+# Create answer index lookup
+# -------------------------------
+our %answer_index;
+for (my $i = 0; $i <= $#answers_sorted; $i++) {
+  $answer_index{$answers_sorted[$i]} = $i;
+}
+
+# -------------------------------
+# PopUp/DropDown compatibility
+# -------------------------------
+sub make_popup {
+  return defined &DropDown ? DropDown(@_) : PopUp(@_);
+}
+
+# -------------------------------
+# Create popup objects (blank default)
+# -------------------------------
+my @answer_letters = @ALPHABET[0 .. $#answers_sorted];
+my @answer_letters_with_blank = ('', @answer_letters);
+@answer_dropdowns =
+  map { make_popup([ @answer_letters_with_blank ], $answer_index{$q_and_a[$_][1]} + 1 ) }
+  0 .. $#q_and_a;
+
+# -------------------------------
+# Render the question
+# -------------------------------
+HEADER_TEXT(<<END_STYLE);
+<style>
+.pgml-bold { font-weight: 700; }
+.two-column {
+    display: flex;
+	flex-wrap: wrap;
+	gap: 2rem;
+	align-items: center;
+	justify-content: space-evenly;
+}
+</style>
+END_STYLE
+
+$question_text = 'Match each of the following genetic terms with their corresponding definitions.';
+$note_text = 'Note: Each choice will be used exactly once.';
+
+BEGIN_PGML
+[$question_text]*
+[$note_text]*
+
+[@ MODES(HTML => '<div class="two-column"><div>') @]*
+[@ join(
+    "\n\n",
+    map {
+        '[_]{$answer_dropdowns[' . $_ . ']} '
+            . '*' . ($_ + 1) . '.* '
+            . '[$q_and_a[' . $_ . '][0]]*'
+    } 0 .. $#q_and_a
+) @]**
+[@ MODES(HTML => '</div><div class="right-col">') @]*
+[@ join(
+    "\n\n",
+    map {
+        chr(65 + $_) . '\\.' . ' ' . '[$answers_sorted_html[' . $_ . ']]*'
+    } 0 .. $#answers_sorted
+) @]**
+[@ MODES(HTML => '</div></div>') @]*
+END_PGML
+
+# -------------------------------
+# Dynamic Partial Credit Based on $n
+# -------------------------------
+$showPartialCorrectAnswers = 0;
+my @thresholds;
+my @scores;
+for (my $i = 1; $i <= $n; $i++) {
+  push @thresholds, $i;
+  push @scores, sprintf("%.2f", $i / $n);
+}
+
+install_problem_grader(~~&custom_problem_grader_fluid);
+$ENV{grader_numright} = [@thresholds];
+$ENV{grader_scores}   = [@scores];
+$ENV{grader_message} = 'You can earn partial credit.';
+
+# -------------------------------
+# Solution
+# -------------------------------
+$answer_list = join(', ', map { ($_ + 1) . '-' . $ALPHABET[$answer_index{$q_and_a[$_][1]}] } 0 .. $#q_and_a);
+BEGIN_PGML_SOLUTION
+The correct answers are: [$answer_list].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

@@ -1,0 +1,240 @@
+## TITLE('Genetics: X-linked inheritance from fly offspring counts')
+## DESCRIPTION
+## Determine parental genotypes from an X-linked recessive fly cross using offspring phenotype counts. Use the table of offspring counts by sex and eye color to identify the parents. Assume the white allele is recessive to the red allele.
+## ENDDESCRIPTION
+## KEYWORDS('X-linked','recessive','genotype','phenotype')
+## DBsubject('Inheritance Genetics')
+## DBchapter('Chromosomal Inheritance')
+## DBsection('Sex-linked inheritance')
+## Level(4)
+## Date('2026-01-28')
+## Author('Dr. Neil R. Voss')
+## Institution('Roosevelt University')
+## Language(en)
+# https://github.com/vosslab
+# This work is licensed under CC BY 4.0 (Creative Commons Attribution 4.0
+# International License).
+# https://creativecommons.org/licenses/by/4.0/
+# Source code portions are licensed under LGPLv3.
+
+DOCUMENT();
+
+# ----------------------------
+# 1) Preamble
+# ----------------------------
+loadMacros(
+  "PGstandard.pl",
+  "MathObjects.pl",
+  "PGML.pl",
+  "parserRadioButtons.pl",
+  "niceTables.pl",
+  "PGcourse.pl",
+);
+$showPartialCorrectAnswers = 1;
+
+# ----------------------------
+# 2) Setup
+# ----------------------------
+
+# ----------------------------
+# 2a) Helpers
+# ----------------------------
+
+sub geno2pheno {
+  my ($genotype) = @_;
+  my $phenotype = (substr($genotype, 0, 1) eq '+') ? 'red' : 'white';
+  if (index($genotype, '-') != -1) {
+    $phenotype .= ' male (&male;)';
+  } else {
+    $phenotype .= ' female (&female;)';
+  }
+  return $phenotype;
+}
+
+sub geno_span {
+  my ($text) = @_;
+  return "<span style='font-family:monospace;font-size:0.95em;font-weight:600;text-transform:none;font-variant:normal;'>$text</span>";
+}
+
+sub get_answer_index {
+  my ($female_genotype, $male_genotype) = @_;
+  return 0 if $female_genotype eq '++';
+  if ($female_genotype eq '+w') {
+    return 1 if $male_genotype eq '+-';
+    return 2 if $male_genotype eq 'w-';
+  }
+  if ($female_genotype eq 'ww') {
+    return 3 if $male_genotype eq '+-';
+    return 4 if $male_genotype eq 'w-';
+  }
+  die "Unknown genotype combo: $female_genotype x $male_genotype";
+}
+
+# ----------------------------
+# 2b) Randomization and data prep
+# ----------------------------
+my @progeny_sizes = (160, 200, 240, 320, 360, 400, 480, 600);
+my @crosses = (
+  [ '++', 'w-' ],
+  [ '+w', '+-' ],
+  [ '+w', 'w-' ],
+  [ 'ww', '+-' ],
+  [ 'ww', 'w-' ],
+);
+
+my $local_random = PGrandom->new();
+my $seed_value = (defined($problemSeed) && $problemSeed ne '') ? $problemSeed : 1;
+$local_random->srand($seed_value);
+
+my $cross_index = $seed_value % scalar(@crosses);
+my ($female_genotype, $male_genotype) = @{ $crosses[$cross_index] };
+$progeny_size = $progeny_sizes[$local_random->random(0, $#progeny_sizes, 1)];
+
+my %distribution;
+my $bad_cross = 1;
+my $max_attempts = 200;
+for (my $attempt = 0; $attempt < $max_attempts && $bad_cross; $attempt++) {
+  %distribution = ();
+  for (1 .. $progeny_size) {
+    my @female_alleles = split //, $female_genotype;
+    my @male_alleles = split //, $male_genotype;
+    my $a = $female_alleles[$local_random->random(0, $#female_alleles, 1)];
+    my $b = $male_alleles[$local_random->random(0, $#male_alleles, 1)];
+    my $offspring_str = ($a lt $b) ? "$a$b" : "$b$a";
+    $distribution{$offspring_str} = ($distribution{$offspring_str} // 0) + 1;
+  }
+  $bad_cross = 0;
+  for my $count (values %distribution) {
+    if ($count % 5 == 0) {
+      $bad_cross = 1;
+      last;
+    }
+  }
+}
+
+my %pcount = (
+  'red female (&female;)' => 0,
+  'red male (&male;)' => 0,
+  'white female (&female;)' => 0,
+  'white male (&male;)' => 0,
+);
+for my $genotype (keys %distribution) {
+  my $phenotype = geno2pheno($genotype);
+  $pcount{$phenotype} += $distribution{$genotype};
+}
+
+$wildtype_word = "<span style='color:#8b0000;font-weight:600;'>wildtype</span>";
+$mutant_word = "<span style='color:#595959;font-weight:600;'>mutant</span>";
+$red_phenotype = "<span style='color:#8b0000;font-weight:600;'>red-eyed (wildtype)</span>";
+$white_phenotype = "<span style='color:#595959;font-weight:600;'>white-eyed (mutant)</span>";
+$female_word = "<span style='color:#990070;font-weight:600;'>female</span>";
+$male_word = "<span style='color:#002499;font-weight:600;'>male</span>";
+$female_label = "$female_word <span style='font-weight:400;'>(</span>"
+  . "<span style='font-weight:400;'>&female;</span>"
+  . "<span style='font-weight:400;'>)</span>";
+$male_label = "$male_word <span style='font-weight:400;'>(</span>"
+  . "<span style='font-weight:400;'>&male;</span>"
+  . "<span style='font-weight:400;'>)</span>";
+$allele_plus = geno_span('+');
+$allele_w = geno_span('w');
+
+# ----------------------------
+# 2c) Table and layout
+# ----------------------------
+$table = LayoutTable(
+  [
+    [
+      [ 'phenotype', cellcss => 'font-weight:700;background-color:#f0f0f0;' ],
+      [ $female_label, cellcss => 'font-weight:700;background-color:#f0f0f0;' ],
+      [ $male_label, cellcss => 'font-weight:700;background-color:#f0f0f0;' ],
+    ],
+    [
+      [ 'red-eyed (wildtype)', cellcss => 'color:#8b0000;font-weight:600;' ],
+      $pcount{'red female (&female;)'},
+      $pcount{'red male (&male;)'},
+    ],
+    [
+      [ 'white-eyed (mutant)', cellcss => 'color:#595959;font-weight:600;' ],
+      $pcount{'white female (&female;)'},
+      $pcount{'white male (&male;)'},
+    ],
+  ],
+  center => 1,
+  tablecss => 'border-collapse:collapse;border:1px solid #000;font-size:14px;',
+  allcellcss => 'border:1px solid #000;padding:4px;text-align:center;',
+);
+
+# ----------------------------
+# 2d) Answer choices and keys
+# ----------------------------
+
+$choice_hetero_mut = "heterozygous $female_label " . geno_span('+w')
+  . " and $mutant_word $male_label " . geno_span('w-');
+$choice_hetero_wt = "heterozygous $female_label " . geno_span('+w')
+  . " and $wildtype_word $male_label " . geno_span('+-');
+$choice_homo_mut_mut = "homozygous $mutant_word $female_label " . geno_span('ww')
+  . " and $mutant_word $male_label " . geno_span('w-');
+$choice_homo_mut_wt = "homozygous $mutant_word $female_label " . geno_span('ww')
+  . " and $wildtype_word $male_label " . geno_span('+-');
+$choice_homo_wt_unknown = "homozygous $wildtype_word $female_label " . geno_span('++')
+  . " and $male_label of unknown genotype";
+
+@choices = (
+  $choice_hetero_mut,
+  $choice_hetero_wt,
+  $choice_homo_mut_mut,
+  $choice_homo_mut_wt,
+  $choice_homo_wt_unknown,
+);
+
+my %choice_for = (
+  '++|w-' => $choice_homo_wt_unknown,
+  '+w|+-' => $choice_hetero_wt,
+  '+w|w-' => $choice_hetero_mut,
+  'ww|+-' => $choice_homo_mut_wt,
+  'ww|w-' => $choice_homo_mut_mut,
+);
+my %choice_for_plain = (
+  '++|w-' => 'homozygous wildtype female ++ and male of unknown genotype',
+  '+w|+-' => 'heterozygous female +w and wildtype male +-',
+  '+w|w-' => 'heterozygous female +w and mutant male w-',
+  'ww|+-' => 'homozygous mutant female ww and wildtype male +-',
+  'ww|w-' => 'homozygous mutant female ww and mutant male w-',
+);
+$correct = $choice_for{"$female_genotype|$male_genotype"};
+$correct_plain = $choice_for_plain{"$female_genotype|$male_genotype"};
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+# ----------------------------
+# 3) Statement (PGML)
+# ----------------------------
+
+BEGIN_PGML
+The [$white_phenotype]* phenotype is an X-linked recessive disorder in fruit flies. The [$red_phenotype]*
+allele ([$allele_plus]*) is dominant to the white ([$mutant_word]*) allele ([$allele_w]*). The offspring of size
+[$progeny_size] from the mating of a single [$female_label]* and a single [$male_label]* are shown in the table below:
+
+[@ $table @]*
+
+**What are the genotypes of the parents in this cross?**
+
+[_]{$rb}
+END_PGML
+
+# ----------------------------
+# 4) Solution
+# ----------------------------
+
+BEGIN_PGML_SOLUTION
+The correct parental genotypes are: [$correct_plain].
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

@@ -1,0 +1,665 @@
+## DESCRIPTION
+## Select the alteration of chromosome structure that corresponds to the given description.
+## ENDDESCRIPTION
+## KEYWORDS('alterations to chromosome structure','descriptions','which one','multiple choice')
+## DBsubject('Genetics')
+## DBchapter('')
+## DBsection('')
+## Date('2026-08-19')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+
+DOCUMENT();
+
+loadMacros(
+    'PGstandard.pl',
+    'PGML.pl',
+    'PGchoicemacros.pl',
+    'parserRadioButtons.pl',
+    'PGcourse.pl',
+);
+
+TEXT(beginproblem());
+$showPartialCorrectAnswers = 0;
+
+#==========================================================
+# QUESTION DATA
+#==========================================================
+
+# All questions data
+@questions_data = (
+  {
+    'item_name' => '<strong>the failure of sister chromatids to separate properly during cell division</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'non-disjunction',
+  },
+  {
+    'item_name' => '<strong>the failure of homologous <span style="color: #008672; font-weight:700;">chromosome</span>s to separate properly during cell division</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+    ],
+    'correct' => 'non-disjunction',
+  },
+  {
+    'item_name' => '<strong>portion of the <span style="color: #008672; font-weight:700;">chromosome</span> is missing</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'deletion',
+  },
+  {
+    'item_name' => '<strong>a sequence of DNA is left out during DNA replication</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'deletion',
+  },
+  {
+    'item_name' => '<strong>a part of a <span style="color: #008672; font-weight:700;">chromosome</span> is left out during DNA replication</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'deletion',
+  },
+  {
+    'item_name' => '<strong>when a <span style="color: #008672; font-weight:700;">chromosome</span> breaks a part of it is lost</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'deletion',
+  },
+  {
+    'item_name' => '<strong>can result from <span style="color: #a16c04; font-weight:700;">genes</span> recombination where a part of a <span style="color: #008672; font-weight:700;">chromosome</span> is lost</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'duplications',
+      'non-reciprocal translocation',
+      'pericentric inversion',
+    ],
+    'correct' => 'deletion',
+  },
+  {
+    'item_name' => '<strong><span style="color: #008672; font-weight:700;">chromosome</span> in which is missing a group of <span style="color: #43861a; font-weight:700;">genes</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'deletion',
+  },
+  {
+    'item_name' => '<strong>portion of the <span style="color: #008672; font-weight:700;">chromosome</span> has been copied, resulting in extra genetic material</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'duplications',
+  },
+  {
+    'item_name' => '<strong>portion of the <span style="color: #008672; font-weight:700;">chromosome</span> has been copied, resulting extra copies of a gene</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'duplications',
+  },
+  {
+    'item_name' => '<strong>can result from <span style="color: #a16c04; font-weight:700;">genes</span> recombination where a part of a <span style="color: #008672; font-weight:700;">chromosome</span> is replicated</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'duplications',
+  },
+  {
+    'item_name' => '<strong><span style="color: #008672; font-weight:700;">chromosome</span> that has an extra copy of a group of <span style="color: #43861a; font-weight:700;">genes</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'reciprocal translocation',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'duplications',
+  },
+  {
+    'item_name' => '<strong>can change a metacentric <span style="color: #008672; font-weight:700;">chromosome</span> into a submetacentric <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>a pair of non-homologous <span style="color: #008672; font-weight:700;">chromosome</span>s swapping <span style="color: #43861a; font-weight:700;">genes</span> with each other</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>the exchange of broken <span style="color: #008672; font-weight:700;">chromosome</span> segments between two nonhomologous <span style="color: #008672; font-weight:700;">chromosome</span>s</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>two detached fragments of two different <span style="color: #008672; font-weight:700;">chromosome</span>s are switched</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>the Philadelphia <span style="color: #008672; font-weight:700;">chromosome</span> is formed from this alteration of <span style="color: #008672; font-weight:700;">chromosome</span>s 9 and 22</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'pericentric inversion',
+    ],
+    'correct' => 'reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>segments from two different <span style="color: #008672; font-weight:700;">chromosome</span>s have been exchanged</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'duplications',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+    ],
+    'correct' => 'reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>the transferring of a <span style="color: #008672; font-weight:700;">chromosome</span> segment from one <span style="color: #008672; font-weight:700;">chromosome</span> to another non-homologous <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'non-reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>the one-way transfer of a chromosomal segment from one non-homologous <span style="color: #008672; font-weight:700;">chromosome</span> to another</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'non-reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>a complete <span style="color: #008672; font-weight:700;">chromosome</span> that also has a group of <span style="color: #43861a; font-weight:700;">genes</span> from another <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'non-reciprocal translocation',
+  },
+  {
+    'item_name' => '<strong>can change two monocentric <span style="color: #008672; font-weight:700;">chromosome</span>s into an acentric <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'duplications',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>can change two monocentric <span style="color: #008672; font-weight:700;">chromosome</span>s into a dicentric <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #56225d; font-weight:700;">reversal</span> of the gene order within a <span style="color: #008672; font-weight:700;">chromosome</span> that does NOT include the <span style="color: #c1480a; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>two breaks and <span style="color: #56225d; font-weight:700;">reversal</span> of the <span style="color: #43861a; font-weight:700;">genes</span> occur on one arm of the <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>does NOT include the <span style="color: #c1480a; font-weight:700;">centromere</span> and both breaks occur in one arm of the <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>a portion of a single <span style="color: #008672; font-weight:700;">chromosome</span> arm has broken off, turned upside down, and reattached</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'duplications',
+      'paracentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>a portion of a single <span style="color: #008672; font-weight:700;">chromosome</span> arm has broken off, <span style="color: #56225d; font-weight:700;">reverse</span>d, and reattached in its original place</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>can result from <span style="color: #a16c04; font-weight:700;">genes</span> recombination where a part of a single <span style="color: #008672; font-weight:700;">chromosome</span> arm is <span style="color: #56225d; font-weight:700;">reverse</span>d</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>a group of <span style="color: #43861a; font-weight:700;">genes</span> on one arm of the <span style="color: #008672; font-weight:700;">chromosome</span> is the <span style="color: #56225d; font-weight:700;">reverse</span> of the normal order</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'paracentric inversion',
+  },
+  {
+    'item_name' => '<strong>a pair of homologous <span style="color: #008672; font-weight:700;">chromosome</span>s that both have duplicated <span style="color: #43861a; font-weight:700;">genes</span> and missing <span style="color: #43861a; font-weight:700;">genes</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong>the <span style="color: #56225d; font-weight:700;">reversal</span> of the gene order in a <span style="color: #008672; font-weight:700;">chromosome</span> that includes the <span style="color: #c1480a; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'duplications',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong>two breaks and <span style="color: #56225d; font-weight:700;">reversal</span> of the <span style="color: #43861a; font-weight:700;">genes</span> occurs on both arms or sides of the <span style="color: #c1480a; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong><span style="color: #c1480a; font-weight:700;">centromere</span> is included in the <span style="color: #56225d; font-weight:700;">reverse</span>d loop that is formed during synapsis</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'duplications',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong><span style="color: #56225d; font-weight:700;">reversal</span> of the <span style="color: #43861a; font-weight:700;">genes</span> that includes both arms of the <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'deletion',
+      'duplications',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong>includes the <span style="color: #c1480a; font-weight:700;">centromere</span> and there is a break point in each arm</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong>a portion of a <span style="color: #008672; font-weight:700;">chromosome</span> that includes both arms has broken off, turned upside down, and reattached</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'reciprocal translocation',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong>a portion of a <span style="color: #008672; font-weight:700;">chromosome</span> that includes both arms has broken off, <span style="color: #56225d; font-weight:700;">reverse</span>d, and reattached</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong>a group of <span style="color: #43861a; font-weight:700;">genes</span> including the <span style="color: #c1480a; font-weight:700;">centromere</span> is the <span style="color: #56225d; font-weight:700;">reverse</span> of the normal order</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+    ],
+    'correct' => 'pericentric inversion',
+  },
+  {
+    'item_name' => '<strong>can change two acrocentric <span style="color: #008672; font-weight:700;">chromosome</span>s into a metacentric <span style="color: #008672; font-weight:700;">chromosome</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'duplications',
+      'reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'Robertsonian translocation',
+  },
+  {
+    'item_name' => '<strong>fusion of two <span style="color: #008672; font-weight:700;">chromosome</span>s that have short p arms</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'duplications',
+      'reciprocal translocation',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'Robertsonian translocation',
+  },
+  {
+    'item_name' => '<strong>caused by breaks at or near the <span style="color: #c1480a; font-weight:700;">centromere</span>s of two acrocentric <span style="color: #008672; font-weight:700;">chromosome</span>s</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'Robertsonian translocation',
+  },
+  {
+    'item_name' => '<strong>in humans, these alterations only occur with <span style="color: #008672; font-weight:700;">chromosome</span>s 13, 14, 15, 21, and 22</strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'non-disjunction',
+      'non-reciprocal translocation',
+      'paracentric inversion',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'Robertsonian translocation',
+  },
+  {
+    'item_name' => '<strong>entire <span style="color: #008672; font-weight:700;">chromosome</span> has attached to another at the <span style="color: #c1480a; font-weight:700;">centromere</span></strong>',
+    'plural_choice' => 'alterations to <span style="color: #008672; font-weight:700;">chromosome</span> structure',
+    'singular_item' => 'description',
+    'choices' => [
+      'deletion',
+      'duplications',
+      'non-reciprocal translocation',
+      'pericentric inversion',
+      'Robertsonian translocation',
+    ],
+    'correct' => 'Robertsonian translocation',
+  },
+);
+
+#==========================================================
+# SELECT RANDOM QUESTION
+#==========================================================
+
+my $local_random = PGrandom->new();
+$local_random->srand($problemSeed);
+
+$question_idx = $local_random->random(0, scalar(@questions_data) - 1, 1);
+$q = $questions_data[$question_idx];
+
+$item_name = $q->{'item_name'};
+$plural_choice = $q->{'plural_choice'};
+$singular_item = $q->{'singular_item'};
+@choices = @{ $q->{'choices'} };
+$correct = $q->{'correct'};
+
+#==========================================================
+# SHUFFLE CHOICES (SEED-STABLE)
+#==========================================================
+
+my @choice_indices = (0 .. $#choices);
+my @choice_shuffled = ();
+while (@choice_indices) {
+  my $pick = $local_random->random(0, $#choice_indices, 1);
+  push @choice_shuffled, splice(@choice_indices, $pick, 1);
+}
+@choices = @choices[@choice_shuffled];
+
+#==========================================================
+# BUILD RADIO BUTTONS
+#==========================================================
+
+$rb = RadioButtons(
+  [@choices],
+  $correct,
+  labels        => 'ABC',
+  displayLabels => 1,
+  randomize     => 0,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+#==========================================================
+# PGML
+#==========================================================
+
+BEGIN_PGML
+
+Which one of the following [$plural_choice]* corresponds to the [$singular_item]* [$item_name]*?
+
+[_]{$rb}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+The correct answer is: [$correct]*
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();
+
