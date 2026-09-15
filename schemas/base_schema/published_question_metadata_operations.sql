@@ -1,10 +1,10 @@
 -- Bulk metadata is deliberately a narrow Question Library command.  It does
 -- not accept source, Revision, availability, ownership, or arbitrary JSON
--- mutations.  A replay receipt is actor-bound and preserves only the one
--- whole, ordered successful result for an identical request.
+-- mutations.  One transaction locks and validates the whole selection before
+-- writing, then returns its result in canonical Question-ID order (ASVS 2.3.3).
 SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.bulk_replace_published_question_metadata(
-    p_selection jsonb, p_patch jsonb, p_idempotency_key uuid
+    p_selection jsonb, p_patch jsonb
 ) RETURNS TABLE(question_id text, metadata_edit_number bigint)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -14,9 +14,6 @@ DECLARE
     distinct_count integer;
     normalized_selection jsonb;
     normalized_patch jsonb;
-    request_digest bytea;
-    existing_digest bytea;
-    existing_result jsonb;
     operation_result jsonb;
     selected record;
     current_metadata_edit_number bigint;
@@ -27,7 +24,6 @@ DECLARE
     set_topic boolean := false;
 BEGIN
     IF p_selection IS NULL OR jsonb_typeof(p_selection) <> 'array'
-       OR p_idempotency_key IS NULL
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Bulk Published Question metadata requires an active Instructor';
@@ -116,31 +112,8 @@ BEGIN
     ELSE
         normalized_patch := p_patch;
     END IF;
-    request_digest := pg_catalog.sha256(
-        pg_catalog.convert_to('ple:bulk-published-question-metadata:v1', 'UTF8')
-        || pg_catalog.decode('00', 'hex')
-        || pg_catalog.convert_to(normalized_selection::text, 'UTF8')
-        || pg_catalog.decode('00', 'hex')
-        || pg_catalog.convert_to(normalized_patch::text, 'UTF8'));
-    PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended(actor_id::text || ':' || p_idempotency_key::text, 0));
-    SELECT operation.request_digest, operation.result INTO existing_digest, existing_result
-      FROM ple_private.question_bulk_metadata_operation AS operation
-     WHERE operation.actor_account_id = actor_id AND operation.idempotency_key = p_idempotency_key;
-    IF FOUND THEN
-        IF existing_digest <> request_digest THEN
-            RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'Bulk Published Question metadata idempotency key belongs to a different request';
-        END IF;
-        RETURN QUERY
-        SELECT result.value ->> 'questionId', (result.value ->> 'metadataEditNumber')::bigint
-          FROM jsonb_array_elements(existing_result) WITH ORDINALITY AS result(value, position)
-         ORDER BY result.position;
-        RETURN;
-    END IF;
-
-    -- Lock every target in canonical Question-ID order and validate all of
-    -- them before the first write. An unavailable, missing, or forbidden
+    -- Lock every target in canonical Question-ID order (ASVS 2.3.4) and
+    -- validate all of them before the first write. An unavailable, missing, or forbidden
     -- target deliberately has the same whole-operation refusal surface.
     FOR selected IN
         SELECT value ->> 'questionId' AS selected_question_id,
@@ -183,35 +156,29 @@ BEGIN
     ) ORDER BY updated.question_id)
       INTO operation_result
       FROM updated AS updated;
-    INSERT INTO ple_private.question_bulk_metadata_operation(
-        actor_account_id, idempotency_key, request_digest, result, created_at
-    ) VALUES (
-        actor_id, p_idempotency_key, request_digest, operation_result,
-        pg_catalog.clock_timestamp()
-    );
     RETURN QUERY
     SELECT result.value ->> 'questionId', (result.value ->> 'metadataEditNumber')::bigint
       FROM jsonb_array_elements(operation_result) WITH ORDINALITY AS result(value, position)
      ORDER BY result.position;
 END
 $$;
-REVOKE ALL ON FUNCTION ple_private.bulk_replace_published_question_metadata(jsonb, jsonb, uuid)
+REVOKE ALL ON FUNCTION ple_private.bulk_replace_published_question_metadata(jsonb, jsonb)
     FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_private.bulk_replace_published_question_metadata(jsonb, jsonb, uuid)
+GRANT EXECUTE ON FUNCTION ple_private.bulk_replace_published_question_metadata(jsonb, jsonb)
     TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.bulk_replace_published_question_metadata(
-    p_selection jsonb, p_patch jsonb, p_idempotency_key uuid
+    p_selection jsonb, p_patch jsonb
 ) RETURNS TABLE(question_id text, metadata_edit_number bigint)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.bulk_replace_published_question_metadata(
-        p_selection, p_patch, p_idempotency_key)
+        p_selection, p_patch)
 $$;
-REVOKE ALL ON FUNCTION ple_api.bulk_replace_published_question_metadata(jsonb, jsonb, uuid)
+REVOKE ALL ON FUNCTION ple_api.bulk_replace_published_question_metadata(jsonb, jsonb)
     FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.bulk_replace_published_question_metadata(jsonb, jsonb, uuid)
+GRANT EXECUTE ON FUNCTION ple_api.bulk_replace_published_question_metadata(jsonb, jsonb)
     TO ple_app;
 RESET ROLE;

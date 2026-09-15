@@ -199,15 +199,15 @@
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `QuestionPoolSelectionEntropy` is separate from Question backend state.
 - [x] Returning to an Attempt preserves the Question Pool selections already made.
   - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_reusable_question_pool_selection` reads durable selections.
-  - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks exact retained selections.
+  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks exact retained selections.
 - [ ] Starting a new Attempt makes fresh selections from its Question Pools.
   - Mismatch: `crates/learning-data-access/src/postgres/assignment_delivery_start.rs` `current_attempt_start_from_rows` calls `reusable_pool_selection` when the persisted `question_pool_reuse_rule` is `reuse_selection`; `schemas/base_schema/attempt_access.sql` `read_reusable_question_pool_selection` returns the latest prior selection for the same Student and Assignment. `schemas/base_schema/attempts.sql` `question_pool_reuse_rule` permits that mode, so a new Attempt can reuse rather than freshly select its pool membership.
 - [x] Student Work preserves the exact Question Pool Revision and Published Question Revision delivered.
   - Evidence (source): `crates/question_model/src/student_work.rs` `QuestionPoolSelection` retains issued Question revision references.
-  - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the issued revision link.
+  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the issued revision link.
 - [x] Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
   - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `read_student_assessment_attempt_history_response_sources` retains `question_id` and `revision_number`.
-  - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
+  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
 
 ### Question Library
 
@@ -226,11 +226,16 @@
 - [ ] With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
   - Mismatch: no product test or design enforcement establishes archive as non-primary at this scale.
 - [ ] Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
-  - Mismatch: bounded browsing does not implement the required bulk operations.
+  - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
+  - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
 - [ ] Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
-  - Mismatch: no bulk Question metadata update operation was found.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionSharedMetadata` is the closed shared-metadata DTO; generated contracts bound its collection to 1,000 items.
+  - Evidence (source): `crates/server/src/question_library/shared_metadata.rs` `load_current_shared_metadata` owns the no-store current-metadata read; `crates/server/src/question_bulk_metadata.rs` owns the bounded all-or-none update command and validates canonical IDs before Store access.
+  - Evidence (runtime): fresh PostgreSQL 17 SQL/API proofs, independently rerun, covered read/write/read, stale all-or-none denial, clear, unauthorized, unvetted, archived, missing, and duplicate concealment, unchanged Revision count, and private-helper denial. Source review establishes once-only `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start; separate PostgreSQL proof uses explicit initial tags, rejects null elements without database/publication/object side effects, and preserves an intentional empty clear in a successor Revision.
+  - Evidence (test): temporary compiled Chromium component and strict-client proof accepted the selected metadata workflow, including stale and ambiguous refresh with no automatic second write; its mock/injected transport was not server-connected and the proof was removed.
+  - Mismatch: the connected HTTP route and discovery/search projection have not run. C366/C368, the 13k practical-cleanup row, and field-grammar C58 remain open.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
-  - Mismatch: search and filters exist, but bulk editing is absent.
+  - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
 
 #### Published Question identity
 

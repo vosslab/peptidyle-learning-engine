@@ -392,15 +392,21 @@ silently half-cleaned library state and avoids disclosing which selected referen
 or unauthorized.
 
 **Consequence.** Every selected canonical ID carries its current metadata Edit Number. The server
-normalizes the distinct nonempty set in canonical order, enforces one server-owned bounded maximum,
-locks and validates all targets before writing any, and either commits all replacements with new
-per-Question Edit Numbers or changes none. An actor-bound idempotency key plus canonical request
-digest returns the same ordered result on a true retry and rejects use of that key for a different
-request. Stale selection returns a whole `412`; invalid selection or patch returns `422`; the same
-key with another request returns `409`; inaccessible targets use the normal nonenumerating denial.
-The numeric batch maximum and future addition of another *stored shared search metadata field* are
+normalizes the distinct nonempty set in canonical order, enforces one server-owned bounded
+maximum, locks and validates all targets before writing any, and uses one transaction to either
+commit all replacements with new per-Question Edit Numbers or change none. Results use canonical
+Question-ID order. Stale selection returns a whole `412`; invalid selection or patch returns
+`422`; inaccessible targets use the normal nonenumerating denial. If a response is ambiguous, the
+client refreshes current metadata and Edit Numbers before deciding whether to submit another
+command; this boundary promises atomic CAS, not exactly-once delivery or replay receipts. The
+numeric batch maximum and future addition of another *stored shared search metadata field* are
 operational/schema decisions. A future field must join the same closed patch and CAS contract; no
 arbitrary JSON field patch is permitted.
+
+First publication seeds current tags once from the validated source: native `PLE authoring` and
+`Pilot` tags when present, or an empty WebWork list. Thereafter tags are database-owned current
+metadata. A successor preserves an intentional clear unless an authorized later metadata command
+replaces it.
 
 **Owner.** [CONTRACTS.md](CONTRACTS.md)'s Bulk Published Question metadata boundary;
 C365-C368 and C893 implement it in the active
@@ -727,30 +733,30 @@ Assessments require the daughter Course Instructor's review and approval.
 Change Proposals never change daughters directly; accepted changes reach them
 through the normal Blueprint update workflow.
 
-### Blueprint fork updates are explicit, selective, and compare from immutable baselines
+### Blueprint fork updates are explicit selective saves
 
-**Decision.** A fork records one immutable source origin and a private sync baseline for each
-selectable unit. Status is exactly `up_to_date`, `updates_available`,
-`updates_available_with_conflicts`, `conflicts_require_manual_review`, or `source_unavailable`.
-The source is readable only to the fork owner when it is Public or Archived; if the source becomes
-Private, the fork reports nonenumerating `source_unavailable`.
+**Decision.** A fork's existing immutable origin identifies its source Blueprint Course and exact
+source Blueprint Revision. Future update review compares that origin Revision, an explicitly chosen
+newer source Revision, and the fork's current immutable Revision. The comparison includes the
+complete reusable content tree: module labels, module and Assessment structure and order, and each
+Blueprint Assessment's settings, Questions, and Pools. Current short and long names participate as
+metadata. No separate per-unit JSON baseline or public comparison-state vocabulary is persisted.
 
-Selectable units are short name, long name, each whole Blueprint Assessment by stable reference
-(including its settings, Questions, and Pools), and the ordered Assessment list. Fork sync never
-copies or compares ownership, visibility, Stars, Watches, adoption, Course data, or Student data.
-For each unit, a three-way base/source/fork comparison classifies the candidate as `safe`,
-`already_applied`, `conflict`, or `not_applicable`; only `safe` candidates may apply. A
-server-issued candidate identity carries digests. Applying it requires the source and fork Revision,
-metadata ETag, and request-checksum CAS/idempotency checks; one candidate is processed per request,
-no value is overwritten automatically, and only an applied unit advances its sync baseline.
+Only the fork owner may inspect a source that is Public or Archived. An unavailable or Private
+source remains nonenumerating. The Instructor explicitly selects which displayed changes to bring
+forward; no source change is applied automatically. One request may select several related changes.
+The server constructs and validates one coherent complete fork tree, then uses the ordinary
+expected-current Revision CAS to save all selected content changes as one new immutable Blueprint
+Revision. Selected name changes use the ordinary metadata ETag in the same authorized operation.
 
 **Why.** A fork must remain independently controlled while newer source work is easy to discover,
 review, and selectively bring forward without a hidden overwrite or source-information leak.
 
-**Consequence.** C880-C884 own the schema, canonical comparison, typed data access, server
-operation, and connected proof in the Human Guidance compliance plan. C413 may provide the
-Instructor UI only after C884. Question-level hunk selection is deliberately unlocked: it is an
-audited N/A design permission, not a blocker for whole-unit selective update.
+**Consequence.** C880-C884 remain open for the comparison, authorized review, selection, coherent
+save, and connected proof in the Human Guidance compliance plan. They reuse the existing origin and
+immutable Blueprint Revisions rather than adding sync-baseline persistence, a merge framework,
+candidate digests, replay receipts, or one-unit-per-request restrictions. C413 may provide the
+Instructor UI only after C884. Question-level hunk selection remains optional rather than a blocker.
 
 ### Canonical Blueprint JSON is the comparison and exchange form
 
@@ -1083,7 +1089,7 @@ is exactly `warn_inactive` or `notify_archive`; archive and delete never
 notice. Its recipients are
 the deduplicated union of the Course's assigned Instructor and active
 Instructor memberships/accounts. A leaseable receipt records an idempotency
-key, provider acceptance, and delivered outcome. A redacted notice directs the
+key and provider acceptance. A redacted notice directs the
 recipient to sign in; it excludes Course identifiers and title, raw IDs,
 FERPA data, a capability, and a recovery link.
 
@@ -1092,17 +1098,19 @@ staff without turning an email provider, the Live Demo, or a browser-facing
 path into educational-record authority.
 
 **Consequence.** The notifier capability claims one receipt at a time with a
-lease and `SKIP LOCKED`, derives and returns exactly one verified Instructor
-destination rather than offering generic Account lookup, and cannot create a
-second send for the same identity. A receipt starts with `next_attempt_at =
+lease and `SKIP LOCKED`, derives the current eligible recipient and current
+verified Instructor destination on every claim rather than storing an address
+snapshot or offering generic Account lookup, and cannot create a second send
+for the same identity. A receipt starts with `next_attempt_at =
 due_at`. At one evaluated timestamp, a claim requires the action still be due,
 `next_attempt_at` be due, no provider acceptance, and no lease or an expired
 lease; it orders by `(due_at, id)`, increments the attempt count, and advances
 `next_attempt_at` to lease expiry. The durable idempotency key exists before a
 provider call: a crash before it leaves the lease to expire, while a crash
 after it reclaims only after expiry and reuses that key. Provider acceptance is
-terminal for sending; provider callbacks update that same receipt and key to
-delivered. A recorded `FailureRecorded` clears the lease and sets
+terminal for sending; the boundary makes no inbox-delivery claim and has no
+delivery callback or provider exactly-once promise. A recorded pre-acceptance
+failure clears the lease and sets
 `next_attempt_at = failed_at + min(3600 seconds, 60 seconds * 2^(attempt_count
 - 1))`. An action no longer due cannot retry, and an accepted receipt never
 resends. `NotConfigured` records a non-send failure and never reports fake

@@ -13,6 +13,30 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- C365/C367/C893 now have accepted bounded backend evidence, not a Question Library workflow
+  closure. `PublishedQuestionSharedMetadata` is a closed DTO with generated 1,000-item bounds;
+  the current-metadata read and typed update path validate canonical-ID HMAC before Store access,
+  use no-store responses, and retain only the all-or-none current-state contract. Fresh PostgreSQL
+  17 SQL/API proof and an independent rerun covered read/write/read, stale denial with no
+  writes, intentional clear, concealed unauthorized/unvetted/archived/missing/duplicate cases,
+  unchanged Revision count, and private-helper denial. New native publications initialize only
+  canonical `PLE authoring`/`Pilot` tags; WebWork is empty. The explicit SQL/API initial-tag proof
+  rejects null tag elements without database/publication/object side effects, and a cleared empty
+  list survives a successor Revision. The narrow PostgreSQL LDA library check passed. Temporary
+  compiled Chromium component and strict-client evidence accepted sorted selection/Edit Numbers,
+  closed replace/clear, virtualization, stale/ambiguous refresh with no automatic second write,
+  generic denial, filter clearing, and zero critical/serious axe findings; it used mock/injected
+  transport, not a connected server, and the proof was removed. Connected HTTP and discovery
+  projection remain unverified because the full server build is blocked by the existing AWS Smithy
+  incompatibility. C58 has accepted actual-source parser evidence for ordinary words, quotes, minus,
+  PLE fields, literal unknown tokens, empty fields matching nothing, and exact-ID-plus-filter behavior, but its connected
+  HTTP/search projection remains unverified. C366/C368 and C337/C340 therefore remain open.
+
+- C59 now provides native Search tips beside the ordinary search input. An accepted corrected desktop
+  component proof showed words, quotes, minus, PLE fields, and examples without obscuring normal
+  filters or bulk controls; the full `./check_codebase.sh` gate passed. Large-library runtime
+  narrowing remains open because C58's connected HTTP/search projection is still blocked.
+
 - C523 has accepted independent PostgreSQL 17 actual-API receipts for the three Course Instance
   Assessment due/late defaults. Direct and reusable-content creation boundaries default late work
   to `reject`; an Attempt under that rule pins its immutable expiration to the effective Due date,

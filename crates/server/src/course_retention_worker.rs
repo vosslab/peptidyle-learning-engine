@@ -15,8 +15,7 @@ use learning_data_access::{
 use question_model::Timestamp;
 
 use crate::course_retention_notification_delivery::{
-    CourseRetentionNotificationDelivery, CourseRetentionNotificationDeliveryOutcome,
-    claim_and_deliver_one_course_retention_notification,
+    CourseRetentionNotificationDelivery, claim_and_deliver_one_course_retention_notification,
 };
 
 const RETENTION_SWEEP_INTERVAL: Duration = Duration::from_secs(60);
@@ -82,9 +81,8 @@ where
                 tracing::warn!(event = "course_retention_notification_attempt_failed", error = %error);
                 break;
             }
-            Ok(None) => break,
-            Ok(Some(CourseRetentionNotificationDeliveryOutcome::FailureRecorded(_))) => {}
-            Ok(Some(CourseRetentionNotificationDeliveryOutcome::ProviderAccepted)) => {}
+            Ok(false) => break,
+            Ok(true) => {}
         }
     }
 

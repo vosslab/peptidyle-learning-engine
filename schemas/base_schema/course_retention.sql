@@ -75,13 +75,16 @@ AS $$
 
         UNION ALL
 
+        -- ASVS 14.2.4/14.2.7: deletion follows the configured absolute
+        -- retention schedule; the observed archive timestamp is evidence only.
         SELECT course.course_id,
                'delete'::text,
-               course.student_data_archived_at + policy.delete_after_archive,
+               course.retention_starts_at + policy.archive_after_retention_start
+                   + policy.delete_after_archive,
                course.student_data_archived_at
           FROM ple_data.course_instance AS course
           CROSS JOIN policy
-         WHERE course.student_data_archived_at IS NOT NULL
+         WHERE course.retention_starts_at IS NOT NULL
            AND course.student_data_deleted_at IS NULL
     )
     SELECT scheduled.course_id, scheduled.due_action, scheduled.due_at,

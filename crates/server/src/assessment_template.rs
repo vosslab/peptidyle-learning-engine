@@ -8,15 +8,17 @@ use axum::{
     extract::{Path, Request, State},
     http::{HeaderMap, HeaderValue, StatusCode, header::COOKIE, header::ETAG, header::IF_MATCH},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use learning_data_access::{
-    AssessmentTemplateStore, SaveAssessmentTemplateInput, SessionTokenHash, StoreError,
+    AssessmentTemplateStore, CreateAssessmentFromTemplateInput, LiveAssessmentWorkspace,
+    SaveAssessmentTemplateInput, SessionTokenHash, StoreError,
     postgres::{PostgresAssessmentTemplateStore, PostgresSessionStore},
 };
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentType, ProductRole,
+    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceReference,
+    ProductRole,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -45,6 +47,10 @@ pub fn assessment_template_router(
             "/api/assessment-templates/{assessment_template_id}",
             get(read_template).put(save_template),
         )
+        .route(
+            "/api/course-instances/{course}/assessments/from-template",
+            post(create_assessment_from_template),
+        )
         .with_state(RouteState {
             sessions,
             templates: Arc::new(templates),
@@ -72,6 +78,14 @@ struct SaveAssessmentTemplateRequest {
     name: AssessmentTemplateName,
     assessment_type: AssessmentType,
     settings: AssessmentTemplateSettings,
+}
+
+/// One owned Template source and one title for a fresh Course Assessment.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct CreateAssessmentFromTemplateRequest {
+    template_id: AssessmentTemplateId,
+    title: AssessmentTitle,
 }
 
 async fn list_templates(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -170,6 +184,37 @@ async fn save_template(
     }
 }
 
+async fn create_assessment_from_template(
+    State(state): State<RouteState>,
+    Path(value): Path<String>,
+    request: Request,
+) -> Response {
+    let course = match CourseInstanceReference::from_str(&value) {
+        Ok(value) => value,
+        Err(_) => return concealed_assessment(),
+    };
+    let session = match instructor_session_hash(&state, request.headers()).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let request = match json_request::<CreateAssessmentFromTemplateRequest>(request).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let input = CreateAssessmentFromTemplateInput {
+        template_id: request.template_id,
+        title: request.title,
+    };
+    match state
+        .templates
+        .create_assessment_from_template(session, course, input)
+        .await
+    {
+        Ok(assessment) => assessment_response(StatusCode::CREATED, &assessment),
+        Err(error) => copy_store_error_response(error),
+    }
+}
+
 async fn json_request<T: for<'de> Deserialize<'de>>(request: Request) -> Result<T, Response> {
     if !has_json_content_type(request.headers()) {
         return Err(route_error(
@@ -246,6 +291,17 @@ fn template_response(status: StatusCode, template: AssessmentTemplate) -> Respon
     }
 }
 
+fn assessment_response(status: StatusCode, assessment: &LiveAssessmentWorkspace) -> Response {
+    let mut response = crate::auth::no_store((status, Json(assessment)).into_response());
+    match HeaderValue::from_str(&format!("\"{}\"", assessment.edit_number.value())) {
+        Ok(value) => {
+            response.headers_mut().insert(ETAG, value);
+            response
+        }
+        Err(_) => route_error(StatusCode::SERVICE_UNAVAILABLE, "Assessment is unavailable"),
+    }
+}
+
 async fn instructor_session_hash(
     state: &RouteState,
     headers: &HeaderMap,
@@ -310,8 +366,35 @@ fn store_error_response(error: StoreError) -> Response {
     }
 }
 
+fn copy_store_error_response(error: StoreError) -> Response {
+    match error {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => {
+            concealed_assessment()
+        }
+        StoreError::Conflict
+        | StoreError::RetryableTransaction
+        | StoreError::AlreadyExists
+        | StoreError::LifecycleConflict => {
+            route_error(StatusCode::CONFLICT, "Assessment conflicts")
+        }
+        StoreError::InvalidRecord(_) => {
+            route_error(StatusCode::UNPROCESSABLE_ENTITY, "Assessment is invalid")
+        }
+        StoreError::AssessmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => {
+            route_error(StatusCode::SERVICE_UNAVAILABLE, "Assessment is unavailable")
+        }
+    }
+}
+
 fn concealed() -> Response {
     route_error(StatusCode::NOT_FOUND, "Assessment Template not found")
+}
+
+fn concealed_assessment() -> Response {
+    route_error(StatusCode::NOT_FOUND, "Assessment not found")
 }
 
 fn unavailable() -> Response {
@@ -373,6 +456,28 @@ mod tests {
         assert!(
             serde_json::from_str::<CreateAssessmentTemplateRequest>(
                 r#"{"name":"Weekly practice","assessmentType":"assignment"}"#,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn assessment_copy_payload_is_closed_and_validated() {
+        assert!(
+            serde_json::from_str::<CreateAssessmentFromTemplateRequest>(
+                r#"{"templateId":"00000000-0000-0000-0000-000000000001","title":"Weekly practice"}"#,
+            )
+            .is_ok()
+        );
+        assert!(
+            serde_json::from_str::<CreateAssessmentFromTemplateRequest>(
+                r#"{"templateId":"00000000-0000-0000-0000-000000000001","title":"Weekly practice","course":"C1"}"#,
+            )
+            .is_err()
+        );
+        assert!(
+            serde_json::from_str::<CreateAssessmentFromTemplateRequest>(
+                r#"{"templateId":"not-a-uuid","title":"Weekly practice"}"#,
             )
             .is_err()
         );

@@ -50,7 +50,8 @@ SET search_path = pg_catalog AS $$
        AND cardinality(p_tags) <= 64
        AND NOT EXISTS (
            SELECT 1 FROM unnest(p_tags) AS tag(value)
-            WHERE value <> btrim(value)
+            WHERE value IS NULL
+               OR value <> btrim(value)
                OR char_length(value) NOT BETWEEN 1 AND 120
                OR value ~ '[[:cntrl:]]'
        )
@@ -266,25 +267,6 @@ COMMENT ON TABLE ple_data.question_availability_event IS
 -- The later security-definer source reader needs namespace resolution only;
 -- its own fixed query and RLS policies remain the data boundary.
 GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
-RESET ROLE;
-
--- This is a private replay receipt, not an editable Question field or a
--- public audit feed.  The later C365 command is its sole writer and reader.
-SET LOCAL ROLE ple_private_owner;
-CREATE TABLE ple_private.question_bulk_metadata_operation (
-    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
-    idempotency_key uuid NOT NULL,
-    request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
-    result jsonb NOT NULL CHECK (jsonb_typeof(result) = 'array'),
-    created_at timestamptz NOT NULL,
-    PRIMARY KEY (actor_account_id, idempotency_key)
-);
-ALTER TABLE ple_private.question_bulk_metadata_operation ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_bulk_metadata_operation FORCE ROW LEVEL SECURITY;
-CREATE POLICY question_bulk_metadata_operation_private_owner_access
-    ON ple_private.question_bulk_metadata_operation
-    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-REVOKE ALL ON TABLE ple_private.question_bulk_metadata_operation FROM PUBLIC;
 RESET ROLE;
 
 -- This is deliberately the only Question-fork capability in the lineage

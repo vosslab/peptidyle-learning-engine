@@ -408,13 +408,13 @@ SET search_path = pg_catalog, ple_data AS $$
 $$;
 CREATE FUNCTION ple_api.course_display_for_assessment_attempt(p_course_id uuid)
 RETURNS TABLE (
-    course_reference_number bigint,
+    course_reference_number text,
     course_short_name text,
     course_long_name text,
     course_theme text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
-    SELECT course.reference_number,
+    SELECT course.public_reference,
            course.course_short_name,
            course.course_long_name,
            course.course_theme
@@ -439,7 +439,7 @@ SET LOCAL ROLE ple_private_owner;
 -- the browser.
 CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
     p_course_reference_number bigint,
-    p_assessment_reference_number bigint
+    p_assessment_public_reference text
 ) RETURNS TABLE (
     student_record_id uuid,
     assessment_id uuid,
@@ -466,14 +466,14 @@ DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE student_record_id_value uuid;
 BEGIN
     IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
-       OR p_assessment_reference_number NOT BETWEEN 1 AND 2147483647 THEN
+       OR p_assessment_public_reference IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt start is unavailable';
     END IF;
 
     SELECT assessment.* INTO assessment_row
       FROM ple_data.assessment AS assessment
-     WHERE assessment.reference_number = p_assessment_reference_number;
+     WHERE assessment.public_reference = p_assessment_public_reference;
     IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
         assessment_row.course_id
     ) IS DISTINCT FROM p_course_reference_number THEN
@@ -539,14 +539,14 @@ BEGIN
 END $$;
 
 -- The start response reads its title and instructions from the retained
--- Assessment Attempt evidence.  Course and Assessment reference numbers are stable
+-- Assessment Attempt evidence. Course and Assessment public references are stable
 -- route identities, while authored content is never re-read from mutable
 -- Assessment configuration after an Assessment Attempt exists.
 CREATE FUNCTION ple_private.read_started_student_assessment_attempt(
     p_assessment_attempt_id uuid
 ) RETURNS TABLE (
     assessment_attempt_reference_number bigint,
-    course_reference_number bigint,
+    course_reference_number text,
     assessment_reference_number text,
     assessment_attempt_number integer,
     assessment_title text,
@@ -561,13 +561,14 @@ BEGIN
     END IF;
     RETURN QUERY
     SELECT assessment_attempt.reference_number,
-           ple_api.course_reference_number_for_assessment_attempt(assessment.course_id),
+           course.course_reference_number,
            assessment.public_reference,
            assessment_attempt.assessment_attempt_number,
            assessment_attempt.assessment_title,
            assessment_attempt.assessment_instructions
       FROM ple_private.assessment_attempt AS assessment_attempt
       JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id
+      JOIN LATERAL ple_api.course_display_for_assessment_attempt(assessment.course_id) AS course ON true
      WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id
        AND ple_api.current_session_account_owns_student_record(
            assessment.course_id, assessment_attempt.student_record_id

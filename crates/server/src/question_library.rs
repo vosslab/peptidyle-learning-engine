@@ -44,6 +44,8 @@ const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_PAGE_SIZE: u16 = 100;
 
 mod paging;
+mod search_query;
+mod shared_metadata;
 
 #[derive(Clone)]
 struct QuestionLibraryRouteState {
@@ -78,6 +80,10 @@ pub fn question_library_router(
         .route(
             "/api/questions/by-id/{question_id}/restore",
             post(restore_question),
+        )
+        .route(
+            "/api/questions/bulk-metadata/current",
+            post(shared_metadata::load_current_shared_metadata),
         )
         .with_state(QuestionLibraryRouteState {
             sessions,
@@ -193,9 +199,10 @@ async fn search_questions(
             );
         }
     };
+    let text_query = search_query::QuestionTextQuery::parse(query.text.as_deref());
     let mut matching = summaries
         .iter()
-        .filter(|entry| matches_query(entry, &query))
+        .filter(|entry| matches_query(entry, &query, &text_query))
         .collect::<Vec<_>>();
     let (items, next_cursor) = match paging::page(&mut matching, &query) {
         Ok(page) => page,
@@ -514,6 +521,9 @@ struct ResolvedQuestionLibraryEntry {
     summary: QuestionSummary,
     prompt: Vec<question_model::QuestionContentBlock>,
     authored_by_current_account: bool,
+    used_in_current_account_courses: bool,
+    subject: Option<String>,
+    topic: Option<String>,
 }
 
 async fn entries_to_summaries(
@@ -598,6 +608,10 @@ async fn answer_free_question_library_entry(
 fn webwork_question_library_entry(
     entry: PublishedQuestionLibraryEntry,
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
+    let used_in_current_account_courses = entry.used_in_current_account_courses;
+    let tags = entry.shared_metadata.tags.clone();
+    let subject = entry.shared_metadata.subject.clone();
+    let topic = entry.shared_metadata.topic.clone();
     Ok(ResolvedQuestionLibraryEntry {
         summary: QuestionSummary {
             question_id: entry.question_revision.question_id.clone(),
@@ -610,7 +624,7 @@ fn webwork_question_library_entry(
             metadata: question_model::QuestionMetadata {
                 question_title: entry.question_title,
                 question_description: entry.question_description,
-                tags: Vec::new(),
+                tags,
                 question_license: Some(entry.question_license),
                 question_citation: None,
                 language: "en".to_string(),
@@ -621,6 +635,9 @@ fn webwork_question_library_entry(
         },
         prompt: Vec::new(),
         authored_by_current_account: entry.authored_by_current_account,
+        used_in_current_account_courses,
+        subject,
+        topic,
     })
 }
 
@@ -649,6 +666,9 @@ async fn resolved_ple_question(
     let compiled = document.compile().map_err(|_| ())?;
     let presentation = compiled.presentation();
     let mut metadata = presentation.metadata().clone();
+    let used_in_current_account_courses = entry.used_in_current_account_courses;
+    let subject = entry.shared_metadata.subject.clone();
+    let topic = entry.shared_metadata.topic.clone();
     if metadata.question_title != entry.question_title
         || metadata.question_description != entry.question_description
         || metadata.question_license.as_ref() != Some(&entry.question_license)
@@ -656,6 +676,7 @@ async fn resolved_ple_question(
     {
         return Err(());
     }
+    metadata.tags = entry.shared_metadata.tags.clone();
     metadata.question_license = Some(entry.question_license.clone());
     Ok(ResolvedQuestionLibraryEntry {
         summary: QuestionSummary {
@@ -675,38 +696,20 @@ async fn resolved_ple_question(
         },
         prompt: presentation.prompt().to_vec(),
         authored_by_current_account: entry.authored_by_current_account,
+        used_in_current_account_courses,
+        subject,
+        topic,
     })
 }
 
-fn matches_query(entry: &&ResolvedQuestionLibraryEntry, query: &QuestionSearchRequest) -> bool {
+fn matches_query(
+    entry: &&ResolvedQuestionLibraryEntry,
+    query: &QuestionSearchRequest,
+    text_query: &search_query::QuestionTextQuery,
+) -> bool {
     let summary = &entry.summary;
-    if let Some(exact_question_id) = query.exact_question_id() {
-        return summary.question_id == exact_question_id;
-    }
-    if let Some(text) = &query.text {
-        let haystack = format!(
-            "{} {} {} {}",
-            summary.metadata.question_title,
-            summary.metadata.question_description,
-            summary
-                .metadata
-                .tags
-                .iter()
-                .map(|tag| tag.as_str())
-                .collect::<Vec<_>>()
-                .join(" "),
-            summary
-                .authorship
-                .authors
-                .iter()
-                .map(|author| author.display_name.as_str())
-                .collect::<Vec<_>>()
-                .join(" ")
-        )
-        .to_lowercase();
-        if !text.split(' ').all(|word| haystack.contains(word)) {
-            return false;
-        }
+    if !text_query.matches(entry) {
+        return false;
     }
     if !query.author_names.is_empty()
         && !summary.authorship.authors.iter().any(|author| {
@@ -749,7 +752,9 @@ fn matches_query(entry: &&ResolvedQuestionLibraryEntry, query: &QuestionSearchRe
     {
         return false;
     }
-    if query.used_in_my_courses == QuestionSearchCourseUse::Used {
+    if query.used_in_my_courses == QuestionSearchCourseUse::Used
+        && !entry.used_in_current_account_courses
+    {
         return false;
     }
     query.authorship != QuestionSearchAuthorship::AuthoredByCurrentAccount
@@ -815,7 +820,12 @@ fn facets(entries: &[&ResolvedQuestionLibraryEntry]) -> QuestionSearchFacets {
                 },
             )
             .collect(),
-        used_in_my_courses: QuestionSearchCourseUseFacet { used: 0 },
+        used_in_my_courses: QuestionSearchCourseUseFacet {
+            used: entries
+                .iter()
+                .filter(|entry| entry.used_in_current_account_courses)
+                .count() as u64,
+        },
     }
 }
 

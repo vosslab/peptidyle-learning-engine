@@ -19,7 +19,7 @@
 - [ ] Instructor pages should be composed around the teaching task rather than collections of padded components.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_live_page.tsx` presents Assignment-named tasks, and no behavior or rendered-layout evidence verifies this broad Instructor-interface judgment.
 - [ ] Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
-  - Mismatch: `src/pages/course_list_page.tsx` has a dense Course Instance row, but no Assessment-named list exists; `src/pages/assignments_due_soon_page.tsx` still presents Assignments.
+  - Mismatch: `src/pages/course_list_page.tsx` has a dense Course Instance row and `src/pages/assessments_due_soon_page.tsx` has an Assessment list, but no accepted visual evidence establishes the shared spreadsheet-like scanning judgment.
 - [ ] Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders the server-authorized answer-free Assessment projection, loads only the manifest and selected Question, disables native response controls, and provides no Student Work, Assessment Attempt, submission, or grade action.
   - Evidence (source): `crates/server/src/assessment_student_view.rs` `assessment_student_view_router`, `crates/learning-data-access/src/postgres/assessment_student_view.rs` `PostgresInstructorStudentViewStore`, and `schemas/base_schema/assessment_student_view.sql` `load_instructor_student_view_question_source` implement the authorized no-write server, Store, and SQL boundaries.
@@ -155,29 +155,44 @@
 - [x] Results should show the information needed to judge relevance without opening each Question.
   - Evidence (source): `src/pages/library_page.tsx` `question-library-row` shows title, summary, authors, and identifier.
 - [x] Search results should support filters for narrowing the Question Library.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, Course-use, and capability filters.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, and capability filters.
 - [x] Filters should update the current search rather than start a separate workflow.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` resets one `QuestionLibraryBrowseSession` with the updated query.
 - [ ] Search should support Google-like syntax for more precise queries.
-  - Mismatch: `src/pages/library_page_model.ts` exposes plain `search` text and no parsed advanced query syntax.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `QuestionTextQuery::parse` accepts ordinary AND words, quoted phrases, minus exclusions, PLE field tags, and exact Question IDs with filters.
+  - Evidence (test): an accepted temporary actual-source `rustc` harness covered those forms, including unknown tokens as literals and empty fields matching nothing; the harness was removed.
+  - Mismatch: the C58 connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Quoted text should search for an exact phrase.
-  - Mismatch: no exact-phrase query parser or test exists.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `term_value` retains quoted text as one exact phrase term.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered quoted phrases; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] A minus sign should exclude matching terms.
-  - Mismatch: no exclusion query parser or test exists.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `exclusion_prefix` records a leading minus as an excluded search term.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered excluded terms; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Search should support PubMed-like field tags such as `topic:genetics`.
-  - Mismatch: no field-tag query parser or `topic` filter exists.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `field_prefix` recognizes `topic` and `SearchTerm::matches` applies it to Question metadata.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered PLE field tags; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Field tags should use PLE concepts and vocabulary.
-  - Mismatch: field tags are not implemented.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` limits field tags to PLE terms: `subject`, `topic`, `tags`, `type`, and `author`.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered the closed field set and unknown-token literal behavior; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Useful fields may include subject, topic, tags, Question Type, and author.
-  - Mismatch: the UI has tags, Question Type, and author filters but lacks subject and topic fields and field-tag search.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `SearchField` and `SearchTerm::matches` support `subject`, `topic`, `tags`, `type`, and `author`.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered every field; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Simple and advanced searches should use the same search box.
-  - Mismatch: advanced search syntax is not implemented.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` provides one Search input, and `crates/server/src/question_library.rs` passes its optional `text` query value to `QuestionTextQuery::parse` before matching.
+  - Evidence (runtime): accepted C59 component proof confirms the visible Search box and its normal-flow Search tips.
+  - Mismatch: connected HTTP/API search projection is unverified because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [x] Instructors should not need to learn search syntax to use Search Question Library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` exposes ordinary search and labeled filter controls without syntax requirements.
-- [ ] The interface should make useful search syntax discoverable when needed.
-  - Mismatch: no search syntax exists or is documented in the interface.
+- [x] The interface should make useful search syntax discoverable when needed.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders `question-library-search-tips` as a native disclosure beside the ordinary Search box with words, quotes, minus, PLE fields, and examples.
+  - Evidence (runtime): accepted corrected desktop `src/pages/library_page.tsx` `LibraryPage` component proof opened Search tips without obscuring filters or bulk controls; the full `./check_codebase.sh` gate passed.
 - [ ] Search syntax should help expert users quickly narrow a very large Question Library.
-  - Mismatch: no advanced search syntax exists.
+  - Mismatch: the help is available, but connected search projection and large-library runtime evidence remain unverified because the server build is blocked by the AWS Smithy dependency incompatibility.
 - [x] Search terms and active filters should remain visible while reviewing results.
   - Evidence (source): `src/pages/library_page.tsx` `query` signal remains bound to the search input and filter selects while rows render.
 - [x] Clearing or changing part of a search should be quick.
@@ -206,14 +221,18 @@
 
 #### Assessments
 
-- [ ] The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
-  - Mismatch: `src/ribbon/ribbon_catalog.ts` uses "Assignments Due Soon" and "My Assignment Templates"; templates are a `future` destination.
+- [x] The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
+  - Evidence (source): `src/ribbon/ribbon_catalog.ts` `assessmentsDueSoon` and `assessmentTemplates` are admitted route destinations with the required labels.
+  - Evidence (runtime): accepted independent `src/ribbon/app_ribbon.tsx` `AppRibbon` and `src/ribbon/ribbon_contract.ts` `deriveRibbonModel` proof verified both actual Ribbon choices and routes.
 - [ ] **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
-  - Mismatch: `src/pages/assignments_due_soon_page.tsx` implements the retired Assignment term rather than Assessments.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` presents upcoming deadlines across Courses the Instructor teaches.
+  - Mismatch: no accepted runtime or visual receipt establishes the intended attention emphasis.
 - [ ] Assessment lists should make Course, release status, due date, and other important state easy to scan.
-  - Mismatch: `src/pages/assignments_due_soon_page.tsx` implements an Assignment list rather than an Assessment list.
-- [ ] **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
-  - Mismatch: `assignmentTemplates` is a `future` Ribbon destination.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` presents Assessment status, Course, and due time.
+  - Mismatch: no accepted runtime or visual receipt establishes the required scanning behavior.
+- [x] **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
+  - Evidence (source): `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` foregrounds reusable Assessment settings and excludes Questions, Pools, and Course dates.
+  - Evidence (runtime): accepted independent `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` proof verified the heading, lede, legend, and normal Ribbon route without claiming HTTP, CRUD, or copy workflow acceptance.
 - [ ] Assessment editing has two editors:
   - Mismatch: current editors are Assignment-named.
   - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
@@ -235,9 +254,11 @@
 - [ ] Answer-choice randomization belongs to the Question, not the Assessment.
   - Mismatch: the implemented explanatory text uses Question and Assignment, not the required Assessment terminology.
 - [ ] **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
-  - Mismatch: the route implements upcoming Assignments, not Assessments.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` calls `listAssessmentsDueSoon` and states its across-Courses scope.
+  - Mismatch: no accepted connected runtime receipt verifies authorized cross-Course results.
 - [ ] Assessments Due Soon shows the Course and due time for each Assessment.
-  - Mismatch: `src/pages/assignments_due_soon_page.tsx` displays Course and due time for Assignments, not Assessments.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders `courseLongName` and a formatted due time.
+  - Mismatch: no accepted runtime or visual receipt verifies populated rows.
 
 #### High-consequence actions
 

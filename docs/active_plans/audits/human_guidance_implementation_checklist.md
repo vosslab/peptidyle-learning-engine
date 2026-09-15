@@ -476,7 +476,7 @@ PLE product or code behavior.
 - [ ] Instructor pages should be composed around the teaching task rather than collections of padded components.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_live_page.tsx` presents Assignment-named tasks, and no behavior or rendered-layout evidence verifies this broad Instructor-interface judgment.
 - [ ] Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
-  - Mismatch: `src/pages/course_list_page.tsx` has a dense Course Instance row, but no Assessment-named list exists; `src/pages/assignments_due_soon_page.tsx` still presents Assignments.
+  - Mismatch: `src/pages/course_list_page.tsx` has a dense Course Instance row and `src/pages/assessments_due_soon_page.tsx` has an Assessment list, but no accepted visual evidence establishes the shared spreadsheet-like scanning judgment.
 - [ ] Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders the server-authorized answer-free Assessment projection, loads only the manifest and selected Question, disables native response controls, and provides no Student Work, Assessment Attempt, submission, or grade action.
   - Evidence (source): `crates/server/src/assessment_student_view.rs` `assessment_student_view_router`, `crates/learning-data-access/src/postgres/assessment_student_view.rs` `PostgresInstructorStudentViewStore`, and `schemas/base_schema/assessment_student_view.sql` `load_instructor_student_view_question_source` implement the authorized no-write server, Store, and SQL boundaries.
@@ -612,29 +612,44 @@ PLE product or code behavior.
 - [x] Results should show the information needed to judge relevance without opening each Question.
   - Evidence (source): `src/pages/library_page.tsx` `question-library-row` shows title, summary, authors, and identifier.
 - [x] Search results should support filters for narrowing the Question Library.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, Course-use, and capability filters.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, and capability filters.
 - [x] Filters should update the current search rather than start a separate workflow.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` resets one `QuestionLibraryBrowseSession` with the updated query.
 - [ ] Search should support Google-like syntax for more precise queries.
-  - Mismatch: `src/pages/library_page_model.ts` exposes plain `search` text and no parsed advanced query syntax.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `QuestionTextQuery::parse` accepts ordinary AND words, quoted phrases, minus exclusions, PLE field tags, and exact Question IDs with filters.
+  - Evidence (test): an accepted temporary actual-source `rustc` harness covered those forms, including unknown tokens as literals and empty fields matching nothing; the harness was removed.
+  - Mismatch: the C58 connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Quoted text should search for an exact phrase.
-  - Mismatch: no exact-phrase query parser or test exists.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `term_value` retains quoted text as one exact phrase term.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered quoted phrases; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] A minus sign should exclude matching terms.
-  - Mismatch: no exclusion query parser or test exists.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `exclusion_prefix` records a leading minus as an excluded search term.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered excluded terms; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Search should support PubMed-like field tags such as `topic:genetics`.
-  - Mismatch: no field-tag query parser or `topic` filter exists.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `field_prefix` recognizes `topic` and `SearchTerm::matches` applies it to Question metadata.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered PLE field tags; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Field tags should use PLE concepts and vocabulary.
-  - Mismatch: field tags are not implemented.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` limits field tags to PLE terms: `subject`, `topic`, `tags`, `type`, and `author`.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered the closed field set and unknown-token literal behavior; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Useful fields may include subject, topic, tags, Question Type, and author.
-  - Mismatch: the UI has tags, Question Type, and author filters but lacks subject and topic fields and field-tag search.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `SearchField` and `SearchTerm::matches` support `subject`, `topic`, `tags`, `type`, and `author`.
+  - Evidence (test): the accepted temporary actual-source `rustc` harness covered every field; it was removed.
+  - Mismatch: the connected HTTP/API search projection has not run because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [ ] Simple and advanced searches should use the same search box.
-  - Mismatch: advanced search syntax is not implemented.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` provides one Search input, and `crates/server/src/question_library.rs` passes its optional `text` query value to `QuestionTextQuery::parse` before matching.
+  - Evidence (runtime): accepted C59 component proof confirms the visible Search box and its normal-flow Search tips.
+  - Mismatch: connected HTTP/API search projection is unverified because the server build remains blocked by the AWS Smithy dependency incompatibility.
 - [x] Instructors should not need to learn search syntax to use Search Question Library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` exposes ordinary search and labeled filter controls without syntax requirements.
-- [ ] The interface should make useful search syntax discoverable when needed.
-  - Mismatch: no search syntax exists or is documented in the interface.
+- [x] The interface should make useful search syntax discoverable when needed.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders `question-library-search-tips` as a native disclosure beside the ordinary Search box with words, quotes, minus, PLE fields, and examples.
+  - Evidence (runtime): accepted corrected desktop `src/pages/library_page.tsx` `LibraryPage` component proof opened Search tips without obscuring filters or bulk controls; the full `./check_codebase.sh` gate passed.
 - [ ] Search syntax should help expert users quickly narrow a very large Question Library.
-  - Mismatch: no advanced search syntax exists.
+  - Mismatch: the help is available, but connected search projection and large-library runtime evidence remain unverified because the server build is blocked by the AWS Smithy dependency incompatibility.
 - [x] Search terms and active filters should remain visible while reviewing results.
   - Evidence (source): `src/pages/library_page.tsx` `query` signal remains bound to the search input and filter selects while rows render.
 - [x] Clearing or changing part of a search should be quick.
@@ -663,14 +678,18 @@ PLE product or code behavior.
 
 #### Assessments
 
-- [ ] The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
-  - Mismatch: `src/ribbon/ribbon_catalog.ts` uses "Assignments Due Soon" and "My Assignment Templates"; templates are a `future` destination.
+- [x] The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
+  - Evidence (source): `src/ribbon/ribbon_catalog.ts` `assessmentsDueSoon` and `assessmentTemplates` are admitted route destinations with the required labels.
+  - Evidence (runtime): accepted independent `src/ribbon/app_ribbon.tsx` `AppRibbon` and `src/ribbon/ribbon_contract.ts` `deriveRibbonModel` proof verified both actual Ribbon choices and routes.
 - [ ] **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
-  - Mismatch: `src/pages/assignments_due_soon_page.tsx` implements the retired Assignment term rather than Assessments.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` presents upcoming deadlines across Courses the Instructor teaches.
+  - Mismatch: no accepted runtime or visual receipt establishes the intended attention emphasis.
 - [ ] Assessment lists should make Course, release status, due date, and other important state easy to scan.
-  - Mismatch: `src/pages/assignments_due_soon_page.tsx` implements an Assignment list rather than an Assessment list.
-- [ ] **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
-  - Mismatch: `assignmentTemplates` is a `future` Ribbon destination.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` presents Assessment status, Course, and due time.
+  - Mismatch: no accepted runtime or visual receipt establishes the required scanning behavior.
+- [x] **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
+  - Evidence (source): `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` foregrounds reusable Assessment settings and excludes Questions, Pools, and Course dates.
+  - Evidence (runtime): accepted independent `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` proof verified the heading, lede, legend, and normal Ribbon route without claiming HTTP, CRUD, or copy workflow acceptance.
 - [ ] Assessment editing has two editors:
   - Mismatch: current editors are Assignment-named.
   - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
@@ -692,9 +711,11 @@ PLE product or code behavior.
 - [ ] Answer-choice randomization belongs to the Question, not the Assessment.
   - Mismatch: the implemented explanatory text uses Question and Assignment, not the required Assessment terminology.
 - [ ] **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
-  - Mismatch: the route implements upcoming Assignments, not Assessments.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` calls `listAssessmentsDueSoon` and states its across-Courses scope.
+  - Mismatch: no accepted connected runtime receipt verifies authorized cross-Course results.
 - [ ] Assessments Due Soon shows the Course and due time for each Assessment.
-  - Mismatch: `src/pages/assignments_due_soon_page.tsx` displays Course and due time for Assignments, not Assessments.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders `courseLongName` and a formatted due time.
+  - Mismatch: no accepted runtime or visual receipt verifies populated rows.
 
 #### High-consequence actions
 
@@ -727,7 +748,6 @@ PLE product or code behavior.
   - Reason: Optional permission does not require current product behavior.
 - [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
-  - Evidence (test): `tests/_temp/assessment_type_icon_render_proof.mjs` renders the production Student component in Chromium and verifies visible Bonus Assignment and Quiz labels beside `star` and `circle-question` glyphs.
 - [x] The Student interface should make the next useful action easy to find.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents the primary "Open Assessment" action.
 - [ ] The Student menu is simpler than the Instructor menu.
@@ -1197,15 +1217,15 @@ PLE product or code behavior.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `QuestionPoolSelectionEntropy` is separate from Question backend state.
 - [x] Returning to an Attempt preserves the Question Pool selections already made.
   - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_reusable_question_pool_selection` reads durable selections.
-  - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks exact retained selections.
+  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks exact retained selections.
 - [ ] Starting a new Attempt makes fresh selections from its Question Pools.
   - Mismatch: `crates/learning-data-access/src/postgres/assignment_delivery_start.rs` `current_attempt_start_from_rows` calls `reusable_pool_selection` when the persisted `question_pool_reuse_rule` is `reuse_selection`; `schemas/base_schema/attempt_access.sql` `read_reusable_question_pool_selection` returns the latest prior selection for the same Student and Assignment. `schemas/base_schema/attempts.sql` `question_pool_reuse_rule` permits that mode, so a new Attempt can reuse rather than freshly select its pool membership.
 - [x] Student Work preserves the exact Question Pool Revision and Published Question Revision delivered.
   - Evidence (source): `crates/question_model/src/student_work.rs` `QuestionPoolSelection` retains issued Question revision references.
-  - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the issued revision link.
+  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the issued revision link.
 - [x] Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
   - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `read_student_assessment_attempt_history_response_sources` retains `question_id` and `revision_number`.
-  - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
+  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
 
 ### Question Library
 
@@ -1224,11 +1244,16 @@ PLE product or code behavior.
 - [ ] With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
   - Mismatch: no product test or design enforcement establishes archive as non-primary at this scale.
 - [ ] Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
-  - Mismatch: bounded browsing does not implement the required bulk operations.
+  - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
+  - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
 - [ ] Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
-  - Mismatch: no bulk Question metadata update operation was found.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionSharedMetadata` is the closed shared-metadata DTO; generated contracts bound its collection to 1,000 items.
+  - Evidence (source): `crates/server/src/question_library/shared_metadata.rs` `load_current_shared_metadata` owns the no-store current-metadata read; `crates/server/src/question_bulk_metadata.rs` owns the bounded all-or-none update command and validates canonical IDs before Store access.
+  - Evidence (runtime): fresh PostgreSQL 17 SQL/API proofs, independently rerun, covered read/write/read, stale all-or-none denial, clear, unauthorized, unvetted, archived, missing, and duplicate concealment, unchanged Revision count, and private-helper denial. Source review establishes once-only `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start; separate PostgreSQL proof uses explicit initial tags, rejects null elements without database/publication/object side effects, and preserves an intentional empty clear in a successor Revision.
+  - Evidence (test): temporary compiled Chromium component and strict-client proof accepted the selected metadata workflow, including stale and ambiguous refresh with no automatic second write; its mock/injected transport was not server-connected and the proof was removed.
+  - Mismatch: the connected HTTP route and discovery/search projection have not run. C366/C368, the 13k practical-cleanup row, and field-grammar C58 remain open.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
-  - Mismatch: search and filters exist, but bulk editing is absent.
+  - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
 
 #### Published Question identity
 
@@ -1598,18 +1623,22 @@ PLE product or code behavior.
 ## Assessments
 
 - [ ] **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
-  - Mismatch: The implemented product calls this object an Assignment.
+  - Evidence (source): `schemas/base_schema/assessments.sql` defines the Course aggregate as `ple_data.assessment`; current Type, release, Attempt, and API boundaries use that name.
+  - Mismatch: Source naming is current, but the complete graded-or-practice product behavior requires the remaining delivery and content verification below.
 - [x] PLE has **Blueprint Assessments** and **Course Instance Assessments**.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` is the reusable Blueprint Assessment aggregate; `schemas/base_schema/assessments.sql` `ple_data.assessment` is the current Course Instance Assessment aggregate with a required `course_id`.
 - [x] Blueprint Assessments define reusable Assessment content and teaching settings.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` contains Type, title, instructions, ordered entries, and validated `BlueprintAssessmentDefaults`; `BlueprintCourseModuleContent` owns those Assessments in Blueprint Course content.
 - [ ] Course Instance Assessments deliver Questions to **Students**.
-  - Mismatch: Delivery source uses Assignment terminology and contract.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` requires a released Course Assessment and current Student Course record before issuing Questions.
+  - Mismatch: Source establishes the delivery boundary, but complete Student delivery acceptance remains separately open.
 - [ ] All Assessments use the same underlying Assessment model.
-  - Mismatch: No shared Assessment model was found.
+  - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` and `schemas/base_schema/assessments.sql` `ple_data.assessment` are the reusable Blueprint and Course Instance variants.
+  - Mismatch: They remain distinct variant models rather than one shared underlying Assessment model.
 - [ ] **Assignment** is not a separate object or category. The word appears only in the names
   **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
-  - Mismatch: Assignment is the current general object name throughout the product.
+  - Evidence (source): `schemas/base_schema/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
+  - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
 
 ### Assessment content
 
@@ -1638,12 +1667,10 @@ PLE product or code behavior.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `assessment_type` and `schemas/base_schema/assessments.sql` `assessment_type` validate the same five values; `schemas/base_schema/course_blueprint_adoption.sql` `assessment_type` copies the selected Type during adoption.
 - [x] **Instructors** can change Assessment settings independently of the defaults for its Type.
   - Evidence (source): `crates/domain/src/effective_assessment_properties.rs` `EffectiveAssessmentPolicy` resolves explicit Course Instance property overrides separately from Blueprint defaults and Assessment Type.
-  - Evidence (source): `crates/learning-data-access/tests/assessment_policies_postgres.rs` `policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid_dates` seeds an adopted Quiz with `before policy save` instructions and a 300-second limit, then sends independent `persisted policy` instructions and a 600-second limit through the Properties save input.
-  - Decision: The current ignored PostgreSQL acceptance fixture has not been rerun after this update. It is source evidence of the mutable instruction/time-limit case, not a current runtime acceptance receipt.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 actual-Store receipt loaded an Instructor Exam, saved its policy settings, and retained its Type through `crates/learning-data-access/src/postgres/assessment_release.rs` `PostgresLiveAssessmentStore`.
 - [x] Changing Assessment settings does not change its Assessment Type.
   - Evidence (source): `crates/domain/src/effective_assessment_properties.rs` `EffectiveAssessmentPolicy` does not expose Type as an editable property, while `crates/question_model/src/assessment.rs` `AssessmentType` remains part of Assessment identity.
-  - Evidence (source): `crates/learning-data-access/tests/assessment_policies_postgres.rs` `policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid_dates` uses a closed policy-save input with instructions and a time limit, but no Assessment Type field; its adopted Quiz fixture retains the fixed Type while those settings are changed.
-  - Decision: An actual PostgreSQL acceptance rerun of the current fixture remains pending; this does not cite the retired Quiz Attempt-limit 3-to-5 runtime claim.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 actual-Store receipt saved Instructor Exam policy settings while retaining its Type through `crates/learning-data-access/src/postgres/assessment_release.rs` `PostgresLiveAssessmentStore`.
 - [ ] **Regular Assignments** give **Students** regular practice applying course ideas outside class.
   - Mismatch: No Regular Assignment type behavior was found.
 - [ ] Regular Assignments reinforce current learning and may also introduce new topics.
@@ -1671,8 +1698,9 @@ PLE product or code behavior.
   - Mismatch: No Exam type behavior was found.
 - [ ] Exams may use more restrictive Attempt, timing, availability, and feedback settings.
   - Mismatch: No type-specific settings behavior was found.
-- [ ] Quizzes and Exams allow one Assessment Attempt.
-  - Mismatch: Quiz and Exam Attempt limits remain configurable rather than being enforced as one.
+- [x] Quizzes and Exams allow one Assessment Attempt.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` resolves Quiz and Exam to an effective limit of `1` before issue or resume.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Quiz resume/submission and Attempt-2 denial, Exam effective-one handling, and expired-pending Exam denial through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 
 ### Assessment type appearance
 
@@ -1716,8 +1744,9 @@ PLE product or code behavior.
   - Mismatch: Point values exist in Assignment source, but Blueprint Assessment behavior is not verified.
 - [ ] Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
   - Mismatch: Blueprint Assignment source does not establish this full absence contract.
-- [ ] Blueprint Assessments do not use Assessment Templates.
-  - Mismatch: No Assessment Template model was found.
+- [x] Blueprint Assessments do not use Assessment Templates.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates as Instructor-owned private state outside Courses and Blueprints with no Blueprint or source field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Template create, save, read, and direct Course Assessment copy without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
 - [ ] Creating a daughter Course Instance from a Blueprint Course copies its Blueprint Assessments into the Course Instance.
   - Mismatch: Copy behavior is outside this source-only verification and uses Assignment terminology.
 
@@ -1741,26 +1770,38 @@ PLE product or code behavior.
 
 ### Assessment Templates
 
-- [ ] An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
-  - Mismatch: No Assessment Template model was found.
-- [ ] Assessment Templates are separate from Assessment Types.
-  - Mismatch: Neither model was found.
-- [ ] Every Assessment Template has one of the five Assessment Types.
-  - Mismatch: No Assessment Template or five-type model was found.
-- [ ] **Instructors** can create and change their own Assessment Templates.
-  - Mismatch: No Assessment Template workflow was found.
-- [ ] Assessment Templates provide defaults for settings such as Attempts, timing, scoring, and disclosure.
-  - Mismatch: No Assessment Template defaults behavior was found.
-- [ ] Creating a Course Instance Assessment from a Template copies its settings into the new Assessment.
-  - Mismatch: No Assessment Template creation behavior was found.
-- [ ] The new Course Instance Assessment can be changed independently after it is created.
-  - Mismatch: No Assessment Template creation behavior was found.
-- [ ] Changing an Assessment Template does not change Assessments previously created from it.
-  - Mismatch: No Assessment Template behavior was found.
-- [ ] Assessment Templates do not contain Questions or Question Pools.
-  - Mismatch: No Assessment Template model was found.
-- [ ] Blueprint Assessments do not use Assessment Templates.
-  - Mismatch: No Assessment Template model was found.
+- [x] An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` stores reusable settings, and `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` makes a direct Course Assessment from them.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed the complete Template round trip and by-value Course Assessment copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Assessment Templates are separate from Assessment Types.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` has a private UUID, owner, name, and settings while its required `assessment_type` is one closed Type field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template create, save, read, and by-value copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Every Assessment Template has one of the five Assessment Types.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` constrains `assessment_type` to the five canonical values.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template create, save, read, and by-value copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] **Instructors** can create and change their own Assessment Templates.
+  - Evidence (source): `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` supplies Instructor CRUD; owner authorization is enforced by the Template Store.
+  - Evidence (runtime): accepted C515 actual-Store proof covered owner/nonowner and inactive authorization, stale CAS, and settings round trip through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+  - Evidence (runtime): separate actual-component proof covered browser Template CRUD at `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface`; it is not connected-server evidence.
+- [x] Assessment Templates provide defaults for settings such as Attempts, timing, scoring, and disclosure.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` stores instructions, Attempt/time limits, late-work, seven activity rules, and seven feedback-release rules including grade rule.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template settings round trip and copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Creating a Course Instance Assessment from a Template copies its settings into the new Assessment.
+  - Evidence (source): `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` reads the owner-visible Template once and passes every portable setting by value to `ple_data.create_assessment_from_template_values`.
+  - Evidence (runtime): accepted C516 SQL full-settings/copy-independence and actual-component UI proofs passed at `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template`.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] The new Course Instance Assessment can be changed independently after it is created.
+  - Evidence (source): `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` creates a direct Course Assessment with copied values and no Template link.
+  - Evidence (runtime): accepted C516 SQL full-settings/copy-independence proof passed at `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template`.
+- [x] Changing an Assessment Template does not change Assessments previously created from it.
+  - Evidence (source): `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` copies settings by value into the new Course Assessment and stores no Template identity.
+  - Evidence (runtime): accepted C516 SQL full-settings/copy-independence proof passed at `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template`.
+- [x] Assessment Templates do not contain Questions or Question Pools.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines identity, owner, Type, and reusable settings with no Question, Pool, content, point, or source field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template creation and empty direct Course Assessment copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Blueprint Assessments do not use Assessment Templates.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates outside Courses and Blueprints; the by-value path creates only direct Course Assessments.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy to a direct Course Assessment without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
   - Owner: Same implementation finding as the earlier Assessment Templates bullet.
 
 ### Course Instance Assessment release and defaults
@@ -1781,8 +1822,10 @@ PLE product or code behavior.
 - [x] Release Validation should check that release, due, and other dates occur in a valid order.
   - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_release_issues` rejects Available after Due and Due after Closes.
   - Evidence (runtime): accepted fresh PostgreSQL 17 actual-API receipt exercised both invalid orderings and the corrected valid ordering from `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_release_issues`.
-- [ ] Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
-  - Mismatch: No verified complete required-setting validation was found.
+- [x] Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
+  - Evidence (source): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` reaches `schemas/base_schema/assessments.sql` `ple_data.replace_assessment_entries`, which rejects point values outside `0` through `1000000000.9999` or four decimal places; table checks retain that bound for alternate writers. The Assessment table permits only null or positive whole-Assessment Attempt/time limits and requires one Attempt for Quiz and Exam.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_release_issues` separately requires an Assessment Attempt time limit before release.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 actual-API receipt for `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` atomically rejected `1000000001` and `1000000000.99999`; exact `1000000000.9999` saved and released.
 - [ ] Release Validation should check that the Assessment contains Questions and that required Question settings are valid.
   - Mismatch: No verified Assessment Question validation was found.
 - [x] The **Instructor** should be able to correct validation problems and run Release Validation again.
@@ -1818,16 +1861,21 @@ PLE product or code behavior.
   - Evidence (runtime): accepted PostgreSQL 17 ordinary start and whole-submit proof found zero response-source rows before submission and one after; the native PLE summary preserved the disclosed correct answer.
   - Mismatch: Backend-owned answers currently project as absent, and opaque WeBWorK answer disclosure remains unimplemented. This universal row stays open pending safe backend-owned disclosure without answer extraction.
 - [ ] **Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.
-  - Evidence (runtime): fresh PostgreSQL 17 release proof rejected a Quiz configured to disclose answers after submission with `quiz_exam_answer_disclosure_requires_course_completion_rule`; the same Quiz released after both answer fields were set to `never`.
-  - Mismatch: Quiz and Exam completion now means Student submission or time expiry, regardless of score or correctness. Eventual release after every current Student completes remains unimplemented.
-- [ ] A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `ple_private.current_student_cohort_completed_assessment` derives the current active Student cohort from immutable submission evidence without a snapshot or latch.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed the two-current-Student cohort transition through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
+  - Mismatch: Correct-answer release from the cohort fact remains unimplemented, including the connected HTTP and opaque WeBWorK boundaries.
+- [x] A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
   PLE submits it automatically.
-  - Mismatch: Completion currently follows the generic Assessment Attempt lifecycle and does not implement the required Quiz/Exam submission-or-expiry rule.
-- [ ] Assessment Attempt completion does not depend on correctness or score.
-  - Mismatch: Current completion behavior does not establish the required score- and correctness-independent rule for every Assessment Attempt.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` inserts one submitted-Attempt record for `student` or `deadline` finalization.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Quiz Student submission, generic deadline finalization, and expired-pending Exam denial through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
+  - Decision: The accepted composition uses the type-independent submission authority. Quiz/Exam worker finalization was not directly run.
+- [x] Assessment Attempt completion does not depend on correctness or score.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` resolves finalization from Student-versus-deadline state; correctness and score are not completion conditions.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed zero/partial whole submission and deadline finalization through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] Until then, Quizzes and Exams do not disclose correct answers.
-  - Evidence (source): `schemas/base_schema/assessments.sql` fails closed when Quiz or Exam correct-answer or answer-explanation disclosure is not `never`.
-  - Mismatch: This provisional hard guard prevents early disclosure but does not implement eventual release after every current Student completes.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` projects the current cohort-completion fact only after a Student's submitted Attempt history is authorized.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed the two-current-Student cohort transition through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
+  - Mismatch: No current correct-answer release uses that cohort fact; connected HTTP release and opaque WeBWorK answer delivery remain unverified.
 - [x] Optional Question Feedback is shown when the Question Backend provides it.
   - Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_student_feedback` releases backend-provided feedback.
   - Owner: Same implementation finding as the earlier Questions bullet.
@@ -1845,40 +1893,46 @@ PLE product or code behavior.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` contains only reusable content and defaults; `schemas/base_schema/assessment_attempts.sql` `ple_private.assessment_attempt` permits Attempts only through `ple_data.assessment`, the Course Instance Assessment aggregate.
 - [ ] Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
   - Mismatch: Saved-response persistence is tested after a browser reload, but no evidence establishes persistence across a distinct browser session.
-- [ ] **Instructors** control the number of permitted Assessment Attempts.
-  - Mismatch: Assignment attempt limit exists, but instructor behavior is not verified.
-- [ ] Regular Assignments default to unlimited Attempts.
-  - Mismatch: No Regular Assignment type default was found.
-- [ ] **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
-  - Mismatch: Repeat behavior needs runtime evidence.
+- [x] **Instructors** control the number of permitted Assessment Attempts.
+  - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.save_assessment` and `ple_data.save_assessment_policies` accept `assessment_attempt_limit` only after `current_session_account_is_course_instructor`; issuance applies that saved value subject to Quiz/Exam effective-one.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered unlimited retries, Quiz Attempt-2 denial, and expired-unlimited new-Attempt behavior through `crates/learning-data-access/src/postgres/assessment_attempt.rs` `PostgresAssessmentAttemptStore`.
+- [x] Regular Assignments default to unlimited Attempts.
+  - Evidence (source): `schemas/base_schema/assessment_creation.sql` `ple_data.create_assessment` defaults to a nullable Attempt limit for unlimited Attempts; only Quiz and Exam override it to one at issuance.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed unlimited retries after perfect and nonperfect submissions through `crates/learning-data-access/src/postgres/assessment_attempt.rs` `PostgresAssessmentAttemptStore`.
+- [x] **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` counts issued Attempts only with an effective finite limit; `NULL` permits another.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed unlimited perfect/nonperfect retries and expired-unlimited new Attempt through `crates/learning-data-access/src/postgres/assessment_attempt.rs` `PostgresAssessmentAttemptStore`.
 - [x] When an Assessment permits multiple Attempts, the highest Assessment Attempt score is used as the
   Student's Assessment score.
   - Evidence (source): `schemas/base_schema/grading_access.sql` `read_assessment_gradebook_evidence` independently selects the highest grading-complete submitted Attempt by earned points, then uses the latest Attempt only when no score is established; `ple_api.read_course_gradebook` consumes that private answer-free helper.
   - Evidence (runtime): accepted actual PostgreSQL 17 evidence exercised `schemas/base_schema/grading_access.sql` `ple_api.read_course_gradebook`, proving an earlier higher earned score beats a later lower score and a later unfinished or pending Attempt does not replace it. Current Question points recalculated the selected score from `8` to `16`; a Bonus contribution retained a zero possible denominator; and a latest unscored expired Attempt remained the fallback when no completed score existed.
   - Evidence (source): `schemas/base_schema/student_assessment_landing.sql` `ple_private.read_student_released_assessment_landing_evidence` keeps progress, completion, and resume state on the latest Attempt but obtains the Assessment score from the selected highest Attempt and applies that Attempt's copied disclosure timing. `src/api/decoders/live_student_course_landing.ts` `decodeAssessmentSummary` requires direct `assessmentScore` and rejects the retired `score` alias; `src/pages/student_course_landing_page.tsx` labels it `Assessment score`.
   - Evidence (runtime): accepted actual PostgreSQL 17 evidence exercised `schemas/base_schema/student_assessment_landing.sql` `ple_api.list_released_live_student_assessments`, preserving an earlier higher score across later lower, unfinished, and pending Attempts, including inverse selected-Attempt/latest-Attempt disclosure cases. The focused decoder/presentation lane passed 8/8, and compiled M6 component evidence passed.
-- [x] Assessment Attempt submission and grading are fully automatic and require no **Instructor** action.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` commits ordinary Student finalization and checks immutable automated grading evidence.
-- [x] Automatic grading does not require a separate Student or **Instructor** grading workflow.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` proves the Student finalization API creates the grading result directly.
+- [ ] Assessment Attempt submission and grading are fully automatic and require no **Instructor** action.
+  - Mismatch: `schemas/base_schema/assessment_attempt_finalization.sql` has a current automatic finalization path, but no current runtime receipt establishes the complete submission-and-grading row after the retired oracle was removed.
+- [ ] Automatic grading does not require a separate Student or **Instructor** grading workflow.
+  - Mismatch: The current finalization source records direct grading, but no current runtime receipt establishes the complete no-workflow behavior after the retired oracle was removed.
 
 ### Assessment responses and submission
 
 - [x] The Student submission action submits the whole Assessment Attempt.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` commits one ordinary Student Attempt finalization and asserts one Assignment submission.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` creates one Assessment submission and finalizes every open issued Question in that Attempt.
+  - Evidence (runtime): accepted C525 actual-Store evidence exercised whole zero- and partial-response submissions through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] A Question either has a complete saved response or has no saved response.
   - Mismatch: Complete-response contract was not verified.
 - [x] PLE saves complete Question responses as the **Student** works.
   - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres.rs` `late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks` saves an ordinary Student response and asserts its persisted `saved` state.
-- [x] The Student may change a saved response while the Assessment Attempt remains open.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` replaces saved response A with response B before finalization and rejects the stale A snapshot.
+- [ ] The Student may change a saved response while the Assessment Attempt remains open.
+  - Mismatch: Current response persistence source exists, but no current runtime receipt establishes saved-response replacement after the retired oracle was removed.
 - [x] Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` commits the prepared saved response into immutable submission and grading evidence.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
+  - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
   - Mismatch: Visible unanswered-state behavior needs runtime evidence.
 - [x] An unanswered Question receives zero credit and counts as incorrect without being sent to the
   Question Backend.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_expired_student_assignment_attempt_finalization` verifies an expired all-unanswered Attempt has no invented backend result and zero-credit scoring.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` marks unanswered Questions `closed_unanswered` and scores missing credit as zero.
+  - Evidence (runtime): accepted C525 actual-Store deadline evidence observed `closed_unanswered` with no invented response through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
   - Mismatch: Incomplete response behavior was not verified.
 - [ ] A Question Backend may evaluate a response before Assessment submission when needed for its interaction.

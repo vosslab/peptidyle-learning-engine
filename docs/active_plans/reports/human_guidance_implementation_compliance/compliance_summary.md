@@ -24,17 +24,35 @@ checklist, gap map, and active plan.
 | Development principles | 14 | 4 | 4 | 23 | 41 |
 | Product vocabulary | 2 | 10 | 10 | 0 | 12 |
 | Accounts and roles | 24 | 19 | 19 | 8 | 51 |
-| Interface design | 85 | 135 | 135 | 1 | 221 |
+| Interface design | 88 | 132 | 132 | 1 | 221 |
 | Data and history | 30 | 38 | 37 | 0 | 68 |
 | Questions | 55 | 84 | 83 | 2 | 141 |
 | Courses | 31 | 70 | 64 | 4 | 105 |
-| Assessments | 66 | 73 | 69 | 0 | 139 |
-| **Total** | **307** | **433** | **421** | **43** | **783** |
+| Assessments | 81 | 58 | 55 | 0 | 139 |
+| **Total** | **325** | **415** | **404** | **43** | **783** |
 
-The current checklist contains 783 HG bullets: 307 verified, 433 open, and 43 N/A.
-Twelve later duplicate open bullets carry an `Owner:` pointer, leaving 421 owning-open records.
+The current checklist contains 783 HG bullets: 325 verified, 415 open, and 43 N/A.
+Eleven later duplicate open bullets carry an `Owner:` pointer, leaving 404 owning-open records.
 
-This refresh closes only the two C207 deadline-cap rows and the three C523 due/late default rows.
+Bulk Published Question shared metadata now has accepted bounded source and PostgreSQL evidence,
+not a closure. The closed `tags`/`subject`/`topic` DTO, generated 1,000-item bound, canonical-ID
+validation before Store access, no-store current read, and one-transaction database command passed
+fresh PostgreSQL 17 SQL/API proof and independent rerun. Source review establishes once-only native
+`PLE authoring`/`Pilot` tags and an empty WebWork start; explicit initial-tag SQL/API proof rejects
+null elements before database/publication/object side effects and preserves an empty clear in a
+successor Revision. C366/C368 remain open after accepted temporary compiled Chromium component and
+strict-client evidence for the selected replace/clear and stale/ambiguous-refresh workflow; it used
+mock/injected transport, not a connected server. Connected HTTP and discovery/search projection
+execution remain blocked by the known AWS Smithy server-build incompatibility. C58 now has accepted
+actual-source parser evidence for ordinary words, quotes, minus, PLE fields, literal unknown tokens,
+empty fields matching nothing, and exact-ID-plus-filter behavior, but its connected HTTP/search projection remains open;
+the 13k cleanup remains open as well. C59's native Search tips disclosure now makes the grammar
+discoverable without obscuring the normal controls; expert large-library narrowing remains open.
+C61's independently accepted actual Ribbon/page proof closes only the required Assessments labels
+and reusable Template-design rows. Due Soon state rows and connected Template delivery remain open.
+
+This refresh closes the two C207 deadline-cap rows, three C523 due/late default rows, the narrow
+C514-C516 Template rows, and the C525 completion and Attempt-limit rows.
 Accepted independent PostgreSQL 17 actual-API receipts establish Course-first atomic synchronization
 of the current maximum Due date, the immutable six-month Active cap and no-Due fallback, frozen
 archived/deleted retention anchors, default Due-based start/save/commit rejection, accommodated
@@ -50,13 +68,15 @@ authoring and Course-level grade calculation remain outside those closures. The 
 LDA library check passed; the separate full `server_core` compile remains unverified because of the
 existing AWS Smithy dependency incompatibility.
 
-This refresh closes the narrow C519--C521 release-date validation rows: authorized automated and
-interactive validation, the 24-hour and Course Active-limit boundary, date ordering, correction and
-rerun, and hard-gated release. The accepted five actionable date messages are partial evidence only;
-the broader missing, invalid, or unreasonable-values row remains open with the valid-range and
-Question-validity rows. The accepted fresh PostgreSQL 17 actual-API receipt and actual Properties
-component receipt complement the source evidence; the main integrated 7,042-pytest and 329-Node
-runs passed, while the separate full server AWS dependency integration gate remains blocked.
+This refresh closes the narrow C519--C521 release-date and valid-range rows: authorized automated
+and interactive validation, the 24-hour and Course Active-limit boundary, date ordering, correction
+and rerun, hard-gated release, public-save point bounds, positive-or-null whole-Assessment
+Attempt/time limits, and the release-required time limit. The accepted fresh PostgreSQL 17 actual-API
+receipt atomically rejected out-of-range and excess-precision point values, then saved and released
+the exact maximum. The broader missing, invalid, or unreasonable-values row and the Question-validity
+row remain open. The actual Properties component receipt complements source evidence; the main
+integrated 7,042-pytest and 329-Node runs passed, while the separate full server AWS dependency
+integration gate remains blocked.
 
 ## Report routes
 

@@ -10,24 +10,19 @@ use axum::{
     Json, Router,
     body::to_bytes,
     extract::{Request, State},
-    http::{
-        HeaderMap, StatusCode,
-        header::{COOKIE, HeaderName},
-    },
+    http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
     routing::post,
 };
 use learning_data_access::{
-    BulkPublishedQuestionMetadataError, BulkPublishedQuestionMetadataInput,
-    BulkPublishedQuestionMetadataPatch, BulkPublishedQuestionMetadataSelection,
-    BulkPublishedQuestionMetadataStore, MAX_BULK_QUESTION_METADATA_ITEMS, SessionTokenHash,
+    BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataPatch,
+    BulkPublishedQuestionMetadataSelection, BulkPublishedQuestionMetadataStore, SessionTokenHash,
     StoreError,
     postgres::{PostgresBulkPublishedQuestionMetadataStore, PostgresSessionStore},
 };
-use question_model::{ProductRole, QuestionId};
+use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, ProductRole, QuestionId};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use uuid::Uuid;
 
 use crate::{
     auth::{AuthError, resolve_session},
@@ -35,7 +30,6 @@ use crate::{
 };
 
 const MAX_BULK_QUESTION_METADATA_BYTES: usize = 256 * 1024;
-const IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
 
 #[derive(Clone)]
 struct RouteState {
@@ -87,6 +81,7 @@ struct BulkMetadataResultResponse {
 }
 
 async fn bulk_replace_metadata(State(state): State<RouteState>, request: Request) -> Response {
+    // ASVS 2.2.1 and 4.1.1: accept only the documented bounded JSON command shape.
     if !has_json_content_type(request.headers()) {
         return route_error(
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
@@ -96,15 +91,6 @@ async fn bulk_replace_metadata(State(state): State<RouteState>, request: Request
     let session = match instructor_session_hash(&state, request.headers()).await {
         Ok(value) => value,
         Err(response) => return *response,
-    };
-    let idempotency_key = match idempotency_key(request.headers()) {
-        Some(value) => value,
-        None => {
-            return route_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Bulk Question metadata is invalid",
-            );
-        }
     };
     let body = match to_bytes(request.into_body(), MAX_BULK_QUESTION_METADATA_BYTES).await {
         Ok(body) => body,
@@ -124,7 +110,7 @@ async fn bulk_replace_metadata(State(state): State<RouteState>, request: Request
             );
         }
     };
-    let input = match decode_input(&state.question_id_issuer, request, idempotency_key) {
+    let input = match decode_input(&state.question_id_issuer, request) {
         Some(input) => input,
         None => {
             return route_error(
@@ -150,18 +136,13 @@ async fn bulk_replace_metadata(State(state): State<RouteState>, request: Request
             })
             .into_response(),
         ),
-        Err(BulkPublishedQuestionMetadataError::IdempotencyConflict) => route_error(
-            StatusCode::CONFLICT,
-            "Bulk Question metadata retry key conflicts",
-        ),
-        Err(BulkPublishedQuestionMetadataError::Store(error)) => store_error_response(error),
+        Err(error) => store_error_response(error),
     }
 }
 
 fn decode_input(
     issuer: &HmacQuestionIdIssuer,
     request: BulkMetadataRequest,
-    idempotency_key: Uuid,
 ) -> Option<BulkPublishedQuestionMetadataInput> {
     if request.selection.is_empty() || request.selection.len() > MAX_BULK_QUESTION_METADATA_ITEMS {
         return None;
@@ -180,11 +161,7 @@ fn decode_input(
         })
         .collect::<Option<Vec<_>>>()?;
     let patch = decode_patch(request.patch)?;
-    let input = BulkPublishedQuestionMetadataInput {
-        selection,
-        patch,
-        idempotency_key,
-    };
+    let input = BulkPublishedQuestionMetadataInput { selection, patch };
     input.validate().ok()?;
     Some(input)
 }
@@ -222,14 +199,11 @@ fn decode_patch(value: Value) -> Option<BulkPublishedQuestionMetadataPatch> {
     })
 }
 
-fn idempotency_key(headers: &HeaderMap) -> Option<Uuid> {
-    headers.get(&IDEMPOTENCY_KEY)?.to_str().ok()?.parse().ok()
-}
-
 async fn instructor_session_hash(
     state: &RouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
+    // ASVS 8.2.1: the trusted service boundary permits only an Instructor session.
     match resolve_session(
         state.sessions.as_ref(),
         joined_cookie_header(headers).as_deref(),

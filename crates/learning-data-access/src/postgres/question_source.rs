@@ -204,6 +204,11 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
                 "Question Authorship cannot be encoded".to_string(),
             ))
         })?;
+        let initial_shared_tags: Vec<&str> = input
+            .initial_shared_tags
+            .iter()
+            .map(|tag| tag.as_str())
+            .collect();
         let question_license = wire_string(&input.question_license, "Question License")
             .map_err(NewQuestionLineagePublicationError::Store)?;
         let mut transaction = self
@@ -217,7 +222,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         // Published Question aggregate in one transaction.
         sqlx::query(
             "SELECT ple_api.publish_new_question_lineage(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17\
              )",
         )
         .bind(input.draft_question_uuid.as_uuid())
@@ -235,6 +240,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         .bind(&object_record.media_type)
         .bind(object_record.created_at.as_unix_millis())
         .bind(question_authorship)
+        .bind(initial_shared_tags)
         .bind(question_license)
         .bind(input.question_revision_reason.as_str())
         .bind(input.question_ownership_event_id)

@@ -2,9 +2,10 @@
 
 use async_trait::async_trait;
 use question_model::{
-    ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
+    MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId, PublishedQuestionSharedMetadata, QuestionAuthor,
+    QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
     QuestionAvailabilityEditNumber, QuestionBackend, QuestionId, QuestionRevisionNumber,
-    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference,
+    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference, Tag,
     Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
@@ -135,6 +136,51 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         Ok(entry)
     }
 
+    async fn load_current_published_question_shared_metadata(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_ids: &[QuestionId],
+    ) -> Result<Vec<PublishedQuestionSharedMetadata>, StoreError> {
+        if question_ids.is_empty() || question_ids.len() > MAX_BULK_QUESTION_METADATA_ITEMS {
+            return Err(invalid("Published Question shared metadata selection"));
+        }
+        let mut compact_ids = question_ids
+            .iter()
+            .map(|question_id| question_id.as_compact_str().to_owned())
+            .collect::<Vec<_>>();
+        compact_ids.sort();
+        if compact_ids.windows(2).any(|pair| pair[0] == pair[1]) {
+            return Err(invalid("Published Question shared metadata selection"));
+        }
+
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        // ASVS 1.2.4: bind the complete ID array; no identifier or value is
+        // interpolated into the SQL statement.
+        let rows = sqlx::query(
+            "SELECT question_id, metadata_edit_number, tags, subject, topic \
+             FROM ple_api.load_current_published_question_shared_metadata($1)",
+        )
+        .bind(&compact_ids)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let items = rows
+            .iter()
+            .map(decode_shared_metadata)
+            .collect::<Result<Vec<_>, _>>()?;
+        let returned_ids = items
+            .iter()
+            .map(|item| item.question_id.as_compact_str())
+            .collect::<Vec<_>>();
+        if returned_ids != compact_ids.iter().map(String::as_str).collect::<Vec<_>>() {
+            return Err(invalid("Published Question shared metadata result"));
+        }
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(items)
+    }
+
     async fn archive_published_question(
         &self,
         session_token_hash: SessionTokenHash,
@@ -254,6 +300,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     let source_object_checksum = SourceObjectChecksum::parse(source_object_checksum)
         .map_err(|_| invalid("Question Source Checksum"))?;
     let published_at_millis: i64 = row.try_get("published_at_millis").map_err(map_sqlx_error)?;
+    let shared_metadata = decode_shared_metadata(row)?;
     Ok(PublishedQuestionLibraryEntry {
         question_revision: QuestionRevisionReference {
             question_id,
@@ -266,6 +313,10 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         question_title: row.try_get("question_title").map_err(map_sqlx_error)?,
         question_description: row
             .try_get("question_description")
+            .map_err(map_sqlx_error)?,
+        shared_metadata,
+        used_in_current_account_courses: row
+            .try_get("used_in_current_account_courses")
             .map_err(map_sqlx_error)?,
         authorship: QuestionAuthorship::new(authors).map_err(|_| invalid("Question Authorship"))?,
         authored_by_current_account: row
@@ -280,6 +331,38 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         },
         source_object_checksum,
         source_media_type: row.try_get("source_media_type").map_err(map_sqlx_error)?,
+    })
+}
+
+fn decode_shared_metadata(
+    row: &sqlx::postgres::PgRow,
+) -> Result<PublishedQuestionSharedMetadata, StoreError> {
+    let question_id = row
+        .try_get::<String, _>("question_id")
+        .map_err(map_sqlx_error)?
+        .parse::<QuestionId>()
+        .map_err(|_| invalid("Question ID"))?;
+    let metadata_edit_number = row
+        .try_get::<i64, _>("metadata_edit_number")
+        .map_err(map_sqlx_error)
+        .and_then(|value| {
+            u64::try_from(value)
+                .ok()
+                .filter(|value| *value > 0)
+                .ok_or_else(|| invalid("Question Metadata Edit Number"))
+        })?;
+    let tags = row
+        .try_get::<Vec<String>, _>("tags")
+        .map_err(map_sqlx_error)?
+        .into_iter()
+        .map(Tag::new)
+        .collect();
+    Ok(PublishedQuestionSharedMetadata {
+        question_id,
+        metadata_edit_number,
+        tags,
+        subject: row.try_get("subject").map_err(map_sqlx_error)?,
+        topic: row.try_get("topic").map_err(map_sqlx_error)?,
     })
 }
 

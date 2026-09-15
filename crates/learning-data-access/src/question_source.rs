@@ -5,14 +5,14 @@
 //! Draft Question at one expected Edit Number. It has no browser serialization path and never
 //! accepts inline source data.
 
-use std::num::NonZeroU64;
+use std::{collections::BTreeSet, num::NonZeroU64};
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
 use question_model::{
     DraftImathasQuestionBackendBinding, QuestionAuthorship, QuestionBackend, QuestionFormat,
     QuestionId, QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason,
-    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference,
+    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference, Tag,
     WorkspaceId,
 };
 use uuid::Uuid;
@@ -167,6 +167,8 @@ pub struct NewQuestionLineagePublicationInput {
     pub question_source_object_record: ObjectRecord,
     /// Reviewed ordered Question Authorship snapshot.
     pub question_authorship: QuestionAuthorship,
+    /// Initial shared search tags for the new Published Question lineage.
+    pub initial_shared_tags: Vec<Tag>,
     /// Compatible Question License for the immutable first revision.
     pub question_license: QuestionLicense,
     /// Reviewed Question Revision Reason recorded with first-revision acceptance.
@@ -191,6 +193,7 @@ impl NewQuestionLineagePublicationInput {
 
     /// Refuses target object or acceptance facts that do not match this publication.
     pub fn validate(&self) -> Result<(), StoreError> {
+        Self::validate_initial_shared_tags(&self.initial_shared_tags)?;
         let expected_revision = self.question_revision();
         let ObjectAddress::QuestionSource {
             question_revision,
@@ -214,6 +217,27 @@ impl NewQuestionLineagePublicationInput {
             return Err(StoreError::InvalidRecord(
                 "Question Publication Object Record must derive from its exact first Question Revision"
                     .to_string(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Refuses shared tags outside the Published Question metadata boundary.
+    pub fn validate_initial_shared_tags(tags: &[Tag]) -> Result<(), StoreError> {
+        // ASVS 2.2.1-2.2.2: the trusted service boundary enforces the
+        // documented shared-metadata shape before object or database writes.
+        let mut distinct = BTreeSet::new();
+        if tags.len() > 64
+            || tags.iter().any(|tag| {
+                let value = tag.as_str();
+                value != value.trim()
+                    || !(1..=120).contains(&value.chars().count())
+                    || value.chars().any(char::is_control)
+                    || !distinct.insert(value)
+            })
+        {
+            return Err(StoreError::InvalidRecord(
+                "Initial Published Question shared tags are invalid".to_string(),
             ));
         }
         Ok(())
@@ -451,6 +475,7 @@ mod tests {
                     .expect("reviewed Question Author"),
             }])
             .expect("bounded Question Authorship"),
+            initial_shared_tags: Vec::new(),
             question_license: QuestionLicense::CcBy4_0,
             question_revision_reason: QuestionRevisionReason::new(
                 "Initial reviewed publication".to_string(),

@@ -347,7 +347,8 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid,
     p_question_id text, p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
-    p_target_created_at_millis bigint, p_authorship jsonb, p_license text,
+    p_target_created_at_millis bigint, p_authorship jsonb,
+    p_initial_shared_tags text[], p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
     p_availability_event_id uuid
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -366,6 +367,7 @@ BEGIN
        OR p_target_media_type IS NULL OR char_length(btrim(p_target_media_type)) NOT BETWEEN 1 AND 255
        OR p_target_created_at_millis IS NULL OR p_authorship IS NULL
        OR jsonb_typeof(p_authorship) <> 'array' OR jsonb_array_length(p_authorship) NOT BETWEEN 1 AND 16
+       OR NOT ple_data.question_metadata_tags_are_valid(p_initial_shared_tags)
        OR p_license NOT IN ('CC0-1.0', 'CC-BY-4.0', 'CC-BY-SA-4.0')
        OR p_reason_for_edit IS NULL OR p_reason_for_edit <> btrim(p_reason_for_edit)
        OR char_length(p_reason_for_edit) NOT BETWEEN 1 AND 2000 OR p_reason_for_edit ~ '[[:cntrl:]]'
@@ -423,9 +425,9 @@ BEGIN
     END IF;
     INSERT INTO ple_data.published_question(question_id, created_at) VALUES (p_question_id, published_at);
     INSERT INTO ple_data.published_question_metadata(
-        question_id, question_title, question_description, language, created_at, updated_at
+        question_id, question_title, question_description, language, tags, created_at, updated_at
     ) VALUES (p_question_id, metadata.question_title, metadata.question_description, metadata.language,
-        published_at, published_at);
+        p_initial_shared_tags, published_at, published_at);
     INSERT INTO ple_data.question_revision(
         question_id, revision_number, backend, question_type, general_feedback, published_at
     ) VALUES (
@@ -471,10 +473,10 @@ $$;
 
 REVOKE ALL ON FUNCTION ple_private.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_private.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text, text, uuid, uuid, uuid) FROM PUBLIC;
+        text, bigint, jsonb, text[], text, text, uuid, uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_private.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text, text, uuid, uuid, uuid) TO ple_api_owner;
+        text, bigint, jsonb, text[], text, text, uuid, uuid, uuid) TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
@@ -490,20 +492,22 @@ CREATE FUNCTION ple_api.publish_new_question_lineage(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid,
     p_question_id text, p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
-    p_target_created_at_millis bigint, p_authorship jsonb, p_license text,
+    p_target_created_at_millis bigint, p_authorship jsonb,
+    p_initial_shared_tags text[], p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
     p_availability_event_id uuid
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_edit_number,
         p_workspace_id, p_question_id, p_target_object_id, p_target_object_address, p_target_sha256,
-        p_target_size_bytes, p_target_media_type, p_target_created_at_millis, p_authorship, p_license,
+        p_target_size_bytes, p_target_media_type, p_target_created_at_millis, p_authorship,
+        p_initial_shared_tags, p_license,
         p_reason_for_edit, p_ownership_event_id, p_publication_event_id, p_availability_event_id)
 $$;
 REVOKE ALL ON FUNCTION ple_api.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_api.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text, text, uuid, uuid, uuid) FROM PUBLIC;
+        text, bigint, jsonb, text[], text, text, uuid, uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_api.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text, text, uuid, uuid, uuid) TO ple_app;
+        text, bigint, jsonb, text[], text, text, uuid, uuid, uuid) TO ple_app;
 RESET ROLE;

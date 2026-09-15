@@ -585,7 +585,7 @@ fn map_unrelease_sqlx_error(error: sqlx::Error) -> StoreError {
     map_sqlx_error(error)
 }
 
-async fn workspace_rows(
+pub(super) async fn workspace_rows(
     tx: &mut Transaction<'_, Postgres>,
     course: CourseInstanceReference,
     assessment: AssessmentReference,
@@ -598,12 +598,12 @@ async fn workspace_rows(
         .map_err(map_sqlx_error)
 }
 
-struct AssessmentScheduleContext {
+pub(super) struct AssessmentScheduleContext {
     term: CourseTerm,
     account_time_zone: AccountTimeZone,
 }
 
-async fn schedule_context(
+pub(super) async fn schedule_context(
     tx: &mut Transaction<'_, Postgres>,
     course: CourseInstanceReference,
 ) -> Result<AssessmentScheduleContext, StoreError> {
@@ -633,7 +633,7 @@ async fn schedule_context(
     })
 }
 
-fn decode_workspace(
+pub(super) fn decode_workspace(
     rows: &[sqlx::postgres::PgRow],
     context: &AssessmentScheduleContext,
 ) -> Result<Option<LiveAssessmentWorkspace>, StoreError> {
@@ -870,7 +870,7 @@ fn local_timestamp_from_row(
         })
         .transpose()
 }
-fn assessment_reference(value: String) -> Result<AssessmentReference, StoreError> {
+pub(super) fn assessment_reference(value: String) -> Result<AssessmentReference, StoreError> {
     AssessmentReference::new(value).map_err(|_| invalid("Assessment Reference"))
 }
 fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {

@@ -431,6 +431,7 @@ async fn publish_row(
                 expected_draft_question_edit_number: bound.edit_number,
                 workspace,
                 question_authorship: authorship.clone(),
+                initial_shared_tags: Vec::new(),
                 question_license: license.clone(),
                 question_revision_reason: QuestionRevisionReason::new(
                     INITIAL_PUBLICATION_REASON.to_owned(),

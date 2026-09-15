@@ -1,18 +1,22 @@
 ## Assessments
 
 - [ ] **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
-  - Mismatch: The implemented product calls this object an Assignment.
+  - Evidence (source): `schemas/base_schema/assessments.sql` defines the Course aggregate as `ple_data.assessment`; current Type, release, Attempt, and API boundaries use that name.
+  - Mismatch: Source naming is current, but the complete graded-or-practice product behavior requires the remaining delivery and content verification below.
 - [x] PLE has **Blueprint Assessments** and **Course Instance Assessments**.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` is the reusable Blueprint Assessment aggregate; `schemas/base_schema/assessments.sql` `ple_data.assessment` is the current Course Instance Assessment aggregate with a required `course_id`.
 - [x] Blueprint Assessments define reusable Assessment content and teaching settings.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` contains Type, title, instructions, ordered entries, and validated `BlueprintAssessmentDefaults`; `BlueprintCourseModuleContent` owns those Assessments in Blueprint Course content.
 - [ ] Course Instance Assessments deliver Questions to **Students**.
-  - Mismatch: Delivery source uses Assignment terminology and contract.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` requires a released Course Assessment and current Student Course record before issuing Questions.
+  - Mismatch: Source establishes the delivery boundary, but complete Student delivery acceptance remains separately open.
 - [ ] All Assessments use the same underlying Assessment model.
-  - Mismatch: No shared Assessment model was found.
+  - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` and `schemas/base_schema/assessments.sql` `ple_data.assessment` are the reusable Blueprint and Course Instance variants.
+  - Mismatch: They remain distinct variant models rather than one shared underlying Assessment model.
 - [ ] **Assignment** is not a separate object or category. The word appears only in the names
   **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
-  - Mismatch: Assignment is the current general object name throughout the product.
+  - Evidence (source): `schemas/base_schema/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
+  - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
 
 ### Assessment content
 
@@ -41,12 +45,10 @@
   - Evidence (source): `schemas/base_schema/blueprints.sql` `assessment_type` and `schemas/base_schema/assessments.sql` `assessment_type` validate the same five values; `schemas/base_schema/course_blueprint_adoption.sql` `assessment_type` copies the selected Type during adoption.
 - [x] **Instructors** can change Assessment settings independently of the defaults for its Type.
   - Evidence (source): `crates/domain/src/effective_assessment_properties.rs` `EffectiveAssessmentPolicy` resolves explicit Course Instance property overrides separately from Blueprint defaults and Assessment Type.
-  - Evidence (source): `crates/learning-data-access/tests/assessment_policies_postgres.rs` `policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid_dates` seeds an adopted Quiz with `before policy save` instructions and a 300-second limit, then sends independent `persisted policy` instructions and a 600-second limit through the Properties save input.
-  - Decision: The current ignored PostgreSQL acceptance fixture has not been rerun after this update. It is source evidence of the mutable instruction/time-limit case, not a current runtime acceptance receipt.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 actual-Store receipt loaded an Instructor Exam, saved its policy settings, and retained its Type through `crates/learning-data-access/src/postgres/assessment_release.rs` `PostgresLiveAssessmentStore`.
 - [x] Changing Assessment settings does not change its Assessment Type.
   - Evidence (source): `crates/domain/src/effective_assessment_properties.rs` `EffectiveAssessmentPolicy` does not expose Type as an editable property, while `crates/question_model/src/assessment.rs` `AssessmentType` remains part of Assessment identity.
-  - Evidence (source): `crates/learning-data-access/tests/assessment_policies_postgres.rs` `policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid_dates` uses a closed policy-save input with instructions and a time limit, but no Assessment Type field; its adopted Quiz fixture retains the fixed Type while those settings are changed.
-  - Decision: An actual PostgreSQL acceptance rerun of the current fixture remains pending; this does not cite the retired Quiz Attempt-limit 3-to-5 runtime claim.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 actual-Store receipt saved Instructor Exam policy settings while retaining its Type through `crates/learning-data-access/src/postgres/assessment_release.rs` `PostgresLiveAssessmentStore`.
 - [ ] **Regular Assignments** give **Students** regular practice applying course ideas outside class.
   - Mismatch: No Regular Assignment type behavior was found.
 - [ ] Regular Assignments reinforce current learning and may also introduce new topics.
@@ -74,8 +76,9 @@
   - Mismatch: No Exam type behavior was found.
 - [ ] Exams may use more restrictive Attempt, timing, availability, and feedback settings.
   - Mismatch: No type-specific settings behavior was found.
-- [ ] Quizzes and Exams allow one Assessment Attempt.
-  - Mismatch: Quiz and Exam Attempt limits remain configurable rather than being enforced as one.
+- [x] Quizzes and Exams allow one Assessment Attempt.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` resolves Quiz and Exam to an effective limit of `1` before issue or resume.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Quiz resume/submission and Attempt-2 denial, Exam effective-one handling, and expired-pending Exam denial through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 
 ### Assessment type appearance
 
@@ -119,8 +122,9 @@
   - Mismatch: Point values exist in Assignment source, but Blueprint Assessment behavior is not verified.
 - [ ] Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
   - Mismatch: Blueprint Assignment source does not establish this full absence contract.
-- [ ] Blueprint Assessments do not use Assessment Templates.
-  - Mismatch: No Assessment Template model was found.
+- [x] Blueprint Assessments do not use Assessment Templates.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates as Instructor-owned private state outside Courses and Blueprints with no Blueprint or source field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Template create, save, read, and direct Course Assessment copy without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
 - [ ] Creating a daughter Course Instance from a Blueprint Course copies its Blueprint Assessments into the Course Instance.
   - Mismatch: Copy behavior is outside this source-only verification and uses Assignment terminology.
 
@@ -144,26 +148,38 @@
 
 ### Assessment Templates
 
-- [ ] An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
-  - Mismatch: No Assessment Template model was found.
-- [ ] Assessment Templates are separate from Assessment Types.
-  - Mismatch: Neither model was found.
-- [ ] Every Assessment Template has one of the five Assessment Types.
-  - Mismatch: No Assessment Template or five-type model was found.
-- [ ] **Instructors** can create and change their own Assessment Templates.
-  - Mismatch: No Assessment Template workflow was found.
-- [ ] Assessment Templates provide defaults for settings such as Attempts, timing, scoring, and disclosure.
-  - Mismatch: No Assessment Template defaults behavior was found.
-- [ ] Creating a Course Instance Assessment from a Template copies its settings into the new Assessment.
-  - Mismatch: No Assessment Template creation behavior was found.
-- [ ] The new Course Instance Assessment can be changed independently after it is created.
-  - Mismatch: No Assessment Template creation behavior was found.
-- [ ] Changing an Assessment Template does not change Assessments previously created from it.
-  - Mismatch: No Assessment Template behavior was found.
-- [ ] Assessment Templates do not contain Questions or Question Pools.
-  - Mismatch: No Assessment Template model was found.
-- [ ] Blueprint Assessments do not use Assessment Templates.
-  - Mismatch: No Assessment Template model was found.
+- [x] An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` stores reusable settings, and `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` makes a direct Course Assessment from them.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed the complete Template round trip and by-value Course Assessment copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Assessment Templates are separate from Assessment Types.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` has a private UUID, owner, name, and settings while its required `assessment_type` is one closed Type field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template create, save, read, and by-value copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Every Assessment Template has one of the five Assessment Types.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` constrains `assessment_type` to the five canonical values.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template create, save, read, and by-value copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] **Instructors** can create and change their own Assessment Templates.
+  - Evidence (source): `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` supplies Instructor CRUD; owner authorization is enforced by the Template Store.
+  - Evidence (runtime): accepted C515 actual-Store proof covered owner/nonowner and inactive authorization, stale CAS, and settings round trip through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+  - Evidence (runtime): separate actual-component proof covered browser Template CRUD at `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface`; it is not connected-server evidence.
+- [x] Assessment Templates provide defaults for settings such as Attempts, timing, scoring, and disclosure.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` stores instructions, Attempt/time limits, late-work, seven activity rules, and seven feedback-release rules including grade rule.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template settings round trip and copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Creating a Course Instance Assessment from a Template copies its settings into the new Assessment.
+  - Evidence (source): `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` reads the owner-visible Template once and passes every portable setting by value to `ple_data.create_assessment_from_template_values`.
+  - Evidence (runtime): accepted C516 SQL full-settings/copy-independence and actual-component UI proofs passed at `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template`.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] The new Course Instance Assessment can be changed independently after it is created.
+  - Evidence (source): `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` creates a direct Course Assessment with copied values and no Template link.
+  - Evidence (runtime): accepted C516 SQL full-settings/copy-independence proof passed at `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template`.
+- [x] Changing an Assessment Template does not change Assessments previously created from it.
+  - Evidence (source): `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` copies settings by value into the new Course Assessment and stores no Template identity.
+  - Evidence (runtime): accepted C516 SQL full-settings/copy-independence proof passed at `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template`.
+- [x] Assessment Templates do not contain Questions or Question Pools.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines identity, owner, Type, and reusable settings with no Question, Pool, content, point, or source field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template creation and empty direct Course Assessment copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+- [x] Blueprint Assessments do not use Assessment Templates.
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates outside Courses and Blueprints; the by-value path creates only direct Course Assessments.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy to a direct Course Assessment without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
   - Owner: Same implementation finding as the earlier Assessment Templates bullet.
 
 ### Course Instance Assessment release and defaults
@@ -184,8 +200,10 @@
 - [x] Release Validation should check that release, due, and other dates occur in a valid order.
   - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_release_issues` rejects Available after Due and Due after Closes.
   - Evidence (runtime): accepted fresh PostgreSQL 17 actual-API receipt exercised both invalid orderings and the corrected valid ordering from `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_release_issues`.
-- [ ] Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
-  - Mismatch: No verified complete required-setting validation was found.
+- [x] Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
+  - Evidence (source): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` reaches `schemas/base_schema/assessments.sql` `ple_data.replace_assessment_entries`, which rejects point values outside `0` through `1000000000.9999` or four decimal places; table checks retain that bound for alternate writers. The Assessment table permits only null or positive whole-Assessment Attempt/time limits and requires one Attempt for Quiz and Exam.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_release_issues` separately requires an Assessment Attempt time limit before release.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 actual-API receipt for `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` atomically rejected `1000000001` and `1000000000.99999`; exact `1000000000.9999` saved and released.
 - [ ] Release Validation should check that the Assessment contains Questions and that required Question settings are valid.
   - Mismatch: No verified Assessment Question validation was found.
 - [x] The **Instructor** should be able to correct validation problems and run Release Validation again.
@@ -221,16 +239,21 @@
   - Evidence (runtime): accepted PostgreSQL 17 ordinary start and whole-submit proof found zero response-source rows before submission and one after; the native PLE summary preserved the disclosed correct answer.
   - Mismatch: Backend-owned answers currently project as absent, and opaque WeBWorK answer disclosure remains unimplemented. This universal row stays open pending safe backend-owned disclosure without answer extraction.
 - [ ] **Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.
-  - Evidence (runtime): fresh PostgreSQL 17 release proof rejected a Quiz configured to disclose answers after submission with `quiz_exam_answer_disclosure_requires_course_completion_rule`; the same Quiz released after both answer fields were set to `never`.
-  - Mismatch: Quiz and Exam completion now means Student submission or time expiry, regardless of score or correctness. Eventual release after every current Student completes remains unimplemented.
-- [ ] A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `ple_private.current_student_cohort_completed_assessment` derives the current active Student cohort from immutable submission evidence without a snapshot or latch.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed the two-current-Student cohort transition through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
+  - Mismatch: Correct-answer release from the cohort fact remains unimplemented, including the connected HTTP and opaque WeBWorK boundaries.
+- [x] A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
   PLE submits it automatically.
-  - Mismatch: Completion currently follows the generic Assessment Attempt lifecycle and does not implement the required Quiz/Exam submission-or-expiry rule.
-- [ ] Assessment Attempt completion does not depend on correctness or score.
-  - Mismatch: Current completion behavior does not establish the required score- and correctness-independent rule for every Assessment Attempt.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` inserts one submitted-Attempt record for `student` or `deadline` finalization.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Quiz Student submission, generic deadline finalization, and expired-pending Exam denial through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
+  - Decision: The accepted composition uses the type-independent submission authority. Quiz/Exam worker finalization was not directly run.
+- [x] Assessment Attempt completion does not depend on correctness or score.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` resolves finalization from Student-versus-deadline state; correctness and score are not completion conditions.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed zero/partial whole submission and deadline finalization through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] Until then, Quizzes and Exams do not disclose correct answers.
-  - Evidence (source): `schemas/base_schema/assessments.sql` fails closed when Quiz or Exam correct-answer or answer-explanation disclosure is not `never`.
-  - Mismatch: This provisional hard guard prevents early disclosure but does not implement eventual release after every current Student completes.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` projects the current cohort-completion fact only after a Student's submitted Attempt history is authorized.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed the two-current-Student cohort transition through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
+  - Mismatch: No current correct-answer release uses that cohort fact; connected HTTP release and opaque WeBWorK answer delivery remain unverified.
 - [x] Optional Question Feedback is shown when the Question Backend provides it.
   - Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_student_feedback` releases backend-provided feedback.
   - Owner: Same implementation finding as the earlier Questions bullet.
@@ -248,40 +271,46 @@
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` contains only reusable content and defaults; `schemas/base_schema/assessment_attempts.sql` `ple_private.assessment_attempt` permits Attempts only through `ple_data.assessment`, the Course Instance Assessment aggregate.
 - [ ] Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
   - Mismatch: Saved-response persistence is tested after a browser reload, but no evidence establishes persistence across a distinct browser session.
-- [ ] **Instructors** control the number of permitted Assessment Attempts.
-  - Mismatch: Assignment attempt limit exists, but instructor behavior is not verified.
-- [ ] Regular Assignments default to unlimited Attempts.
-  - Mismatch: No Regular Assignment type default was found.
-- [ ] **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
-  - Mismatch: Repeat behavior needs runtime evidence.
+- [x] **Instructors** control the number of permitted Assessment Attempts.
+  - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.save_assessment` and `ple_data.save_assessment_policies` accept `assessment_attempt_limit` only after `current_session_account_is_course_instructor`; issuance applies that saved value subject to Quiz/Exam effective-one.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered unlimited retries, Quiz Attempt-2 denial, and expired-unlimited new-Attempt behavior through `crates/learning-data-access/src/postgres/assessment_attempt.rs` `PostgresAssessmentAttemptStore`.
+- [x] Regular Assignments default to unlimited Attempts.
+  - Evidence (source): `schemas/base_schema/assessment_creation.sql` `ple_data.create_assessment` defaults to a nullable Attempt limit for unlimited Attempts; only Quiz and Exam override it to one at issuance.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed unlimited retries after perfect and nonperfect submissions through `crates/learning-data-access/src/postgres/assessment_attempt.rs` `PostgresAssessmentAttemptStore`.
+- [x] **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` counts issued Attempts only with an effective finite limit; `NULL` permits another.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed unlimited perfect/nonperfect retries and expired-unlimited new Attempt through `crates/learning-data-access/src/postgres/assessment_attempt.rs` `PostgresAssessmentAttemptStore`.
 - [x] When an Assessment permits multiple Attempts, the highest Assessment Attempt score is used as the
   Student's Assessment score.
   - Evidence (source): `schemas/base_schema/grading_access.sql` `read_assessment_gradebook_evidence` independently selects the highest grading-complete submitted Attempt by earned points, then uses the latest Attempt only when no score is established; `ple_api.read_course_gradebook` consumes that private answer-free helper.
   - Evidence (runtime): accepted actual PostgreSQL 17 evidence exercised `schemas/base_schema/grading_access.sql` `ple_api.read_course_gradebook`, proving an earlier higher earned score beats a later lower score and a later unfinished or pending Attempt does not replace it. Current Question points recalculated the selected score from `8` to `16`; a Bonus contribution retained a zero possible denominator; and a latest unscored expired Attempt remained the fallback when no completed score existed.
   - Evidence (source): `schemas/base_schema/student_assessment_landing.sql` `ple_private.read_student_released_assessment_landing_evidence` keeps progress, completion, and resume state on the latest Attempt but obtains the Assessment score from the selected highest Attempt and applies that Attempt's copied disclosure timing. `src/api/decoders/live_student_course_landing.ts` `decodeAssessmentSummary` requires direct `assessmentScore` and rejects the retired `score` alias; `src/pages/student_course_landing_page.tsx` labels it `Assessment score`.
   - Evidence (runtime): accepted actual PostgreSQL 17 evidence exercised `schemas/base_schema/student_assessment_landing.sql` `ple_api.list_released_live_student_assessments`, preserving an earlier higher score across later lower, unfinished, and pending Attempts, including inverse selected-Attempt/latest-Attempt disclosure cases. The focused decoder/presentation lane passed 8/8, and compiled M6 component evidence passed.
-- [x] Assessment Attempt submission and grading are fully automatic and require no **Instructor** action.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` commits ordinary Student finalization and checks immutable automated grading evidence.
-- [x] Automatic grading does not require a separate Student or **Instructor** grading workflow.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` proves the Student finalization API creates the grading result directly.
+- [ ] Assessment Attempt submission and grading are fully automatic and require no **Instructor** action.
+  - Mismatch: `schemas/base_schema/assessment_attempt_finalization.sql` has a current automatic finalization path, but no current runtime receipt establishes the complete submission-and-grading row after the retired oracle was removed.
+- [ ] Automatic grading does not require a separate Student or **Instructor** grading workflow.
+  - Mismatch: The current finalization source records direct grading, but no current runtime receipt establishes the complete no-workflow behavior after the retired oracle was removed.
 
 ### Assessment responses and submission
 
 - [x] The Student submission action submits the whole Assessment Attempt.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` commits one ordinary Student Attempt finalization and asserts one Assignment submission.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` creates one Assessment submission and finalizes every open issued Question in that Attempt.
+  - Evidence (runtime): accepted C525 actual-Store evidence exercised whole zero- and partial-response submissions through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] A Question either has a complete saved response or has no saved response.
   - Mismatch: Complete-response contract was not verified.
 - [x] PLE saves complete Question responses as the **Student** works.
   - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres.rs` `late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks` saves an ordinary Student response and asserts its persisted `saved` state.
-- [x] The Student may change a saved response while the Assessment Attempt remains open.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` replaces saved response A with response B before finalization and rejects the stale A snapshot.
+- [ ] The Student may change a saved response while the Assessment Attempt remains open.
+  - Mismatch: Current response persistence source exists, but no current runtime receipt establishes saved-response replacement after the retired oracle was removed.
 - [x] Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_student_assignment_attempt_finalization` commits the prepared saved response into immutable submission and grading evidence.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
+  - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
   - Mismatch: Visible unanswered-state behavior needs runtime evidence.
 - [x] An unanswered Question receives zero credit and counts as incorrect without being sent to the
   Question Backend.
-  - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `commit_expired_student_assignment_attempt_finalization` verifies an expired all-unanswered Attempt has no invented backend result and zero-credit scoring.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` marks unanswered Questions `closed_unanswered` and scores missing credit as zero.
+  - Evidence (runtime): accepted C525 actual-Store deadline evidence observed `closed_unanswered` with no invented response through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
   - Mismatch: Incomplete response behavior was not verified.
 - [ ] A Question Backend may evaluate a response before Assessment submission when needed for its interaction.

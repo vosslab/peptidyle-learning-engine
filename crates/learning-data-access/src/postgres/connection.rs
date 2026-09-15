@@ -31,7 +31,7 @@ pub enum ProductionLoginProfile {
     /// Course-retention executor: stored due-action reads and one-way Course
     /// Student-record archive/delete procedures only.
     CourseRetentionExecutor,
-    /// Retention notifier: four direct SECURITY DEFINER receipt procedures;
+    /// Retention notifier: three direct SECURITY DEFINER receipt procedures;
     /// it has no capability-role membership or raw-table authority.
     CourseRetentionNotifier,
     /// Dedicated immutable public Question Asset publisher: its exact private

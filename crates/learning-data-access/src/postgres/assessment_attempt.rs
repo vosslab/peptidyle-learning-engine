@@ -87,7 +87,7 @@ impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
-            "SELECT assessment_attempt_id, attempt_number, resumed \
+            "SELECT assessment_attempt_id, assessment_attempt_number, resumed \
              FROM ple_api.start_assessment_attempt($1, $2, $3, $4, $5)",
         )
         .bind(assessment_attempt.as_uuid())
@@ -98,7 +98,9 @@ impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let attempt_number: i32 = row.try_get("attempt_number").map_err(map_sqlx_error)?;
+        let attempt_number: i32 = row
+            .try_get("assessment_attempt_number")
+            .map_err(map_sqlx_error)?;
         let result = AssessmentAttemptStartResult {
             assessment_attempt: AssessmentAttemptId::from_uuid(
                 row.try_get("assessment_attempt_id")

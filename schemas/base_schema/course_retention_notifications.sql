@@ -12,9 +12,6 @@ CREATE TABLE ple_private.course_retention_notification (
     recipient_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     recipient_product_role text NOT NULL DEFAULT 'instructor'
         CHECK (recipient_product_role = 'instructor'),
-    verified_destination text NOT NULL CHECK (
-        char_length(btrim(verified_destination)) BETWEEN 3 AND 320
-    ),
     provider_idempotency_key uuid NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     created_at timestamp with time zone NOT NULL,
     next_attempt_at timestamp with time zone NOT NULL,
@@ -22,7 +19,6 @@ CREATE TABLE ple_private.course_retention_notification (
     lease_expires_at timestamp with time zone,
     lease_token uuid,
     provider_accepted_at timestamp with time zone,
-    delivered_at timestamp with time zone,
     last_failure_at timestamp with time zone,
     last_failure_kind text CHECK (last_failure_kind IN (
         'not_configured', 'provider_transient', 'provider_rejected'
@@ -36,9 +32,6 @@ CREATE TABLE ple_private.course_retention_notification (
     CHECK ((claimed_at IS NULL AND lease_expires_at IS NULL AND lease_token IS NULL)
         OR (claimed_at IS NOT NULL AND lease_expires_at > claimed_at AND lease_token IS NOT NULL)),
     CHECK (provider_accepted_at IS NULL OR provider_accepted_at >= created_at),
-    CHECK (delivered_at IS NULL OR (
-        provider_accepted_at IS NOT NULL AND delivered_at >= provider_accepted_at
-    )),
     CHECK ((last_failure_at IS NULL AND last_failure_kind IS NULL)
         OR (last_failure_at IS NOT NULL AND last_failure_kind IS NOT NULL)),
     CHECK (next_attempt_at >= due_at)
@@ -123,8 +116,6 @@ CREATE FUNCTION ple_api.claim_course_retention_notification(
     p_lease_seconds integer
 ) RETURNS TABLE (
     notification_id uuid,
-    action_kind text,
-    due_at timestamp with time zone,
     verified_destination text,
     provider_idempotency_key uuid,
     lease_token uuid
@@ -143,7 +134,7 @@ BEGIN
     -- insert.  Archive and delete are not notification actions.
     INSERT INTO ple_private.course_retention_notification (
         course_id, action_kind, due_at, recipient_account_id,
-           verified_destination, created_at, next_attempt_at
+        created_at, next_attempt_at
     )
     WITH due AS (
         SELECT action.course_id, action.due_action AS action_kind, action.due_at
@@ -163,7 +154,7 @@ BEGIN
            AND ple_data.course_membership_is_active(membership.membership_id)
     )
     SELECT recipient.course_id, recipient.action_kind, recipient.due_at,
-           recipient.account_id, email.delivery_email, p_evaluated_at, recipient.due_at
+           recipient.account_id, p_evaluated_at, recipient.due_at
       FROM recipient
       JOIN ple_private.account AS account
         ON account.account_id = recipient.account_id
@@ -180,13 +171,28 @@ BEGIN
        AND email.verified_at IS NOT NULL
     ON CONFLICT ON CONSTRAINT course_retention_notification_identity DO NOTHING;
 
+    -- ASVS 8.3.2/14.2.6: every claim rechecks current Instructor eligibility
+    -- and returns only that Account's current verified delivery address.
     -- ASVS 2.3.4: row locking plus SKIP LOCKED prevents two notifier workers
-    -- from taking the same receipt.  An expired unaccepted lease is retryable;
+    -- from taking the same receipt. An expired unaccepted lease is retryable;
     -- provider acceptance is terminal for sending.
     RETURN QUERY
     WITH candidate AS (
-        SELECT receipt.notification_id
+        SELECT receipt.notification_id, email.delivery_email AS verified_destination
           FROM ple_private.course_retention_notification AS receipt
+          JOIN ple_private.account AS account
+            ON account.account_id = receipt.recipient_account_id
+           AND account.product_role = 'instructor'
+          JOIN LATERAL (
+              SELECT state.state
+                FROM ple_private.account_state_event AS state
+               WHERE state.account_id = account.account_id
+               ORDER BY state.occurred_at DESC, state.event_id DESC
+               LIMIT 1
+          ) AS current_state ON current_state.state = 'active'
+          JOIN ple_private.account_authentication_email AS email
+            ON email.account_id = account.account_id
+           AND email.verified_at IS NOT NULL
          WHERE receipt.next_attempt_at <= p_evaluated_at
            AND receipt.provider_accepted_at IS NULL
            AND (receipt.lease_expires_at IS NULL OR receipt.lease_expires_at <= p_evaluated_at)
@@ -197,21 +203,40 @@ BEGIN
                   AND due.due_action = receipt.action_kind
                   AND due.due_at = receipt.due_at
            )
+           AND EXISTS (
+               SELECT 1
+                 FROM ple_data.course_instance AS course
+                WHERE course.course_id = receipt.course_id
+                  AND (
+                      course.assigned_instructor_account_id = receipt.recipient_account_id
+                      OR EXISTS (
+                          SELECT 1
+                            FROM ple_data.course_membership AS membership
+                           WHERE membership.course_id = receipt.course_id
+                             AND membership.account_id = receipt.recipient_account_id
+                             AND membership.role = 'instructor'
+                             AND ple_data.course_membership_is_active(
+                                 membership.membership_id
+                             )
+                      )
+                  )
+           )
          ORDER BY receipt.due_at, receipt.notification_id
-         FOR UPDATE SKIP LOCKED
+         FOR UPDATE OF receipt SKIP LOCKED
          LIMIT 1
     ), claimed AS (
         UPDATE ple_private.course_retention_notification AS receipt
            SET claimed_at = p_evaluated_at,
                lease_expires_at = p_evaluated_at
                    + pg_catalog.make_interval(secs => p_lease_seconds),
+               next_attempt_at = p_evaluated_at
+                   + pg_catalog.make_interval(secs => p_lease_seconds),
                lease_token = pg_catalog.gen_random_uuid(),
                attempt_count = receipt.attempt_count + 1
           FROM candidate
          WHERE receipt.notification_id = candidate.notification_id
-         RETURNING receipt.notification_id, receipt.action_kind, receipt.due_at,
-                   receipt.verified_destination, receipt.provider_idempotency_key,
-                   receipt.lease_token
+         RETURNING receipt.notification_id, candidate.verified_destination,
+                   receipt.provider_idempotency_key, receipt.lease_token
     )
     SELECT * FROM claimed;
 END
@@ -243,30 +268,6 @@ BEGIN
        AND receipt.provider_accepted_at IS NULL
        AND p_accepted_at >= receipt.claimed_at
        AND receipt.lease_expires_at > p_accepted_at;
-    RETURN FOUND;
-END
-$$;
-
-CREATE FUNCTION ple_api.record_course_retention_notification_delivered(
-    p_notification_id uuid,
-    p_provider_idempotency_key uuid,
-    p_delivered_at timestamp with time zone
-) RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_private
-AS $$
-BEGIN
-    IF p_notification_id IS NULL OR p_provider_idempotency_key IS NULL
-       OR p_delivered_at IS NULL THEN
-        RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Course-retention delivered receipt arguments are invalid';
-    END IF;
-    UPDATE ple_private.course_retention_notification AS receipt
-       SET delivered_at = COALESCE(receipt.delivered_at, p_delivered_at)
-     WHERE receipt.notification_id = p_notification_id
-       AND receipt.provider_idempotency_key = p_provider_idempotency_key
-       AND receipt.provider_accepted_at IS NOT NULL
-       AND p_delivered_at >= receipt.provider_accepted_at;
     RETURN FOUND;
 END
 $$;
@@ -310,7 +311,6 @@ REVOKE ALL ON FUNCTION ple_api.claim_course_retention_notification(
     ple_api.record_course_retention_notification_provider_acceptance(
         uuid, uuid, uuid, timestamp with time zone
     ),
-    ple_api.record_course_retention_notification_delivered(uuid, uuid, timestamp with time zone),
     ple_api.fail_course_retention_notification_before_acceptance(
         uuid, uuid, timestamp with time zone, text
     )
@@ -321,7 +321,6 @@ GRANT EXECUTE ON FUNCTION ple_api.claim_course_retention_notification(
     ple_api.record_course_retention_notification_provider_acceptance(
         uuid, uuid, uuid, timestamp with time zone
     ),
-    ple_api.record_course_retention_notification_delivered(uuid, uuid, timestamp with time zone),
     ple_api.fail_course_retention_notification_before_acceptance(
         uuid, uuid, timestamp with time zone, text
     )

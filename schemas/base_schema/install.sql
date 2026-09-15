@@ -16,14 +16,12 @@
 \ir object_records.sql
 \ir question_authoring_state.sql
 \ir question_publication_operations.sql
-\ir question_library_operations.sql
 \ir question_authoring_operations.sql
 \ir published_question_metadata_operations.sql
 \ir question_assets.sql
 \ir blueprints.sql
 \ir blueprint_operations.sql
 \ir blueprint_lineage.sql
-\ir blueprint_fork_sync.sql
 \ir blueprint_stewardship.sql
 \ir blueprint_revision_integrity.sql
 \ir course_core.sql
@@ -35,9 +33,11 @@
 \ir course_media.sql
 \ir profile_media.sql
 \ir assessments.sql
+\ir question_library_operations.sql
 \ir assessment_creation.sql
 \ir assessment_deadline_sync.sql
 \ir assessment_templates.sql
+\ir assessment_template_copy.sql
 \ir assessment_release_validation.sql
 \ir assessment_pool_forks.sql
 \ir assessment_pool_selection.sql

@@ -4,6 +4,14 @@ import { A, useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
+import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
+import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
+import type { PublishedQuestionSharedMetadata } from "../../generated/api/PublishedQuestionSharedMetadata";
+import type {
+  QuestionBulkMetadataClient,
+  QuestionBulkMetadataUpdateResult,
+} from "../api/question_bulk_metadata";
+import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
 import "./library_page.css";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
@@ -64,6 +72,7 @@ function webworkFormatLabel(value: QuestionLibraryBrowseRow["questionFormat"]): 
 
 export interface LibraryPageProps {
   readonly repository: QuestionLibraryBrowseRepository;
+  readonly metadataClient: QuestionBulkMetadataClient;
 }
 
 /** Question Library UI with the production repository injected by the route composition. */
@@ -86,6 +95,15 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [viewportHeight, setViewportHeight] = createSignal(560);
   const [rowHeightPx, setRowHeightPx] = createSignal(FALLBACK_ROW_HEIGHT_PX);
   const [libraryWindow, setLibraryWindow] = createSignal<HTMLDivElement>();
+  const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(new Set());
+  const [selectionNotice, setSelectionNotice] = createSignal<string | null>(null);
+  const [editorMetadata, setEditorMetadata] =
+    createSignal<ReadonlyArray<PublishedQuestionSharedMetadata> | null>(null);
+  const [editorLoading, setEditorLoading] = createSignal(false);
+  const [editorLoadError, setEditorLoadError] = createSignal(false);
+  const [editorBusy, setEditorBusy] = createSignal(false);
+  const [updateResults, setUpdateResults] =
+    createSignal<ReadonlyArray<QuestionBulkMetadataUpdateResult> | null>(null);
   let pendingScrollRestore = returnState?.scrollTop ?? null;
   const questionReturnTokens = new Map<string, string>();
   const session = new QuestionLibraryBrowseSession(props.repository, setState);
@@ -131,10 +149,86 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     );
 
   function changeQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
+    if (selectedIds().size > 0) {
+      setSelectionNotice("Selection cleared because the search or filters changed.");
+    }
+    setSelectedIds(new Set<string>());
+    setEditorMetadata(null);
+    setEditorLoadError(false);
+    setUpdateResults(null);
     const next = { ...query(), ...change };
     setQuery(next);
     setScrollTop(0);
     void session.reset(next);
+  }
+
+  function updateSelection(questionId: string, checked: boolean): void {
+    const next = new Set(selectedIds());
+    if (checked) {
+      if (next.size >= MAX_BULK_QUESTION_METADATA_ITEMS) {
+        setSelectionNotice(
+          `You can select at most ${MAX_BULK_QUESTION_METADATA_ITEMS} Questions at once.`,
+        );
+        return;
+      }
+      next.add(questionId);
+    } else {
+      next.delete(questionId);
+    }
+    setSelectedIds(next);
+    setEditorMetadata(null);
+    setEditorLoadError(false);
+    setUpdateResults(null);
+    setSelectionNotice(null);
+  }
+
+  function selectLoadedQuestions(): void {
+    const rows = displayedRows();
+    const selected = rows.slice(0, MAX_BULK_QUESTION_METADATA_ITEMS).map((row) => row.displayId);
+    setSelectedIds(new Set(selected));
+    setEditorMetadata(null);
+    setEditorLoadError(false);
+    setUpdateResults(null);
+    setSelectionNotice(
+      rows.length > MAX_BULK_QUESTION_METADATA_ITEMS
+        ? `Selected the first ${MAX_BULK_QUESTION_METADATA_ITEMS} loaded Questions; the bulk limit is ${MAX_BULK_QUESTION_METADATA_ITEMS}.`
+        : `Selected all ${rows.length} Questions currently loaded in this browser.`,
+    );
+  }
+
+  function clearSelection(): void {
+    setSelectedIds(new Set<string>());
+    setEditorMetadata(null);
+    setEditorLoadError(false);
+    setUpdateResults(null);
+    setSelectionNotice("Selection cleared.");
+  }
+
+  async function openMetadataEditor(): Promise<void> {
+    setEditorLoading(true);
+    setEditorBusy(true);
+    setEditorLoadError(false);
+    setUpdateResults(null);
+    try {
+      const selection = questionLibraryBulkSelectionRequest([...selectedIds()]);
+      const current = await props.metadataClient.getCurrentQuestionBulkMetadata(
+        selection.questionIds,
+      );
+      setEditorMetadata(current);
+    } catch {
+      setEditorLoadError(true);
+    } finally {
+      setEditorLoading(false);
+      setEditorBusy(false);
+    }
+  }
+
+  function metadataUpdateSucceeded(results: ReadonlyArray<QuestionBulkMetadataUpdateResult>): void {
+    setUpdateResults(results);
+    setEditorMetadata(null);
+    setSelectedIds(new Set<string>());
+    setSelectionNotice(null);
+    void session.reset(query());
   }
 
   function handleScroll(event: Event): void {
@@ -216,20 +310,55 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         {state().kind === "loading" ? "Loading Question Library results." : ""}
       </p>
       <form class="question-library-controls" onSubmit={(event) => event.preventDefault()}>
-        <label>
+        <label class="question-library-search-control">
           Search published questions
           <input
             type="search"
             value={query().search}
             onInput={(event) => changeQuery({ search: event.currentTarget.value })}
             placeholder="Title or concept"
+            disabled={editorBusy()}
           />
         </label>
+        <details class="question-library-search-tips">
+          <summary>Search tips</summary>
+          <div>
+            <p>
+              Ordinary words search together. Use quotes for a phrase and a leading minus to
+              exclude.
+            </p>
+            <p>
+              Fields: <code>subject:</code>, <code>topic:</code>, <code>tags:</code>,{" "}
+              <code>type:</code>, and <code>author:</code>.
+            </p>
+            <ul aria-label="Search examples">
+              <li>
+                <code>topic:genetics</code>
+              </li>
+              <li>
+                <code>tags:&quot;cell division&quot;</code>
+              </li>
+              <li>
+                <code>type:&quot;multiple choice&quot;</code>
+              </li>
+              <li>
+                <code>author:&quot;Ada Lovelace&quot;</code>
+              </li>
+              <li>
+                <code>meiosis -mitosis</code>
+              </li>
+              <li>
+                <code>&quot;cell membrane&quot;</code>
+              </li>
+            </ul>
+          </div>
+        </details>
         <label>
           Question Author
           <select
             value={query().authorName ?? ""}
             onChange={(event) => changeQuery({ authorName: event.currentTarget.value || null })}
+            disabled={editorBusy()}
           >
             <option value="">All Question Authors</option>
             <For each={facets("authorName")()}>
@@ -242,6 +371,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           <select
             value={query().backend ?? ""}
             onChange={(event) => changeQuery({ backend: event.currentTarget.value || null })}
+            disabled={editorBusy()}
           >
             <option value="">All backends</option>
             <For each={facets("backend")()}>
@@ -258,6 +388,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           <select
             value={query().tag ?? ""}
             onChange={(event) => changeQuery({ tag: event.currentTarget.value || null })}
+            disabled={editorBusy()}
           >
             <option value="">All tags</option>
             <For each={facets("tag")()}>
@@ -270,6 +401,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           <select
             value={query().questionType ?? ""}
             onChange={(event) => changeQuery({ questionType: event.currentTarget.value || null })}
+            disabled={editorBusy()}
           >
             <option value="">All Question Types</option>
             <For each={facets("questionType")()}>
@@ -288,6 +420,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             onChange={(event) =>
               changeQuery({ questionLicense: event.currentTarget.value || null })
             }
+            disabled={editorBusy()}
           >
             <option value="">All Question Licenses</option>
             <For each={facets("questionLicense")()}>
@@ -302,6 +435,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             onChange={(event) =>
               changeQuery({ usedInMyCourses: event.currentTarget.value || null })
             }
+            disabled={editorBusy()}
           >
             <option value="">Any course use</option>
             <For each={facets("usedInMyCourses")()}>
@@ -316,6 +450,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           <select
             value={query().capability ?? ""}
             onChange={(event) => changeQuery({ capability: event.currentTarget.value || null })}
+            disabled={editorBusy()}
           >
             <option value="">All capabilities</option>
             <For each={facets("capability")()}>
@@ -324,6 +459,79 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           </select>
         </label>
       </form>
+      <Show when={displayedRows().length > 0 || selectedIds().size > 0}>
+        <section class="question-library-bulk-toolbar" aria-label="Bulk Question actions">
+          <p aria-live="polite">
+            <strong>{selectedIds().size} selected</strong> from {displayedRows().length} loaded
+            Questions
+          </p>
+          <div>
+            <button
+              type="button"
+              class="quiet-action"
+              disabled={editorBusy() || displayedRows().length === 0}
+              onClick={selectLoadedQuestions}
+            >
+              Select loaded Questions
+            </button>
+            <button
+              type="button"
+              class="quiet-action"
+              disabled={editorBusy() || selectedIds().size === 0}
+              onClick={clearSelection}
+            >
+              Clear selection
+            </button>
+            <button
+              type="button"
+              class="primary-action"
+              disabled={editorBusy() || selectedIds().size === 0}
+              onClick={() => void openMetadataEditor()}
+            >
+              Edit shared metadata
+            </button>
+          </div>
+          <p class="question-library-bulk-help">
+            Select loaded Questions affects only results fetched into this browser, never every
+            Question in the library. Each bulk update is limited to{" "}
+            {MAX_BULK_QUESTION_METADATA_ITEMS}.
+          </p>
+        </section>
+      </Show>
+      <Show when={selectionNotice()}>{(notice) => <p role="status">{notice()}</p>}</Show>
+      <Show when={editorLoading()}>
+        <p class="loading-state" role="status">
+          Reading current metadata for all selected Questions...
+        </p>
+      </Show>
+      <Show when={editorLoadError()}>
+        <section class="route-error" role="alert">
+          <h2>Current metadata could not be loaded</h2>
+          <p>Your selection is preserved. Retry the read before editing.</p>
+          <button class="primary-action" type="button" onClick={() => void openMetadataEditor()}>
+            Retry current metadata
+          </button>
+        </section>
+      </Show>
+      <Show when={editorMetadata()}>
+        {(metadata) => (
+          <QuestionBulkMetadataEditor
+            client={props.metadataClient}
+            initialMetadata={metadata()}
+            onBusyChange={setEditorBusy}
+            onCancel={() => setEditorMetadata(null)}
+            onSuccess={metadataUpdateSucceeded}
+          />
+        )}
+      </Show>
+      <Show when={updateResults()}>
+        {(results) => (
+          <section class="question-library-bulk-success" role="status">
+            <h2>Updated shared metadata for {results().length} Questions</h2>
+            <p>The selection was cleared and the current library search is refreshing.</p>
+          </section>
+        )}
+      </Show>
       <Show when={state().kind === "error"}>
         <section class="route-error" role="alert">
           <h2>The library could not load</h2>
@@ -362,6 +570,21 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               <For each={virtualWindow().rows}>
                 {(row) => (
                   <article class="question-library-row" style={{ height: `${rowHeightPx()}px` }}>
+                    <label class="question-library-row-selection">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds().has(row.displayId)}
+                        disabled={
+                          editorBusy() ||
+                          (!selectedIds().has(row.displayId) &&
+                            selectedIds().size >= MAX_BULK_QUESTION_METADATA_ITEMS)
+                        }
+                        onChange={(event) =>
+                          updateSelection(row.displayId, event.currentTarget.checked)
+                        }
+                      />
+                      <span class="sr-only">Select {row.questionTitle}</span>
+                    </label>
                     <h2>{row.questionTitle}</h2>
                     <p class="question-library-row-summary">{row.summary}</p>
                     <p class="question-library-row-authors" aria-label="Question Authors">

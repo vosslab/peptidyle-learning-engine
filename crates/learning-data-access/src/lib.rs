@@ -97,7 +97,9 @@ pub use assessment_student_view::{
     InstructorStudentViewSnapshot, InstructorStudentViewSnapshotEntry, InstructorStudentViewSource,
     InstructorStudentViewStore,
 };
-pub use assessment_template::{AssessmentTemplateStore, SaveAssessmentTemplateInput};
+pub use assessment_template::{
+    AssessmentTemplateStore, CreateAssessmentFromTemplateInput, SaveAssessmentTemplateInput,
+};
 pub use attempt_expiry::{
     AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation,
 };
@@ -188,10 +190,9 @@ pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
 pub use public_asset_publication::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
 pub use question_asset_delivery::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery};
 pub use question_bulk_metadata::{
-    BulkPublishedQuestionMetadataError, BulkPublishedQuestionMetadataInput,
-    BulkPublishedQuestionMetadataPatch, BulkPublishedQuestionMetadataResult,
-    BulkPublishedQuestionMetadataSelection, BulkPublishedQuestionMetadataStore,
-    MAX_BULK_QUESTION_METADATA_ITEMS,
+    BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataPatch,
+    BulkPublishedQuestionMetadataResult, BulkPublishedQuestionMetadataSelection,
+    BulkPublishedQuestionMetadataStore,
 };
 pub use question_fork::{
     ForkPublishedQuestionError, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
@@ -219,9 +220,8 @@ pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};
 pub use question_watch_notification::QuestionWatchNotificationStore;
 pub use retention::{CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore};
 pub use retention_notification::{
-    ClaimedCourseRetentionNotification, CourseRetentionNotificationAction,
-    CourseRetentionNotificationFailure, CourseRetentionNotificationStore,
-    VerifiedCourseRetentionNotificationDestination,
+    ClaimedCourseRetentionNotification, CourseRetentionNotificationFailure,
+    CourseRetentionNotificationStore, VerifiedCourseRetentionNotificationDestination,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,

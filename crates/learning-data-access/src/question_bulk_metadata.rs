@@ -7,13 +7,9 @@
 use std::collections::BTreeSet;
 
 use async_trait::async_trait;
-use question_model::QuestionId;
-use uuid::Uuid;
+use question_model::{MAX_BULK_QUESTION_METADATA_ITEMS, QuestionId};
 
 use crate::{SessionTokenHash, StoreError};
-
-/// Maximum number of Published Questions one shared-metadata command changes.
-pub const MAX_BULK_QUESTION_METADATA_ITEMS: usize = 1000;
 
 /// One exact metadata precondition supplied for a selected Published Question.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -71,8 +67,6 @@ pub struct BulkPublishedQuestionMetadataInput {
     pub selection: Vec<BulkPublishedQuestionMetadataSelection>,
     /// Closed shared metadata replacement-or-clear patch.
     pub patch: BulkPublishedQuestionMetadataPatch,
-    /// Browser-provided retry key; PostgreSQL binds it to the authenticated actor and request.
-    pub idempotency_key: Uuid,
 }
 
 impl BulkPublishedQuestionMetadataInput {
@@ -97,22 +91,13 @@ impl BulkPublishedQuestionMetadataInput {
     }
 }
 
-/// One ordered current metadata receipt returned for a successful whole command.
+/// One ordered current metadata result returned for a successful whole command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BulkPublishedQuestionMetadataResult {
     /// Stable Published Question identity.
     pub question_id: QuestionId,
     /// Metadata edit number after the accepted command.
     pub metadata_edit_number: u64,
-}
-
-/// The only special command failure: a retry key was reused for another request.
-#[derive(Debug, Clone, PartialEq)]
-pub enum BulkPublishedQuestionMetadataError {
-    /// An existing actor-bound idempotency key has a different request digest.
-    IdempotencyConflict,
-    /// All remaining failures preserve normal Store semantics.
-    Store(StoreError),
 }
 
 /// One active-vetted-Instructor atomic metadata command.
@@ -123,7 +108,7 @@ pub trait BulkPublishedQuestionMetadataStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: BulkPublishedQuestionMetadataInput,
-    ) -> Result<Vec<BulkPublishedQuestionMetadataResult>, BulkPublishedQuestionMetadataError>;
+    ) -> Result<Vec<BulkPublishedQuestionMetadataResult>, StoreError>;
 }
 
 fn valid_text(value: &str) -> bool {

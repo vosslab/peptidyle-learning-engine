@@ -13,14 +13,14 @@ use crate::{
 };
 
 pub use crate::question_search::{
+    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
+    QuestionSearchCapabilityFacet, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
+    QuestionSearchFacets, QuestionSearchFilter, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchTagFacet, QuestionTypeFacet,
     MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
     MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
-    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet,
-    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchCapabilityFacet,
-    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
-    QuestionSearchFilter, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
-    QuestionSearchRequestError, QuestionSearchTagFacet, QuestionTypeFacet,
+    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS,
 };
 pub use crate::response::QuestionType;
 
@@ -51,6 +51,9 @@ pub const QUESTION_ID_DISPLAY_HYPHEN_INDEX: usize = 4;
 
 /// Product limit kept independent of the larger encoded namespace.
 pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
+
+/// Maximum number of Published Questions one shared-metadata command changes.
+pub const MAX_BULK_QUESTION_METADATA_ITEMS: usize = 1000;
 
 /// One stable, non-sequential human-facing identity for a Published Question
 /// lineage. [`QuestionRevisionReference`] pairs it with a positive revision
@@ -193,6 +196,26 @@ pub struct QuestionRevisionReference {
     pub question_id: QuestionId,
     /// Exact immutable version within that Question lineage.
     pub revision_number: QuestionRevisionNumber,
+}
+
+/// Browser-safe current shared metadata for one Published Question.
+///
+/// This is current search metadata, not a Question Revision or metadata
+/// history record. It includes only the fields the bulk metadata workflow can
+/// read and replace.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PublishedQuestionSharedMetadata {
+    /// Stable Published Question identity.
+    pub question_id: QuestionId,
+    /// Current compare-and-swap number for the shared metadata.
+    pub metadata_edit_number: u64,
+    /// Current complete tag set.
+    pub tags: Vec<Tag>,
+    /// Current optional subject.
+    pub subject: Option<String>,
+    /// Current optional topic.
+    pub topic: Option<String>,
 }
 
 /// Current selection availability for a stable Published Question lineage.
@@ -693,14 +716,12 @@ mod tests {
         assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.question_licenses, vec![QuestionLicense::CcBy4_0]);
-        assert!(
-            QuestionSearchRequest {
-                text: Some("x".repeat(257)),
-                ..QuestionSearchRequest::default()
-            }
-            .normalized()
-            .is_err()
-        );
+        assert!(QuestionSearchRequest {
+            text: Some("x".repeat(257)),
+            ..QuestionSearchRequest::default()
+        }
+        .normalized()
+        .is_err());
     }
 
     #[test]

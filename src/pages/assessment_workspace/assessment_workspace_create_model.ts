@@ -22,6 +22,11 @@ export function assessmentWorkspaceCreateErrorMessage(): string {
   return "The Assessment could not be created. Your title is still here. Try again.";
 }
 
+/** Keeps Template-copy recovery as explicit as direct-create recovery. */
+export function assessmentWorkspaceTemplateCreateErrorMessage(): string {
+  return "The Assessment could not be created from this Template. Your title is still here. Try again.";
+}
+
 /** Accepts only one deliberate selection from PLE's fixed Assessment Type registry. */
 export function selectedAssessmentType(value: string): AssessmentType | undefined {
   return isAssessmentType(value) ? value : undefined;

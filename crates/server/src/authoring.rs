@@ -32,7 +32,7 @@ use objects::{ObjectAddress, ObjectStore, PutObject, s3::S3ObjectStore};
 use question_model::{
     DraftQuestionReference, ObjectId, QuestionAuthor, QuestionAuthorDisplayName,
     QuestionAuthorship, QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionNumber,
-    QuestionRevisionReason, QuestionRevisionReference, QuestionType, Timestamp,
+    QuestionRevisionReason, QuestionRevisionReference, QuestionType, Tag, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -506,6 +506,7 @@ async fn publish_draft(
         expected_draft_question_edit_number: expected_edit_number,
         workspace: draft.workspace,
         question_authorship: authorship,
+        initial_shared_tags: source.tags,
         question_license,
         question_revision_reason: QuestionRevisionReason::new(
             INITIAL_PUBLICATION_REASON.to_string(),
@@ -640,6 +641,7 @@ struct ValidatedSource {
     description: String,
     language: String,
     license: Option<QuestionLicense>,
+    tags: Vec<Tag>,
     question_type: QuestionType,
 }
 
@@ -670,6 +672,7 @@ fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Response>> {
         description: metadata.question_description.clone(),
         language: metadata.language.clone(),
         license: metadata.question_license.clone(),
+        tags: metadata.tags.clone(),
         question_type: compiled.presentation().question_type(),
     })
 }

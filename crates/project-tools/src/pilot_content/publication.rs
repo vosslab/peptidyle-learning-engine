@@ -240,6 +240,7 @@ async fn publish_plan(
                     expected_draft_question_edit_number: draft.edit_number,
                     workspace,
                     question_authorship: authorship.clone(),
+                    initial_shared_tags: initial_shared_tags(&question)?,
                     question_license: license.clone(),
                     question_revision_reason: QuestionRevisionReason::new(
                         INITIAL_PUBLICATION_REASON.to_string(),
@@ -259,6 +260,21 @@ async fn publish_plan(
         );
     }
     Ok(published)
+}
+
+fn initial_shared_tags(question: &PublicationSource) -> Result<Vec<question_model::Tag>> {
+    match question.backend {
+        Backend::Webwork => Ok(Vec::new()),
+        Backend::PleQuestionJson => {
+            let document =
+                adapter_ple::question_json::PleQuestionJsonDocument::parse(&question.source_bytes)
+                    .context("parsing canonical Pilot PLE Question JSON for shared tags")?;
+            let compiled = document
+                .compile()
+                .context("compiling canonical Pilot PLE Question JSON for shared tags")?;
+            Ok(compiled.presentation().metadata().tags.clone())
+        }
+    }
 }
 
 fn pilot_license(value: &str) -> Result<QuestionLicense> {

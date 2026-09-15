@@ -1,0 +1,107 @@
+/* Focused editor for bounded Question Library shared metadata. */
+
+.bulk-metadata-editor {
+  display: grid;
+  gap: 1rem;
+  margin-block: var(--ple-section-gap);
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.bulk-metadata-heading,
+.bulk-metadata-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bulk-metadata-heading h2,
+.bulk-metadata-heading p,
+.bulk-metadata-editor > p,
+.bulk-metadata-field p {
+  margin: 0;
+}
+
+.bulk-metadata-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.bulk-metadata-summary div,
+.bulk-metadata-current-values article {
+  padding: 0.75rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+}
+
+.bulk-metadata-summary dt,
+.bulk-metadata-field legend {
+  font-weight: 700;
+}
+
+.bulk-metadata-summary dd {
+  margin: 0.2rem 0 0;
+  overflow-wrap: anywhere;
+}
+
+.bulk-metadata-current-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.6rem;
+  max-block-size: 22rem;
+  margin-block-start: 0.75rem;
+  overflow: auto;
+}
+
+.bulk-metadata-current-values h3,
+.bulk-metadata-current-values p {
+  margin: 0 0 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+.bulk-metadata-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.bulk-metadata-field {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+}
+
+.bulk-metadata-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.bulk-metadata-modes label,
+.bulk-metadata-field > label {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.bulk-metadata-modes label {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  min-block-size: 2.75rem;
+}
+
+.bulk-metadata-field input:not([type="radio"]),
+.bulk-metadata-field textarea {
+  width: 100%;
+}

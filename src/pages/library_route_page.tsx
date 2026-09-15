@@ -9,5 +9,5 @@ import { LibraryPage } from "./library_page";
 export function LibraryRoutePage(): JSX.Element {
   const runtime = useApplicationApi();
   const questionLibrary = createQuestionLibraryRepository(runtime.client);
-  return <LibraryPage repository={questionLibrary} />;
+  return <LibraryPage repository={questionLibrary} metadataClient={runtime.client} />;
 }

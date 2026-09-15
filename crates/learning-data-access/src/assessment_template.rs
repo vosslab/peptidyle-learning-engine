@@ -3,10 +3,19 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentType,
+    AssessmentTemplateSettings, AssessmentTitle, AssessmentType, CourseInstanceReference,
 };
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{LiveAssessmentWorkspace, SessionTokenHash, StoreError};
+
+/// Closed input for creating one independent Course Assessment from a Template.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CreateAssessmentFromTemplateInput {
+    /// Private owned Template selected as the by-value settings source.
+    pub template_id: AssessmentTemplateId,
+    /// Instructor-facing title for the new Course Assessment.
+    pub title: AssessmentTitle,
+}
 
 /// Complete replacement accepted for one current Assessment Template.
 #[derive(Debug, Clone, PartialEq)]
@@ -52,4 +61,12 @@ pub trait AssessmentTemplateStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         input: SaveAssessmentTemplateInput,
     ) -> Result<AssessmentTemplate, StoreError>;
+
+    /// Creates one independent empty direct Assessment from owned Template settings.
+    async fn create_assessment_from_template(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        input: CreateAssessmentFromTemplateInput,
+    ) -> Result<LiveAssessmentWorkspace, StoreError>;
 }

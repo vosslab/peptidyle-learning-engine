@@ -7,9 +7,10 @@
 
 use async_trait::async_trait;
 use question_model::{
-    QuestionAuthorship, QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend,
-    QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionReference, QuestionType,
-    SourceObjectChecksum, SourceObjectReference, Timestamp,
+    PublishedQuestionSharedMetadata, QuestionAuthorship, QuestionAvailability,
+    QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat, QuestionId, QuestionLicense,
+    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference,
+    Timestamp,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -32,6 +33,11 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_title: String,
     /// Current shared Published Question description.
     pub question_description: String,
+    /// Current shared search metadata and its independent edit number.
+    pub shared_metadata: PublishedQuestionSharedMetadata,
+    /// Whether a current available entry in one of the viewer's Courses uses
+    /// this stable Question lineage.
+    pub used_in_current_account_courses: bool,
     /// Immutable reviewed public credit for this Question Revision.
     pub authorship: QuestionAuthorship,
     /// Whether the authenticated Account is an immutable Question Author.
@@ -98,6 +104,17 @@ pub trait QuestionLibraryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         question_revision: &QuestionRevisionReference,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError>;
+
+    /// Loads one bounded, all-or-none current shared-metadata snapshot.
+    ///
+    /// The database returns only available accepted Published Question
+    /// lineages for an active vetted Instructor, in canonical Question-ID
+    /// order. Any unavailable target conceals the whole selection.
+    async fn load_current_published_question_shared_metadata(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_ids: &[QuestionId],
+    ) -> Result<Vec<PublishedQuestionSharedMetadata>, StoreError>;
 
     /// Archives one owned stable Question lineage at its exact availability
     /// edit number after the caller has provided the exact current title.

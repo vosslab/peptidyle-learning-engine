@@ -37,6 +37,16 @@ impl QuestionLibraryStore for LookupCountingStore {
         ))
     }
 
+    async fn load_current_published_question_shared_metadata(
+        &self,
+        _: SessionTokenHash,
+        _: &[QuestionId],
+    ) -> Result<Vec<question_model::PublishedQuestionSharedMetadata>, StoreError> {
+        Err(StoreError::Unavailable(
+            "not used by this contract".to_string(),
+        ))
+    }
+
     async fn archive_published_question(
         &self,
         _: SessionTokenHash,

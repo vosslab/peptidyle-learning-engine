@@ -14,7 +14,6 @@
   - Reason: Optional permission does not require current product behavior.
 - [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
-  - Evidence (test): `tests/_temp/assessment_type_icon_render_proof.mjs` renders the production Student component in Chromium and verifies visible Bonus Assignment and Quiz labels beside `star` and `circle-question` glyphs.
 - [x] The Student interface should make the next useful action easy to find.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents the primary "Open Assessment" action.
 - [ ] The Student menu is simpler than the Instructor menu.

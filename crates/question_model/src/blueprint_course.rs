@@ -24,8 +24,6 @@ pub const MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS: usize = 200;
 mod blueprint_children;
 /// Canonical reusable Blueprint exchange projection.
 pub mod canonical_exchange;
-/// Three-way comparison for deliberate Blueprint fork synchronization.
-pub mod fork_sync_comparison;
 pub use blueprint_children::{
     BlueprintAssessmentEditChoice, BlueprintAssessmentReference,
     BlueprintAssessmentReplacementInput, BlueprintChildIdError,

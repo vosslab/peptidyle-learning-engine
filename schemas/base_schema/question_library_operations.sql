@@ -7,8 +7,9 @@ CREATE FUNCTION ple_private.question_library_entries(
     question_title text, question_description text, author_names text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
-    availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
-    source_media_type text
+    availability_edit_number bigint, metadata_edit_number bigint, tags text[],
+    subject text, topic text, used_in_current_account_courses boolean,
+    source_object_id uuid, source_object_checksum text, source_media_type text
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
@@ -16,7 +17,30 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Library requires an active Instructor Account';
     END IF;
+    -- ASVS 8.2.2 and 8.3.1: derive Course use from the current session's
+    -- exact Instructor memberships at this trusted database boundary. The
+    -- stable Question lineage match deliberately ignores the pinned Revision.
     RETURN QUERY
+    WITH authorized_course_question_ids(question_id) AS MATERIALIZED (
+        SELECT entry.question_id
+          FROM ple_data.assessment_entry AS entry
+          JOIN ple_data.assessment AS assessment
+            ON assessment.assessment_id = entry.assessment_id
+         WHERE entry.availability = 'available'
+           AND entry.entry_kind = 'fixed_question'
+           AND ple_api.current_session_account_is_course_instructor(assessment.course_id)
+        UNION
+        SELECT member.question_id
+          FROM ple_data.assessment_entry AS entry
+          JOIN ple_data.assessment AS assessment
+            ON assessment.assessment_id = entry.assessment_id
+          JOIN ple_data.question_pool_revision_member AS member
+            ON member.question_pool_id = entry.question_pool_id
+           AND member.revision_number = entry.question_pool_revision_number
+         WHERE entry.availability = 'available'
+           AND entry.entry_kind = 'question_pool'
+           AND ple_api.current_session_account_is_course_instructor(assessment.course_id)
+    )
     SELECT revision.question_id, revision.revision_number, revision.backend, binding.question_format, revision.question_type,
            floor(extract(epoch FROM revision.published_at) * 1000)::bigint,
            metadata.question_title, metadata.question_description,
@@ -33,6 +57,8 @@ BEGIN
               WHERE owner.question_id = revision.question_id
                 AND owner.owner_account_id = ple_api.current_session_account_id()),
            license.spdx_expression, lineage.availability, lineage.availability_edit_number,
+           metadata.metadata_edit_number, metadata.tags, metadata.subject, metadata.topic,
+           authorized_course_question.question_id IS NOT NULL,
            binding.source_object_id, binding.source_object_checksum, record.media_type
       FROM ple_data.question_revision AS revision
       JOIN ple_data.published_question AS lineage ON lineage.question_id = revision.question_id
@@ -42,6 +68,8 @@ BEGIN
       JOIN ple_private.question_revision_source_binding AS binding
         ON binding.question_id = revision.question_id AND binding.revision_number = revision.revision_number
       JOIN ple_private.object_record AS record ON record.object_id = binding.source_object_id
+      LEFT JOIN authorized_course_question_ids AS authorized_course_question
+        ON authorized_course_question.question_id = revision.question_id
      WHERE (p_question_id IS NULL OR revision.question_id = p_question_id)
        AND (p_revision_number IS NULL OR revision.revision_number = p_revision_number)
        AND (p_revision_number IS NOT NULL OR revision.revision_number = (
@@ -79,8 +107,9 @@ RETURNS TABLE (
     question_title text, question_description text, author_names text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
-    availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
-    source_media_type text
+    availability_edit_number bigint, metadata_edit_number bigint, tags text[],
+    subject text, topic text, used_in_current_account_courses boolean,
+    source_object_id uuid, source_object_checksum text, source_media_type text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.question_library_entries(NULL, NULL, true)
 $$;
@@ -90,15 +119,92 @@ RETURNS TABLE (
     question_title text, question_description text, author_names text[],
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
-    availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
-    source_media_type text
+    availability_edit_number bigint, metadata_edit_number bigint, tags text[],
+    subject text, topic text, used_in_current_account_courses boolean,
+    source_object_id uuid, source_object_checksum text, source_media_type text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.question_library_entries(p_question_id, p_revision_number, false)
 $$;
+
+RESET ROLE;
+SET LOCAL ROLE ple_private_owner;
+CREATE FUNCTION ple_private.load_current_published_question_shared_metadata(
+    p_question_ids text[]
+) RETURNS TABLE (
+    question_id text, metadata_edit_number bigint, tags text[], subject text, topic text
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    actor_id uuid;
+    returned_count integer;
+BEGIN
+    actor_id := ple_api.current_session_account_id();
+    IF actor_id IS NULL
+       OR NOT ple_api.current_session_account_is_instructor()
+       OR ple_private.verified_instructor_display_name(actor_id) IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Current Published Question metadata requires a vetted Instructor';
+    END IF;
+    IF p_question_ids IS NULL
+       OR cardinality(p_question_ids) NOT BETWEEN 1 AND 1000
+       OR EXISTS (
+           SELECT 1 FROM unnest(p_question_ids) AS requested(question_id)
+            WHERE requested.question_id IS NULL
+               OR requested.question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       )
+       OR cardinality(p_question_ids) <> (
+           SELECT count(DISTINCT requested.question_id)
+             FROM unnest(p_question_ids) AS requested(question_id)
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Current Published Question metadata is unavailable';
+    END IF;
+
+    -- RETURN QUERY is buffered until this function completes. This one
+    -- ordered data read therefore has one snapshot, and the later denial
+    -- cannot expose rows from an incomplete selection.
+    RETURN QUERY
+    SELECT metadata.question_id, metadata.metadata_edit_number,
+           metadata.tags, metadata.subject, metadata.topic
+      FROM ple_data.published_question_metadata AS metadata
+      JOIN ple_data.published_question AS lineage
+        ON lineage.question_id = metadata.question_id
+       AND lineage.availability = 'available'
+     WHERE metadata.question_id = ANY(p_question_ids)
+       AND EXISTS (
+           SELECT 1
+             FROM ple_data.question_revision_acceptance AS acceptance
+            WHERE acceptance.question_id = lineage.question_id
+       )
+     ORDER BY metadata.question_id;
+    GET DIAGNOSTICS returned_count = ROW_COUNT;
+    IF returned_count <> cardinality(p_question_ids) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Current Published Question metadata is unavailable';
+    END IF;
+END
+$$;
+REVOKE ALL ON FUNCTION ple_private.load_current_published_question_shared_metadata(text[])
+    FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.load_current_published_question_shared_metadata(text[])
+    TO ple_api_owner;
+RESET ROLE;
+
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.load_current_published_question_shared_metadata(p_question_ids text[])
+RETURNS TABLE (
+    question_id text, metadata_edit_number bigint, tags text[], subject text, topic text
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT *
+      FROM ple_private.load_current_published_question_shared_metadata(p_question_ids)
+$$;
 REVOKE ALL ON TABLE ple_api.published_question_summary FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.list_question_library_entries(),
-    ple_api.load_question_library_revision(text, integer) FROM PUBLIC;
+    ple_api.load_question_library_revision(text, integer),
+    ple_api.load_current_published_question_shared_metadata(text[]) FROM PUBLIC;
 GRANT SELECT ON TABLE ple_api.published_question_summary TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.list_question_library_entries(),
-    ple_api.load_question_library_revision(text, integer) TO ple_app;
+    ple_api.load_question_library_revision(text, integer),
+    ple_api.load_current_published_question_shared_metadata(text[]) TO ple_app;
 RESET ROLE;

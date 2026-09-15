@@ -3,12 +3,21 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateId, AssessmentTemplateName,
-    AssessmentTemplateSettings, AssessmentType,
+    AssessmentTemplateSettings, AssessmentType, CourseInstanceReference,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
-use super::{Pool, connection::map_sqlx_error};
-use crate::{AssessmentTemplateStore, SaveAssessmentTemplateInput, SessionTokenHash, StoreError};
+use super::{
+    Pool,
+    assessment_release::{
+        assessment_reference, decode_workspace, schedule_context, workspace_rows,
+    },
+    connection::map_sqlx_error,
+};
+use crate::{
+    AssessmentTemplateStore, CreateAssessmentFromTemplateInput, LiveAssessmentWorkspace,
+    SaveAssessmentTemplateInput, SessionTokenHash, StoreError,
+};
 
 /// PostgreSQL Store for current private Assessment Template aggregates.
 #[derive(Clone)]
@@ -155,6 +164,37 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         let saved = decode_template(row)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(saved)
+    }
+
+    async fn create_assessment_from_template(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        input: CreateAssessmentFromTemplateInput,
+    ) -> Result<LiveAssessmentWorkspace, StoreError> {
+        let assessment_id = crate::random_uuid::random_uuid_v4(|_| {
+            StoreError::Unavailable("Assessment UUID randomness unavailable".to_owned())
+        })?;
+        let mut transaction = self.begin(session_token_hash).await?;
+        // ASVS 1.2.4, 2.3.3, and 8.2.2: the one bound procedure authorizes
+        // both source Template and destination Course before copying by value.
+        let reference = sqlx::query_scalar::<_, String>(
+            "SELECT assessment_reference_number \
+             FROM ple_api.create_assessment_from_template($1, $2, $3, $4)",
+        )
+        .bind(assessment_id)
+        .bind(course.as_string())
+        .bind(input.template_id.as_uuid())
+        .bind(input.title.as_str())
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)
+        .and_then(assessment_reference)?;
+        let context = schedule_context(&mut transaction, course).await?;
+        let rows = workspace_rows(&mut transaction, course, reference).await?;
+        let assessment = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(assessment)
     }
 }
 

@@ -19,7 +19,7 @@ impl PostgresLiveAssessmentDeliveryStore {
     ) -> Result<StudentAssessmentAttemptContext, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
-            "SELECT assessment_attempt_reference_number, attempt_number, \
+            "SELECT assessment_attempt_reference_number, assessment_attempt_number, \
                     course_reference_number, course_short_name, course_long_name, course_theme, \
                     assessment_reference_number, assessment_title, \
                     display_time_zone, expires_at_millis, timer_remaining_milliseconds \
@@ -44,7 +44,8 @@ impl PostgresLiveAssessmentDeliveryStore {
         let value = StudentAssessmentAttemptContext {
             assessment_attempt,
             attempt_number: positive(
-                row.try_get("attempt_number").map_err(map_sqlx_error)?,
+                row.try_get("assessment_attempt_number")
+                    .map_err(map_sqlx_error)?,
                 "Assessment Attempt number",
             )?,
             course: course_reference(

@@ -45,7 +45,7 @@ pub(super) async fn read(
     // SECURITY DEFINER reader re-checks exact Student ownership and membership.
     let row = sqlx::query(
         "SELECT course_reference_number, course_short_name, course_long_name, course_theme, \
-         assessment_reference_number, assessment_title, assessment_type, attempt_number, state, questions, \
+         assessment_reference_number, assessment_title, assessment_type, assessment_attempt_number, state, questions, \
          feedback_rule, due_at_millis, closes_at_millis, submitted_at_millis, evaluated_at_millis, \
          all_students_completed, grading_is_current, grading_results \
          FROM ple_api.read_student_assessment_attempt_history($1)",
@@ -61,7 +61,7 @@ pub(super) async fn read(
     let assessment = AssessmentReference::new(assessment_reference_value)
         .map_err(|_| StoreError::InvalidRecord("Assessment reference is invalid".to_string()))?;
     let attempt_number = u32::try_from(
-        row.try_get::<i32, _>("attempt_number")
+        row.try_get::<i32, _>("assessment_attempt_number")
             .map_err(map_sqlx_error)?,
     )
     .map_err(|_| StoreError::InvalidRecord("Assessment Attempt number is invalid".to_string()))?;

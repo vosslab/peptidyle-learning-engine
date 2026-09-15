@@ -23,8 +23,6 @@ are in [ROADMAP.md](ROADMAP.md).
 - [ ] Build My Questions, Starred, and Watched as bounded
       ownership or saved-state capabilities with their required read paths,
       authorization, and browser workflows.
-- [ ] Build reusable Assessment Templates as a bounded domain, Store, Server,
-      authorization, and browser workflow capability.
 - [ ] Build pilot grade export as a direct authorized CSV or TSV download of
       point-based Assessment scores. Do not add LMS synchronization, separate
       Question weights, Grade Categories, weighted categories, Course Grade

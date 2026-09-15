@@ -678,7 +678,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.1
 
 - HG bullet: "The Instructor interface should make frequent teaching tasks fast and easy to find."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- Current evidence and concrete mismatch: current Assessment labels/routes exist, but required navigation, first actions, shared placement, task-centered layout, and broad dense-list acceptance remain incomplete.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -687,7 +687,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.2
 
 - HG bullet: "The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- Current evidence and concrete mismatch: the catalog now names the Assessment area, but no accepted desktop evidence establishes the required dense top-bar workflow.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -696,7 +696,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.3
 
 - HG bullet: "All required ribbon choices remain visible even when their collection is empty."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- Current evidence and concrete mismatch: several required choices remain future destinations, and no zero-record visibility matrix proves all required choices stay visible.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -705,7 +705,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.4
 
 - HG bullet: "Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- Current evidence and concrete mismatch: `src/pages/library_page.tsx` has no first-item action, and no accepted empty-collection action evidence covers the required pages.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -714,7 +714,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.5
 
 - HG bullet: "Similar pages should place similar actions in consistent locations."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- Current evidence and concrete mismatch: no cross-page placement contract or acceptance evidence establishes consistent actions.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -723,7 +723,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.6
 
 - HG bullet: "Instructor pages should be composed around the teaching task rather than collections of padded components."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- Current evidence and concrete mismatch: no rendered-layout or workflow evidence establishes task-centered Instructor pages.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -732,7 +732,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.7
 
 - HG bullet: "Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` destinations and "Assignments"; `src/pages/library_page.tsx` has no first-item action; no shared placement/task-layout contract or compliant Assessment list. Required choices are therefore not working, consistently placed, task-centered dense UI.
+- Current evidence and concrete mismatch: Course and Assessment rows exist, but no accepted visual evidence establishes shared spreadsheet-like scanning.
 - Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
@@ -1156,66 +1156,71 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 ### A4-14 - Advanced Question Library grammar (A7 query parser/API; 7)
 
+The shared C58 receipt is source plus accepted temporary actual-source `rustc` coverage of ordinary
+AND words, quotes, minus, five PLE fields, literal unknown tokens, empty fields matching nothing,
+and exact ID plus filters. The harness was removed. Connected HTTP/API search projection remains
+open because the server build is blocked by the AWS Smithy dependency incompatibility.
+
 #### A4-14.1
 
 - HG bullet: "Search should support Google-like syntax for more precise queries."
-- Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
+- Current evidence: `QuestionTextQuery::parse` handles ordinary words and exact-ID-plus-filter matching; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: pending A7 subject/topic metadata.
+- Dependencies: connected C58 HTTP/API search projection.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
 #### A4-14.2
 
 - HG bullet: "Quoted text should search for an exact phrase."
-- Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
+- Current evidence: `term_value` retains quoted phrases as one term; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: pending A7 subject/topic metadata.
+- Dependencies: connected C58 HTTP/API search projection.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
 #### A4-14.3
 
 - HG bullet: "A minus sign should exclude matching terms."
-- Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
+- Current evidence: `exclusion_prefix` records a leading minus exclusion; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: pending A7 subject/topic metadata.
+- Dependencies: connected C58 HTTP/API search projection.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
 #### A4-14.4
 
 - HG bullet: "Search should support PubMed-like field tags such as `topic:genetics`."
-- Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
+- Current evidence: `field_prefix` recognizes `topic`; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: pending A7 subject/topic metadata.
+- Dependencies: connected C58 HTTP/API search projection.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
 #### A4-14.5
 
 - HG bullet: "Field tags should use PLE concepts and vocabulary."
-- Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
+- Current evidence: `field_prefix` limits tags to PLE vocabulary; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: pending A7 subject/topic metadata.
+- Dependencies: connected C58 HTTP/API search projection.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
 #### A4-14.6
 
 - HG bullet: "Useful fields may include subject, topic, tags, Question Type, and author."
-- Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
+- Current evidence: `SearchField` supplies subject, topic, tags, type, and author; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: pending A7 subject/topic metadata.
+- Dependencies: connected C58 HTTP/API search projection.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
 #### A4-14.7
 
 - HG bullet: "Simple and advanced searches should use the same search box."
-- Current evidence and concrete mismatch: `src/pages/library_page_model.ts` exposes plain `search`; no exact phrase, minus, field-tag, subject/topic, or shared simple/advanced grammar exists.
+- Current evidence: `LibraryPage` has one visible Search input and C59's accepted component proof confirms normal-flow tips; `QuestionTextQuery::parse` receives that one text value. Connected C58 HTTP/API search projection remains open.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: pending A7 subject/topic metadata.
+- Dependencies: connected C58 HTTP/API search projection.
 - Closure owner: C58.
 - Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
 
@@ -1224,7 +1229,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-15.1
 
 - HG bullet: "The interface should make useful search syntax discoverable when needed."
-- Current evidence and concrete mismatch: search syntax and in-interface documentation do not exist, so expert large-library narrowing is unavailable.
+- Current evidence: `src/pages/library_page.tsx` `question-library-search-tips` provides a native disclosure beside ordinary Search with words, quotes, minus, PLE fields, and examples. Accepted corrected desktop component proof showed it without obscuring filters or bulk controls; `./check_codebase.sh` passed.
 - Owning source area: Question Library search-help frontend: src/pages/library_page.tsx.
 - Dependencies: C58.
 - Closure owner: C59.
@@ -1233,7 +1238,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-15.2
 
 - HG bullet: "Search syntax should help expert users quickly narrow a very large Question Library."
-- Current evidence and concrete mismatch: search syntax and in-interface documentation do not exist, so expert large-library narrowing is unavailable.
+- Current evidence and concrete mismatch: Search tips provide the grammar, but connected search projection and large-library runtime evidence remain unverified because the server build is blocked by the AWS Smithy dependency incompatibility.
 - Owning source area: Question Library search-help frontend: src/pages/library_page.tsx.
 - Dependencies: C58.
 - Closure owner: C59.
@@ -1318,54 +1323,54 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-17.1
 
 - HG bullet: "The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates."
-- Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
-- Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
-- Dependencies: C12 and pending A9 template query.
+- Current evidence: `src/ribbon/ribbon_catalog.ts` admits `assessmentsDueSoon` and `assessmentTemplates` with the required labels. Accepted independent actual-Ribbon proof covered `AppRibbon`, `deriveRibbonModel`, and both routes.
+- Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assessment_templates_page.tsx.
+- Dependencies: none for this label-and-route row.
 - Closure owner: C61.
 - Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
 
 #### A4-17.2
 
 - HG bullet: "**Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention."
-- Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
-- Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
-- Dependencies: C12 and pending A9 template query.
+- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` states its Instructor across-Courses deadline purpose. No accepted runtime or visual receipt establishes the intended attention emphasis.
+- Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
+- Dependencies: accepted runtime or visual attention-emphasis proof.
 - Closure owner: C61.
 - Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
 
 #### A4-17.3
 
 - HG bullet: "Assessment lists should make Course, release status, due date, and other important state easy to scan."
-- Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
-- Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
-- Dependencies: C12 and pending A9 template query.
+- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders Assessment status, Course, and due time. No accepted runtime or visual receipt establishes scanability.
+- Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
+- Dependencies: accepted runtime or visual scanning proof.
 - Closure owner: C61.
 - Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
 
 #### A4-17.4
 
 - HG bullet: "**My Assessment Templates** should emphasize reusable Assessment design rather than Course activity."
-- Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
-- Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
-- Dependencies: C12 and pending A9 template query.
+- Current evidence: `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` foregrounds reusable settings. Accepted independent actual-page proof verified its heading, lede, legend, and Ribbon route; it claims no HTTP, CRUD, or copy workflow acceptance.
+- Owning source area: Assessment Template frontend: src/pages/assessment_templates_page.tsx.
+- Dependencies: none for this reusable-design row.
 - Closure owner: C61.
 - Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
 
 #### A4-17.5
 
 - HG bullet: "**Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches."
-- Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
-- Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
-- Dependencies: C12 and pending A9 template query.
+- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` calls `listAssessmentsDueSoon`, but no accepted connected receipt verifies authorized cross-Course results.
+- Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
+- Dependencies: connected cross-Course result proof.
 - Closure owner: C61.
 - Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
 
 #### A4-17.6
 
 - HG bullet: "Assessments Due Soon shows the Course and due time for each Assessment."
-- Current evidence and concrete mismatch: the ribbon and `src/pages/assignments_due_soon_page.tsx` use Assignment; template route is future. No compliant list exposes the required Assessment state.
-- Owning source area: Assessment navigation frontend: src/ribbon/ribbon_catalog.ts and src/pages/assignments_due_soon_page.tsx.
-- Dependencies: C12 and pending A9 template query.
+- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders Course and formatted due time, but no accepted populated-row receipt exists.
+- Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
+- Dependencies: accepted populated-row runtime or visual proof.
 - Closure owner: C61.
 - Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
 
@@ -1984,10 +1989,10 @@ named boundary. C317's 13,000-Question fixture is always temporary.
 | C910 | closure; 3; add the smallest author-managed general-feedback metadata field and authorized Question-delivery projection. It treats backend feedback as transient unless robust preservation exists, never extracts or reconstructs transient feedback from backend source or output, and keeps PLE-managed general feedback separate from backend-generated interaction feedback. An accepted fresh-PG17 procedure created an explicit `webworkPgml` Draft/binding, saved general feedback, published Revision 1, made a feedback-only edit, published Revision 2, and read both immutable feedback values with the same format/path/checksum; the SQL `RETURNING` output-variable ambiguity was qualified and independently reviewed. | C307; independent of C331/C362. | Temporary database proof/workspace removed; full TypeScript check passed, with explicit UI format and `null` for locally retained unknown picker values. Authorized Student HTTP projection/release remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility. Do not close the three behaviors. |
 | C363 | contributor; 0; `schemas/base_schema/question_authoring_operations.sql`: vetted-Instructor Pool projection. | C335,C885; hands C364. | Create `tests/_temp/hg_a7_c363_pool_projection_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c363_pool_projection_probe.py`; remove. |
 | C364 | closure; 1; `src/pages/library_route_page.tsx`: vetted Instructor sees published Pools. | C316,C363. | Create `tests/_temp/hg_a7_c364_pool_library_access.spec.ts`; run `npx playwright test tests/_temp/hg_a7_c364_pool_library_access.spec.ts`; remove. |
-| C365 | contributor; 0; one install-safe metadata schema/operation graph in `question_lineages.sql` and later `question_authoring_operations.sql`: current global Published Question metadata has a strong per-Question metadata Edit Number and only closed bulk fields `tags`, `subject`, and `topic`. The atomic all-or-none operation takes distinct canonical IDs with each expected metadata Edit Number, a closed replacement patch, and actor-bound idempotency key; it locks a canonical ID order, validates active vetted Instructor authority and every target before writes, and returns the same ordered whole result only for the same key/request digest. Unknown, unavailable, unauthorized, stale, oversized, invalid, or duplicate selection has no per-item disclosure and writes nothing. | C338; hands C367,C893. | Ignored fresh-schema matrix proves closed fields, atomic stale/invalid denial, nonenumeration, repeat-key result, and mismatch-key refusal; remove. Retain only a narrow real authorization or all-or-none CAS outcome if every `PYTEST_STYLE.md` criterion passes. |
-| C366 | closure; 1; `src/pages/library_page.tsx` and its repository client expose a real bulk action for C338's nonempty canonical distinct selection. It shows the bounded selection count, offers shared metadata editing, submits C893's exact preconditions and a client-provided opaque idempotency key, and renders the whole result or a safe retry/refresh state; it never fabricates per-item permission/existence outcomes. | C338,C893; hands C368. | Ignored active-Instructor selection/action browser proof plus denied-role and stale-refresh cases; remove. Retain no component snapshot. |
-| C367 | contributor; 0; typed LDA `BulkPublishedQuestionMetadataStore` has one request/result model for C365's all-or-none command. It accepts no source, Revision, ownership, availability, backend, answer, grading, asset, authorship, or arbitrary JSON field. | C365; hands C893. | Ignored typed PostgreSQL codec/authorization/concurrency matrix; remove. No Store call-order test is permanent. |
-| C368 | closure; 1; `src/pages/library_page.tsx` shared-metadata editor changes only tags, subject, and topic for the selected Published Questions through C366/C893. It supports intentional replace/clear semantics, shows the whole success result, and refreshes on stale precondition without changing Question source or creating a Question Revision. | C9,C366,C893. | Ignored connected browser/server proof covers tags/subject/topic replacement and clear, no source/revision/ownership change, stale all-or-none refresh, and nonenumerating denial; remove. Retain only an independently justified stable all-or-none metadata contract. |
+| C365 | contributor; 0; accepted current shared-metadata foundation: `PublishedQuestionSharedMetadata` is a closed DTO with a generated 1,000-item collection bound. Current `tags`, `subject`, and `topic` carry positive metadata Edit Numbers; source review establishes once-only canonical `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start. The PostgreSQL command locks canonical IDs, validates active vetted-Instructor authority and every target before a single all-or-none update, and returns one canonically ordered whole result. Unknown, unavailable, unauthorized, stale, oversized, invalid, or duplicate selection changes nothing without per-item disclosure; no digest, receipt, or exactly-once claim exists. | C338; hands C367,C893. | Fresh PostgreSQL 17 SQL/API proof and independent rerun passed read/write/read, stale all-or-none denial, clear, concealed unauthorized/unvetted/archived/missing/duplicate cases, unchanged Revision count, private-helper denial, and explicit-initial-tag/empty-successor/null-tag rejection facts. The temporary proofs were removed. |
+| C366 | closure; 1; implementation exists in `src/pages/library_page.tsx` and its repository client: a selected canonical set invokes the shared-metadata editor with exact current metadata/Edit Numbers, whole results, and stale or ambiguous refresh. It makes no per-item disclosure or exactly-once claim. | C338,C893; hands C368. | Accepted temporary compiled Chromium component and strict-client proof covered sorted selection/Edit Numbers, virtualization, busy/blank/ID/denial/filter states, stale/ambiguous refresh without an automatic second write, no page errors, and zero critical/serious axe findings. It used mock/injected transport, not a connected server; connected HTTP/discovery execution remains unverified, so keep open. |
+| C367 | contributor; 0; accepted typed LDA `BulkPublishedQuestionMetadataStore` has one closed request/result model for C365's all-or-none command and excludes source, Revision, ownership, availability, backend, answer, grading, asset, authorship, and arbitrary JSON fields. The fresh PostgreSQL SQL/API receipt covers the command's database behavior; `cargo check -p learning-data-access --no-default-features --features postgres --lib` passed. | C365; hands C893. | Full server compilation and HTTP execution remain unverified because of the known AWS Smithy dependency incompatibility. No Store call-order test is permanent. |
+| C368 | closure; 1; implementation exists in `src/pages/library_page.tsx` and `question_bulk_metadata_editor.tsx`: selected Published Questions can intentionally replace or clear only tags, subject, and topic through C366/C893, show a whole result, and refresh current metadata/Edit Numbers after stale or ambiguous response without changing source or creating a Question Revision. | C9,C366,C893. | Accepted temporary compiled Chromium component and strict-client proof covered closed replace/clear patches and stale/ambiguous refresh without an automatic second write. It used mock/injected transport, not a connected server; connected HTTP, discovery/search projection, 13k practical cleanup, and C58 field grammar remain unverified. Keep open. |
 | C369 | closure; 1; `crates/server/src/question_publication.rs`: server-only Question-ID mint/parse/validation boundary. It emits compact storage and canonical `AAAA-ZBBB` serde/display, derives the compact-index-4 high-five-bit HMAC check from the seven remaining identity characters, accepts only `QUESTION_ID_SPEC.md` normalization aliases/case, and verifies HMAC before lookup. | C318,C341,C842,C843; hands C844,C846. No dual parser, legacy rewrite, or compatibility read. | Create `tests/_temp/hg_a7_c369_question_id_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c369_question_id_probe.py`; remove. |
 | C370 | contributor; 0; `schemas/base_schema/question_stewardship.sql`: star persistence. | C344,C320; hands C371. | Create `tests/_temp/hg_a7_c370_star_store_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c370_star_store_probe.py`; remove. |
 | C371 | complete closure; 2; `src/pages/question_detail_page.tsx` and `src/components/question_star_control.tsx` deliver a Star as visible favorite/endorsement plus vetted-Instructor count and exact verified-name projection. The C853 permanent real-session test passed: only an active vetted Instructor receives the closed name-only projection; anonymous, Student, inactive-Instructor, and non-Published routes are concealed. The one-time C854 compiled Chromium render/accessibility proof also passed and was removed. | C370,C855 complete; hands C347. | Retain `tests/e2e/e2e_question_star_name_privacy.sh`: it protects the deliberately stable authorization and identity-disclosure boundary, has a clear repair action (restore the predicate/closed projection), and satisfies `PYTEST_STYLE.md`. The browser fixture was temporary-only and removed. |
@@ -2039,19 +2044,21 @@ processing; it does not define Course dates or retention policy. Its one
 identity is `(course_id, action_kind, due_at, recipient_account_id)`, with
 `action_kind` exactly `warn_inactive` or `notify_archive`; archive/delete
 never notice. The deduplicated recipient union is assigned Instructor plus
-active Instructor memberships/accounts, and each claim returns exactly one
-verified destination rather than a generic lookup. A provider failure never
+active Instructor memberships/accounts, and every claim derives the current
+eligible recipient and current verified destination rather than storing an
+address snapshot or exposing a generic lookup. A provider failure never
 blocks archive/delete. Invitation export, Mail.app, generic outbound email,
 and fake success are prohibited. Operational provider credentials remain
-configuration; Live Demo `NotConfigured` is not delivery evidence.
+configuration; Live Demo `NotConfigured` is not delivery evidence, and the
+boundary makes no provider exactly-once promise.
 
 | ID | Kind; occurrence ownership; one boundary and outcome | Prerequisites / handoff | Exact focused gate and test lifetime |
 | --- | --- | --- | --- |
-| C847 | contributor; 0; late `schemas/base_schema/course_retention_notifications.sql` owns receipt/lease state and a new NOLOGIN notifier capability. It permits only `warn_inactive`/`notify_archive`, derives the recipient union, returns exactly one verified Instructor destination with no generic lookup, and enforces the identity. DB-owned `next_attempt_at` starts at `due_at`; one evaluated-at claim requires action still due, next attempt due, no acceptance, and absent/expired lease, orders `(due_at,id)`, increments attempts, and advances next attempt to lease expiry with `SKIP LOCKED`. The receipt persists an idempotency key before provider invocation plus provider acceptance/delivered receipt. | C206; current Course membership/assignment facts; hands C848,C849. | Ignored fresh-PG17 concurrency/crash proof covers action-kind refusal, one verified destination, recipient deduplication, receipt identity, evaluated-at predicate/order, lease expiry, `SKIP LOCKED`, durable key reuse after crash, terminal acceptance, and retry state; remove. One stable one-identity/one-delivery outcome is a candidate only after every `PYTEST_STYLE.md` question passes. |
-| C848 | contributor; 0; typed Learning Data Access notification Store exposes only claim, provider acceptance, delivered callback, and unaccepted-attempt `FailureRecorded` receipt operations through C847's notifier capability. Acceptance is terminal for sending; callbacks update the same receipt/idempotency key. A successful failure clears its lease and sets `next_attempt_at = failed_at + min(3600 seconds, 60 seconds * 2^(attempt_count - 1))`; accepted receipts never resend and an action no longer due cannot retry. | C847; hands C850,C851. No invitation, Account search, Student Work, session, object, or renderer API. | Ignored typed PostgreSQL Store/capability-denial fixture proves terminal acceptance/no resend, same-receipt callback, deterministic backoff/cap, action-no-longer-due retry exclusion, and crash recovery with the durable key; remove unless a stable external outcome earns promotion. |
-| C849 | contributor; 0; server-only provider-neutral `CourseRetentionNotificationDelivery` with disabled `NotConfigured` adapter sends only a fixed redacted sign-in-only message: no Course identifier/title, raw ID, FERPA data, capability, or recovery link. `NotConfigured` records non-send failure, sends nothing, and never reports fake success. | C847; hands C850,C851. Provider credentials are operational configuration; Live Demo `NotConfigured` is not delivery evidence. | Ignored adapter outcome matrix proves redaction, disabled recorded failure/no-send, terminal acceptance, and delivered callback mapping; remove. Provider mock call order is never permanent. |
+| C847 | contributor; 0; late `schemas/base_schema/course_retention_notifications.sql` owns receipt/lease state and a new NOLOGIN notifier capability. It permits only `warn_inactive`/`notify_archive`, enforces the identity, and on every claim derives the current eligible recipient and current verified Instructor destination from the deduplicated union. It stores no address snapshot and exposes no generic lookup. DB-owned `next_attempt_at` starts at `due_at`; one evaluated-at claim requires action still due, next attempt due, no acceptance, and absent/expired lease, orders `(due_at,id)`, increments attempts, and advances next attempt to lease expiry with `SKIP LOCKED`. The receipt persists an idempotency key before provider invocation and provider acceptance. | C206; current Course membership/assignment facts; hands C848,C849. | One temporary fresh-PG17 proof covers current eligibility/address, deduplication, identity/order, lease/crash reuse, terminal acceptance/no resend, failure nonblocking, and exact least privilege; remove. No new permanent test. |
+| C848 | contributor; 0; typed Learning Data Access notification Store exposes only claim, provider acceptance, and unaccepted-attempt failure receipt operations through C847's notifier capability. Acceptance is terminal for sending. A successful failure clears its lease and sets `next_attempt_at = failed_at + min(3600 seconds, 60 seconds * 2^(attempt_count - 1))`; accepted receipts never resend and an action no longer due cannot retry. | C847; hands C850,C851. No invitation, Account search, Student Work, session, object, renderer API, delivery callback, or inbox-delivery state. | The C847 temporary proof covers the typed Store and capability denial; remove. |
+| C849 | contributor; 0; server-only provider-neutral `CourseRetentionNotificationDelivery` with disabled `NotConfigured` adapter sends only a fixed redacted sign-in-only message: no Course identifier/title, raw ID, FERPA data, capability, or recovery link. It records provider acceptance only. `NotConfigured` records non-send failure, sends nothing, and never reports fake success. | C847; hands C850,C851. Provider credentials are operational configuration; Live Demo `NotConfigured` is not delivery evidence. | The C847 temporary proof covers redaction, disabled recorded failure/no-send, and terminal provider acceptance. The boundary has no callback or inbox-delivery guarantee; remove. |
 | C850 | contributor; 0; one isolated retention process has exactly two independently attested, non-inheriting database profiles/pools: C215 retention executor and C848 notifier. It has no third database authority and no API listener, S3/object-store, session, or renderer authority. | C847,C848,C849; hands C851. | Ignored failed-access/two-pool attestation proof; remove. Static configuration/file inventories are never permanent. |
-| C851 | contributor; 0; C209 worker orchestration, after C215 plus C847-C850, attempts required earlier notices in C847 `(due_at,id)` order, then executes archive/delete after successfully recorded `FailureRecorded`. It stops only the notice lane for an unknown typed Store state and always continues retention transitions. Crash before send waits for lease expiry; crash after provider invocation uses the durable idempotency key on eligible reclaim. It never calculates dates or policy. | C215,C848,C849,C850; hands C209. | Ignored connected PostgreSQL/server proof covers evaluated-at claim, due order, lease/crash reclaim, acceptance no-resend, deterministic backoff through cap, action-no-longer-due exclusion, repeated-run idempotency, `FailureRecorded` nonblocking transition, and unknown Store state notice-lane stop with continued retention transitions; remove. Consider one stable nonblocking retention outcome only after `PYTEST_STYLE.md` review. |
+| C851 | contributor; 0; C209 worker orchestration, after C215 plus C847-C850, attempts required earlier notices in C847 `(due_at,id)` order, then executes archive/delete after a successfully recorded pre-acceptance failure. It stops only the notice lane for an unknown typed Store state and always continues retention transitions. Crash before send waits for lease expiry; crash after provider invocation uses the durable idempotency key on eligible reclaim. It never calculates dates or policy. | C215,C848,C849,C850; hands C209. | The C847 temporary proof covers evaluated-at claim, due order, lease/crash reclaim, acceptance no-resend, deterministic failure backoff through cap, action-no-longer-due exclusion, repeated-run idempotency, recorded-failure nonblocking transition, and unknown Store state notice-lane stop with continued retention transitions; remove. No new permanent test. |
 
 ### C852-C855: C371 Verified Instructor Display Name correction
 
@@ -2093,7 +2100,7 @@ closure.
 | C885 | contributor; 0; `question_pools.sql` stores unique compact canonical Pool ID, immutable sequential Pool Revisions, and their ordered exact Published Question Revision members. Its trusted create/append operations accept a server-issued typed ID only at Revision 1, no browser/client grant, and are neither allocator nor unused coordinator. | C312,C313,C846,C354; hands C886,C342,C905. | Ignored uniqueness/revision/member-pin/RLS matrix proves no direct client path; remove. No schema call-shape test is permanent. |
 | C886 | contributor; 0; typed `QuestionPoolCreationStore` and active-Instructor server route mint Pool IDs only through C369's HMAC allocator and atomically create Revision 1 from an ordered nonempty distinct list of exact Published Question Revision references plus the Instructor's interchangeability attestation. Browser input supplies only that bounded Pool content/attestation, never an ID, owner, stored revision number, or backend behavior; an ID collision gets a newly issued ID and retries the one creation transaction. | C369,C885; hands C887. | Ignored Store/server authorization, member validation, client-ID refusal, backend-mix, forced collision/retry, and atomic-create matrix; remove. No mock allocator/call-order test is permanent. |
 | C887 | closure; 1; authorized Instructor Pool workflow creates a Published reusable Pool with a new canonical `AAAA-ZBBB` ID, Revision 1, ordered pinned Published Question members, and interchangeability attestation through C886. C342 projects that ID; C905 owns Assessment-owned fork provenance and selection evidence. | C886; hands C342,C355,C905. | Ignored connected PostgreSQL/server/browser proof covers active-Instructor creation, non-Instructor/client-ID denial, collision retry, unique canonical ID, Revision 1, exact member pins, and C342 handoff. Retain only a narrow real-session authorization or issuance outcome if every `PYTEST_STYLE.md` criterion passes. |
-| C893 | contributor; 0; server/API route accepts only C367's typed metadata request from an active vetted Instructor, rejects a selection above the server-owned `MAX_BULK_QUESTION_METADATA_ITEMS`, validates the client-provided opaque idempotency key and binds it to the actor/request digest, invokes C365 once, and maps whole outcomes only: `200` same ordered result, `412` stale with no writes, `422` invalid closed patch/selection, `409` same-key different-request, and the repository's nonenumerating denial for inaccessible targets. No generic coordinator, queued job, partial result API, or arbitrary field patch exists. | C365,C367,C338; hands C366,C368. | Ignored real server request matrix proves bounded request, closed decoder, role/target nonenumeration, exact whole-result mapping, idempotent retry, stale all-or-none result, and key/request mismatch; remove. Retain only a stable external authorization or all-or-none CAS result if it earns promotion. |
+| C893 | contributor; 0; implementation has two bounded routes. Current read is `POST /api/questions/bulk-metadata/current` with only `questionIds`; `question_library/shared_metadata.rs` `load_current_shared_metadata` returns no-store current metadata. Write accepts only selection, each metadata Edit Number, and the closed patch; `question_bulk_metadata.rs` `bulk_replace_metadata` owns whole CAS success, stale, invalid, and inaccessible outcomes. No idempotency key, digest, receipt, coordinator, queue, partial result, or arbitrary field patch exists. | C365,C367,C338; hands C366,C368. | Fresh PostgreSQL 17 SQL/API proof establishes database behavior, and generated contracts, model checks, and independent review passed. HTTP runtime and current discovery/search projection have not run because the AWS Smithy incompatibility blocks the full server build; keep open. |
 | C904 | engineering decision; 0; use the existing positive `selection_count` on the Assessment-owned Pool entry/fork. The reusable immutable Pool Revision owns exact members; no Pool default or Assessment override mechanism is added. This is the simplest existing architecture consistent with HG, not a claim that HG mandates field placement. | `crates/question_model/src/assignment.rs`; `schemas/base_schema/assessments.sql`; imported Pool fork belongs to its Assessment. Hands C905-C909. | Source audit records existing positive per-entry count; no new code or permanent test. |
 | C905 | contributor; 0; retain the Assessment-owned fork's exact reusable Pool ID and immutable Revision, and validate its positive `selection_count` is no greater than the exact fork member count. It adds no Pool default or override. | C313,C885,C887,C904; hands C906. | Ignored fresh-schema validation/provenance matrix; remove. No permanent inventory test. |
 | C906 | contributor; 0; carry the Assessment-owned fork's exact Pool ID/Revision and `selection_count` through typed selection inputs without client-selected revision, backend behavior, or arbitrary selection policy. | C905; hands C353,C907. | Ignored typed authorization/provenance codec matrix; remove. No Store call-order test is permanent. |
@@ -2165,8 +2172,8 @@ Every A8 temporary path below is ignored, run directly, and removed at that row'
 | C409 | 94,96,100 | A8 sole writer: stewardship store service and new in-app projection for Star/unstar/count, private self Watch/unwatch, and Revision/publish/archive/restore Watch fan-out. It returns no Starred-by names; fork/adopt create no Star/Watch. | C408; server/store result is contributor only until C423 browser workflow succeeds. | tests/_temp/hg_a8_c409_stewardship_service_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c409_stewardship_service_probe.py; source source_me.sh && cargo test -p server_core blueprint_course; remove after C423. |
 | C410 | 113,119,121,123,150 | A8 sole writer: new schemas/base_schema/blueprint_update_offers.sql and BlueprintUpdateOfferStore/API. | C52 adoption projection is the implemented child-content prerequisite. It owns offers only; C416 calls it after Proposal transaction. Backend result is contributor only until C411 review UI succeeds. | tests/_temp/hg_a8_c410_update_offer_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c410_update_offer_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C411/C421. |
 | C411 | 115,117,227 | UI only, new src/features/blueprint_updates/; consumes C410. | A4/C46/C55 own shared page shells. Close after leased Instructor browser gate. | tests/_temp/hg_a8_c411_update_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c411_update_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c411_update_ui.spec.ts; remove after browser gate. |
-| C412 | 128,130,132,134,138 | A8 sole writer: new schemas/base_schema/blueprint_lineage.sql and BlueprintLineageStore contract for the fork's immutable source Course/Revision ancestry. | C51 sole primary fork route/service writer. C880-C884 add status/selective-update behavior; C412 closes no UI behavior by itself. | tests/_temp/hg_a8_c412_lineage_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c412_lineage_contract_probe.py; source source_me.sh && cargo test -p server_core blueprint_course; remove after C884/C413. |
-| C413 | 136 | UI only, new src/features/blueprint_forks/; consumes C883's status/selective-apply endpoint after C884. It exposes an authorized fork action for Public and Archived Blueprints, shows newer source changes, and deliberately applies one selected safe source change. | C47,C50,C884. C412's five fork backend bullets close only after this leased workflow. Question-level hunk selection is deliberately unlocked/N/A and is not a prerequisite. | tests/_temp/hg_a8_c413_fork_ui_probe.py and tests/_temp/hg_a8_c413_fork_actions.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c413_fork_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c413_fork_actions.spec.ts; remove both after browser gate; PYTEST_STYLE: browser workflow is one-time evidence, not a permanent test. |
+| C412 | 128,130,132,134,138 | A8 sole writer: new schemas/base_schema/blueprint_lineage.sql and BlueprintLineageStore contract for the fork's immutable source Course/Revision ancestry. | C51 sole primary fork route/service writer. C880-C884 add comparison/review/selective-save behavior; C412 closes no UI behavior by itself. | tests/_temp/hg_a8_c412_lineage_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c412_lineage_contract_probe.py; source source_me.sh && cargo test -p server_core blueprint_course; remove after C884/C413. |
+| C413 | 136 | UI only, new src/features/blueprint_forks/; consumes C883's review/selective-save endpoint after C884. It exposes an authorized fork action for Public and Archived Blueprints, shows newer source changes, and deliberately applies an explicit selection that may contain several related changes. | C47,C50,C884. C412's five fork backend bullets close only after this leased workflow. Question-level hunk selection is optional and is not a prerequisite. | tests/_temp/hg_a8_c413_fork_ui_probe.py and tests/_temp/hg_a8_c413_fork_actions.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c413_fork_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c413_fork_actions.spec.ts; remove both after browser gate; PYTEST_STYLE: browser workflow is one-time evidence, not a permanent test. |
 | C414 | 155,161,175 | A8 sole writer: new question_model blueprint_course/canonical_exchange.rs export DTO; relational data stays primary. | C73 supplies the implemented published-content predicate. | tests/_temp/hg_a8_c414_export_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c414_export_probe.py; source source_me.sh && cargo test -p question_model blueprint_course; remove after C415. |
 | C415 | 157,159,169 | A8 sole writer: canonical import/compare store API. Import makes actor-owned new Private Blueprint, reproduces content/structure, preserves no source identity/owner/Star/Watch, never overwrites. | C414; server result is contributor only until C425 export/import browser workflow succeeds. | tests/_temp/hg_a8_c415_import_compare_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c415_import_compare_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C425. |
 | C416 | 140,142,144,146,148,171 | A8 sole writer: new schemas/base_schema/blueprint_change_proposals.sql and ChangeProposalStore/API. Receiver accepts subset; current Revision plus ETag checks stale/conflict in one transaction; acceptance creates one receiver Revision then calls C410. | C401,C410,C415. It cannot close until C421 browser success. | tests/_temp/hg_a8_c416_proposal_service_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c416_proposal_service_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C421. |
@@ -2179,11 +2186,11 @@ Every A8 temporary path below is ignored, run directly, and removed at that row'
 | C423 | contributor to C409,C856 | UI only, new src/features/blueprint_stewardship/; consumes C408/C409/C856 server results and C47/C48 shells. The active vetted Instructor can Star/Unstar, Watch/Unwatch, see Star count, exact C856 names on Public/Archived Blueprint Star lists, and only their own Watch state. | C409,C856,C47,C48. Its browser success is required to close lines 94,96,100 through C409 and 102 through C856. | tests/_temp/hg_a8_c423_stewardship_ui_probe.py and tests/_temp/hg_a8_c423_stewardship.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c423_stewardship_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c423_stewardship.spec.ts; remove both after C409/C856 close; PYTEST_STYLE: temporary workflow proof only; do not promote a UI snapshot. |
 | C424 | contributor to C417 | UI only, new src/features/course_creation/; consumes C7/C52 API and C46/C47/C55 shells. Instructor explicitly chooses empty creation or a Public Blueprint adoption. | C7, C503, C52, C49, C72, C46, C47, C55. Browser success is required to close lines 182,184,186 through C417. | tests/_temp/hg_a8_c424_course_creation_ui_probe.py and tests/_temp/hg_a8_c424_course_creation.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c424_course_creation_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c424_course_creation.spec.ts; remove both after C417 close; PYTEST_STYLE: temporary workflow proof only. |
 | C425 | contributor to C415 | UI only, new src/features/blueprint_exchange/; authorized Instructor exports canonical JSON, imports it, and sees a distinct actor-owned new Private Blueprint. | C415, C47, C48. Browser success is required to close lines 157,159,169 through C415. | tests/_temp/hg_a8_c425_exchange_ui_probe.py and tests/_temp/hg_a8_c425_exchange.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c425_exchange_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c425_exchange.spec.ts; remove both after C415 close; PYTEST_STYLE: temporary workflow proof only. |
-| C880 | contributor only; new schemas/base_schema/blueprint_fork_sync.sql stores immutable origin and private per-selectable-unit sync baselines. | C412. The allowed source state is owner-only Public/Archived; a Private source becomes nonenumerating `source_unavailable`. | Ignored fresh-schema/RLS/baseline-invariant matrix; remove. Retain only a stable authorization or immutable-origin outcome if it passes every `PYTEST_STYLE.md` question. |
-| C881 | contributor only; canonical comparator classifies short name, long name, each stable-reference whole Blueprint Assessment (settings, Questions, Pools), and the ordered Assessment list as `safe`, `already_applied`, `conflict`, or `not_applicable`. | C412,C414. Exclude ownership, visibility, Star, Watch, adoption, Course, and Student state. | Ignored deterministic base/source/fork classification matrix; remove. No permanent fixture inventory. |
-| C882 | contributor only; typed BlueprintForkSyncStore reads/writes baselines and server-issued candidate digests without exposing a Private source or applying a candidate. | C880,C881,C51. | Ignored PostgreSQL authorization/idempotency/store matrix; remove. Retain only a narrow privacy or CAS contract if it earns promotion. |
-| C883 | contributor only; server status/selective-apply endpoint authorizes the fork owner, returns only exact statuses `up_to_date`, `updates_available`, `updates_available_with_conflicts`, `conflicts_require_manual_review`, and `source_unavailable`, and applies one safe server-issued candidate only with source/fork Revision, metadata ETag, and request-checksum CAS/idempotency. Only an applied unit baseline advances; no auto-overwrite. | C882; hands C884,C413. | Ignored stale/replay/conflict/nonenumeration/server matrix; remove. No mock call-order test. |
-| C884 | contributor only; fresh PostgreSQL/server connected proof covers Public/Archived source visibility, Private nonenumeration, every status/unit classification, one-safe-candidate apply, no overwrite, stale/replay rejection, and applied-unit-only baseline advance. | C883; hands C413. | Ignored connected proof; remove after review. Retain only a narrow stable authorization or CAS outcome if all `PYTEST_STYLE.md` criteria approve it. |
+| C880 | contributor only; OPEN canonical comparison projection uses C412's immutable origin source Revision, one selected newer source Revision, and the current fork Revision. It includes module labels and the complete reusable tree, with no new persistence or public status enum. | C412,C414. Exclude ownership, visibility, Star, Watch, adoption, Course, and Student state. | Ignored deterministic unchanged/source-only/fork-only/overlap proof; remove. No permanent classification or fixture inventory. |
+| C881 | contributor only; OPEN typed authorized reads provide the fork owner the exact origin, selected readable Public/Archived source Revision, current fork Revision, and current name metadata. Private, missing, and unauthorized sources remain nonenumerating. | C412,C51,C880. | Ignored PostgreSQL authorization and exact-Revision proof; remove. Retain only a narrow stable privacy outcome if it earns promotion. |
+| C882 | contributor only; OPEN server review presents canonical differences across names, module labels, structure/order, and complete Blueprint Assessments without baselines, candidates, digests, receipts, or workflow state. | C880,C881. | Ignored server comparison and nonenumeration proof; remove. No mock call-order test. |
+| C883 | contributor only; OPEN selective save accepts an explicit set of reviewed changes, may apply multiple related changes, constructs and validates one coherent complete fork tree, and uses ordinary Revision CAS to create one fork Revision. Selected names use ordinary metadata ETag; stale input changes nothing and no source change applies automatically. | C882; hands C884,C413. | Ignored stale/CAS/coherence/no-auto-overwrite server proof; remove. Retain only a stable authorization or all-or-none CAS outcome if it earns promotion. |
+| C884 | contributor only; OPEN fresh PostgreSQL/server connected proof covers Public/Archived review, Private and unauthorized nonenumeration, names, module labels, structure/order, complete Assessment changes, multi-change selection, one coherent Revision save, no automatic overwrite, and stale zero-write. | C883; hands C413. | Ignored connected proof; remove after review. Retain only a narrow stable authorization or CAS outcome if all `PYTEST_STYLE.md` criteria approve it. |
 
 Owner count: 3+3+1+2+6+4+2+2+3+4+5+3+5+1+3+3+6+3+2+1+1+0+1 = 63 for C400-C425; C856 owns the moved identity occurrence 102, restoring 64 total A8 owners. C400-C425 has 22 closure owners and exactly four contributors: C421, C423, C424, and C425.
 
@@ -2191,7 +2198,7 @@ Owner count: 3+3+1+2+6+4+2+2+3+4+5+3+5+1+3+3+6+3+2+1+1+0+1 = 63 for C400-C425; C
 
 - C403 -> C49 -> C404 -> C72 -> C405 -> {C19, C47}. C49 alone changes lifecycle schema; C72 alone changes server predicates; C19/C47 implement browse/server and search/UI. C403/C404/C405 are contracts only.
 - C406 -> C73 -> C407 -> C52. C73 alone changes adoption persistence; C52 alone changes server projection. C406/C407 are contracts only. C49/C72 are the Public-only eligibility prerequisites for the Adopted branch.
-- C412 -> C51; `{C412,C414} -> C881`; `C412 -> C880`; `{C880,C881,C51} -> C882 -> C883 -> C884`; and `{C47,C50,C884} -> C413`. C412 owns immutable ancestry only; C880 owns private baselines; C881 owns canonical classification; C882 owns typed storage; C883 owns server status/selective apply; C884 owns connected proof; C413 alone owns the Instructor workflow.
+- C412 -> C51; `{C412,C414} -> C880`; `{C412,C51,C880} -> C881`; `{C880,C881} -> C882 -> C883 -> C884`; and `{C47,C50,C884} -> C413`. C412 owns immutable ancestry only; C880 owns the canonical Revision comparison projection; C881 owns authorized reads; C882 owns server review; C883 owns the coherent selective save; C884 owns connected proof; C413 alone owns the Instructor workflow.
 - C6 receives C400/C403/C406/C419 reusable boundary contracts. C7 receives C400/C401/C402/C417/C418 Course lifecycle contracts, and C503 hands it tagged direct-versus-adopted Assessment origin before C7's full started-empty closure. C49/C72 gate only the Adopted branch's Public eligibility. Neither A8 contract row edits their shared schema files.
 - C30 receives C422 and title/reference findings. C46 receives C411/C418/C424 presentation contract; C47 receives C405/C413/C423/C424/C425; C48 receives C420/C421/C423/C425; C49/C50 receive C403/C404/C413; C51 receives C412; C52 receives C407/C424; C53 receives C418; C72 receives C404; C73 receives C406/C407; C206 receives C418; C216 receives title/reference inventory; C55 receives C411/C420/C421/C424 and all Course/Blueprint editor identity findings.
 

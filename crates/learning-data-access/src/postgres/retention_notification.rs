@@ -7,12 +7,11 @@ use uuid::Uuid;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    ClaimedCourseRetentionNotification, CourseRetentionNotificationAction,
-    CourseRetentionNotificationFailure, CourseRetentionNotificationStore, StoreError,
-    VerifiedCourseRetentionNotificationDestination,
+    ClaimedCourseRetentionNotification, CourseRetentionNotificationFailure,
+    CourseRetentionNotificationStore, StoreError, VerifiedCourseRetentionNotificationDestination,
 };
 
-/// Binds an attested notifier pool to C847's four closed procedures only.
+/// Binds an attested notifier pool to C847's three closed procedures only.
 #[derive(Clone)]
 pub struct PostgresCourseRetentionNotificationStore {
     pool: Pool,
@@ -25,7 +24,7 @@ impl PostgresCourseRetentionNotificationStore {
     }
 
     async fn begin(&self) -> Result<Transaction<'_, sqlx::Postgres>, StoreError> {
-        // ASVS 8.2.1: the attested login has direct EXECUTE on the four typed
+        // ASVS 8.2.1: the attested login has direct EXECUTE on the three typed
         // procedures only.  It cannot SET a capability role or read receipts.
         self.pool.begin().await.map_err(map_sqlx_error)
     }
@@ -45,9 +44,8 @@ impl CourseRetentionNotificationStore for PostgresCourseRetentionNotificationSto
         }
         let mut transaction = self.begin().await?;
         let row = sqlx::query(
-            "SELECT notification_id, action_kind, \
-                    (extract(epoch FROM due_at) * 1000)::bigint AS due_at_millis, \
-                    verified_destination, provider_idempotency_key, lease_token \
+            "SELECT notification_id, verified_destination, \
+                    provider_idempotency_key, lease_token \
              FROM ple_api.claim_course_retention_notification(\
                     to_timestamp($1::double precision / 1000.0), $2)",
         )
@@ -74,27 +72,6 @@ impl CourseRetentionNotificationStore for PostgresCourseRetentionNotificationSto
             accepted_at,
         )
         .await
-    }
-
-    async fn record_delivered(
-        &self,
-        notification_id: Uuid,
-        provider_idempotency_key: Uuid,
-        delivered_at: Timestamp,
-    ) -> Result<bool, StoreError> {
-        let mut transaction = self.begin().await?;
-        let recorded = sqlx::query_scalar(
-            "SELECT ple_api.record_course_retention_notification_delivered(\
-                $1, $2, to_timestamp($3::double precision / 1000.0))",
-        )
-        .bind(notification_id)
-        .bind(provider_idempotency_key)
-        .bind(delivered_at.as_unix_millis())
-        .fetch_one(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(recorded)
     }
 
     async fn fail_before_acceptance(
@@ -145,26 +122,11 @@ impl PostgresCourseRetentionNotificationStore {
 fn decode_claim(
     row: sqlx::postgres::PgRow,
 ) -> Result<ClaimedCourseRetentionNotification, StoreError> {
-    let action = match row
-        .try_get::<String, _>("action_kind")
-        .map_err(map_sqlx_error)?
-        .as_str()
-    {
-        "warn_inactive" => CourseRetentionNotificationAction::WarnInactive,
-        "notify_archive" => CourseRetentionNotificationAction::NotifyArchive,
-        _ => {
-            return Err(StoreError::InvalidRecord(
-                "Course-retention notification action is invalid".to_string(),
-            ));
-        }
-    };
     let verified_destination = row
         .try_get::<String, _>("verified_destination")
         .map_err(map_sqlx_error)?;
     Ok(ClaimedCourseRetentionNotification {
         notification_id: row.try_get("notification_id").map_err(map_sqlx_error)?,
-        action,
-        due_at: Timestamp::from_unix_millis(row.try_get("due_at_millis").map_err(map_sqlx_error)?),
         verified_destination: VerifiedCourseRetentionNotificationDestination::from_verified(
             verified_destination,
         )?,

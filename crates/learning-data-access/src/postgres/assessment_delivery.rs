@@ -111,7 +111,7 @@ async fn read_committed_assessment_attempt(
 ) -> Result<LiveAssessmentAttempt, StoreError> {
     let header = sqlx::query(
         "SELECT assessment_attempt_reference_number, course_reference_number, assessment_reference_number, \
-         attempt_number, assessment_title, assessment_instructions \
+         assessment_attempt_number, assessment_title, assessment_instructions \
          FROM ple_api.read_started_student_assessment_attempt($1)",
     )
     .bind(assessment_attempt_id)
@@ -172,7 +172,11 @@ async fn read_committed_assessment_attempt(
     Ok(LiveAssessmentAttempt {
         assessment_attempt,
         assessment,
-        attempt_number: positive_i32(&header, "attempt_number", "Assessment Attempt number")?,
+        attempt_number: positive_i32(
+            &header,
+            "assessment_attempt_number",
+            "Assessment Attempt number",
+        )?,
         title: header.try_get("assessment_title").map_err(map_sqlx_error)?,
         instructions: header
             .try_get("assessment_instructions")

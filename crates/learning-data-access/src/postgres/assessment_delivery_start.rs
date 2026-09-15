@@ -39,7 +39,7 @@ pub(super) async fn start_current_assessment_attempt(
     let rows = sqlx::query(
         "SELECT student_record_id, assessment_id, assessment_entry_id, entry_kind, authored_position, \
          fixed_question_id, fixed_revision_number, question_pool_public_id, question_pool_revision_number, \
-         question_pool_member_position AS member_position, pool_question_id, pool_revision_number, question_backend, selection_count, \
+         member_position, pool_question_id, pool_revision_number, question_backend, selection_count, \
          pool_selection_rule, question_pool_reuse_rule \
          FROM ple_api.prepare_current_assessment_attempt_start($1, $2)",
     )

@@ -10,13 +10,6 @@ use uuid::Uuid;
 
 use crate::StoreError;
 
-/// The two notice actions that the database may claim.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CourseRetentionNotificationAction {
-    WarnInactive,
-    NotifyArchive,
-}
-
 /// A database-verified Instructor delivery destination.  Only C847's claim
 /// procedure constructs this type; delivery code cannot substitute a raw
 /// recipient string.
@@ -55,8 +48,6 @@ impl VerifiedCourseRetentionNotificationDestination {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClaimedCourseRetentionNotification {
     pub notification_id: Uuid,
-    pub action: CourseRetentionNotificationAction,
-    pub due_at: Timestamp,
     pub verified_destination: VerifiedCourseRetentionNotificationDestination,
     pub provider_idempotency_key: Uuid,
     pub lease_token: Uuid,
@@ -72,11 +63,11 @@ pub enum CourseRetentionNotificationFailure {
 }
 
 /// The exact notifier capability: claim a stored notice, then record only a
-/// provider acceptance, callback delivery, or pre-acceptance failure.
+/// provider acceptance or pre-acceptance failure.
 ///
 /// Provider acceptance is terminal for sending.  A later claim therefore
-/// never returns that receipt, while a callback updates the same immutable
-/// idempotency identity.  A retry remains possible only before acceptance.
+/// never returns that receipt. A retry remains possible only before
+/// acceptance.
 #[async_trait]
 pub trait CourseRetentionNotificationStore: Send + Sync {
     async fn claim_due_notification(
@@ -91,13 +82,6 @@ pub trait CourseRetentionNotificationStore: Send + Sync {
         lease_token: Uuid,
         provider_idempotency_key: Uuid,
         accepted_at: Timestamp,
-    ) -> Result<bool, StoreError>;
-
-    async fn record_delivered(
-        &self,
-        notification_id: Uuid,
-        provider_idempotency_key: Uuid,
-        delivered_at: Timestamp,
     ) -> Result<bool, StoreError>;
 
     async fn fail_before_acceptance(

@@ -133,11 +133,6 @@ pub use crate::blueprint_course::canonical_exchange::{
     CanonicalBlueprintAssessment, CanonicalBlueprintAssessmentEntry, CanonicalBlueprintCourse,
     CanonicalBlueprintMetadata, CanonicalBlueprintModule,
 };
-pub use crate::blueprint_course::fork_sync_comparison::{
-    BlueprintForkAssessmentOrder, BlueprintForkSyncClassification, BlueprintForkSyncComparison,
-    BlueprintForkSyncSnapshot, BlueprintForkSyncUnit, compare_blueprint_fork_sync,
-    compare_blueprint_fork_sync_unit,
-};
 pub use crate::blueprint_course::{
     BlueprintAssessmentContentInput, BlueprintAssessmentContentView, BlueprintAssessmentDefaults,
     BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput, BlueprintAssessmentEntryView,
@@ -227,11 +222,12 @@ pub use crate::question_content::{
     validate_question_description, validate_question_title,
 };
 pub use crate::question_library::{
-    CourseQuestionUse, MAX_QUESTION_ID_COUNT, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
-    MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS, MAX_QUESTION_SEARCH_BACKEND_FACETS,
-    MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES, MAX_QUESTION_SEARCH_OWN_COURSE_USAGES,
-    MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
-    MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QUESTION_ID_ALPHABET,
+    CourseQuestionUse, MAX_BULK_QUESTION_METADATA_ITEMS, MAX_QUESTION_ID_COUNT,
+    MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS,
+    MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES,
+    MAX_QUESTION_SEARCH_OWN_COURSE_USAGES, MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS,
+    MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS, MAX_QUESTION_SEARCH_TAG_FACETS,
+    MAX_QUESTION_SEARCH_TAG_FILTERS, PublishedQuestionSharedMetadata, QUESTION_ID_ALPHABET,
     QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability,
     QuestionAvailabilityEditNumber, QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent,
     QuestionBackend, QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionLineageView,

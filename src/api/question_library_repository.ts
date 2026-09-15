@@ -6,6 +6,7 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
+import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
 import { normalizeQuestionIdSyntax } from "../question_id";
 import type {
@@ -62,6 +63,11 @@ export function questionLibraryBulkSelectionRequest(
   if (questionIds.length === 0) {
     throw new Error("A Question Library bulk operation requires at least one Question ID");
   }
+  if (questionIds.length > MAX_BULK_QUESTION_METADATA_ITEMS) {
+    throw new Error(
+      `A Question Library bulk operation accepts at most ${MAX_BULK_QUESTION_METADATA_ITEMS} Questions`,
+    );
+  }
   const normalized = questionIds.map((questionId) => normalizeQuestionIdSyntax(questionId));
   if (normalized.some((questionId) => questionId === null)) {
     throw new Error("A Question Library bulk operation requires canonical Question IDs");
@@ -70,6 +76,7 @@ export function questionLibraryBulkSelectionRequest(
   if (new Set(canonicalQuestionIds).size !== canonicalQuestionIds.length) {
     throw new Error("A Question Library bulk operation cannot select a Question more than once");
   }
+  canonicalQuestionIds.sort();
   return { questionIds: canonicalQuestionIds };
 }
 

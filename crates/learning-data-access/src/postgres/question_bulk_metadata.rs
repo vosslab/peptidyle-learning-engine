@@ -7,9 +7,8 @@ use sqlx::{Postgres, Row, Transaction, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    BulkPublishedQuestionMetadataError, BulkPublishedQuestionMetadataInput,
-    BulkPublishedQuestionMetadataResult, BulkPublishedQuestionMetadataStore, SessionTokenHash,
-    StoreError,
+    BulkPublishedQuestionMetadataInput, BulkPublishedQuestionMetadataResult,
+    BulkPublishedQuestionMetadataStore, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for one all-or-none shared metadata command.
@@ -57,10 +56,8 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
         &self,
         session_token_hash: SessionTokenHash,
         input: BulkPublishedQuestionMetadataInput,
-    ) -> Result<Vec<BulkPublishedQuestionMetadataResult>, BulkPublishedQuestionMetadataError> {
-        input
-            .validate()
-            .map_err(BulkPublishedQuestionMetadataError::Store)?;
+    ) -> Result<Vec<BulkPublishedQuestionMetadataResult>, StoreError> {
+        input.validate()?;
         let selection = Value::Array(
             input
                 .selection
@@ -83,20 +80,16 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
         if let Some(topic) = input.patch.topic {
             patch.insert("topic".to_owned(), json!(topic));
         }
-        let mut tx = self
-            .begin(session_token_hash)
-            .await
-            .map_err(BulkPublishedQuestionMetadataError::Store)?;
+        let mut tx = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
             "SELECT question_id, metadata_edit_number \
-             FROM ple_api.bulk_replace_published_question_metadata($1, $2, $3)",
+             FROM ple_api.bulk_replace_published_question_metadata($1, $2)",
         )
         .bind(Json(selection))
         .bind(Json(Value::Object(patch)))
-        .bind(input.idempotency_key)
         .fetch_all(&mut *tx)
         .await
-        .map_err(map_bulk_metadata_error)?;
+        .map_err(map_sqlx_error)?;
         let result = rows
             .iter()
             .map(|row| {
@@ -122,23 +115,10 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
                     metadata_edit_number,
                 })
             })
-            .collect::<Result<Vec<_>, StoreError>>()
-            .map_err(BulkPublishedQuestionMetadataError::Store)?;
-        tx.commit()
-            .await
-            .map_err(map_sqlx_error)
-            .map_err(BulkPublishedQuestionMetadataError::Store)?;
+            .collect::<Result<Vec<_>, StoreError>>()?;
+        tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
-}
-
-fn map_bulk_metadata_error(error: sqlx::Error) -> BulkPublishedQuestionMetadataError {
-    if let sqlx::Error::Database(database_error) = &error
-        && database_error.code().as_deref() == Some("23514")
-    {
-        return BulkPublishedQuestionMetadataError::IdempotencyConflict;
-    }
-    BulkPublishedQuestionMetadataError::Store(map_sqlx_error(error))
 }
 
 fn invalid(message: &str) -> StoreError {

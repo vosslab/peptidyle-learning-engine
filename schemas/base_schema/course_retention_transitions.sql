@@ -243,7 +243,10 @@ BEGIN
             MESSAGE = 'Course Student-record deletion requires archive';
     END IF;
 
-    SELECT course_row.student_data_archived_at + policy.delete_after_archive
+    -- ASVS 14.2.4/14.2.7: enforce the configured absolute deletion deadline;
+    -- student_data_archived_at remains immutable transition evidence only.
+    SELECT course_row.retention_starts_at + policy.archive_after_retention_start
+               + policy.delete_after_archive
       INTO delete_due_at
       FROM ple_data.course_retention_policy AS policy
      WHERE policy.policy_key;

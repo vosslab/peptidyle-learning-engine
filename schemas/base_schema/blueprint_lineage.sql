@@ -60,6 +60,23 @@ CREATE POLICY blueprint_course_fork_receipt_api_owner_all
     ON ple_data.blueprint_course_fork_receipt
     TO ple_api_owner USING (true) WITH CHECK (true);
 
+-- The source Course and source Revision are permanent ancestry facts.  The
+-- forked Blueprint's own content remains independently editable through its
+-- ordinary immutable Revision sequence.
+-- ASVS 8.2.2, 8.3.1: enforce this data-specific boundary in trusted PostgreSQL.
+CREATE FUNCTION ple_data.reject_blueprint_course_fork_change()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    RAISE EXCEPTION USING ERRCODE = '55000',
+        MESSAGE = 'Blueprint Course fork origin is immutable';
+END
+$$;
+CREATE TRIGGER blueprint_course_fork_origin_is_immutable
+BEFORE UPDATE OR DELETE ON ple_data.blueprint_course_fork
+FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_course_fork_change();
+REVOKE ALL ON FUNCTION ple_data.reject_blueprint_course_fork_change() FROM PUBLIC;
+
 SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.fork_blueprint_course(

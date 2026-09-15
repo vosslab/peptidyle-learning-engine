@@ -85,7 +85,7 @@ END $$;
 REVOKE ALL ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.assert_current_student_assessment_attempt(bigint),
     ple_private.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
-    ple_private.prepare_current_assessment_attempt_start(bigint, bigint),
+    ple_private.prepare_current_assessment_attempt_start(bigint, text),
     ple_private.read_started_student_assessment_attempt(uuid),
     ple_private.prepare_assessment_attempt_finalization(uuid),
     ple_private.prepare_student_assessment_attempt_finalization(bigint),
@@ -101,7 +101,7 @@ REVOKE ALL ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
-    ple_private.prepare_current_assessment_attempt_start(bigint, bigint),
+    ple_private.prepare_current_assessment_attempt_start(bigint, text),
     ple_private.read_started_student_assessment_attempt(uuid),
     ple_private.save_student_assessment_attempt_response(bigint, integer, jsonb),
     ple_private.prepare_student_assessment_attempt_finalization(bigint),
@@ -135,14 +135,12 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
     SELECT * FROM ple_private.prepare_current_assessment_attempt_start(
         (SELECT course.reference_number FROM ple_data.course_instance AS course
           WHERE course.public_reference = $1),
-        (SELECT assessment.reference_number FROM ple_data.course_instance AS course
-          JOIN ple_data.assessment ON assessment.course_id = course.course_id
-         WHERE course.public_reference = $1 AND assessment.public_reference = $2)
+        $2
     )
 $$;
 CREATE FUNCTION ple_api.read_started_student_assessment_attempt(uuid)
 RETURNS TABLE (
-    assessment_attempt_reference_number bigint, course_reference_number bigint,
+    assessment_attempt_reference_number bigint, course_reference_number text,
     assessment_reference_number text, assessment_attempt_number integer,
     assessment_title text, assessment_instructions text
 )

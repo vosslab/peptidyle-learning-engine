@@ -2,17 +2,27 @@
 
 import type { AssessmentTemplate } from "../../../generated/api/AssessmentTemplate";
 import type { AssessmentTemplateId } from "../../../generated/api/AssessmentTemplateId";
+import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
-import type { AssessmentTemplateClient, AssessmentTemplateResponse } from "../assessment_template";
+import type {
+  AssessmentTemplateClient,
+  AssessmentTemplateResponse,
+  CreateAssessmentFromTemplateInput,
+} from "../assessment_template";
+import type { LiveAssessmentWorkspaceResponse } from "../assessment_release";
 import {
   decodeAssessmentTemplate,
   decodeAssessmentTemplateList,
   decodeCreateAssessmentTemplateInput,
   decodeSaveAssessmentTemplateInput,
 } from "../decoders/assessment_template";
+import { decodeRecord, decodeUuid } from "../decoder";
+import { decodeLiveAssessmentWorkspace } from "../decoders/assessment_release";
+import { decodeAssessmentTitle, field, requireOnlyFields } from "../decoders/shared";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
+import { parseCourseInstanceReference } from "../../navigation/public_route";
 
 function templatePath(id?: AssessmentTemplateId): string {
   if (id === undefined) return "/api/assessment-templates";
@@ -20,6 +30,25 @@ function templatePath(id?: AssessmentTemplateId): string {
     throw new ApiProtocolError("Assessment Template ID must be a UUID");
   }
   return `/api/assessment-templates/${encodeURIComponent(id)}`;
+}
+
+function createFromTemplatePath(course: CourseInstanceReference): string {
+  if (parseCourseInstanceReference(course) === null) {
+    throw new ApiProtocolError("Course Instance reference must be canonical");
+  }
+  return `/api/course-instances/${encodeURIComponent(course)}/assessments/from-template`;
+}
+
+function decodeCreateAssessmentFromTemplateInput(
+  value: unknown,
+  path = "request",
+): CreateAssessmentFromTemplateInput {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["templateId", "title"]);
+  return {
+    templateId: decodeUuid(field(record, "templateId", path), `${path}.templateId`),
+    title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
+  };
 }
 
 function quotedStrongEtag(etag: string, path: string): string {
@@ -41,6 +70,14 @@ function requireMatchingEtag(
     throw new ApiProtocolError(
       `API response ${path} ETag must match its Assessment Template Edit Number`,
     );
+  }
+  return etag;
+}
+
+function requireWorkspaceEtag(response: Response, editNumber: string, path: string): string {
+  const etag = response.headers.get("etag");
+  if (etag === null || etag !== `"${editNumber}"`) {
+    throw new ApiProtocolError(`API response ${path} ETag must match its Assessment Edit Number`);
   }
   return etag;
 }
@@ -135,6 +172,29 @@ export function createAssessmentTemplateClient(
       });
       requireRequestedTemplate(result.template, id, path);
       return templateResponse(result, path);
+    },
+    createAssessmentFromTemplate: async (
+      course,
+      input,
+    ): Promise<LiveAssessmentWorkspaceResponse> => {
+      const path = createFromTemplatePath(course);
+      const response = await requestSameOrigin(fetchImplementation, basePath, path, {
+        method: "POST",
+        body: decodeCreateAssessmentFromTemplateInput(input),
+      });
+      requireNoStore(response, path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      if (response.status !== 201) {
+        throw new ApiProtocolError(`API response ${path} must use status 201`);
+      }
+      const workspace = decodeLiveAssessmentWorkspace(
+        await boundedResponseJson(response, path),
+        "response",
+      );
+      return {
+        workspace,
+        etag: requireWorkspaceEtag(response, workspace.editNumber, path),
+      };
     },
   };
 }

@@ -196,7 +196,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.read_student_assessment_attempt_history(
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
-    course_reference_number bigint, course_short_name text, course_long_name text, course_theme text,
+    course_reference_number text, course_short_name text, course_long_name text, course_theme text,
     assessment_reference_number text, assessment_title text, assessment_type text,
     assessment_attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
@@ -205,7 +205,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history(
     grading_is_current boolean, grading_results jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
-    SELECT course.reference_number,
+    SELECT course.public_reference,
            course.course_short_name,
            course.course_long_name,
            course.course_theme,

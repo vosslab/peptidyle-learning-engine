@@ -162,6 +162,48 @@
   max-width: 42ch;
 }
 
+.assessment-workspace-create {
+  display: grid;
+  gap: var(--ple-section-gap);
+  max-width: var(--ple-reading-max-inline);
+}
+
+.assessment-workspace-create .assessment-editor-panel,
+.assessment-create-method,
+.assessment-create-template {
+  display: grid;
+  gap: var(--ple-compact-gap);
+}
+
+.assessment-create-method,
+.assessment-create-template {
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-surface-soft);
+}
+
+.assessment-create-method legend,
+.assessment-create-template h2 {
+  padding: 0;
+  font-size: 1rem;
+}
+
+.assessment-create-template h2 {
+  margin: 0;
+}
+
+.assessment-create-method-choice {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+
+.assessment-create-method-choice input {
+  flex: 0 0 auto;
+}
+
 .assessment-workspace-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

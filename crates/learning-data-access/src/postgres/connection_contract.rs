@@ -116,7 +116,6 @@ impl LoginContract {
             Self::Production(ProductionLoginProfile::CourseRetentionNotifier) => &[
                 "ple_api.claim_course_retention_notification(timestamp with time zone,integer)",
                 "ple_api.record_course_retention_notification_provider_acceptance(uuid,uuid,uuid,timestamp with time zone)",
-                "ple_api.record_course_retention_notification_delivered(uuid,uuid,timestamp with time zone)",
                 "ple_api.fail_course_retention_notification_before_acceptance(uuid,uuid,timestamp with time zone,text)",
             ],
             _ => &[],

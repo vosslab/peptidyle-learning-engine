@@ -258,6 +258,7 @@ fn command(workspace: WorkspaceId) -> NewQuestionLineagePublicationCommand {
                 .expect("reviewed Question Author"),
         }])
         .expect("bounded Question Authorship"),
+        initial_shared_tags: Vec::new(),
         question_license: QuestionLicense::CcBy4_0,
         question_revision_reason: QuestionRevisionReason::new(
             "Initial reviewed publication".to_string(),

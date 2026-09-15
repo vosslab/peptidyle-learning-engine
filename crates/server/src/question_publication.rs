@@ -16,7 +16,7 @@ use objects::{ObjectAddress, ObjectStore, ObjectStoreError, PutObject};
 use question_model::{
     ObjectId, QUESTION_ID_ALPHABET, QUESTION_ID_IDENTIFIER_LENGTH, QuestionAuthorship, QuestionId,
     QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason, QuestionRevisionReference,
-    Timestamp, WorkspaceId,
+    Tag, Timestamp, WorkspaceId,
 };
 use sha2::Sha256;
 use subtle::ConstantTimeEq;
@@ -111,6 +111,8 @@ pub struct NewQuestionLineagePublicationCommand {
     pub workspace: WorkspaceId,
     /// Reviewed ordered Question Authorship snapshot.
     pub question_authorship: QuestionAuthorship,
+    /// Initial shared search tags derived from the reviewed canonical source.
+    pub initial_shared_tags: Vec<Tag>,
     /// Compatible Question License for the immutable first revision.
     pub question_license: QuestionLicense,
     /// Reviewed reason for accepting the first Question Revision.
@@ -208,6 +210,10 @@ where
         command: NewQuestionLineagePublicationCommand,
         stored_at: Timestamp,
     ) -> Result<QuestionRevisionReference, QuestionPublicationError> {
+        NewQuestionLineagePublicationInput::validate_initial_shared_tags(
+            &command.initial_shared_tags,
+        )
+        .map_err(QuestionPublicationError::Store)?;
         let source_record = self
             .publication_store
             .load_draft_question_publication_source(
@@ -264,6 +270,7 @@ where
                 question_id,
                 question_source_object_record: target_record,
                 question_authorship: command.question_authorship.clone(),
+                initial_shared_tags: command.initial_shared_tags.clone(),
                 question_license: command.question_license.clone(),
                 question_revision_reason: command.question_revision_reason.clone(),
                 question_ownership_event_id: Uuid::now_v7(),

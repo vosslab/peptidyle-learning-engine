@@ -47,22 +47,22 @@ BEGIN
 	IF to_regprocedure('ple_api.sweep_expired_student_assignment_attempts(integer)') IS NOT NULL
 		OR NOT has_function_privilege(
 			'ple_assessment_attempt_expiry_worker',
-			'ple_api.prepare_expired_student_assignment_attempt_finalizations(integer)',
+			'ple_api.prepare_expired_student_assessment_attempt_finalizations(integer)',
 			'EXECUTE'
 		)
 		OR NOT has_function_privilege(
 			'ple_assessment_attempt_expiry_worker',
-			'ple_api.commit_expired_student_assignment_attempt_finalization(uuid,jsonb)',
+			'ple_api.commit_expired_student_assessment_attempt_finalization(uuid,jsonb)',
 			'EXECUTE'
 		)
 		OR has_function_privilege(
 			'ple_app',
-			'ple_api.prepare_expired_student_assignment_attempt_finalizations(integer)',
+			'ple_api.prepare_expired_student_assessment_attempt_finalizations(integer)',
 			'EXECUTE'
 		)
 		OR has_function_privilege(
 			'ple_app',
-			'ple_api.commit_expired_student_assignment_attempt_finalization(uuid,jsonb)',
+			'ple_api.commit_expired_student_assessment_attempt_finalization(uuid,jsonb)',
 			'EXECUTE'
 		) THEN
 		RAISE EXCEPTION 'Assignment Attempt expiry finalization capability is not isolated';
@@ -264,6 +264,22 @@ BEGIN
 		   AND role.rolconnlimit = -1
 	) THEN
 		RAISE EXCEPTION 'Course-retention notifier is not an ordinary no-login capability';
+	END IF;
+	IF ARRAY(
+		SELECT routine.oid::regprocedure::text
+		  FROM pg_catalog.pg_proc AS routine
+		  JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = routine.pronamespace
+		 WHERE namespace.nspname LIKE 'ple\_%' ESCAPE '\'
+		   AND has_function_privilege(
+			   'ple_course_retention_notifier', routine.oid, 'EXECUTE'
+		   )
+		 ORDER BY routine.oid::regprocedure::text
+	) <> ARRAY[
+		'ple_api.claim_course_retention_notification(timestamp with time zone,integer)',
+		'ple_api.fail_course_retention_notification_before_acceptance(uuid,uuid,timestamp with time zone,text)',
+		'ple_api.record_course_retention_notification_provider_acceptance(uuid,uuid,uuid,timestamp with time zone)'
+	] THEN
+		RAISE EXCEPTION 'Course-retention notifier function capability is not exact';
 	END IF;
 	BEGIN
 		EXECUTE 'SET LOCAL ROLE ple_course_retention_notifier';

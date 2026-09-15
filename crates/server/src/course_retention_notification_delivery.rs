@@ -72,18 +72,7 @@ impl CourseRetentionNotificationDelivery for NotConfiguredCourseRetentionNotific
     }
 }
 
-/// The durable result of one claimed-notice submission attempt.
-///
-/// A recorded failure is deliberately distinct from provider acceptance.  The
-/// caller must never treat disabled or rejected delivery as success merely
-/// because its retryable receipt state was persisted.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CourseRetentionNotificationDeliveryOutcome {
-    ProviderAccepted,
-    FailureRecorded(CourseRetentionNotificationFailure),
-}
-
-/// Sends one Store-claimed notice and records its terminal send outcome.
+/// Sends one Store-claimed notice and records its durable attempt outcome.
 ///
 /// Provider acceptance is terminal for sending.  A receipt write that loses
 /// its lease is surfaced as an error, never represented as fake success.
@@ -95,12 +84,12 @@ pub async fn deliver_claimed_course_retention_notification<S, D>(
     delivery: &D,
     claim: ClaimedCourseRetentionNotification,
     occurred_at: Timestamp,
-) -> Result<CourseRetentionNotificationDeliveryOutcome, StoreError>
+) -> Result<(), StoreError>
 where
     S: CourseRetentionNotificationStore,
     D: CourseRetentionNotificationDelivery,
 {
-    let (recorded, outcome) = match delivery
+    let recorded = match delivery
         .submit(
             &claim.verified_destination,
             claim.provider_idempotency_key,
@@ -108,7 +97,7 @@ where
         )
         .await
     {
-        Ok(()) => (
+        Ok(()) => {
             store
                 .record_provider_acceptance(
                     claim.notification_id,
@@ -116,10 +105,9 @@ where
                     claim.provider_idempotency_key,
                     occurred_at,
                 )
-                .await?,
-            CourseRetentionNotificationDeliveryOutcome::ProviderAccepted,
-        ),
-        Err(failure) => (
+                .await?
+        }
+        Err(failure) => {
             store
                 .fail_before_acceptance(
                     claim.notification_id,
@@ -127,12 +115,11 @@ where
                     occurred_at,
                     failure,
                 )
-                .await?,
-            CourseRetentionNotificationDeliveryOutcome::FailureRecorded(failure),
-        ),
+                .await?
+        }
     };
     if recorded {
-        Ok(outcome)
+        Ok(())
     } else {
         Err(StoreError::LeaseLost)
     }
@@ -141,13 +128,15 @@ where
 /// Claims and submits at most one receipt through the exact notifier Store.
 ///
 /// A Store that has recorded provider acceptance will never return that
-/// receipt again; this helper consequently has no second-send path.
+/// receipt again; this helper consequently has no second-send path. `true`
+/// means a claimed attempt recorded either acceptance or failure; `false`
+/// means no eligible claim. Neither value represents inbox delivery.
 pub async fn claim_and_deliver_one_course_retention_notification<S, D>(
     store: &S,
     delivery: &D,
     evaluated_at: Timestamp,
     lease_seconds: u16,
-) -> Result<Option<CourseRetentionNotificationDeliveryOutcome>, StoreError>
+) -> Result<bool, StoreError>
 where
     S: CourseRetentionNotificationStore,
     D: CourseRetentionNotificationDelivery,
@@ -156,31 +145,9 @@ where
         .claim_due_notification(evaluated_at, lease_seconds)
         .await?
     else {
-        return Ok(None);
+        return Ok(false);
     };
     deliver_claimed_course_retention_notification(store, delivery, claim, evaluated_at)
         .await
-        .map(Some)
-}
-
-/// Records a later provider delivery callback on the same receipt identity.
-///
-/// A callback cannot initiate delivery or make an unaccepted receipt accepted.
-pub async fn record_course_retention_notification_delivered<S>(
-    store: &S,
-    notification_id: Uuid,
-    provider_idempotency_key: Uuid,
-    delivered_at: Timestamp,
-) -> Result<(), StoreError>
-where
-    S: CourseRetentionNotificationStore,
-{
-    if store
-        .record_delivered(notification_id, provider_idempotency_key, delivered_at)
-        .await?
-    {
-        Ok(())
-    } else {
-        Err(StoreError::LeaseLost)
-    }
+        .map(|()| true)
 }
