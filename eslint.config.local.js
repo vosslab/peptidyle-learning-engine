@@ -39,6 +39,9 @@ export default [
       "dist_wasm/**",
       "containers/**",
       "generated/wasm-export-check/**",
+      // The current RDKit browser runtime is copied and byte-verified by
+      // devel/sync_author_content_dependency.mjs; it is not authored source.
+      "assets/author-content-dependencies/rdkit/RDKit_minimal.js",
     ],
   },
 ];

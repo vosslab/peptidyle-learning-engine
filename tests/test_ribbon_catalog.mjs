@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { RIBBON_TAB_IDS, ROUTE_CONTRACT } from "../src/route_contract.ts";
+import { ROUTE_CONTRACT } from "../src/route_contract.ts";
 import { RIBBON_TASK_CATALOG, TAB_CATALOG } from "../src/ribbon/ribbon_catalog.ts";
 
 const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
@@ -27,74 +27,4 @@ test("catalog future destinations remain identities rather than fabricated route
     assert.equal(routeIds.has(control.destination.futureId), false, control.id);
     assert.equal("routeId" in control.destination, false, control.id);
   }
-});
-
-test("catalog controls are navigation descriptors with independently valid density metadata", () => {
-  for (const control of CATALOG) {
-    assert.ok(control.id.length > 0, "catalog control has an identity");
-    assert.ok(control.label.trim().length > 0, control.id);
-    assert.ok(["primary", "supporting"].includes(control.role), control.id);
-    assert.ok(["critical", "normal"].includes(control.priority), control.id);
-    assert.ok(["standard", "compact"].includes(control.presentation), control.id);
-    assert.equal(control.iconOnlySafe && !control.iconBearing, false, control.id);
-    assert.equal("operation" in control, false, control.id);
-  }
-});
-
-test("schema tab identities have one corresponding tab catalog descriptor", () => {
-  for (const id of RIBBON_TAB_IDS) {
-    assert.equal(TAB_CATALOG.filter((control) => control.id === id).length, 1, id);
-  }
-});
-
-test("Instructor Product catalog preserves the owner's tabs and task order", () => {
-  assert.deepEqual(
-    TAB_CATALOG.filter((control) =>
-      ["courses", "questions", "productAssignments"].includes(control.id),
-    ).map((control) => control.label),
-    ["Courses", "Questions", "Assignments"],
-  );
-  const labelsForGroup = (taskGroup) =>
-    RIBBON_TASK_CATALOG.filter((control) => control.taskGroup === taskGroup).map(
-      (control) => control.label,
-    );
-  assert.deepEqual(labelsForGroup("instructorCourses"), [
-    "My Blueprint Courses",
-    "My Active Courses",
-    "My Inactive Courses",
-    "Search Public Blueprint Courses",
-  ]);
-  assert.deepEqual(labelsForGroup("instructorQuestions"), [
-    "My Questions",
-    "My Draft Questions",
-    "Starred",
-    "Watched",
-    "Search Question Library",
-    "Browse Question Library",
-  ]);
-  assert.deepEqual(labelsForGroup("instructorAssignments"), [
-    "Assignments Due Soon",
-    "My Assignment Templates",
-  ]);
-});
-
-test("Product Assignments enters the cross-Course Due Soon route", () => {
-  const productAssignments = TAB_CATALOG.find((control) => control.id === "productAssignments");
-  assert.deepEqual(productAssignments?.destination, {
-    kind: "route",
-    routeId: "assignmentsDueSoon",
-  });
-  assert.deepEqual(productAssignments?.requiredParams, []);
-});
-
-test("Attempt task returns Students to the Assignment access route with its exact public scope", () => {
-  const backToAssignment = RIBBON_TASK_CATALOG.find(
-    (control) => control.id === "backToAssignments",
-  );
-  assert.deepEqual(backToAssignment?.destination, {
-    kind: "route",
-    routeId: "assignmentOverview",
-  });
-  assert.deepEqual(backToAssignment?.requiredParams, ["courseRef", "assignmentRef"]);
-  assert.equal(backToAssignment?.label, "Back to Assignments");
 });

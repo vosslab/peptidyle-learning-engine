@@ -629,7 +629,7 @@ mod tests {
             crate::QuestionPoolReuseRule::SelectAgain;
         evidence.activity_rules.question_variation_rule =
             crate::AssessmentQuestionVariationRule::ReuseVariation;
-        let attempt = AssessmentAttempt {
+        let mut attempt = AssessmentAttempt {
             id: AssessmentAttemptId::from_uuid(Uuid::from_u128(1)),
             reference: AssessmentAttemptReference::new(1).expect("valid attempt reference"),
             student_record: StudentRecordId::from_uuid(Uuid::from_u128(2)),
@@ -637,12 +637,27 @@ mod tests {
             evidence,
             attempt_number: 1,
             started_at: Timestamp::from_unix_millis(1_000),
-            completed_at: None,
+            submitted_at: None,
             score: None,
         };
 
         assert_eq!(attempt.student_record.as_uuid(), Uuid::from_u128(2));
         assert_eq!(attempt.assessment.as_uuid(), Uuid::from_u128(3));
+        assert_eq!(
+            attempt.completion(),
+            AssessmentAttemptCompletion::InProgress
+        );
+        attempt.score = Some(1.0);
+        assert_eq!(
+            attempt.completion(),
+            AssessmentAttemptCompletion::InProgress
+        );
+        attempt.submitted_at = Some(Timestamp::from_unix_millis(2_000));
+        attempt.score = None;
+        assert_eq!(attempt.completion(), AssessmentAttemptCompletion::Completed);
+        let attempt_wire = serde_json::to_value(&attempt).expect("Attempt serializes");
+        assert!(attempt_wire.get("submittedAt").is_some());
+        assert!(attempt_wire.get("completedAt").is_none());
         assert_eq!(attempt.evidence.title.as_str(), "Assessment");
         assert_eq!(
             attempt.question_pool_reuse_rule(),

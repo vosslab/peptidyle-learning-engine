@@ -1,5 +1,6 @@
 // assessment_attempt_page.tsx - live one-question Student Assessment Attempt delivery.
 
+import { useNavigate } from "@solidjs/router";
 import {
   createEffect,
   createSignal,
@@ -26,9 +27,11 @@ import { QuestionPresentationResponseControl } from "../components/question_resp
 import type { SubmissionOutcome } from "../components/question_response_controls/common";
 import {
   saveCapturedBackendOwnedResponse,
+  saveCompleteResponseBeforeAttemptSubmission,
   type BackendOwnedCapture,
 } from "./assessment_attempt_finish";
 import { AssessmentAttemptResponseState } from "./assessment_attempt_response_state";
+import { assessmentAttemptRouteReference } from "../navigation/public_route";
 import {
   useRetryRouteScope,
   useRouteScopeData,
@@ -54,6 +57,7 @@ function AttemptExperience(props: {
   readonly context: StudentAssessmentAttemptContext;
 }): JSX.Element {
   const runtime = useApplicationApi();
+  const navigate = useNavigate();
   const validator = useWasmFacade();
   const [progress, setProgress] =
     createSignal<Awaited<ReturnType<typeof runtime.client.getStudentAssessmentAttemptProgress>>>();
@@ -215,6 +219,31 @@ function AttemptExperience(props: {
     setPosition(nextPosition);
   }
 
+  /**
+   * Saves only a complete current draft before whole-Attempt submission.
+   * An incomplete draft remains local, leaving any earlier saved response intact;
+   * without an earlier saved response, the server finalizes the Question unanswered.
+   */
+  async function saveCurrentResponseBeforeAttemptSubmission(): Promise<boolean> {
+    const selected = currentPosition();
+    if (selected === null || presentation()?.position !== selected) return false;
+    const active = responseState.current(selected);
+    const responseIsComplete = active !== undefined && active.valid && responseValid();
+    if (!responseIsComplete) {
+      if (saveTimer !== undefined) globalThis.clearTimeout(saveTimer);
+      const priorSave = activeSave;
+      if (
+        !(await saveCompleteResponseBeforeAttemptSubmission(false, saveCurrentResponse, priorSave))
+      ) {
+        return false;
+      }
+      setSaveState(presentation()?.savedResponse === null ? "idle" : "saved");
+      setSaveError(null);
+      return true;
+    }
+    return saveCompleteResponseBeforeAttemptSubmission(responseIsComplete, saveCurrentResponse);
+  }
+
   async function submitAttempt(): Promise<void> {
     if (submissionState() === "submitting" || isSubmitted()) return;
     setSubmissionState("submitting");
@@ -222,7 +251,7 @@ function AttemptExperience(props: {
     try {
       const result = await saveCapturedBackendOwnedResponse(
         backendOwnedCapture,
-        saveCurrentResponse,
+        saveCurrentResponseBeforeAttemptSubmission,
         () => runtime.client.submitStudentAssessmentAttempt(props.context.assessmentAttempt),
       );
       if (!result) {
@@ -232,7 +261,12 @@ function AttemptExperience(props: {
       }
       if (result.score !== null) setSubmittedScore(result.score);
       setSubmissionState("submitted");
-      await loadProgress();
+      // ASVS 1.2.2, 2.3.1, 8.2.2-8.2.3: enter the server-authorized, field-redacted result
+      // view only after this exact whole-Attempt submission is accepted.
+      navigate(
+        `/assessment-attempts/${assessmentAttemptRouteReference(result.assessmentAttempt)}/summary`,
+        { replace: true },
+      );
     } catch (error: unknown) {
       setSubmissionState("error");
       if (error instanceof ApiRequestError && error.status === 503) {
@@ -533,7 +567,10 @@ function AttemptExperience(props: {
           aria-labelledby="assessment-attempt-submit-heading"
         >
           <h2 id="assessment-attempt-submit-heading">Finish Assessment</h2>
-          <p>Save each response before submitting this Assessment Attempt.</p>
+          <p>
+            Complete responses are saved before submission. Incomplete responses submit as
+            unanswered unless an earlier saved response exists.
+          </p>
           <button
             class="primary-action"
             type="button"

@@ -1,7 +1,7 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorship";
 import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
-import { decodeQuestionSummary, isAvailablePleQuestionSummary } from "../../api/decoders";
+import { decodeQuestionLineageView, isAvailablePleQuestionSummary } from "../../api/decoders";
 import { isQuestionAuthorship } from "../../api/question_authorship";
 import { normalizeQuestionIdSyntax } from "../../question_id";
 import { PLE_QUESTION_JSON_MEDIA_TYPE, type PleQuestionJsonDocument } from "./question_json_source";
@@ -288,10 +288,9 @@ export function createPleQuestionJsonClient(
     if (!summaryResponse.ok)
       throw new PleQuestionJsonRequestError(summaryResponse.status, summaryPath);
     requireJson(summaryResponse, summaryPath);
-    const summary = decodeQuestionSummary(
+    const { summary } = decodeQuestionLineageView(
       decodeJson(await boundedText(summaryResponse, summaryPath), summaryPath),
       summaryPath,
-      true,
     );
     if (!isAvailablePleQuestionSummary(summary)) {
       throw new PleQuestionJsonProtocolError(

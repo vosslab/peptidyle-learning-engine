@@ -6,12 +6,12 @@
 //! reconstructs access decisions nor records a Student Feedback Release receipt.
 
 use question_model::{
-    AssessmentScoringState, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
-    QuestionFeedback, StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
-    StudentResponseInspectionFeedback, Timestamp,
+    AssessmentScoringState, AssessmentType, GradingResult, QuestionAnswer,
+    QuestionAnswerExplanation, QuestionFeedback, StudentFeedback, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseTiming, StudentResponseInspectionFeedback, Timestamp,
 };
 
-use crate::effective_assessment_policy::{AssessmentAccessDecision, EffectiveAssessmentPolicy};
+use crate::effective_assessment_properties::{AssessmentAccessDecision, EffectiveAssessmentPolicy};
 
 /// The seven independently evaluated Student Feedback Release fields.
 ///
@@ -26,6 +26,25 @@ pub struct StudentFeedbackReleaseDecision {
     pub question_answer: bool,
     pub question_answer_explanation: bool,
     pub class_statistics: bool,
+}
+
+/// Applies the Course-cohort gate to Quiz and Exam answer disclosure.
+///
+/// The caller supplies one current-cohort completion decision calculated at a
+/// trusted persistence boundary. Other Assessment Types and independently
+/// configured feedback fields are unchanged.
+pub fn gate_quiz_exam_answers_for_current_cohort(
+    mut decision: StudentFeedbackReleaseDecision,
+    assessment_type: AssessmentType,
+    all_current_students_completed: bool,
+) -> StudentFeedbackReleaseDecision {
+    if matches!(assessment_type, AssessmentType::Quiz | AssessmentType::Exam)
+        && !all_current_students_completed
+    {
+        decision.question_answer = false;
+        decision.question_answer_explanation = false;
+    }
+    decision
 }
 
 /// Removes score-dependent feedback fields while an assessment score is not current.

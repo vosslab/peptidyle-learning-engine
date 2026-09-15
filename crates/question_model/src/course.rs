@@ -306,10 +306,7 @@ pub struct GradebookSummaryRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        AssessmentAttemptContinuationRule, AssessmentAttemptGradeRule, AssessmentCompletionRule,
-        AssessmentQuestionVariationRule,
-    };
+    use crate::{AssessmentAttemptGradeRule, AssessmentQuestionVariationRule};
     use uuid::Uuid;
 
     fn assessment_title(value: &str) -> AssessmentTitle {
@@ -339,9 +336,7 @@ mod tests {
             )],
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
-                assessment_completion_rule: AssessmentCompletionRule::AllCorrect,
                 assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-                assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
@@ -365,9 +360,7 @@ mod tests {
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
-                assessment_completion_rule: AssessmentCompletionRule::AllCorrect,
                 assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-                assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
@@ -388,9 +381,7 @@ mod tests {
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
-                assessment_completion_rule: AssessmentCompletionRule::AllCorrect,
                 assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-                assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()

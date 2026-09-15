@@ -18,7 +18,7 @@ use question_model::{
 
 use crate::{
     active_student_course_membership::ActiveStudentCourseMembershipDecision,
-    effective_assessment_policy::{
+    effective_assessment_properties::{
         AssessmentAccessDecision, AssessmentPolicySource, EffectiveAssessmentPolicy,
     },
     student_feedback_release::evaluate_student_feedback_release,
@@ -71,7 +71,9 @@ pub fn project_preview_policy(
     )
 }
 fn time(
-    field: &crate::effective_assessment_policy::EffectiveAssessmentPolicyValue<Option<Timestamp>>,
+    field: &crate::effective_assessment_properties::EffectiveAssessmentPolicyValue<
+        Option<Timestamp>,
+    >,
     term: &CourseTerm,
     account_time_zone: &AccountTimeZone,
     kind: AssessmentAuthoredContentField,
@@ -92,7 +94,7 @@ fn time(
     })
 }
 fn limit(
-    field: &crate::effective_assessment_policy::EffectiveAssessmentPolicyValue<
+    field: &crate::effective_assessment_properties::EffectiveAssessmentPolicyValue<
         Option<std::num::NonZeroU32>,
     >,
 ) -> PreviewLimitField {
@@ -102,7 +104,7 @@ fn limit(
     }
 }
 fn late(
-    field: &crate::effective_assessment_policy::EffectiveAssessmentPolicyValue<
+    field: &crate::effective_assessment_properties::EffectiveAssessmentPolicyValue<
         question_model::LateWorkRule,
     >,
 ) -> PreviewLateWorkRuleField {
@@ -232,7 +234,7 @@ mod tests {
         ActiveStudentCourseMembershipDenial, ActiveStudentCourseMembershipFacts,
         ActiveStudentMembership, evaluate_active_student_course_membership,
     };
-    use crate::effective_assessment_policy::{
+    use crate::effective_assessment_properties::{
         AssessmentPolicySource, AssessmentStartDecision, AssessmentStatusGate, AuthorizationGate,
         EffectiveAssessmentPolicyValue, ResolveEffectivePolicyInput, StudentLateWorkStatus,
         resolve_effective_policy,

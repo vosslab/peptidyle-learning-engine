@@ -16,6 +16,8 @@ pub struct CourseGradebookStudentWork {
     /// Derived only from server time and durable submission evidence.
     pub expired_submitting: bool,
     /// Missing only until background submission records immutable outcomes.
+    /// This is a Gradebook contribution pair: Bonus work can contribute earned
+    /// points with zero possible, and extra credit can exceed possible points.
     pub score: Option<LiveAssessmentAttemptScore>,
 }
 

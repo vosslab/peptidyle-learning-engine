@@ -66,7 +66,9 @@ try {
   await page.getByRole("link", { name: "Open Students" }).click();
   await page.waitForURL(/\/instructor\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}\/students$/u);
   await page.getByRole("heading", { name: "Students" }).waitFor();
-  await page.getByLabel("Email, roster ID").fill("mary.okafor@biology.roosevelt.edu,m9-browser-seeded");
+  await page
+    .getByLabel("Email, roster ID")
+    .fill("mary.okafor@biology.roosevelt.edu,m9-browser-seeded");
   await page.getByRole("button", { name: "Import roster" }).click();
   await page.getByText("Roster import recorded.").waitFor();
   await page.getByText("Invitation pending").waitFor();

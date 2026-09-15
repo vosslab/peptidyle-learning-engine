@@ -13,6 +13,7 @@ mod assessment_pool_fork;
 mod assessment_pool_selection_count;
 mod assessment_release;
 mod assessment_student_view;
+mod assessment_template;
 mod attempt_expiry;
 mod authentication_ceremony;
 mod authentication_email;
@@ -87,16 +88,16 @@ pub use assessment_pool_selection_count::{
 };
 pub use assessment_release::{
     AssessmentQuestionPickerEntry, AssessmentReleaseIssue, AssessmentReleaseValidation,
-    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSourceChoice,
-    CourseAssessmentSummary, CreateLiveAssessmentInput, DueSoonAssessmentSummary,
-    DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
-    SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
-    UnreleasedLiveAssessment,
+    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSummary,
+    CreateLiveAssessmentInput, DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore,
+    LiveAssessmentWorkspace, SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput,
+    SaveLiveAssessmentInput, UnreleasedLiveAssessment,
 };
 pub use assessment_student_view::{
     InstructorStudentViewSnapshot, InstructorStudentViewSnapshotEntry, InstructorStudentViewSource,
     InstructorStudentViewStore,
 };
+pub use assessment_template::{AssessmentTemplateStore, SaveAssessmentTemplateInput};
 pub use attempt_expiry::{
     AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation,
 };
@@ -176,8 +177,9 @@ pub use invitation_export::{
 };
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
 pub use live_student_course_landing::{
-    LiveStudentAssessmentLandingSummary, LiveStudentCourseInvitationSummary,
-    LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,
+    LiveAssessmentGradeContribution, LiveStudentAssessmentLandingSummary,
+    LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
+    LiveStudentCourseLandingSummary,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,

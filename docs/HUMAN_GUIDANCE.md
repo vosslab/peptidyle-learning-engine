@@ -22,6 +22,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Read and learn the core principles in docs/REPO_STYLE.md
 - Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
+- Prefer the smallest coherent design that meets actual requirements and known failure modes.
+- Complexity must earn its place.
 - Time should be used efficiently. Agents and tokens are cheap; wall time is not.
 - Hard work should be broken into small, independently completable tasks.
 - Write plans in plain, concrete language. Use technical terms when they add precision.
@@ -881,6 +883,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Quizzes may use more restrictive Attempt and collaboration settings than Regular Assignments.
 - **Exams** are individual assessments associated with scheduled exam periods.
 - Exams may use more restrictive Attempt, timing, availability, and feedback settings.
+- Quizzes and Exams allow one Assessment Attempt.
 
 ### Assessment type appearance
 
@@ -892,8 +895,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Icons and labels should remain sufficient to identify the Assessment Type without color.
 - **Regular Assignment** uses the Font Awesome `pen-to-square` icon.
 - **Practice Question Assignment** uses the Font Awesome `arrows-spin` icon.
-- **Bonus Assignment** uses the Font Awesome `sparkles` icon.
-- **Quiz** uses the Font Awesome `square-q` icon.
+- **Bonus Assignment** uses the Font Awesome `star` icon.
+- **Quiz** uses the Font Awesome `circle-question` icon.
 - **Exam** uses the Font Awesome `file-signature` icon.
 
 ### Blueprint Assessments
@@ -953,6 +956,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Practice Question Assignments** show correct answers immediately after Assessment Attempt
   submission.
 - **Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.
+- A Quiz or Exam Attempt is complete when the **Student** submits it or its time limit expires and
+  PLE submits it automatically.
+- Assessment Attempt completion does not depend on correctness or score.
 - Until then, Quizzes and Exams do not disclose correct answers.
 - Optional Question Feedback is shown when the Question Backend provides it.
 - Question Feedback does not use Assessment correct-answer disclosure settings.

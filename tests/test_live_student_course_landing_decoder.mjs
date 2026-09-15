@@ -18,6 +18,7 @@ function assessment(overrides = {}) {
   return {
     reference: "A5D9Q3X",
     title: "Peptide practice",
+    assessmentType: "regular_assignment",
     decision: {
       availableAt: 1_000,
       dueAt: 2_000,
@@ -32,6 +33,7 @@ function assessment(overrides = {}) {
     },
     assessmentAttemptNumber: 1,
     assessmentAttemptCompletion: "inProgress",
+    canResumeAssessmentAttempt: true,
     gradedQuestionCount: 1,
     questionCount: 4,
     ...overrides,
@@ -43,20 +45,55 @@ test("Student Course landing accepts an omitted score while disclosure withholds
   assert.deepEqual(decodeLiveStudentAssessmentLandings(value), value.assessments);
 });
 
-test("Student Course landing accepts one complete released score pair", () => {
+test("Student Course landing accepts a disclosed Assessment score independently of latest progress", () => {
   const value = {
-    assessments: [
-      assessment({ gradedQuestionCount: 4, score: { pointsEarned: 1, pointsPossible: 2 } }),
-    ],
+    assessments: [assessment({ assessmentScore: { pointsEarned: 1, pointsPossible: 2 } })],
   };
   assert.deepEqual(decodeLiveStudentAssessmentLandings(value), value.assessments);
 });
 
-test("Student Course landing rejects a partial, nullable, or stale score projection", () => {
+test("Student Course landing accepts complete Bonus and extra-credit contribution pairs", () => {
+  for (const assessmentScore of [
+    { pointsEarned: 3, pointsPossible: 0 },
+    { pointsEarned: 3, pointsPossible: 2 },
+  ]) {
+    const value = { assessments: [assessment({ assessmentScore })] };
+    assert.deepEqual(decodeLiveStudentAssessmentLandings(value), value.assessments);
+  }
+});
+
+test("Student Course landing requires the closed Assessment Type and resumability fields", () => {
+  for (const assessmentType of [
+    "regular_assignment",
+    "practice_question_assignment",
+    "bonus_assignment",
+    "quiz",
+    "exam",
+  ]) {
+    const value = { assessments: [assessment({ assessmentType })] };
+    assert.deepEqual(decodeLiveStudentAssessmentLandings(value), value.assessments);
+  }
+
   for (const candidate of [
-    assessment({ score: { pointsEarned: 1 } }),
-    assessment({ score: null }),
-    assessment({ score: { pointsEarned: 3, pointsPossible: 2 } }),
+    assessment({ assessmentType: undefined }),
+    assessment({ assessmentType: "project" }),
+    assessment({ canResumeAssessmentAttempt: undefined }),
+    assessment({ canResumeAssessmentAttempt: "yes" }),
+  ]) {
+    assert.throws(
+      () => decodeLiveStudentAssessmentLandings({ assessments: [candidate] }),
+      DecodeError,
+    );
+  }
+});
+
+test("Student Course landing rejects malformed contributions and the retired score alias", () => {
+  for (const candidate of [
+    assessment({ assessmentScore: { pointsEarned: 1 } }),
+    assessment({ assessmentScore: null }),
+    assessment({ assessmentScore: { pointsEarned: -1, pointsPossible: 2 } }),
+    assessment({ assessmentScore: { pointsEarned: 1, pointsPossible: -2 } }),
+    assessment({ assessmentScore: { pointsEarned: Number.POSITIVE_INFINITY, pointsPossible: 2 } }),
     assessment({ score: { pointsEarned: 1, pointsPossible: 2 } }),
     assessment({ pointsEarned: 1, pointsPossible: 2 }),
   ]) {

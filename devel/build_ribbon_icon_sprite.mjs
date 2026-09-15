@@ -6,8 +6,10 @@ import { fileURLToPath } from "node:url";
 
 import {
   faArrowLeft,
+  faArrowsSpin,
   faBookOpen,
   faBoxArchive,
+  faCircleQuestion,
   faCircleUser,
   faClipboardList,
   faClock,
@@ -15,6 +17,7 @@ import {
   faEye,
   faFileCircleQuestion,
   faFilePen,
+  faFileSignature,
   faGear,
   faGraduationCap,
   faLayerGroup,
@@ -79,8 +82,10 @@ const XML_ATTRIBUTE_ENTITIES = new Map([
  */
 const FONT_AWESOME_DEFINITIONS = Object.freeze({
   "arrow-left": faArrowLeft,
+  "arrows-spin": faArrowsSpin,
   "book-open": faBookOpen,
   "box-archive": faBoxArchive,
+  "circle-question": faCircleQuestion,
   "circle-user": faCircleUser,
   "clipboard-list": faClipboardList,
   clock: faClock,
@@ -88,6 +93,7 @@ const FONT_AWESOME_DEFINITIONS = Object.freeze({
   eye: faEye,
   "file-circle-question": faFileCircleQuestion,
   "file-pen": faFilePen,
+  "file-signature": faFileSignature,
   gear: faGear,
   "graduation-cap": faGraduationCap,
   "layer-group": faLayerGroup,
@@ -109,13 +115,16 @@ function spritePathFor(repoRoot) {
 //============================================
 
 function glyphIdsFromContract() {
-  const glyphIds = new Set([
+  const ribbonGlyphIds = new Set([
     ...Object.values(RIBBON_DESTINATION_GLYPHS),
     ...Object.values(RIBBON_CONTEXT_GLYPHS),
   ]);
-  const glyphIdsSorted = [...glyphIds].sort();
-  assertSameGlyphSet([...RIBBON_GLYPH_IDS].sort(), glyphIdsSorted);
-  return glyphIdsSorted;
+  for (const glyphId of ribbonGlyphIds) {
+    if (!RIBBON_GLYPH_IDS.includes(glyphId)) {
+      throw new Error(`Ribbon control requests undeclared glyph ${glyphId}.`);
+    }
+  }
+  return [...RIBBON_GLYPH_IDS].sort();
 }
 
 //============================================

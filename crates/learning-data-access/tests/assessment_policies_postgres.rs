@@ -4,7 +4,8 @@
 
 use learning_data_access::postgres::{PostgresLiveAssessmentStore, lazy_pool};
 use learning_data_access::{
-    LiveAssessmentStore, SaveBaseAssessmentPolicyInput, SessionTokenHash, StoreError,
+    AssessmentReleaseIssue, LiveAssessmentStore, SaveBaseAssessmentPolicyInput, SessionTokenHash,
+    StoreError,
 };
 use question_model::{AssessmentEditNumber, AssessmentReference, CourseInstanceReference};
 use sqlx::{Connection, Row};
@@ -97,7 +98,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *tx)
         .await
         .expect("Assessment fixture role");
-    sqlx::query("INSERT INTO ple_data.assessment (assessment_id, reference_number, course_id, source_blueprint_course_reference_number, source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, updated_at, assessment_title, assessment_instructions, assessment_attempt_time_limit_seconds, late_work_rule, assessment_completion_rule, assessment_attempt_grade_rule, assessment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, assessment_attempt_resume_rule, assessment_question_display_rule, assessment_navigation_rule, assessment_question_order_rule, feedback_score, feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, 1, 1, $3, clock_timestamp(), clock_timestamp(), 'Title must survive policy save', 'before policy save', 300, 'reject', 'answer_all', 'highest', 'unlimited', 'reuse_selection', 'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation', 'shuffled', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit')")
+    sqlx::query("INSERT INTO ple_data.assessment (assessment_id, reference_number, course_id, origin_kind, source_blueprint_course_reference_number, source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, updated_at, assessment_type, assessment_title, assessment_instructions, assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, assessment_attempt_resume_rule, assessment_question_display_rule, assessment_navigation_rule, assessment_question_order_rule, feedback_score, feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, 'adopted', 1, 1, $3, clock_timestamp(), clock_timestamp(), 'quiz', 'Title must survive policy save', 'before policy save', 300, 1, 'reject', 'highest', 'reuse_selection', 'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation', 'shuffled', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit')")
         .bind(id(ASSESSMENT)).bind(id(COURSE)).bind(id(BLUEPRINT_ASSESSMENT)).execute(&mut *tx).await.expect("Assessment");
     sqlx::query("INSERT INTO ple_data.assessment_entry (assessment_entry_id, assessment_id, authored_position, entry_kind, availability, scoring_rule, question_id, question_revision_number, points_possible) VALUES ($1, $2, 0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 2)")
         .bind(id(ASSESSMENT_ENTRY)).bind(id(ASSESSMENT)).execute(&mut *tx).await.expect("Assessment Entry");
@@ -106,7 +107,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
-async fn policy_save_is_isolated_conflict_checked_and_revalidates_released_assessments() {
+async fn policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid_dates() {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();
     let admin = lazy_pool(migration_url).expect("migration pool");
@@ -173,32 +174,20 @@ async fn policy_save_is_isolated_conflict_checked_and_revalidates_released_asses
         .expect("closed invalid policy fixture");
     invalid_ordering.expected_edit_number =
         AssessmentEditNumber::new(2).expect("fixture Edit Number");
-    assert!(matches!(
-        store
-            .save_base_assessment_policy(token(), course, assessment, invalid_ordering)
-            .await,
-        Err(StoreError::InvalidRecord(_))
-    ));
-
-    sqlx::query(
-        "UPDATE ple_data.assessment SET assessment_status = 'released' WHERE assessment_id = $1",
-    )
-    .bind(id(ASSESSMENT))
-    .execute(&mut inspection)
-    .await
-    .expect("released fixture state");
+    let invalid_saved = store
+        .save_base_assessment_policy(token(), course, assessment, invalid_ordering)
+        .await
+        .expect("Unreleased invalid dates remain correctable");
+    assert_eq!(invalid_saved.edit_number.value(), 3);
+    let validation = store
+        .validate_live_assessment_release(token(), course, assessment)
+        .await
+        .expect("interactive release validation");
+    assert!(!validation.can_release);
     assert!(
-        matches!(
-            store
-                .save_base_assessment_policy(
-                    token(),
-                    course,
-                    assessment,
-                    policy(2, "released policy")
-                )
-                .await,
-            Err(StoreError::InvalidRecord(_))
-        ),
-        "a Released Assessment policy save repeats Assessment Release Validation"
+        validation
+            .issues
+            .contains(&AssessmentReleaseIssue::DueDateAfterClose),
+        "interactive readiness reports the actionable invalid date order"
     );
 }

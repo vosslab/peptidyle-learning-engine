@@ -85,6 +85,7 @@ pub struct StoredBlueprintAssessment {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StoredBlueprintAssessmentContent {
+    pub assessment_type: question_model::AssessmentType,
     pub title: String,
     pub instructions: AssessmentInstructions,
     pub entries: Vec<StoredBlueprintAssessmentEntry>,
@@ -334,6 +335,7 @@ impl StoredBlueprintAssessmentContent {
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
         Ok(Self {
+            assessment_type: input.assessment_type,
             title: input.title,
             instructions: input.instructions,
             entries,
@@ -386,6 +388,7 @@ impl StoredBlueprintAssessmentContent {
             .collect::<Result<Vec<_>, StoreError>>()?;
         BlueprintAssessmentContent::new(
             blueprint_assessment_reference,
+            self.assessment_type,
             AssessmentTitle::try_new(self.title.clone())
                 .map_err(|_| invalid("Blueprint Assessment title"))?,
             self.instructions.clone(),
@@ -538,6 +541,7 @@ mod tests {
                         Uuid::from_u128(assessment_identity),
                     ),
                     content: StoredBlueprintAssessmentContent {
+                        assessment_type: question_model::AssessmentType::RegularAssignment,
                         title: "Assessment".to_string(),
                         instructions: AssessmentInstructions::default(),
                         entries: vec![StoredBlueprintAssessmentEntry::Fixed {

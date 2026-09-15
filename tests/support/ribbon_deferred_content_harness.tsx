@@ -55,7 +55,6 @@ const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
 function instructorCourse(reference: string): CourseRouteView {
   return {
     summary: {
-      id: `course-${reference}`,
       reference,
       shortName: `Course ${reference}`,
       longName: `Deferred content evidence course ${reference}`,
@@ -96,9 +95,9 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
   const history = createMemoryHistory();
   const counts = new Map<EvidenceCase, Map<string, number>>();
   const releases = new Map<EvidenceCase, () => void>();
-  const scopeCaseByCourseId = new Map<string, EvidenceCase>(
+  const scopeCaseByCourseReference = new Map<string, EvidenceCase>(
     Object.entries(COURSE_REFERENCE).map(([caseName, reference]) => [
-      `course-${reference}`,
+      reference,
       caseName as EvidenceCase,
     ]),
   );
@@ -127,21 +126,24 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
     {},
     {
       get(_target, property): unknown {
+        if (property === "getProfileAvatar") {
+          return () => Promise.resolve({ avatar: null });
+        }
         if (property === "resolveNavigation") {
           return (reference: string) => {
             increment(activeTransportCase(), "resolveNavigation");
-            if (reference.startsWith("A-")) {
+            if (reference.startsWith("A")) {
               return Promise.resolve({
-                kind: "assignment",
+                kind: "assessment",
                 courseId: `course-${COURSE_REFERENCE[activeTransportCase()]}`,
-                assignmentId: `assignment-${reference}`,
+                assessmentId: `assessment-${reference}`,
               });
             }
             return undefined;
           };
         }
-        if (property === "getLiveAssignmentWorkspace")
-          return () => unresolved("getLiveAssignmentWorkspace");
+        if (property === "getLiveAssessmentWorkspace")
+          return () => unresolved("getLiveAssessmentWorkspace");
         if (property === "getLiveCourseRoster") return () => unresolved("getLiveCourseRoster");
         if (property === "assetUrl") return () => "/asset";
         return () =>
@@ -157,19 +159,16 @@ export function mountRibbonDeferredContentHarness(target: HTMLElement): Deferred
     questionSearch: queryFunction("question-search", () => Promise.reject(new Error("unused"))),
     questionDetails: queryFunction("question-details", () => Promise.reject(new Error("unused"))),
     gradebook: queryFunction("gradebook", () => Promise.reject(new Error("unused"))),
-    assignments: queryFunction("assignments", () => Promise.reject(new Error("unused"))),
-    assignment: queryFunction("assignment", () => Promise.reject(new Error("unused"))),
-    assignmentSummary: queryFunction("assignment-summary", () =>
+    assessments: queryFunction("assessments", () => Promise.reject(new Error("unused"))),
+    assessment: queryFunction("assessment", () => Promise.reject(new Error("unused"))),
+    assessmentSummary: queryFunction("assessment-summary", () =>
       Promise.reject(new Error("unused")),
     ),
-    resolveCourse: queryFunction("resolve-course", (reference: string) =>
-      Promise.resolve({ courseId: `course-${reference}` }),
-    ),
-    courseScope: queryFunction("course-scope", (courseId: string) => {
-      const caseName = scopeCaseByCourseId.get(courseId);
+    courseScope: queryFunction("course-scope", (courseReference: string) => {
+      const caseName = scopeCaseByCourseReference.get(courseReference);
       if (caseName === undefined)
         return Promise.reject(
-          new Error(`Deferred-content course scope requested for unexpected ${courseId}`),
+          new Error(`Deferred-content course scope requested for unexpected ${courseReference}`),
         );
       increment(caseName, "scopeCourse");
       return deferred(caseName).then(() => instructorCourse(COURSE_REFERENCE[caseName]));

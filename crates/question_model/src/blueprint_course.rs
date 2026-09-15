@@ -152,6 +152,8 @@ pub enum BlueprintAssessmentEntryInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentContentInput {
+    /// Fixed pedagogical purpose shared with Course Instance Assessments.
+    pub assessment_type: crate::AssessmentType,
     /// Instructor-facing title copied into future assessment assessments.
     pub title: String,
     /// Student-facing instructions copied into future assessment assessments.
@@ -245,6 +247,8 @@ pub enum BlueprintAssessmentEntryView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentContentView {
+    /// Fixed pedagogical purpose shared with Course Instance Assessments.
+    pub assessment_type: crate::AssessmentType,
     /// Instructor-facing title copied into future assessment assessments.
     pub title: String,
     /// Student-facing instructions copied into future assessment assessments.
@@ -483,10 +487,7 @@ mod tests {
             attempt_limit: None,
             late_work_rule: LateWorkRule::Accept,
             activity_rules: AssessmentActivityRules {
-                assessment_completion_rule: crate::AssessmentCompletionRule::AnswerAll,
                 assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
-                assessment_attempt_continuation_rule:
-                    crate::AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: crate::AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
@@ -497,6 +498,7 @@ mod tests {
 
     fn input() -> BlueprintAssessmentContentInput {
         BlueprintAssessmentContentInput {
+            assessment_type: crate::AssessmentType::PracticeQuestionAssignment,
             title: "Protein structure practice".to_string(),
             instructions: AssessmentInstructions::try_new("Explain each choice.".to_string())
                 .expect("valid instructions"),
@@ -630,6 +632,7 @@ mod tests {
                 assessments: vec![BlueprintCourseAssessmentContentView {
                     blueprint_assessment_reference: blueprint_assessment_reference(),
                     content: BlueprintAssessmentContentView {
+                        assessment_type: crate::AssessmentType::PracticeQuestionAssignment,
                         title: "Protein structure practice".to_string(),
                         instructions: AssessmentInstructions::default(),
                         entries: vec![
@@ -724,6 +727,7 @@ mod blueprint_course_tests {
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_owned(),
                 assessments: vec![BlueprintAssessmentContentInput {
+                    assessment_type: crate::AssessmentType::RegularAssignment,
                     title: "Protein folding".to_owned(),
                     instructions: AssessmentInstructions::default(),
                     entries: vec![BlueprintAssessmentEntryInput::Fixed(
@@ -740,11 +744,8 @@ mod blueprint_course_tests {
                         attempt_limit: None,
                         late_work_rule: LateWorkRule::Accept,
                         activity_rules: AssessmentActivityRules {
-                            assessment_completion_rule: crate::AssessmentCompletionRule::AnswerAll,
                             assessment_attempt_grade_rule:
                                 crate::AssessmentAttemptGradeRule::Highest,
-                            assessment_attempt_continuation_rule:
-                                crate::AssessmentAttemptContinuationRule::Unlimited,
                             question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                             question_variation_rule:
                                 crate::AssessmentQuestionVariationRule::NewVariation,
@@ -781,6 +782,7 @@ mod blueprint_course_tests {
                 .is_err()
         );
         let content = BlueprintAssessmentContentInput {
+            assessment_type: crate::AssessmentType::RegularAssignment,
             title: "Protein folding".to_owned(),
             instructions: AssessmentInstructions::default(),
             entries: vec![BlueprintAssessmentEntryInput::Fixed(
@@ -797,10 +799,7 @@ mod blueprint_course_tests {
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
                 activity_rules: AssessmentActivityRules {
-                    assessment_completion_rule: crate::AssessmentCompletionRule::AnswerAll,
                     assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
-                    assessment_attempt_continuation_rule:
-                        crate::AssessmentAttemptContinuationRule::Unlimited,
                     question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                     question_variation_rule: crate::AssessmentQuestionVariationRule::NewVariation,
                     ..AssessmentActivityRules::default()

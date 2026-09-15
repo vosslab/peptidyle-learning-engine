@@ -284,7 +284,7 @@ export function decodeAssessmentAttempt(value: unknown, path = "response"): Asse
     "evidence",
     "attemptNumber",
     "startedAt",
-    "completedAt",
+    "submittedAt",
     "score",
   ]);
   const decoded = {
@@ -301,9 +301,9 @@ export function decodeAssessmentAttempt(value: unknown, path = "response"): Asse
       `${path}.attemptNumber`,
     ),
     startedAt: decodeTimestamp(field(record, "startedAt", path), `${path}.startedAt`),
-    completedAt: decodeNullable(
-      field(record, "completedAt", path),
-      `${path}.completedAt`,
+    submittedAt: decodeNullable(
+      field(record, "submittedAt", path),
+      `${path}.submittedAt`,
       decodeTimestamp,
     ),
     score: decodeNullable(field(record, "score", path), `${path}.score`, decodeFiniteNumber),

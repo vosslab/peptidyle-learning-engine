@@ -16,6 +16,7 @@ export type QuestionAvailabilityTransition = {
 /** Current discoverable lineage state and its qualified availability validator. */
 export type LoadedQuestionLineage = {
   readonly summary: QuestionSummary;
+  readonly viewerMayArchive: boolean;
   readonly availabilityEtag: QuestionAvailabilityEtag;
 };
 

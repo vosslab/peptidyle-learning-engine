@@ -9,7 +9,7 @@ use learning_data_access::{
     AssessmentStartDecision, LiveAssessmentDeliveryStore, LiveStudentCourseLandingStore,
     SessionTokenHash,
 };
-use question_model::{AssessmentReference, CourseInstanceReference};
+use question_model::{AssessmentReference, AssessmentType, CourseInstanceReference};
 use sqlx::Row;
 use uuid::Uuid;
 
@@ -39,6 +39,9 @@ const ASSESSMENT: u128 = 0xed01;
 const ASSESSMENT_ENTRY: u128 = 0xed02;
 const OTHER_STUDENT_ACCOMMODATION: u128 = 0xed03;
 const REFERENCE_NUMBER: i64 = 920_001;
+const COURSE_REFERENCE: &str = "CI92ABCD";
+const OTHER_COURSE_REFERENCE: &str = "CI92ABCE";
+const ASSESSMENT_REFERENCE_PLACEHOLDER: &str = "A92ABCD";
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
@@ -219,26 +222,27 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Blueprint Revision Event");
     sqlx::query(
         "INSERT INTO ple_data.course_instance \
-         (course_id, reference_number, source_kind, blueprint_course_reference_number, \
+         (course_id, reference_number, public_reference, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
           course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
          OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, 'adopted', $2, 1, $3, 'instructor', 'ACCESS', \
+         VALUES ($1, $2, $4, 'adopted', $2, 1, $3, 'instructor', 'ACCESS', \
                  'Assessment Access Course', current_date, current_date + 1, clock_timestamp())",
     )
     .bind(id(COURSE))
     .bind(REFERENCE_NUMBER)
     .bind(id(INSTRUCTOR))
+    .bind(COURSE_REFERENCE)
     .execute(&mut *tx)
     .await
     .expect("Course Instance");
     sqlx::query(
         "INSERT INTO ple_data.course_instance \
-         (course_id, reference_number, source_kind, blueprint_course_reference_number, \
+         (course_id, reference_number, public_reference, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
           course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
          OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, 'adopted', $3, 1, $4, 'instructor', 'ACCESS-OTHER', \
+         VALUES ($1, $2, $5, 'adopted', $3, 1, $4, 'instructor', 'ACCESS-OTHER', \
                  'Other Course for exact Student Work scope', current_date, current_date + 1, \
                  clock_timestamp())",
     )
@@ -246,6 +250,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     .bind(REFERENCE_NUMBER + 1)
     .bind(REFERENCE_NUMBER)
     .bind(id(INSTRUCTOR))
+    .bind(OTHER_COURSE_REFERENCE)
     .execute(&mut *tx)
     .await
     .expect("other Course Instance");
@@ -339,23 +344,22 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("Assessment fixture role");
     sqlx::query(
         "INSERT INTO ple_data.assessment \
-         (assessment_id, reference_number, course_id, source_blueprint_course_reference_number, \
+         (assessment_id, reference_number, public_reference, course_id, origin_kind, source_blueprint_course_reference_number, \
           source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, \
-          updated_at, assessment_title, assessment_instructions, available_at, due_at, closes_at, \
-          assessment_attempt_time_limit_seconds, attempt_limit, late_work_rule, \
-          assessment_completion_rule, assessment_attempt_grade_rule, \
-          assessment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, \
+          updated_at, assessment_type, assessment_title, assessment_instructions, available_at, due_at, closes_at, \
+          assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
+          assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
           assessment_attempt_resume_rule, assessment_question_display_rule, \
           assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
           feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \
           feedback_question_answer, feedback_question_answer_explanation, \
           feedback_class_statistics, assessment_status) OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, $3, $2, 1, $4, clock_timestamp(), clock_timestamp(), \
+         VALUES ($1, $2, $5, $3, 'adopted', $2, 1, $4, clock_timestamp(), clock_timestamp(), 'regular_assignment', \
                  'Server-owned Assessment Access', 'Read the policy before starting.', \
                  clock_timestamp() + interval '1 hour', \
                  clock_timestamp() + interval '2 hours', \
-                 clock_timestamp() + interval '3 hours', 600, 2, 'reject', 'answer_all', \
-                 'highest', 'unlimited', 'reuse_selection', 'new_variation', 'resumable', \
+                 clock_timestamp() + interval '3 hours', 600, 2, 'reject', \
+                 'highest', 'reuse_selection', 'new_variation', 'resumable', \
                  'one_question_at_a_time', 'free_navigation', 'shuffled', 'after_submit', \
                  'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', \
                  'after_submit', 'released')",
@@ -364,6 +368,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     .bind(REFERENCE_NUMBER)
     .bind(id(COURSE))
     .bind(id(BLUEPRINT_ASSESSMENT))
+    .bind(ASSESSMENT_REFERENCE_PLACEHOLDER)
     .execute(&mut *tx)
     .await
     .expect("released Assessment");
@@ -385,7 +390,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_private.student_assessment_accommodation( \
              accommodation_id, student_record_id, assessment_id, available_at, due_at, \
-             closes_at, assessment_attempt_time_limit_seconds, attempt_limit, created_at \
+             closes_at, assessment_attempt_time_limit_seconds, assessment_attempt_limit, created_at \
          ) VALUES ( \
              $1, $2, $3, clock_timestamp() - interval '1 hour', \
              clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', \
@@ -408,6 +413,29 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     let migration_url = runtime.migration_url().expose();
     let admin = lazy_pool(migration_url).expect("migration pool");
     seed(&admin).await;
+    let mut route_transaction = admin.begin().await.expect("route fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *route_transaction)
+        .await
+        .expect("route fixture role");
+    let (course_public_reference, assessment_public_reference): (String, String) = sqlx::query_as(
+        "SELECT course.public_reference, assessment.public_reference \
+         FROM ple_data.course_instance AS course \
+         JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id \
+         WHERE course.course_id = $1 AND assessment.assessment_id = $2",
+    )
+    .bind(id(COURSE))
+    .bind(id(ASSESSMENT))
+    .fetch_one(&mut *route_transaction)
+    .await
+    .expect("generated Student Assessment route references");
+    route_transaction
+        .commit()
+        .await
+        .expect("route fixture commit");
+    let course = CourseInstanceReference::new(&course_public_reference).expect("Course reference");
+    let assessment =
+        AssessmentReference::new(&assessment_public_reference).expect("Assessment reference");
 
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&application_url).expect("application pool");
@@ -464,9 +492,6 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         "an ordinary Sysadmin cannot access Student Work without Student ownership",
     );
     let store = PostgresLiveAssessmentDeliveryStore::new(application.clone());
-    let course = CourseInstanceReference::new(REFERENCE_NUMBER as u64).expect("Course reference");
-    let assessment =
-        AssessmentReference::new(REFERENCE_NUMBER as u64).expect("Assessment reference");
     let access = store
         .live_assessment_access(token(0xe1), course, assessment)
         .await
@@ -480,6 +505,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         Some("This Assessment is not yet available.")
     );
     assert_eq!(access.question_count, 1);
+    assert_eq!(access.assessment_type, AssessmentType::RegularAssignment);
     assert_eq!(access.points_possible, 2.0);
     assert_eq!(access.decision.time_limit_seconds, Some(600));
     assert_eq!(access.decision.attempt_limit, Some(2));
@@ -490,6 +516,11 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         .await
         .expect("authorized Student Assessment landing");
     assert_eq!(landing.len(), 1, "scheduled Assessment remains visible");
+    assert_eq!(
+        landing[0].assessment_type,
+        AssessmentType::RegularAssignment
+    );
+    assert!(!landing[0].can_resume_assessment_attempt);
     let landing_decision = &landing[0].decision;
     assert_eq!(
         landing_decision.start_decision,
@@ -534,14 +565,14 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
         .await
         .expect("application role");
     let row = sqlx::query(
-        "SELECT start_decision, attempt_limit, late_work_rule, display_time_zone, \
+        "SELECT start_decision, assessment_attempt_limit AS attempt_limit, late_work_rule, display_time_zone, \
                 evaluated_at < available_at AS evaluation_before_available, \
                 available_at < due_at AS available_before_due, \
                 due_at < closes_at AS due_before_close \
            FROM ple_api.read_student_assessment_access($1, $2)",
     )
-    .bind(REFERENCE_NUMBER)
-    .bind(REFERENCE_NUMBER)
+    .bind(&course_public_reference)
+    .bind(&assessment_public_reference)
     .fetch_one(&mut *tx)
     .await
     .expect("complete Assessment Access projection");

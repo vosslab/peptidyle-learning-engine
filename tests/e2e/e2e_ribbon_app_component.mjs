@@ -19,9 +19,9 @@ const catalogById = new Map(
   [...TAB_CATALOG, ...RIBBON_TASK_CATALOG].map((control) => [control.id, control]),
 );
 const fixtureParams = {
-  courseRef: "C-1",
-  assignmentRef: "A-1",
-  assignmentAttemptRef: "R-1",
+  courseRef: "CI7K3M2Q",
+  assessmentRef: "A9D2RX5",
+  assessmentAttemptRef: "R-1",
 };
 const topologyRowsTestName = [
   "AppRibbon preserves every row reserved by declared topology",
@@ -54,7 +54,7 @@ test("every fixture href is a canonical declared route with its catalog paramete
       const catalog = catalogById.get(control.id);
       assert.ok(catalog, `${fixtureName}:${control.id} is catalogued`);
       const documentedUnavailable =
-        catalog.destination.kind !== "route" || catalog.id === "backToAssignments";
+        catalog.destination.kind !== "route" || catalog.id === "backToAssessments";
       if (documentedUnavailable) {
         assert.equal(
           control.availability,
@@ -130,7 +130,7 @@ test(topologyRowsTestName, async () => {
   assert.doesNotMatch(html, /Blueprint Updates|Course Setup/);
   assert.doesNotMatch(html, /role="tab(list)?"/);
   assert.ok(html.indexOf("Peptidyle") < html.indexOf("Instructor"));
-  assert.ok(html.indexOf("Instructor") < html.indexOf("Assignments"));
+  assert.ok(html.indexOf("Instructor") < html.indexOf("Assessments"));
 });
 
 test("AppRibbon omits the Task Row when declared route topology has no Task Group", async () => {
@@ -196,10 +196,10 @@ test(bundledGlyphTestName, async () => {
 test(modelGlyphDeclarationTestName, async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const baseline = M6_RIBBON_FIXTURES.courseInstructor;
-  const modelDeclaringAssignmentsTextOnly = {
+  const modelDeclaringAssessmentsTextOnly = {
     ...baseline,
     tabs: baseline.tabs.map((control) =>
-      control.id === "assignments"
+      control.id === "assessments"
         ? { ...control, iconBearing: false, iconOnlySafe: true }
         : control,
     ),
@@ -207,23 +207,23 @@ test(modelGlyphDeclarationTestName, async () => {
   const unknownGlyphClaim = {
     ...baseline,
     tabs: baseline.tabs.map((control) =>
-      control.id === "assignments"
+      control.id === "assessments"
         ? { ...control, id: "unknownDestination", label: "Unknown", iconBearing: true }
         : control,
     ),
   };
 
   const declaredTextOnlyHtml = renderToString(() =>
-    createComponent(RealAppRibbon, { model: modelDeclaringAssignmentsTextOnly }),
+    createComponent(RealAppRibbon, { model: modelDeclaringAssessmentsTextOnly }),
   );
-  const declaredTextOnlyAssignments = declaredTextOnlyHtml.match(
-    /<a[^>]*data-ribbon-control="assignments"[^>]*>([\s\S]*?)<\/a>/,
+  const declaredTextOnlyAssessments = declaredTextOnlyHtml.match(
+    /<a[^>]*data-ribbon-control="assessments"[^>]*>([\s\S]*?)<\/a>/,
   )?.[1];
-  assert.ok(declaredTextOnlyAssignments, "the model-declared text-only destination still renders");
-  assert.match(declaredTextOnlyAssignments, /Assignments/);
-  assert.doesNotMatch(declaredTextOnlyAssignments, /<svg|<use |data-ribbon-icon-only-safe/);
+  assert.ok(declaredTextOnlyAssessments, "the model-declared text-only destination still renders");
+  assert.match(declaredTextOnlyAssessments, /Assessments/);
+  assert.doesNotMatch(declaredTextOnlyAssessments, /<svg|<use |data-ribbon-icon-only-safe/);
   assert.doesNotMatch(
-    declaredTextOnlyHtml.match(/<a[^>]*data-ribbon-control="assignments"[^>]*>/)?.[0] ?? "",
+    declaredTextOnlyHtml.match(/<a[^>]*data-ribbon-control="assessments"[^>]*>/)?.[0] ?? "",
     /(?:aria-label|title)=/,
     "an undeclared glyph cannot trigger icon-only naming semantics",
   );
@@ -239,17 +239,17 @@ test(modelGlyphDeclarationTestName, async () => {
   assert.doesNotMatch(unmappedGlyphClaim, /<svg|<use |data-ribbon-icon-only-safe/);
 
   const ordinaryHtml = renderToString(() => createComponent(RealAppRibbon, { model: baseline }));
-  const ordinaryAssignments = ordinaryHtml.match(
-    /<a[^>]*data-ribbon-control="assignments"[^>]*>([\s\S]*?)<\/a>/,
+  const ordinaryAssessments = ordinaryHtml.match(
+    /<a[^>]*data-ribbon-control="assessments"[^>]*>([\s\S]*?)<\/a>/,
   )?.[1];
-  assert.ok(ordinaryAssignments, "an ordinary declared icon-bearing destination renders");
+  assert.ok(ordinaryAssessments, "an ordinary declared icon-bearing destination renders");
   assert.equal(
-    (ordinaryAssignments.match(/<svg\b/g) ?? []).length,
+    (ordinaryAssessments.match(/<svg\b/g) ?? []).length,
     1,
     "a valid model declaration and closed-map entry resolve exactly one glyph",
   );
   assert.match(
-    ordinaryAssignments,
+    ordinaryAssessments,
     new RegExp(`<use href="${RIBBON_ICON_ASSET_PATH}#clipboard-list"`),
   );
 });

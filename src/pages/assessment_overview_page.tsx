@@ -3,6 +3,7 @@
 import { A, createAsync, useNavigate, useParams } from "@solidjs/router";
 import { createEffect, createSignal, For, Match, Show, Switch, type JSX } from "solid-js";
 
+import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
 import { StudentAssessmentStartFacts } from "../components/student_assessment_presentation";
 import {
@@ -12,6 +13,7 @@ import {
   type AssessmentRouteReference,
   type CourseInstanceRouteReference,
 } from "../navigation/public_route";
+import { RibbonIcon } from "../ribbon/ribbon_icon";
 
 /** Public Course and Assessment References locate the view; the server re-authorizes each response. */
 export function AssessmentOverviewPage(): JSX.Element {
@@ -64,13 +66,16 @@ export function AssessmentOverviewPage(): JSX.Element {
         when={access()}
         fallback={
           <p class="loading-state" role="status">
-            Loading Assessment...
+            Loading...
           </p>
         }
       >
         {(current) => (
           <>
-            <p class="eyebrow">Assessment</p>
+            <p class="eyebrow">
+              <RibbonIcon glyph={assessmentTypePresentation(current().assessmentType).icon} />
+              <span>{assessmentTypePresentation(current().assessmentType).label}</span>
+            </p>
             <h1>{current().title}</h1>
             <StudentAssessmentStartFacts
               questionCount={current().questionCount}
@@ -82,11 +87,14 @@ export function AssessmentOverviewPage(): JSX.Element {
               when={current().activeAssessmentAttempt === null}
               fallback={
                 <p class="loading-state" role="status">
-                  Resuming Assessment...
+                  Resuming {assessmentTypePresentation(current().assessmentType).label}...
                 </p>
               }
             >
-              <section class="student-assessment-action-region" aria-label="Assessment access">
+              <section
+                class="student-assessment-action-region"
+                aria-label={`${assessmentTypePresentation(current().assessmentType).label} access`}
+              >
                 <div class="student-assessment-primary-action">
                   <Switch>
                     <Match when={current().decision.startDecision === "may_start"}>
@@ -96,12 +104,16 @@ export function AssessmentOverviewPage(): JSX.Element {
                         disabled={starting()}
                         onClick={() => void startAssessment()}
                       >
-                        {starting() ? "Starting Assessment..." : "Start Assessment"}
+                        {starting()
+                          ? `Starting ${assessmentTypePresentation(current().assessmentType).label}...`
+                          : `Start ${assessmentTypePresentation(current().assessmentType).label}`}
                       </button>
                     </Match>
                     <Match when={true}>
                       <p>
-                        Check with your Instructor if you expected this Assessment to be available.
+                        Check with your Instructor if you expected this{" "}
+                        {assessmentTypePresentation(current().assessmentType).label} to be
+                        available.
                       </p>
                     </Match>
                   </Switch>
@@ -141,7 +153,8 @@ export function AssessmentOverviewPage(): JSX.Element {
             </Show>
             <Show when={current().previousAttempts.length === 0}>
               <p class="empty-state" role="note">
-                You do not have a previous attempt for this Assessment.
+                You do not have a previous attempt for this{" "}
+                {assessmentTypePresentation(current().assessmentType).label}.
               </p>
             </Show>
           </>

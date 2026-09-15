@@ -10,6 +10,7 @@ test("inline Assessment save sends raw local time with its row edit number", asy
       new Response(
         JSON.stringify({
           reference: "A8H4N6P",
+          assessmentType: "exam",
           title: "Edited peptide bonds",
           dueAt: "2026-09-11T14:30:00.125",
           displayTimeZone: "America/Chicago",
@@ -34,6 +35,7 @@ test("inline Assessment save sends raw local time with its row edit number", asy
   );
 
   assert.equal(saved.editNumber, "4");
+  assert.equal(saved.assessmentType, "exam");
   assert.equal(
     new URL(requests[0].url).pathname,
     "/api/course-instances/CI7K3M2Q/assessments/A8H4N6P/inline",

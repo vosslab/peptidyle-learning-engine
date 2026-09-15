@@ -21,8 +21,8 @@ pub use teaching_settings_local::{
 };
 
 use crate::{
-    AssessmentActivityRules, AssessmentEntryId, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionId, QuestionRevisionReference, Timestamp,
+    AssessmentActivityRules, AssessmentEntryId, BlueprintAssessmentSource, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionId, QuestionRevisionReference, Timestamp,
 };
 
 /// Maximum Unicode scalar values in one human-facing Assessment Title.
@@ -50,6 +50,84 @@ pub enum AssessmentStatus {
     Closed,
     /// The Assessment is retired from current teaching surfaces.
     Archived,
+}
+
+/// Fixed pedagogical purpose selected for one Assessment.
+///
+/// Assessment settings remain independently editable; changing those settings
+/// does not infer or rewrite this identity.
+/// @tsgen-runtime-values
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AssessmentType {
+    RegularAssignment,
+    PracticeQuestionAssignment,
+    BonusAssignment,
+    Quiz,
+    Exam,
+}
+
+/// Immutable creation origin for one Course Instance Assessment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum AssessmentOrigin {
+    /// Created directly inside a Course Instance.
+    Direct,
+    /// Copied from one exact Assessment in an immutable Blueprint Revision.
+    Adopted {
+        /// Existing exact Blueprint Assessment provenance wire shape.
+        source: BlueprintAssessmentSource,
+    },
+}
+
+impl<'de> Deserialize<'de> for AssessmentOrigin {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        // ASVS 1.5.2 and 2.2.1: a unit enum variant accepts ignored object
+        // fields in Serde, so use an empty struct variant for strict input.
+        #[derive(Deserialize)]
+        #[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+        enum StrictAssessmentOrigin {
+            Direct {},
+            Adopted { source: BlueprintAssessmentSource },
+        }
+
+        match StrictAssessmentOrigin::deserialize(deserializer)? {
+            StrictAssessmentOrigin::Direct {} => Ok(Self::Direct),
+            StrictAssessmentOrigin::Adopted { source } => Ok(Self::Adopted { source }),
+        }
+    }
+}
+
+impl AssessmentType {
+    /// Every persisted and browser-visible Assessment Type, in authoring order.
+    pub const ALL: [Self; 5] = [
+        Self::RegularAssignment,
+        Self::PracticeQuestionAssignment,
+        Self::BonusAssignment,
+        Self::Quiz,
+        Self::Exam,
+    ];
+
+    /// Returns the exact persisted and JSON wire value.
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::RegularAssignment => "regular_assignment",
+            Self::PracticeQuestionAssignment => "practice_question_assignment",
+            Self::BonusAssignment => "bonus_assignment",
+            Self::Quiz => "quiz",
+            Self::Exam => "exam",
+        }
+    }
+
+    /// Parses one exact persisted or JSON wire value.
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|candidate| candidate.as_str() == value)
+    }
 }
 
 /// Validation failure for browser-safe Assessment Titles.
@@ -494,6 +572,30 @@ mod tests {
     }
 
     #[test]
+    fn assessment_types_have_one_closed_wire_registry() {
+        let wire_values = AssessmentType::ALL.map(AssessmentType::as_str);
+        assert_eq!(
+            wire_values,
+            [
+                "regular_assignment",
+                "practice_question_assignment",
+                "bonus_assignment",
+                "quiz",
+                "exam",
+            ]
+        );
+        for (assessment_type, wire_value) in AssessmentType::ALL.into_iter().zip(wire_values) {
+            assert_eq!(AssessmentType::parse(wire_value), Some(assessment_type));
+            assert_eq!(
+                serde_json::to_string(&assessment_type).expect("Assessment Type serializes"),
+                format!("\"{wire_value}\"")
+            );
+        }
+        assert!(AssessmentType::parse("assignment").is_none());
+        assert!(serde_json::from_str::<AssessmentType>("\"assignment\"").is_err());
+    }
+
+    #[test]
     fn assessment_edit_numbers_are_distinct_canonical_assessment_preconditions() {
         let edit: AssessmentEditNumber = "43".parse().expect("canonical edit number");
         assert_eq!(serde_json::json!(edit), serde_json::json!("43"));
@@ -584,18 +686,17 @@ mod tests {
                     "closes_at": null,
                     "assessment_attempt_time_limit_seconds": null,
                     "attempt_limit": null,
-                    "late_work_rule": "accept",
-                    "unexpected": true
+                    "late_work_rule": "accept"
                 },
                 "activityRules": {
-                    "assessmentCompletionRule": { "kind": "answerAll" },
                     "assessmentAttemptGradeRule": "highest",
-                    "assessmentAttemptContinuationRule": { "kind": "unlimited" },
-                    "questionVariationRule": "invalidValue",
+                    "questionPoolReuseRule": "reuseSelection",
+                    "questionVariationRule": "newVariation",
                     "assessmentAttemptResumeRule": "resumable",
                     "assessmentQuestionDisplayRule": "allQuestions",
                     "assessmentNavigationRule": "freeNavigation",
-                    "assessmentQuestionOrderRule": "authoredOrder"
+                    "assessmentQuestionOrderRule": "authoredOrder",
+                    "unexpected": true
                 }
             }))
             .is_err()

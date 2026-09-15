@@ -8,7 +8,7 @@ function blueprint(content) {
   return {
     short_name: "Local Blueprint",
     long_name: "Local Blueprint Course",
-    modules: [{ label: "Module 1", assignments: [content] }],
+    modules: [{ label: "Module 1", assessments: [content] }],
   };
 }
 
@@ -23,7 +23,7 @@ test("incomplete Blueprint Course authoring remains local", async () => {
 
   const result = await createBlueprintCourseWhenReady(
     client,
-    blueprint(emptyReusableContent("Local working state")),
+    blueprint(emptyReusableContent("practice_question_assignment", "Local working state")),
     "create-local",
   );
 
@@ -33,13 +33,15 @@ test("incomplete Blueprint Course authoring remains local", async () => {
 
 test("complete Blueprint Course meaning invokes its one live create capability", async () => {
   let createCalls = 0;
+  let createdContent;
   const client = {
-    async createBlueprintCourse() {
+    async createBlueprintCourse(content) {
       createCalls += 1;
+      createdContent = content;
       return { blueprintCourse: { reference: "BP-created" }, etag: "etag" };
     },
   };
-  const content = emptyReusableContent("Ready assignment");
+  const content = emptyReusableContent("exam", "Ready exam");
   const result = await createBlueprintCourseWhenReady(
     client,
     blueprint({
@@ -53,4 +55,5 @@ test("complete Blueprint Course meaning invokes its one live create capability",
 
   assert.equal(result.kind, "created");
   assert.equal(createCalls, 1);
+  assert.equal(createdContent.modules[0].assessments[0].assessment_type, "exam");
 });

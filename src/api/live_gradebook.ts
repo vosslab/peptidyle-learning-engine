@@ -11,7 +11,10 @@ export interface CourseGradebookStudentWork {
   readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
   /** Derived from server time; no grading operation or queue state. */
   readonly expiredSubmitting: boolean;
-  /** Null while an expired Attempt is awaiting background submission. */
+  /**
+   * Null while an expired Attempt is awaiting background submission. Gradebook
+   * contributions can earn points with zero possible or exceed possible points.
+   */
   readonly score: {
     readonly pointsEarned: number;
     readonly pointsPossible: number;

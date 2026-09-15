@@ -22,7 +22,7 @@ pub(super) async fn prepare(
 ) -> Result<StudentAssessmentAttemptFinalizationPreparationOutcome, StoreError> {
     let mut tx = store.begin(token).await?;
     let rows = sqlx::query(
-        "SELECT preparation_state, finalization_kind, missing_positions, \
+        "SELECT preparation_state, finalization_kind, \
                 points_earned, points_possible, question_attempt_id, saved_at_millis, \
                 question_id, revision_number, source_object_id::text AS source_object_id, \
                 source_object_checksum, question_seed::text AS question_seed, generated_parameter_sha256, student_response, \
@@ -37,33 +37,13 @@ pub(super) async fn prepare(
         StoreError::InvalidRecord("Assessment Attempt preparation is empty".to_string())
     })?;
     let state: String = first.try_get("preparation_state").map_err(map_sqlx_error)?;
-    let missing_positions = first
-        .try_get::<Vec<i32>, _>("missing_positions")
-        .map_err(map_sqlx_error)?
-        .into_iter()
-        .map(|position| {
-            u32::try_from(position)
-                .ok()
-                .filter(|position| *position > 0)
-                .ok_or_else(|| {
-                    StoreError::InvalidRecord(
-                        "Missing Student response position is invalid".to_string(),
-                    )
-                })
-        })
-        .collect::<Result<Vec<_>, StoreError>>()?;
     let preparation = match state.as_str() {
-        "already_submitted" if missing_positions.is_empty() => {
+        "already_submitted" => {
             StudentAssessmentAttemptFinalizationPreparationOutcome::AlreadySubmitted {
                 score: optional_score_from_row(first)?,
             }
         }
-        "missing_responses" if !missing_positions.is_empty() => {
-            StudentAssessmentAttemptFinalizationPreparationOutcome::MissingResponses {
-                positions: missing_positions,
-            }
-        }
-        "ready" if missing_positions.is_empty() => {
+        "ready" => {
             let kind = finalization_kind(
                 &first
                     .try_get::<String, _>("finalization_kind")

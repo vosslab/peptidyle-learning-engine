@@ -64,6 +64,31 @@ function baseAssessmentPolicyInput(
   };
 }
 
+/** Keeps an optional local schedule bound unset until both controls are complete. */
+function optionalLocalDateAndTime(date: string, time: string): string | null | undefined {
+  if (date === "" && time === "") return null;
+  if (date === "" || time === "") return undefined;
+  return canonicalLocalDateAndTime(`${date}T${time}`) ?? undefined;
+}
+
+function optionalScheduleDateDraft(value: LiveAssessmentWorkspace["availableAt"]): string {
+  return value === null ? "" : value.slice(0, 10);
+}
+
+function optionalScheduleTimeDraft(value: LiveAssessmentWorkspace["availableAt"]): string {
+  return value === null ? "" : value.slice(11);
+}
+
+function optionalScheduleError(date: string, time: string, label: string): string {
+  if (date === "" && time === "") return "";
+  const article = /^[aeiou]/iu.test(label) ? "an" : "a";
+  if (date === "") return `Choose ${article} ${label} date or clear its time.`;
+  if (time === "") return `Choose ${article} ${label} time or clear its date.`;
+  return canonicalLocalDateAndTime(`${date}T${time}`) === null
+    ? `Enter a valid local ${label} date and time.`
+    : "";
+}
+
 /** Edits the full direct resource while keeping timing and feedback controls independent. */
 export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   const workspace = useAssessmentWorkspace();
@@ -72,10 +97,21 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   const [instructions, setInstructions] = createSignal(initial.instructions);
   const [dueDate, setDueDate] = createSignal(dueDateDraft(initial.dueAt));
   const [dueTime, setDueTime] = createSignal(dueTimeDraft(initial.dueAt));
+  const [availableDate, setAvailableDate] = createSignal(
+    optionalScheduleDateDraft(initial.availableAt),
+  );
+  const [availableTime, setAvailableTime] = createSignal(
+    optionalScheduleTimeDraft(initial.availableAt),
+  );
+  const [closesDate, setClosesDate] = createSignal(optionalScheduleDateDraft(initial.closesAt));
+  const [closesTime, setClosesTime] = createSignal(optionalScheduleTimeDraft(initial.closesAt));
   const [timeLimit, setTimeLimit] = createSignal(
     initial.assessmentAttemptTimeLimitSeconds?.toString() ?? "",
   );
-  const [attemptLimit, setAttemptLimit] = createSignal(initial.attemptLimit?.toString() ?? "");
+  const oneAttemptOnly = initial.assessmentType === "quiz" || initial.assessmentType === "exam";
+  const [attemptLimit, setAttemptLimit] = createSignal(
+    oneAttemptOnly ? "1" : (initial.attemptLimit?.toString() ?? ""),
+  );
   const [lateWorkRule, setLateWorkRule] = createSignal<LateWorkRule>(initial.lateWorkRule);
   const [activityRules, setActivityRules] = createSignal(initial.activityRules);
   const [feedbackRules, setFeedbackRules] = createSignal(initial.studentFeedbackReleaseRule);
@@ -98,10 +134,14 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   }
   function currentInput(): SaveBaseAssessmentPolicyInput | null {
     const parsedDueAt = canonicalLocalDateAndTime(localDueDateAndTime(dueDate(), dueTime()));
+    const parsedAvailableAt = optionalLocalDateAndTime(availableDate(), availableTime());
+    const parsedClosesAt = optionalLocalDateAndTime(closesDate(), closesTime());
     const parsedTimeLimit = integer(timeLimit());
-    const parsedAttemptLimit = integer(attemptLimit());
+    const parsedAttemptLimit = integer(oneAttemptOnly ? "1" : attemptLimit());
     if (
       (dueDate() !== "" && parsedDueAt === null) ||
+      parsedAvailableAt === undefined ||
+      parsedClosesAt === undefined ||
       parsedTimeLimit === undefined ||
       parsedAttemptLimit === undefined
     )
@@ -114,8 +154,8 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       attemptLimit: parsedAttemptLimit,
       activityRules: activityRules(),
       studentFeedbackReleaseRule: feedbackRules(),
-      availableAt: workspace.assessment().workspace.availableAt,
-      closesAt: workspace.assessment().workspace.closesAt,
+      availableAt: parsedAvailableAt,
+      closesAt: parsedClosesAt,
     };
   }
   function updateOrder(shuffled: boolean): void {
@@ -193,7 +233,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     if (input === null) {
       setPolicyState((state) => baseAssessmentPolicyDraftChanged(state, state.draft, false));
       setMessage(
-        "Enter a complete local due time and positive whole-number limits, or leave them blank.",
+        "Enter complete local dates and times and positive whole-number limits, or leave them blank.",
       );
       return;
     }
@@ -229,8 +269,12 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       setInstructions(current.instructions);
       setDueDate(dueDateDraft(current.dueAt));
       setDueTime(dueTimeDraft(current.dueAt));
+      setAvailableDate(optionalScheduleDateDraft(current.availableAt));
+      setAvailableTime(optionalScheduleTimeDraft(current.availableAt));
+      setClosesDate(optionalScheduleDateDraft(current.closesAt));
+      setClosesTime(optionalScheduleTimeDraft(current.closesAt));
       setTimeLimit(current.assessmentAttemptTimeLimitSeconds?.toString() ?? "");
-      setAttemptLimit(current.attemptLimit?.toString() ?? "");
+      setAttemptLimit(oneAttemptOnly ? "1" : (current.attemptLimit?.toString() ?? ""));
       setLateWorkRule(current.lateWorkRule);
       setActivityRules(current.activityRules);
       setFeedbackRules(current.studentFeedbackReleaseRule);
@@ -422,6 +466,58 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
               onBlur={saveInstructionsNow}
             />
           </label>
+          <div
+            class="assessment-workspace-schedule"
+            role="group"
+            aria-label="Available date and time"
+          >
+            <label class="assessment-editor-field">
+              Available date ({workspace.assessment().workspace.displayTimeZone})
+              <input
+                type="date"
+                value={availableDate()}
+                aria-invalid={
+                  optionalScheduleError(availableDate(), availableTime(), "available") !== ""
+                }
+                aria-describedby={
+                  optionalScheduleError(availableDate(), availableTime(), "available") === ""
+                    ? undefined
+                    : "assessment-available-time-error"
+                }
+                onInput={(event) => {
+                  setAvailableDate(event.currentTarget.value);
+                  recordDraft();
+                }}
+              />
+            </label>
+            <label class="assessment-editor-field">
+              Available time
+              <input
+                type="time"
+                step="0.001"
+                value={availableTime()}
+                aria-invalid={
+                  optionalScheduleError(availableDate(), availableTime(), "available") !== ""
+                }
+                aria-describedby={
+                  optionalScheduleError(availableDate(), availableTime(), "available") === ""
+                    ? undefined
+                    : "assessment-available-time-error"
+                }
+                onInput={(event) => {
+                  setAvailableTime(event.currentTarget.value);
+                  recordDraft();
+                }}
+              />
+            </label>
+            <Show when={optionalScheduleError(availableDate(), availableTime(), "available")}>
+              {(error) => (
+                <small id="assessment-available-time-error" role="alert">
+                  {error()}
+                </small>
+              )}
+            </Show>
+          </div>
           <div class="assessment-workspace-schedule" role="group" aria-label="Due date and time">
             <label class="assessment-editor-field">
               Due date ({workspace.assessment().workspace.displayTimeZone})
@@ -447,6 +543,50 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
               />
             </label>
           </div>
+          <div class="assessment-workspace-schedule" role="group" aria-label="Closes date and time">
+            <label class="assessment-editor-field">
+              Closes date ({workspace.assessment().workspace.displayTimeZone})
+              <input
+                type="date"
+                value={closesDate()}
+                aria-invalid={optionalScheduleError(closesDate(), closesTime(), "closing") !== ""}
+                aria-describedby={
+                  optionalScheduleError(closesDate(), closesTime(), "closing") === ""
+                    ? undefined
+                    : "assessment-closes-time-error"
+                }
+                onInput={(event) => {
+                  setClosesDate(event.currentTarget.value);
+                  recordDraft();
+                }}
+              />
+            </label>
+            <label class="assessment-editor-field">
+              Closes time
+              <input
+                type="time"
+                step="0.001"
+                value={closesTime()}
+                aria-invalid={optionalScheduleError(closesDate(), closesTime(), "closing") !== ""}
+                aria-describedby={
+                  optionalScheduleError(closesDate(), closesTime(), "closing") === ""
+                    ? undefined
+                    : "assessment-closes-time-error"
+                }
+                onInput={(event) => {
+                  setClosesTime(event.currentTarget.value);
+                  recordDraft();
+                }}
+              />
+            </label>
+            <Show when={optionalScheduleError(closesDate(), closesTime(), "closing")}>
+              {(error) => (
+                <small id="assessment-closes-time-error" role="alert">
+                  {error()}
+                </small>
+              )}
+            </Show>
+          </div>
           <label class="assessment-editor-field">
             Time limit in seconds
             <input
@@ -465,11 +605,15 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
               type="number"
               min="1"
               value={attemptLimit()}
+              disabled={oneAttemptOnly}
               onInput={(event) => {
                 setAttemptLimit(event.currentTarget.value);
                 recordDraft();
               }}
             />
+            <Show when={oneAttemptOnly}>
+              <small>Quiz and Exam permit exactly one Assessment Attempt.</small>
+            </Show>
           </label>
           <p>
             The late-work rule controls whether Students may begin or save responses after the due
@@ -591,7 +735,17 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                           ? "Select and save at least one published Question."
                           : issue === "questionUnavailable"
                             ? "A selected Question is unavailable. Review and save the Questions list."
-                            : "Enter a positive time limit in Assessment policies, save, then check release readiness again."}
+                            : issue === "dueDateRequired"
+                              ? "Enter a Due date, save, then check release readiness again."
+                              : issue === "dueDateLessThan24HoursAhead"
+                                ? "Move the Due date to at least 24 hours from now, save, then check release readiness again."
+                                : issue === "dueDateAfterCourseActiveUntil"
+                                  ? "Move the Due date no later than the Course Active limit, save, then check release readiness again."
+                                  : issue === "availabilityAfterDueDate"
+                                    ? "Move Available to no later than the Due date, save, then check release readiness again."
+                                    : issue === "dueDateAfterClose"
+                                      ? "Move Closes to the Due date or later, save, then check release readiness again."
+                                      : "Enter a positive time limit in Assessment policies, save, then check release readiness again."}
                       </li>
                     )}
                   </For>

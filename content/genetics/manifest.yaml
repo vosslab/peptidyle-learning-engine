@@ -1,5 +1,6 @@
 version: 1
 course:
+  assessment_type: regular_assignment
   short_name: Genetics
   long_name: Fall Genetics
   module_label: Genetics Topics

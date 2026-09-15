@@ -478,7 +478,7 @@ test("a disposed response controller ignores a late format validation", async ()
 
 test("iMathAS Question Backend readiness and route values admit only the narrow browser contract", () => {
   const courseId = "course-imathas";
-  const assignmentId = "assignment-imathas";
+  const assessmentId = "assessment-imathas";
   const attemptId = "attempt-imathas";
   assert.equal(
     isImathasQuestionBackendReadyMessage(
@@ -498,22 +498,22 @@ test("iMathAS Question Backend readiness and route values admit only the narrow 
   const origin = "https://client.example.test";
   assert.equal(
     isSafeImathasQuestionBackendLaunchPath(
-      "/api/courses/course-imathas/assignments/assignment-imathas/attempts/attempt-imathas/imathas-question-backend/launch",
+      "/api/courses/course-imathas/assessments/assessment-imathas/attempts/attempt-imathas/imathas-question-backend/launch",
       courseId,
-      assignmentId,
+      assessmentId,
       attemptId,
       origin,
     ),
     true,
   );
   const expected =
-    "/api/courses/course-imathas/assignments/assignment-imathas/attempts/attempt-imathas/imathas-question-backend/launch";
+    "/api/courses/course-imathas/assessments/assessment-imathas/attempts/attempt-imathas/imathas-question-backend/launch";
   for (const unsafe of [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
     `//foreign.example${expected}`,
     expected.replace(courseId, "other-course"),
-    expected.replace(assignmentId, "other-assignment"),
+    expected.replace(assessmentId, "other-assessment"),
     expected.replace(attemptId, "other-attempt"),
     `${expected}?token=secret`,
     `${expected}#fragment`,
@@ -522,7 +522,7 @@ test("iMathAS Question Backend readiness and route values admit only the narrow 
     expected.replace("/imathas-question-backend/", "\\imathas-question-backend\\"),
   ]) {
     assert.equal(
-      isSafeImathasQuestionBackendLaunchPath(unsafe, courseId, assignmentId, attemptId, origin),
+      isSafeImathasQuestionBackendLaunchPath(unsafe, courseId, assessmentId, attemptId, origin),
       false,
       unsafe,
     );

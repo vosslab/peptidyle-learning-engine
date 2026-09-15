@@ -2,21 +2,75 @@ use std::num::NonZeroU32;
 
 use question_model::QuestionContentBlock;
 use question_model::{
-    AssessmentScoringState, GradingResult, LateWorkRule, QuestionAnswer, QuestionAnswerExplanation,
-    QuestionFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Timestamp,
+    AssessmentScoringState, AssessmentType, GradingResult, LateWorkRule, QuestionAnswer,
+    QuestionAnswerExplanation, QuestionFeedback, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseTiming, Timestamp,
 };
 
 use super::{
-    StudentFeedbackReleaseDecision, evaluate_student_feedback_release, project_student_feedback,
+    StudentFeedbackReleaseDecision, evaluate_student_feedback_release,
+    gate_quiz_exam_answers_for_current_cohort, project_student_feedback,
     project_student_response_inspection_feedback, score_current_student_feedback_release,
 };
-use crate::effective_assessment_policy::{
+use crate::effective_assessment_properties::{
     AssessmentAccessDecision, AssessmentPolicySource, AssessmentStartDecision,
     EffectiveAssessmentPolicy, EffectiveAssessmentPolicyValue, StudentLateWorkStatus,
 };
 
 fn stamp(value: i64) -> Timestamp {
     Timestamp::from_unix_millis(value)
+}
+
+#[test]
+fn quiz_and_exam_answers_wait_for_every_current_student() {
+    let released = StudentFeedbackReleaseDecision {
+        score: true,
+        per_item_correctness: true,
+        submitted_response: true,
+        question_feedback: true,
+        question_answer: true,
+        question_answer_explanation: true,
+        class_statistics: true,
+    };
+
+    for assessment_type in [AssessmentType::Quiz, AssessmentType::Exam] {
+        let waiting = gate_quiz_exam_answers_for_current_cohort(released, assessment_type, false);
+        assert!(!waiting.question_answer);
+        assert!(!waiting.question_answer_explanation);
+        assert!(waiting.score);
+        assert!(waiting.per_item_correctness);
+        assert!(waiting.submitted_response);
+        assert!(waiting.question_feedback);
+        assert!(waiting.class_statistics);
+        assert_eq!(
+            gate_quiz_exam_answers_for_current_cohort(released, assessment_type, true),
+            released
+        );
+    }
+}
+
+#[test]
+fn ordinary_assessment_answer_release_does_not_use_the_cohort_gate() {
+    let released = StudentFeedbackReleaseDecision {
+        score: false,
+        per_item_correctness: false,
+        submitted_response: false,
+        question_feedback: false,
+        question_answer: true,
+        question_answer_explanation: true,
+        class_statistics: false,
+    };
+
+    for assessment_type in [
+        AssessmentType::RegularAssignment,
+        AssessmentType::PracticeQuestionAssignment,
+        AssessmentType::BonusAssignment,
+    ] {
+        assert_eq!(
+            gate_quiz_exam_answers_for_current_cohort(released, assessment_type, false),
+            released
+        );
+    }
 }
 
 fn rule() -> StudentFeedbackReleaseRule {
@@ -163,9 +217,9 @@ fn never_stays_hidden_after_every_other_release() {
 #[test]
 fn denied_s3_verdict_has_no_student_feedback_release_decision() {
     let denied = AssessmentAccessDecision::Denied {
-        gate: crate::effective_assessment_policy::PolicyGate::Authorization,
-        reason: crate::effective_assessment_policy::GateDenial::Authorization(
-            crate::effective_assessment_policy::AuthorizationDenial::ActionNotPermitted,
+        gate: crate::effective_assessment_properties::PolicyGate::Authorization,
+        reason: crate::effective_assessment_properties::GateDenial::Authorization(
+            crate::effective_assessment_properties::AuthorizationDenial::ActionNotPermitted,
         ),
     };
 

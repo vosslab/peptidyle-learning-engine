@@ -71,8 +71,8 @@ const ALL_CATALOG_CONTROLS: ReadonlyArray<RibbonCatalogControl<RibbonDestination
 
 const CANONICAL_PARAMS = {
   courseRef: "CI7K3M2Q",
-  assignmentRef: "A9D2RX5",
-  assignmentAttemptRef: "R-1",
+  assessmentRef: "A9D2RX5",
+  assessmentAttemptRef: "R-1",
   membershipRef: "M-1",
   questionRef: "7K3M-X9QP",
   draftQuestionRef: "D-1",
@@ -88,13 +88,15 @@ export const VERY_LONG_COURSE_TITLE = [
 export const WIDEST_ATTEMPT_PROGRESS = "Question 999 of 999";
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
-  const control = ALL_CATALOG_CONTROLS.find((candidate) => candidate.id === id);
+  const control = ALL_CATALOG_CONTROLS.find(
+    (candidate): candidate is RibbonCatalogControl<Id> => candidate.id === id,
+  );
   if (control === undefined) throw new Error(`Unknown Ribbon catalog control: ${id}.`);
-  return control as RibbonCatalogControl<Id>;
+  return control;
 }
 
 function routeHref(catalog: RibbonCatalogControl<RibbonDestinationId>): string | undefined {
-  if (catalog.destination.kind !== "route" || catalog.id === "backToAssignments") return undefined;
+  if (catalog.destination.kind !== "route" || catalog.id === "backToAssessments") return undefined;
   const pairs = catalog.requiredParams.map((name) => {
     const value = CANONICAL_PARAMS[name];
     if (value === undefined)
@@ -159,8 +161,8 @@ function model(
     context: {
       productLabel: productLabel(role),
       ...context,
-      accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter(
-        (control) => control.productRole === role,
+      accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
+        control.productRoles.includes(role),
       ),
     },
     breadcrumbs: [],
@@ -181,7 +183,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
   productInstructor: model(
     "product",
     "instructor",
-    [control("courses"), control("questions", { selected: true }), control("productAssignments")],
+    [control("courses"), control("questions", { selected: true }), control("productAssessments")],
     [
       area("instructorQuestions", "Questions", [
         control("myQuestions"),
@@ -206,7 +208,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
   courseStudent: model(
     "courseInstance",
     "student",
-    [control("studentAssignments", { selected: true })],
+    [control("studentAssessments", { selected: true })],
     [],
     "reading",
     { scopeLabel: SHORT_COURSE_NAME, signOutAction: SIGN_OUT },
@@ -215,7 +217,7 @@ export const RIBBON_DESIGN_SCHEMAS = {
     "courseInstance",
     "instructor",
     [
-      control("assignments", { selected: true }),
+      control("assessments", { selected: true }),
       control("students"),
       control("gradebook"),
       control("teachingOperations"),
@@ -223,17 +225,17 @@ export const RIBBON_DESIGN_SCHEMAS = {
       control("courseSetup"),
     ],
     [
-      area("assignment", "Assignment", [
-        control("assignmentOverview", { selected: true }),
-        control("assignmentQuestions"),
-        control("assignmentPolicies"),
-        control("assignmentStudentView"),
+      area("assessment", "Assessment", [
+        control("assessmentOverview", { selected: true }),
+        control("assessmentQuestions"),
+        control("assessmentPolicies"),
+        control("assessmentStudentView"),
       ]),
     ],
     "fullWidth",
     {
       scopeLabel: SHORT_COURSE_NAME,
-      assignmentLabel: "Problem Set 7",
+      assessmentLabel: "Problem Set 7",
       signOutAction: SIGN_OUT,
     },
   ),
@@ -249,21 +251,21 @@ export const RIBBON_DESIGN_SCHEMAS = {
     },
   ),
   attemptStudent: model(
-    "assignmentAttempt",
+    "assessmentAttempt",
     "student",
     [control("attempt", { selected: true })],
-    [area("assignmentAttempt", "Assignment attempt", [control("backToAssignments")])],
+    [area("assessmentAttempt", "Assessment attempt", [control("backToAssessments")])],
     "reading",
     {
-      assignmentLabel: "Problem Set 7",
-      assignmentAttemptProgress: WIDEST_ATTEMPT_PROGRESS,
+      assessmentLabel: "Problem Set 7",
+      assessmentAttemptProgress: WIDEST_ATTEMPT_PROGRESS,
       signOutAction: SIGN_OUT,
     },
   ),
-  attemptInstructor: model("assignmentAttempt", "instructor", [], [], "reading", {
+  attemptInstructor: model("assessmentAttempt", "instructor", [], [], "reading", {
     signOutAction: SIGN_OUT,
   }),
-  attemptSysadmin: model("assignmentAttempt", "sysadmin", [], [], "reading", {
+  attemptSysadmin: model("assessmentAttempt", "sysadmin", [], [], "reading", {
     signOutAction: SIGN_OUT,
   }),
 } as const satisfies Readonly<Record<string, RibbonModel>>;
@@ -283,7 +285,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
     "courseInstance",
     "instructor",
     [
-      control("assignments"),
+      control("assessments"),
       control("students"),
       control("gradebook"),
       control("teachingOperations"),
@@ -310,7 +312,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
     "courseInstance",
     "instructor",
     [
-      control("assignments", { selected: true }),
+      control("assessments", { selected: true }),
       control("gradebook", { availability: "Unavailable" }),
     ],
     [],
@@ -321,7 +323,7 @@ export const RIBBON_DESIGN_STATE_SPECIMENS = {
     "courseInstance",
     "instructor",
     [
-      control("assignments", { selected: true }),
+      control("assessments", { selected: true }),
       control("gradebook", { availability: "Checking" }),
     ],
     [],

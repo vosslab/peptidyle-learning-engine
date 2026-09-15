@@ -2,16 +2,16 @@
 
 ## Scope
 
-This is a fresh implementation-audit inventory. Each record below is an owning `[ ]`
-Human Guidance bullet: the behavior is unverified or differs from the current implementation.
-The bullet text is copied verbatim from the generated checklist, and its source location is
-recorded beside it. Later duplicate bullets that carry an `Owner:` pointer are excluded because
-their earlier owning record is the single inventory entry.
+This is a fresh topical implementation-audit inventory. It collects currently open
+Human Guidance checklist records relevant to architecture and implementation. The bullet text is
+copied verbatim from the generated checklist, and its source location is recorded beside it.
+This report does not establish exhaustive or disjoint topical coverage; the checklist remains the
+authority for each record's status.
 
 The authoritative exhaustive record is the
 [generated checklist](../../audits/human_guidance_implementation_checklist.md).
 
-## Owning inventory
+## Topical inventory
 
 ### Development principles -- Codebase development rules
 
@@ -43,10 +43,3 @@ The authoritative exhaustive record is the
 
 - The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
   - Source: `docs/HUMAN_GUIDANCE.md:65`
-
-## Count method
-
-This report owns **9** checklist records. The count is the number of `[ ]` bullets
-in the listed sections after excluding records with a later-duplicate `Owner:` pointer.
-It is mechanically reconciled with the other topical inventories by the temporary report
-generation check; it is not a permanent test.

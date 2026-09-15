@@ -22,6 +22,7 @@ import "./ribbon/app_ribbon.css";
 import "./components/student_assessment_presentation.css";
 import "./features/profile_avatar/provided_avatar_picker.css";
 import "./features/profile_avatar/staff_avatar_settings.css";
+import "./styles/assessment_types.css";
 import { WasmRuntimeProvider } from "./wasm/context";
 
 const mountPoint = document.getElementById("root");

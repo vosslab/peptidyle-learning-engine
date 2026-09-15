@@ -172,6 +172,7 @@ fn live_demo_blueprint_input(
         modules: vec![CreateBlueprintModuleInput {
             label: LIVE_DEMO_BLUEPRINT_MODULE_LABEL.to_owned(),
             assessments: vec![BlueprintAssessmentContentInput {
+                assessment_type: question_model::AssessmentType::RegularAssignment,
                 title: LIVE_DEMO_ASSESSMENT_TITLE.to_owned(),
                 instructions: AssessmentInstructions::try_new(
                     LIVE_DEMO_BLUEPRINT_INSTRUCTIONS.to_owned(),
@@ -252,6 +253,7 @@ mod tests {
                         Uuid::from_u128(2),
                     ),
                     content: StoredBlueprintAssessmentContent {
+                        assessment_type: assessment.assessment_type,
                         title: assessment.title.clone(),
                         instructions: assessment.instructions.clone(),
                         entries: assessment

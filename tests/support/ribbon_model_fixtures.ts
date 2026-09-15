@@ -35,9 +35,11 @@ const CANONICAL_FIXTURE_PARAMS = {
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
-  const control = ALL_CATALOG_CONTROLS.find((candidate) => candidate.id === id);
+  const control = ALL_CATALOG_CONTROLS.find(
+    (candidate): candidate is RibbonCatalogControl<Id> => candidate.id === id,
+  );
   if (control === undefined) throw new Error(`Ribbon fixture references unknown catalog ID ${id}.`);
-  return control as RibbonCatalogControl<Id>;
+  return control;
 }
 
 /**
@@ -129,8 +131,8 @@ function model(
             ? "Instructor"
             : "Sysadmin",
       ...context,
-      accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter(
-        (control) => control.productRole === productRole,
+      accountControls: RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
+        control.productRoles.includes(productRole),
       ),
     },
     tabs,
@@ -208,7 +210,7 @@ export const M6_RIBBON_FIXTURES = {
     "fullWidth",
     {
       scopeLabel: COURSE_SHORT_NAME,
-      assessmentTitle: "Problem Set 7",
+      assessmentLabel: "Problem Set 7",
       signOutAction: SIGN_OUT,
     },
   ),
@@ -230,7 +232,7 @@ export const M6_RIBBON_FIXTURES = {
     [area("assessmentAttempt", "Assessment attempt", [control("backToAssessments")])],
     "reading",
     {
-      assessmentAttemptTitle: "Problem Set 7",
+      assessmentLabel: "Problem Set 7",
       assessmentAttemptProgress: "Question 999 of 999",
       signOutAction: SIGN_OUT,
     },
@@ -256,7 +258,7 @@ export const M6_RIBBON_FIXTURES = {
       scopeLabel:
         "Molecular Biology of the Cell: Evidence, Explanation, and Experimental Design " +
         "Across a Very Long Course Instance Title",
-      assessmentTitle: "A deliberately long assessment label for a dense professional workspace",
+      assessmentLabel: "A deliberately long assessment label for a dense professional workspace",
       signOutAction: SIGN_OUT,
     },
   ),

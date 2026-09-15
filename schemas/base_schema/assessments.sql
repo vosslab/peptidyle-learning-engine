@@ -10,17 +10,21 @@ CREATE TABLE ple_data.assessment (
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL
         CHECK (reference_number BETWEEN 1 AND 2147483647),
     public_reference text NOT NULL UNIQUE CHECK (public_reference ~ '^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'),
-    source_blueprint_course_reference_number bigint NOT NULL,
-    source_blueprint_revision_number bigint NOT NULL CHECK (source_blueprint_revision_number > 0),
+    origin_kind text NOT NULL CHECK (origin_kind IN ('direct', 'adopted')),
+    source_blueprint_course_reference_number bigint,
+    source_blueprint_revision_number bigint CHECK (source_blueprint_revision_number > 0),
     -- BlueprintAssessmentSource: an exact immutable Blueprint Revision plus
     -- the stable Assessment member selected from that Revision.
-    source_blueprint_assessment_reference uuid NOT NULL,
+    source_blueprint_assessment_reference uuid,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
     assessment_edit_number bigint NOT NULL DEFAULT 1 CHECK (assessment_edit_number > 0),
     assessment_title text NOT NULL CHECK (
         assessment_title ~ '[^[:space:]]' AND char_length(assessment_title) <= 200
     ),
+    assessment_type text NOT NULL CHECK (assessment_type IN (
+        'regular_assignment', 'practice_question_assignment', 'bonus_assignment', 'quiz', 'exam'
+    )),
     assessment_instructions text NOT NULL CHECK (
         assessment_instructions !~ E'\\x00' AND char_length(assessment_instructions) <= 50000
     ),
@@ -33,27 +37,8 @@ CREATE TABLE ple_data.assessment (
     ),
     assessment_attempt_limit integer CHECK (assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0),
     late_work_rule text NOT NULL CHECK (late_work_rule IN ('accept', 'mark_late', 'reject')),
-    assessment_completion_rule text NOT NULL CHECK (
-        assessment_completion_rule IN ('answer_all', 'all_correct', 'score_at_least')
-    ),
-    assessment_completion_score_threshold numeric CHECK (
-        (assessment_completion_rule = 'score_at_least'
-            AND assessment_completion_score_threshold > 0
-            AND assessment_completion_score_threshold <= 1)
-        OR (assessment_completion_rule <> 'score_at_least'
-            AND assessment_completion_score_threshold IS NULL)
-    ),
     assessment_attempt_grade_rule text NOT NULL CHECK (
         assessment_attempt_grade_rule IN ('first', 'latest', 'highest', 'instructor_selected')
-    ),
-    assessment_attempt_continuation_rule text NOT NULL CHECK (
-        assessment_attempt_continuation_rule IN ('unlimited', 'capped', 'closed')
-    ),
-    max_additional_assessment_attempts integer CHECK (
-        (assessment_attempt_continuation_rule = 'capped'
-            AND max_additional_assessment_attempts >= 0)
-        OR (assessment_attempt_continuation_rule <> 'capped'
-            AND max_additional_assessment_attempts IS NULL)
     ),
     question_pool_reuse_rule text NOT NULL CHECK (
         question_pool_reuse_rule IN ('reuse_selection', 'select_again')
@@ -109,10 +94,17 @@ CREATE TABLE ple_data.assessment (
         blueprint_assessment_reference
     ),
     CHECK (
-        (available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
-        AND (due_at IS NULL OR closes_at IS NULL OR due_at <= closes_at)
+        (origin_kind = 'direct'
+            AND source_blueprint_course_reference_number IS NULL
+            AND source_blueprint_revision_number IS NULL
+            AND source_blueprint_assessment_reference IS NULL)
+        OR (origin_kind = 'adopted'
+            AND source_blueprint_course_reference_number IS NOT NULL
+            AND source_blueprint_revision_number IS NOT NULL
+            AND source_blueprint_assessment_reference IS NOT NULL)
     ),
-    CHECK (updated_at >= created_at)
+    CHECK (updated_at >= created_at),
+    CHECK (assessment_type NOT IN ('quiz', 'exam') OR assessment_attempt_limit = 1)
 );
 
 CREATE TABLE ple_data.assessment_entry (
@@ -126,9 +118,9 @@ CREATE TABLE ple_data.assessment_entry (
     question_revision_number integer,
     question_pool_id uuid,
     question_pool_revision_number bigint,
-    points_possible numeric,
+    points_possible numeric CHECK (points_possible BETWEEN 0 AND 1000000000.9999 AND scale(points_possible) <= 4),
     selection_count integer,
-    points_per_item numeric,
+    points_per_item numeric CHECK (points_per_item BETWEEN 0 AND 1000000000.9999 AND scale(points_per_item) <= 4),
     selected_question_order text,
     question_attempt_limit integer,
     question_attempt_time_limit_seconds integer,
@@ -198,13 +190,17 @@ CREATE FUNCTION ple_data.enforce_assessment_edit()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    IF NEW.assessment_id <> OLD.assessment_id
-       OR NEW.course_id <> OLD.course_id
-       OR NEW.reference_number <> OLD.reference_number
-       OR NEW.source_blueprint_course_reference_number <> OLD.source_blueprint_course_reference_number
-       OR NEW.source_blueprint_revision_number <> OLD.source_blueprint_revision_number
-       OR NEW.source_blueprint_assessment_reference <> OLD.source_blueprint_assessment_reference
-       OR NEW.created_at <> OLD.created_at
+    IF NEW.assessment_id IS DISTINCT FROM OLD.assessment_id
+       OR NEW.course_id IS DISTINCT FROM OLD.course_id
+       OR NEW.reference_number IS DISTINCT FROM OLD.reference_number
+       OR NEW.origin_kind IS DISTINCT FROM OLD.origin_kind
+       OR NEW.source_blueprint_course_reference_number
+            IS DISTINCT FROM OLD.source_blueprint_course_reference_number
+       OR NEW.source_blueprint_revision_number
+            IS DISTINCT FROM OLD.source_blueprint_revision_number
+       OR NEW.source_blueprint_assessment_reference
+            IS DISTINCT FROM OLD.source_blueprint_assessment_reference
+       OR NEW.created_at IS DISTINCT FROM OLD.created_at
        OR NEW.updated_at < OLD.updated_at THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment identity is immutable and timestamps move forward';
@@ -293,7 +289,8 @@ BEGIN
         IF entry_kind = 'fixed_question' THEN
             IF entry_json ->> 'questionId' IS NULL
                OR entry_json ->> 'revisionNumber' !~ '^[1-9][0-9]*$'
-               OR entry_json ->> 'pointsPossible' !~ '^[0-9]+(\.[0-9]+)?$' THEN
+               OR entry_json ->> 'pointsPossible' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$'
+               OR (entry_json ->> 'pointsPossible')::numeric > 1000000000.9999 THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Fixed Question Assessment Entry is invalid';
             END IF;
             SELECT question.availability = 'available' INTO question_available
@@ -373,7 +370,8 @@ BEGIN
             END IF;
         ELSE
             IF entry_json ->> 'selectionCount' !~ '^[1-9][0-9]*$'
-               OR entry_json ->> 'pointsPerItem' !~ '^[0-9]+(\.[0-9]+)?$'
+               OR entry_json ->> 'pointsPerItem' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$'
+               OR (entry_json ->> 'pointsPerItem')::numeric > 1000000000.9999
                OR entry_json ->> 'selectedQuestionOrder' NOT IN ('question_pool_order', 'random_order')
                OR entry_json ->> 'questionPoolId' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
                OR entry_json ->> 'questionPoolRevisionNumber' !~ '^[1-9][0-9]*$'
@@ -446,93 +444,6 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_data.validate_assessment_release(p_assessment_id uuid)
-RETURNS void LANGUAGE plpgsql STABLE
-SET search_path = pg_catalog, ple_data AS $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_data.assessment_entry
-         WHERE assessment_id = p_assessment_id AND availability = 'available'
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Assessment Release requires an available Assessment Entry';
-    END IF;
-    IF EXISTS (
-        SELECT 1
-          FROM ple_data.assessment_entry AS entry
-          JOIN ple_data.question_pool_revision AS pool_revision
-            ON pool_revision.question_pool_id = entry.question_pool_id
-           AND pool_revision.revision_number = entry.question_pool_revision_number
-         WHERE entry.assessment_id = p_assessment_id
-           AND entry.availability = 'available'
-           AND entry.entry_kind = 'question_pool'
-           AND entry.selection_count > pool_revision.member_count
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Question Pool Release requires enough members in its exact fork Pool Revision';
-    END IF;
-    IF EXISTS (
-        SELECT 1 FROM ple_data.assessment
-         WHERE assessment_id = p_assessment_id
-           AND assessment_attempt_time_limit_seconds IS NULL
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Assessment Release requires a whole-Assessment Attempt time limit';
-    END IF;
-END
-$$;
-
-CREATE FUNCTION ple_data.create_assessment(
-    p_assessment_id uuid,
-    p_course_reference_number bigint,
-    p_blueprint_assessment_reference uuid,
-    p_title text,
-    p_instructions text
-) RETURNS TABLE (
-    assessment_reference_number bigint, assessment_edit_number bigint,
-    assessment_status text, assessment_title text, assessment_instructions text
-)
-LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE course_row ple_data.course_instance%ROWTYPE;
-BEGIN
-    IF p_assessment_id IS NULL OR p_blueprint_assessment_reference IS NULL
-       OR p_course_reference_number NOT BETWEEN 1 AND 2147483647
-       OR p_title IS NULL OR p_instructions IS NULL THEN
-        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment creation is invalid';
-    END IF;
-    SELECT * INTO course_row FROM ple_data.course_instance
-     WHERE reference_number = p_course_reference_number;
-    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course_row.course_id) THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
-    END IF;
-    INSERT INTO ple_data.assessment AS inserted (
-        assessment_id, course_id, source_blueprint_course_reference_number,
-        source_blueprint_revision_number, source_blueprint_assessment_reference,
-        created_at, updated_at, assessment_title, assessment_instructions,
-        late_work_rule, assessment_completion_rule, assessment_attempt_grade_rule,
-        assessment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule,
-        assessment_attempt_resume_rule, assessment_question_display_rule,
-        assessment_navigation_rule, assessment_question_order_rule, feedback_score,
-        feedback_per_item_correctness, feedback_submitted_response,
-        feedback_question_feedback, feedback_question_answer,
-        feedback_question_answer_explanation, feedback_class_statistics
-    ) VALUES (
-        p_assessment_id, course_row.course_id, course_row.blueprint_course_reference_number,
-        course_row.blueprint_revision_number, p_blueprint_assessment_reference,
-        clock_timestamp(), clock_timestamp(), p_title, p_instructions,
-        'reject', 'answer_all', 'highest', 'unlimited', 'reuse_selection', 'new_variation',
-        'resumable', 'one_question_at_a_time', 'free_navigation', 'shuffled',
-        'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
-        'after_submit', 'after_submit'
-    ) RETURNING inserted.reference_number, inserted.assessment_edit_number,
-        inserted.assessment_status, inserted.assessment_title, inserted.assessment_instructions
-      INTO assessment_reference_number, assessment_edit_number, assessment_status,
-           assessment_title, assessment_instructions;
-    RETURN NEXT;
-END
-$$;
-
 -- The mutable scalar values are an exact object with the Assessment table's
 -- non-identity fields.  Keeping the tagged child collection separate avoids
 -- generic snapshot persistence while one operation validates the full result.
@@ -549,6 +460,7 @@ CREATE FUNCTION ple_data.save_assessment(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE
+    course_row ple_data.course_instance%ROWTYPE;
     current_assessment ple_data.assessment%ROWTYPE;
     candidate ple_data.assessment%ROWTYPE;
     entries_changed boolean;
@@ -556,9 +468,7 @@ DECLARE
     allowed_keys text[] := ARRAY[
         'assessment_title', 'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'assessment_completion_rule', 'assessment_completion_score_threshold',
-        'assessment_attempt_grade_rule', 'assessment_attempt_continuation_rule',
-        'max_additional_assessment_attempts', 'question_pool_reuse_rule', 'question_variation_rule',
+        'assessment_attempt_grade_rule', 'question_pool_reuse_rule', 'question_variation_rule',
         'assessment_attempt_resume_rule', 'assessment_question_display_rule',
         'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response',
@@ -577,13 +487,19 @@ BEGIN
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment save is invalid';
     END IF;
-    SELECT assessment.* INTO current_assessment
+    SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
      WHERE course.reference_number = p_course_reference_number
-       AND assessment.reference_number = p_assessment_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_id)
-     FOR UPDATE OF assessment;
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
+    END IF;
+    SELECT assessment.* INTO current_assessment
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.course_id = course_row.course_id
+       AND assessment.reference_number = p_assessment_reference_number
+     FOR UPDATE;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
@@ -591,12 +507,15 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
     SELECT * INTO candidate FROM jsonb_populate_record(current_assessment, p_values);
+    IF candidate.due_at > course_row.active_until_at THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment due date is after the Course Active cutoff';
+    END IF;
     values_changed := ROW(
         candidate.assessment_title, candidate.assessment_instructions, candidate.available_at,
         candidate.due_at, candidate.closes_at, candidate.assessment_attempt_time_limit_seconds,
-        candidate.assessment_attempt_limit, candidate.late_work_rule, candidate.assessment_completion_rule,
-        candidate.assessment_completion_score_threshold, candidate.assessment_attempt_grade_rule,
-        candidate.assessment_attempt_continuation_rule, candidate.max_additional_assessment_attempts,
+        candidate.assessment_attempt_limit, candidate.late_work_rule,
+        candidate.assessment_attempt_grade_rule,
         candidate.question_pool_reuse_rule, candidate.question_variation_rule,
         candidate.assessment_attempt_resume_rule, candidate.assessment_question_display_rule,
         candidate.assessment_navigation_rule, candidate.assessment_question_order_rule,
@@ -608,11 +527,7 @@ BEGIN
         current_assessment.assessment_title, current_assessment.assessment_instructions,
         current_assessment.available_at, current_assessment.due_at, current_assessment.closes_at,
         current_assessment.assessment_attempt_time_limit_seconds, current_assessment.assessment_attempt_limit,
-        current_assessment.late_work_rule, current_assessment.assessment_completion_rule,
-        current_assessment.assessment_completion_score_threshold,
-        current_assessment.assessment_attempt_grade_rule,
-        current_assessment.assessment_attempt_continuation_rule,
-        current_assessment.max_additional_assessment_attempts,
+        current_assessment.late_work_rule, current_assessment.assessment_attempt_grade_rule,
         current_assessment.question_pool_reuse_rule, current_assessment.question_variation_rule,
         current_assessment.assessment_attempt_resume_rule,
         current_assessment.assessment_question_display_rule,
@@ -634,11 +549,7 @@ BEGIN
             closes_at = candidate.closes_at,
             assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
             assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
-            assessment_completion_rule = candidate.assessment_completion_rule,
-            assessment_completion_score_threshold = candidate.assessment_completion_score_threshold,
             assessment_attempt_grade_rule = candidate.assessment_attempt_grade_rule,
-            assessment_attempt_continuation_rule = candidate.assessment_attempt_continuation_rule,
-            max_additional_assessment_attempts = candidate.max_additional_assessment_attempts,
             question_pool_reuse_rule = candidate.question_pool_reuse_rule,
             question_variation_rule = candidate.question_variation_rule,
             assessment_attempt_resume_rule = candidate.assessment_attempt_resume_rule,
@@ -660,8 +571,13 @@ BEGIN
           INTO assessment_reference_number, assessment_edit_number, assessment_status,
                assessment_title, assessment_instructions;
         IF assessment_status = 'released' THEN
-            PERFORM ple_data.validate_assessment_release(current_assessment.assessment_id);
+            PERFORM ple_data.validate_assessment_release(
+                current_assessment.assessment_id,
+                transaction_timestamp(),
+                candidate.due_at IS DISTINCT FROM current_assessment.due_at
+            );
         END IF;
+        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
     ELSE
         assessment_reference_number := current_assessment.reference_number;
         assessment_edit_number := current_assessment.assessment_edit_number;
@@ -682,22 +598,35 @@ CREATE FUNCTION ple_data.save_assessment_inline(
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE assessment_row ple_data.assessment%ROWTYPE;
+DECLARE
+    course_row ple_data.course_instance%ROWTYPE;
+    assessment_row ple_data.assessment%ROWTYPE;
 BEGIN
     IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
        OR p_assessment_reference_number NOT BETWEEN 1 AND 2147483647
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 OR p_title IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment inline save is invalid';
     END IF;
-    SELECT assessment.* INTO assessment_row FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+    SELECT course.* INTO course_row
+      FROM ple_data.course_instance AS course
      WHERE course.reference_number = p_course_reference_number
-       AND assessment.reference_number = p_assessment_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_id)
-     FOR UPDATE OF assessment;
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
+    END IF;
+    SELECT assessment.* INTO assessment_row
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.course_id = course_row.course_id
+       AND assessment.reference_number = p_assessment_reference_number
+     FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
+    END IF;
+    IF p_due_at > course_row.active_until_at THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment due date is after the Course Active cutoff';
     END IF;
     IF ROW(assessment_row.assessment_title, assessment_row.due_at) IS DISTINCT FROM ROW(p_title, p_due_at) THEN
         UPDATE ple_data.assessment AS updated SET assessment_title = p_title, due_at = p_due_at,
@@ -709,7 +638,14 @@ BEGIN
             updated.assessment_status, updated.assessment_edit_number
           INTO assessment_reference_number, assessment_title, due_at_millis,
                assessment_status, assessment_edit_number;
-        IF assessment_status = 'released' THEN PERFORM ple_data.validate_assessment_release(assessment_row.assessment_id); END IF;
+        IF assessment_status = 'released' THEN
+            PERFORM ple_data.validate_assessment_release(
+                assessment_row.assessment_id,
+                transaction_timestamp(),
+                p_due_at IS DISTINCT FROM assessment_row.due_at
+            );
+        END IF;
+        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
     ELSE
         assessment_reference_number := assessment_row.reference_number; assessment_title := assessment_row.assessment_title;
         due_at_millis := CASE WHEN assessment_row.due_at IS NULL THEN NULL ELSE floor(extract(epoch FROM assessment_row.due_at) * 1000)::bigint END;
@@ -729,14 +665,13 @@ CREATE FUNCTION ple_data.save_assessment_policies(
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE current_assessment ple_data.assessment%ROWTYPE; candidate ple_data.assessment%ROWTYPE;
+DECLARE course_row ple_data.course_instance%ROWTYPE;
+    current_assessment ple_data.assessment%ROWTYPE; candidate ple_data.assessment%ROWTYPE;
     values_changed boolean;
     allowed_keys text[] := ARRAY[
         'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'assessment_completion_rule', 'assessment_completion_score_threshold',
-        'assessment_attempt_grade_rule', 'assessment_attempt_continuation_rule',
-        'max_additional_assessment_attempts', 'question_pool_reuse_rule', 'question_variation_rule',
+        'assessment_attempt_grade_rule', 'question_pool_reuse_rule', 'question_variation_rule',
         'assessment_attempt_resume_rule', 'assessment_question_display_rule',
         'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_feedback',
@@ -750,22 +685,32 @@ BEGIN
        OR EXISTS (SELECT 1 FROM unnest(allowed_keys) AS key WHERE NOT p_policies ? key) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment policy save is invalid';
     END IF;
-    SELECT assessment.* INTO current_assessment FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
+    SELECT course.* INTO course_row
+      FROM ple_data.course_instance AS course
      WHERE course.reference_number = p_course_reference_number
-       AND assessment.reference_number = p_assessment_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_id)
-     FOR UPDATE OF assessment;
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
+    END IF;
+    SELECT assessment.* INTO current_assessment
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.course_id = course_row.course_id
+       AND assessment.reference_number = p_assessment_reference_number
+     FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     IF current_assessment.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
     END IF;
     SELECT * INTO candidate FROM jsonb_populate_record(current_assessment, p_policies);
+    IF candidate.due_at > course_row.active_until_at THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment due date is after the Course Active cutoff';
+    END IF;
     values_changed := ROW(candidate.assessment_instructions, candidate.available_at, candidate.due_at,
         candidate.closes_at, candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
-        candidate.late_work_rule, candidate.assessment_completion_rule, candidate.assessment_completion_score_threshold,
-        candidate.assessment_attempt_grade_rule, candidate.assessment_attempt_continuation_rule,
-        candidate.max_additional_assessment_attempts, candidate.question_pool_reuse_rule,
+        candidate.late_work_rule, candidate.assessment_attempt_grade_rule,
+        candidate.question_pool_reuse_rule,
         candidate.question_variation_rule, candidate.assessment_attempt_resume_rule,
         candidate.assessment_question_display_rule, candidate.assessment_navigation_rule,
         candidate.assessment_question_order_rule, candidate.feedback_score, candidate.feedback_per_item_correctness,
@@ -773,9 +718,8 @@ BEGIN
         candidate.feedback_question_answer_explanation, candidate.feedback_class_statistics)
       IS DISTINCT FROM ROW(current_assessment.assessment_instructions, current_assessment.available_at,
         current_assessment.due_at, current_assessment.closes_at, current_assessment.assessment_attempt_time_limit_seconds,
-        current_assessment.assessment_attempt_limit, current_assessment.late_work_rule, current_assessment.assessment_completion_rule,
-        current_assessment.assessment_completion_score_threshold, current_assessment.assessment_attempt_grade_rule,
-        current_assessment.assessment_attempt_continuation_rule, current_assessment.max_additional_assessment_attempts,
+        current_assessment.assessment_attempt_limit, current_assessment.late_work_rule,
+        current_assessment.assessment_attempt_grade_rule,
         current_assessment.question_pool_reuse_rule, current_assessment.question_variation_rule,
         current_assessment.assessment_attempt_resume_rule, current_assessment.assessment_question_display_rule,
         current_assessment.assessment_navigation_rule, current_assessment.assessment_question_order_rule,
@@ -789,11 +733,7 @@ BEGIN
           due_at = candidate.due_at, closes_at = candidate.closes_at,
           assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
           assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
-          assessment_completion_rule = candidate.assessment_completion_rule,
-          assessment_completion_score_threshold = candidate.assessment_completion_score_threshold,
           assessment_attempt_grade_rule = candidate.assessment_attempt_grade_rule,
-          assessment_attempt_continuation_rule = candidate.assessment_attempt_continuation_rule,
-          max_additional_assessment_attempts = candidate.max_additional_assessment_attempts,
           question_pool_reuse_rule = candidate.question_pool_reuse_rule,
           question_variation_rule = candidate.question_variation_rule,
           assessment_attempt_resume_rule = candidate.assessment_attempt_resume_rule,
@@ -811,7 +751,14 @@ BEGIN
         RETURNING updated.reference_number, updated.assessment_edit_number, updated.assessment_status,
           updated.assessment_title, updated.assessment_instructions INTO assessment_reference_number,
           assessment_edit_number, assessment_status, assessment_title, assessment_instructions;
-        IF assessment_status = 'released' THEN PERFORM ple_data.validate_assessment_release(current_assessment.assessment_id); END IF;
+        IF assessment_status = 'released' THEN
+            PERFORM ple_data.validate_assessment_release(
+                current_assessment.assessment_id,
+                transaction_timestamp(),
+                candidate.due_at IS DISTINCT FROM current_assessment.due_at
+            );
+        END IF;
+        PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
     ELSE
         assessment_reference_number := current_assessment.reference_number; assessment_edit_number := current_assessment.assessment_edit_number;
         assessment_status := current_assessment.assessment_status; assessment_title := current_assessment.assessment_title;
@@ -831,20 +778,28 @@ CREATE FUNCTION ple_data.release_assessment(
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE assessment_row ple_data.assessment%ROWTYPE;
+DECLARE
+    course_row ple_data.course_instance%ROWTYPE;
+    assessment_row ple_data.assessment%ROWTYPE;
 BEGIN
     IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
        OR p_assessment_reference_number NOT BETWEEN 1 AND 2147483647
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
-    SELECT assessment.* INTO assessment_row
+    SELECT course.* INTO course_row
       FROM ple_data.course_instance AS course
-      JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
      WHERE course.reference_number = p_course_reference_number
-       AND assessment.reference_number = p_assessment_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_id)
-     FOR UPDATE OF assessment;
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
+    END IF;
+    SELECT assessment.* INTO assessment_row
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.course_id = course_row.course_id
+       AND assessment.reference_number = p_assessment_reference_number
+     FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
     IF assessment_row.assessment_edit_number IS DISTINCT FROM p_expected_edit_number THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Assessment Edit Number is stale';
@@ -852,7 +807,9 @@ BEGIN
     IF assessment_row.assessment_status <> 'unreleased' THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Assessment is not Unreleased';
     END IF;
-    PERFORM ple_data.validate_assessment_release(assessment_row.assessment_id);
+    PERFORM ple_data.validate_assessment_release(
+        assessment_row.assessment_id, transaction_timestamp(), true
+    );
     UPDATE ple_data.assessment AS updated SET assessment_status = 'released',
         assessment_edit_number = updated.assessment_edit_number + 1,
         updated_at = clock_timestamp()
@@ -860,6 +817,7 @@ BEGIN
     RETURNING updated.reference_number, updated.assessment_title, updated.assessment_status,
         updated.assessment_edit_number
       INTO assessment_reference_number, assessment_title, assessment_status, assessment_edit_number;
+    PERFORM ple_data.synchronize_course_assessment_deadline(course_row.course_id);
     RETURN NEXT;
 END
 $$;
@@ -926,9 +884,8 @@ CREATE POLICY assessment_question_pool_fork_api_owner_read ON ple_data.assessmen
 REVOKE ALL ON TABLE ple_data.assessment, ple_data.assessment_entry,
     ple_data.assessment_question_pool_fork FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_data.enforce_assessment_edit(),
-    ple_data.validate_assessment_question_pool_fork(), ple_data.validate_assessment_release(uuid),
+    ple_data.validate_assessment_question_pool_fork(),
     ple_data.replace_assessment_entries(uuid, jsonb),
-    ple_data.create_assessment(uuid, bigint, uuid, text, text),
     ple_data.save_assessment(bigint, bigint, bigint, jsonb, jsonb),
     ple_data.save_assessment_inline(bigint, bigint, bigint, text, timestamptz),
     ple_data.save_assessment_policies(bigint, bigint, bigint, jsonb),
@@ -939,12 +896,10 @@ GRANT SELECT ON ple_data.assessment, ple_data.assessment_entry, ple_data.assessm
 GRANT UPDATE (assessment_id) ON TABLE ple_data.assessment TO ple_private_owner;
 GRANT SELECT ON ple_data.assessment, ple_data.assessment_entry, ple_data.assessment_question_pool_fork
     TO ple_api_owner;
-GRANT EXECUTE ON FUNCTION ple_data.create_assessment(uuid, bigint, uuid, text, text),
-    ple_data.save_assessment(bigint, bigint, bigint, jsonb, jsonb),
+GRANT EXECUTE ON FUNCTION ple_data.save_assessment(bigint, bigint, bigint, jsonb, jsonb),
     ple_data.save_assessment_inline(bigint, bigint, bigint, text, timestamptz),
     ple_data.save_assessment_policies(bigint, bigint, bigint, jsonb),
-    ple_data.release_assessment(bigint, bigint, bigint),
-    ple_data.validate_assessment_release(uuid)
+    ple_data.release_assessment(bigint, bigint, bigint)
     TO ple_api_owner;
 
 SET LOCAL ROLE ple_data_owner;

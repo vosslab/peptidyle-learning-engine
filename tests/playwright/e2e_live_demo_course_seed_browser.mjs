@@ -128,7 +128,7 @@ async function verifyMary(page) {
   await expect(card).toHaveCount(1);
   await expect(card.getByText("Completed and scored", { exact: true })).toBeVisible();
   await expect(
-    card.getByText("4 of 4 questions graded · Score 2 / 4", { exact: true }),
+    card.getByText("4 of 4 questions graded · Assessment score 2 / 4", { exact: true }),
   ).toBeVisible();
   await signOutVisible(page);
 }

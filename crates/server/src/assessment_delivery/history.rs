@@ -10,12 +10,12 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use domain::{
-    effective_assessment_policy::{
+    effective_assessment_properties::{
         AssessmentPolicySource, EffectiveAssessmentPolicy, EffectiveAssessmentPolicyValue,
     },
     student_feedback_release::{
-        evaluate_allowed_student_feedback_release, project_student_feedback,
-        score_current_student_feedback_release,
+        evaluate_allowed_student_feedback_release, gate_quiz_exam_answers_for_current_cohort,
+        project_student_feedback, score_current_student_feedback_release,
     },
 };
 use learning_data_access::{
@@ -122,11 +122,19 @@ fn project_history(
 fn history_decision(
     evidence: &StudentAssessmentAttemptHistoryEvidence,
 ) -> domain::student_feedback_release::StudentFeedbackReleaseDecision {
-    evaluate_allowed_student_feedback_release(
+    let decision = evaluate_allowed_student_feedback_release(
         &history_policy(evidence.due_at, evidence.closes_at),
         evidence.feedback_rule,
         evidence.evaluated_at,
         evidence.submitted_at,
+    );
+    // ASVS 8.2.3 and 8.3.1: Quiz and Exam answer fields require the
+    // database-authorized current-Course cohort decision; browser state cannot
+    // weaken this field-level gate.
+    gate_quiz_exam_answers_for_current_cohort(
+        decision,
+        evidence.assessment_type,
+        evidence.all_students_completed,
     )
 }
 
@@ -288,8 +296,8 @@ mod tests {
         StudentAssessmentAttemptHistoryCourse, StudentAssessmentAttemptHistoryQuestion,
     };
     use question_model::{
-        AssessmentReference, CourseInstanceReference, CourseTheme, GradingResult, QuestionId,
-        QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
+        AssessmentReference, AssessmentType, CourseInstanceReference, CourseTheme, GradingResult,
+        QuestionId, QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
         StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
     };
 
@@ -323,11 +331,13 @@ mod tests {
                     feedback: StudentFeedback::empty(),
                 }],
             },
+            assessment_type: AssessmentType::RegularAssignment,
             feedback_rule: StudentFeedbackReleaseRule::default(),
             due_at: None,
             closes_at: None,
             submitted_at: Some(Timestamp::from_unix_millis(1)),
             evaluated_at: Timestamp::from_unix_millis(2),
+            all_students_completed: true,
             grading_is_current: true,
             grading_results: vec![Some(GradingResult {
                 correct: false,
@@ -375,6 +385,29 @@ mod tests {
 
         assert!(decision.question_answer_explanation);
         assert!(needs_released_content(decision));
+    }
+
+    #[test]
+    fn quiz_answer_release_uses_the_current_course_cohort_decision() {
+        let mut evidence = evidence();
+        evidence.assessment_type = AssessmentType::Quiz;
+        evidence.all_students_completed = false;
+        evidence.feedback_rule.question_answer = StudentFeedbackReleaseTiming::AfterSubmit;
+        evidence.feedback_rule.question_answer_explanation =
+            StudentFeedbackReleaseTiming::AfterSubmit;
+        evidence.feedback_rule.question_feedback = StudentFeedbackReleaseTiming::AfterSubmit;
+
+        let waiting = history_decision(&evidence);
+
+        assert!(!waiting.question_answer);
+        assert!(!waiting.question_answer_explanation);
+        assert!(waiting.question_feedback);
+
+        evidence.all_students_completed = true;
+        let released = history_decision(&evidence);
+        assert!(released.question_answer);
+        assert!(released.question_answer_explanation);
+        assert!(released.question_feedback);
     }
 
     #[test]

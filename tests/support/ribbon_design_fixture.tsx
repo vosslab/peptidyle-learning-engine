@@ -32,7 +32,7 @@ export {
 const GLYPH_ATLAS_LABELS: Readonly<Record<RibbonGlyphId, string>> = {
   "graduation-cap": "Courses",
   "book-open": "Question Library",
-  "clipboard-list": "Assignments",
+  "clipboard-list": "Assessments",
   users: "Students",
   "table-list": "Gradebook",
   gear: "Course Setup",
@@ -40,15 +40,18 @@ const GLYPH_ATLAS_LABELS: Readonly<Record<RibbonGlyphId, string>> = {
   "file-pen": "My Question Drafts",
   star: "Starred",
   eye: "Watched",
-  "list-check": "Assignment Questions",
-  "user-graduate": "Assignment Student View",
+  "list-check": "Assessment Questions",
+  "user-graduate": "Assessment Student View",
   palette: "Appearance",
-  "arrow-left": "Back to Assignments",
+  "arrow-left": "Back to Assessments",
+  "arrows-spin": "Practice Question Assignment",
+  "circle-question": "Quiz",
   "circle-user": "Profile",
+  "file-signature": "Exam",
   "right-from-bracket": "Sign out",
   "box-archive": "My Inactive Courses",
-  clock: "Assignments Due Soon",
-  copy: "My Assignment Templates",
+  clock: "Assessments Due Soon",
+  copy: "My Assessment Templates",
   "file-circle-question": "My Questions",
   "layer-group": "My Blueprint Courses",
   "magnifying-glass": "Search Question Library",
@@ -57,7 +60,7 @@ const GLYPH_ATLAS_LABELS: Readonly<Record<RibbonGlyphId, string>> = {
 const ICON_ONLY_VISUAL_SPECIMENS = [
   { glyph: "star", label: "Starred" },
   { glyph: "eye", label: "Watched" },
-  { glyph: "arrow-left", label: "Back to Assignments" },
+  { glyph: "arrow-left", label: "Back to Assessments" },
 ] as const satisfies ReadonlyArray<{ readonly glyph: RibbonGlyphId; readonly label: string }>;
 
 function withheldAdmissions(

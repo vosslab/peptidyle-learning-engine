@@ -125,10 +125,7 @@ fn decode_row(
         (None, None) => None,
         _ => return Err(invalid("partial Gradebook score")),
     };
-    if score
-        .as_ref()
-        .is_some_and(|value| value.points_earned > value.points_possible)
-        || (assessment_attempt_completion.is_none() && score.is_some())
+    if (assessment_attempt_completion.is_none() && score.is_some())
         || (expired_submitting
             && (assessment_attempt_completion != Some(AssessmentAttemptCompletion::InProgress)
                 || score.is_some()))

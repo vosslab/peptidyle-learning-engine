@@ -11,7 +11,6 @@ CREATE FUNCTION ple_private.prepare_assessment_attempt_finalization(
 ) RETURNS TABLE (
     preparation_state text,
     finalization_kind text,
-    missing_positions integer[],
     points_earned double precision,
     points_possible double precision,
     question_attempt_id uuid,
@@ -29,7 +28,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_attempt_row ple_private.assessment_attempt%ROWTYPE;
 DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
 DECLARE resolved_kind text;
-DECLARE missing integer[];
 BEGIN
     SELECT * INTO assessment_attempt_row
       FROM ple_private.assessment_attempt AS assessment_attempt
@@ -44,15 +42,15 @@ BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission
                WHERE submission.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id) THEN
         RETURN QUERY
-        SELECT 'already_submitted', resolved_kind, ARRAY[]::integer[],
-               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_at_deadline'
+        SELECT 'already_submitted', resolved_kind,
+               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
                                   AND result.grading_result_id IS NULL)
                     THEN NULL ELSE coalesce(sum(score.points_earned), 0)::double precision END,
-               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_at_deadline'
+               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
                                   AND result.grading_result_id IS NULL)
                     THEN NULL ELSE coalesce(sum(score.points_possible), 0)::double precision END,
                NULL::uuid, NULL::bigint, NULL::text, NULL::integer, NULL::uuid,
-               NULL::text, NULL::numeric, NULL::jsonb, NULL::text, NULL::text
+               NULL::text, NULL::numeric, NULL::text, NULL::jsonb, NULL::text, NULL::text
           FROM ple_private.issued_question AS issued
           JOIN ple_private.question_attempt AS question_attempt
             ON question_attempt.issued_question_id = issued.issued_question_id
@@ -67,24 +65,6 @@ BEGIN
           ) AS score
          WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id;
         RETURN;
-    END IF;
-    IF resolved_kind = 'student' THEN
-        SELECT array_agg(issued.issued_position ORDER BY issued.issued_position)
-          INTO missing
-          FROM ple_private.issued_question AS issued
-          LEFT JOIN ple_private.question_attempt AS question_attempt
-            ON question_attempt.issued_question_id = issued.issued_question_id
-          LEFT JOIN ple_private.assessment_attempt_saved_response AS response
-            ON response.question_attempt_id = question_attempt.question_attempt_id
-         WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
-           AND response.question_attempt_id IS NULL;
-        IF missing IS NOT NULL THEN
-            RETURN QUERY SELECT 'missing_responses', resolved_kind, missing,
-                NULL::double precision, NULL::double precision, NULL::uuid,
-                NULL::bigint, NULL::text, NULL::integer, NULL::uuid, NULL::text,
-                NULL::numeric, NULL::jsonb, NULL::text, NULL::text;
-            RETURN;
-        END IF;
     END IF;
     IF EXISTS (
         SELECT 1
@@ -103,7 +83,7 @@ BEGIN
             MESSAGE = 'Assessment Attempt submission is unavailable';
     END IF;
     RETURN QUERY
-    SELECT 'ready', resolved_kind, ARRAY[]::integer[], NULL::double precision,
+    SELECT 'ready', resolved_kind, NULL::double precision,
            NULL::double precision, question_attempt.question_attempt_id,
            floor(extract(epoch FROM response.saved_at) * 1000)::bigint,
            issued.question_id, issued.revision_number, source.source_object_id,
@@ -121,10 +101,10 @@ BEGIN
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
      ORDER BY issued.issued_position;
     IF NOT FOUND THEN
-        RETURN QUERY SELECT 'ready', resolved_kind, ARRAY[]::integer[],
+        RETURN QUERY SELECT 'ready', resolved_kind,
             NULL::double precision, NULL::double precision, NULL::uuid,
             NULL::bigint, NULL::text, NULL::integer, NULL::uuid, NULL::text,
-            NULL::numeric, NULL::jsonb, NULL::text, NULL::text;
+            NULL::numeric, NULL::text, NULL::jsonb, NULL::text, NULL::text;
     END IF;
 END $$;
 
@@ -135,7 +115,6 @@ CREATE FUNCTION ple_private.prepare_student_assessment_attempt_finalization(
 ) RETURNS TABLE (
     preparation_state text,
     finalization_kind text,
-    missing_positions integer[],
     points_earned double precision,
     points_possible double precision,
     question_attempt_id uuid,
@@ -293,10 +272,10 @@ BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission
                WHERE submission.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id) THEN
         RETURN QUERY
-        SELECT CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_at_deadline'
+        SELECT CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
                                       AND result.grading_result_id IS NULL)
                          THEN NULL ELSE coalesce(sum(score.points_earned), 0)::double precision END,
-               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_at_deadline'
+               CASE WHEN bool_or(question_attempt.question_attempt_state <> 'closed_unanswered'
                                       AND result.grading_result_id IS NULL)
                          THEN NULL ELSE coalesce(sum(score.points_possible), 0)::double precision END
           FROM ple_private.issued_question AS issued
@@ -350,18 +329,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Assessment Attempt saved responses changed';
     END IF;
-    IF resolved_kind = 'student' AND EXISTS (
-        SELECT 1 FROM ple_private.issued_question AS issued
-          LEFT JOIN ple_private.question_attempt AS question_attempt
-            ON question_attempt.issued_question_id = issued.issued_question_id
-          LEFT JOIN ple_private.assessment_attempt_saved_response AS response
-            ON response.question_attempt_id = question_attempt.question_attempt_id
-         WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
-           AND response.question_attempt_id IS NULL
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Assessment Attempt has missing responses';
-    END IF;
     INSERT INTO ple_private.assessment_submission(
         assessment_submission_id, assessment_attempt_id, submitted_at,
         finalization_kind, authorized_by_account_id, receipt
@@ -375,7 +342,7 @@ BEGIN
        SET question_attempt_state = CASE WHEN EXISTS (
                    SELECT 1 FROM ple_private.assessment_attempt_saved_response AS response
                     WHERE response.question_attempt_id = question_attempt.question_attempt_id
-               ) THEN 'submission_accepted' ELSE 'closed_at_deadline' END,
+               ) THEN 'submission_accepted' ELSE 'closed_unanswered' END,
            submitted_at = CASE WHEN EXISTS (
                    SELECT 1 FROM ple_private.assessment_attempt_saved_response AS response
                     WHERE response.question_attempt_id = question_attempt.question_attempt_id
@@ -405,12 +372,6 @@ BEGIN
             evaluation_row.normalized_credit, now_value
         );
     END LOOP;
-    IF expected_count = 0 THEN
-        UPDATE ple_private.assessment_attempt
-           SET completed_at = now_value
-         WHERE assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
-           AND completed_at IS NULL;
-    END IF;
     RETURN QUERY
     SELECT coalesce(sum(score.points_earned), 0)::double precision,
            coalesce(sum(score.points_possible), 0)::double precision

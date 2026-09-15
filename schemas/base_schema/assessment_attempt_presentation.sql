@@ -181,7 +181,10 @@ BEGIN
     SELECT assessment_attempt.* INTO result
       FROM ple_private.assessment_attempt AS assessment_attempt
      WHERE assessment_attempt.assessment_attempt_id = p_assessment_attempt_id
-       AND assessment_attempt.completed_at IS NULL;
+       AND NOT EXISTS (
+           SELECT 1 FROM ple_private.assessment_submission AS submission
+            WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+       );
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Attempt presentation is unavailable';
     END IF;

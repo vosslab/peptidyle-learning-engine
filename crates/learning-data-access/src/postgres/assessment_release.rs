@@ -4,11 +4,11 @@ use async_trait::async_trait;
 use question_model::{
     AccountTimeZone, AssessmentAuthoredContentField, AssessmentEditNumber, AssessmentEntry,
     AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
-    AssessmentInstructions, AssessmentPointValue, AssessmentReference, AssessmentStatus,
-    AssessmentTitle, BlueprintAssessmentReference, BlueprintAssessmentSource,
-    BlueprintCourseReference, BlueprintRevision, BlueprintRevisionReference,
-    CourseInstanceReference, CourseTerm, FixedQuestionAssessmentEntry, LateWorkRule,
-    LocalDateAndTime, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
+    AssessmentInstructions, AssessmentOrigin, AssessmentPointValue, AssessmentReference,
+    AssessmentStatus, AssessmentTitle, AssessmentType, BlueprintAssessmentReference,
+    BlueprintAssessmentSource, BlueprintCourseReference, BlueprintRevision,
+    BlueprintRevisionReference, CourseInstanceReference, CourseTerm, FixedQuestionAssessmentEntry,
+    LateWorkRule, LocalDateAndTime, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
     QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
     QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionNumber,
     QuestionRevisionReference, Timestamp,
@@ -23,11 +23,10 @@ use super::{
 };
 use crate::{
     AssessmentQuestionPickerEntry, AssessmentReleaseIssue, AssessmentReleaseValidation,
-    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSourceChoice,
-    CourseAssessmentSummary, CreateLiveAssessmentInput, DueSoonAssessmentSummary,
-    DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
-    SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
-    SessionTokenHash, StoreError, UnreleasedLiveAssessment,
+    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSummary,
+    CreateLiveAssessmentInput, DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore,
+    LiveAssessmentWorkspace, SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput,
+    SaveLiveAssessmentInput, SessionTokenHash, StoreError, UnreleasedLiveAssessment,
 };
 
 /// PostgreSQL Store for the direct-Instructor Assessment Workspace.
@@ -89,7 +88,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                 })?;
         let rows = sqlx::query(concat!(
             "SELECT course_reference_number, course_long_name, assessment_reference_number, ",
-            "assessment_title, assessment_status, due_at_millis ",
+            "assessment_type, assessment_title, assessment_status, due_at_millis ",
             "FROM ple_api.list_assessments_due_soon()",
         ))
         .fetch_all(&mut *tx)
@@ -109,6 +108,9 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                     assessment_reference: assessment_reference(
                         row.try_get("assessment_reference_number")
                             .map_err(map_sqlx_error)?,
+                    )?,
+                    assessment_type: assessment_type(
+                        row.try_get("assessment_type").map_err(map_sqlx_error)?,
                     )?,
                     assessment_title: title(
                         row.try_get("assessment_title").map_err(map_sqlx_error)?,
@@ -138,7 +140,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         // ASVS 1.2.3 and 8.2.2: bind the public Course Reference and let the
         // session-authorized database function enforce the exact Course owner.
         let rows = sqlx::query(
-            "SELECT assessment_reference_number, assessment_title, due_at_millis, assessment_status, \
+            "SELECT assessment_reference_number, assessment_type, assessment_title, due_at_millis, assessment_status, \
              assessment_edit_number FROM ple_api.list_course_assessments($1)",
         )
         .bind(course.as_string())
@@ -152,6 +154,9 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                     reference: assessment_reference(
                         row.try_get("assessment_reference_number")
                             .map_err(map_sqlx_error)?,
+                    )?,
+                    assessment_type: assessment_type(
+                        row.try_get("assessment_type").map_err(map_sqlx_error)?,
                     )?,
                     title: title(row.try_get("assessment_title").map_err(map_sqlx_error)?)?,
                     due_at: row
@@ -207,34 +212,6 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         Ok(records)
     }
 
-    async fn list_course_assessment_source_choices(
-        &self,
-        token: SessionTokenHash,
-        course: CourseInstanceReference,
-    ) -> Result<Vec<CourseAssessmentSourceChoice>, StoreError> {
-        let mut tx = self.begin(token).await?;
-        let rows = sqlx::query(
-            "SELECT source_blueprint_course_reference_number, source_blueprint_revision_number, \
-             source_blueprint_assessment_reference, source_label \
-             FROM ple_api.list_course_assessment_source_choices($1)",
-        )
-        .bind(course.as_string())
-        .fetch_all(&mut *tx)
-        .await
-        .map_err(map_sqlx_error)?;
-        let records = rows
-            .iter()
-            .map(|row| {
-                Ok(CourseAssessmentSourceChoice {
-                    source: blueprint_assessment_source(row)?,
-                    label: row.try_get("source_label").map_err(map_sqlx_error)?,
-                })
-            })
-            .collect::<Result<Vec<_>, StoreError>>()?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(records)
-    }
-
     async fn create_live_assessment(
         &self,
         token: SessionTokenHash,
@@ -245,7 +222,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         let row = sqlx::query("SELECT * FROM ple_api.create_assessment($1, $2, $3, $4, $5)")
             .bind(random_uuid()?)
             .bind(course.as_string())
-            .bind(input.blueprint_assessment_reference)
+            .bind(input.assessment_type.as_str())
             .bind(input.title.as_str())
             .bind(input.instructions.as_str())
             .fetch_one(&mut *tx)
@@ -365,7 +342,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             })
             .transpose()?;
         let row = sqlx::query(
-            "SELECT assessment_reference_number, assessment_title, due_at_millis, assessment_status, assessment_edit_number \
+            "SELECT assessment_reference_number, assessment_type, assessment_title, due_at_millis, assessment_status, assessment_edit_number \
              FROM ple_api.save_assessment_inline($1, $2, $3, $4, \
              CASE WHEN $5 IS NULL THEN NULL::timestamptz ELSE to_timestamp($5::double precision / 1000) END)",
         )
@@ -394,6 +371,9 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             reference: assessment_reference(
                 row.try_get("assessment_reference_number")
                     .map_err(map_sqlx_error)?,
+            )?,
+            assessment_type: assessment_type(
+                row.try_get("assessment_type").map_err(map_sqlx_error)?,
             )?,
             title: title(row.try_get("assessment_title").map_err(map_sqlx_error)?)?,
             due_at,
@@ -462,11 +442,24 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                     .map_err(map_sqlx_error)?
                     .as_str()
                 {
-                    "attempt_time_limit_required" => Ok(AssessmentReleaseIssue::TimeLimitRequired),
+                    "assessment_attempt_time_limit_required" => {
+                        Ok(AssessmentReleaseIssue::TimeLimitRequired)
+                    }
                     "questions_required" => Ok(AssessmentReleaseIssue::NoPublishedQuestions),
                     "question_pool_insufficient_items" => {
                         Ok(AssessmentReleaseIssue::QuestionUnavailable)
                     }
+                    "due_date_required" => Ok(AssessmentReleaseIssue::DueDateRequired),
+                    "due_date_less_than_24_hours_ahead" => {
+                        Ok(AssessmentReleaseIssue::DueDateLessThan24HoursAhead)
+                    }
+                    "due_date_after_course_active_until" => {
+                        Ok(AssessmentReleaseIssue::DueDateAfterCourseActiveUntil)
+                    }
+                    "availability_after_due_date" => {
+                        Ok(AssessmentReleaseIssue::AvailabilityAfterDueDate)
+                    }
+                    "due_date_after_close" => Ok(AssessmentReleaseIssue::DueDateAfterClose),
                     _ => Err(invalid("Assessment Release Issue")),
                 }
             })
@@ -679,7 +672,10 @@ fn decode_workspace(
                 .map_err(map_sqlx_error)?,
         )?,
         status: status(first.try_get("assessment_status").map_err(map_sqlx_error)?)?,
-        source: blueprint_assessment_source(first)?,
+        origin: assessment_origin(first)?,
+        assessment_type: assessment_type(
+            first.try_get("assessment_type").map_err(map_sqlx_error)?,
+        )?,
         title: title(first.try_get("assessment_title").map_err(map_sqlx_error)?)?,
         instructions: instructions(
             first
@@ -803,7 +799,9 @@ fn question_policy(
 fn parse_entry_availability(value: String) -> Result<AssessmentEntryAvailability, StoreError> {
     match value.as_str() { "available" => Ok(AssessmentEntryAvailability::Available), "retired" => Ok(AssessmentEntryAvailability::Retired), _ => Err(invalid("Assessment Entry availability")) }
 }
-#[rustfmt::skip]
+fn assessment_type(value: String) -> Result<AssessmentType, StoreError> {
+    AssessmentType::parse(&value).ok_or_else(|| invalid("Assessment Type"))
+}
 #[rustfmt::skip]
 fn entry_scoring_rule(value: String) -> Result<AssessmentEntryScoringRule, StoreError> {
     match value.as_str() { "normal" => Ok(AssessmentEntryScoringRule::Normal), "full_credit" => Ok(AssessmentEntryScoringRule::FullCredit), "extra_credit" => Ok(AssessmentEntryScoringRule::ExtraCredit), "excluded" => Ok(AssessmentEntryScoringRule::Excluded), _ => Err(invalid("Assessment Entry scoring rule")) }
@@ -813,32 +811,44 @@ fn selected_question_order_from_row(value: String) -> Result<QuestionPoolSelecte
     match value.as_str() { "question_pool_order" => Ok(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder), "random_order" => Ok(QuestionPoolSelectedQuestionOrder::RandomOrder), _ => Err(invalid("Question Pool selected question order")) }
 }
 
-fn blueprint_assessment_source(
-    row: &sqlx::postgres::PgRow,
-) -> Result<BlueprintAssessmentSource, StoreError> {
-    let course_reference = BlueprintCourseReference::new(
-        row.try_get::<String, _>("source_blueprint_course_reference_number")
-            .map_err(map_sqlx_error)?,
-    )
-    .map_err(|_| invalid("Blueprint Course Reference"))?;
-    let revision = u64::try_from(
-        row.try_get::<i64, _>("source_blueprint_revision_number")
-            .map_err(map_sqlx_error)?,
-    )
-    .ok()
-    .and_then(BlueprintRevision::new)
-    .ok_or_else(|| invalid("Blueprint Revision"))?;
-    let assessment_reference = BlueprintAssessmentReference::from_uuid(
-        row.try_get("source_blueprint_assessment_reference")
-            .map_err(map_sqlx_error)?,
-    );
-    Ok(BlueprintAssessmentSource::new(
-        BlueprintRevisionReference {
-            reference: course_reference,
-            revision,
-        },
+fn assessment_origin(row: &sqlx::postgres::PgRow) -> Result<AssessmentOrigin, StoreError> {
+    // ASVS 2.2.1 and 2.2.3: accept only the two complete persisted origin shapes.
+    let kind: String = row.try_get("origin_kind").map_err(map_sqlx_error)?;
+    let course_reference: Option<String> = row
+        .try_get("source_blueprint_course_reference_number")
+        .map_err(map_sqlx_error)?;
+    let revision: Option<i64> = row
+        .try_get("source_blueprint_revision_number")
+        .map_err(map_sqlx_error)?;
+    let assessment_reference: Option<uuid::Uuid> = row
+        .try_get("source_blueprint_assessment_reference")
+        .map_err(map_sqlx_error)?;
+    match (
+        kind.as_str(),
+        course_reference,
+        revision,
         assessment_reference,
-    ))
+    ) {
+        ("direct", None, None, None) => Ok(AssessmentOrigin::Direct),
+        ("adopted", Some(course_reference), Some(revision), Some(assessment_reference)) => {
+            let course_reference = BlueprintCourseReference::new(course_reference)
+                .map_err(|_| invalid("Assessment Origin"))?;
+            let revision = u64::try_from(revision)
+                .ok()
+                .and_then(BlueprintRevision::new)
+                .ok_or_else(|| invalid("Assessment Origin"))?;
+            Ok(AssessmentOrigin::Adopted {
+                source: BlueprintAssessmentSource::new(
+                    BlueprintRevisionReference {
+                        reference: course_reference,
+                        revision,
+                    },
+                    BlueprintAssessmentReference::from_uuid(assessment_reference),
+                ),
+            })
+        }
+        _ => Err(invalid("Assessment Origin")),
+    }
 }
 
 fn local_timestamp_from_row(

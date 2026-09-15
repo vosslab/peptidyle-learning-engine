@@ -10,7 +10,6 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPage,
   decodeIssuedQuestionPresentation,
-  decodeAssignmentAttempt,
   decodeStudentQuestionAttemptView,
 } from "../src/api/decoders.ts";
 import { createHttpApiClient } from "../src/api/http_client.ts";
@@ -58,7 +57,11 @@ test("an issued iMathAS Question Backend Question Presentation accepts only its 
 });
 
 test("Question Library pages remain bounded and do not disclose an Answer Key", () => {
-  const page = { items: [publishedQuestionFixture.publishedQuestion], nextCursor: null };
+  const question = {
+    ...publishedQuestionFixture.publishedQuestion,
+    questionFormat: "pleQuestionJson",
+  };
+  const page = { items: [question], nextCursor: null };
   assert.deepEqual(decodeQuestionPage(page), page);
   assert.throws(() => decodeQuestionPage({ ...page, answerKey: "secret" }), DecodeError);
   assert.throws(
@@ -68,7 +71,10 @@ test("Question Library pages remain bounded and do not disclose an Answer Key", 
 });
 
 test("Question Title and Question Description remain bounded at the strict Question Library boundary", () => {
-  const summary = publishedQuestionFixture.publishedQuestion;
+  const summary = {
+    ...publishedQuestionFixture.publishedQuestion,
+    questionFormat: "pleQuestionJson",
+  };
   const pageWithMetadata = (metadata) => ({
     items: [
       {
@@ -100,47 +106,12 @@ test("Question Title and Question Description remain bounded at the strict Quest
   );
 });
 
-test("Assignment Attempt start uses the explicit nested course and assignment route without a body", async () => {
-  const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
-  const assignmentAttempt = publishedQuestionFixture.assignment_attempts[0];
-  assert.ok(assignmentAttempt);
-  const { recordingFetch, requests } = createRecordingFetch(async () =>
-    jsonResponse(assignmentAttempt),
-  );
-  const client = createHttpApiClient({ fetch: recordingFetch });
-
-  assert.deepEqual(
-    await client.startAssignmentAttempt(course.id, assignment.id),
-    assignmentAttempt,
-  );
-  const request = requests[0];
-  assert.ok(request);
-  assert.equal(
-    request.url,
-    `https://client.example.test/api/courses/${course.id}/assignments/${assignment.id}/assignment-attempts`,
-  );
-  assert.equal(request.method, "POST");
-  assert.equal(request.headers.get("content-type"), null);
-  assert.equal(await request.text(), "");
-});
-
-test("Assignment Attempt transport preserves its retained effective evidence", () => {
-  const assignmentAttempt = publishedQuestionFixture.assignment_attempts[0];
-  assert.ok(assignmentAttempt);
-  assert.deepEqual(decodeAssignmentAttempt(assignmentAttempt).evidence.effectivePolicySources, {
-    schedule: { kind: "assignment" },
-    assignmentAttemptTimeLimit: { kind: "assignment" },
-    attemptLimit: { kind: "assignment" },
-  });
-});
-
 test("Student Question Attempt decoding accepts every generated issued capability and rejects retired values", () => {
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const {
     questionPoolSelectionPosition: _position,
-    question_seed: _legacyQuestionSeed,
+    reproduction: _reproduction,
     ...attemptView
   } = attempt;
   for (const issuedCapability of [
@@ -172,10 +143,10 @@ test("Student Question Attempt decoding rejects legacy reproduction fields", () 
   assert.ok(attempt);
   const {
     questionPoolSelectionPosition: _position,
-    question_seed: _legacyQuestionSeed,
+    reproduction: _reproduction,
     ...attemptView
   } = attempt;
-  for (const field of ["question_seed", "generated_parameter_sha256"]) {
+  for (const field of ["reproduction", "question_seed", "generated_parameter_sha256"]) {
     assert.throws(
       () => decodeStudentQuestionAttemptView({ ...attemptView, [field]: "server-only" }),
       DecodeError,
@@ -184,19 +155,19 @@ test("Student Question Attempt decoding rejects legacy reproduction fields", () 
   }
 });
 
-test("iMathAS Question Backend launch returns its strict same-origin launch route", async () => {
+test("iMathAS Question Backend launch returns its strict same-origin Assessment route", async () => {
   const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
+  const assessment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const launchUrl = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
+  const launchUrl = `/api/courses/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
   const { recordingFetch, requests } = createRecordingFetch(async () =>
     jsonResponse({ launchUrl }),
   );
   const client = createHttpApiClient({ fetch: recordingFetch });
 
   assert.deepEqual(
-    await client.beginImathasQuestionBackendLaunch(course.id, assignment.id, attempt.id),
+    await client.beginImathasQuestionBackendLaunch(course.id, assessment.id, attempt.id),
     {
       launchUrl,
     },
@@ -206,18 +177,18 @@ test("iMathAS Question Backend launch returns its strict same-origin launch rout
   assert.equal(await requests[0]?.text(), "");
 });
 
-test("iMathAS Question Backend launch rejects absolute, foreign, and decorated routes", async () => {
+test("iMathAS Question Backend launch rejects noncanonical Assessment routes", async () => {
   const course = publishedQuestionFixture.course;
-  const assignment = publishedQuestionFixture.assignment;
+  const assessment = publishedQuestionFixture.assignment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const expected = `/api/courses/${course.id}/assignments/${assignment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
+  const expected = `/api/courses/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
   const routes = [
     `https://client.example.test${expected}`,
     `https://foreign.example${expected}`,
     `//foreign.example${expected}`,
     expected.replace(course.id, "other-course"),
-    expected.replace(assignment.id, "other-assignment"),
+    expected.replace(assessment.id, "other-assessment"),
     expected.replace(attempt.id, "other-attempt"),
     "/api/health",
     `${expected}?token=secret`,
@@ -228,7 +199,7 @@ test("iMathAS Question Backend launch rejects absolute, foreign, and decorated r
       fetch: async () => jsonResponse({ launchUrl }),
     });
     await assert.rejects(
-      client.beginImathasQuestionBackendLaunch(course.id, assignment.id, attempt.id),
+      client.beginImathasQuestionBackendLaunch(course.id, assessment.id, attempt.id),
       DecodeError,
       launchUrl,
     );

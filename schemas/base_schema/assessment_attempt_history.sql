@@ -2,20 +2,72 @@
 -- retained Assessment Attempt and Issued Question evidence; current Assessment content
 -- is deliberately not an interpretation source.
 
+-- The API owner has the existing narrow Course Membership read capability.
+-- Expose only current Student Record identifiers to the private completion
+-- predicate; Account state and invitations are deliberately not cohort facts.
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.current_course_student_record_ids(p_course_id uuid)
+RETURNS TABLE (student_record_id uuid)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT membership.student_record_id
+      FROM ple_data.course_membership AS membership
+     WHERE membership.course_id = p_course_id
+       AND membership.role = 'student'
+       AND ple_data.course_membership_is_active(membership.membership_id)
+$$;
+REVOKE ALL ON FUNCTION ple_api.current_course_student_record_ids(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.current_course_student_record_ids(uuid) TO ple_private_owner;
+RESET ROLE;
+
 SET LOCAL ROLE ple_private_owner;
+-- ASVS 2.3.1, 8.2.2, 15.4.2: derive cohort completion from current
+-- membership and immutable Assessment Submission evidence at the read instant.
+-- There is no latch, snapshot, invitation, or Account-active filter.
+CREATE FUNCTION ple_private.current_student_cohort_completed_assessment(p_assessment_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+    SELECT EXISTS (
+               SELECT 1 FROM ple_data.assessment AS assessment
+                WHERE assessment.assessment_id = p_assessment_id
+           )
+       AND NOT EXISTS (
+               SELECT 1
+                 FROM ple_data.assessment AS assessment
+                 CROSS JOIN LATERAL ple_api.current_course_student_record_ids(
+                     assessment.course_id
+                 ) AS student
+                WHERE assessment.assessment_id = p_assessment_id
+                  AND NOT EXISTS (
+                      SELECT 1
+                        FROM ple_private.assessment_attempt AS assessment_attempt
+                        JOIN ple_private.assessment_submission AS submission
+                          ON submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+                       WHERE assessment_attempt.assessment_id = assessment.assessment_id
+                         AND assessment_attempt.student_record_id = student.student_record_id
+                  )
+           )
+$$;
+REVOKE ALL ON FUNCTION ple_private.current_student_cohort_completed_assessment(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.current_student_cohort_completed_assessment(uuid) TO ple_api_owner;
+
 CREATE FUNCTION ple_private.read_student_assessment_attempt_history(
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
-    course_id uuid, assessment_reference_number text, assessment_title text, assessment_attempt_number integer,
+    course_id uuid, assessment_reference_number text, assessment_title text, assessment_type text,
+    assessment_attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
     closes_at_millis bigint, submitted_at_millis bigint, evaluated_at_millis bigint,
+    all_students_completed boolean,
     grading_is_current boolean, grading_results jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
     WITH owned_assessment_attempt AS (
-        SELECT assessment_attempt.assessment_attempt_id, assessment.course_id,
+        SELECT assessment_attempt.assessment_attempt_id, assessment_attempt.assessment_id,
+               assessment.course_id,
                assessment.public_reference AS assessment_reference_number,
                assessment_attempt.assessment_title,
+               assessment.assessment_type,
                assessment_attempt.assessment_attempt_number,
                assessment_attempt.due_at,
                assessment_attempt.closes_at,
@@ -32,7 +84,10 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = assessment_attempt.assessment_id
          WHERE assessment_attempt.reference_number = p_assessment_attempt_reference_number
-           AND assessment_attempt.completed_at IS NOT NULL
+           AND EXISTS (
+               SELECT 1 FROM ple_private.assessment_submission AS submission
+                WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+           )
            AND ple_api.current_session_account_owns_student_record(
                assessment.course_id, assessment_attempt.student_record_id
            )
@@ -44,6 +99,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
     SELECT owned.course_id,
            owned.assessment_reference_number,
            owned.assessment_title,
+           owned.assessment_type,
            owned.assessment_attempt_number,
            CASE WHEN assessment_submission.assessment_attempt_id IS NOT NULL
                 THEN 'submitted'::text ELSE 'closed'::text END,
@@ -53,6 +109,9 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
            floor(extract(epoch FROM owned.closes_at) * 1000)::bigint,
            floor(extract(epoch FROM assessment_submission.submitted_at) * 1000)::bigint,
            floor(extract(epoch FROM pg_catalog.statement_timestamp()) * 1000)::bigint,
+           ple_private.current_student_cohort_completed_assessment(
+               owned.assessment_id
+           ),
            grading.grading_is_current,
            grading.grading_results
       FROM owned_assessment_attempt AS owned
@@ -76,7 +135,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
       CROSS JOIN LATERAL (
           SELECT count(*) > 0
                      AND bool_and(
-                         question_attempt.question_attempt_state = 'closed_at_deadline'
+                         question_attempt.question_attempt_state = 'closed_unanswered'
                          OR (
                              result.grading_result_id IS NOT NULL
                              AND grading_state.grading_state = 'graded'
@@ -88,7 +147,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                      ) AS grading_is_current,
                  CASE WHEN count(*) > 0
                            AND bool_and(
-                               question_attempt.question_attempt_state = 'closed_at_deadline'
+                               question_attempt.question_attempt_state = 'closed_unanswered'
                                OR (
                                    result.grading_result_id IS NOT NULL
                                    AND grading_state.grading_state = 'graded'
@@ -138,9 +197,11 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history(
     p_assessment_attempt_reference_number bigint
 ) RETURNS TABLE (
     course_reference_number bigint, course_short_name text, course_long_name text, course_theme text,
-    assessment_reference_number text, assessment_title text, assessment_attempt_number integer,
+    assessment_reference_number text, assessment_title text, assessment_type text,
+    assessment_attempt_number integer,
     state text, questions jsonb, feedback_rule jsonb, due_at_millis bigint,
     closes_at_millis bigint, submitted_at_millis bigint, evaluated_at_millis bigint,
+    all_students_completed boolean,
     grading_is_current boolean, grading_results jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -150,6 +211,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
            course.course_theme,
            history.assessment_reference_number,
            history.assessment_title,
+           history.assessment_type,
            history.assessment_attempt_number,
            history.state,
            history.questions,
@@ -158,6 +220,7 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
            history.closes_at_millis,
            history.submitted_at_millis,
            history.evaluated_at_millis,
+           history.all_students_completed,
            history.grading_is_current,
            history.grading_results
       FROM ple_private.read_student_assessment_attempt_history(
@@ -189,38 +252,34 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sou
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     WITH owned_assessment_attempt AS (
         SELECT assessment_attempt.assessment_attempt_id,
+               assessment_attempt.assessment_id,
+               assessment.assessment_type,
                assessment_attempt.feedback_submitted_response,
                assessment_attempt.feedback_question_feedback,
                assessment_attempt.feedback_question_answer,
                assessment_attempt.feedback_question_answer_explanation,
                assessment_attempt.due_at,
                assessment_attempt.closes_at,
-               assessment_submission.submitted_at AS assessment_submitted_at
+               assessment_submission.submitted_at AS assessment_submitted_at,
+               ple_private.current_student_cohort_completed_assessment(
+                   assessment_attempt.assessment_id
+               ) AS all_students_completed
           FROM ple_private.assessment_attempt AS assessment_attempt
-          JOIN ple_data.student_record AS student
-            ON student.student_record_id = assessment_attempt.student_record_id
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = assessment_attempt.assessment_id
-          LEFT JOIN ple_private.assessment_submission
+          JOIN ple_private.assessment_submission
             ON assessment_submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
          WHERE assessment_attempt.reference_number = p_assessment_attempt_reference_number
-           AND assessment_attempt.completed_at IS NOT NULL
-           AND student.course_id = assessment.course_id
-           AND student.student_account_id = ple_api.current_session_account_id()
+           -- ASVS 8.2.2 and 8.3.1: the trusted authorization helper proves
+           -- the exact Course, Student Record, session Account, and active
+           -- Student Membership without widening this private reader's table
+           -- privileges.
            AND ple_api.current_session_account_owns_student_record(
-               assessment.course_id, student.student_record_id
+               assessment.course_id, assessment_attempt.student_record_id
            )
            -- ASVS 2.3.1: richer response-source history obeys the exact
            -- ordinary-visibility boundary too.
            AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id)
-           AND EXISTS (
-               SELECT 1
-                 FROM ple_data.course_membership AS membership
-                WHERE membership.course_id = assessment.course_id
-                  AND membership.account_id = student.student_account_id
-                  AND membership.role = 'student'
-                  AND ple_data.course_membership_is_active(membership.membership_id)
-           )
     ), released_assessment_attempt AS (
         SELECT owned.*,
                (
@@ -244,24 +303,30 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                    OR (owned.feedback_question_feedback = 'after_close'
                        AND owned.closes_at IS NOT NULL
                        AND pg_catalog.statement_timestamp() >= owned.closes_at)
-                   OR owned.feedback_question_answer = 'during_attempt'
-                   OR (owned.feedback_question_answer = 'after_submit'
-                       AND owned.assessment_submitted_at IS NOT NULL)
-                   OR (owned.feedback_question_answer = 'after_due'
-                       AND owned.due_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.due_at)
-                   OR (owned.feedback_question_answer = 'after_close'
-                       AND owned.closes_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.closes_at)
-                   OR owned.feedback_question_answer_explanation = 'during_attempt'
-                   OR (owned.feedback_question_answer_explanation = 'after_submit'
-                       AND owned.assessment_submitted_at IS NOT NULL)
-                   OR (owned.feedback_question_answer_explanation = 'after_due'
-                       AND owned.due_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.due_at)
-                   OR (owned.feedback_question_answer_explanation = 'after_close'
-                       AND owned.closes_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.closes_at)
+                   OR (
+                       (owned.assessment_type NOT IN ('quiz', 'exam')
+                           OR owned.all_students_completed)
+                       AND (
+                           owned.feedback_question_answer = 'during_attempt'
+                           OR (owned.feedback_question_answer = 'after_submit'
+                               AND owned.assessment_submitted_at IS NOT NULL)
+                           OR (owned.feedback_question_answer = 'after_due'
+                               AND owned.due_at IS NOT NULL
+                               AND pg_catalog.statement_timestamp() >= owned.due_at)
+                           OR (owned.feedback_question_answer = 'after_close'
+                               AND owned.closes_at IS NOT NULL
+                               AND pg_catalog.statement_timestamp() >= owned.closes_at)
+                           OR owned.feedback_question_answer_explanation = 'during_attempt'
+                           OR (owned.feedback_question_answer_explanation = 'after_submit'
+                               AND owned.assessment_submitted_at IS NOT NULL)
+                           OR (owned.feedback_question_answer_explanation = 'after_due'
+                               AND owned.due_at IS NOT NULL
+                               AND pg_catalog.statement_timestamp() >= owned.due_at)
+                           OR (owned.feedback_question_answer_explanation = 'after_close'
+                               AND owned.closes_at IS NOT NULL
+                               AND pg_catalog.statement_timestamp() >= owned.closes_at)
+                       )
+                   )
                ) AS teaching_content_is_released
           FROM owned_assessment_attempt AS owned
     )
@@ -371,7 +436,6 @@ CREATE FUNCTION ple_private.read_course_student_work_for_retention(
     student_record_id uuid,
     assessment_id uuid,
     assessment_attempt_started_at timestamptz,
-    assessment_attempt_completed_at timestamptz,
     assessment_submitted_at timestamptz
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -379,7 +443,6 @@ SET search_path = pg_catalog, ple_data, ple_private AS $$
            assessment_attempt.student_record_id,
            assessment_attempt.assessment_id,
            assessment_attempt.started_at,
-           assessment_attempt.completed_at,
            submission.submitted_at
       FROM ple_private.assessment_attempt AS assessment_attempt
       LEFT JOIN ple_private.assessment_submission AS submission
@@ -401,7 +464,6 @@ CREATE FUNCTION ple_api.read_archived_course_student_work_for_retention(
     student_record_id uuid,
     assessment_id uuid,
     assessment_attempt_started_at timestamptz,
-    assessment_attempt_completed_at timestamptz,
     assessment_submitted_at timestamptz,
     student_data_archived_at timestamptz
 ) LANGUAGE sql STABLE SECURITY DEFINER
@@ -410,7 +472,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            work.student_record_id,
            work.assessment_id,
            work.assessment_attempt_started_at,
-           work.assessment_attempt_completed_at,
            work.assessment_submitted_at,
            course.student_data_archived_at
       FROM ple_data.course_instance AS course

@@ -4,7 +4,6 @@ import test from "node:test";
 import { decodeStudentAssessmentDetail } from "../src/api/decoders/assessment_teaching_delivery.ts";
 import {
   decodeCourseAssessments,
-  decodeCourseAssessmentSourceChoices,
   decodeSaveLiveAssessmentInlineInput,
   decodeSaveBaseAssessmentPolicyInput,
 } from "../src/api/decoders/assessment_release.ts";
@@ -17,9 +16,13 @@ function savedPolicyWorkspace() {
     reference: "A8H4N6P",
     editNumber: "4",
     status: "unreleased",
-    source: {
-      blueprint_revision: { reference: "BP7K3M2Q", revision: "1" },
-      blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
+    assessmentType: "regular_assignment",
+    origin: {
+      kind: "adopted",
+      source: {
+        blueprint_revision: { reference: "BP7K3M2Q", revision: "1" },
+        blueprint_assessment_reference: "00000000-0000-0000-0000-000000000011",
+      },
     },
     title: "Peptide bonds",
     instructions: "Read carefully.",
@@ -30,9 +33,7 @@ function savedPolicyWorkspace() {
     assessmentAttemptTimeLimitSeconds: 60,
     attemptLimit: null,
     activityRules: {
-      assessmentCompletionRule: { kind: "answerAll" },
       assessmentAttemptGradeRule: "highest",
-      assessmentAttemptContinuationRule: { kind: "unlimited" },
       questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
@@ -65,9 +66,7 @@ function baseAssessmentPolicy() {
     assessmentAttemptTimeLimitSeconds: 60,
     attemptLimit: null,
     activityRules: {
-      assessmentCompletionRule: { kind: "answerAll" },
       assessmentAttemptGradeRule: "highest",
-      assessmentAttemptContinuationRule: { kind: "unlimited" },
       questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
@@ -91,6 +90,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
   const rows = decodeCourseAssessments([
     {
       reference: "A8H4N6P",
+      assessmentType: "regular_assignment",
       title: "Peptide bonds",
       dueAt: "2026-09-11T14:30:00.000",
       displayTimeZone: "America/Chicago",
@@ -105,6 +105,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
     decodeCourseAssessments([
       {
         reference: "A8H4N6P",
+        assessmentType: "regular_assignment",
         title: "Peptide bonds",
         displayTimeZone: "America/Chicago",
         status: "released",
@@ -116,6 +117,7 @@ test("Course Assessment rows require exact due and Instructor-zone display facts
     decodeCourseAssessments([
       {
         reference: "A8H4N6P",
+        assessmentType: "regular_assignment",
         title: "Peptide bonds",
         dueAt: "2026-09-11T14:30:00.000",
         displayTimeZone: "America/Chicago",
@@ -207,40 +209,6 @@ test("Base Assessment Policy save requires a matching response ETag and maps an 
       '"3"',
     ),
     LiveAssessmentWorkspaceConflictError,
-  );
-});
-
-test("Course Assessment source choices retain the Course-pinned exact Blueprint Revision", () => {
-  const choices = decodeCourseAssessmentSourceChoices([
-    {
-      source: {
-        blueprint_revision: { reference: "BP7K3M2Q", revision: "2" },
-        blueprint_assessment_reference: "00000000-0000-0000-0000-000000000005",
-      },
-      label: "Genetics - Mendelian inheritance - Punnett squares",
-    },
-  ]);
-  assert.equal(choices[0].source.blueprint_revision.reference, "BP7K3M2Q");
-  assert.equal(choices[0].source.blueprint_revision.revision, "2");
-  assert.equal(
-    choices[0].source.blueprint_assessment_reference,
-    "00000000-0000-0000-0000-000000000005",
-  );
-  assert.throws(() =>
-    decodeCourseAssessmentSourceChoices([
-      {
-        ...choices[0],
-        source: { ...choices[0].source, unexpected: true },
-      },
-    ]),
-  );
-  assert.throws(() =>
-    decodeCourseAssessmentSourceChoices([
-      {
-        ...choices[0],
-        label: " ",
-      },
-    ]),
   );
 });
 

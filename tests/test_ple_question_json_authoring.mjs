@@ -49,10 +49,12 @@ function source() {
 }
 
 function publicationSummary(backend = "ple") {
+  const questionFormat = backend === "ple" ? "pleQuestionJson" : "webworkPg";
   return {
     questionId: "7K3M-X9QP",
     latestQuestionRevision: { questionId: "7K3M-X9QP", revisionNumber: 1 },
     backend,
+    questionFormat,
     questionType: "multipleChoice",
     capabilities: ["serverGrading"],
     metadata: {
@@ -575,7 +577,7 @@ test("client sends exact protected paths, headers, body, and revisions", async (
       }
       if (init.method === "PUT") return noContent('"2"');
       if (init.method === "POST") return jsonResponse({ questionId: "7K3M-X9QP" }, 201);
-      return jsonResponse(publicationSummary());
+      return jsonResponse({ summary: publicationSummary(), viewerMayArchive: true });
     },
   });
 
@@ -685,7 +687,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
     fetch: async (_input, init) =>
       init.method === "POST"
         ? jsonResponse({ questionId: "7K3M-X9QP" })
-        : jsonResponse(publicationSummary("webwork")),
+        : jsonResponse({ summary: publicationSummary("webwork"), viewerMayArchive: true }),
   });
   await assert.rejects(
     wrongPublication.publish(
@@ -700,7 +702,10 @@ test("client rejects publication summaries that do not exactly confirm publicati
     fetch: async (_input, init) =>
       init.method === "POST"
         ? jsonResponse({ questionId: "7K3M-X9QP" })
-        : jsonResponse({ ...publicationSummary(), scope: "public" }),
+        : jsonResponse({
+            summary: { ...publicationSummary(), scope: "public" },
+            viewerMayArchive: true,
+          }),
   });
   await assert.rejects(
     staleScope.publish(
@@ -714,7 +719,9 @@ test("client rejects publication summaries that do not exactly confirm publicati
   for (const summary of [{ ...publicationSummary(), availability: { availability: "archived" } }]) {
     const wrongLifecycleOrScope = createPleQuestionJsonClient({
       fetch: async (_input, init) =>
-        init.method === "POST" ? jsonResponse({ questionId: "7K3M-X9QP" }) : jsonResponse(summary),
+        init.method === "POST"
+          ? jsonResponse({ questionId: "7K3M-X9QP" })
+          : jsonResponse({ summary, viewerMayArchive: true }),
     });
     await assert.rejects(
       wrongLifecycleOrScope.publish(

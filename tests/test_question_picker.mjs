@@ -14,6 +14,7 @@ function row(displayId, questionTitle = "Question") {
     displayId,
     questionTitle,
     summary: "Answer-free summary.",
+    questionFormat: "pleQuestionJson",
     authorNames: ["Published author"],
     capabilities: [],
     questionLicense: "CC-BY-4.0",
@@ -150,5 +151,6 @@ function emptyQuery() {
     capability: null,
     questionLicense: null,
     usedInMyCourses: null,
+    authorship: "any",
   };
 }

@@ -62,7 +62,8 @@ DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE existing_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
 DECLARE account_id uuid := ple_api.current_session_account_id();
 DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
-DECLARE completed_assessment_attempt_count integer;
+DECLARE started_assessment_attempt_count integer;
+DECLARE effective_assessment_attempt_limit integer;
 DECLARE start_decision_value text;
 DECLARE next_assessment_attempt_number integer;
 DECLARE selection jsonb;
@@ -97,22 +98,25 @@ BEGIN
     SELECT * INTO accommodation_row
       FROM ple_private.student_assessment_accommodation
      WHERE student_record_id = p_student_record_id AND assessment_id = p_assessment_id;
+    effective_assessment_attempt_limit := CASE
+        WHEN assessment_row.assessment_type IN ('quiz', 'exam') THEN 1
+        ELSE COALESCE(
+            accommodation_row.assessment_attempt_limit,
+            assessment_row.assessment_attempt_limit
+        )
+    END;
 
-    SELECT count(*)::integer INTO completed_assessment_attempt_count
+    SELECT count(*)::integer INTO started_assessment_attempt_count
       FROM ple_private.assessment_attempt AS assessment_attempt
      WHERE assessment_attempt.student_record_id = p_student_record_id
-       AND assessment_attempt.assessment_id = p_assessment_id
-       AND (assessment_attempt.completed_at IS NOT NULL
-            OR EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission
-                         WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id)
-            OR (assessment_attempt.expires_at IS NOT NULL AND assessment_attempt.expires_at <= now_value));
+       AND assessment_attempt.assessment_id = p_assessment_id;
     start_decision_value := ple_private.assessment_start_decision(
         assessment_row.assessment_status,
         COALESCE(accommodation_row.available_at, assessment_row.available_at),
         COALESCE(accommodation_row.due_at, assessment_row.due_at),
         COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
-        COALESCE(accommodation_row.assessment_attempt_limit, assessment_row.assessment_attempt_limit),
-        completed_assessment_attempt_count,
+        effective_assessment_attempt_limit,
+        started_assessment_attempt_count,
         assessment_row.late_work_rule,
         now_value
     );
@@ -123,7 +127,6 @@ BEGIN
     SELECT * INTO existing_assessment_attempt FROM ple_private.assessment_attempt AS candidate
      WHERE candidate.student_record_id = p_student_record_id
        AND candidate.assessment_id = p_assessment_id
-       AND candidate.completed_at IS NULL
        AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission
                         WHERE submission.assessment_attempt_id = candidate.assessment_attempt_id)
        AND (candidate.expires_at IS NULL OR candidate.expires_at > now_value)
@@ -137,26 +140,24 @@ BEGIN
         RETURN NEXT;
         RETURN;
     END IF;
-    IF start_decision_value = 'assessment_attempt_limit_reached' THEN
+    IF start_decision_value = 'attempt_limit_reached' THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt limit is reached';
     ELSIF start_decision_value = 'late_work_refused' THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt start is outside its effective availability';
     END IF;
-    SELECT COALESCE(max(existing_assessment_attempt.assessment_attempt_number), 0) + 1 INTO next_assessment_attempt_number
-      FROM ple_private.assessment_attempt AS existing_assessment_attempt
-     WHERE existing_assessment_attempt.student_record_id = p_student_record_id
-       AND existing_assessment_attempt.assessment_id = p_assessment_id;
-    IF COALESCE(accommodation_row.assessment_attempt_limit, assessment_row.assessment_attempt_limit) IS NOT NULL
-       AND next_assessment_attempt_number > COALESCE(accommodation_row.assessment_attempt_limit, assessment_row.assessment_attempt_limit) THEN
+    SELECT COALESCE(max(assessment_attempt_row.assessment_attempt_number), 0) + 1 INTO next_assessment_attempt_number
+      FROM ple_private.assessment_attempt AS assessment_attempt_row
+     WHERE assessment_attempt_row.student_record_id = p_student_record_id
+       AND assessment_attempt_row.assessment_id = p_assessment_id;
+    IF effective_assessment_attempt_limit IS NOT NULL
+       AND next_assessment_attempt_number > effective_assessment_attempt_limit THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt limit is reached';
     END IF;
     INSERT INTO ple_private.assessment_attempt(
         assessment_attempt_id, student_record_id, assessment_id, assessment_attempt_number, started_at, expires_at,
         assessment_title, assessment_instructions, available_at, due_at, closes_at,
         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-        assessment_completion_rule, assessment_completion_score_threshold,
-        assessment_attempt_grade_rule, assessment_attempt_continuation_rule,
-        max_additional_assessment_attempts, question_pool_reuse_rule, question_variation_rule,
+        assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule,
         assessment_attempt_resume_rule, assessment_question_display_rule,
         assessment_navigation_rule, assessment_question_order_rule, feedback_score,
         feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback,
@@ -166,38 +167,31 @@ BEGIN
         assessment_attempt_limit_accommodation_id, assessment_attempt_limit_accommodation_edit_number
     ) VALUES (
         p_assessment_attempt_id, p_student_record_id, p_assessment_id, next_assessment_attempt_number, now_value,
-        CASE
-            WHEN COALESCE(accommodation_row.assessment_attempt_time_limit_seconds,
-                          assessment_row.assessment_attempt_time_limit_seconds) IS NOT NULL
-                 AND COALESCE(accommodation_row.closes_at, assessment_row.closes_at) IS NOT NULL
-                THEN least(
-                    now_value + pg_catalog.make_interval(
+        -- ASVS 2.3.2, 8.3.1: one immutable server-owned expiration applies
+        -- every effective timing limit that authorizes Student interaction.
+        least(
+            CASE
+                WHEN COALESCE(accommodation_row.assessment_attempt_time_limit_seconds,
+                              assessment_row.assessment_attempt_time_limit_seconds) IS NOT NULL
+                    THEN now_value + pg_catalog.make_interval(
                         secs => COALESCE(
                             accommodation_row.assessment_attempt_time_limit_seconds,
                             assessment_row.assessment_attempt_time_limit_seconds
                         )
-                    ),
-                    COALESCE(accommodation_row.closes_at, assessment_row.closes_at)
-                )
-            WHEN COALESCE(accommodation_row.assessment_attempt_time_limit_seconds,
-                          assessment_row.assessment_attempt_time_limit_seconds) IS NOT NULL
-                THEN now_value + pg_catalog.make_interval(
-                    secs => COALESCE(
-                        accommodation_row.assessment_attempt_time_limit_seconds,
-                        assessment_row.assessment_attempt_time_limit_seconds
                     )
-                )
-            ELSE COALESCE(accommodation_row.closes_at, assessment_row.closes_at)
-        END,
+            END,
+            COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
+            CASE WHEN assessment_row.late_work_rule = 'reject'
+                THEN COALESCE(accommodation_row.due_at, assessment_row.due_at)
+            END
+        ),
         assessment_row.assessment_title, assessment_row.assessment_instructions,
         COALESCE(accommodation_row.available_at, assessment_row.available_at),
         COALESCE(accommodation_row.due_at, assessment_row.due_at),
         COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
         COALESCE(accommodation_row.assessment_attempt_time_limit_seconds, assessment_row.assessment_attempt_time_limit_seconds),
-        COALESCE(accommodation_row.assessment_attempt_limit, assessment_row.assessment_attempt_limit),
-        assessment_row.late_work_rule, assessment_row.assessment_completion_rule,
-        assessment_row.assessment_completion_score_threshold, assessment_row.assessment_attempt_grade_rule,
-        assessment_row.assessment_attempt_continuation_rule, assessment_row.max_additional_assessment_attempts,
+        effective_assessment_attempt_limit,
+        assessment_row.late_work_rule, assessment_row.assessment_attempt_grade_rule,
         assessment_row.question_pool_reuse_rule, assessment_row.question_variation_rule,
         assessment_row.assessment_attempt_resume_rule, assessment_row.assessment_question_display_rule,
         assessment_row.assessment_navigation_rule, assessment_row.assessment_question_order_rule,
@@ -211,8 +205,12 @@ BEGIN
                OR accommodation_row.closes_at IS NOT NULL THEN accommodation_row.accommodation_edit_number END,
         CASE WHEN accommodation_row.assessment_attempt_time_limit_seconds IS NOT NULL THEN accommodation_row.accommodation_id END,
         CASE WHEN accommodation_row.assessment_attempt_time_limit_seconds IS NOT NULL THEN accommodation_row.accommodation_edit_number END,
-        CASE WHEN accommodation_row.assessment_attempt_limit IS NOT NULL THEN accommodation_row.accommodation_id END,
-        CASE WHEN accommodation_row.assessment_attempt_limit IS NOT NULL THEN accommodation_row.accommodation_edit_number END
+        CASE WHEN assessment_row.assessment_type NOT IN ('quiz', 'exam')
+                  AND accommodation_row.assessment_attempt_limit IS NOT NULL
+             THEN accommodation_row.accommodation_id END,
+        CASE WHEN assessment_row.assessment_type NOT IN ('quiz', 'exam')
+                  AND accommodation_row.assessment_attempt_limit IS NOT NULL
+             THEN accommodation_row.accommodation_edit_number END
     );
 
     FOR selection IN SELECT value FROM jsonb_array_elements(p_selections) LOOP
@@ -592,6 +590,16 @@ BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
         p_assessment_attempt_reference_number
     );
+    -- Match finalization's Assessment -> Assessment Attempt -> Question Attempt
+    -- lock order. A pre-expiry save therefore commits before a worker can
+    -- finalize this Attempt, and the worker must observe the saved response.
+    -- ASVS 2.3.3, 2.3.4: accepted Student Work and deadline submission are
+    -- serialized rather than resolved from competing snapshots.
+    PERFORM ple_private.lock_assessment_for_student_work(assessment_attempt_row.assessment_id);
+    SELECT * INTO assessment_attempt_row
+      FROM ple_private.assessment_attempt AS assessment_attempt
+     WHERE assessment_attempt.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
+     FOR UPDATE;
     now_value := pg_catalog.clock_timestamp();
     IF EXISTS (
         SELECT 1 FROM ple_private.assessment_submission AS submission
@@ -653,7 +661,7 @@ BEGIN
                AND response.question_attempt_id IS NULL) OVER (),
            issued.issued_position,
            CASE WHEN question_attempt.question_attempt_state = 'submission_accepted' THEN 'submitted'
-                WHEN question_attempt.question_attempt_state = 'closed_at_deadline' THEN 'closed'
+                WHEN question_attempt.question_attempt_state = 'closed_unanswered' THEN 'closed'
                 WHEN response.question_attempt_id IS NOT NULL THEN 'saved' ELSE 'unanswered' END
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
@@ -682,11 +690,6 @@ BEGIN
     assessment_attempt_row := ple_private.assert_current_student_assessment_attempt(
         p_assessment_attempt_reference_number
     );
-    IF assessment_attempt_row.completed_at IS NOT NULL THEN
-        RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Saved Student response is unavailable';
-    END IF;
-
     RETURN QUERY
     SELECT issued.issued_position,
            response.student_response

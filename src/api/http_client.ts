@@ -28,6 +28,7 @@ import { createQuestionWatchClient } from "./http_client/question_watch";
 import { createQuestionStarClient } from "./http_client/question_star";
 import { createQuestionPoolLibraryClient } from "./http_client/question_pool_library";
 import { createAssessmentStudentViewClient } from "./http_client/assessment_student_view";
+import { createAssessmentTemplateClient } from "./http_client/assessment_template";
 
 export {
   ApiProtocolError,
@@ -67,6 +68,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createQuestionStarClient(fetchImplementation, basePath),
     createQuestionPoolLibraryClient({ fetch: fetchImplementation, basePath }),
     createAssessmentStudentViewClient(fetchImplementation, basePath),
+    createAssessmentTemplateClient(fetchImplementation, basePath),
     responses,
     requests,
   );

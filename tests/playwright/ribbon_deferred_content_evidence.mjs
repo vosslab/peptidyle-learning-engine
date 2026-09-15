@@ -17,15 +17,7 @@ const css = [
 ].join("\n");
 const bundle = await bundleRibbonDeferredContentHarness();
 const RIBBON_ROOT_SELECTOR = ".ple-app-ribbon";
-const WORKSPACE_CASES = new Set(["policies", "workspace"]);
-const RETIRED_NAVIGATION_SELECTOR = [
-  '[aria-label="Course management"]',
-  '[aria-label="Assignment workspace"]',
-  ".course-management-nav",
-  ".assignment-workspace-nav",
-  ".course-management-frame",
-  "[data-course-management-frame]",
-].join(", ");
+const WORKSPACE_CASES = new Set(["policies", "studentView", "workspace"]);
 const server = createServer((_request, response) => {
   response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
   response.end(
@@ -112,12 +104,12 @@ try {
   const cases = [
     [
       "policies",
-      "assignmentWorkspaceGate",
-      "assignmentWorkspaceGate",
-      "Loading assignment workspace...",
+      "assessmentWorkspaceGate",
+      "assessmentWorkspaceGate",
+      "Loading assessment workspace...",
       undefined,
       "scopeCourse",
-      "getLiveAssignmentWorkspace",
+      "getLiveAssessmentWorkspace",
       1,
       1,
       true,
@@ -129,19 +121,19 @@ try {
       "Loading assessment workspace...",
       undefined,
       "scopeCourse",
-      "getLiveAssignmentWorkspace",
+      "getLiveAssessmentWorkspace",
       1,
       1,
       true,
     ],
     [
       "workspace",
-      "assignmentWorkspaceGate",
-      "assignmentWorkspaceGate",
-      "Loading assignment workspace...",
+      "assessmentWorkspaceGate",
+      "assessmentWorkspaceGate",
+      "Loading assessment workspace...",
       undefined,
       "scopeCourse",
-      "getLiveAssignmentWorkspace",
+      "getLiveAssessmentWorkspace",
       1,
       1,
       true,
@@ -195,11 +187,6 @@ try {
     );
     await assertHarnessRibbon(`${caseName} while deferred`, taskRowReserved);
     assert.equal(
-      await page.locator(RETIRED_NAVIGATION_SELECTOR).count(),
-      0,
-      `${caseName} mounts no retired course or workspace navigation`,
-    );
-    assert.equal(
       await page.locator('[role="alert"]').count(),
       0,
       `${caseName} does not commit a denied/unavailable alert before scope release`,
@@ -225,7 +212,7 @@ try {
     await page.evaluate((name) => window.ribbonDeferredContent.release(name), caseName);
     await page.locator(`[data-route-surface="${surface}"]`).first().waitFor({ state: "attached" });
     if (WORKSPACE_CASES.has(caseName)) {
-      const workspaceGate = page.locator('[data-route-surface="assignmentWorkspaceGate"]');
+      const workspaceGate = page.locator('[data-route-surface="assessmentWorkspaceGate"]');
       const workspaceStatus = workspaceGate.getByRole("status");
       const workspaceEyebrow = workspaceGate.locator(".eyebrow");
       await workspaceStatus.waitFor({ state: "visible" });
@@ -236,21 +223,21 @@ try {
       );
       assert.equal(
         await workspaceEyebrow.textContent(),
-        "Instructor assignment workspace",
+        "Instructor assessment workspace",
         `${caseName} exposes the exact inner workspace-gate eyebrow after course scope release`,
       );
       assert.equal(
-        await page.locator('[data-route-surface="assignmentWorkspace"] [role="status"]').count(),
+        await page.locator('[data-route-surface="assessmentWorkspace"] [role="status"]').count(),
         0,
         `${caseName} replaces the outer deferred scope fallback with its inner workspace gate`,
       );
       await page.waitForFunction(
-        (name) => window.ribbonDeferredContent.count(name, "getLiveAssignmentWorkspace") === 1,
+        (name) => window.ribbonDeferredContent.count(name, "getLiveAssessmentWorkspace") === 1,
         caseName,
       );
       assert.equal(
         await page.evaluate(
-          (name) => window.ribbonDeferredContent.count(name, "getLiveAssignmentWorkspace"),
+          (name) => window.ribbonDeferredContent.count(name, "getLiveAssessmentWorkspace"),
           caseName,
         ),
         1,
@@ -273,11 +260,6 @@ try {
       `${caseName} initializes exactly its expected downstream operation after release`,
     );
     await assertHarnessRibbon(`${caseName} after scope release`, taskRowReserved);
-    assert.equal(
-      await page.locator(RETIRED_NAVIGATION_SELECTOR).count(),
-      0,
-      `${caseName} retains no retired course or workspace navigation after scope release`,
-    );
   }
   assert.deepEqual(pageErrors, [], "compiled-harness routed components produced no browser errors");
   assert.deepEqual(

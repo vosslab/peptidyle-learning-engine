@@ -32,6 +32,7 @@ import { StudentCourseInvitationsPage } from "./pages/student_course_invitations
 import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
 import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
+import { AssessmentTemplatesPage } from "./pages/assessment_templates_page";
 import { AssessmentWorkspaceCreatePage } from "./pages/assessment_workspace/assessment_workspace_create_page";
 import {
   BlueprintCourseDetailLivePage,
@@ -68,6 +69,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   blueprintCourses: BlueprintCoursesLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
   assessmentsDueSoon: AssessmentsDueSoonPage,
+  assessmentTemplates: AssessmentTemplatesPage,
   assessmentCreate: AssessmentWorkspaceCreatePage,
   assessmentWorkspaceOverview: () =>
     createComponent(AssessmentWorkspaceLivePage, { section: "overview" }),

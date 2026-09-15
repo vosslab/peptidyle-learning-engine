@@ -6,16 +6,12 @@
 
 import fixtureSet from "./published_question/fixture_set.json" with { type: "json" };
 
-type BrowserQuestionAttempt = Omit<
-  (typeof fixtureSet.attempts)[number],
-  "parameterHash" | "reproductionDetails"
-> & {
+type BrowserQuestionAttempt = Omit<(typeof fixtureSet.attempts)[number], "reproductionDetails"> & {
   readonly questionPoolSelectionPosition: null;
 };
 
 type BrowserIssuedQuestion = Omit<
   (typeof fixtureSet.issuedQuestions)[number],
-  | "questionSeed"
   | "reproductionDetails"
   | "pointValue"
   | "scoringRule"
@@ -26,11 +22,7 @@ type BrowserIssuedQuestion = Omit<
 function browserQuestionAttempt(
   attempt: (typeof fixtureSet.attempts)[number],
 ): BrowserQuestionAttempt {
-  const {
-    parameterHash: _parameterHash,
-    reproductionDetails: _reproductionDetails,
-    ...browserSafeAttempt
-  } = attempt;
+  const { reproductionDetails: _reproductionDetails, ...browserSafeAttempt } = attempt;
   return { ...browserSafeAttempt, questionPoolSelectionPosition: null };
 }
 
@@ -38,7 +30,6 @@ function browserIssuedQuestion(
   issuedQuestion: (typeof fixtureSet.issuedQuestions)[number],
 ): BrowserIssuedQuestion {
   const {
-    questionSeed: _questionSeed,
     reproductionDetails: _reproductionDetails,
     pointValue: _pointValue,
     scoringRule: _scoringRule,

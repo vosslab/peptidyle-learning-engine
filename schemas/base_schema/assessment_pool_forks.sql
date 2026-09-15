@@ -172,7 +172,9 @@ BEGIN
      WHERE assessment.assessment_id = p_assessment_id
      RETURNING assessment.assessment_edit_number INTO assessment_edit_number;
     IF assessment_row.assessment_status = 'released' THEN
-        PERFORM ple_data.validate_assessment_release(p_assessment_id);
+        PERFORM ple_data.validate_assessment_release(
+            p_assessment_id, transaction_timestamp(), false
+        );
     END IF;
     assessment_entry_id := entry_row.assessment_entry_id;
     question_pool_id := entry_row.question_pool_id;

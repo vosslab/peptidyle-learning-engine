@@ -157,7 +157,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
 $$;
 CREATE FUNCTION ple_api.prepare_student_assessment_attempt_finalization(bigint)
 RETURNS TABLE (
-    preparation_state text, finalization_kind text, missing_positions integer[],
+    preparation_state text, finalization_kind text,
     points_earned double precision, points_possible double precision,
     question_attempt_id uuid, saved_at_millis bigint, question_id text,
     revision_number integer, source_object_id uuid, source_object_checksum text,

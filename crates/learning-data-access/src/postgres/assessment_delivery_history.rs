@@ -10,9 +10,9 @@ use crate::{
     StudentAssessmentAttemptHistoryQuestion,
 };
 use question_model::{
-    AssessmentAttemptReference, AssessmentReference, CourseInstanceReference, CourseTheme,
-    GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, StudentFeedback,
-    StudentFeedbackReleaseRule, Timestamp,
+    AssessmentAttemptReference, AssessmentReference, AssessmentType, CourseInstanceReference,
+    CourseTheme, GradingResult, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+    StudentFeedback, StudentFeedbackReleaseRule, Timestamp,
 };
 use serde::Deserialize;
 use sqlx::Row;
@@ -45,9 +45,10 @@ pub(super) async fn read(
     // SECURITY DEFINER reader re-checks exact Student ownership and membership.
     let row = sqlx::query(
         "SELECT course_reference_number, course_short_name, course_long_name, course_theme, \
-         assessment_reference_number, assessment_title, attempt_number, state, questions, \
+         assessment_reference_number, assessment_title, assessment_type, attempt_number, state, questions, \
          feedback_rule, due_at_millis, closes_at_millis, submitted_at_millis, evaluated_at_millis, \
-         grading_is_current, grading_results FROM ple_api.read_student_assessment_attempt_history($1)",
+         all_students_completed, grading_is_current, grading_results \
+         FROM ple_api.read_student_assessment_attempt_history($1)",
     )
     .bind(i64::from(assessment_attempt.number()))
     .fetch_optional(&mut *tx)
@@ -119,6 +120,11 @@ pub(super) async fn read(
     };
     let result = StudentAssessmentAttemptHistoryEvidence {
         history,
+        assessment_type: AssessmentType::parse(
+            &row.try_get::<String, _>("assessment_type")
+                .map_err(map_sqlx_error)?,
+        )
+        .ok_or_else(|| StoreError::InvalidRecord("Assessment Type is invalid".to_string()))?,
         feedback_rule,
         due_at: timestamp(row.try_get("due_at_millis").map_err(map_sqlx_error)?),
         closes_at: timestamp(row.try_get("closes_at_millis").map_err(map_sqlx_error)?),
@@ -126,6 +132,9 @@ pub(super) async fn read(
         evaluated_at: Timestamp::from_unix_millis(
             row.try_get("evaluated_at_millis").map_err(map_sqlx_error)?,
         ),
+        all_students_completed: row
+            .try_get("all_students_completed")
+            .map_err(map_sqlx_error)?,
         grading_is_current,
         grading_results,
     };

@@ -7,13 +7,9 @@ import type { Locator, Page } from "playwright";
 
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
-import {
-  enterSysadmin,
-  scrollTop,
-} from "./visible_workflows";
+import { enterSysadmin, scrollTop } from "./visible_workflows";
 
 const CREATED_EMAIL = "screenshot.instructor@live-demo.invalid";
-const SEEDED_SYSADMIN_REFERENCE = "U-5";
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,

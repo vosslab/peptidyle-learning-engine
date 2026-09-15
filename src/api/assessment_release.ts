@@ -2,15 +2,14 @@
 
 import type { AssessmentEditNumber } from "../../generated/api/AssessmentEditNumber";
 import type { AssessmentEntry } from "../../generated/api/AssessmentEntry";
+import type { AssessmentOrigin } from "../../generated/api/AssessmentOrigin";
 import type { AssessmentReference } from "../../generated/api/AssessmentReference";
-import type { BlueprintAssessmentReference } from "../../generated/api/BlueprintAssessmentReference";
-import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
-import type { BlueprintRevision } from "../../generated/api/BlueprintRevision";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { LocalDateAndTime } from "../../generated/api/LocalDateAndTime";
 import type { LateWorkRule } from "../../generated/api/LateWorkRule";
 import type { AccountTimeZone } from "../../generated/api/AccountTimeZone";
 import type { AssessmentActivityRules } from "../../generated/api/AssessmentActivityRules";
+import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 
@@ -18,6 +17,7 @@ export type LiveAssessmentStatus = "unreleased" | "released" | "closed" | "archi
 
 export interface CourseAssessmentSummary {
   readonly reference: AssessmentReference;
+  readonly assessmentType: AssessmentType;
   readonly title: string;
   readonly dueAt: LocalDateAndTime | null;
   /** Instructor zone governing this row's server-rendered local dueAt value. */
@@ -31,6 +31,7 @@ export interface DueSoonAssessmentSummary {
   readonly courseReference: CourseInstanceReference;
   readonly courseLongName: string;
   readonly assessmentReference: AssessmentReference;
+  readonly assessmentType: AssessmentType;
   readonly assessmentTitle: string;
   readonly assessmentStatus: LiveAssessmentStatus;
   /** Stored UTC instant as Unix milliseconds; render it in displayTimeZone. */
@@ -55,33 +56,19 @@ export interface AssessmentQuestionPickerEntry {
   readonly description: string;
 }
 
-/** One reusable Blueprint Assessment in this Course's exact pinned Blueprint Revision. */
-export interface CourseAssessmentSourceChoice {
-  readonly source: BlueprintAssessmentSource;
-  readonly label: string;
-}
-
 /** Answer-free exact Question Revision pin shown in the Instructor workspace. */
 export interface AuthoredAssessmentQuestion {
   readonly reference: QuestionRevisionReference;
   readonly description: string;
 }
 
-/** Immutable reusable Assessment provenance derived by PostgreSQL. */
-export interface BlueprintAssessmentSource {
-  readonly blueprint_revision: {
-    readonly reference: BlueprintCourseReference;
-    readonly revision: BlueprintRevision;
-  };
-  readonly blueprint_assessment_reference: BlueprintAssessmentReference;
-}
-
 export interface LiveAssessmentWorkspace {
   readonly reference: AssessmentReference;
   readonly editNumber: AssessmentEditNumber;
   readonly status: LiveAssessmentStatus;
-  /** Database-derived reusable Blueprint source; requests never send it. */
-  readonly source: BlueprintAssessmentSource;
+  /** Trusted server-derived direct or adopted origin; create requests never send it. */
+  readonly origin: AssessmentOrigin;
+  readonly assessmentType: AssessmentType;
   readonly title: string;
   readonly instructions: string;
   /** Zone-free wall-clock deadline resolved by the server in the Instructor zone. */
@@ -109,8 +96,7 @@ export interface LiveAssessmentWorkspaceResponse {
 }
 
 export interface CreateLiveAssessmentInput {
-  /** Stable Blueprint Assessment selected from the Course's pinned Blueprint Revision. */
-  readonly blueprintAssessmentReference: BlueprintAssessmentReference;
+  readonly assessmentType: AssessmentType;
   readonly title: string;
   readonly instructions: string;
 }
@@ -146,7 +132,14 @@ export interface SaveBaseAssessmentPolicyInput {
 export interface AssessmentReleaseValidation {
   readonly canRelease: boolean;
   readonly issues: ReadonlyArray<
-    "noPublishedQuestions" | "questionUnavailable" | "timeLimitRequired"
+    | "noPublishedQuestions"
+    | "questionUnavailable"
+    | "dueDateRequired"
+    | "dueDateLessThan24HoursAhead"
+    | "dueDateAfterCourseActiveUntil"
+    | "availabilityAfterDueDate"
+    | "dueDateAfterClose"
+    | "timeLimitRequired"
   >;
 }
 
@@ -183,10 +176,6 @@ export interface LiveAssessmentReleaseClient {
   readonly listLiveAssessmentQuestionPicker: (
     course: CourseInstanceReference,
   ) => Promise<ReadonlyArray<AssessmentQuestionPickerEntry>>;
-  /** Lists the Course-pinned reusable Blueprint Assessments available for creation. */
-  readonly listCourseAssessmentSourceChoices: (
-    course: CourseInstanceReference,
-  ) => Promise<ReadonlyArray<CourseAssessmentSourceChoice>>;
   readonly createLiveAssessment: (
     course: CourseInstanceReference,
     input: CreateLiveAssessmentInput,

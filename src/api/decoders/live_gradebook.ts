@@ -79,8 +79,6 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
             field(scoreRecord, "pointsPossible", `${path}.score`),
             `${path}.score.pointsPossible`,
           );
-          if (pointsEarned > pointsPossible)
-            throw new DecodeError(`${path}.score`, "an ordered non-negative Assessment score");
           return { pointsEarned, pointsPossible };
         })();
   const assessmentAttemptCompletion = decodeNullable(

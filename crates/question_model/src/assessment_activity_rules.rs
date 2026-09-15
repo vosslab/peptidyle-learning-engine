@@ -1,10 +1,8 @@
 //! Assessment Attempt, timing, and Assessment activity rules.
 //!
-//! The eight Assessment activity rules are independent enums that compose freely. Keeping
-//! them independent is what lets an instructor express "mastery required,
-//! highest score kept, practice allowed after completion with fresh seeds",
-//! which reflects Instructor teaching practice. A single
-//! combined "mode" enum would offer a fixed menu instead.
+//! The seven Assessment activity rules are independent enums that compose freely. Keeping
+//! them independent lets an Instructor vary grading, Question selection, display,
+//! navigation, and resumption without choosing a fixed combined mode.
 //!
 //! Question-level policies ([`QuestionAttemptLimit`], [`QuestionAttemptTimeLimit`]) are authored
 //! with the question. Assessment-level rules are chosen per Assessment, so the same
@@ -13,7 +11,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AssessmentAttempt, AssessmentEntryId, AssessmentId};
+use crate::{AssessmentAttempt, AssessmentEntryId, AssessmentId, AssessmentType};
 
 /// The Assessment Attempt state or Assessment schedule point when one
 /// Student-facing field may be disclosed.
@@ -43,7 +41,7 @@ pub enum StudentFeedbackReleaseTiming {
 /// [`AssessmentActivityRules`], whose Assessment Attempt behavior remains stable
 /// and separate from Student-facing projections.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct StudentFeedbackReleaseRule {
     /// When the Student may see their score.
     pub score: StudentFeedbackReleaseTiming,
@@ -67,13 +65,42 @@ impl Default for StudentFeedbackReleaseRule {
     /// This is deliberately an initializer rather than a serde compatibility
     /// fallback: an assessment payload must still carry this policy explicitly.
     fn default() -> Self {
+        Self::for_assessment_type(AssessmentType::RegularAssignment)
+    }
+}
+
+impl StudentFeedbackReleaseRule {
+    /// Returns the established new-Assessment defaults with the one
+    /// Type-specific answer timing required by Human Guidance.
+    ///
+    /// Question Feedback and Answer Explanation remain independent settings.
+    /// Quiz and Exam answer fields use ordinary post-submit timing plus the
+    /// trusted current-Course-cohort gate.
+    pub fn for_assessment_type(assessment_type: AssessmentType) -> Self {
         Self {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
             submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
             question_feedback: StudentFeedbackReleaseTiming::Never,
-            question_answer: StudentFeedbackReleaseTiming::Never,
-            question_answer_explanation: StudentFeedbackReleaseTiming::Never,
+            question_answer: match assessment_type {
+                AssessmentType::PracticeQuestionAssignment => {
+                    StudentFeedbackReleaseTiming::AfterSubmit
+                }
+                AssessmentType::Quiz | AssessmentType::Exam => {
+                    StudentFeedbackReleaseTiming::AfterSubmit
+                }
+                AssessmentType::RegularAssignment | AssessmentType::BonusAssignment => {
+                    StudentFeedbackReleaseTiming::Never
+                }
+            },
+            question_answer_explanation: match assessment_type {
+                AssessmentType::Quiz | AssessmentType::Exam => {
+                    StudentFeedbackReleaseTiming::AfterSubmit
+                }
+                AssessmentType::RegularAssignment
+                | AssessmentType::PracticeQuestionAssignment
+                | AssessmentType::BonusAssignment => StudentFeedbackReleaseTiming::Never,
+            },
             class_statistics: StudentFeedbackReleaseTiming::Never,
         }
     }
@@ -111,29 +138,6 @@ pub enum QuestionAttemptTimeLimit {
     },
 }
 
-/// What a Student must achieve for an Assessment Attempt to count as complete.
-///
-/// `PartialEq` without `Eq`, because a threshold is a fraction and floating
-/// point has no total equality. Comparisons on thresholds go through the
-/// scoring rules in `crates/domain`.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum AssessmentCompletionRule {
-    /// Answering every Question completes the Assessment Attempt, whatever the score.
-    AnswerAll,
-    /// Every Question must be answered correctly.
-    AllCorrect,
-    /// A score at or above a threshold completes the Assessment Attempt.
-    ScoreAtLeast {
-        /// Threshold as a fraction, where 0.8 means eighty percent.
-        fraction: f64,
-    },
-}
-
 /// Which Assessment Attempt score reaches the Gradebook.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -146,25 +150,6 @@ pub enum AssessmentAttemptGradeRule {
     Highest,
     /// An Assessment Attempt explicitly selected by the Instructor.
     InstructorSelected,
-}
-
-/// What a student may do after completing an assessment.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(
-    tag = "kind",
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase"
-)]
-pub enum AssessmentAttemptContinuationRule {
-    /// Any number of new Assessment Attempts may be started after completion.
-    Unlimited,
-    /// A bounded number of new Assessment Attempts may be started after completion.
-    Capped {
-        /// Assessment Attempts allowed after the first completed Assessment Attempt.
-        max_additional_assessment_attempts: u32,
-    },
-    /// The assessment closes once complete.
-    Closed,
 }
 
 /// What a later Assessment Attempt does with Question Pool membership.
@@ -308,19 +293,15 @@ impl QuestionPoolSelectionInputs {
     }
 }
 
-/// The nine explicit Assessment activity rules an Assessment chooses, gathered for convenience.
+/// The seven explicit Assessment activity rules an Assessment chooses, gathered for convenience.
 ///
 /// A struct of independent enums rather than one combined enum: the rules vary
 /// independently, and all combinations are meaningful.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssessmentActivityRules {
-    /// What one Assessment Attempt must satisfy to be complete.
-    pub assessment_completion_rule: AssessmentCompletionRule,
     /// Which completed Assessment Attempt score reaches the Gradebook.
     pub assessment_attempt_grade_rule: AssessmentAttemptGradeRule,
-    /// Whether another Assessment Attempt may start after completion.
-    pub assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule,
     /// Whether a later Assessment Attempt reuses its Question Pool Selection.
     pub question_pool_reuse_rule: QuestionPoolReuseRule,
     /// Whether a later Assessment Attempt reuses each selected Question Variation.
@@ -338,9 +319,7 @@ pub struct AssessmentActivityRules {
 impl Default for AssessmentActivityRules {
     fn default() -> Self {
         Self {
-            assessment_completion_rule: AssessmentCompletionRule::AnswerAll,
             assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-            assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
             question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
             question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
             assessment_attempt_resume_rule: AssessmentAttemptResumeRule::Resumable,
@@ -387,11 +366,9 @@ mod tests {
     }
 
     #[test]
-    fn the_nine_assessment_activity_rules_compose_freely() {
-        let mastery_with_practice = AssessmentActivityRules {
-            assessment_completion_rule: AssessmentCompletionRule::AllCorrect,
+    fn activity_rules_round_trip_the_closed_seven_field_contract() {
+        let rules = AssessmentActivityRules {
             assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-            assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
             question_pool_reuse_rule: QuestionPoolReuseRule::ReuseSelection,
             question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
             assessment_attempt_resume_rule: AssessmentAttemptResumeRule::Resumable,
@@ -399,29 +376,18 @@ mod tests {
             assessment_navigation_rule: AssessmentNavigationRule::FreeNavigation,
             assessment_question_order_rule: AssessmentQuestionOrderRule::AuthoredOrder,
         };
-        let json =
-            serde_json::to_string(&mastery_with_practice).expect("serialization should succeed");
+        let json = serde_json::to_string(&rules).expect("serialization should succeed");
         let restored: AssessmentActivityRules =
             serde_json::from_str(&json).expect("deserialization should succeed");
-        assert_eq!(restored, mastery_with_practice);
+        assert_eq!(restored, rules);
         assert!(json.contains(r#""questionPoolReuseRule":"reuseSelection""#));
         assert!(json.contains(r#""questionVariationRule":"newVariation""#));
-        assert!(serde_json::from_str::<AssessmentActivityRules>(
-            r#"{"completion":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"variation":"newSeeds"}"#,
-        )
-        .is_err());
-        assert!(serde_json::from_str::<AssessmentActivityRules>(
-            r#"{"completion":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"invalidValue"}"#,
-        )
-        .is_err());
-        assert!(serde_json::from_str::<AssessmentActivityRules>(
-            r#"{"assessmentCompletionRule":{"kind":"allCorrect"},"grade":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"invalidValue"}"#,
-        )
-        .is_err());
-        assert!(serde_json::from_str::<AssessmentActivityRules>(
-            r#"{"assessmentCompletionRule":{"kind":"allCorrect"},"assessmentAttemptGradeRule":"highest","continuedPractice":{"kind":"unlimited"},"questionVariationRule":"invalidValue"}"#,
-        )
-        .is_err());
+        assert!(
+            serde_json::from_str::<AssessmentActivityRules>(
+                r#"{"completion":{"kind":"allCorrect"}}"#,
+            )
+            .is_err()
+        );
     }
 
     #[test]
@@ -465,7 +431,7 @@ mod tests {
             },
             attempt_number: 2,
             started_at: crate::Timestamp::from_unix_millis(1),
-            completed_at: None,
+            submitted_at: None,
             score: None,
         };
         let entry = AssessmentEntryId::from_uuid(Uuid::from_u128(4));
@@ -545,5 +511,40 @@ mod tests {
             StudentFeedbackReleaseTiming::Never
         );
         assert_eq!(rule.class_statistics, StudentFeedbackReleaseTiming::Never);
+    }
+
+    #[test]
+    fn practice_defaults_release_the_answer_without_releasing_question_feedback() {
+        let practice = StudentFeedbackReleaseRule::for_assessment_type(
+            AssessmentType::PracticeQuestionAssignment,
+        );
+
+        assert_eq!(
+            practice.question_answer,
+            StudentFeedbackReleaseTiming::AfterSubmit
+        );
+        assert_eq!(
+            practice.question_feedback,
+            StudentFeedbackReleaseTiming::Never
+        );
+        assert_eq!(
+            practice.question_answer_explanation,
+            StudentFeedbackReleaseTiming::Never
+        );
+    }
+
+    #[test]
+    fn quiz_and_exam_defaults_release_answers_only_after_submission() {
+        for assessment_type in [AssessmentType::Quiz, AssessmentType::Exam] {
+            let rule = StudentFeedbackReleaseRule::for_assessment_type(assessment_type);
+            assert_eq!(
+                rule.question_answer,
+                StudentFeedbackReleaseTiming::AfterSubmit
+            );
+            assert_eq!(
+                rule.question_answer_explanation,
+                StudentFeedbackReleaseTiming::AfterSubmit
+            );
+        }
     }
 }

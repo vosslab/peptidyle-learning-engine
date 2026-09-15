@@ -48,25 +48,23 @@ async fn make_attempt(
         .await
         .expect("data fixture role");
     sqlx::query(
-        "INSERT INTO ple_data.assessment (assessment_id, course_id, \
+        "INSERT INTO ple_data.assessment (assessment_id, course_id, origin_kind, \
          source_blueprint_course_reference_number, source_blueprint_revision_number, \
-         source_blueprint_assessment_reference, created_at, updated_at, assessment_title, \
+         source_blueprint_assessment_reference, created_at, updated_at, assessment_type, assessment_title, \
          assessment_instructions, available_at, due_at, closes_at, \
-         assessment_attempt_time_limit_seconds, attempt_limit, late_work_rule, \
-         assessment_completion_rule, assessment_attempt_grade_rule, \
-         assessment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, \
+         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
+         assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
          assessment_attempt_resume_rule, assessment_question_display_rule, \
          assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
          feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \
          feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
          assessment_status) \
-         SELECT $1, course_id, source_blueprint_course_reference_number, \
+         SELECT $1, course_id, origin_kind, source_blueprint_course_reference_number, \
                 source_blueprint_revision_number, source_blueprint_assessment_reference, \
-                clock_timestamp(), clock_timestamp(), assessment_title, assessment_instructions, \
+                clock_timestamp(), clock_timestamp(), assessment_type, assessment_title, assessment_instructions, \
                 clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour', \
                 clock_timestamp() + interval '2 hours', 60, 1, late_work_rule, \
-                assessment_completion_rule, assessment_attempt_grade_rule, \
-                assessment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, \
+                assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
                 assessment_attempt_resume_rule, assessment_question_display_rule, \
                 assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
                 feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \

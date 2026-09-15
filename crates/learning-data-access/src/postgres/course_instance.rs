@@ -161,7 +161,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         input.validate()?;
         for attempt in 0..ADOPTION_POOL_IDENTITY_ATTEMPTS {
             let mut transaction = self
-                .begin_authenticated_application_transaction(session_token_hash.clone())
+                .begin_authenticated_application_transaction(session_token_hash)
                 .await?;
             let assessments = super::course_blueprint_adoption::creation_assessments(
                 &mut transaction,

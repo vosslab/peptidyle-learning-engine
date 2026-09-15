@@ -34,12 +34,12 @@ CREATE TABLE ple_data.course_instance (
     course_lifecycle_state text NOT NULL DEFAULT 'active'
         CHECK (course_lifecycle_state IN ('active', 'inactive')),
     course_became_inactive_at timestamp with time zone,
-    -- A later Assessment-owned atomic save path sets this Course-local fact
-    -- from the latest Assessment due instant.
+    -- Assessment saves keep this current fact synchronized with the latest
+    -- Unreleased or Released Assessment due instant.
     latest_assessment_due_at timestamp with time zone,
-    retention_starts_at timestamp with time zone,
-    retention_lifecycle_state text NOT NULL DEFAULT 'not_started'
-        CHECK (retention_lifecycle_state IN ('not_started', 'active', 'archived', 'deleted')),
+    retention_starts_at timestamp with time zone NOT NULL,
+    retention_lifecycle_state text NOT NULL DEFAULT 'active'
+        CHECK (retention_lifecycle_state IN ('active', 'archived', 'deleted')),
     student_data_archived_at timestamp with time zone,
     student_data_deleted_at timestamp with time zone,
     CHECK (
@@ -69,26 +69,17 @@ CREATE TABLE ple_data.course_instance (
         latest_assessment_due_at >= created_at
         AND latest_assessment_due_at <= active_until_at
     )),
-    CHECK (retention_starts_at IS NULL OR (
-        retention_starts_at = latest_assessment_due_at
-        AND retention_starts_at >= created_at
-        AND retention_starts_at <= active_until_at
-    )),
     CHECK (
-        (retention_lifecycle_state = 'not_started'
-            AND retention_starts_at IS NULL
-            AND student_data_archived_at IS NULL
-            AND student_data_deleted_at IS NULL)
-        OR (retention_lifecycle_state = 'active'
-            AND retention_starts_at IS NOT NULL
+        (retention_lifecycle_state = 'active'
+            AND retention_starts_at = COALESCE(latest_assessment_due_at, active_until_at)
             AND student_data_archived_at IS NULL
             AND student_data_deleted_at IS NULL)
         OR (retention_lifecycle_state = 'archived'
-            AND retention_starts_at IS NOT NULL
+            AND retention_starts_at BETWEEN created_at AND active_until_at
             AND student_data_archived_at >= retention_starts_at
             AND student_data_deleted_at IS NULL)
         OR (retention_lifecycle_state = 'deleted'
-            AND retention_starts_at IS NOT NULL
+            AND retention_starts_at BETWEEN created_at AND active_until_at
             AND student_data_archived_at >= retention_starts_at
             AND student_data_deleted_at >= student_data_archived_at)
     ),
@@ -112,6 +103,11 @@ BEGIN
             NEW.active_until_at,
             ((NEW.created_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC'
         );
+        NEW.retention_lifecycle_state := 'active';
+        NEW.retention_starts_at := COALESCE(
+            NEW.latest_assessment_due_at,
+            NEW.active_until_at
+        );
     ELSIF NEW.created_at IS DISTINCT FROM OLD.created_at
        OR NEW.active_until_at IS DISTINCT FROM OLD.active_until_at THEN
         RAISE EXCEPTION USING ERRCODE = '55000',
@@ -131,9 +127,7 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '55000',
                 MESSAGE = 'a Course Instance cannot return from Inactive';
         END IF;
-        IF (OLD.retention_lifecycle_state = 'not_started'
-                AND NEW.retention_lifecycle_state NOT IN ('not_started', 'active'))
-           OR (OLD.retention_lifecycle_state = 'active'
+        IF (OLD.retention_lifecycle_state = 'active'
                AND NEW.retention_lifecycle_state NOT IN ('active', 'archived'))
            OR (OLD.retention_lifecycle_state = 'archived'
                AND NEW.retention_lifecycle_state NOT IN ('archived', 'deleted'))
@@ -142,7 +136,7 @@ BEGIN
             RAISE EXCEPTION USING ERRCODE = '55000',
                 MESSAGE = 'a Course retention lifecycle cannot regress';
         END IF;
-        IF OLD.retention_starts_at IS NOT NULL
+        IF OLD.retention_lifecycle_state IN ('archived', 'deleted')
            AND NEW.retention_starts_at IS DISTINCT FROM OLD.retention_starts_at THEN
             RAISE EXCEPTION USING ERRCODE = '55000',
                 MESSAGE = 'a Course retention start is immutable';
@@ -156,11 +150,6 @@ BEGIN
            AND NEW.student_data_deleted_at IS DISTINCT FROM OLD.student_data_deleted_at THEN
             RAISE EXCEPTION USING ERRCODE = '55000',
                 MESSAGE = 'a Course Student-data deletion time is immutable';
-        END IF;
-        IF OLD.retention_lifecycle_state <> 'not_started'
-           AND NEW.latest_assessment_due_at IS DISTINCT FROM OLD.latest_assessment_due_at THEN
-            RAISE EXCEPTION USING ERRCODE = '55000',
-                MESSAGE = 'a started Course retention anchor is immutable';
         END IF;
     END IF;
     RETURN NEW;
@@ -240,6 +229,8 @@ GRANT USAGE ON SCHEMA ple_data TO ple_private_owner, ple_audit_owner;
 GRANT REFERENCES ON TABLE ple_data.course_instance TO ple_private_owner, ple_audit_owner;
 CREATE POLICY course_instance_api_owner_access ON ple_data.course_instance
     FOR ALL TO ple_api_owner USING (true) WITH CHECK (true);
+CREATE POLICY course_instance_data_owner_deadline_schedule ON ple_data.course_instance
+    FOR UPDATE TO ple_data_owner USING (true) WITH CHECK (true);
 CREATE POLICY course_origin_api_owner_access ON ple_data.course_origin
     FOR ALL TO ple_api_owner USING (true) WITH CHECK (true);
 

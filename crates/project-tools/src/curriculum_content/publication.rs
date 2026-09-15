@@ -27,7 +27,8 @@ use question_model::{
     QuestionBackend, QuestionFormat, QuestionLicense, QuestionPoolSelectedQuestionOrder,
     QuestionPoolSelectionRule, QuestionRevisionReason, QuestionRevisionReference, QuestionType,
     ReplaceBlueprintCourseContentInput, RequestChecksum, ReusableFixedQuestionInput,
-    ReusablePoolInput, SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
+    ReusablePoolInput, SourceObjectChecksum, SourceObjectReference, StudentFeedbackReleaseRule,
+    Timestamp, WorkspaceId,
 };
 use server_core::question_publication::{
     HmacQuestionIdIssuer, NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
@@ -599,6 +600,7 @@ fn blueprint_input(
             }));
         }
         assessments.push(BlueprintAssessmentContentInput {
+            assessment_type: manifest.course.assessment_type,
             title: topic.title.clone(),
             instructions: AssessmentInstructions::try_new(topic.instructions.clone())
                 .map_err(|_| anyhow::anyhow!("curriculum topic instructions are invalid"))?,
@@ -608,7 +610,9 @@ fn blueprint_input(
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Reject,
                 activity_rules: AssessmentActivityRules::default(),
-                student_feedback_release_rule: Default::default(),
+                student_feedback_release_rule: StudentFeedbackReleaseRule::for_assessment_type(
+                    manifest.course.assessment_type,
+                ),
             },
         });
     }

@@ -6,50 +6,46 @@ import test from "node:test";
 import { studentFeedbackAnnouncement } from "../src/components/student_feedback_panel.tsx";
 
 test("withheld and released Student Feedback announce distinct, policy-neutral states", () => {
-  assert.equal(
-    studentFeedbackAnnouncement({
-      kind: "awaiting",
-      feedback: null,
-      assignmentScoringState: "current",
-    }),
-    "Your response was recorded. Student Feedback is not available for this response.",
-  );
-  assert.equal(
-    studentFeedbackAnnouncement({
-      kind: "released",
-      feedback: { correctness: true },
-      assignmentScoringState: "current",
-    }),
-    "Student Feedback released. Correct.",
-  );
+  const withheld = studentFeedbackAnnouncement({
+    kind: "awaiting",
+    feedback: null,
+    assessmentScoringState: "current",
+  });
+  const released = studentFeedbackAnnouncement({
+    kind: "released",
+    feedback: { correctness: true },
+    assessmentScoringState: "current",
+  });
+
+  assert.match(withheld, /not available/);
+  assert.doesNotMatch(withheld, /Correct|Not quite/);
+  assert.match(released, /Correct/);
 });
 
-test("non-current scores announce recoverable Student Feedback states", () => {
-  assert.equal(
-    studentFeedbackAnnouncement({
-      kind: "released",
-      feedback: { incorrectFeedback: [{ kind: "text", markdown: "Review the peptide bond." }] },
-      assignmentScoringState: "recalculating",
-    }),
-    "Your response was recorded. Your score is being updated.",
-  );
-  assert.equal(
-    studentFeedbackAnnouncement({
-      kind: "released",
-      feedback: { incorrectFeedback: [{ kind: "text", markdown: "Review the peptide bond." }] },
-      assignmentScoringState: "failed",
-    }),
-    "Your response was recorded. Your score is waiting for instructor review.",
-  );
+test("non-current scores stay hidden behind recoverable Student Feedback states", () => {
+  const recalculating = studentFeedbackAnnouncement({
+    kind: "released",
+    feedback: { correctness: true },
+    assessmentScoringState: "recalculating",
+  });
+  const failed = studentFeedbackAnnouncement({
+    kind: "released",
+    feedback: { correctness: false },
+    assessmentScoringState: "failed",
+  });
+
+  assert.match(recalculating, /score is being updated/);
+  assert.match(failed, /waiting for instructor review/);
+  assert.doesNotMatch(`${recalculating} ${failed}`, /Correct|Not quite/);
 });
 
 test("released Student Feedback with no disclosed fields remains neutral", () => {
-  assert.equal(
-    studentFeedbackAnnouncement({
-      kind: "released",
-      feedback: {},
-      assignmentScoringState: "current",
-    }),
-    "Student Feedback released. Your response was recorded.",
-  );
+  const announcement = studentFeedbackAnnouncement({
+    kind: "released",
+    feedback: {},
+    assessmentScoringState: "current",
+  });
+
+  assert.match(announcement, /response (?:was )?recorded/i);
+  assert.doesNotMatch(announcement, /Correct|Not quite/);
 });

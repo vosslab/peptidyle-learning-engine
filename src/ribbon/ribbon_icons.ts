@@ -24,17 +24,29 @@ export const RIBBON_GLYPH_IDS = [
   "user-graduate",
   "palette",
   "arrow-left",
+  "arrows-spin",
   "circle-user",
+  "file-signature",
   "right-from-bracket",
   "box-archive",
   "clock",
   "copy",
+  "circle-question",
   "file-circle-question",
   "layer-group",
   "magnifying-glass",
 ] as const;
 
 export type RibbonGlyphId = (typeof RIBBON_GLYPH_IDS)[number];
+
+/** Assessment Type glyphs available in the bundled Free Solid sprite. */
+export const RIBBON_ASSESSMENT_TYPE_GLYPHS = [
+  "pen-to-square",
+  "arrows-spin",
+  "star",
+  "circle-question",
+  "file-signature",
+] as const satisfies ReadonlyArray<RibbonGlyphId>;
 
 /**
  * The sole destination-to-glyph authority. Every visible Ribbon destination

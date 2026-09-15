@@ -6,7 +6,6 @@ import {
   moveAssessmentEntry,
   removeAssessmentEntry,
 } from "../src/pages/assessment_workspace/assessment_workspace_questions_model.ts";
-import { selectedAssessmentSource } from "../src/pages/assessment_workspace/assessment_workspace_create_model.ts";
 import { assessmentPolicySaveInput } from "../src/pages/assessment_workspace/assessment_workspace_policy_model.ts";
 
 const fixed = {
@@ -86,24 +85,6 @@ test("Questions removal changes only the chosen stable Entry", () => {
   assert.equal(remaining[0], pool);
 });
 
-test("Assessment creation uses only the deliberately selected stable Blueprint Assessment source", () => {
-  const choices = [
-    {
-      source: {
-        blueprint_revision: { reference: "BP7K3M2Q", revision: "3" },
-        blueprint_assessment_reference: "00000000-0000-0000-0000-000000000007",
-      },
-      label: "Protein structure practice",
-    },
-  ];
-
-  assert.equal(selectedAssessmentSource(choices, ""), undefined);
-  assert.equal(
-    selectedAssessmentSource(choices, "00000000-0000-0000-0000-000000000007"),
-    choices[0],
-  );
-});
-
 test("Policy save retains normalized Entries and the current availability and close bounds", () => {
   const current = {
     title: "Protein structure",
@@ -116,9 +97,7 @@ test("Policy save retains normalized Entries and the current availability and cl
     assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
-      assessmentCompletionRule: { kind: "answerAll" },
       assessmentAttemptGradeRule: "latest",
-      assessmentAttemptContinuationRule: { kind: "closed" },
       questionPoolReuseRule: "selectAgain",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",

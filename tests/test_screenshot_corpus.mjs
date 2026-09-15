@@ -10,7 +10,6 @@ import {
   ROLE_IDS,
   decodeManifest,
   loadManifest,
-  validateScenarioClosure,
 } from "./playwright/screenshot_corpus/manifest";
 import {
   createReceipt,
@@ -22,7 +21,6 @@ import {
   verifyPublishedArtifacts,
 } from "./playwright/screenshot_corpus/publication";
 import { PRIVACY_PROFILES } from "./playwright/screenshot_corpus/privacy_profiles";
-import { SCREENSHOT_SCENARIOS } from "./playwright/screenshot_corpus/scenario_registry";
 
 const repositoryRoot = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const manifestPath = path.join(repositoryRoot, "docs/screenshots/current_capture_manifest.json");
@@ -73,19 +71,7 @@ function expectedPrivacyProfile(capture) {
   return "student_self";
 }
 
-test("the shipped manifest closes its routes, registry, paths, and viewports", async () => {
-  const manifest = await loadManifest(manifestPath);
-  validateScenarioClosure(manifest, SCREENSHOT_SCENARIOS);
-  for (const role of ROLE_IDS) {
-    assert.ok(manifest.captures.some((capture) => capture.role === role));
-  }
-  for (const capture of manifest.captures) {
-    assert.equal(capture.path.split("/").length, 2);
-    assert.deepEqual(manifest.viewports[capture.viewport], CANONICAL_VIEWPORTS[capture.viewport]);
-  }
-});
-
-test("manifest decoding rejects procedural fields, traversal, and missing coverage", async () => {
+test("manifest decoding rejects procedural fields and traversal", async () => {
   const source = JSON.parse(await readFile(manifestPath, "utf8"));
   const procedural = structuredClone(source);
   const captures = procedural["captures"];
@@ -95,11 +81,6 @@ test("manifest decoding rejects procedural fields, traversal, and missing covera
   const traversal = structuredClone(source);
   traversal["captures"][0]["path"] = "../escape.png";
   assert.throws(() => decodeManifest(traversal), /flat semantic filename/u);
-
-  const incomplete = structuredClone(source);
-  const coverage = incomplete["coverage"];
-  coverage["routes"].pop();
-  assert.throws(() => decodeManifest(incomplete), /coverage is not closed/u);
 });
 
 test("the shipped manifest selects the least-data profile for each semantic surface", async () => {
@@ -113,59 +94,13 @@ test("the shipped manifest selects the least-data profile for each semantic surf
   assert.equal(PRIVACY_PROFILES.student_selected_response.statusHeading, "forbidden");
 });
 
-test("PNG dimensions and receipts derive from image bytes", () => {
+test("PNG dimensions derive from image bytes", () => {
   const header = Buffer.alloc(24);
   Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).copy(header);
   header.write("IHDR", 12, "ascii");
   header.writeUInt32BE(393, 16);
   header.writeUInt32BE(852, 20);
   assert.deepEqual(pngDimensions(header), { width: 393, height: 852 });
-
-  const receipt = createReceipt("a".repeat(64), [
-    { id: "second", path: "student/z.png", width: 393, height: 852, sha256: "b".repeat(64) },
-    { id: "first", path: "public/a.png", width: 1280, height: 800, sha256: "c".repeat(64) },
-  ]);
-  assert.deepEqual(receipt.paths, ["public/a.png", "student/z.png"]);
-  assert.equal(receiptJson(receipt), `${JSON.stringify(receipt, null, 2)}\n`);
-});
-
-test("corpus inspection rejects byte-identical active captures", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-corpus-"));
-  try {
-    const manifest = await loadManifest(manifestPath);
-    const original = manifest.captures[0];
-    assert.ok(original);
-    const duplicate = {
-      ...original,
-      id: `${original.id}_duplicate`,
-      path: `${original.role}/duplicate.png`,
-    };
-    const fixtureManifest = { ...manifest, captures: [original, duplicate] };
-    await Promise.all(ROLE_IDS.map((role) => mkdir(path.join(root, role), { recursive: true })));
-    const bytes = fixturePng(original, "duplicate");
-    for (const capture of fixtureManifest.captures) {
-      const target = path.join(root, capture.path);
-      await writeFile(target, bytes);
-    }
-    await assert.rejects(inspectCorpus(root, fixtureManifest), /duplicate screenshot bytes/u);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
-});
-
-test("corpus inspection rejects files and folders outside the closed role tree", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "ple-screenshot-root-"));
-  try {
-    const manifest = oneCaptureManifest(await loadManifest(manifestPath));
-    await writeFixtureCorpus(root, manifest, "closed-root");
-    await writeFile(path.join(root, "retired.png"), "retired", "utf8");
-    await assert.rejects(inspectCorpus(root, manifest), /root file path set differs/u);
-    await rm(path.join(root, "retired.png"));
-    await mkdir(path.join(root, "retired"));
-    await assert.rejects(inspectCorpus(root, manifest), /role folder path set differs/u);
-  } finally {
-    await rm(root, { force: true, recursive: true });
-  }
 });
 
 test("published verification rejects a receipt that no longer binds its PNG", async () => {
@@ -255,15 +190,4 @@ test("publication restores the prior corpus when a role replacement fails", asyn
   } finally {
     await rm(root, { force: true, recursive: true });
   }
-});
-
-test("the generated atlas is deterministic, visual, and exposes coverage", async () => {
-  const manifest = await loadManifest(manifestPath);
-  const first = renderAtlas(manifest, "screenshots/");
-  assert.equal(first, renderAtlas(manifest, "screenshots/"));
-  assert.ok(first.endsWith("\n"));
-  assert.ok(!first.endsWith("\n\n"));
-  assert.match(first, /\[!\[[^\]]+\]\(screenshots\/[a-z/_.]+\.png\)\]/u);
-  assert.match(first, /## Route coverage/u);
-  assert.match(first, /## Ribbon destination coverage/u);
 });

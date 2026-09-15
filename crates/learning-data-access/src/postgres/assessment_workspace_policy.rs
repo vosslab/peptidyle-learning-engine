@@ -1,10 +1,10 @@
 //! Decoding of Assessment Workspace policy columns returned by PostgreSQL.
 
 use question_model::{
-    AssessmentActivityRules, AssessmentAttemptContinuationRule, AssessmentAttemptGradeRule,
-    AssessmentAttemptResumeRule, AssessmentCompletionRule, AssessmentNavigationRule,
-    AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule, AssessmentQuestionVariationRule,
-    QuestionPoolReuseRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    AssessmentActivityRules, AssessmentAttemptGradeRule, AssessmentAttemptResumeRule,
+    AssessmentNavigationRule, AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule,
+    AssessmentQuestionVariationRule, QuestionPoolReuseRule, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseTiming,
 };
 use sqlx::Row;
 
@@ -16,38 +16,12 @@ pub(super) fn activity_rules(
 ) -> Result<AssessmentActivityRules, StoreError> {
     let value = |column| row.try_get::<String, _>(column).map_err(map_sqlx_error);
     Ok(AssessmentActivityRules {
-        assessment_completion_rule: match value("assessment_completion_rule")?.as_str() {
-            "answer_all" => AssessmentCompletionRule::AnswerAll,
-            "all_correct" => AssessmentCompletionRule::AllCorrect,
-            "score_at_least" => AssessmentCompletionRule::ScoreAtLeast {
-                fraction: row
-                    .try_get::<Option<f64>, _>("assessment_completion_score_threshold")
-                    .map_err(map_sqlx_error)?
-                    .ok_or_else(|| invalid("Assessment Completion Score Threshold"))?,
-            },
-            _ => return Err(invalid("Assessment Completion Rule")),
-        },
         assessment_attempt_grade_rule: match value("assessment_attempt_grade_rule")?.as_str() {
             "first" => AssessmentAttemptGradeRule::First,
             "latest" => AssessmentAttemptGradeRule::Latest,
             "highest" => AssessmentAttemptGradeRule::Highest,
             "instructor_selected" => AssessmentAttemptGradeRule::InstructorSelected,
             _ => return Err(invalid("Assessment Attempt Grade Rule")),
-        },
-        assessment_attempt_continuation_rule: match value("assessment_attempt_continuation_rule")?
-            .as_str()
-        {
-            "unlimited" => AssessmentAttemptContinuationRule::Unlimited,
-            "closed" => AssessmentAttemptContinuationRule::Closed,
-            "capped" => AssessmentAttemptContinuationRule::Capped {
-                max_additional_assessment_attempts: u32::try_from(
-                    row.try_get::<Option<i32>, _>("max_additional_assessment_attempts")
-                        .map_err(map_sqlx_error)?
-                        .ok_or_else(|| invalid("Maximum Additional Assessment Attempts"))?,
-                )
-                .map_err(|_| invalid("Maximum Additional Assessment Attempts"))?,
-            },
-            _ => return Err(invalid("Assessment Attempt Continuation Rule")),
         },
         question_pool_reuse_rule: match value("question_pool_reuse_rule")?.as_str() {
             "reuse_selection" => QuestionPoolReuseRule::ReuseSelection,

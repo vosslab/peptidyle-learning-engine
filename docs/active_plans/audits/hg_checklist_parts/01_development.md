@@ -19,6 +19,10 @@ PLE product or code behavior.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
   - Reason: agent instruction, not implemented PLE product behavior.
+- [ ] Prefer the smallest coherent design that meets actual requirements and known failure modes.
+  - Mismatch: Current implementation choices have not been audited against this KISS constraint.
+- [ ] Complexity must earn its place.
+  - Mismatch: Current implementation choices have not been audited against this KISS constraint.
 - N/A Time should be used efficiently. Agents and tokens are cheap; wall time is not.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Hard work should be broken into small, independently completable tasks.

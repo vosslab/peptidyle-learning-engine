@@ -4,7 +4,10 @@ import test from "node:test";
 import { ApiProtocolError, createHttpApiClient } from "../src/api/http_client.ts";
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
-const question = publishedQuestionFixture.publishedQuestion;
+const question = {
+  ...publishedQuestionFixture.publishedQuestion,
+  questionFormat: "pleQuestionJson",
+};
 
 function noStoreJson(value, etag) {
   return new Response(JSON.stringify(value), {
@@ -27,9 +30,9 @@ function details(revisionNumber) {
     usage: {
       summary: {
         globalCourseCount: 0,
-        globalAssignmentCount: 0,
+        globalAssessmentCount: 0,
         ownCourseCount: 0,
-        ownAssignmentCount: 0,
+        ownAssessmentCount: 0,
       },
       ownCourses: [],
       ownCoursesTruncated: false,
@@ -51,11 +54,12 @@ test("Question availability client keeps current lineage transitions and exact r
       if (path.endsWith("/restore")) {
         return noStoreJson({ availability: { availability: "available" }, editNumber: "7" }, '"7"');
       }
-      return noStoreJson(question, '"5"');
+      return noStoreJson({ summary: question, viewerMayArchive: true }, '"5"');
     },
   });
 
   const lineage = await client.getQuestionLineage(question.questionId);
+  const resolved = await client.resolveQuestion(question.questionId);
   const exact = await client.getQuestionRevision({
     questionId: question.questionId,
     revisionNumber: 2,
@@ -68,11 +72,13 @@ test("Question availability client keeps current lineage transitions and exact r
   const restored = await client.restoreQuestion(question.questionId, archived.etag);
 
   assert.equal(lineage.availabilityEtag, '"5"');
+  assert.equal(lineage.viewerMayArchive, true);
+  assert.equal(resolved.questionId, question.questionId);
   assert.equal(exact.summary.latestQuestionRevision.revisionNumber, 2);
   assert.equal(archived.availability, "archived");
   assert.equal(restored.availability, "available");
-  assert.equal(requests[2].headers.get("if-match"), '"5"');
-  assert.equal(requests[3].headers.get("if-match"), '"6"');
+  assert.equal(requests[3].headers.get("if-match"), '"5"');
+  assert.equal(requests[4].headers.get("if-match"), '"6"');
 });
 
 test("Question availability client rejects an ETag or exact revision identity mismatch", async () => {
@@ -80,7 +86,7 @@ test("Question availability client rejects an ETag or exact revision identity mi
     fetch: async (input) => {
       const path = new URL(input.toString(), "https://ple.example").pathname;
       if (path.endsWith("/revisions/2")) return noStoreJson(details(1), '"5"');
-      return noStoreJson(question, '"05"');
+      return noStoreJson({ summary: question, viewerMayArchive: true }, '"05"');
     },
   });
   await assert.rejects(client.getQuestionLineage(question.questionId), ApiProtocolError);

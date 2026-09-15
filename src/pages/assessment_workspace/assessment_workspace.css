@@ -1,4 +1,4 @@
-/* Shared desktop-first surface for the assignment workspace shell and its child pages. */
+/* Shared desktop-first surface for the Assessment workspace shell and its child pages. */
 
 .assessment-workspace {
   display: grid;
@@ -11,11 +11,8 @@
   gap: var(--ple-section-gap);
 }
 
-.assessment-workspace-policies .assessment-editor-policy-panel {
+.assessment-workspace-policies .assignment-editor-policy-panel {
   min-width: 0;
-}
-
-.assessment-workspace-policies .assessment-editor-policy-panel {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: var(--ple-panel-padding, 0.85rem);
   border-radius: var(--ple-radius-inset, 0.7rem);
@@ -23,40 +20,40 @@
   box-shadow: var(--ple-shadow);
 }
 
-.assessment-workspace-policies .assessment-editor-policy-set {
+.assessment-workspace-policies .assignment-editor-policy-set {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   gap: var(--ple-assignment-field-gap);
 }
 
-.assessment-workspace-policies .assessment-editor-policy-set--disclosure,
-.assessment-workspace-policies .assessment-editor-policy-set--lifecycle,
-.assessment-workspace-policies .assessment-editor-policy-set--schedule {
+.assessment-workspace-policies .assignment-editor-policy-set--disclosure,
+.assessment-workspace-policies .assignment-editor-policy-set--lifecycle,
+.assessment-workspace-policies .assignment-editor-policy-set--schedule {
   grid-column: 1 / -1;
 }
 
-.assessment-workspace-policies .assessment-editor-policy-set--disclosure {
+.assessment-workspace-policies .assignment-editor-policy-set--disclosure {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.assessment-workspace-policies .assessment-editor-policy-set--lifecycle {
+.assessment-workspace-policies .assignment-editor-policy-set--lifecycle {
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
 }
 
-.assessment-workspace-policies .assessment-editor-policy-set--schedule {
+.assessment-workspace-policies .assignment-editor-policy-set--schedule {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.assessment-workspace-policies .assessment-editor-policy-set > legend,
-.assessment-workspace-policies .assessment-editor-policy-set > .assessment-editor-note {
+.assessment-workspace-policies .assignment-editor-policy-set > legend,
+.assessment-workspace-policies .assignment-editor-policy-set > .assignment-editor-note {
   grid-column: 1 / -1;
 }
 
-.assessment-workspace-policies .assessment-editor-field,
-.assessment-workspace-policies .assessment-editor-field input,
-.assessment-workspace-policies .assessment-editor-field select,
-.assessment-workspace-policies .assessment-editor-field textarea {
+.assessment-workspace-policies .assignment-editor-field,
+.assessment-workspace-policies .assignment-editor-field input,
+.assessment-workspace-policies .assignment-editor-field select,
+.assessment-workspace-policies .assignment-editor-field textarea {
   min-width: 0;
   max-width: 100%;
 }
@@ -109,7 +106,7 @@
   font-weight: 750;
 }
 
-.assessment-workspace-unrelease-danger-zone .assessment-editor-field {
+.assessment-workspace-unrelease-danger-zone .assignment-editor-field {
   max-width: 48rem;
 }
 
@@ -330,7 +327,7 @@
     grid-template-columns: 1fr;
   }
 
-  .assessment-workspace-policies .assessment-editor-policy-panel {
+  .assessment-workspace-policies .assignment-editor-policy-panel {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -348,9 +345,9 @@
 }
 
 @media (max-width: 40rem) {
-  .assessment-workspace-policies .assessment-editor-policy-set--disclosure,
-  .assessment-workspace-policies .assessment-editor-policy-set--lifecycle,
-  .assessment-workspace-policies .assessment-editor-policy-set--schedule {
+  .assessment-workspace-policies .assignment-editor-policy-set--disclosure,
+  .assessment-workspace-policies .assignment-editor-policy-set--lifecycle,
+  .assessment-workspace-policies .assignment-editor-policy-set--schedule {
     grid-template-columns: minmax(0, 1fr);
   }
 

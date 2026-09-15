@@ -6,15 +6,15 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 
 function history() {
   return {
-    assignmentAttempt: "R-12",
+    assessmentAttempt: "R-12",
     attemptNumber: 3,
     course: {
-      reference: "C-2",
+      reference: "CI7K3M2Q",
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       theme: "ocean",
     },
-    assignment: { reference: "A-4", title: "Peptide structure practice" },
+    assessment: { reference: "A7K3M2Q", title: "Peptide structure practice" },
     state: "submitted",
     questions: [
       {
@@ -35,10 +35,10 @@ test("selected Attempt history uses the exact same-origin no-store reader and st
   );
   const client = createHttpApiClient({ fetch: recordingFetch, basePath: "/live" });
 
-  assert.deepEqual(await client.getStudentAssignmentAttemptHistory("R-12"), history());
+  assert.deepEqual(await client.getStudentAssessmentAttemptHistory("R-12"), history());
   assert.equal(
     requests[0]?.url,
-    "https://client.example.test/live/api/assignment-attempts/R-12/history",
+    "https://client.example.test/live/api/assessment-attempts/R-12/history",
   );
   assert.equal(requests[0]?.method, "GET");
   assert.equal(requests[0]?.credentials, "same-origin");
@@ -52,5 +52,5 @@ test("selected Attempt history rejects invalid references before transport", asy
     },
   });
 
-  await assert.rejects(client.getStudentAssignmentAttemptHistory("R-0"), ApiProtocolError);
+  await assert.rejects(client.getStudentAssessmentAttemptHistory("R-0"), ApiProtocolError);
 });

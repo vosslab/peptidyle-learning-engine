@@ -2,7 +2,7 @@
 
 import { normalizeQuestionIdSyntax } from "../../question_id";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import type { BlueprintAssessmentSource } from "../../api/assessment_release";
+import type { BlueprintAssessmentSource } from "../../../generated/api/BlueprintAssessmentSource";
 import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import {

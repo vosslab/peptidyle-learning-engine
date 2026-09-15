@@ -9,6 +9,114 @@
 
 ### Additions and New Features
 
+- Refreshed the accepted Part 09 Assessment definition evidence. The checklist now records the
+  implemented Blueprint and Course Instance Assessment variants, reusable Blueprint content,
+  Course ownership, editable adopted Course Assessments, Course-owned Assessment Attempts, and
+  the absence of Blueprint Assessment Attempts. The C503 direct/adopted PostgreSQL and production-
+  mapper receipt supports only the adopted-copy editability row; its standalone proof did not
+  rerun the publisher-backed installation-data seed. C508's retired Quiz Attempt-limit 3-to-5
+  runtime wording now names the current source fixture instead: it changes adopted-Quiz
+  instructions and a 300-second time limit to 600 seconds through a Type-free input. Its ignored
+  PostgreSQL acceptance rerun remains pending. The generator-recorded checklist snapshot is 307
+  verified, 433 open, 43 N/A, and 783 total, with 12 duplicate-owner rows and 421 owning-open
+  records.
+- Recorded C525's resolved Assessment Attempt completion authority as open implementation work:
+  whole Student submission or expiry automatic submission completes an Attempt independently of
+  score or correctness; configured Attempt limits continue to govern another Attempt, including
+  unlimited Attempts after a perfect score and exactly one Quiz or Exam Attempt. The existing
+  current-Student cohort and `assessment_submission` boundary remain the implementation authority;
+  no completion behavior is closed.
+- Added the independently accepted C503 Assessment-origin cutover. Manual five-argument creation
+  now derives immutable direct origin with no Blueprint fields or source-choice API; Blueprint
+  adoption alone records the exact nonnull Blueprint Course, Revision, and Assessment triplet, and
+  the Live Demo remains adopted. A fresh PostgreSQL 17 public-API proof passed direct fixed/Pool
+  order and exact points, adopted save/load provenance, malformed shapes, and immutability. An
+  attested `PostgresLiveAssessmentStore` proof also passed direct create/load/save and adopted
+  load/save through the production mapper. The standalone proof did not rerun the full
+  publisher-backed installation-data seed, and this receipt closes no checklist row.
+- Replaced the unavailable Bonus Assignment and Quiz icon names with the approved Free Solid
+  `star` and `circle-question` glyphs. All five Assessment Types now have one guaranteed bundled
+  Ribbon glyph and retain visible Type labels in the Student Course landing and Assessment overview.
+  The regenerated same-origin sprite, strict TypeScript check, Human Guidance checklist gates, and
+  independent review passed. A temporary Chromium proof served the generated sprite and visibly
+  confirmed the new glyphs beside their labels. Human Guidance now also defines the one-Attempt
+  Quiz/Exam rule, Quiz/Exam submission-or-expiry completion, score- and correctness-independent
+  Assessment Attempt completion, and the KISS constraints; their implementation rows remain open.
+- Added the independently accepted C514 Assessment Template domain model. The private-UUID
+  aggregate owns a validated name, one Assessment Type, a positive CAS Edit Number, and only the
+  reusable settings copied into a future Assessment. Its strict payload reuses the canonical
+  instructions, non-date policy defaults, nine activity rules, and seven feedback-release rules;
+  focused compilation, existing rule tests, Clippy, and one-time serialization proof passed. This
+  makes the model ready for owner-scoped persistence but does not close the schema, API, UI, copy
+  integration, or full Assessment Template workflow.
+- Corrected C514 Assessment Template deserialization to reject attempt limits above PostgreSQL
+  `INTEGER` range while preserving the exact closed settings payload. Both raw limit fields now
+  share the canonical Assessment bounds; maximum and `null` remain valid. A focused ignored serde
+  proof and independent SQL parity review passed; no broader Template workflow is claimed.
+- Added the independently accepted C515 owner-only Assessment Template persistence and private API
+  subset. Active Instructors can list, create, read, and replace only their own strict settings
+  aggregates; creation uses server UUIDs and Type-derived canonical defaults, while full saves use
+  strong Edit Number ETags without resetting supplied settings after a Type change. A fresh
+  PostgreSQL 17 actual-Store proof passed owner/nonowner and inactive-account authorization, stale
+  CAS, strict row decoding, and settings round-trip behavior. Focused PostgreSQL-feature LDA
+  compilation and strict Clippy passed; full server compilation remains blocked by the existing AWS
+  Smithy dependency incompatibility. This does not add the Template UI, copy integration, sharing,
+  publishing, history, or full workflow closure.
+- Added C519/C520's shared Assessment Release Validation authority and hard gate. Actionable
+  readiness now requires a Due date at least 24 hours ahead, no later than the immutable Course
+  Active cutoff, with Available no later than Due and Due no later than Closes. Unreleased drafts
+  remain correctable; Released saves enforce the same issues while unrelated edits preserve an
+  unchanged near or past Due date. Fresh PostgreSQL 17 and actual-component proofs passed exact
+  boundaries, refusal/correction/release, all three save paths, authorization, and least privilege.
+- Aligned Assessment Entry persistence with the existing typed point-value domain: zero through
+  `1000000000.9999`, with at most four decimal places. Both complete-save Entry variants reject
+  excess precision or range before writing, while table constraints protect alternate writers.
+  An independently rerun fresh PostgreSQL 17 proof passed exact maximum, `0.0001`, zero, rollback,
+  archived Question-pin preservation, and zero-point release; its temporary helper was removed.
+- Added the independently accepted C207 Course deadline synchronization. Assessment release and
+  all three authorized save paths now serialize Course-first, reject a Due date after the immutable
+  Active cutoff atomically, and maintain the current maximum Unreleased/Released Assessment Due
+  fact. Active Course retention follows that maximum or falls back to the cutoff; archive and delete
+  freeze the retention anchor while the current maximum fact remains accurate. Canonical Live Demo
+  installation now synchronizes its released Assessment and uses the canonical public Blueprint
+  lifecycle status. An ignored PostgreSQL 17 proof passed the actual APIs, stale CAS, authorization,
+  cap rollback, deterministic two-Assessment concurrency, archive races and freeze, schedules,
+  helper ACL denial, and the full seeded Live Demo maximum; independent unchanged rerun accepted it.
+  The 2,791 focused source-style tests and scoped diff check also passed, and the temporary proof was
+  removed after review.
+- Added C511's accepted bounded availability controls to Assessment Properties. Instructors can
+  save or clear Available and Closes local date/time pairs in their IANA zone; incomplete pairs
+  remain visible and unsaved through recovery. No restrictive Type default is mandated, and the
+  undefined collaboration policy remains open. Focused TypeScript, browser, and review gates pass.
+- Added C524's accepted bounded Assessment-disclosure defaults and post-submit path. Practice
+  defaults correct answers to after submission; Regular and Bonus default them to never; submitted
+  responses, correctness, Question Feedback, answers, and explanations remain independently gated.
+  Actual-component dialog and summary proofs passed, and fresh PostgreSQL 17 API proofs established
+  no pre-submit response source, native PLE post-submit answer disclosure, and fail-closed Quiz/Exam
+  release. `./check_codebase.sh` passed 328 Node tests and the latest manager pytest run passed 7042;
+  the source-only publisher filter collected zero runtime-only tests and is not claimed as a pass.
+  Universal Practice disclosure remains open for opaque WeBWorK, and C525 remains fully open for
+  Quiz/Exam cohort and eventual-release semantics.
+- Added the accepted Bonus and entry-level extra-credit Gradebook contribution boundary. Course
+  Gradebook and pre-start/current Assessment worth preserve earned points while contributing zero
+  points possible for Bonus, Extra Credit, and Excluded entries; raw Question and Assessment
+  Attempt performance remains unchanged. A fresh PostgreSQL 17 install and API proof passed, plus
+  the focused Rust and browser decoder gates. Configured Attempt selection and Course-total grade
+  calculation remain open, so this does not close C510 globally.
+- Corrected the production Gradebook to select each Student's highest grading-complete submitted
+  Assessment Attempt by earned points calculated from immutable credit and current Question point
+  values. Later lower, unsubmitted, and grading-pending Attempts no longer erase an established
+  score; the latest Attempt still supplies progress when no score exists. Fresh PostgreSQL 17 API
+  proof also preserved the Bonus zero denominator without adding score persistence or Course totals.
+- Cut over the Student Course landing to the same highest submitted Assessment-score selection
+  while preserving the latest Attempt as the progress, completion, and resume authority. The
+  selected Attempt's copied feedback policy controls disclosure, and the direct `assessmentScore`
+  contribution accepts Bonus points over a zero denominator without weakening raw Attempt scores.
+  Fresh PostgreSQL 17 API proof passed earlier-high/later-low/newest-resumable and inverse
+  disclosure cases; strict decoder and compiled Solid browser proofs passed, including Bonus
+  `8 / 0`. The focused `learning-data-access` PostgreSQL library check passed in 5.72 seconds
+  without warnings, verifying the new model, decoder, and export. Full `server_core` compilation
+  remains blocked by the existing incompatible AWS Smithy dependency pair.
 - Added the canonical no-write Instructor Student View server boundary. The manifest projects
   current answer-free Assessment policy and transient exact Pool selections with a strong saved
   Edit Number ETag; separate reauthorized reads deliver native PLE presentations and sandboxed
@@ -16,11 +124,19 @@
   stored objects, or renderer cache entries. The prior metadata-only Assessment `/preview` API is
   no longer registered. Production iMathAS Student View rendering remains explicitly unavailable
   until its existing configured backend is composed into this server path.
-
+- Added the Published Question detail-page Archive action for the current Question Owner. The
+  confirmation names the current server-projected title, explains the shared discovery and new-
+  selection impact, and preserves exact Revisions and Student Work; stale title, ETag, lifecycle,
+  and ownership changes refresh or close the affordance without exposing owner identity. A fresh
+  PostgreSQL 17 schema proved that the current non-Author Owner receives the capability while a
+  different active Instructor who is an Author does not. Actual-component Chromium proof passed
+  confirmation, cancellation, success, failure, stale recovery, permission loss, and narrow layout
+  against mock transport. The connected server/browser journey remains unverified because the
+  unchanged AWS Smithy dependency incompatibility prevents the full server build; this receipt does
+  not claim the broader shared C68 availability-confirmation work.
 - Added locally vendored IBM Plex Sans Condensed only for long Citation URL input values, including
   slashed-zero numerals, same-origin production delivery, and a one-time Chromium font receipt.
   Atkinson Hyperlegible Next remains the main PLE font; this adds no broad anchor styling.
-
 - Added active-vetted-Instructor published Question Pool reads: bounded opaque-cursor global
   discovery, server-HMAC-validated current Revision detail, and Course-Instructor-owned exact
   Assessment fork detail reuse the answer-free exact Question Revision projection. Every published
@@ -30,76 +146,64 @@
   PostgreSQL 17 Course-adoption proof confirmed that a Blueprint may pin a child Pool and the
   adopted Assessment fork records that immediate child Revision as its source without flattening
   provenance to the root Pool.
-
 - Cut over the retained Student Assessment Attempt Node contracts to canonical Assessment test
   filenames, source modules, API fields, routes, and opaque Course Instance and Assessment
   references. The 34 focused tests continue to protect disclosure, response persistence,
   request/acknowledgement matching, BackendOwned capture, answer-free navigation, supplied-time-zone
   rendering, and withheld-score behavior. This is a bounded test integration repair; the broader
   Assessment cutover remains open.
-
 - Updated retained transport, decoder, and connected-E2E contracts to use canonical opaque
   `CI`, `A`, and `BP` references and canonical Assessment routes. Removed the retired
   Assignment-access helper test and an internal bundle-export test; their durable behaviors are
   covered by the current policy and route-scope tests. The focused Node contracts, gateway pytest,
   shell syntax checks, formatting, and independent review passed. Broader Assessment test cutover
   remains open.
-
 - Simplified the live browser-suite origin receipt to one direct envelope.
   Aggregate-only journeys write `contexts: null`; journeys that observe each
   BrowserContext write the named context evidence they captured. The oracle
   rejects the retired two-field receipt rather than treating its missing
   distinction as compatible. Existing focused origin-security tests passed;
   the one-time retired-shape probe was removed.
-
 - Registered the accepted canonical PGML Chargaff source as a mapped migration input for the
   Genetics static `chargaff-dna-percent-5-choices` bank. Its record pins the flat bundled path,
   immutable upstream generator, and separate content/source-code licenses. This is one mapped
   family, not catalog publication or completion of the remaining Genetics migration.
-
 - Tightened TypeScript generator output ownership to its current exact header.
   Retired historical generator headers now remain protected as unowned files
   rather than being silently replaced; current generated contracts already use
   the canonical marker.
-
 - Repaired the retained Pool-selection unit fixtures to use canonical 4-4
   Question IDs. Removed the transient-entropy replay test: it constrained the
   random-selection implementation rather than a durable product contract.
   The retained tests protect available pinned-item selection/order and refusal
   when too few available items remain; C353 reusable Pool provenance remains
   open.
-
 - Reclassified Pool selection count from an artificial product question to an
   engineering decision: the existing positive Assessment-entry count belongs to
   the Assessment-owned Pool fork, while the reusable immutable Pool Revision
   owns its members. C905-C909 remain open for exact fork provenance,
   count-bound validation, delivery, and proof; this does not claim those
   behaviors are implemented.
-
 - Blueprint Course adoption now resolves each reusable Pool to one exact root
   Pool Revision, creates an Assessment-owned child Pool lineage at Revision 1,
   and retains original source provenance and member pins atomically with fresh
   Assessments. The Course-side HMAC issuer supplies fork public IDs; a scoped,
   non-public Sysadmin adoption capability preserves the source attestation
   without exposing a standalone Sysadmin Pool operation.
-
-- Made `cargo tsgen` a source-only `project-tools` binary.  The regular
+- Made `cargo tsgen` a source-only `project-tools` binary. The regular
   `cargo tools` host retains its runtime commands and dependencies, while the
   TypeScript contract generator now builds without the database, object-store,
-  server, or AWS dependency graph.  Its optional output-directory argument and
+  server, or AWS dependency graph. Its optional output-directory argument and
   generated-contract semantics are unchanged.
-
 - Consolidated Human Guidance's durable algorithmic-Question, Question-Pool,
   backend-feedback, human-reference-ID, and WeBWorK PG/PGML source-format
   rules. BiologyProblems.org import and migration requirements apply per
   relevant family, not to one example. This records requirements and checklist
   audit scope, not product closure or a completed catalog migration.
-
 - Added Human Guidance requirements for opaque human-facing references: `BP`, `CI`, `A`, and
   Sysadmin-only `U` prefixes use one common random Crockford Base32 format without a separator;
   public Question and Question Pool `AAAA-ZBBB` IDs remain separate. This records required
   behavior only. Current sequential references remain noncompliant pending implementation.
-
 - Simplified Human Guidance compliance coordination. The checklist remains the
   verbatim, evidence-backed audit record, while the plan and gap map now use
   short owner and handoff notes instead of dependency-parser, count, and
@@ -110,7 +214,6 @@
   splice operation now replaces one complete manifest part through its next
   part boundary, preventing repeated splices from duplicating a generated
   section.
-
 - Corrected C3's dependency-freshness gate to follow the latest-first policy.
   PyPI requirements now audit as one `>=` floor rather than exact pins, and the
   snapshot no longer permits an AWS downgrade exception. The recorded current
@@ -118,7 +221,6 @@
   The audit does not duplicate the separate workspace build gate; its upstream
   Smithy failure remains an open build report rather than an excuse to weaken
   the latest-first declaration policy.
-
 - Completed C365's atomic Bulk Published Question metadata database boundary.
   An active vetted Instructor can replace only `tags`, `subject`, and `topic`
   for a bounded distinct selection carrying every current metadata Edit Number.
@@ -131,7 +233,6 @@
   same-key mismatch, stale/unknown/invalid rollback, and final zero-write
   state; it passed independent review and was removed. C367/C893 own the
   typed Store and HTTP outcomes.
-
 - Completed C877's atomic Question-fork authoring boundary. An active
   Instructor can create one distinct private Draft from an exact Available
   Published Question Revision, with immutable source attribution and an
@@ -142,12 +243,10 @@
   source pinning, actor scope, mismatch refusal, concurrent retry, and
   fork-versus-archive ordering; it passed independent review and was removed.
   C878-C879 still own the typed server command and Instructor workflow.
-
 - C331's isolated opaque WeBWorK render/pair/grade proof passed. The adapter
   boundary is intact, but required WeBWorK feedback is discarded after the
   renderer score; the Human Guidance bullet remains open pending
   cross-boundary outcome, persistence, and disclosure work.
-
 - Corrected the earlier C900 entry in this section. Its frozen 2025 RDKit
   tarball and versioned immutable-route design conflicts with Human Guidance's
   latest-dependency rule and is historical attempted work, not current intent.
@@ -165,7 +264,6 @@
   cookies, query strings, authorization, or other viewer input, while retaining
   the two-file anonymous CORS/CORP exception. This correction does not claim
   C901 or C903 complete.
-
 - Corrected the Human Guidance plan and contracts from a code audit.
   `attempt_presentation.sql` remains the live native and WeBWorK
   issued-presentation/reproduction boundary and is now explicitly a C500
@@ -174,14 +272,12 @@
   uses a current local runtime only; it has no immutable-identity handoff,
   version catalog, or retirement workflow. These are scope and dependency
   corrections, not completed implementation claims.
-
 - The WebWork audit found that the renderer path currently normalizes only
   `problem_result.score`, while Student history supplies default feedback.
   C910 is now the atomic contributor for typed, protected, policy-gated opaque
   backend feedback; C331 and C362 cannot close first. This corrects the
   dependency graph without inventing native parsing or a feedback completion
   claim.
-
 - Completed C371's Published Question Star closure. A Star is now a visible
   favorite/endorsement, and an active vetted Instructor can see its count and
   the exact vetted display names of its endorsers. The permanent isolated
@@ -190,7 +286,6 @@
   requests. A one-time compiled Chromium check confirmed the accessible plain
   text name list has no profile link, control, or avatar; it was removed after
   review. C347 may now use C371 as its completed Star prerequisite.
-
 - Historical C900 record, superseded by the latest-first correction above:
   the former frozen `@rdkit/rdkit@2025.3.4-1.0.0` manifest and versioned
   runtime catalog were removed because they conflict with Human Guidance.
@@ -200,7 +295,6 @@
   drift; it never permits an npm/CDN/author URL at runtime. The earlier
   clean-cache/reproducibility matrix remains historical evidence, not a
   claim that the frozen artifact is current authority.
-
 - Added C414's canonical model-layer Blueprint export projection. It serializes only reusable
   short/long names, authored module and Blueprint Assessment order, reusable Assessment settings,
   and exact Published Question Revision pins and published Question Pools. It carries no owner,
@@ -209,7 +303,6 @@
   and exchange workflow behavior. The ignored behavioral fixture proved deterministic bytes,
   authored order, complete fixed/pool settings, and identity omission, then was removed after
   independent review. No permanent test was warranted under `docs/PYTEST_STYLE.md`.
-
 - Completed C876's Question-fork source-pin boundary. An active Instructor's
   server command can resolve only one exact immutable Revision of an Available
   Published Question; missing, archived, wrong-revision, Student, and
@@ -217,7 +310,6 @@
   Draft, attribution, authoring operation, or client-facing identity path. The
   ignored fresh PostgreSQL 17 proof passed and remains temporary under the
   plan's test-liability policy.
-
 - Completed C856's Blueprint Star verified-name projection. Only an active
   vetted Instructor viewing a Public or Archived Blueprint can receive active
   vetted endorsers' exact immutable display names; the separately closed,
@@ -225,7 +317,6 @@
   Course, substitute identifier, Star aggregate, or Watch fact. An independent
   fresh-PostgreSQL multi-identity review passed. Its ignored disposable-stack
   matrix remains temporary because it does not earn a permanent test.
-
 - Completed C862's remaining lifecycle-consumer cutover. Blueprint Course
   adoption and reusable-assignment source selection now accept only Public
   Blueprints; Private courses remain owner-only and Archived courses remain
@@ -233,7 +324,6 @@
   lifecycle-model contract, lint, formatting, and narrow diff checks pass. The
   existing decoder-client test is blocked before execution by a concurrent
   missing generated API constant, so it supplies no result for this change.
-
 - Completed C885's trusted Pool schema boundary. Its create and append
   procedures accept a canonical compact ID only at Revision 1, preserve the
   database collision authority, and retain each Revision's nonempty ordered
@@ -245,14 +335,12 @@
   allocator, route, retry, and workflow. The ignored PostgreSQL 17
   uniqueness/revision/member-pin/RLS matrix passed and was removed after
   review. No permanent test was warranted.
-
 - Implemented C342's narrow schema projection for public content references.
   An active Instructor can receive only canonical `AAAA-ZBBB` Question and
   Pool references with their current Revision Numbers; it exposes no UUID,
   Pool contents, selection rule, UI, or lineage detail. The fresh PostgreSQL
   17 proof passed and was temporary-only. C342 remains dependent on C887's
   actual Pool-creation closure and this entry does not claim that workflow.
-
 - Completed C343's bounded Question-ID collision retry. New-lineage
   publication now receives a typed identity-collision result only when the
   PostgreSQL adapter confirms SQLSTATE `23505` on `published_question_pkey`.
@@ -260,7 +348,6 @@
   object outcome retains potentially committed evidence. The permanent tests
   protect retry cleanup, capped exhaustion, fail-closed cleanup, and ambiguous
   outcome retention; the ignored one-time probe was removed after review.
-
 - Completed C854's Published Question Star display-name surface. The Question
   detail page renders only the exact verified Instructor display names in the
   server's closed Star projection, as plain accessible list text. It performs
@@ -268,7 +355,6 @@
   Account reference, Course, substitute identity, or Watch disclosure. An
   ignored SSR rendered-name/accessibility probe passed and remains temporary;
   it is not a permanent component snapshot.
-
 - Completed C354's Question Pool public-identity and immutable-revision
   persistence seam. Pools now retain a server-issued compact Crockford public
   ID with database collision authority, begin at Revision 1, and append only
@@ -279,7 +365,6 @@
   immutability, stale-CAS, and two-session race checks. It remains ignored
   temporary evidence because its container-backed implementation matrix does
   not earn a permanent test.
-
 - Completed C853's Question Star verified-name projection. Only an active
   Instructor viewing a Published Question can receive its active vetted
   endorsers' exact immutable display names; the closed response has no Account
@@ -289,19 +374,16 @@
   revoked, expired, or deactivated sessions and HMAC-valid non-Published
   Questions now take the same concealed 404 disclosure path; genuine session
   storage failures remain unavailable errors.
-
 - Completed C361's WebWork test-liability cleanup. The durable tests retain
   opaque issued-presentation and grading outcomes, stateless lifecycle
   rejection, and the boundary that rejects native PLE responses before the
   renderer. They no longer constrain renderer call counts or call order; the
   native-response test now fails immediately if the renderer is reached.
-
 - Completed C57's bounded Question Library return path. Opening a Question now
   retains the active search, selected filters, loaded server-validated browse
   pages, and Library scroll position for one immediate in-document return;
   unrelated Library visits still begin with Search. The implementation proof is
   ignored temporary verification, not a new permanent test.
-
 - Completed C880's Blueprint fork-sync schema foundation. Each C412 fork now
   receives private, append-only immutable baselines for its short name, long
   name, every stable-reference whole Blueprint Assessment, and its ordered
@@ -310,7 +392,6 @@
   comparison and selected-application chain. A disposable PostgreSQL 17 probe
   verified source linkage, private nonenumeration, immutability, and append-only
   unit history; the ignored temporary proof was removed after acceptance.
-
 - Completed C881's canonical Blueprint fork comparator. It classifies only
   short name, long name, each stable-reference whole Blueprint Assessment, and
   the ordered Assessment list as safe, already applied, conflict, or not
@@ -321,7 +402,6 @@
   ignored deterministic matrix covered every status, Assessment addition and
   removal, and exact-once stable ordering, then was removed after independent
   review. No permanent fixture inventory was warranted.
-
 - Completed C83's one-time Student endpoint authorization discovery. The
   ignored proof traced 25 endpoints across Student-only, shared-self,
   authenticated-membership, authenticated-asset, public-renderer-asset, and
@@ -329,47 +409,38 @@
   authority boundaries, independently of frontend route admission. It found no
   server authorization flaw and deliberately creates no permanent
   endpoint-inventory test.
-
 - Implemented C202's bounded Question-recognition improvement: every existing
   shared Question-reference control now receives and shows its already-present
   Question title alongside the canonical copyable reference. The planned
   disposable-stack browser proof remains pending its suite owner's input, and
   this contributor does not claim the wider C216 recognition/copy-surface
   inventory.
-
 - Completed the C6 reusable Blueprint-content schema boundary. The closed
   content model now carries the bounded immutable facts required by Human
   Guidance; the service and browser vertical remain pending and are not
   claimed by this record.
-
 - Completed C17's immutable, auditable Instructor-vetting store foundation.
   It records the durable vetting decision without claiming the separate C18
   Account-creation workflow.
-
 - Completed C803's Sysadmin TOTP foundation: encrypted and zeroized
   database-bound seed handling plus account/browser-bound attestations,
   replay protection, and rate limiting. Session completion and the remaining
   C804-C807 ceremony are still pending.
-
 - Completed the C37/C38/C812 Profile-image storage foundation. Role-neutral
   exact private `ProfileImage` schema, Object Address, and Learning Data
   Access support replace the legacy thumbnail representation; C39 and the
   browser-facing Profile work remain pending.
-
 - Completed C815's Course Banner rendition pipeline foundation. It produces
   one complete, oriented, exact-5:1 no-crop rendition. Focused acceptance
   passed; the lease-owned end-to-end browser lane remains pending.
-
 - Completed C824's local evidence mapping for 12 candidate parameterized
   Genetics sources, including hashes, provenance, and license pins. It is a
   source-selection contributor only; C838-C841 still own publication,
   equivalence, archive, historical-preservation, and recovery behavior.
-
 - Completed C832/C833/C835's Profile-image catalog foundation: generated
   original safe SVG assets, catalog schema, and picker contribution. C834,
   C836, and the browser route work remain pending, so this does not claim
   selectable Profile-image delivery.
-
 - Completed C338's Question Library bulk-selection request seam. It accepts
   only a nonempty, duplicate-free list of canonical Published Question IDs and
   carries no operation, metadata, route, or simulated mutation. C365 owns the
@@ -378,28 +449,58 @@
 
 ### Fixes and Maintenance
 
+- Corrected C523's server-owned Assessment Attempt cutoff. New Attempts now expire at the
+  earliest effective time limit, Closes, or Due when late work is rejected; `accept` and
+  `mark_late` continue past Due, and accommodated Due values remain pinned in the Attempt.
+  Response saves now share the Assessment -> Assessment Attempt -> Question Attempt lock order
+  with finalization so a valid pre-Due response cannot be stranded by a worker race. Fixed-shape
+  finalization rows also retain the declared generated-parameter checksum placeholder for empty
+  or otherwise source-free outcomes. A fresh PostgreSQL 17 canonical-schema proof passed actual
+  Student and expiry-worker APIs, including post-Due refusal, zero-saved submission with no
+  Question Backend grading, deterministic stale-snapshot rejection, reprepare, and preservation
+  of both pre-Due saved responses. The ignored proof was removed after independent acceptance;
+  this does not claim broader C519 release-validation closure.
+- Repaired the Student Assessment Attempt response-source history reader to reuse the existing
+  exact Student-record ownership capability instead of requiring direct Student-record and Course-
+  membership table reads. The ordinary retention fence remains intact and no table authority was
+  widened. A fresh PostgreSQL 17 actual-API proof returned one row only to the owning active
+  Student, zero to another Student or an Instructor, zero after archive, and false ownership after
+  membership ended.
+- Corrected the Human Guidance assessment-compliance evidence: the live Gradebook query selects the
+  latest Assessment Attempt by start time, while the prior two highest-score closures cited an
+  unconnected domain rule. Both rows are reopened; the duplicate row retains its owning pointer.
+- Cut over the retained Student entry, Course appearance, and deferred Ribbon browser harnesses to
+  current Assessment contracts, opaque public references, and route-local initialization. Focused
+  compiled-component browser evidence passed the Student navigation, Course theme, accessibility,
+  scope-recovery, and deferred-content behaviors; this is test integration proof, not live-server
+  acceptance.
+- Made the Student Course landing a Coursework list with distinct upcoming, available, in-progress,
+  completed, and missed states derived from server-calculated resumability. Each row now scans the
+  canonical Assessment Type label and available exact icon, due time and display zone, and
+  completion. Focused Node tests and a reviewed temporary Chromium fixture passed at 320px and
+  1280px with keyboard order and overflow checks. The two unresolved exact Type icons remain a
+  shared-registry dependency, so this does not claim full C75 or C77 closure.
+- Repaired the Assessment Workspace CSS selector cutover so current policy, responsive, and
+  Danger Zone rules apply while shared editor classes remain intact; canonical Assessment labels
+  now identify the two editor surfaces. A temporary Chromium fixture verified the distinct
+  destructive panel and readable confirmation action at 1280px and 600px after review.
 - Repaired the Question Asset Publication claim to use the canonical Job attempt fields and
   unambiguous Job-qualified CAS predicates. A fresh PostgreSQL 17 proof passed exact claim,
   single-attempt increment, active-lease exclusion, and atomic Pending-to-Ready activation.
-
 - Repaired the deferred Question Asset Publication-to-Job invariant. The trigger now reads the
   referenced current Job row and null-safely checks its exact kind, target, worker, Question, and
   Revision instead of reading nonexistent publication fields; a fresh PostgreSQL 17 proof passed
   valid Pending/Ready commits and rejected wrong bindings without disabling triggers or RLS.
-
 - Split accepted publication receipt and Question Library test owners into focused modules, and
   modularized Question-authoring and Blueprint SQL without changing their statements or behavior.
   Focused formatting and line-limit gates plus a fresh PostgreSQL schema install passed; the full
   Cargo compile remains blocked by the unrelated AWS Smithy dependency incompatibility.
-
 - Set the local combined compiled-artifact budget to under 10 GB across workspace and temporary
   build targets. The development guide now preserves useful compatible caches, requires exact
   target, owner, and active-process inspection before an explicit cleanup decision, and does not
   treat the budget as an entire-checkout limit or recurring test threshold.
-
 - Repaired durable contract and archived release-readiness links after the Assessment source
   cutover, and restored the required rationale fields for three existing design decisions.
-
 - Synchronized shared style guides, tests, and repository support files from the starter template.
 
 ### Decisions and Failures
@@ -408,19 +509,16 @@
   placeholder removal. H5P has no delivered runtime until its exact content,
   library, terminal xAPI, and scoreless-activity question is answered; no
   compatibility path is authorized. This is planning, not completion.
-
 - Recorded C862's Blueprint lifecycle browser-codec cutover. Generated
   `BlueprintAvailability` accepts only `Private|Public|Archived`; the decoder,
   client fixtures, and executable generated consumer reject legacy aliases.
   C49/C72 hand this bounded client work to C50/C19 without expanding C50's
   workspace ownership. This is approved planning, not completion.
-
 - Reclassified the optional abandoned-Draft-cleanup sentence as an audited N/A:
   it supplies no clock or durations. C326/C352/C374/C375 are removed from
   dispatch; C861 will remove prohibited placeholder cleanup seams while
   preserving manual Draft deletion and publication. The unanswered cleanup
   policy question remains explicit. This is approved planning, not completion.
-
 - Recorded the C303/C857-C860 author-JavaScript correction. C303 is now an
   architectural handoff, while the answer-free descriptor, authenticated
   no-store isolated document, locked-down frame, and connected proof own the
@@ -428,14 +526,12 @@
   C860. The document permits only reviewed local libraries and a bootstrap
   nonce, never author URLs or PLE authority. This is approved planning, not
   completion.
-
 - Recorded the C856 Blueprint Star identity split. C409 owns Star/unstar/count,
   private self Watch state, and lifecycle Watch fan-out without names; C856 may
   disclose exact vetted names only to an active vetted Instructor on a
   Public/Archived Blueprint Star list, never Watch identities/state or other
   account/Course identifiers. C423 is the final browser closure. This is
   approved planning, not completion.
-
 - Recorded the C371 Verified Instructor Display Name boundary. The bounded
   server-controlled name is created only by C17/C18 vetting/Account creation,
   never self-edited or surfaced through Profile/directory projections. C852-C855
@@ -443,7 +539,6 @@
   delivery; exact names, not a self/count-only route, are required before C371
   closes. The retained-test candidate is the stable real-session disclosure
   authorization/privacy outcome. This is approved planning, not completion.
-
 - Recorded the C209 retention-notification delivery boundary. C847-C851 use
   only `warn_inactive`/`notify_archive` receipts, one verified Instructor
   destination per claim, terminal provider acceptance, callback updates to the
@@ -452,7 +547,6 @@
   transitions. Invitation export, Mail.app, fake success, and Live Demo
   delivery evidence are excluded. This is approved implementation planning,
   not a completion claim.
-
 - Recorded the architect-approved direct preproduction Question-ID cutover.
   Question storage is compact `AAAAZBBB`; display and serde are `AAAA-ZBBB`;
   the middle compact character is the HMAC high-five-bit Crockford check over
@@ -463,20 +557,17 @@
   proof handoffs before C319/C342/C343/C354. No dual parser, legacy rewrite, or
   compatibility reader is authorized. This is an implementation plan decision,
   not a completion claim.
-
 - Accepted the C832-C837 Avatar planning boundary: Profile images will use a
   PLE-provided, first-party generated-SVG catalog with stable selectable and
   retired IDs, SVG provenance, and a safe grammar. There is no avatar-list
   API. C40 waits for C819/C820, and cross-Account staff Profile-image delivery
   remains an explicit product question. This is accepted atomic planning only;
   it does not claim implementation.
-
 - Corrected the Genetics parameterized-replacement planning boundary from 11
   to 12 sources. C824 supplies the evidence, and C838-C841 cover 12 new
   lineages, new Blueprint CAS, per-bank all-199 equivalence, conditional
   archive, historical preservation, and forward recovery. This is accepted
   atomic lifecycle planning only; it does not claim implementation.
-
 - Accepted the A9 Human Guidance Milestone G plan and checklist map. Canonical
   C500-C536 is a 37-row atomic authoritative ledger with 104 owning behaviors,
   five duplicate pointers, and an acyclic dependency graph; C502 is
@@ -486,14 +577,12 @@
   terminology-cutover chain. Its temporary-proof, remove-by-default test
   policy is accepted. This is planning and audit evidence only; it does not
   claim product implementation.
-
 - Accepted the A8 Human Guidance Milestone G plan and checklist map. Canonical
   C400-C425 accounts for 64 owning behaviors through 22 closure and four
   contributor milestones, with six duplicate pointers and an acyclic
   dependency graph. Its temporary-proof-first policy and independent planning
   review are accepted. This is planning and audit evidence only; it does not
   claim product implementation.
-
 - Recorded DD-A9-01, the durable Assessment terminology decision. Assessment
   is the only generic object; Assignment remains only one of the three Type
   display names. Preproduction uses a direct cutover to the exact canonical
@@ -501,12 +590,10 @@
   One announced release may provide only a finite, safe browser GET/HEAD
   redirect before it is removed. This records the approved implementation
   boundary, not completion of that cutover.
-
 - Recorded the Course Banner rendition decision. A banner is one complete,
   oriented, exact-5:1, no-crop rendition; 1280 by 256 is guidance and the
   generated output, not an input minimum. Preproduction uses a direct cutover.
   This records the approved implementation boundary, not completion of it.
-
 - Recorded the architect-approved `Static`/`Seeded` attempt-reproduction
   decision. Native `pleQuestionJson` is `Static` and has neither a
   `QuestionSeed` nor generated-parameter hash; a PLE presentation nonce only
@@ -519,7 +606,6 @@
   contract test is justified; its vertical database proof is temporary and is
   removed after use. This is a durable design and contract decision, not a
   claim that the current implementation has completed the cutover.
-
 - Recorded the approved self-only Account Settings boundary. Every signed-in
   Product Role uses `/account-settings` and `GET` / `PUT /api/account/settings`
   for the one closed exact-IANA time-zone preference; callers select no Account,
@@ -532,6 +618,11 @@
   self-service credential enumeration, revocation, re-authentication,
   identity-proofed recovery, notification, and session-termination semantics
   await a separate decision. C15's Sysadmin TOTP session boundary is unchanged.
+- Corrected the pending H5P C863-C869 planning language to remove dependency and
+  runtime pinning. Immutable `.h5p` declared library/version metadata and SHA256
+  remain reproducible content evidence; the rootless Node.js Lumi runtime has no
+  prescribed release. Content-type and terminal outcome decisions remain blocked,
+  and no H5P delivery or completion status changed.
 
 ## 2026-09-14
 
@@ -542,21 +633,18 @@
   positive-audit `N/A` entries. `[ ]` records an unverified behavior or implementation mismatch;
   it is not completion. Generator tests remain ignored one-time proof under `tests/_temp`; no
   permanent test was added.
-
 - Added the planned Gmail API Email Delivery Backend specification. It keeps institutional email
   as the PLE Account identity and a dedicated Gmail account as delivery transport, defines the
   provider-neutral adapter, email-code ceremony, abuse controls, operator CLI, OAuth flow,
   host-protected credential file, API-only container mount, failure behavior, recovery, and
   attended delivery acceptance. Enrollment documentation and the future-capability backlog now
   point to the specification. No Gmail route, credential, or runtime behavior is claimed.
-
 - Every installation now publishes the complete free and open-source Biology Problems Website
   Genetics Blueprint as its example course. The default installation also creates the optional
   Live Demo. `--without-live-demo` still publishes Genetics and omits the Live Demo Accounts,
   Course, and activity. Repeating provision does not duplicate the Blueprint. The exact portable
   content validation and fresh default, replay, and opt-out installation checks passed. The full
   `source source_me.sh && ./launchers/all_test.sh` gate passed in session 62894.
-
 - Question Library now returns additional pages through its existing cursor API, so bundled
   Questions no longer cause searches to fail above one page. Server and frontend checks passed.
 
@@ -565,80 +653,65 @@
 - Removed the unreachable legacy Assessment Editor page cluster, including its obsolete
   Question-Pool item model and retained-Assessment picker. The routed live Assessment Workspace
   remains the sole Instructor editing surface.
-
 - Repaired four repository-hygiene findings without changing runtime behavior: escaped the
   Question Library Unicode test literal, normalized two Python indentation sites, and wrapped one
   long Assessment-attempt SQL query. The four focused hygiene nodes and Python compilation passed.
-
 - Excluded vendored `.pgml` Question sources from the source-file line-limit hygiene scan without
   changing its exclusive 1,000-line threshold or other hygiene scans.
-
 - Qualified relation references in the immutable Assessment-owned Pool import
   and append functions, preventing their `RETURNS TABLE` output names from
   ambiguously binding in PostgreSQL. Structural diff and ambiguity scans
   passed; independent PostgreSQL proof covered import, append, CAS,
   authorization, and historical Student Work.
-
 - Recorded two accepted narrow closures. C203/C817 now verifies the FERPA Student-Work ownership
   boundary through a permanent real-session BOLA oracle: the owner is allowed and the four
   cross-Student, nonmember, cross-Course, and Sysadmin cases are denied. C36/C818 now verifies
   only that Profile opens its small menu and Sign Out is inside it; Profile/account menu contents
   and the broader no-scattering behavior remain open for C819-C823.
-
 - Completed C301's native external-resource inventory. Native Question JSON now records reviewed
   absolute HTTPS external URLs in the closed link, image, script, stylesheet, and other categories,
   rejecting malformed and duplicate URLs. This is source metadata only: it does not claim upload,
   fetch, execution, CDN approval, or local serving. The temporary parser proof will be removed.
-
 - Accepted the A7 Milestone G planning completion: 78 unchecked records yield 77 owning behaviors
   plus one A6 C208 duplicate. Canonical C300-C375 contains 76 rows (44 closure and 32 contributor)
   for 77 closure occurrences, with an 81-node, 100-edge acyclic DAG. Architect gates C303, C355,
   C359, and C360, the temporary-only 13k fixture, and the test-liability review are accepted.
   This records planning and audit work only; it does not claim implementation.
-
 - Completed C29's habitat-theme naming verification. Stored theme ID `grass` retains its reviewed
   palette while every visible registry consumer presents `Grassland`; Forest, Ocean, Desert, and
   the remaining closed theme labels are likewise biome or habitat names. The density browser
   evidence could not launch Chromium in this sandbox, so it is not claimed as verification.
-
 - Completed C28's keyboard-reordering audit. Blueprint Assignment, Assignment Workspace, and all
   native JSON reorderers expose labelled Move earlier/Move later buttons backed by identity-safe
   reorder models. The temporary seven-surface inventory was removed; this does not choose any
   drag-and-drop surface, which remains the separate Human Guidance product question.
-
 - Completed C1's source-file split verification. Every tracked authored source passes the
   exclusive 1000-line limit; `src/style.css` is now 994 lines, and the shared role-color selectors
   live in the separately loaded and production-copied `src/styles/product_role.css`. The isolated
   production-style artifact check passed.
-
 - Completed C211's conservative Question-revision boundary. Metadata-only title and description
   changes stay on the current lineage; unchanged source is rejected before successor writes, while
   changed source creates exactly one successor under concurrent publication. The PostgreSQL 17
   metadata/no-op/new-source/race probe is temporary evidence and does not invent behavior for the
   not-yet-persisted tags, subject, or topic fields.
-
 - Completed C35's shared Profile-control evidence: Student, Instructor, and Sysadmin now have
   one far-right, accessible, icon-only generic Profile affordance, with the selected-avatar
   rendering seam retained where applicable. The one-time 1280/320 coarse-pointer and
   thumbnail-request-isolation probe was removed; this entry does not claim Profile-menu or
   avatar-persistence behavior.
-
 - Completed C27's staff desktop evidence: the permanent responsive check covers Instructor and
   Sysadmin 1280-by-800 Ribbon behavior, including visible Sysadmin Instructor Accounts and Scoped
   Support controls. The one-time real-shell page/keyboard probe was removed. A fresh local rerun
   could not launch Chromium because the sandbox denied its macOS Mach rendezvous port; that is an
   environment limitation, not a product failure.
-
 - Completed C2's development-conformance audit. It inventories current tracked and untracked
   source safely, enforces readable snake_case names, and rejects unsupported placeholder or
   compatibility scaffolding through exact durable-authority exceptions. The adversarial proof was
   removed rather than retained as a permanent implementation-coupled test.
-
 - Verified C13's pre-existing Live Demo entry: the visible seeded-role selector creates ordinary
   sessions while its router deliberately omits email-code delivery. The one-time five-persona
   runtime proof was removed rather than retained as a permanent URL-specific test. Live Demo email
   remains a future capability unlocked by "yet"; this did not add product code.
-
 - Recorded the architect-approved Sysadmin TOTP session decision in the durable
   design, contract, and Live Demo documents. Primary authentication now has a
   specified pending-MFA-to-session boundary for Sysadmins, while Student and
@@ -648,52 +721,41 @@
   operator artifact that is consumed by a separate authenticator and logged by
   path only, without a browser or fixed-secret bypass. It records C15
   implementation scope only; no production authentication behavior is claimed.
-
 - Restored the supported default optional-sqlx build by adding the missing `#[cfg(feature =
 "postgres")]` guard to the `course_blueprint_adoption` module declaration in
   `crates/learning-data-access/src/postgres.rs`. No product behavior or permanent test changed.
   The default `--lib course_roster` gate passed 2/2, the postgres `--lib connection_contract`
   gate passed 3/3, and format and clippy passed.
-
 - Completed C3's dated direct-dependency freshness audit across Cargo, Node, and PyPI manifests.
   The snapshot covers all 43 direct dependencies; only the documented aws-sdk-s3 security-release
   and TypeScript compatibility exceptions remain, with their narrow blockers recorded.
-
 - Accepted the A6 Milestone G planning completion: 37 unchecked records include two later
   duplicate pointers and 35 owning behaviors. Sixteen atomic implementation/evidence milestones
   use the safe C200-C216 range; C205 is the sole product question for the cohort/intersection
   statistic-release rule. The DAG and temporary-test-first policy received independent review.
   This records planning and audit work only; it does not claim implementation.
-
 - Accepted the A5 Milestone G planning completion: 26 raw records (25 open and one N/A) yield
   23 owning product-behavior records with 22 closure milestones. Y10 is the sole product
   question; two Ribbon details remain HG-unlocked. Atomicity and temporary-test-first gates
   received independent review. This records planning and audit work only; it does not claim
   implementation.
-
 - Corrected the A6 Student-data duplicate ownership pointer to its first Accounts-and-roles
   occurrence. The unverified status and finding remain unchanged.
-
 - Corrected the A3 Product Role identity evidence locator to the shared Ribbon identity plate.
   Its verified status and behavior claim are unchanged.
-
 - Completed C31's Atkinson Hyperlegible Mono delivery: code and monospace elements use the
   locally bundled normal and italic family, and the production build copies and verifies its
   assets. The one-time computed-style proof was removed rather than promoted as a permanent test.
-
 - Corrected four A3 role-color checklist evidence locators after the shared CSS moved to
   `src/styles/product_role.css`. The verified statuses and product behavior are unchanged.
-
 - Completed C34's role-home route contract: Instructor, Student, and Sysadmin now have explicit
   home routes, and the selected Courses navigation targets the signed-in role's route. The stable
   role-route contract test passed. The screenshot manifest deliberately records all three new
   role-home captures as deferred, so no visual-capture evidence is claimed yet.
-
 - Accepted the A1 Milestone G correction map: 17 owning gaps map exactly once to C1-C12;
   C4 and C5 are `N/A` audit corrections under the Human Guidance classification rule. The
   cycle-free dependencies and executable temporary-first gates received independent review.
   This records planning and audit work only; it does not claim implementation.
-
 - Accepted the A2 Milestone G2 correction map: 20 owning Accounts-and-roles gaps map exactly
   once to C13-C26. Reviewed owned boundaries span Live Demo authentication, roster identity and
   access, authentication, account lifecycle and Instructor vetting, Blueprint browse, Course
@@ -707,7 +769,6 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   and qualitative category/operation-boundary enforcement; C22 plans only predictable purge.
   Proof begins in `tests/_temp/` and is promoted only when it meets `docs/PYTEST_STYLE.md`.
   This records planning and audit work only; it does not claim implementation.
-
 - Accepted the A3 Milestone G3 correction map: all 36 Interface-shell findings are accounted for.
   Thirty-four have one closure owner in C27-C43 or C69-C71; the remaining exact drag-and-drop
   question stays a product decision because Human Guidance does not identify which named
@@ -716,49 +777,38 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   grounded in the precision-field-console and role task-model criteria, the role-neutral avatar
   decision is durable, and proof starts with temporary checks. This records planning and audit
   work only; it does not claim implementation.
-
 - Accepted the A4 Milestone G4 correction map: all 87 individual Instructor-interface gaps map
   exactly once, with 22 closure owners and six one-boundary contributors across C44-C68 and
   C72-C74. There are no product questions. Danger Zone/archive behavior has one owner, and every
   gate is executable and temporary-test-first. This records planning and audit work only; it does
   not claim implementation.
-
 - Accepted the A1 Development and Product vocabulary audit baseline. It records current
   implementation evidence and findings against the verbatim checklist; unresolved `[ ]` entries
   remain correction work, not a compliance claim.
-
 - Accepted the A2 Accounts and roles audit baseline. It records current implementation evidence
   and findings against the verbatim checklist; unresolved `[ ]` entries remain correction work,
   not a compliance claim.
-
 - Accepted the A3 shared interface shell audit baseline. It records current implementation
   evidence and findings against the verbatim checklist; unresolved `[ ]` entries remain
   correction work, not a compliance claim.
-
 - Accepted the A4 Instructor interface audit baseline. It records current implementation evidence
   and findings against the verbatim checklist; unresolved `[ ]` entries remain correction work,
   not a compliance claim.
-
 - Accepted the A5 Student and Sysadmin interface audit baseline. It records current
   implementation evidence and findings against the verbatim checklist; unresolved `[ ]` entries
   remain correction work, not a compliance claim.
-
 - Accepted the A6 Data and history audit baseline. It records current implementation evidence and
   findings against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
   compliance claim.
-
 - Accepted the A7 Questions audit baseline. It records current implementation evidence and
   findings against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
   compliance claim.
-
 - Accepted the A8 Courses audit baseline. It records current implementation evidence and findings
   against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
   compliance claim.
-
 - Accepted the A9 Assessments audit baseline. It records current implementation evidence and
   findings against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
   compliance claim.
-
 - Reconciled the complete `docs/` corpus against Human Guidance as current product authority.
   Current specifications, contracts, guides, and active plans now use the same Assessment,
   Blueprint, Question, role, authorization, retention, grading, and interface models. Temporary
@@ -783,18 +833,15 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   reports retain their current naming/placement style issue and the limits of structural inventory
   as semantic proof. This was a documentation-only change; source code, schemas, tests,
   configuration, and migrations were not modified.
-
 - Reorganized Human Guidance under the approved Development, vocabulary, Accounts and roles,
   Interface, Data and history, Questions, Courses, and Assessments hierarchy. A temporary exact
   comparison preserved all 744 bullet blocks without wording changes, and links to renamed current
   headings were updated. The focused Human Guidance format gate passed two tests.
-
 - Cleaned only same-subsection Human Guidance duplication and the Course Instance ownership
   contradiction. Course Instances retain equal co-Instructors with no privileged first Instructor;
   Private Blueprint ownership and intentional cross-section reinforcement remain unchanged. A
   read-only follow-up found no remaining same-subsection duplication or move-created contradiction
   requiring correction, and the focused Human Guidance format gate passed two tests.
-
 - Course Instance creation now adopts every Blueprint Assignment atomically, preserving exact
   Question Revision pins, fixed Questions, pools, points, instructions, and policies with fresh
   teaching identities. Adopted Assignments start Unreleased with dates unset. Removed Blueprint
@@ -804,11 +851,9 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   adoption of fixed and pooled Questions, initial state, lifetime counts, and concurrent Revision
   checks. The complete offline Rust gate (including WebAssembly), frontend gate (373 tests),
   materialization unit test, and 276 focused Python checks passed. C-3 was not repaired.
-
 - New Live Demo launches choose their HTTPS gateway port from 8000-8399 instead of
   55000-55399. Existing running demos retain their current URL. The focused target and
   developer-controller checks passed 30 tests.
-
 - Clarified demo role choices with Instructor Dr., Student, and Sysadmin labels, sharing teal,
   lavender, and tomato role colors with the Ribbon. Blueprint overviews now list assignments;
   owners enter Course Editor and select one assignment before editing. Names and availability
@@ -822,7 +867,6 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   Course Instance from BP-2, verified one selected assignment editor, and found no axe violations
   on that editor or horizontal overflow at 320, 480, 768, and 1920 pixels. Captures are in
   `test-results/interface_polish/`; this is focused evidence, not full aggregate acceptance.
-
 - M4 and Phase 2 are complete as of 2026-09-14. The fresh canonical runtime at
   `https://localhost:55390` published `BP-2`, Revision 1, in session 53170 with the r11 hashes:
   11 topics, 119 banks, and 20,579 rows. The reviewed r5 browser proof reloaded that exact
@@ -839,7 +883,6 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   `tests/_temp/genetics_bank_port` (208,331 files in 1,490 directories, about 3.59 GiB), with no
   archive or permanent fixture. The original 11-topic Biology Problems Website Genetics source,
   runtime/volumes/`BP-2`, and Git index were untouched.
-
 - Corrected the vendored naming gate after aggregate session 68687 stopped following 6,003 passing
   pytest tests. It had applied the permanent Playwright-placement rule to `tests/_temp`, despite
   `PYTEST_STYLE.md` requiring temporary probes there. The narrow generic correction excludes only
@@ -848,7 +891,6 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   five checks; independent review approved. The exact rerun
   `source source_me.sh && ./launchers/all_test.sh` passed in session 78713. Vendored propagation
   may overwrite this local correction; upstream modification is out of scope.
-
 - Corrected the backend-owned Question iframe sizing demonstrated by the Genetics screenshot: its
   304 by 154 frame clipped rendered content. The existing iMathAS width/minimum-height rule now
   also applies to `backend-owned-document__frame`. This is CSS-only; it adds no Question Backend
@@ -857,7 +899,6 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   desktop rendering and reachable narrow-layout document scrolling. The later exact aggregate
   passed in session 78713, and the fresh r5 integration proof completed the normal saved/graded
   delivery evidence.
-
 - The Phase 2 audit corrected durable guidance that still described public grading status,
   Instructor attention, retry/requeue behavior, and grading Jobs. Current guidance records one
   immutable backend credit fraction, read-time current-point scoring, ordinary expiry
@@ -876,7 +917,6 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   was empty. Approved audit reviews cover the native/iMathAS unused-job cleanup, permissions and
   identity boundary, documentation, and stale-test removal. M2.5 is complete. M4 behavior and
   authorized temporary-corpus closeout are complete by the later fresh-runtime receipt.
-
 - The Genetics preparation receipt now records the verified r11 conversion path: all six observed
   BBQ response shapes compile to opaque static PG, and private renderer proof passed all 20,579
   generated documents. Ordinary r11 publication then succeeded on the disposable runtime as
@@ -888,7 +928,6 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   M4 startup with corrected PG baseline, installation provision/opt-out, Course Appearance
   PostgreSQL/MinIO, complete live acceptance, and empty owned inventory. Authorized closeout
   removed the temporary corpus/probe tree without creating a fixture or recurring inventory gate.
-
 - Corrected the backend-owned resume boundary that the r4 evidence exposed. The existing
   authorized WeBWorK document read now carries the private saved opaque input and exact
   Question Attempt source pins to create an ephemeral resumed document; the original issued HTML
@@ -899,11 +938,9 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   restored visible controls and no feedback. The later fresh r5 PLE proof completed reload through
   a new Mary session and UI Submit. Session 78713's exact aggregate remains a separate receipt
   that predates fresh M4 startup.
-
 - Corrected the Genetics walkthrough's retired automatic-grading Job wording. Its Attempt authority
   section now preserves saved responses across backend failure, permits Student submission within
   the existing time limit, and keeps expired Attempts closed to edits until ordinary finalization.
-
 - M2.5 implementation and connected/live acceptance passed. The full registered Live Demo Attempt
   journey passed in session 26042 on the owned rebuilt stack: start authorization, exact released
   revision boundary, native immediate submission with immutable credit/current-point scoring,
@@ -913,25 +950,21 @@ tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_chec
   passed in session 98225, including Rust, frontend, 6,039 Python tests, database baseline,
   installation-data provision and opt-out, Course Appearance/MinIO, and banner/thumbnail saga
   lanes. Genetics/M4 corpus and publication acceptance remain pending, so Phase 2 is not complete.
-
 - Question Library search now decodes the browser's repeated query filter keys, including a
   one-value `backends=ple` filter, through the maintained multi-value Axum query extractor.
   Typed enum validation, unknown-field refusal, scalar duplicate-key refusal, normalization,
   and page bounds remain unchanged.
-
 - The connected database baseline E2E passed in session 51122, including the direct-finalization
   late-save and commit/expiry races, immutable-credit/current-point/expiry-Gradebook SQL proofs,
   and the Unrelease fixture path. The canonical owned-runtime inventory was empty after cleanup.
   An independent final `./check_rust.sh` passed full all-feature Clippy, tests, and Wasm; the full
   `./check_codebase.sh` passed both TypeScript checks, lint, format, and 374 Node tests. Full
   aggregate, live-browser, and M4 acceptance remain pending.
-
 - Corrected current Phase 2 fixtures and improved redacted diagnostics while preserving their
   bounded evidence boundaries. The refreshed offline gate `source source_me.sh &&
 ./launchers/run_fast_checks.sh` passed in session 37638: 6,039 pytest tests in 10.84 seconds,
   372 Node tests, and the Rust, TypeScript, lint, and formatting checks. `git diff --check` is
   clean. Connected and live acceptance remain pending; M4 acceptance is not yet approved.
-
 - Raised only the Blueprint client response budget to 16 Mi characters through an optional internal
   constant after the real R8 response-shape estimate measured 15,526,628 ASCII characters. All
   other API clients retain the shared 4 Mi character default. This is a capacity correction, not

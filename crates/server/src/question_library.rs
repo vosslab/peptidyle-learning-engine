@@ -25,13 +25,13 @@ use learning_data_access::{
 use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
 use question_model::{
     Capability, QuestionBackend, QuestionBackendCapabilities, QuestionDetails,
-    QuestionDetailsPromptView, QuestionId, QuestionRevisionReference, QuestionSearchAuthorFacet,
-    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchCapabilityFacet,
-    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
-    QuestionSearchPage, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
-    QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics, QuestionSummary,
-    QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary, ReusableQuestionView,
-    ReusableSelectionAvailability,
+    QuestionDetailsPromptView, QuestionId, QuestionLineageView, QuestionRevisionReference,
+    QuestionSearchAuthorFacet, QuestionSearchAuthorship, QuestionSearchBackendFacet,
+    QuestionSearchCapabilityFacet, QuestionSearchCourseUse, QuestionSearchCourseUseFacet,
+    QuestionSearchFacets, QuestionSearchPage, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchRequest, QuestionSearchResult, QuestionSearchTagFacet, QuestionStatistics,
+    QuestionSummary, QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
+    ReusableQuestionView, ReusableSelectionAvailability,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -242,8 +242,16 @@ async fn resolve_question(
         Err(error) => return store_error_response(error),
     };
     let edit_number = entry.availability_edit_number;
+    let viewer_may_archive = entry.viewer_may_archive;
     match summary_from_entry(&state.objects, entry).await {
-        Ok(summary) => question_response(Json(summary).into_response(), edit_number),
+        Ok(summary) => question_response(
+            Json(QuestionLineageView {
+                summary,
+                viewer_may_archive,
+            })
+            .into_response(),
+            edit_number,
+        ),
         Err(()) => route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Question Library unavailable",

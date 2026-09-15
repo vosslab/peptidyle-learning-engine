@@ -71,9 +71,7 @@ function revision(revisionNumber = "2") {
       {
         blueprint_module_reference: "module-7",
         label: "Module 1",
-        assessments: [
-          { blueprint_assessment_reference: "assessment-7", content: content() },
-        ],
+        assessments: [{ blueprint_assessment_reference: "assessment-7", content: content() }],
       },
     ],
   };

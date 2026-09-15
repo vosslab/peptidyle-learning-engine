@@ -10,7 +10,7 @@ CREATE TABLE ple_private.question_attempt (
     issued_at timestamptz NOT NULL,
     deadline_at timestamptz,
     submitted_at timestamptz,
-    question_attempt_state text NOT NULL CHECK (question_attempt_state IN ('open', 'submission_accepted', 'closed_at_deadline')),
+    question_attempt_state text NOT NULL CHECK (question_attempt_state IN ('open', 'submission_accepted', 'closed_unanswered')),
     backend_name text NOT NULL CHECK (char_length(btrim(backend_name)) BETWEEN 1 AND 100),
     backend_version text NOT NULL CHECK (char_length(btrim(backend_version)) BETWEEN 1 AND 100),
     renderer_name text,

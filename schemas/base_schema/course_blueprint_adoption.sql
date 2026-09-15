@@ -78,25 +78,20 @@ BEGIN
                 MESSAGE = 'Blueprint adoption content is invalid';
         END IF;
         IF member -> 'values' IS DISTINCT FROM jsonb_build_object(
+            'assessment_type', source_content -> 'assessment_type',
             'assessment_title', source_content -> 'title',
             'assessment_instructions', source_content -> 'instructions',
             'available_at', NULL, 'due_at', NULL, 'closes_at', NULL,
             'assessment_attempt_time_limit_seconds',
                 source_content #> '{defaults,assessment_attempt_time_limit_seconds}',
-            'assessment_attempt_limit', source_content #> '{defaults,assessment_attempt_limit}',
+            'assessment_attempt_limit', CASE
+                WHEN source_content ->> 'assessment_type' IN ('quiz', 'exam') THEN '1'::jsonb
+                ELSE source_content #> '{defaults,assessment_attempt_limit}'
+            END,
             'late_work_rule', source_content #> '{defaults,late_work_rule}',
-            'assessment_completion_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentCompletionRule,kind}')
-                WHEN 'answerAll' THEN 'answer_all' WHEN 'allCorrect' THEN 'all_correct'
-                WHEN 'scoreAtLeast' THEN 'score_at_least' END,
-            'assessment_completion_score_threshold',
-                source_content #> '{defaults,activity_rules,assessmentCompletionRule,fraction}',
             'assessment_attempt_grade_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentAttemptGradeRule}')
                 WHEN 'first' THEN 'first' WHEN 'latest' THEN 'latest' WHEN 'highest' THEN 'highest'
                 WHEN 'instructorSelected' THEN 'instructor_selected' END,
-            'assessment_attempt_continuation_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentAttemptContinuationRule,kind}')
-                WHEN 'unlimited' THEN 'unlimited' WHEN 'capped' THEN 'capped' WHEN 'closed' THEN 'closed' END,
-            'max_additional_assessment_attempts',
-                source_content #> '{defaults,activity_rules,assessmentAttemptContinuationRule,maxAdditionalAssessmentAttempts}',
             'question_pool_reuse_rule', CASE (source_content #>> '{defaults,activity_rules,questionPoolReuseRule}')
                 WHEN 'reuseSelection' THEN 'reuse_selection' WHEN 'selectAgain' THEN 'select_again' END,
             'question_variation_rule', CASE (source_content #>> '{defaults,activity_rules,questionVariationRule}')
@@ -221,9 +216,10 @@ BEGIN
             member -> 'values');
         new_assessment_id := gen_random_uuid();
         INSERT INTO ple_data.assessment (
-            assessment_id, course_id, source_blueprint_course_reference_number,
+            assessment_id, course_id, origin_kind, source_blueprint_course_reference_number,
             source_blueprint_revision_number, source_blueprint_assessment_reference,
             created_at, updated_at,
+            assessment_type,
             assessment_title,
             assessment_instructions,
             available_at,
@@ -232,11 +228,7 @@ BEGIN
             assessment_attempt_time_limit_seconds,
             assessment_attempt_limit,
             late_work_rule,
-            assessment_completion_rule,
-            assessment_completion_score_threshold,
             assessment_attempt_grade_rule,
-            assessment_attempt_continuation_rule,
-            max_additional_assessment_attempts,
             question_pool_reuse_rule,
             question_variation_rule,
             assessment_attempt_resume_rule,
@@ -251,9 +243,10 @@ BEGIN
             feedback_question_answer_explanation,
             feedback_class_statistics
         ) VALUES (
-            new_assessment_id, p_course_id, p_blueprint_reference,
+            new_assessment_id, p_course_id, 'adopted', p_blueprint_reference,
             p_blueprint_revision, (member ->> 'source')::uuid,
             transaction_timestamp(), transaction_timestamp(),
+            candidate.assessment_type,
             candidate.assessment_title,
             candidate.assessment_instructions,
             NULL,
@@ -262,11 +255,7 @@ BEGIN
             candidate.assessment_attempt_time_limit_seconds,
             candidate.assessment_attempt_limit,
             candidate.late_work_rule,
-            candidate.assessment_completion_rule,
-            candidate.assessment_completion_score_threshold,
             candidate.assessment_attempt_grade_rule,
-            candidate.assessment_attempt_continuation_rule,
-            candidate.max_additional_assessment_attempts,
             candidate.question_pool_reuse_rule,
             candidate.question_variation_rule,
             candidate.assessment_attempt_resume_rule,

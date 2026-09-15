@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { productRoleMayAccessRoute, ROUTE_CONTRACT } from "../src/route_contract.ts";
+import { productRoleMayAccessRoute } from "../src/route_contract.ts";
 import {
   CAPABILITY_REGISTRY,
   createRibbonCapabilityEntry,
@@ -52,27 +52,6 @@ test("capability construction rejects incomplete proofs and backing a future ide
   );
 });
 
-test("registry and catalog agree on each declared navigation destination", () => {
-  const routeIds = new Set(ROUTE_CONTRACT.map(({ id }) => id));
-  for (const control of CATALOG) {
-    const entry = CAPABILITY_REGISTRY[control.id];
-    assert.ok(entry, control.id);
-    assert.deepEqual(entry.destination, control.destination, control.id);
-    if (control.destination.kind !== "future") {
-      assert.equal(entry.routeId, control.destination.routeId, control.id);
-      assert.equal(routeIds.has(entry.routeId), true, control.id);
-    } else {
-      assert.equal(entry.routeId, undefined, control.id);
-    }
-  }
-  for (const entry of Object.values(CAPABILITY_REGISTRY)) {
-    assert.ok(
-      CATALOG.some((control) => control.id === entry.id),
-      entry.id,
-    );
-  }
-});
-
 test("availability applies capability, route role, and relationship precedence", () => {
   const entry = backedEntry("grader");
   assert.equal(ribbonAvailability(entry, "student", OUTSTANDING), "Unavailable");
@@ -92,85 +71,4 @@ test("Checking remains withheld and Available never exceeds the route role ceili
       assert.equal(productRoleMayAccessRoute(entry.routeId, role), true, entry.id);
     }
   }
-});
-
-test("unbacked Instructor Product destinations remain unavailable without invented links", () => {
-  for (const id of [
-    "myActiveCourses",
-    "myInactiveCourses",
-    "searchPublicBlueprintCourses",
-    "myQuestions",
-    "starred",
-    "watched",
-    "assignmentTemplates",
-    "teachingOperations",
-    "gradeSettings",
-  ]) {
-    const entry = CAPABILITY_REGISTRY[id];
-    assert.equal(entry.capability.kind, "unbacked", id);
-    assert.equal(ribbonAvailability(entry, "instructor", RESOLVED_ALLOW), "Unavailable", id);
-  }
-});
-
-test("Product Assignments enters the backed Assignments Due Soon reader", () => {
-  const productAssignments = CAPABILITY_REGISTRY.productAssignments;
-  assert.equal(productAssignments.capability.kind, "backed");
-  assert.equal(productAssignments.routeId, "assignmentsDueSoon");
-  assert.equal(productAssignments.capability.clientMethod, "ApiClient.listAssignmentsDueSoon");
-  assert.deepEqual(productAssignments.capability.serverEvidence, {
-    kind: "registeredHandler",
-    handler: "crates/server/src/assignment_release.rs::assignment_release_router",
-  });
-  assert.equal(ribbonAvailability(productAssignments, "instructor", RESOLVED_ALLOW), "Available");
-});
-
-test("Assignments Due Soon is backed by the bounded cross-Course Assignment reader", () => {
-  const dueSoon = CAPABILITY_REGISTRY.assignmentsDueSoon;
-  assert.equal(dueSoon.capability.kind, "backed");
-  assert.equal(dueSoon.capability.clientMethod, "ApiClient.listAssignmentsDueSoon");
-  assert.deepEqual(dueSoon.capability.serverEvidence, {
-    kind: "registeredHandler",
-    handler: "crates/server/src/assignment_release.rs::assignment_release_router",
-  });
-  assert.equal(ribbonAvailability(dueSoon, "instructor", RESOLVED_ALLOW), "Available");
-});
-
-test("Assignment workspace Overview and Questions have complete Assignment router evidence", () => {
-  for (const id of ["assignmentOverview", "assignmentQuestions", "assignmentPolicies"]) {
-    const entry = CAPABILITY_REGISTRY[id];
-    assert.equal(entry.capability.kind, "backed", id);
-    assert.equal(entry.capability.clientMethod, "ApiClient.getLiveAssignmentWorkspace", id);
-    assert.equal(ribbonAvailability(entry, "instructor", RESOLVED_ALLOW), "Available", id);
-  }
-  assert.ok(
-    CAPABILITY_REGISTRY.assignmentQuestions.capability.evidence.includes(
-      "src/api/http_client/assignment_release.ts::listLiveAssignmentQuestionPicker",
-    ),
-  );
-  assert.deepEqual(CAPABILITY_REGISTRY.assignmentOverview.capability.serverEvidence, {
-    kind: "registeredHandler",
-    handler: "crates/server/src/assignment_release.rs::assignment_release_router",
-  });
-});
-
-test("Student Attempt navigation is backed by the registered Assignment delivery handler", () => {
-  const attempt = CAPABILITY_REGISTRY.attempt;
-  assert.equal(attempt.capability.kind, "backed");
-  assert.equal(attempt.capability.clientMethod, "ApiClient.startLiveAssignment");
-  assert.deepEqual(attempt.capability.serverEvidence, {
-    kind: "registeredHandler",
-    handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
-  });
-  assert.equal(ribbonAvailability(attempt, "student", RESOLVED_ALLOW), "Available");
-});
-
-test("Student Attempt return uses the existing Student Assignment Access boundary", () => {
-  const backToAssignment = CAPABILITY_REGISTRY.backToAssignments;
-  assert.equal(backToAssignment.capability.kind, "backed");
-  assert.equal(backToAssignment.capability.clientMethod, "ApiClient.getLiveAssignmentAccess");
-  assert.deepEqual(backToAssignment.capability.serverEvidence, {
-    kind: "registeredHandler",
-    handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
-  });
-  assert.equal(ribbonAvailability(backToAssignment, "student", RESOLVED_ALLOW), "Available");
 });

@@ -2,16 +2,29 @@
 
 ## Scope
 
-This is a fresh implementation-audit inventory. Each record below is an owning `[ ]`
-Human Guidance bullet: the behavior is unverified or differs from the current implementation.
-The bullet text is copied verbatim from the generated checklist, and its source location is
-recorded beside it. Later duplicate bullets that carry an `Owner:` pointer are excluded because
-their earlier owning record is the single inventory entry.
+This is a fresh topical implementation-audit inventory. It collects currently open
+Human Guidance checklist records relevant to UI and workflow. The bullet text is copied verbatim
+from the generated checklist, and its source location is recorded beside it. This report does not
+establish exhaustive or disjoint topical coverage; the checklist remains the authority for each
+record's status.
 
 The authoritative exhaustive record is the
 [generated checklist](../../audits/human_guidance_implementation_checklist.md).
 
-## Owning inventory
+## Evidence updates
+
+- C77--C78 now have accepted source, strict TypeScript, focused projection-test, and compiled
+  SolidJS/mock-API browser evidence. A fresh PostgreSQL 17 run also exercised the actual landing
+  Store for Regular Assignment plus scheduled, expired unfinished, active resumable,
+  Attempt-limit-reached resumable, and late-work-refused resumable states. This closes the direct
+  Course-page state and scannable-list rows without claiming a connected HTTP-server run. The
+  actual access Store was exercised too, including Type Regular Assignment and active-Attempt
+  resume. The pre-start Assessment page presents title, Type, Question count, points possible,
+  time limit, previous Attempts, and the Type-specific action; accepted browser evidence covers a
+  Quiz label, start action, and Question count, but not the full facts/history projection or a
+  connected HTTP-server run, so that broader row stays open.
+
+## Topical inventory
 
 ### Interface design -- General interface design
 
@@ -384,15 +397,13 @@ The authoritative exhaustive record is the
 
 - Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
   - Source: `docs/HUMAN_GUIDANCE.md:363`
-
-- Assessment Unrelease should explain that Student work will be deleted.
-  - Source: `docs/HUMAN_GUIDANCE.md:365`
-
-- Assessment Unrelease should require typing the Assessment title before confirmation.
-  - Source: `docs/HUMAN_GUIDANCE.md:366`
+  - Current implementation: Assessment Unrelease and Archive Blueprint Course have Instructor controls; Archive Published Question has a browser API but no current Danger Zone interface.
+  - Remaining gap: expose the Published Question archive workflow rather than treating its transport contract as a usable action.
 
 - Archive actions should explain the effect on shared availability and require a clear confirmation.
   - Source: `docs/HUMAN_GUIDANCE.md:367`
+  - Current implementation: Archive Blueprint Course explains removal from new selection and requires its long name.
+  - Remaining gap: no current Archive Published Question interface provides the corresponding availability explanation and confirmation.
 
 ### Interface design -- Student interface
 
@@ -424,12 +435,6 @@ The authoritative exhaustive record is the
 
 - Student navigation and pages should contain only Student interfaces and capabilities.
   - Source: `docs/HUMAN_GUIDANCE.md:385`
-
-- Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
-  - Source: `docs/HUMAN_GUIDANCE.md:388`
-
-- Coursework lists should make due dates, Type, and completion status easy to scan.
-  - Source: `docs/HUMAN_GUIDANCE.md:389`
 
 - Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
   - Source: `docs/HUMAN_GUIDANCE.md:390`
@@ -678,10 +683,3 @@ The authoritative exhaustive record is the
 
 - Short names are for compact navigation and should stay under about 16 characters when practical.
   - Source: `docs/HUMAN_GUIDANCE.md:819`
-
-## Count method
-
-This report owns **213** checklist records. The count is the number of `[ ]` bullets
-in the listed sections after excluding records with a later-duplicate `Owner:` pointer.
-It is mechanically reconciled with the other topical inventories by the temporary report
-generation check; it is not a permanent test.

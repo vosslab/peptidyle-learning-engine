@@ -177,7 +177,7 @@ DO $$
 BEGIN
     IF (SELECT count(*) FROM ple_private.assignment_submission WHERE assignment_attempt_id = 'e3000000-0000-0000-0000-000000000020') <> 1
        OR (SELECT count(*) FROM ple_private.question_submission WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000041') <> 0
-       OR (SELECT count(*) FROM ple_private.question_attempt WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000041' AND question_attempt_state = 'closed_at_deadline') <> 1 THEN
+       OR (SELECT count(*) FROM ple_private.question_attempt WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000041' AND question_attempt_state = 'closed_unanswered') <> 1 THEN
         RAISE EXCEPTION 'expired unanswered Attempt did not close as immutable zero-credit work';
     END IF;
 END

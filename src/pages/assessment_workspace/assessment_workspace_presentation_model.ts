@@ -5,18 +5,11 @@ import type { AssessmentStatus } from "../../../generated/api/AssessmentStatus";
 import type { InstructorAssessmentAuthoredContentLocal } from "../../../generated/api/InstructorAssessmentAuthoredContentLocal";
 import type { StudentFeedbackReleaseRule } from "../../../generated/api/StudentFeedbackReleaseRule";
 import type { AssessmentActivityRules } from "../../../generated/api/AssessmentActivityRules";
-import {
-  nonnegativeIntegerDraft,
-  optionalPositiveIntegerDraft,
-  scoreFractionDraft,
-  type AssessmentActivityRuleDraft,
-} from "./assessment_workspace_policy_model";
+import { optionalPositiveIntegerDraft } from "./assessment_workspace_policy_model";
 
 export type AssessmentPolicySummaryKey =
   | "savedDelivery"
-  | "assessmentCompletionRule"
   | "assessmentAttemptGradeRule"
-  | "assessmentAttemptContinuationRule"
   | "questionPoolReuseRule"
   | "questionVariationRule"
   | "disclosure"
@@ -33,7 +26,6 @@ export interface AssessmentPolicyDraftSummaryInput {
   readonly assessmentStatus: AssessmentStatus;
   readonly savedAssessmentAvailability: InstructorAssessmentAvailabilityView;
   readonly policies: AssessmentActivityRules;
-  readonly activityRuleDraft: AssessmentActivityRuleDraft;
   readonly studentFeedbackReleaseRule: StudentFeedbackReleaseRule;
   readonly assessmentAuthoredContent: InstructorAssessmentAuthoredContentLocal;
   readonly assessmentAttemptTimeLimitSecondsDraft: string;
@@ -60,38 +52,6 @@ export function assessmentAvailabilityCopy(
     return `Released, closed since ${displayCourseLocalTime(current.closed_at)} ${timeZone}.`;
   }
   return "Closed by instructor. Students cannot start new work.";
-}
-
-function completionSummary(input: AssessmentPolicyDraftSummaryInput): string {
-  if (input.policies.assessmentCompletionRule.kind === "allCorrect") {
-    return "All questions correct";
-  }
-  if (input.policies.assessmentCompletionRule.kind === "answerAll") {
-    return "Answer every question";
-  }
-  const threshold = scoreFractionDraft(input.activityRuleDraft.completionFraction);
-  if (!threshold.valid || threshold.value === null) return "Score threshold needs correction";
-  return `Score at least ${threshold.value * 100}%`;
-}
-
-function assessmentAttemptContinuationRuleSummary(
-  input: AssessmentPolicyDraftSummaryInput,
-): string {
-  if (input.policies.assessmentAttemptContinuationRule.kind === "unlimited") {
-    return "Unlimited after completion";
-  }
-  if (input.policies.assessmentAttemptContinuationRule.kind === "closed") {
-    return "Closed after completion";
-  }
-  const additionalAssessmentAttempts = nonnegativeIntegerDraft(
-    input.activityRuleDraft.additionalAssessmentAttempts,
-  );
-  if (!additionalAssessmentAttempts.valid || additionalAssessmentAttempts.value === null) {
-    return "Additional Assessment Attempt limit needs correction";
-  }
-  return `${additionalAssessmentAttempts.value} additional Assessment Attempt${
-    additionalAssessmentAttempts.value === 1 ? "" : "s"
-  }`;
 }
 
 function disclosureSummary(rule: StudentFeedbackReleaseRule): string {
@@ -179,19 +139,9 @@ export function assessmentPolicyDraftSummary(
       ),
     },
     {
-      key: "assessmentCompletionRule",
-      label: "Assessment completion rule",
-      value: completionSummary(input),
-    },
-    {
       key: "assessmentAttemptGradeRule",
       label: "Assessment Attempt grade rule",
       value: grade[input.policies.assessmentAttemptGradeRule],
-    },
-    {
-      key: "assessmentAttemptContinuationRule",
-      label: "Assessment Attempt continuation rule",
-      value: assessmentAttemptContinuationRuleSummary(input),
     },
     {
       key: "questionPoolReuseRule",

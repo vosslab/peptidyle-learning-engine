@@ -21,9 +21,7 @@ const draft = {
   assessmentAttemptTimeLimitSeconds: 60,
   attemptLimit: null,
   activityRules: {
-    assessmentCompletionRule: { kind: "answerAll" },
     assessmentAttemptGradeRule: "highest",
-    assessmentAttemptContinuationRule: { kind: "unlimited" },
     questionPoolReuseRule: "reuseSelection",
     questionVariationRule: "newVariation",
     assessmentAttemptResumeRule: "resumable",

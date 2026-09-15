@@ -13,6 +13,7 @@ function responseBody() {
         courseReference: "CI8H4N6P",
         courseLongName: "Molecular Biology",
         assessmentReference: "A9J5V7W",
+        assessmentType: "quiz",
         assessmentTitle: "DNA repair",
         assessmentStatus: "released",
         dueAtMillis: 1790971200125,

@@ -2,6 +2,7 @@
 
 import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
+import { ASSESSMENT_TYPE_VALUES, type AssessmentType } from "../../../generated/api/AssessmentType";
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
@@ -18,7 +19,6 @@ import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
-  decodeFiniteNumber,
   decodeNonemptyString,
   decodeNullable,
   decodePositiveInteger,
@@ -85,46 +85,6 @@ function pointValue(value: unknown, path: string): string {
   return decoded;
 }
 
-function assessmentCompletionRule(value: unknown, path: string): unknown {
-  const record = decodeRecord(value, path);
-  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
-  if (kind === "answerAll" || kind === "allCorrect") {
-    requireOnlyFields(record, path, ["kind"]);
-    return { kind };
-  }
-  if (kind === "scoreAtLeast") {
-    requireOnlyFields(record, path, ["kind", "fraction"]);
-    const fraction = decodeFiniteNumber(field(record, "fraction", path), `${path}.fraction`);
-    if (fraction < 0 || fraction > 1)
-      throw new DecodeError(`${path}.fraction`, "a fraction from 0 through 1");
-    return { kind, fraction };
-  }
-  throw new DecodeError(`${path}.kind`, "a known Assessment Completion Rule");
-}
-
-function assessmentAttemptContinuationRule(value: unknown, path: string): unknown {
-  const record = decodeRecord(value, path);
-  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
-  if (kind === "unlimited" || kind === "closed") {
-    requireOnlyFields(record, path, ["kind"]);
-    return { kind };
-  }
-  if (kind === "capped") {
-    requireOnlyFields(record, path, ["kind", "maxAdditionalAssessmentAttempts"]);
-    const maxAdditionalAssessmentAttempts = decodeSafeInteger(
-      field(record, "maxAdditionalAssessmentAttempts", path),
-      `${path}.maxAdditionalAssessmentAttempts`,
-    );
-    if (maxAdditionalAssessmentAttempts < 0)
-      throw new DecodeError(
-        `${path}.maxAdditionalAssessmentAttempts`,
-        "a nonnegative safe integer",
-      );
-    return { kind, maxAdditionalAssessmentAttempts };
-  }
-  throw new DecodeError(`${path}.kind`, "a known Assessment Attempt Continuation Rule");
-}
-
 function defaults(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
@@ -136,9 +96,7 @@ function defaults(value: unknown, path: string): unknown {
   ]);
   const policies = decodeRecord(field(record, "activity_rules", path), `${path}.activity_rules`);
   requireOnlyFields(policies, `${path}.activity_rules`, [
-    "assessmentCompletionRule",
     "assessmentAttemptGradeRule",
-    "assessmentAttemptContinuationRule",
     "questionPoolReuseRule",
     "questionVariationRule",
     "assessmentAttemptResumeRule",
@@ -163,18 +121,10 @@ function defaults(value: unknown, path: string): unknown {
       ["accept", "mark_late", "reject"],
     ),
     activity_rules: {
-      assessmentCompletionRule: assessmentCompletionRule(
-        field(policies, "assessmentCompletionRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assessmentCompletionRule`,
-      ),
       assessmentAttemptGradeRule: decodeStringEnum(
         field(policies, "assessmentAttemptGradeRule", `${path}.activity_rules`),
         `${path}.activity_rules.assessmentAttemptGradeRule`,
         ["first", "latest", "highest", "instructorSelected"],
-      ),
-      assessmentAttemptContinuationRule: assessmentAttemptContinuationRule(
-        field(policies, "assessmentAttemptContinuationRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assessmentAttemptContinuationRule`,
       ),
       questionPoolReuseRule: decodeStringEnum(
         field(policies, "questionPoolReuseRule", `${path}.activity_rules`),
@@ -282,9 +232,20 @@ function selectionRule(value: unknown, path: string): void {
   ]);
 }
 
+function assessmentType(value: unknown, path: string): AssessmentType {
+  return decodeStringEnum(value, path, ASSESSMENT_TYPE_VALUES);
+}
+
 function assessmentContent(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults"]);
+  requireOnlyFields(record, path, [
+    "assessment_type",
+    "title",
+    "instructions",
+    "entries",
+    "defaults",
+  ]);
+  assessmentType(field(record, "assessment_type", path), `${path}.assessment_type`);
   const instructions = decodeString(field(record, "instructions", path), `${path}.instructions`);
   if (Array.from(instructions).length > MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS)
     throw new DecodeError(`${path}.instructions`, "instructions within the shared bound");
@@ -396,7 +357,14 @@ function questionView(value: unknown, path: string): void {
 
 function contentView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults"]);
+  requireOnlyFields(record, path, [
+    "assessment_type",
+    "title",
+    "instructions",
+    "entries",
+    "defaults",
+  ]);
+  assessmentType(field(record, "assessment_type", path), `${path}.assessment_type`);
   text(field(record, "title", path), `${path}.title`);
   decodeString(field(record, "instructions", path), `${path}.instructions`);
   defaults(field(record, "defaults", path), `${path}.defaults`);

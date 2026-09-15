@@ -5,12 +5,12 @@ import { DecodeError } from "../src/api/decoder.ts";
 import { decodeQuestionSummary } from "../src/api/decoders/question_library.ts";
 import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
+function currentQuestionSummary() {
+  return { ...publishedQuestionFixture.publishedQuestion, questionFormat: "pleQuestionJson" };
+}
+
 test("Question Summary carries one exact Latest Question Revision in its stable lineage", () => {
-  const summary = decodeQuestionSummary(
-    publishedQuestionFixture.publishedQuestion,
-    "summary",
-    true,
-  );
+  const summary = decodeQuestionSummary(currentQuestionSummary(), "summary", true);
   assert.deepEqual(summary.latestQuestionRevision, {
     questionId: summary.questionId,
     revisionNumber: 1,
@@ -18,7 +18,7 @@ test("Question Summary carries one exact Latest Question Revision in its stable 
 });
 
 test("Question Summary rejects an absent, extraneous, or cross-lineage Latest Question Revision", () => {
-  const summary = publishedQuestionFixture.publishedQuestion;
+  const summary = currentQuestionSummary();
   const { latestQuestionRevision: _latestQuestionRevision, ...withoutLatest } = summary;
   assert.throws(() => decodeQuestionSummary(withoutLatest, "summary", true), DecodeError);
   assert.throws(

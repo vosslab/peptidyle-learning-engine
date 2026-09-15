@@ -211,19 +211,24 @@ response_etag() {
 	printf '%s\n' "$etag"
 }
 
-assert_available_summary() {
+assert_available_lineage() {
 	local payload="$1" expected_id="$2"
 	python3 -c '
 import json
 import sys
 
-summary = json.loads(sys.argv[1])
+lineage = json.loads(sys.argv[1])
 expected_id = sys.argv[2]
+if not isinstance(lineage, dict) or lineage.get("viewerMayArchive") is not True:
+    raise SystemExit("Question owner did not receive the Archive affordance")
+summary = lineage.get("summary")
+if not isinstance(summary, dict):
+    raise SystemExit("Question lineage did not include its current summary")
 availability = summary.get("availability") if isinstance(summary, dict) else None
 if (summary.get("questionId") != expected_id
     or not isinstance(availability, dict)
     or availability.get("availability") != "available"):
-    raise SystemExit("restored Question lineage was not ordinarily available")
+    raise SystemExit("Question lineage was not ordinarily available")
 ' "$payload" "$expected_id"
 }
 
@@ -317,6 +322,7 @@ prove_api() {
 	local selected_revision
 	local selected_title
 	local detail
+	local lineage_current
 	local lineage_headers
 	local archive_headers
 	local restore_headers
@@ -349,6 +355,12 @@ prove_api() {
 		exit 1
 	fi
 	assert_detail_payload "$(response_body "$detail")" "$selected_id" "$selected_revision"
+	lineage_current="$(request "/api/questions/by-id/$selected_id" "$instructor_cookie")"
+	if [ "$(response_status "$lineage_current")" != "200" ]; then
+		echo "Question availability journey could not load the selected lineage" >&2
+		exit 1
+	fi
+	assert_available_lineage "$(response_body "$lineage_current")" "$selected_id"
 	lineage_headers="$(request_headers "/api/questions/by-id/$selected_id" "$instructor_cookie")"
 	if [ "$(response_status "$lineage_headers")" != "200" ]; then
 		echo "Question availability journey could not load the selected lineage" >&2
@@ -390,7 +402,7 @@ prove_api() {
 		echo "restored Question lineage was not available for ordinary selection" >&2
 		exit 1
 	fi
-	assert_available_summary "$(response_body "$restored_current")" "$selected_id"
+	assert_available_lineage "$(response_body "$restored_current")" "$selected_id"
 	restored_search="$(request "/api/questions/search?page_size=100&text=$encoded_title" "$instructor_cookie")"
 	if [ "$(response_status "$restored_search")" != "200" ]; then
 		echo "Question Library search did not remain available after restore" >&2

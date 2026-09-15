@@ -27,7 +27,8 @@ function clientWithIssuedQuestion(mutator) {
       mutator(issued);
       return jsonResponse(issued);
     }
-    return jsonResponse({ ...attempt, assignmentScoringState: "current" });
+    const { reproduction: _reproduction, ...attemptView } = attempt;
+    return jsonResponse({ ...attemptView, assessmentScoringState: "current" });
   });
   return {
     attempt,
@@ -36,7 +37,7 @@ function clientWithIssuedQuestion(mutator) {
   };
 }
 
-test("issued-question transport uses the explicit nested course and assignment route", async () => {
+test("issued-question transport uses the explicit nested course and Assessment route", async () => {
   const { attempt, client, requests } = clientWithIssuedQuestion(() => {});
   await client.getIssuedQuestion(
     publishedQuestionFixture.course.id,
@@ -45,7 +46,7 @@ test("issued-question transport uses the explicit nested course and assignment r
   );
   assert.equal(
     requests[1]?.url,
-    `https://client.example.test/api/courses/${publishedQuestionFixture.course.id}/assignments/${publishedQuestionFixture.assignment.id}/attempts/${attempt.id}/question`,
+    `https://client.example.test/api/courses/${publishedQuestionFixture.course.id}/assessments/${publishedQuestionFixture.assignment.id}/attempts/${attempt.id}/question`,
   );
 });
 
@@ -54,7 +55,8 @@ test("issued-question transport preserves a concealed nested-route 404 without a
   assert.ok(attempt);
   const { recordingFetch, requests } = createRecordingFetch(async (request) => {
     if (new URL(request.url).pathname.endsWith("/question")) return jsonResponse({}, 404);
-    return jsonResponse({ ...attempt, assignmentScoringState: "current" });
+    const { reproduction: _reproduction, ...attemptView } = attempt;
+    return jsonResponse({ ...attemptView, assessmentScoringState: "current" });
   });
   const client = createHttpApiClient({ fetch: recordingFetch });
   await assert.rejects(
@@ -68,7 +70,7 @@ test("issued-question transport preserves a concealed nested-route 404 without a
   assert.equal(requests.length, 2);
   assert.match(
     requests[1]?.url ?? "",
-    /\/api\/courses\/.*\/assignments\/.*\/attempts\/.*\/question$/u,
+    /\/api\/courses\/.*\/assessments\/.*\/attempts\/.*\/question$/u,
   );
 });
 

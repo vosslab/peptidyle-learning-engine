@@ -24,7 +24,7 @@ export interface BlueprintCourseLifecycleControlsProps {
 export function BlueprintCourseLifecycleControls(
   props: BlueprintCourseLifecycleControlsProps,
 ): JSX.Element {
-  const lifecycle = () =>
+  const lifecycle = (): ReturnType<typeof blueprintLifecyclePresentation> =>
     blueprintLifecyclePresentation(props.view.availability, props.view.read_access);
   return (
     <>

@@ -2,16 +2,16 @@
 
 ## Scope
 
-This is a fresh implementation-audit inventory. Each record below is an owning `[ ]`
-Human Guidance bullet: the behavior is unverified or differs from the current implementation.
-The bullet text is copied verbatim from the generated checklist, and its source location is
-recorded beside it. Later duplicate bullets that carry an `Owner:` pointer are excluded because
-their earlier owning record is the single inventory entry.
+This is a fresh topical implementation-audit inventory. It collects currently open
+Human Guidance checklist records relevant to authorization and FERPA. The bullet text is copied
+verbatim from the generated checklist, and its source location is recorded beside it. This report
+does not establish exhaustive or disjoint topical coverage; the checklist remains the authority
+for each record's status.
 
 The authoritative exhaustive record is the
 [generated checklist](../../audits/human_guidance_implementation_checklist.md).
 
-## Owning inventory
+## Topical inventory
 
 ## Evidence updates
 
@@ -19,6 +19,16 @@ The authoritative exhaustive record is the
   read/use boundaries; `U` use is limited to authenticated Account-management paths in the reviewed
   code. This is not creation, randomness, collision-retry, or full authorization evidence, so the
   Human Guidance reference-ID behaviors remain open.
+
+- C207 has accepted independent PostgreSQL 17 actual-API receipts for its two deadline-cap rows.
+  All three Assessment save APIs and release acquire the Course first, reject a Due date beyond the
+  immutable six-month Active cutoff, and synchronize the current maximum Due date. An active
+  Course uses that maximum, or its Active cutoff when no Due date remains, as its retention anchor;
+  archived and deleted anchors stay frozen while the current latest-Due fact remains current. The
+  receipts covered stale CAS, wrong-Instructor denial, cap rollback, deterministic concurrent saves
+  to two Assessments, an archive race, private-helper ACL denial, and the canonical Live Demo seed.
+  This does not close retention notification, archive/delete processing, or broader FERPA-policy
+  behavior. The ignored proof was removed after independent acceptance.
 
 ### Accounts and roles -- Account rules
 
@@ -138,10 +148,6 @@ The authoritative exhaustive record is the
   retention clock.
   - Source: `docs/HUMAN_GUIDANCE.md:454`
 
-- Creating or extending a later Assessment deadline may move those dates, but not beyond the
-  six-month Active lifetime.
-  - Source: `docs/HUMAN_GUIDANCE.md:456`
-
 - Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
   - Source: `docs/HUMAN_GUIDANCE.md:458`
 
@@ -152,10 +158,6 @@ The authoritative exhaustive record is the
 - PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
   creation.
   - Source: `docs/HUMAN_GUIDANCE.md:461`
-
-- The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
-  FERPA retention and deletion.
-  - Source: `docs/HUMAN_GUIDANCE.md:463`
 
 - Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
   delete Student records.
@@ -210,10 +212,3 @@ The authoritative exhaustive record is the
 
 - Student Work records the Question Pool Revision and selected Published Question Revision for each response.
   - Source: `docs/HUMAN_GUIDANCE.md:494`
-
-## Count method
-
-This report owns **55** checklist records. The count is the number of `[ ]` bullets
-in the listed sections after excluding records with a later-duplicate `Owner:` pointer.
-It is mechanically reconciled with the other topical inventories by the temporary report
-generation check; it is not a permanent test.

@@ -62,6 +62,7 @@ import type { QuestionWatchClient } from "./question_watch";
 import type { QuestionStarClient } from "./question_star";
 import type { QuestionPoolLibraryClient } from "./question_pool_library";
 import type { AssessmentStudentViewClient } from "./assessment_student_view";
+import type { AssessmentTemplateClient } from "./assessment_template";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
@@ -81,7 +82,8 @@ export interface ApiClient
     QuestionWatchClient,
     QuestionStarClient,
     QuestionPoolLibraryClient,
-    AssessmentStudentViewClient {
+    AssessmentStudentViewClient,
+    AssessmentTemplateClient {
   /** Reads only the authenticated Account's role-neutral Profile settings. */
   readonly getProfile: () => Promise<ProfileSettings>;
   /** Reads only the authenticated Account's Account Settings preference. */

@@ -11,12 +11,11 @@ use std::num::NonZeroU32;
 
 use question_model::{
     AccountTimeZone, AssessmentActivityRules, AssessmentEditNumber, AssessmentEntry,
-    AssessmentInstructions, AssessmentReference, AssessmentStatus, AssessmentTitle,
-    BlueprintAssessmentSource, CourseInstanceReference, LateWorkRule, LocalDateAndTime,
+    AssessmentInstructions, AssessmentOrigin, AssessmentReference, AssessmentStatus,
+    AssessmentTitle, AssessmentType, CourseInstanceReference, LateWorkRule, LocalDateAndTime,
     QuestionRevisionReference, StudentFeedbackReleaseRule,
 };
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
 
@@ -24,8 +23,8 @@ use crate::{SessionTokenHash, StoreError};
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateLiveAssessmentInput {
-    /// Stable Blueprint Assessment selected from the source Blueprint Revision.
-    pub blueprint_assessment_reference: Uuid,
+    /// Instructor-selected fixed pedagogical purpose.
+    pub assessment_type: AssessmentType,
     /// Instructor-facing Assessment Title.
     pub title: AssessmentTitle,
     /// Plain-text Student-facing instructions; empty text remains valid.
@@ -137,18 +136,6 @@ pub struct AssessmentQuestionPickerEntry {
     pub description: String,
 }
 
-/// One ordinary Blueprint Assessment available to create an Assessment in a
-/// specific Course.  Its exact Blueprint Revision is inherited from the
-/// Course, rather than selected independently by the browser.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CourseAssessmentSourceChoice {
-    /// Exact immutable reusable-content provenance retained by a created Assessment.
-    pub source: BlueprintAssessmentSource,
-    /// Answer-free human-readable selection label from that immutable Blueprint Revision.
-    pub label: String,
-}
-
 /// Browser-safe current authored fixed-Question selection.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -165,6 +152,8 @@ pub struct AuthoredAssessmentQuestion {
 pub struct CourseAssessmentSummary {
     /// Public Assessment Reference; internal Assessment identity remains server-side.
     pub reference: AssessmentReference,
+    /// Fixed pedagogical purpose of this Assessment.
+    pub assessment_type: AssessmentType,
     /// Current Instructor-authored Assessment Title.
     pub title: AssessmentTitle,
     /// Optional current Due at projected in the authenticated Instructor zone.
@@ -187,6 +176,8 @@ pub struct DueSoonAssessmentSummary {
     pub course_long_name: String,
     /// Public Assessment reference; internal Assessment identity remains server-side.
     pub assessment_reference: AssessmentReference,
+    /// Fixed pedagogical purpose of this Assessment.
+    pub assessment_type: AssessmentType,
     /// Current Instructor-authored Assessment title.
     pub assessment_title: AssessmentTitle,
     /// Current Assessment lifecycle, limited by the reader to ordinary actionable states.
@@ -237,9 +228,10 @@ pub struct LiveAssessmentWorkspace {
     pub edit_number: AssessmentEditNumber,
     /// Stable Assessment lifecycle, separate from future Assessment Access.
     pub status: AssessmentStatus,
-    /// Immutable reusable-content provenance selected when this Assessment was created.
-    /// This database-derived value is read-only; browser requests cannot supply it.
-    pub source: BlueprintAssessmentSource,
+    /// Immutable database-derived creation origin; browser requests cannot supply it.
+    pub origin: AssessmentOrigin,
+    /// Fixed pedagogical purpose, independent of editable Assessment Properties.
+    pub assessment_type: AssessmentType,
     /// Current Instructor-authored title.
     pub title: AssessmentTitle,
     /// Current Student-facing instructions.
@@ -278,6 +270,16 @@ pub enum AssessmentReleaseIssue {
     NoPublishedQuestions,
     /// A previously selected Question Revision is no longer Available for release.
     QuestionUnavailable,
+    /// Release requires a Due date.
+    DueDateRequired,
+    /// A new or changed Due date must be at least 24 hours ahead.
+    DueDateLessThan24HoursAhead,
+    /// The Due date cannot extend past the Course's immutable Active cutoff.
+    DueDateAfterCourseActiveUntil,
+    /// Student availability cannot begin after the Due date.
+    AvailabilityAfterDueDate,
+    /// The Due date cannot occur after the closing time.
+    DueDateAfterClose,
 }
 
 /// Calculated release validation changes neither Assessment nor Student work.
@@ -303,6 +305,27 @@ mod tests {
             serde_json::to_value(super::AssessmentReleaseIssue::TimeLimitRequired)
                 .expect("release issue serializes"),
             serde_json::json!("timeLimitRequired")
+        );
+    }
+
+    #[test]
+    fn release_date_blockers_are_stable_browser_issues() {
+        let issues = [
+            super::AssessmentReleaseIssue::DueDateRequired,
+            super::AssessmentReleaseIssue::DueDateLessThan24HoursAhead,
+            super::AssessmentReleaseIssue::DueDateAfterCourseActiveUntil,
+            super::AssessmentReleaseIssue::AvailabilityAfterDueDate,
+            super::AssessmentReleaseIssue::DueDateAfterClose,
+        ];
+        assert_eq!(
+            serde_json::to_value(issues).expect("release issues serialize"),
+            serde_json::json!([
+                "dueDateRequired",
+                "dueDateLessThan24HoursAhead",
+                "dueDateAfterCourseActiveUntil",
+                "availabilityAfterDueDate",
+                "dueDateAfterClose"
+            ])
         );
     }
 
@@ -449,15 +472,6 @@ pub trait LiveAssessmentStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         course: CourseInstanceReference,
     ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError>;
-
-    /// Lists the stable Blueprint Assessments in this Course's exact pinned
-    /// Blueprint Revision.  The browser selects one stable member identity;
-    /// PostgreSQL derives and retains the complete exact provenance.
-    async fn list_course_assessment_source_choices(
-        &self,
-        session_token_hash: SessionTokenHash,
-        course: CourseInstanceReference,
-    ) -> Result<Vec<CourseAssessmentSourceChoice>, StoreError>;
 
     /// Creates one Unreleased Assessment without Question selection or Student activity.
     async fn create_live_assessment(

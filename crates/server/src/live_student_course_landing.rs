@@ -15,7 +15,8 @@ use learning_data_access::{
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
-    AssessmentAttemptCompletion, AssessmentReference, CourseInstanceReference, ProductRole,
+    AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
+    ProductRole,
 };
 use serde::Serialize;
 
@@ -81,13 +82,15 @@ struct AssessmentListResponse {
 struct AssessmentSummary {
     reference: AssessmentReference,
     title: String,
+    assessment_type: AssessmentType,
     decision: StudentAssessmentDecisionSummary,
     assessment_attempt_number: Option<u32>,
     assessment_attempt_completion: Option<AssessmentAttemptCompletion>,
+    can_resume_assessment_attempt: bool,
     graded_question_count: u32,
     question_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    score: Option<learning_data_access::LiveAssessmentAttemptScore>,
+    assessment_score: Option<learning_data_access::LiveAssessmentGradeContribution>,
 }
 
 async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -171,12 +174,14 @@ async fn list_assessments(
                     .map(|assessment| AssessmentSummary {
                         reference: assessment.assessment,
                         title: assessment.title,
+                        assessment_type: assessment.assessment_type,
                         decision: assessment.decision,
                         assessment_attempt_number: assessment.assessment_attempt_number,
                         assessment_attempt_completion: assessment.assessment_attempt_completion,
+                        can_resume_assessment_attempt: assessment.can_resume_assessment_attempt,
                         graded_question_count: assessment.graded_question_count,
                         question_count: assessment.question_count,
-                        score: assessment.score,
+                        assessment_score: assessment.assessment_score,
                     })
                     .collect(),
             })

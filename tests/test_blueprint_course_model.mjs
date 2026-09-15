@@ -9,6 +9,7 @@ import {
   blueprintLifecyclePresentation,
   emptyReusableContent,
   moveReusableEntry,
+  reusableContentInputFromView,
   validateBlueprintCourseContent,
   validateReusableContent,
 } from "../src/features/blueprint_course/blueprint_course_model.ts";
@@ -17,8 +18,9 @@ function selection(...questionIds) {
   return { questionIds, questions: [] };
 }
 
-test("new Blueprint Assignment working state keeps answer-bearing feedback private", () => {
-  const feedback = emptyReusableContent("Quiz").defaults.student_feedback_release_rule;
+test("new Blueprint Assessment working state keeps answer-bearing feedback private", () => {
+  const feedback =
+    emptyReusableContent("regular_assignment").defaults.student_feedback_release_rule;
 
   assert.deepEqual(feedback, {
     score: "after_submit",
@@ -53,17 +55,29 @@ test("Blueprint lifecycle choices expose only the server-directed state transiti
   assert.equal(archivedOwner.canEdit, false);
 });
 
-test("new Blueprint Assignment working state uses the Assignment delivery defaults", () => {
-  const defaults = emptyReusableContent("Quiz").defaults;
+test("new Blueprint Assessment working state uses the Assessment delivery defaults", () => {
+  const defaults = emptyReusableContent("quiz", "Quiz").defaults;
 
   assert.equal(defaults.late_work_rule, "reject");
-  assert.equal(defaults.activity_rules.assignmentQuestionDisplayRule, "oneQuestionAtATime");
-  assert.equal(defaults.activity_rules.assignmentQuestionOrderRule, "shuffled");
+  assert.equal(defaults.assessment_attempt_limit, 1);
+  assert.equal(defaults.student_feedback_release_rule.question_answer, "after_submit");
+  assert.equal(defaults.student_feedback_release_rule.question_answer_explanation, "after_submit");
+  assert.equal(defaults.activity_rules.assessmentQuestionDisplayRule, "oneQuestionAtATime");
+  assert.equal(defaults.activity_rules.assessmentQuestionOrderRule, "shuffled");
+});
+
+test("new regular Blueprint Assessment remains unlimited without a score or correctness gate", () => {
+  const defaults = emptyReusableContent("regular_assignment").defaults;
+
+  assert.equal(defaults.assessment_attempt_limit, null);
 });
 
 test("reusable entries preserve fixed and Question Pool interleaving", () => {
-  const fixed = appendPickedFixedEntries(emptyReusableContent("Quiz"), selection("AAAA-ZBBB"));
-  const pooled = appendPickedPool(fixed, selection("CCCD-XDDD", "EEEF-XFFF"));
+  const fixed = appendPickedFixedEntries(
+    emptyReusableContent("quiz", "Quiz"),
+    selection("AAAA-ZBBB"),
+  );
+  const pooled = appendPickedPool(fixed, "CCCD-XDDD");
   const reordered = moveReusableEntry(pooled, 1, -1);
 
   assert.deepEqual(
@@ -73,11 +87,11 @@ test("reusable entries preserve fixed and Question Pool interleaving", () => {
   assert.equal(reordered.entries[0]?.kind === "pool" && reordered.entries[0].selection_count, 1);
 });
 
-test("Question Pool validation keeps selection count inside the selected Question Pool Item set", () => {
-  const content = appendPickedPool(emptyReusableContent("Quiz"), selection("AAAA-ZBBB"));
+test("Question Pool validation requires a positive whole selection count", () => {
+  const content = appendPickedPool(emptyReusableContent("quiz", "Quiz"), "AAAA-ZBBB");
   const pool = content.entries[0];
   const invalid =
-    pool?.kind === "pool" ? { ...content, entries: [{ ...pool, selection_count: 2 }] } : content;
+    pool?.kind === "pool" ? { ...content, entries: [{ ...pool, selection_count: 0 }] } : content;
 
   assert.match(validateReusableContent(invalid).message ?? "", /selection count/);
 });
@@ -107,7 +121,7 @@ test("Blueprint Course pages append unique public references and name the next a
 
 test("Blueprint Course creation requires separate short and long lineage names", () => {
   const assignment = {
-    ...emptyReusableContent("Ready assignment"),
+    ...emptyReusableContent("regular_assignment", "Ready assignment"),
     entries: [
       { kind: "fixed", question_id: "AAAA-ZBBB", points_possible: "1", scoring_rule: "normal" },
     ],
@@ -116,7 +130,7 @@ test("Blueprint Course creation requires separate short and long lineage names",
     validateBlueprintCourseContent({
       short_name: "Blueprint",
       long_name: "Protein folding Blueprint Course",
-      modules: [{ label: "Module 1", assignments: [assignment] }],
+      modules: [{ label: "Module 1", assessments: [assignment] }],
     }).valid,
     true,
   );
@@ -124,8 +138,22 @@ test("Blueprint Course creation requires separate short and long lineage names",
     validateBlueprintCourseContent({
       short_name: " ",
       long_name: "Protein folding Blueprint Course",
-      modules: [{ label: "Module 1", assignments: [assignment] }],
+      modules: [{ label: "Module 1", assessments: [assignment] }],
     }).message ?? "",
     /short and long names/,
   );
+});
+
+test("saved Blueprint Assessment mapping preserves its selected Type", () => {
+  const defaults = emptyReusableContent("regular_assignment").defaults;
+  const mapped = reusableContentInputFromView({
+    assessment_type: "exam",
+    title: "Final exam",
+    instructions: "Show your reasoning.",
+    entries: [],
+    defaults,
+  });
+
+  assert.equal(mapped.assessment_type, "exam");
+  assert.deepEqual(mapped.defaults, defaults);
 });

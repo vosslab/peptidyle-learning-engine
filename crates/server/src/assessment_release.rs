@@ -55,10 +55,6 @@ pub fn assessment_release_router(
             get(list_picker),
         )
         .route(
-            "/api/course-instances/{course}/assessment-source-choices",
-            get(list_assessment_source_choices),
-        )
-        .route(
             "/api/course-instances/{course}/assessments",
             get(list_assessments).post(create_assessment),
         )
@@ -159,28 +155,6 @@ async fn list_picker(
     }
 }
 
-async fn list_assessment_source_choices(
-    State(state): State<StateData>,
-    headers: HeaderMap,
-    Path(course): Path<String>,
-) -> Response {
-    let course = match course_reference(&course) {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    let token = match instructor(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .assessments
-        .list_course_assessment_source_choices(token, course)
-        .await
-    {
-        Ok(choices) => crate::auth::no_store(Json(choices).into_response()),
-        Err(error) => store_error(error),
-    }
-}
 async fn create_assessment(
     State(state): State<StateData>,
     headers: HeaderMap,

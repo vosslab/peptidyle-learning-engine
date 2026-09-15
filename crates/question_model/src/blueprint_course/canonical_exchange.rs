@@ -116,6 +116,7 @@ impl CanonicalBlueprintModule {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct CanonicalBlueprintAssessment {
+    assessment_type: crate::AssessmentType,
     title: String,
     instructions: AssessmentInstructions,
     entries: Vec<CanonicalBlueprintAssessmentEntry>,
@@ -123,6 +124,10 @@ pub struct CanonicalBlueprintAssessment {
 }
 
 impl CanonicalBlueprintAssessment {
+    /// Returns the fixed pedagogical purpose of this reusable Assessment.
+    pub fn assessment_type(&self) -> crate::AssessmentType {
+        self.assessment_type
+    }
     /// Returns the reusable Assessment title.
     pub fn title(&self) -> &str {
         &self.title
@@ -184,6 +189,7 @@ impl From<&crate::BlueprintCourseModuleContent> for CanonicalBlueprintModule {
 impl From<&crate::BlueprintAssessmentContent> for CanonicalBlueprintAssessment {
     fn from(assessment: &crate::BlueprintAssessmentContent) -> Self {
         Self {
+            assessment_type: assessment.assessment_type(),
             title: assessment.title().to_owned(),
             instructions: assessment.instructions().clone(),
             entries: assessment

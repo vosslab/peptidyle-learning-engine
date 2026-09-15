@@ -34,6 +34,7 @@ fn receipt_manifest() -> Manifest {
     Manifest {
         version: 1,
         course: Course {
+            assessment_type: question_model::AssessmentType::PracticeQuestionAssignment,
             short_name: "Genetics".to_owned(),
             long_name: "Genetics Blueprint".to_owned(),
             module_label: "Genetics".to_owned(),
@@ -121,6 +122,31 @@ fn exact_pool_pins_reject_a_newer_revision_of_the_same_question() {
         .is_ok()
     );
     assert!(ensure_exact_pool_pins(&[revision_two], &[revision_one]).is_err());
+}
+
+#[test]
+fn curriculum_blueprint_uses_the_manifest_assessment_type_feedback_default() {
+    let manifest = receipt_manifest();
+    let published = BTreeMap::from([
+        ("topic/bank/first".to_owned(), reference("7K3M-X9QX", 1)),
+        ("topic/bank/second".to_owned(), reference("8K3M-X9QX", 1)),
+    ]);
+
+    let input = blueprint_input(&manifest, &published, &ReplacementRevisions::new())
+        .expect("valid Practice Blueprint input");
+    let assessment = &input.modules[0].assessments[0];
+
+    assert_eq!(
+        assessment.assessment_type,
+        question_model::AssessmentType::PracticeQuestionAssignment
+    );
+    assert_eq!(
+        assessment
+            .defaults
+            .student_feedback_release_rule
+            .question_answer,
+        question_model::StudentFeedbackReleaseTiming::AfterSubmit
+    );
 }
 
 #[test]

@@ -2,8 +2,8 @@
 
 import type { AssessmentReference } from "../../generated/api/AssessmentReference";
 import type { AssessmentAttemptCompletion } from "../../generated/api/AssessmentAttemptCompletion";
+import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
-import type { LiveAssessmentAttemptScore } from "./assessment_attempt_issuance";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 
 /** One current Student-visible Course Instance, without membership or progress details. */
@@ -24,13 +24,21 @@ export interface LiveStudentCourseInvitationSummary {
 export interface LiveStudentAssessmentLandingSummary {
   readonly reference: AssessmentReference;
   readonly title: string;
+  readonly assessmentType: AssessmentType;
   readonly decision: StudentAssessmentDecisionSummary;
   readonly assessmentAttemptNumber: number | null;
   readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
+  readonly canResumeAssessmentAttempt: boolean;
   readonly gradedQuestionCount: number;
   readonly questionCount: number;
-  /** Omitted unless the pinned Assessment disclosure releases the current score. */
-  readonly score?: LiveAssessmentAttemptScore;
+  /** Omitted unless the selected highest submitted Attempt releases its Assessment score. */
+  readonly assessmentScore?: AssessmentGradeContribution;
+}
+
+/** Point contribution for one Assessment; Bonus work may contribute n / 0. */
+export interface AssessmentGradeContribution {
+  readonly pointsEarned: number;
+  readonly pointsPossible: number;
 }
 
 /** Same-origin current-Student Course and Assessment landing capability. */

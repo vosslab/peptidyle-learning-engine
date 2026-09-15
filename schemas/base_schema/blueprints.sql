@@ -287,8 +287,6 @@ DECLARE
     limit_value jsonb;
     time_limit_value jsonb;
     selection_value jsonb;
-    completion_value jsonb;
-    continuation_value jsonb;
 BEGIN
     IF NOT ple_data.blueprint_content_has_exact_keys(p_content, ARRAY['modules'])
        OR jsonb_typeof(p_content -> 'modules') <> 'array'
@@ -314,7 +312,9 @@ BEGIN
             END IF;
             content_value := assessment_value -> 'content';
             IF NOT ple_data.blueprint_content_has_exact_keys(
-                content_value, ARRAY['title', 'instructions', 'entries', 'defaults']
+                content_value, ARRAY['assessment_type', 'title', 'instructions', 'entries', 'defaults']
+            ) OR content_value ->> 'assessment_type' NOT IN (
+                'regular_assignment', 'practice_question_assignment', 'bonus_assignment', 'quiz', 'exam'
             ) OR jsonb_typeof(content_value -> 'title') <> 'string'
               OR jsonb_typeof(content_value -> 'instructions') <> 'string'
               OR jsonb_typeof(content_value -> 'entries') <> 'array'
@@ -325,14 +325,16 @@ BEGIN
             IF NOT ple_data.blueprint_content_has_exact_keys(defaults_value, ARRAY[
                 'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
                 'activity_rules', 'student_feedback_release_rule'
-            ]) THEN
+            ]) OR (
+                content_value ->> 'assessment_type' IN ('quiz', 'exam')
+                AND defaults_value -> 'assessment_attempt_limit' IS DISTINCT FROM '1'::jsonb
+            ) THEN
                 RETURN false;
             END IF;
             activity_value := defaults_value -> 'activity_rules';
             feedback_value := defaults_value -> 'student_feedback_release_rule';
             IF NOT ple_data.blueprint_content_has_exact_keys(activity_value, ARRAY[
-                'assessmentCompletionRule', 'assessmentAttemptGradeRule',
-                'assessmentAttemptContinuationRule', 'questionPoolReuseRule',
+                'assessmentAttemptGradeRule', 'questionPoolReuseRule',
                 'questionVariationRule', 'assessmentAttemptResumeRule',
                 'assessmentQuestionDisplayRule', 'assessmentNavigationRule',
                 'assessmentQuestionOrderRule'
@@ -340,19 +342,6 @@ BEGIN
                 'score', 'per_item_correctness', 'submitted_response', 'question_feedback',
                 'question_answer', 'question_answer_explanation', 'class_statistics'
             ]) THEN
-                RETURN false;
-            END IF;
-            completion_value := activity_value -> 'assessmentCompletionRule';
-            continuation_value := activity_value -> 'assessmentAttemptContinuationRule';
-            IF NOT (
-                ple_data.blueprint_content_has_exact_keys(completion_value, ARRAY['kind'])
-                OR ple_data.blueprint_content_has_exact_keys(completion_value, ARRAY['kind', 'fraction'])
-            ) OR NOT (
-                ple_data.blueprint_content_has_exact_keys(continuation_value, ARRAY['kind'])
-                OR ple_data.blueprint_content_has_exact_keys(
-                    continuation_value, ARRAY['kind', 'maxAdditionalAssessmentAttempts']
-                )
-            ) THEN
                 RETURN false;
             END IF;
             FOR entry_value IN SELECT value FROM jsonb_array_elements(content_value -> 'entries') LOOP

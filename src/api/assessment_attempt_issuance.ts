@@ -2,6 +2,7 @@
 
 import type { AssessmentReference } from "../../generated/api/AssessmentReference";
 import type { AssessmentAttemptReference } from "../../generated/api/AssessmentAttemptReference";
+import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { QuestionPresentation } from "../../generated/api/QuestionPresentation";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
@@ -25,6 +26,7 @@ export interface LiveAssessmentAccess {
   /** Authorized unfinished Assessment Attempt, if the Student can resume one. */
   readonly activeAssessmentAttempt: AssessmentAttemptReference | null;
   readonly title: string;
+  readonly assessmentType: AssessmentType;
   readonly questionCount: number;
   readonly pointsPossible: number;
   /** Complete, newest-first, answer-free owned Attempt history. */

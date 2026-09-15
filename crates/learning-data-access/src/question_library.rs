@@ -36,6 +36,9 @@ pub struct PublishedQuestionLibraryEntry {
     pub authorship: QuestionAuthorship,
     /// Whether the authenticated Account is an immutable Question Author.
     pub authored_by_current_account: bool,
+    /// Whether the authenticated current Question Owner may invoke Archive.
+    /// The server still reauthorizes the command at mutation time.
+    pub viewer_may_archive: bool,
     /// Immutable Question License for this Question Revision.
     pub question_license: QuestionLicense,
     /// Current selection availability of the stable Question lineage.

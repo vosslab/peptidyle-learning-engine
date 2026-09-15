@@ -9,6 +9,7 @@ import type { BlueprintAssessmentContentInput } from "../../../generated/api/Blu
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
+import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionPickerSelection } from "../question_picker";
 
@@ -101,15 +102,13 @@ export function blueprintCourseContinuationPresentation(
   };
 }
 
-function defaultDefaults(): BlueprintAssessmentDefaults {
+function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDefaults {
   return {
     assessment_attempt_time_limit_seconds: null,
-    assessment_attempt_limit: null,
+    assessment_attempt_limit: assessmentType === "quiz" || assessmentType === "exam" ? 1 : null,
     late_work_rule: "reject",
     activity_rules: {
-      assessmentCompletionRule: { kind: "answerAll" },
       assessmentAttemptGradeRule: "highest",
-      assessmentAttemptContinuationRule: { kind: "unlimited" },
       questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
@@ -122,8 +121,14 @@ function defaultDefaults(): BlueprintAssessmentDefaults {
       per_item_correctness: "after_submit",
       submitted_response: "after_submit",
       question_feedback: "never",
-      question_answer: "never",
-      question_answer_explanation: "never",
+      question_answer:
+        assessmentType === "practice_question_assignment"
+          ? "after_submit"
+          : assessmentType === "quiz" || assessmentType === "exam"
+            ? "after_submit"
+            : "never",
+      question_answer_explanation:
+        assessmentType === "quiz" || assessmentType === "exam" ? "after_submit" : "never",
       class_statistics: "never",
     },
   };
@@ -131,22 +136,26 @@ function defaultDefaults(): BlueprintAssessmentDefaults {
 
 /** Builds an editable assessment content with visible teaching defaults. */
 export function emptyReusableContent(
+  assessmentType: AssessmentType,
   title = "Untitled Blueprint Assessment",
 ): BlueprintAssessmentContentInput {
   return {
+    assessment_type: assessmentType,
     title,
     instructions: "",
     entries: [],
-    defaults: defaultDefaults(),
+    defaults: defaultDefaults(assessmentType),
   };
 }
 
-/** Builds complete local Blueprint Course working state with one labelled module. */
-export function emptyBlueprintCourseContent(): CreateBlueprintCourseInput {
+/** Builds complete local Blueprint Course working state with one explicitly typed Assessment. */
+export function emptyBlueprintCourseContent(
+  assessmentType: AssessmentType,
+): CreateBlueprintCourseInput {
   return {
     short_name: "Untitled Blueprint",
     long_name: "Untitled Blueprint Course",
-    modules: [{ label: "Module 1", assessments: [emptyReusableContent()] }],
+    modules: [{ label: "Module 1", assessments: [emptyReusableContent(assessmentType)] }],
   };
 }
 
@@ -347,6 +356,7 @@ export function reusableContentInputFromView(
   content: BlueprintAssessmentContentView,
 ): BlueprintAssessmentContentInput {
   return {
+    assessment_type: content.assessment_type,
     title: content.title,
     instructions: content.instructions,
     entries: content.entries.map(entryInputFromView),

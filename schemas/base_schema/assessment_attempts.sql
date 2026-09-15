@@ -40,7 +40,6 @@ CREATE TABLE ple_private.assessment_attempt (
     assessment_attempt_number integer NOT NULL CHECK (assessment_attempt_number > 0),
     started_at timestamptz NOT NULL,
     expires_at timestamptz,
-    completed_at timestamptz,
     assessment_title text NOT NULL CHECK (assessment_title ~ '[^[:space:]]'),
     assessment_instructions text NOT NULL CHECK (assessment_instructions !~ E'\\x00'),
     available_at timestamptz,
@@ -49,11 +48,7 @@ CREATE TABLE ple_private.assessment_attempt (
     assessment_attempt_time_limit_seconds integer,
     assessment_attempt_limit integer,
     late_work_rule text NOT NULL CHECK (late_work_rule IN ('accept', 'mark_late', 'reject')),
-    assessment_completion_rule text NOT NULL CHECK (assessment_completion_rule IN ('answer_all', 'all_correct', 'score_at_least')),
-    assessment_completion_score_threshold numeric,
     assessment_attempt_grade_rule text NOT NULL CHECK (assessment_attempt_grade_rule IN ('first', 'latest', 'highest', 'instructor_selected')),
-    assessment_attempt_continuation_rule text NOT NULL CHECK (assessment_attempt_continuation_rule IN ('unlimited', 'capped', 'closed')),
-    max_additional_assessment_attempts integer,
     question_pool_reuse_rule text NOT NULL CHECK (question_pool_reuse_rule IN ('reuse_selection', 'select_again')),
     question_variation_rule text NOT NULL CHECK (question_variation_rule IN ('reuse_variation', 'new_variation')),
     assessment_attempt_resume_rule text NOT NULL CHECK (assessment_attempt_resume_rule IN ('resumable', 'single_session')),
@@ -75,16 +70,10 @@ CREATE TABLE ple_private.assessment_attempt (
     assessment_attempt_limit_accommodation_edit_number bigint CHECK (assessment_attempt_limit_accommodation_edit_number > 0),
     UNIQUE (student_record_id, assessment_id, assessment_attempt_number),
     CHECK (expires_at IS NULL OR expires_at >= started_at),
-    CHECK (completed_at IS NULL OR completed_at >= started_at),
     CHECK ((available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
        AND (due_at IS NULL OR closes_at IS NULL OR due_at <= closes_at)),
     CHECK (assessment_attempt_time_limit_seconds IS NULL OR assessment_attempt_time_limit_seconds > 0),
     CHECK (assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0),
-    CHECK ((assessment_completion_rule = 'score_at_least'
-        AND assessment_completion_score_threshold > 0 AND assessment_completion_score_threshold <= 1)
-       OR (assessment_completion_rule <> 'score_at_least' AND assessment_completion_score_threshold IS NULL)),
-    CHECK ((assessment_attempt_continuation_rule = 'capped' AND max_additional_assessment_attempts >= 0)
-       OR (assessment_attempt_continuation_rule <> 'capped' AND max_additional_assessment_attempts IS NULL)),
     FOREIGN KEY (schedule_accommodation_id, student_record_id, assessment_id)
         REFERENCES ple_private.student_assessment_accommodation(accommodation_id, student_record_id, assessment_id),
     FOREIGN KEY (time_limit_accommodation_id, student_record_id, assessment_id)
@@ -164,6 +153,16 @@ BEGIN
     IF NOT ple_data.student_assessment_has_course_scope(NEW.student_record_id, NEW.assessment_id) THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Accommodation requires a Student and Assessment in one Course';
     END IF;
+    IF NEW.assessment_attempt_limit IS NOT NULL
+       AND NEW.assessment_attempt_limit <> 1
+       AND EXISTS (
+           SELECT 1 FROM ple_data.assessment AS assessment
+            WHERE assessment.assessment_id = NEW.assessment_id
+              AND assessment.assessment_type IN ('quiz', 'exam')
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Quiz and Exam accommodations retain exactly one Assessment Attempt';
+    END IF;
     RETURN NEW;
 END $$;
 
@@ -241,9 +240,7 @@ BEGIN
        OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
        OR ROW(NEW.assessment_title, NEW.assessment_instructions, NEW.available_at, NEW.due_at, NEW.closes_at,
               NEW.assessment_attempt_time_limit_seconds, NEW.assessment_attempt_limit, NEW.late_work_rule,
-              NEW.assessment_completion_rule, NEW.assessment_completion_score_threshold,
-              NEW.assessment_attempt_grade_rule, NEW.assessment_attempt_continuation_rule,
-              NEW.max_additional_assessment_attempts, NEW.question_pool_reuse_rule, NEW.question_variation_rule,
+              NEW.assessment_attempt_grade_rule, NEW.question_pool_reuse_rule, NEW.question_variation_rule,
               NEW.assessment_attempt_resume_rule, NEW.assessment_question_display_rule,
               NEW.assessment_navigation_rule, NEW.assessment_question_order_rule, NEW.feedback_score,
               NEW.feedback_per_item_correctness, NEW.feedback_submitted_response, NEW.feedback_question_feedback,
@@ -253,17 +250,14 @@ BEGIN
               NEW.assessment_attempt_limit_accommodation_id, NEW.assessment_attempt_limit_accommodation_edit_number)
            IS DISTINCT FROM ROW(OLD.assessment_title, OLD.assessment_instructions, OLD.available_at, OLD.due_at, OLD.closes_at,
               OLD.assessment_attempt_time_limit_seconds, OLD.assessment_attempt_limit, OLD.late_work_rule,
-              OLD.assessment_completion_rule, OLD.assessment_completion_score_threshold,
-              OLD.assessment_attempt_grade_rule, OLD.assessment_attempt_continuation_rule,
-              OLD.max_additional_assessment_attempts, OLD.question_pool_reuse_rule, OLD.question_variation_rule,
+              OLD.assessment_attempt_grade_rule, OLD.question_pool_reuse_rule, OLD.question_variation_rule,
               OLD.assessment_attempt_resume_rule, OLD.assessment_question_display_rule,
               OLD.assessment_navigation_rule, OLD.assessment_question_order_rule, OLD.feedback_score,
               OLD.feedback_per_item_correctness, OLD.feedback_submitted_response, OLD.feedback_question_feedback,
               OLD.feedback_question_answer, OLD.feedback_question_answer_explanation, OLD.feedback_class_statistics,
               OLD.schedule_accommodation_id, OLD.schedule_accommodation_edit_number,
               OLD.time_limit_accommodation_id, OLD.time_limit_accommodation_edit_number,
-              OLD.assessment_attempt_limit_accommodation_id, OLD.assessment_attempt_limit_accommodation_edit_number)
-       OR OLD.completed_at IS NOT NULL THEN
+              OLD.assessment_attempt_limit_accommodation_id, OLD.assessment_attempt_limit_accommodation_edit_number) THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Assessment Attempt evidence is immutable after creation';
     END IF;
     RETURN NEW;
@@ -418,7 +412,7 @@ CREATE INDEX assessment_attempt_student_assessment_lookup_idx
     ON ple_private.assessment_attempt(student_record_id, assessment_id, assessment_attempt_number DESC);
 CREATE INDEX assessment_attempt_expiry_sweep_idx
     ON ple_private.assessment_attempt(expires_at, assessment_attempt_id)
-    WHERE expires_at IS NOT NULL AND completed_at IS NULL;
+    WHERE expires_at IS NOT NULL;
 CREATE INDEX issued_question_attempt_position_idx ON ple_private.issued_question(assessment_attempt_id, issued_position);
 
 ALTER TABLE ple_private.student_assessment_accommodation ENABLE ROW LEVEL SECURITY;
@@ -445,7 +439,7 @@ REVOKE ALL ON FUNCTION ple_private.assert_student_assessment_accommodation_scope
     ple_private.validate_question_pool_selection_issues(),
     ple_private.validate_issued_question_reproduction() FROM PUBLIC;
 
-COMMENT ON TABLE ple_private.assessment_attempt IS 'Immutable effective Assessment evidence for one Student Work occurrence; only completion may be recorded once.';
+COMMENT ON TABLE ple_private.assessment_attempt IS 'Immutable effective Assessment evidence for one Student Work occurrence; its immutable Assessment Submission is the sole completion authority.';
 COMMENT ON TABLE ple_private.issued_question IS 'Pre-render source-selection record: exact Assessment Entry identity, Question Revision, optional renderer seed, per-question policy, scoring, statistics, and pool-selection evidence for one issued position.';
 
 RESET ROLE;

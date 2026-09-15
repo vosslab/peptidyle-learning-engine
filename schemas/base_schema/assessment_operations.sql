@@ -7,6 +7,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.list_course_assessments(p_course_reference_number text)
 RETURNS TABLE (
     assessment_reference_number text,
+    assessment_type text,
     assessment_title text,
     due_at_millis bigint,
     assessment_status text,
@@ -15,6 +16,7 @@ RETURNS TABLE (
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT assessment.public_reference,
+           assessment.assessment_type,
            assessment.assessment_title,
            CASE WHEN assessment.due_at IS NULL THEN NULL
                 ELSE floor(extract(epoch FROM assessment.due_at) * 1000)::bigint END,
@@ -32,6 +34,7 @@ RETURNS TABLE (
     course_reference_number bigint,
     course_long_name text,
     assessment_reference_number text,
+    assessment_type text,
     assessment_title text,
     assessment_status text,
     due_at_millis bigint
@@ -41,6 +44,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.reference_number,
            course.course_long_name,
            assessment.public_reference,
+           assessment.assessment_type,
            assessment.assessment_title,
            assessment.assessment_status,
            floor(extract(epoch FROM assessment.due_at) * 1000)::bigint
@@ -86,45 +90,6 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
      ORDER BY metadata.question_title, lineage.question_id
 $$;
 
--- An Assessment begins from one stable member of the Course's already-pinned
--- immutable Blueprint Revision.  The label is read from that exact Revision
--- content; it is never reconstructed from a mutable Draft.  A later archive
--- changes Blueprint discovery, but cannot erase this Course provenance.
-CREATE FUNCTION ple_api.list_course_assessment_source_choices(p_course_reference_number text)
-RETURNS TABLE (
-    source_blueprint_course_reference_number text,
-    source_blueprint_revision_number bigint,
-    source_blueprint_assessment_reference uuid,
-    source_label text
-)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT course.blueprint_course_reference_number,
-           course.blueprint_revision_number,
-           source.blueprint_assessment_reference,
-           source_content.assessment -> 'content' ->> 'title'
-      FROM ple_data.course_instance AS course
-      JOIN ple_data.blueprint_course_revision AS revision
-        ON revision.blueprint_course_reference_number = course.blueprint_course_reference_number
-       AND revision.blueprint_revision_number = course.blueprint_revision_number
-      JOIN ple_data.blueprint_revision_assessment AS source
-        ON source.blueprint_course_reference_number = revision.blueprint_course_reference_number
-       AND source.blueprint_revision_number = revision.blueprint_revision_number
-      JOIN ple_data.blueprint_revision_module AS module
-        ON module.blueprint_course_reference_number = source.blueprint_course_reference_number
-       AND module.blueprint_revision_number = source.blueprint_revision_number
-       AND module.blueprint_module_reference = source.blueprint_module_reference
-      JOIN LATERAL pg_catalog.jsonb_array_elements(revision.content -> 'modules')
-        AS module_content(module) ON true
-      JOIN LATERAL pg_catalog.jsonb_array_elements(module_content.module -> 'assessments')
-        AS source_content(assessment)
-        ON (source_content.assessment ->> 'blueprint_assessment_reference')::uuid
-            = source.blueprint_assessment_reference
-     WHERE course.public_reference = p_course_reference_number
-       AND ple_api.current_session_account_is_course_instructor(course.course_id)
-     ORDER BY module.module_position, source.assessment_position
-$$;
-
 -- A normalized row projection keeps pool membership explicit for the Store.
 -- It resolves the exact pinned revision even after its lineage is Archived;
 -- only ordinary picker discovery filters archived lineages.
@@ -136,22 +101,20 @@ RETURNS TABLE (
     assessment_reference_number text,
     assessment_edit_number bigint,
     assessment_status text,
+    origin_kind text,
     source_blueprint_course_reference_number text,
     source_blueprint_revision_number bigint,
     source_blueprint_assessment_reference uuid,
+    assessment_type text,
     assessment_title text,
     assessment_instructions text,
     available_at_millis bigint,
     due_at_millis bigint,
     closes_at_millis bigint,
     assessment_attempt_time_limit_seconds integer,
-    assessment_attempt_limit integer,
+    attempt_limit integer,
     late_work_rule text,
-    assessment_completion_rule text,
-    assessment_completion_score_threshold numeric,
     assessment_attempt_grade_rule text,
-    assessment_attempt_continuation_rule text,
-    max_additional_assessment_attempts integer,
     question_pool_reuse_rule text,
     question_variation_rule text,
     assessment_attempt_resume_rule text,
@@ -191,9 +154,11 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT assessment.public_reference,
            assessment.assessment_edit_number,
            assessment.assessment_status,
+           assessment.origin_kind,
            blueprint.public_reference,
            assessment.source_blueprint_revision_number,
            assessment.source_blueprint_assessment_reference,
+           assessment.assessment_type,
            assessment.assessment_title,
            assessment.assessment_instructions,
            CASE WHEN assessment.available_at IS NULL THEN NULL
@@ -205,11 +170,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.assessment_attempt_time_limit_seconds,
            assessment.assessment_attempt_limit,
            assessment.late_work_rule,
-           assessment.assessment_completion_rule,
-           assessment.assessment_completion_score_threshold,
            assessment.assessment_attempt_grade_rule,
-           assessment.assessment_attempt_continuation_rule,
-           assessment.max_additional_assessment_attempts,
            assessment.question_pool_reuse_rule,
            assessment.question_variation_rule,
            assessment.assessment_attempt_resume_rule,
@@ -245,7 +206,7 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            metadata.question_description
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
-      JOIN ple_data.blueprint_course AS blueprint
+      LEFT JOIN ple_data.blueprint_course AS blueprint
         ON blueprint.reference_number = assessment.source_blueprint_course_reference_number
       LEFT JOIN ple_data.assessment_entry AS entry ON entry.assessment_id = assessment.assessment_id
       LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
@@ -267,9 +228,12 @@ CREATE FUNCTION ple_api.validate_assessment_release(
 RETURNS TABLE (issue text)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE assessment_id_value uuid;
+DECLARE
+    assessment_id_value uuid;
+    assessment_status_value text;
 BEGIN
-    SELECT assessment.assessment_id INTO assessment_id_value
+    SELECT assessment.assessment_id, assessment.assessment_status
+      INTO assessment_id_value, assessment_status_value
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
      WHERE course.public_reference = p_course_reference_number
@@ -278,41 +242,22 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
     END IF;
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_data.assessment_entry
-         WHERE assessment_id = assessment_id_value AND availability = 'available'
-    ) THEN
-        issue := 'questions_required';
-        RETURN NEXT;
-    END IF;
-    IF EXISTS (
-        SELECT 1 FROM ple_data.assessment_entry AS entry
-        JOIN ple_data.question_pool_revision AS pool_revision
-          ON pool_revision.question_pool_id = entry.question_pool_id
-         AND pool_revision.revision_number = entry.question_pool_revision_number
-         WHERE entry.assessment_id = assessment_id_value
-           AND entry.availability = 'available'
-           AND entry.entry_kind = 'question_pool'
-           AND entry.selection_count > pool_revision.member_count
-    ) THEN
-        issue := 'question_pool_insufficient_items';
-        RETURN NEXT;
-    END IF;
-    IF EXISTS (
-        SELECT 1 FROM ple_data.assessment
-         WHERE assessment_id = assessment_id_value
-           AND assessment_attempt_time_limit_seconds IS NULL
-    ) THEN
-        issue := 'assessment_attempt_time_limit_required';
-        RETURN NEXT;
-    END IF;
+    -- ASVS 2.2.2 and 2.3.1-2.3.3: this authorized projection and every
+    -- mutating hard gate consume the same closed issue-producing authority.
+    RETURN QUERY
+    SELECT release_issue.issue
+      FROM ple_data.assessment_release_issues(
+        assessment_id_value,
+        transaction_timestamp(),
+        assessment_status_value = 'unreleased'
+      ) AS release_issue;
 END
 $$;
 
 CREATE FUNCTION ple_api.create_assessment(
     p_assessment_id uuid,
     p_course_reference_number text,
-    p_blueprint_assessment_reference uuid,
+    p_assessment_type text,
     p_title text,
     p_instructions text
 )
@@ -325,16 +270,15 @@ RETURNS TABLE (
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT assessment.public_reference, result.assessment_edit_number,
+    SELECT result.assessment_public_reference, result.assessment_edit_number,
            result.assessment_status, result.assessment_title, result.assessment_instructions
       FROM ple_data.create_assessment(
         p_assessment_id,
         (SELECT course.reference_number FROM ple_data.course_instance AS course
           WHERE course.public_reference = p_course_reference_number),
-        p_blueprint_assessment_reference,
+        p_assessment_type,
         p_title, p_instructions
     ) AS result
-      JOIN ple_data.assessment ON assessment.reference_number = result.assessment_reference_number
 $$;
 
 CREATE FUNCTION ple_api.save_assessment(
@@ -376,6 +320,7 @@ CREATE FUNCTION ple_api.save_assessment_inline(
 )
 RETURNS TABLE (
     assessment_reference_number text,
+    assessment_type text,
     assessment_title text,
     due_at_millis bigint,
     assessment_status text,
@@ -383,7 +328,8 @@ RETURNS TABLE (
 )
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT assessment.public_reference, result.assessment_title, result.due_at_millis,
+    SELECT assessment.public_reference, assessment.assessment_type,
+           result.assessment_title, result.due_at_millis,
            result.assessment_status, result.assessment_edit_number
       FROM ple_data.save_assessment_inline(
         (SELECT course.reference_number FROM ple_data.course_instance AS course
@@ -449,10 +395,9 @@ $$;
 REVOKE ALL ON FUNCTION ple_api.list_course_assessments(text),
     ple_api.list_assessments_due_soon(),
     ple_api.list_assessment_question_picker(text),
-    ple_api.list_course_assessment_source_choices(text),
     ple_api.load_assessment_workspace_rows(text, text),
     ple_api.validate_assessment_release(text, text),
-    ple_api.create_assessment(uuid, text, uuid, text, text),
+    ple_api.create_assessment(uuid, text, text, text, text),
     ple_api.save_assessment(text, text, bigint, jsonb, jsonb),
     ple_api.save_assessment_inline(text, text, bigint, text, timestamptz),
     ple_api.save_assessment_policies(text, text, bigint, jsonb),
@@ -461,10 +406,9 @@ REVOKE ALL ON FUNCTION ple_api.list_course_assessments(text),
 GRANT EXECUTE ON FUNCTION ple_api.list_course_assessments(text),
     ple_api.list_assessments_due_soon(),
     ple_api.list_assessment_question_picker(text),
-    ple_api.list_course_assessment_source_choices(text),
     ple_api.load_assessment_workspace_rows(text, text),
     ple_api.validate_assessment_release(text, text),
-    ple_api.create_assessment(uuid, text, uuid, text, text),
+    ple_api.create_assessment(uuid, text, text, text, text),
     ple_api.save_assessment(text, text, bigint, jsonb, jsonb),
     ple_api.save_assessment_inline(text, text, bigint, text, timestamptz),
     ple_api.save_assessment_policies(text, text, bigint, jsonb),

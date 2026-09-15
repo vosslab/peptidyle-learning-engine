@@ -3,7 +3,6 @@
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
-import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { ApiClient } from "../client";
 import type {
   LoadedQuestionLineage,
@@ -11,8 +10,11 @@ import type {
   QuestionAvailabilityEtag,
   QuestionAvailabilityTransition,
 } from "../question_availability";
-import { decodeQuestionAvailabilityTransition } from "../decoders/question_availability";
-import { decodeQuestionDetails, decodeQuestionSummary } from "../decoders/question_library";
+import {
+  decodeQuestionAvailabilityTransition,
+  decodeQuestionLineageView,
+} from "../decoders/question_availability";
+import { decodeQuestionDetails } from "../decoders/question_library";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { encodedId, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
@@ -100,12 +102,17 @@ export function createQuestionAvailabilityClient(
   return {
     getQuestionLineage: async (questionId): Promise<LoadedQuestionLineage> => {
       const path = questionPath(questionId);
-      const result = await questionJson(fetchImplementation, basePath, path, decodeQuestionSummary);
-      const summary: QuestionSummary = result.body;
+      const result = await questionJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeQuestionLineageView,
+      );
+      const { summary, viewerMayArchive } = result.body;
       if (summary.questionId !== questionId) {
         throw new ApiProtocolError(`API response ${path} does not match its Question lineage`);
       }
-      return { summary, availabilityEtag: responseEtag(result.response, path) };
+      return { summary, viewerMayArchive, availabilityEtag: responseEtag(result.response, path) };
     },
     getQuestionRevision: async (reference): Promise<QuestionDetails> => {
       const path = exactRevisionPath(reference);

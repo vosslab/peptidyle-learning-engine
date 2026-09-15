@@ -66,6 +66,7 @@ export interface RouteContract {
     | "assessmentWorkspacePolicies"
     | "assessmentWorkspaceStudentView"
     | "assessmentsDueSoon"
+    | "assessmentTemplates"
     | "gradebook"
     | "courseAppearance"
     | "signIn"
@@ -295,6 +296,18 @@ export const ROUTE_CONTRACT = [
     id: "assessmentsDueSoon",
     path: "/assessments/due-soon",
     surface: "Instructor cross-Course Assessments Due Soon",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "productAssessments",
+      taskGroup: "instructorAssessments",
+      contentLayout: "fullWidth",
+    },
+  },
+  {
+    id: "assessmentTemplates",
+    path: "/assessment-templates",
+    surface: "Instructor-owned Assessment Templates",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",

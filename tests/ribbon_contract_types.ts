@@ -1,6 +1,6 @@
 // Compile-only public-boundary assertions for the pure Ribbon contract.
 
-import { ROUTE_CONTRACT, type RouteContract } from "../src/route_contract";
+import { ROUTE_CONTRACT } from "../src/route_contract";
 import {
   buildRoutePath,
   deriveRibbonModel,
@@ -9,9 +9,9 @@ import {
   type RibbonViewerIdentity,
 } from "../src/ribbon/ribbon_contract";
 
-const route = ROUTE_CONTRACT.find(
-  (candidate) => candidate.id === "courseAssignments",
-) as RouteContract;
+const route = ROUTE_CONTRACT.find((candidate) => candidate.id === "courseAssessments");
+if (route === undefined)
+  throw new Error("Course Assessments route is required by the Ribbon contract.");
 const params = { courseRef: "CI7K3M2Q" } as const;
 const routeState = { route, params } satisfies RibbonRouteState;
 const viewerIdentity = { productRole: "instructor" } satisfies RibbonViewerIdentity;
@@ -19,7 +19,7 @@ const contextLabels = {} satisfies RibbonContextLabels;
 
 // Positive calls ensure the negative cases below cannot pass due to a broken API.
 deriveRibbonModel(routeState, viewerIdentity, contextLabels);
-buildRoutePath("courseAssignments", params);
+buildRoutePath("courseAssessments", params);
 
 const withResource = { productRole: "instructor" as const, scopeResource: { courseId: "1" } };
 // @ts-expect-error A resource cannot cross the viewer identity boundary through a variable.
@@ -58,10 +58,10 @@ const routeStateWithProjection = { route, params: paramsWithProjection };
 // @ts-expect-error Declared parameters are exact strings, not a projection carrier.
 deriveRibbonModel(routeStateWithProjection, viewerIdentity, contextLabels);
 
-const routeIdFromUntrustedText: string = "courseAssignments";
+const routeIdFromUntrustedText: string = "courseAssessments";
 // @ts-expect-error The normal route builder accepts a declared RouteId, not arbitrary text.
 buildRoutePath(routeIdFromUntrustedText, params);
 
 const paramsWithSessionData = { courseRef: "CI7K3M2Q", sessionData: { token: "secret" } };
 // @ts-expect-error The normal route builder rejects variable extra route data.
-buildRoutePath("courseAssignments", paramsWithSessionData);
+buildRoutePath("courseAssessments", paramsWithSessionData);

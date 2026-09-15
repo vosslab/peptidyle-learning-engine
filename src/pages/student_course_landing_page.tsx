@@ -7,54 +7,93 @@ import type {
   LiveStudentAssessmentLandingSummary,
   LiveStudentCourseLandingSummary,
 } from "../api/live_student_course_landing";
+import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
-import { StudentAssessmentDecisionDetails } from "../components/student_assessment_presentation";
+import {
+  formatAssessmentDeliveryTime,
+  StudentAssessmentDecisionDetails,
+} from "../components/student_assessment_presentation";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import { parseCourseInstanceReference } from "../navigation/public_route";
+import { RibbonIcon } from "../ribbon/ribbon_icon";
 import { formatPointScore } from "../score_format";
-
-function progressLabel(assessment: LiveStudentAssessmentLandingSummary): string {
-  if (assessment.assessmentAttemptCompletion === "completed") return "Completed and scored";
-  if (assessment.assessmentAttemptCompletion === "inProgress") return "In progress";
-  return "Not started";
-}
+import { studentCourseworkDisplay } from "./student_coursework_presentation";
+import "./student_course_landing_page.css";
 
 function AssessmentCard(props: {
   readonly course: LiveStudentCourseLandingSummary;
   readonly assessment: LiveStudentAssessmentLandingSummary;
 }): JSX.Element {
+  function display(): ReturnType<typeof studentCourseworkDisplay> {
+    return studentCourseworkDisplay(
+      props.assessment.decision.startDecision,
+      props.assessment.assessmentAttemptCompletion,
+      props.assessment.canResumeAssessmentAttempt,
+    );
+  }
+  function typePresentation(): ReturnType<typeof assessmentTypePresentation> {
+    return assessmentTypePresentation(props.assessment.assessmentType);
+  }
   return (
-    <article class="course-card student-assessment-card">
-      <h2>{props.assessment.title}</h2>
-      <p class="student-assessment-card__progress">
-        <strong>{progressLabel(props.assessment)}</strong>
+    <article
+      class={`course-card student-coursework-card student-coursework-card--${display().state}`}
+      data-coursework-state={display().state}
+    >
+      <p class="student-coursework-card__state">
+        <strong>{display().stateLabel}</strong>
+      </p>
+      <h3>{props.assessment.title}</h3>
+      <dl class="student-coursework-card__facts">
+        <div>
+          <dt>Type</dt>
+          <dd
+            class="student-coursework-card__type"
+            style={`--student-coursework-type-color: var(${typePresentation().colorToken})`}
+          >
+            <RibbonIcon glyph={typePresentation().icon} />
+            <span>{typePresentation().label}</span>
+          </dd>
+        </div>
+        <div>
+          <dt>Due</dt>
+          <dd>
+            {formatAssessmentDeliveryTime(
+              props.assessment.decision.dueAt,
+              props.assessment.decision.displayTimeZone,
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Completion</dt>
+          <dd>{display().completionLabel}</dd>
+        </div>
+      </dl>
+      <p class="student-coursework-card__zone">
+        Times shown in {props.assessment.decision.displayTimeZone}
       </p>
       <Show when={props.assessment.assessmentAttemptCompletion !== null}>
-        <p class="student-assessment-card__grade">
+        <p class="student-coursework-card__grade">
           {props.assessment.gradedQuestionCount} of {props.assessment.questionCount} questions
           graded
-          <Show when={props.assessment.score}>
+          <Show when={props.assessment.assessmentScore}>
             {(score) => (
               <>
                 {" · "}
-                {props.assessment.assessmentAttemptCompletion === "completed"
-                  ? "Score"
-                  : "Score so far"}{" "}
-                {formatPointScore(score().pointsEarned, score().pointsPossible)}
+                Assessment score {formatPointScore(score().pointsEarned, score().pointsPossible)}
               </>
             )}
           </Show>
         </p>
       </Show>
-      <section class="student-assessment-card__decision" aria-label="Assessment access and timing">
-        <h3>Before you start</h3>
+      <section class="student-coursework-card__decision" aria-label="Coursework access and timing">
+        <h4>Access and timing</h4>
         <StudentAssessmentDecisionDetails decision={props.assessment.decision} />
       </section>
       <A
         class="primary-link"
         href={`/courses/${props.course.reference}/assessments/${props.assessment.reference}`}
       >
-        Open Assessment
+        Open {typePresentation().label}
       </A>
     </article>
   );
@@ -119,12 +158,12 @@ export function StudentCourseLandingPage(): JSX.Element {
             <A class="quiet-link" href="/?choose=1">
               Your courses
             </A>
-            <h2>Assessments</h2>
+            <h2>Coursework</h2>
             <Show when={assessments.loading}>
-              <p class="loading-state">Loading assessments...</p>
+              <p class="loading-state">Loading Coursework...</p>
             </Show>
             <Show when={!assessments.loading && (assessments()?.length ?? 0) === 0}>
-              <p class="empty-state">No assessments are available right now.</p>
+              <p class="empty-state">No Coursework is available right now.</p>
             </Show>
             <Show when={(assessments()?.length ?? 0) > 0}>
               <div class="card-grid">

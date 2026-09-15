@@ -25,7 +25,10 @@ BEGIN
        AND assessment_attempt.assessment_id = p_assessment_id
        AND student.course_id = p_course_id
        AND student.student_account_id = ple_api.current_session_account_id()
-       AND assessment_attempt.completed_at IS NULL
+       AND NOT EXISTS (
+           SELECT 1 FROM ple_private.assessment_submission AS submission
+            WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+       )
        AND ple_api.current_session_account_owns_student_record(p_course_id, student.student_record_id)
      FOR UPDATE OF question_attempt, issued, assessment_attempt;
     IF NOT FOUND THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question delivery is unavailable'; END IF;

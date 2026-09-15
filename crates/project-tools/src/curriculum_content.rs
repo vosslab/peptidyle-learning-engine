@@ -8,7 +8,7 @@ use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
 use question_model::{
-    MAX_ASSESSMENT_ORDERED_ENTRIES, MAX_ASSESSMENT_QUESTION_POOL_ITEMS,
+    AssessmentType, MAX_ASSESSMENT_ORDERED_ENTRIES, MAX_ASSESSMENT_QUESTION_POOL_ITEMS,
     MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionFormat, QuestionLicense,
 };
 use serde::Deserialize;
@@ -61,6 +61,7 @@ pub(crate) struct ParameterizedSource {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Course {
+    pub(crate) assessment_type: AssessmentType,
     pub(crate) short_name: String,
     pub(crate) long_name: String,
     pub(crate) module_label: String,

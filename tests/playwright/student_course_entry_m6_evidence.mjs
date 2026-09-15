@@ -57,7 +57,7 @@ try {
   await page.goto(`${origin}/?mode=one`);
   await page.locator("[data-m6-location]").waitFor({ state: "visible" });
   await page.waitForFunction(
-    () => document.querySelector("[data-m6-location]")?.textContent === "/student/courses/C-1",
+    () => document.querySelector("[data-m6-location]")?.textContent === "/student/courses/CI7K3M2Q",
   );
 
   await page.goto(`${origin}/?mode=choose`);
@@ -80,26 +80,46 @@ try {
   assert.equal(await page.locator("[data-m6-location]").textContent(), "/");
 
   await page.goto(`${origin}/?mode=landing`);
-  const landingDue = page.locator("[data-assignment-decision-due]").first();
+  const landingDue = page.locator("[data-assessment-decision-due]").first();
   await landingDue.waitFor({ state: "visible" }).catch(async (error) => {
     throw new Error(
-      `Student Assignment landing did not render: ${pageErrors.join(" | ")}\n${await page.locator("body").innerText()}`,
+      `Student Assessment landing did not render: ${pageErrors.join(" | ")}\n${await page.locator("body").innerText()}`,
       { cause: error },
     );
   });
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
-  await landingDue.textContent();
   const landingDueText = await landingDue.textContent();
-  assert.notEqual(landingDueText, originalLandingDueText);
+  assert.notEqual(landingDueText, null);
+  const regularCard = page.getByRole("article").filter({
+    has: page.getByRole("heading", { name: "Protein structure practice", exact: true }),
+  });
+  await regularCard
+    .getByText("1 of 4 questions graded · Assessment score 7 / 8", { exact: true })
+    .waitFor({ state: "visible" });
+  const bonusCard = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "Bonus protein challenge", exact: true }) });
+  await bonusCard.getByText("Bonus Assignment", { exact: true }).waitFor({ state: "visible" });
+  await bonusCard
+    .getByText("2 of 2 questions graded · Assessment score 3 / 0", { exact: true })
+    .waitFor({ state: "visible" });
+  const withheldCard = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "Peptide quiz", exact: true }) });
+  assert.equal(await withheldCard.getByText(/Assessment score/u).count(), 0);
+  assert.equal(await page.getByText(/Score so far/u).count(), 0);
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
-  await page.getByRole("link", { name: "Open Assignment", exact: true }).click();
-  await page.locator('[data-route-surface="assignmentOverview"]').waitFor({ state: "visible" });
+  await page.getByRole("link", { name: "Open Regular Assignment", exact: true }).click();
+  await page.locator('[data-route-surface="assessmentOverview"]').waitFor({ state: "visible" });
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
-  const overviewDueText = await page.locator("[data-assignment-decision-due]").textContent();
+  const overviewDueText = await page.locator("[data-assessment-decision-due]").textContent();
   assert.equal(overviewDueText, landingDueText);
   await page.getByText("Can start", { exact: true }).waitFor({ state: "visible" });
   const timeLimit = page.getByText("1 hour per attempt", { exact: true });
-  const startButton = page.getByRole("button", { name: "Start Assignment", exact: true });
+  const startButton = page.getByRole("button", {
+    name: "Start Regular Assignment",
+    exact: true,
+  });
   assert.equal(
     await timeLimit.evaluate(
       (element, button) =>

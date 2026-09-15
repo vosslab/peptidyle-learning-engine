@@ -11,8 +11,8 @@ use learning_data_access::{
     postgres::{
         Pool, PostgresAccountAvatarStore, PostgresAccountTimeZoneStore,
         PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
-        PostgresAssessmentPoolSelectionCountStore, PostgresAuthoringDraftStore,
-        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
+        PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
+        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
         PostgresCourseBannerStore, PostgresCourseGradebookStore, PostgresCourseInstanceStore,
         PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
@@ -114,6 +114,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
     let assessment_pool_selection_counts =
         PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
+    let assessment_templates = PostgresAssessmentTemplateStore::new(pool.clone());
     let assessment_delivery = PostgresLiveAssessmentDeliveryStore::new(pool.clone());
     let assessment_student_view = PostgresInstructorStudentViewStore::new(pool.clone());
     let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
@@ -270,6 +271,10 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             assessments,
             question_id_issuer.clone(),
+        ))
+        .merge(crate::assessment_template::assessment_template_router(
+            Arc::clone(&sessions),
+            assessment_templates,
         ))
         .merge(crate::assessment_pool_fork::assessment_pool_fork_router(
             Arc::clone(&sessions),

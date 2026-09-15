@@ -2,16 +2,128 @@
 
 ## Scope
 
-This is a fresh implementation-audit inventory. Each record below is an owning `[ ]`
-Human Guidance bullet: the behavior is unverified or differs from the current implementation.
-The bullet text is copied verbatim from the generated checklist, and its source location is
-recorded beside it. Later duplicate bullets that carry an `Owner:` pointer are excluded because
-their earlier owning record is the single inventory entry.
+This is a fresh topical implementation-audit inventory. It collects currently open
+Human Guidance checklist records relevant to questions and assessments. The bullet text is copied
+verbatim from the generated checklist, and its source location is recorded beside it. This report
+does not establish exhaustive or disjoint topical coverage; the checklist remains the authority
+for each record's status.
 
 The authoritative exhaustive record is the
 [generated checklist](../../audits/human_guidance_implementation_checklist.md).
 
 ## Evidence updates
+
+- C523 has accepted independent PostgreSQL 17 actual-API receipts for the three Course Instance
+  Assessment due/late defaults. Direct and reusable-content creation boundaries default late work
+  to `reject`; an Attempt under that rule pins its immutable expiration to the effective Due date,
+  while an accommodation remains authoritative. Post-Due start, save, and Student commit were
+  denied, and worker finalization retained both accepted pre-Due responses. An entirely unsaved
+  Attempt finalized with zero credit for unanswered Questions and no Question Backend evaluation.
+  Explicit `accept` and `mark_late` overrides remain valid and use Closes rather than Due as their
+  expiration boundary. Save/finalization serialization also preserved concurrent accepted work.
+  This closes only the three default rows: it does not establish visible unanswered UI,
+  cross-session resume, every backend behavior, or broad release validation. The ignored proof was
+  removed after independent acceptance.
+
+- C519--C521 have accepted narrow release-date validation receipts. The shared
+  `assessment_release_issues` authority returns the five date issues: missing Due, Due less than
+  24 hours ahead, Due after the Course Active limit, Available after Due, and Due after Closes.
+  Every released-state writer uses the same hard gate; unchanged near/past-Due Assessments may be
+  saved, while changed invalid values are rejected. The accepted fresh PostgreSQL 17 actual-API
+  receipt covered authorization, rollback, date boundaries, correction, rerun, and successful
+  release. The actual Assessment Properties component receipt covered all five actionable messages
+  and correction/rerun/release. These receipts close only the narrow release-date rows below.
+  The broader missing, invalid, or unreasonable-values row remains open: the five date issues do
+  not establish validation beyond dates, including required-setting ranges and Question validity.
+
+- C506 has accepted strict five-Type contract evidence. The Rust model, generated browser enum,
+  PostgreSQL constraints, Blueprint create/view decoder, Course Instance creation, and Blueprint
+  adoption all require the same five values without a fallback. Focused Blueprint client evidence
+  passed 16/16 and create/model UI evidence passed 10/10. C508 source evidence shows that the
+  current adopted-Quiz Properties fixture changes instructions and its time limit from 300 to 600
+  seconds without accepting a Type field. Its ignored PostgreSQL acceptance test has not yet been
+  rerun after that fixture update, so this is not a current runtime receipt. The effective settings
+  implementation is named `effective_assessment_properties.rs`; its final review, formatting, 77
+  domain tests, and targeted three-crate Cargo check passed. C524 subsequently established
+  Type-aware disclosure defaults at the Rust, direct SQL, Blueprint, and curriculum-publication
+  creation boundaries. These results still do not establish every appropriate Type default or the
+  full pedagogical-purpose behavior, so the broad defaults row remains open.
+
+- C510 has accepted its bounded Gradebook and Student highest-score selection receipts, not global
+  closure. `read_assessment_gradebook_evidence` independently selects the highest
+  grading-complete submitted Attempt by earned points; only when no score is established does it
+  fall back to the latest Attempt for current progress or expiry. The private answer-free helper
+  is consumed by the real Gradebook and Student APIs, without changing raw Assessment Attempt scoring. Accepted
+  actual PostgreSQL 17 API evidence proved an earlier higher earned Attempt beats a later lower
+  submitted Attempt, and later unfinished or pending work does not replace it; current Question
+  points recalculated `8` to `16`; Bonus retained a zero possible denominator; and the latest
+  unscored expired Attempt remained the fallback. LDA and browser decoding accept finite,
+  nonnegative earned points above points possible and zero possible. The Student API keeps latest-
+  Attempt progress separate, applies the selected Attempt's copied score-disclosure timing, and
+  emits direct `assessmentScore`; its strict decoder rejects the retired `score` alias. The focused
+  decoder/presentation lane passed 8/8, compiled M6 component evidence passed, and the focused
+  PostgreSQL LDA library check passed in 5.72 seconds without warnings. Raw Attempt and history
+  validators remain unchanged; the Student projection preserves its self-only current Account,
+  current Course relationship, and ordinary retention fences. The full `server_core` compile
+  remains unverified because the existing incompatible AWS Smithy dependency pair blocks that
+  separate integration gate. C510 remains open for broader unverified behavior, including Practice
+  extra-credit authoring; these accepted receipts do not establish Course totals.
+
+- C511 remains open. Human Guidance permits Quiz and Exam settings that are more restrictive than
+  a Regular Assignment; it does not mandate restrictive Type defaults or arbitrary thresholds.
+  Available and Closes authoring is independently accepted in the Properties page: actual-component
+  proof covers local timestamp round trips, incomplete-input no-write with linked error, clear to
+  null, failure and retry, IANA time-zone display, keyboard use, and a 320-pixel viewport. This
+  receipt makes no chronology or DST policy decision and adds no backend redesign. Collaboration
+  policy remains undefined, so this does not claim C511 closure.
+
+- C524 has accepted the bounded disclosure/defaults slice. The Rust initializer, direct SQL
+  constructor, Blueprint default builder, and curriculum publisher default Practice correct answer
+  to `after_submit`; Regular and Bonus default it to `never`; submitted response and per-item
+  correctness default to `after_submit`; and Question Feedback and answer explanation remain
+  independent. Actual-component proof switched the create dialog Type both ways while preserving
+  title, entries, and selected-Type defaults. Accepted whole-submission proof navigated to the
+  existing server-redacted summary while failures remained on the Attempt. A fresh PostgreSQL 17
+  actual-API proof found zero history response-source rows before whole submission and one after;
+  the native PLE summary preserved the disclosed correct answer. Its authorization matrix returned
+  `owner=1`, `other Student=0`, `Instructor=0`, `archived=0`, and ended-membership ownership false.
+  The reader reuses the existing exact Course, Student Record, current Account, active Student
+  Membership, and retention checks; it adds no grant or helper authority. Temporary PostgreSQL and
+  Chromium proofs were removed after independent acceptance.
+
+- C524 does not close universal Practice answer disclosure. The public
+  [ADAPT source snapshot](https://github.com/LibreTexts/adapt/tree/41e9b75b03960c9e6d6fd01d992ecdb15195f56b)
+  and its matching
+  [renderer snapshot](https://github.com/openwebwork/renderer/tree/c15474b0e380f63ce4d23c143a91b4696559315b)
+  show one iframe/JWT integration, but do not identify the production renderer revision or any
+  deployment patches; this is source inspection, not a live vulnerability or runtime proof. PLE
+  instead constructs disclosure controls server-side in
+  [protocol.rs](../../../../crates/adapters/webwork/src/http_renderer/protocol.rs) and projects
+  only renderer HTML after checking that private JWT state is not reflected in
+  [client.rs](../../../../crates/adapters/webwork/src/http_renderer/client.rs). Backend-owned
+  answers still project as absent. The current sibling renderer makes `showCorrectAnswers` enable
+  `showSolutions` and forces that request from hardened `ple_embed` to generic `static` HTML, whose
+  template embeds session JWT state and omits the PLE bridge. PLE-managed general feedback follows
+  a separate release policy, while decoding answer JWTs or renderer HTML would break the opaque
+  backend boundary; no PLE-only workaround therefore meets C524. The narrow follow-on remains an
+  opaque, transient, no-store answer document after the completed-Attempt policy decision. The user
+  directed that the sibling renderer remain unchanged, so this gap stays open.
+
+- C525 is open implementation work. The release cohort uses current Student Course relationships:
+  pending invitations are excluded; accepted enrollment joins; ended or withdrawn relationships and
+  deactivated Course access exit; Account deactivation preserves membership; never-started Work
+  without a submission blocks release; and Course end is not completion. Existing
+  `assessment_submission` evidence makes every Assessment Attempt complete on whole Student
+  submission or expiry automatic submission, independently of score or correctness. Another
+  Attempt follows the configured Attempt limit: unlimited remains unlimited after a perfect score,
+  and Quiz and Exam permit exactly one Attempt. This needs implementation at the existing
+  submission and cohort boundaries, without a completion snapshot, latch, new DAG, or bookkeeping
+  machinery.
+
+- C512 has accepted the canonical label, semantic color, theme-scope, and icon-name presentation.
+  Genuine Free-package glyphs are bundled for all five Assessment Types: `pen-to-square`,
+  `arrows-spin`, `star`, `circle-question`, and `file-signature`. Each rendered Type keeps its
+  visible label alongside the glyph, and a nested theme fixture verified the scoped color cascade.
 
 - C910 has accepted fresh-PG17 persistence evidence, not closure: an explicit `webworkPgml`
   Draft/binding retained its format, path, and checksum while author-managed general feedback
@@ -26,7 +138,7 @@ The authoritative exhaustive record is the
   does not publish them or reconcile the catalog. The redundant static source bulk has been
   removed, but C840--C841 remain open for ordinary publication and catalog reconciliation.
 
-## Owning inventory
+## Topical inventory
 
 ### Questions
 
@@ -277,12 +389,6 @@ The authoritative exhaustive record is the
 - **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
   - Source: `docs/HUMAN_GUIDANCE.md:827`
 
-- PLE has **Blueprint Assessments** and **Course Instance Assessments**.
-  - Source: `docs/HUMAN_GUIDANCE.md:828`
-
-- Blueprint Assessments define reusable Assessment content and teaching settings.
-  - Source: `docs/HUMAN_GUIDANCE.md:829`
-
 - Course Instance Assessments deliver Questions to **Students**.
   - Source: `docs/HUMAN_GUIDANCE.md:830`
 
@@ -309,26 +415,8 @@ The authoritative exhaustive record is the
 
 ### Assessments -- Assessment types
 
-- PLE defines the available Assessment Types.
-  - Source: `docs/HUMAN_GUIDANCE.md:844`
-
 - Assessment Type describes the pedagogical purpose of an Assessment and provides appropriate defaults.
   - Source: `docs/HUMAN_GUIDANCE.md:845`
-
-- Assessment Types are **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, and **Exam**.
-  - Source: `docs/HUMAN_GUIDANCE.md:846`
-
-- **Instructors** select an Assessment Type but cannot create new Assessment Types.
-  - Source: `docs/HUMAN_GUIDANCE.md:847`
-
-- Blueprint Assessments and Course Instance Assessments use the same Assessment Types.
-  - Source: `docs/HUMAN_GUIDANCE.md:848`
-
-- **Instructors** can change Assessment settings independently of the defaults for its Type.
-  - Source: `docs/HUMAN_GUIDANCE.md:849`
-
-- Changing Assessment settings does not change its Assessment Type.
-  - Source: `docs/HUMAN_GUIDANCE.md:850`
 
 - **Regular Assignments** give **Students** regular practice applying course ideas outside class.
   - Source: `docs/HUMAN_GUIDANCE.md:851`
@@ -352,9 +440,6 @@ The authoritative exhaustive record is the
 - **Bonus Assignments** provide optional extra credit.
   - Source: `docs/HUMAN_GUIDANCE.md:858`
 
-- Bonus Assignments are worth zero points possible and add earned points directly to the grade.
-  - Source: `docs/HUMAN_GUIDANCE.md:859`
-
 - **Quizzes** assess understanding of recent material.
   - Source: `docs/HUMAN_GUIDANCE.md:860`
 
@@ -369,46 +454,13 @@ The authoritative exhaustive record is the
 
 ### Assessments -- Assessment type appearance
 
-- Each Assessment Type has its own PLE-defined Font Awesome icon.
-  - Source: `docs/HUMAN_GUIDANCE.md:867`
+- **Bonus Assignment** uses the Font Awesome `star` icon.
+  - Source: `docs/HUMAN_GUIDANCE.md:898`
 
-- Assessment Type icons remain consistent across PLE themes.
-  - Source: `docs/HUMAN_GUIDANCE.md:868`
-
-- Each Assessment Type also has its own theme-defined color.
-  - Source: `docs/HUMAN_GUIDANCE.md:869`
-
-- Themes may change Assessment Type colors but preserve the meaning of each Type.
-  - Source: `docs/HUMAN_GUIDANCE.md:870`
-
-- Assessment Type should never be communicated by color alone.
-  - Source: `docs/HUMAN_GUIDANCE.md:871`
-
-- Icons and labels should remain sufficient to identify the Assessment Type without color.
-  - Source: `docs/HUMAN_GUIDANCE.md:872`
-
-- **Regular Assignment** uses the Font Awesome `pen-to-square` icon.
-  - Source: `docs/HUMAN_GUIDANCE.md:873`
-
-- **Practice Question Assignment** uses the Font Awesome `arrows-spin` icon.
-  - Source: `docs/HUMAN_GUIDANCE.md:874`
-
-- **Bonus Assignment** uses the Font Awesome `sparkles` icon.
-  - Source: `docs/HUMAN_GUIDANCE.md:875`
-
-- **Quiz** uses the Font Awesome `square-q` icon.
-  - Source: `docs/HUMAN_GUIDANCE.md:876`
-
-- **Exam** uses the Font Awesome `file-signature` icon.
-  - Source: `docs/HUMAN_GUIDANCE.md:877`
+- **Quiz** uses the Font Awesome `circle-question` icon.
+  - Source: `docs/HUMAN_GUIDANCE.md:899`
 
 ### Assessments -- Blueprint Assessments
-
-- A **Blueprint Assessment** is an Assessment in a **Blueprint Course**.
-  - Source: `docs/HUMAN_GUIDANCE.md:881`
-
-- Blueprint Assessments have an Assessment Type.
-  - Source: `docs/HUMAN_GUIDANCE.md:883`
 
 - Blueprint Assessments define Question point values and points possible.
   - Source: `docs/HUMAN_GUIDANCE.md:885`
@@ -424,20 +476,11 @@ The authoritative exhaustive record is the
 
 ### Assessments -- Course Instance Assessments
 
-- A **Course Instance Assessment** is an Assessment in a **Course Instance**.
-  - Source: `docs/HUMAN_GUIDANCE.md:892`
-
 - Course Instance Assessments are the Assessments delivered to **Students**.
   - Source: `docs/HUMAN_GUIDANCE.md:893`
 
-- Course Instance Assessments have an Assessment Type, Questions, Question Pools, point values, and points possible.
-  - Source: `docs/HUMAN_GUIDANCE.md:894`
-
 - Course Instance Assessments also have delivery settings such as due dates, release status, and Student availability.
   - Source: `docs/HUMAN_GUIDANCE.md:895`
-
-- Course Instance Assessments copied from a Blueprint Assessment can be changed for the needs of that Course Instance.
-  - Source: `docs/HUMAN_GUIDANCE.md:896`
 
 - Newly added Blueprint Assessments are automatically copied to daughter Course Instances as unreleased Course Instance Assessments.
   - Source: `docs/HUMAN_GUIDANCE.md:897`
@@ -476,21 +519,11 @@ The authoritative exhaustive record is the
 - Course Instance Assessments start unreleased.
   - Source: `docs/HUMAN_GUIDANCE.md:914`
 
-- Releasing a Course Instance Assessment requires an automated and interactive **Assessment Release Validation** process.
-  - Source: `docs/HUMAN_GUIDANCE.md:915`
-
 - Assessment Release Validation checks the Assessment settings and data required for release.
   - Source: `docs/HUMAN_GUIDANCE.md:916`
 
 - Validation should catch missing, invalid, or unreasonable values and explain what the **Instructor** needs to fix.
-  - Source: `docs/HUMAN_GUIDANCE.md:917`
-
-- Release Validation should require a due date at least 24 hours in the future and no later than the
-  Course Instance's six-month Active limit.
-  - Source: `docs/HUMAN_GUIDANCE.md:918`
-
-- Release Validation should check that release, due, and other dates occur in a valid order.
-  - Source: `docs/HUMAN_GUIDANCE.md:920`
+  - Source: `docs/HUMAN_GUIDANCE.md:937`
 
 - Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
   - Source: `docs/HUMAN_GUIDANCE.md:921`
@@ -498,35 +531,11 @@ The authoritative exhaustive record is the
 - Release Validation should check that the Assessment contains Questions and that required Question settings are valid.
   - Source: `docs/HUMAN_GUIDANCE.md:922`
 
-- The **Instructor** should be able to correct validation problems and run Release Validation again.
-  - Source: `docs/HUMAN_GUIDANCE.md:923`
-
-- An Assessment can be released only after Release Validation passes.
-  - Source: `docs/HUMAN_GUIDANCE.md:924`
-
 - Releasing an Assessment makes it available to **Students** according to its dates and access settings.
   - Source: `docs/HUMAN_GUIDANCE.md:925`
 
 - Student Work begins when a **Student** starts an Assessment Attempt.
   - Source: `docs/HUMAN_GUIDANCE.md:926`
-
-- New Course Instance Assessments default to accepting submissions only through the due date.
-  - Source: `docs/HUMAN_GUIDANCE.md:927`
-
-- New Course Instance Assessments default to starting new Attempts only through the due date.
-  - Source: `docs/HUMAN_GUIDANCE.md:928`
-
-- Late work defaults to rejected.
-  - Source: `docs/HUMAN_GUIDANCE.md:929`
-
-- Assessment disclosure settings remain separate and independently configurable.
-  - Source: `docs/HUMAN_GUIDANCE.md:930`
-
-- **Regular Assignments** and **Bonus Assignments** should rarely show the correct answer.
-  - Source: `docs/HUMAN_GUIDANCE.md:931`
-
-- Regular and Bonus Assignments show the **Student's** response and whether it was correct or incorrect.
-  - Source: `docs/HUMAN_GUIDANCE.md:932`
 
 - **Practice Question Assignments** show correct answers immediately after Assessment Attempt
   submission.
@@ -539,12 +548,6 @@ The authoritative exhaustive record is the
   - Source: `docs/HUMAN_GUIDANCE.md:936`
 
 ### Assessments -- Assessment Attempts
-
-- An **Assessment Attempt** is one Student attempt at a Course Instance Assessment.
-  - Source: `docs/HUMAN_GUIDANCE.md:943`
-
-- Blueprint Assessments do not have Assessment Attempts.
-  - Source: `docs/HUMAN_GUIDANCE.md:944`
 
 - Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
   - Source: `docs/HUMAN_GUIDANCE.md:945`
@@ -614,10 +617,3 @@ The authoritative exhaustive record is the
 
 - The Instructor handles Course-level weighting or percentage calculations in the home LMS.
   - Source: `docs/HUMAN_GUIDANCE.md:1006`
-
-## Count method
-
-This report owns **181** checklist records. The count is the number of `[ ]` bullets
-in the listed sections after excluding records with a later-duplicate `Owner:` pointer.
-It is mechanically reconciled with the other topical inventories by the temporary report
-generation check; it is not a permanent test.

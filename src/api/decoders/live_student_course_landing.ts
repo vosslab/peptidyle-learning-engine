@@ -2,13 +2,16 @@
 
 import type {
   LiveStudentAssessmentLandingSummary,
+  AssessmentGradeContribution,
   LiveStudentCourseInvitationSummary,
   LiveStudentCourseLandingSummary,
 } from "../live_student_course_landing";
 import type { AssessmentAttemptCompletion } from "../../../generated/api/AssessmentAttemptCompletion";
+import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
 import {
   DecodeError,
   decodeArray,
+  decodeBoolean,
   decodeFiniteNumber,
   decodeNonnegativeInteger,
   decodeNullable,
@@ -51,6 +54,27 @@ function decodeInvitationSummary(value: unknown, path: string): LiveStudentCours
   };
 }
 
+function decodeAssessmentGradeContribution(
+  value: unknown,
+  path: string,
+): AssessmentGradeContribution {
+  // ASVS 1.5.1/2.2.1: allow-list the complete finite pair at the browser boundary.
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["pointsEarned", "pointsPossible"]);
+  const pointsEarned = decodeFiniteNumber(
+    field(record, "pointsEarned", path),
+    `${path}.pointsEarned`,
+  );
+  const pointsPossible = decodeFiniteNumber(
+    field(record, "pointsPossible", path),
+    `${path}.pointsPossible`,
+  );
+  if (pointsEarned < 0 || pointsPossible < 0) {
+    throw new DecodeError(path, "a complete nonnegative Assessment grade contribution");
+  }
+  return { pointsEarned, pointsPossible };
+}
+
 function decodeAssessmentSummary(
   value: unknown,
   path: string,
@@ -59,12 +83,14 @@ function decodeAssessmentSummary(
   requireOnlyFields(record, path, [
     "reference",
     "title",
+    "assessmentType",
     "decision",
     "assessmentAttemptNumber",
     "assessmentAttemptCompletion",
+    "canResumeAssessmentAttempt",
     "gradedQuestionCount",
     "questionCount",
-    "score",
+    "assessmentScore",
   ]);
   const assessmentAttemptNumber = decodeNullable(
     field(record, "assessmentAttemptNumber", path),
@@ -85,29 +111,15 @@ function decodeAssessmentSummary(
     field(record, "questionCount", path),
     `${path}.questionCount`,
   );
-  const scoreValue = record.score;
-  let score: { readonly pointsEarned: number; readonly pointsPossible: number } | undefined;
-  if (scoreValue !== undefined) {
-    const scoreRecord = decodeRecord(scoreValue, `${path}.score`);
-    requireOnlyFields(scoreRecord, `${path}.score`, ["pointsEarned", "pointsPossible"]);
-    const pointsEarned = decodeFiniteNumber(
-      field(scoreRecord, "pointsEarned", `${path}.score`),
-      `${path}.score.pointsEarned`,
-    );
-    const pointsPossible = decodeFiniteNumber(
-      field(scoreRecord, "pointsPossible", `${path}.score`),
-      `${path}.score.pointsPossible`,
-    );
-    if (pointsEarned < 0 || pointsPossible < pointsEarned) {
-      throw new DecodeError(`${path}.score`, "an ordered nonnegative Assessment score");
-    }
-    score = { pointsEarned, pointsPossible };
-  }
+  const assessmentScoreValue = record.assessmentScore;
+  const assessmentScore =
+    assessmentScoreValue === undefined
+      ? undefined
+      : decodeAssessmentGradeContribution(assessmentScoreValue, `${path}.assessmentScore`);
   if (
     gradedQuestionCount > questionCount ||
-    (score !== undefined && gradedQuestionCount !== questionCount) ||
     (assessmentAttemptCompletion === null &&
-      (assessmentAttemptNumber !== null || gradedQuestionCount !== 0 || score !== undefined)) ||
+      (assessmentAttemptNumber !== null || gradedQuestionCount !== 0)) ||
     (assessmentAttemptCompletion !== null && assessmentAttemptNumber === null)
   ) {
     throw new DecodeError(path, "internally consistent self-only Assessment progress");
@@ -115,12 +127,21 @@ function decodeAssessmentSummary(
   return {
     reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
+    assessmentType: decodeStringEnum(
+      field(record, "assessmentType", path),
+      `${path}.assessmentType`,
+      ASSESSMENT_TYPE_VALUES,
+    ),
     decision: decodeStudentAssessmentDecision(field(record, "decision", path), `${path}.decision`),
     assessmentAttemptNumber,
     assessmentAttemptCompletion,
+    canResumeAssessmentAttempt: decodeBoolean(
+      field(record, "canResumeAssessmentAttempt", path),
+      `${path}.canResumeAssessmentAttempt`,
+    ),
     gradedQuestionCount,
     questionCount,
-    ...(score === undefined ? {} : { score }),
+    ...(assessmentScore === undefined ? {} : { assessmentScore }),
   };
 }
 

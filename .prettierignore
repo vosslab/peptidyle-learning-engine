@@ -22,6 +22,10 @@ generated/
 coverage/
 target/
 
+# Reviewed third-party browser runtime; devel/sync_author_content_dependency.mjs
+# owns its exact current bytes and generated registry.
+assets/author-content-dependencies/rdkit/RDKit_minimal.js
+
 # Agent scratch files and directories.
 _temp*
 

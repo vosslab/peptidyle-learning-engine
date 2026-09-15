@@ -5,7 +5,7 @@ import { render } from "solid-js/web";
 
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
-import type { CourseId } from "../../generated/api/CourseId";
+import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { ApplicationApi } from "../../src/api/application_api";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import type { CourseRouteView } from "../../src/api/contracts";
@@ -14,14 +14,13 @@ import { CourseThemeVariables } from "../../src/features/course_appearance/cours
 import { CourseAppearancePage } from "../../src/pages/course_appearance_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 
-const COURSE_ID = "course-m7" as CourseId;
+const COURSE_REFERENCE: CourseInstanceReference = "CI7K3M2Q";
 const COURSE_PATH = "/instructor/courses/CI7K3M2Q/appearance";
 
 function initialCourse(): CourseRouteView {
   return {
     summary: {
-      id: COURSE_ID,
-      reference: "CI7K3M2Q",
+      reference: COURSE_REFERENCE,
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
@@ -92,7 +91,7 @@ export function mountCourseAppearanceM7Harness(
   const applicationApi = {
     client: {
       updateCourseTheme: (
-        _courseId: CourseId,
+        _courseReference: CourseInstanceReference,
         update: { readonly theme: CourseAppearanceView["theme"] },
       ) => {
         saves += 1;
@@ -104,7 +103,7 @@ export function mountCourseAppearanceM7Harness(
         bannerUploads += 1;
         return Promise.resolve({ upload: "banner-upload" });
       },
-      setCourseBanner: (_courseId: CourseId, update: CourseBannerUpdate) => {
+      setCourseBanner: (_courseReference: CourseInstanceReference, update: CourseBannerUpdate) => {
         bannerSets += 1;
         currentAppearance = {
           ...currentAppearance,
@@ -120,7 +119,6 @@ export function mountCourseAppearanceM7Harness(
       fetchCourseBanner: () => Promise.resolve(new Blob(["hero"], { type: "image/webp" })),
     },
     queries: {
-      resolveCourse: () => Promise.resolve({ courseId: COURSE_ID }),
       courseScope: () => {
         if (initialScope === "resolved" && !initialScopeResolved) {
           initialScopeResolved = true;
@@ -129,9 +127,9 @@ export function mountCourseAppearanceM7Harness(
         activeScope = deferredScope();
         return activeScope.promise;
       },
-      assignmentAttemptHistory: () =>
+      assessmentAttemptHistory: () =>
         Promise.reject(
-          new Error("Course Appearance harness does not load Assignment Attempt history."),
+          new Error("Course Appearance harness does not load Assessment Attempt history."),
         ),
     },
   } as unknown as ApplicationApi<OrdinaryBrowserApiClient>;

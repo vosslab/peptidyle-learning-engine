@@ -123,8 +123,8 @@ struct AssessmentAttemptSubmissionAcknowledgement {
     score: Option<LiveAssessmentAttemptScore>,
 }
 
-/// Finalizes the whole Assessment Attempt only after the store verifies every
-/// fixed issued position has a saved response.
+/// Finalizes the whole Assessment Attempt with every response the Student saved.
+/// Unanswered issued positions remain part of the terminal Attempt history.
 pub(super) async fn finalize_assessment_attempt(
     State(state): State<StateData>,
     headers: HeaderMap,
@@ -149,12 +149,6 @@ pub(super) async fn finalize_assessment_attempt(
     let finalization = match preparation {
         StudentAssessmentAttemptFinalizationPreparationOutcome::AlreadySubmitted { score } => {
             StudentAssessmentAttemptFinalization::Submitted { score }
-        }
-        StudentAssessmentAttemptFinalizationPreparationOutcome::MissingResponses { .. } => {
-            return error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Save a response for every Question before submitting",
-            );
         }
         StudentAssessmentAttemptFinalizationPreparationOutcome::Ready(preparation) => {
             let evaluations = match direct_finalization::evaluate_saved_responses(
@@ -182,20 +176,15 @@ pub(super) async fn finalize_assessment_attempt(
             }
         }
     };
-    match finalization {
-        StudentAssessmentAttemptFinalization::Submitted { score } => crate::auth::no_store(
-            Json(AssessmentAttemptSubmissionAcknowledgement {
-                assessment_attempt,
-                submission_state: "submitted",
-                score,
-            })
-            .into_response(),
-        ),
-        StudentAssessmentAttemptFinalization::MissingResponses { .. } => error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Save a response for every Question before submitting",
-        ),
-    }
+    let StudentAssessmentAttemptFinalization::Submitted { score } = finalization;
+    crate::auth::no_store(
+        Json(AssessmentAttemptSubmissionAcknowledgement {
+            assessment_attempt,
+            submission_state: "submitted",
+            score,
+        })
+        .into_response(),
+    )
 }
 
 /// Reconstructs the Student wire response using only presentation-scoped IDs.

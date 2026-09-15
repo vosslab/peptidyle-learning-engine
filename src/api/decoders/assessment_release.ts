@@ -3,11 +3,14 @@
 import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
 import type { AssessmentActivityRules } from "../../../generated/api/AssessmentActivityRules";
+import { ASSESSMENT_TYPE_VALUES, type AssessmentType } from "../../../generated/api/AssessmentType";
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
+import type { AssessmentOrigin } from "../../../generated/api/AssessmentOrigin";
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
 import type { AssessmentEntryScoringRule } from "../../../generated/api/AssessmentEntryScoringRule";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import type { AccountTimeZone } from "../../../generated/api/AccountTimeZone";
+import type { BlueprintAssessmentSource } from "../../../generated/api/BlueprintAssessmentSource";
 import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
 import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
@@ -19,8 +22,6 @@ import type {
   AssessmentReleaseValidation,
   AssessmentUnreleaseImpact,
   AuthoredAssessmentQuestion,
-  BlueprintAssessmentSource,
-  CourseAssessmentSourceChoice,
   CourseAssessmentSummary,
   CreateLiveAssessmentInput,
   DueSoonAssessmentSummary,
@@ -97,49 +98,6 @@ function optionalPositiveInteger(value: unknown, path: string): number | null {
   return value === null ? null : decodePositiveInteger(value, path);
 }
 
-function completionRule(
-  value: unknown,
-  path: string,
-): AssessmentActivityRules["assessmentCompletionRule"] {
-  const record = decodeRecord(value, path);
-  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
-  if (kind === "answerAll" || kind === "allCorrect") {
-    requireOnlyFields(record, path, ["kind"]);
-    return { kind };
-  }
-  if (kind === "scoreAtLeast") {
-    requireOnlyFields(record, path, ["kind", "fraction"]);
-    const fraction = decodeFiniteNumber(field(record, "fraction", path), `${path}.fraction`);
-    if (fraction < 0 || fraction > 1)
-      throw new DecodeError(`${path}.fraction`, "a fraction from 0 through 1");
-    return { kind, fraction };
-  }
-  throw new DecodeError(`${path}.kind`, "a known Assessment Completion Rule");
-}
-
-function continuationRule(
-  value: unknown,
-  path: string,
-): AssessmentActivityRules["assessmentAttemptContinuationRule"] {
-  const record = decodeRecord(value, path);
-  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
-  if (kind === "unlimited" || kind === "closed") {
-    requireOnlyFields(record, path, ["kind"]);
-    return { kind };
-  }
-  if (kind === "capped") {
-    requireOnlyFields(record, path, ["kind", "maxAdditionalAssessmentAttempts"]);
-    return {
-      kind,
-      maxAdditionalAssessmentAttempts: decodeNonnegativeInteger(
-        field(record, "maxAdditionalAssessmentAttempts", path),
-        `${path}.maxAdditionalAssessmentAttempts`,
-      ),
-    };
-  }
-  throw new DecodeError(`${path}.kind`, "a known Assessment Attempt Continuation Rule");
-}
-
 /** Decode the persisted Assessment Activity Rules shared by current work and Attempt evidence. */
 export function decodeAssessmentActivityRules(
   value: unknown,
@@ -147,9 +105,7 @@ export function decodeAssessmentActivityRules(
 ): AssessmentActivityRules {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "assessmentCompletionRule",
     "assessmentAttemptGradeRule",
-    "assessmentAttemptContinuationRule",
     "questionPoolReuseRule",
     "questionVariationRule",
     "assessmentAttemptResumeRule",
@@ -158,18 +114,10 @@ export function decodeAssessmentActivityRules(
     "assessmentQuestionOrderRule",
   ]);
   return {
-    assessmentCompletionRule: completionRule(
-      field(record, "assessmentCompletionRule", path),
-      `${path}.assessmentCompletionRule`,
-    ),
     assessmentAttemptGradeRule: decodeStringEnum(
       field(record, "assessmentAttemptGradeRule", path),
       `${path}.assessmentAttemptGradeRule`,
       ["first", "latest", "highest", "instructorSelected"],
-    ),
-    assessmentAttemptContinuationRule: continuationRule(
-      field(record, "assessmentAttemptContinuationRule", path),
-      `${path}.assessmentAttemptContinuationRule`,
     ),
     questionPoolReuseRule: decodeStringEnum(
       field(record, "questionPoolReuseRule", path),
@@ -419,18 +367,6 @@ function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntr
   };
 }
 
-function courseAssessmentSourceChoice(value: unknown, path: string): CourseAssessmentSourceChoice {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["source", "label"]);
-  return {
-    source: blueprintAssessmentSource(field(record, "source", path), `${path}.source`),
-    // The source choice label is the immutable Blueprint Assessment title,
-    // not arbitrary display text.  Keep its browser boundary equal to the
-    // title bound PostgreSQL enforces for that authored content.
-    label: decodeAssessmentTitle(field(record, "label", path), `${path}.label`),
-  };
-}
-
 function authoredQuestion(value: unknown, path: string): AuthoredAssessmentQuestion {
   return pickerEntry(value, path);
 }
@@ -439,10 +375,15 @@ function status(value: unknown, path: string): LiveAssessmentStatus {
   return decodeStringEnum(value, path, ["unreleased", "released", "closed", "archived"]);
 }
 
+function assessmentType(value: unknown, path: string): AssessmentType {
+  return decodeStringEnum(value, path, ASSESSMENT_TYPE_VALUES);
+}
+
 function courseAssessmentSummary(value: unknown, path: string): CourseAssessmentSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "reference",
+    "assessmentType",
     "title",
     "dueAt",
     "displayTimeZone",
@@ -451,6 +392,7 @@ function courseAssessmentSummary(value: unknown, path: string): CourseAssessment
   ]);
   return {
     reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     dueAt: localDateAndTime(field(record, "dueAt", path), `${path}.dueAt`),
     displayTimeZone: displayTimeZone(
@@ -468,6 +410,7 @@ function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessme
     "courseReference",
     "courseLongName",
     "assessmentReference",
+    "assessmentType",
     "assessmentTitle",
     "assessmentStatus",
     "dueAtMillis",
@@ -488,6 +431,7 @@ function dueSoonAssessmentSummary(value: unknown, path: string): DueSoonAssessme
       field(record, "assessmentReference", path),
       `${path}.assessmentReference`,
     ),
+    assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     assessmentTitle: decodeAssessmentTitle(
       field(record, "assessmentTitle", path),
       `${path}.assessmentTitle`,
@@ -517,18 +461,32 @@ export function decodeCreateLiveAssessmentInput(
   path = "request",
 ): CreateLiveAssessmentInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["blueprintAssessmentReference", "title", "instructions"]);
+  requireOnlyFields(record, path, ["assessmentType", "title", "instructions"]);
   return {
-    blueprintAssessmentReference: decodeIdentifier(
-      field(record, "blueprintAssessmentReference", path),
-      `${path}.blueprintAssessmentReference`,
-    ),
+    assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     instructions: decodeAssessmentInstructions(
       field(record, "instructions", path),
       `${path}.instructions`,
     ),
   };
+}
+
+function assessmentOrigin(value: unknown, path: string): AssessmentOrigin {
+  const record = decodeRecord(value, path);
+  const kind = decodeString(field(record, "kind", path), `${path}.kind`);
+  if (kind === "direct") {
+    requireOnlyFields(record, path, ["kind"]);
+    return { kind };
+  }
+  if (kind === "adopted") {
+    requireOnlyFields(record, path, ["kind", "source"]);
+    return {
+      kind,
+      source: blueprintAssessmentSource(field(record, "source", path), `${path}.source`),
+    };
+  }
+  throw new DecodeError(`${path}.kind`, "a known Assessment origin");
 }
 
 export function decodeSaveLiveAssessmentInlineInput(
@@ -646,7 +604,8 @@ export function decodeLiveAssessmentWorkspace(
     "reference",
     "editNumber",
     "status",
-    "source",
+    "origin",
+    "assessmentType",
     "title",
     "instructions",
     "dueAt",
@@ -665,7 +624,8 @@ export function decodeLiveAssessmentWorkspace(
     reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
     editNumber: editNumber(field(record, "editNumber", path), `${path}.editNumber`),
     status: status(field(record, "status", path), `${path}.status`),
-    source: blueprintAssessmentSource(field(record, "source", path), `${path}.source`),
+    origin: assessmentOrigin(field(record, "origin", path), `${path}.origin`),
+    assessmentType: assessmentType(field(record, "assessmentType", path), `${path}.assessmentType`),
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
     instructions: decodeAssessmentInstructions(
       field(record, "instructions", path),
@@ -712,12 +672,6 @@ export function decodeAssessmentQuestionPicker(
   return decodeArray(value, path, pickerEntry);
 }
 
-export function decodeCourseAssessmentSourceChoices(
-  value: unknown,
-  path = "response",
-): ReadonlyArray<CourseAssessmentSourceChoice> {
-  return decodeArray(value, path, courseAssessmentSourceChoice);
-}
 export function decodeCourseAssessments(
   value: unknown,
   path = "response",
@@ -743,6 +697,11 @@ export function decodeAssessmentReleaseValidation(
       decodeStringEnum(item, itemPath, [
         "noPublishedQuestions",
         "questionUnavailable",
+        "dueDateRequired",
+        "dueDateLessThan24HoursAhead",
+        "dueDateAfterCourseActiveUntil",
+        "availabilityAfterDueDate",
+        "dueDateAfterClose",
         "timeLimitRequired",
       ]),
     ),

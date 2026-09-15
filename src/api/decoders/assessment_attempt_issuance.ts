@@ -1,6 +1,7 @@
 // Strict decoders for the bounded Student Assessment delivery surface.
 
 import type { LiveAssessmentAccess, LiveAssessmentAttempt } from "../assessment_attempt_issuance";
+import { ASSESSMENT_TYPE_VALUES } from "../../../generated/api/AssessmentType";
 import {
   DecodeError,
   decodeArray,
@@ -10,6 +11,7 @@ import {
   decodePositiveInteger,
   decodeRecord,
   decodeString,
+  decodeStringEnum,
 } from "../decoder";
 import {
   decodeAssessmentReference,
@@ -95,6 +97,7 @@ export function decodeLiveAssessmentAccess(
     "decision",
     "activeAssessmentAttempt",
     "title",
+    "assessmentType",
     "questionCount",
     "pointsPossible",
     "previousAttempts",
@@ -120,6 +123,11 @@ export function decodeLiveAssessmentAccess(
     decision: decodeStudentAssessmentDecision(field(record, "decision", path), `${path}.decision`),
     activeAssessmentAttempt,
     title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
+    assessmentType: decodeStringEnum(
+      field(record, "assessmentType", path),
+      `${path}.assessmentType`,
+      ASSESSMENT_TYPE_VALUES,
+    ),
     questionCount: decodeNonnegativeInteger(
       field(record, "questionCount", path),
       `${path}.questionCount`,

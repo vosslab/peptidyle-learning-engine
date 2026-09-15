@@ -146,8 +146,8 @@ teaching walkthrough as a release decision requirement.
 
 Evidence: [assessment_workspace_student_view_page.tsx](../../src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx)
 explicitly renders "Student view unavailable".
-[assessment_preview_page.tsx](../../src/pages/assessment_preview_page.tsx) renders saved title,
-instructions, and Question descriptions; it does not display the actual Question interactions.
+The retired `assessment_preview_page.tsx` rendered saved title, instructions, and Question
+descriptions; it did not display the actual Question interactions.
 Its "Assignment delivery check" label is appropriately narrower than a full preview.
 
 User consequence: an Instructor cannot currently inspect the complete learner-facing rendering

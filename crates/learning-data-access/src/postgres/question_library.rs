@@ -271,6 +271,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         authored_by_current_account: row
             .try_get("authored_by_current_account")
             .map_err(map_sqlx_error)?,
+        viewer_may_archive: row.try_get("viewer_may_archive").map_err(map_sqlx_error)?,
         question_license,
         availability,
         availability_edit_number,

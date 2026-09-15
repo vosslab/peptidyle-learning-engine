@@ -41,7 +41,6 @@ export type FutureRibbonDestinationId =
   | "myQuestions"
   | "starredQuestions"
   | "watchedQuestions"
-  | "assessmentTemplates"
   | "teachingOperations"
   | "gradeSettings";
 
@@ -386,7 +385,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "assessmentTemplates",
     label: "My Assessment Templates",
-    destination: { kind: "future", futureId: "assessmentTemplates" },
+    destination: { kind: "route", routeId: "assessmentTemplates" },
     requiredParams: [],
     taskGroup: "instructorAssessments",
     area: "instructorAssessments",

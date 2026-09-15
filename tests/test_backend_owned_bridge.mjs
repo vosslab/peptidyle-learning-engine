@@ -11,7 +11,10 @@ import {
   classifyBackendOwnedResponseMessage,
   isBackendOwnedResponseMessage,
 } from "../src/components/question_response_controls/backend_owned_document.tsx";
-import { saveCapturedBackendOwnedResponse } from "../src/pages/assessment_attempt_finish.ts";
+import {
+  saveCapturedBackendOwnedResponse,
+  saveCompleteResponseBeforeAttemptSubmission,
+} from "../src/pages/assessment_attempt_finish.ts";
 
 const bridgeSource = readFileSync(new URL("../src/public/ple_bridge.js", import.meta.url), "utf8");
 
@@ -211,4 +214,36 @@ test("Finish Assessment captures the active backend document, saves it, then fin
 
   assert.deepEqual(result, { submitted: true });
   assert.deepEqual(events, ["capture", "save", "finalize"]);
+});
+
+test("whole-Attempt submission skips incomplete local input but blocks on a complete-response save failure", async () => {
+  let saveCalls = 0;
+  const save = async () => {
+    saveCalls += 1;
+    return false;
+  };
+
+  assert.equal(await saveCompleteResponseBeforeAttemptSubmission(false, save), true);
+  assert.equal(saveCalls, 0);
+  assert.equal(await saveCompleteResponseBeforeAttemptSubmission(true, save), false);
+  assert.equal(saveCalls, 1);
+});
+
+test("incomplete local input preserves an earlier saved response and awaits a pending save failure", async () => {
+  let saveCalls = 0;
+  const save = async () => {
+    saveCalls += 1;
+    return true;
+  };
+
+  assert.equal(
+    await saveCompleteResponseBeforeAttemptSubmission(false, save, Promise.resolve(false)),
+    false,
+  );
+  assert.equal(saveCalls, 0, "the incomplete draft does not replace the earlier saved response");
+  assert.equal(
+    await saveCompleteResponseBeforeAttemptSubmission(false, save, Promise.resolve(true)),
+    true,
+  );
+  assert.equal(saveCalls, 0, "the incomplete draft remains unsaved before whole submission");
 });

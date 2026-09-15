@@ -7,9 +7,7 @@ const baseInput = {
   assessmentStatus: "released",
   savedAssessmentAvailability: { state: "available" },
   policies: {
-    assessmentCompletionRule: { kind: "scoreAtLeast", fraction: 0.8 },
     assessmentAttemptGradeRule: "instructorSelected",
-    assessmentAttemptContinuationRule: { kind: "capped", maxAdditionalAssessmentAttempts: 3 },
     questionPoolReuseRule: "selectAgain",
     questionVariationRule: "reuseVariation",
     assessmentAttemptResumeRule: "resumable",
@@ -17,7 +15,6 @@ const baseInput = {
     assessmentNavigationRule: "freeNavigation",
     assessmentQuestionOrderRule: "authoredOrder",
   },
-  activityRuleDraft: { completionFraction: "0.75", additionalAssessmentAttempts: "2" },
   studentFeedbackReleaseRule: {
     score: "after_submit",
     per_item_correctness: "after_submit",
@@ -44,9 +41,7 @@ test("Assessment policy summary covers every Properties-owned decision in readab
   const summary = assessmentPolicyDraftSummary(baseInput);
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
-  assert.match(valueFor("assessmentCompletionRule"), /75%/);
   assert.match(valueFor("assessmentAttemptGradeRule"), /Instructor-selected/);
-  assert.match(valueFor("assessmentAttemptContinuationRule"), /2 additional Assessment Attempts/);
   assert.match(valueFor("questionPoolReuseRule"), /Select Questions again/);
   assert.match(valueFor("questionVariationRule"), /previous Question Variations/);
   assert.match(valueFor("savedDelivery"), /available now/);
@@ -73,19 +68,11 @@ test("Assessment policy summary covers every Properties-owned decision in readab
 test("Assessment policy summary surfaces invalid unsaved limits without stale values", () => {
   const summary = assessmentPolicyDraftSummary({
     ...baseInput,
-    activityRuleDraft: { completionFraction: "1.2", additionalAssessmentAttempts: "-1" },
     assessmentAttemptTimeLimitSecondsDraft: "0",
     attemptLimitDraft: "many",
   });
 
-  const completion = summary.find((item) => item.key === "assessmentCompletionRule")?.value ?? "";
-  const practice =
-    summary.find((item) => item.key === "assessmentAttemptContinuationRule")?.value ?? "";
   const schedule = summary.find((item) => item.key === "scheduleLimits")?.value ?? "";
-  assert.match(completion, /needs correction/);
-  assert.doesNotMatch(completion, /75%/);
-  assert.match(practice, /needs correction/);
-  assert.doesNotMatch(practice, /2 additional Assessment Attempts/);
   assert.match(schedule, /time limit needs correction/);
   assert.match(schedule, /attempt limit needs correction/);
   assert.doesNotMatch(schedule, /900s time limit|2 attempts/);

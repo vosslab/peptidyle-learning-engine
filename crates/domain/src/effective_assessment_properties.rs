@@ -621,5 +621,5 @@ fn assessment_start_decision(
 }
 
 #[cfg(test)]
-#[path = "effective_assessment_policy/tests.rs"]
+#[path = "effective_assessment_properties/tests.rs"]
 mod tests;

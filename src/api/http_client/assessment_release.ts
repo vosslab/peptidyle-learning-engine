@@ -15,7 +15,6 @@ import {
   decodeAssessmentReleaseValidation,
   decodeAssessmentUnreleaseImpact,
   decodeCourseAssessmentSummary,
-  decodeCourseAssessmentSourceChoices,
   decodeCourseAssessments,
   decodeDueSoonAssessments,
   decodeCreateLiveAssessmentInput,
@@ -152,15 +151,6 @@ export function createLiveAssessmentReleaseClient(
           basePath,
           `${coursePath(course)}/assessment-question-picker`,
           decodeAssessmentQuestionPicker,
-        )
-      ).body,
-    listCourseAssessmentSourceChoices: async (course) =>
-      (
-        await assessmentJson(
-          fetchImplementation,
-          basePath,
-          `${coursePath(course)}/assessment-source-choices`,
-          decodeCourseAssessmentSourceChoices,
         )
       ).body,
     createLiveAssessment: async (course, input): Promise<LiveAssessmentWorkspaceResponse> => {

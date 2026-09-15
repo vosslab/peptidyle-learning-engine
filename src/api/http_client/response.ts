@@ -25,7 +25,7 @@ import {
   decodeAttemptPage,
   decodeQuestionPage,
   decodeQuestionDetails,
-  decodeQuestionSummary,
+  decodeQuestionLineageView,
   decodeQuestionSearchPage,
   decodeCourseAppearanceView,
   decodeCourseThemeUpdate,
@@ -480,8 +480,8 @@ export function createResponseClient(
       ),
     resolveQuestion: (displayReference: string): Promise<QuestionSummary> => {
       const path = questionReferencePath(displayReference);
-      return requestJson(fetchImplementation, basePath, path, (value, decoderPath) =>
-        decodeQuestionSummary(value, decoderPath, true),
+      return requestJson(fetchImplementation, basePath, path, decodeQuestionLineageView).then(
+        (lineage) => lineage.summary,
       );
     },
     getQuestionDetails: (questionId) => questionDetails(fetchImplementation, basePath, questionId),

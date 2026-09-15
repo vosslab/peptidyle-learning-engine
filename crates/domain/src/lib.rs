@@ -12,13 +12,10 @@ pub mod active_student_course_membership;
 pub mod assessment_activity;
 /// Current Course-owned Assessment Question Analysis projections.
 pub mod assessment_question_analysis;
-/// Assessment Attempt state machine.
-/// Completion derivation within an Assessment Attempt.
-pub mod completion;
 /// Key-free deterministic Workspace Draft Question prompt preview.
 pub mod draft_preview;
 /// Pure current assessment-policy resolution after Student Assessment Access.
-pub mod effective_assessment_policy;
+pub mod effective_assessment_properties;
 /// Assessment configuration capability validation.
 pub mod policy;
 /// Pure non-mutating Student preview composition from membership, policy, and disclosure facts.

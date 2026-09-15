@@ -242,14 +242,15 @@
 #### High-consequence actions
 
 - [ ] Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
-  - Mismatch: the implemented UI names the first action "Unrelease assignment," not Assessment Unrelease.
-- [ ] Danger Zone should be visually separate from ordinary editing actions.
-  - Mismatch: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` renders the separate `assessment-workspace-unrelease-danger-zone` section, but `src/pages/assessment_workspace/assessment_workspace.css` still styles the retired `assignment-workspace-unrelease-danger-zone` class, so the intended visual separation is not applied.
-- [ ] Assessment Unrelease should explain that Student work will be deleted.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` explains Assignment unrelease, not Assessment Unrelease.
-- [ ] Assessment Unrelease should require typing the Assessment title before confirmation.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` requires an Assignment title, not an Assessment title.
+  - Mismatch: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` implements Assessment Unrelease and `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` implements Archive Blueprint Course, but no current interface exposes Archive Published Question in a Danger Zone; the browser API in `src/api/question_availability.ts` alone is not an Instructor workflow.
+- [x] Danger Zone should be visually separate from ordinary editing actions.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `assessment-workspace-unrelease-danger-zone` is the sole current Danger Zone consumer, and `src/pages/assessment_workspace/assessment_workspace.css` applies the distinct danger border, background, spacing, and responsive layout to that exact class while preserving its shared `assignment-editor-field` child.
+  - Evidence (test): an independently reviewed temporary Chromium proof rendered `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `assessment-workspace-unrelease-danger-zone` with current CSS and verified the destructive panel remained visually distinct with a readable confirmation action at 1280px and 600px; it was component evidence, not connected-app acceptance.
+- [x] Assessment Unrelease should explain that Student work will be deleted.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `assessment-unrelease-confirmation-help` says Unrelease permanently deletes the represented Student Work, and the action is labeled "Unrelease and delete Student Work."
+- [x] Assessment Unrelease should require typing the Assessment title before confirmation.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `confirmationTitle` disables Unrelease unless the entered value exactly matches the current Assessment title, while `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` independently rejects a nonmatching confirmation title.
 - [ ] Archive actions should explain the effect on shared availability and require a clear confirmation.
-  - Mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` verifies that behavior only for Archive Blueprint Course; it does not establish the required behavior for every Archive action, including Archive Published Question.
+  - Mismatch: `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `Archive Blueprint Course` explains removal from new selection and requires the long name, but no current Archive Published Question interface provides the corresponding explanation and confirmation; `src/api/question_availability.ts` `archiveQuestion` is only a browser transport contract.
 - [x] Restore actions should use ordinary availability controls.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `restore` is presented under Course names and availability rather than the archive confirmation control.

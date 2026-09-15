@@ -100,7 +100,7 @@ concealed "$(request '/api/course-instances/CI8H4N6P/gradebook' "$instructor_coo
 
 received="$(request "$path" "$instructor_cookie")"
 [ "$(status "$received")" = 200 ] || { echo "Current Course Instructor could not read Gradebook" >&2; exit 1; }
-python3 -c 'import json,re,sys
+python3 -c 'import json,math,re,sys
 value=json.loads(sys.argv[1]); course=sys.argv[2]
 if set(value)!={"courseReference","studentWork"} or value["courseReference"]!=course:
     raise SystemExit("Gradebook projection is not closed to its requested Course")
@@ -120,7 +120,7 @@ for row in rows:
         raise SystemExit("Gradebook expiry projection is invalid")
     score=row["score"]
     if score is not None:
-        if set(score)!={"pointsEarned","pointsPossible"} or not all(isinstance(score[k],(int,float)) and not isinstance(score[k],bool) for k in ("pointsEarned","pointsPossible")) or not 0 <= score["pointsEarned"] <= score["pointsPossible"]:
+        if not isinstance(score,dict) or set(score)!={"pointsEarned","pointsPossible"} or not all(isinstance(score[k],(int,float)) and not isinstance(score[k],bool) and math.isfinite(score[k]) and score[k]>=0 for k in ("pointsEarned","pointsPossible")):
             raise SystemExit("Gradebook points projection is invalid")
     if row["assessmentAttemptCompletion"] is None and (score is not None or row["expiredSubmitting"]):
         raise SystemExit("Gradebook not-started row exposes work totals")

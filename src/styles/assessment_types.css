@@ -1,0 +1,10 @@
+/* assessment_types.css - semantic color hooks for the fixed Assessment Type registry. */
+
+:root,
+.course-theme-scope {
+  --ple-assessment-type-regular-assignment: var(--ple-accent);
+  --ple-assessment-type-practice-question-assignment: var(--ple-success);
+  --ple-assessment-type-bonus-assignment: var(--ple-focus);
+  --ple-assessment-type-quiz: var(--ple-accent-strong);
+  --ple-assessment-type-exam: var(--ple-danger);
+}

@@ -15,6 +15,8 @@ mod assessment_pool_selection_count;
 pub(crate) mod assessment_release;
 /// Answer-free, no-write Instructor Student View delivery routes.
 pub(crate) mod assessment_student_view;
+/// Private owner-only Assessment Template CRUD subset.
+pub(crate) mod assessment_template;
 /// Authentication, sessions, and the first-party browser boundary.
 pub mod auth;
 /// Fixed public routes for reviewed author-content runtime assets.

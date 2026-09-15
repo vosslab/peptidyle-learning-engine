@@ -22,6 +22,8 @@ pub mod assessment;
 pub mod assessment_activity_rules;
 /// Browser-safe, no-write Instructor Student View contracts.
 pub mod assessment_student_view;
+/// Instructor-owned reusable Assessment settings.
+pub mod assessment_template;
 /// Strict browser contracts and derived readiness for the Instructor assessment workspace.
 pub mod assessment_workspace;
 pub mod auth;
@@ -91,28 +93,34 @@ pub use crate::assessment::{
     AssessmentAuthoredContentLocalError, AssessmentAuthoredContentValidationFailure,
     AssessmentEditNumber, AssessmentEditNumberError, AssessmentEntry, AssessmentEntryAvailability,
     AssessmentEntryScoringRule, AssessmentInstructions, AssessmentInstructionsError,
-    AssessmentPointValue, AssessmentScoringState, AssessmentStatus, AssessmentTitle,
-    AssessmentTitleError, BaseAssessmentPolicy, FixedQuestionAssessmentEntry,
-    InstructorAssessmentAuthoredContentLocal, InstructorAssessmentAvailabilityView, LateWorkRule,
-    LocalDateAndTime, LocalDateAndTimeError, MAX_ASSESSMENT_ATTEMPT_LIMIT,
-    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS,
-    MAX_ASSESSMENT_ORDERED_ENTRIES, MAX_ASSESSMENT_QUESTION_POOL_ITEMS,
-    MAX_ASSESSMENT_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
-    PoolRevisionMemberReference, QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber,
-    QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
-    ScoringGeneration, derive_instructor_assessment_availability,
+    AssessmentOrigin, AssessmentPointValue, AssessmentScoringState, AssessmentStatus,
+    AssessmentTitle, AssessmentTitleError, AssessmentType, BaseAssessmentPolicy,
+    FixedQuestionAssessmentEntry, InstructorAssessmentAuthoredContentLocal,
+    InstructorAssessmentAvailabilityView, LateWorkRule, LocalDateAndTime, LocalDateAndTimeError,
+    MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS, MAX_ASSESSMENT_ORDERED_ENTRIES,
+    MAX_ASSESSMENT_QUESTION_POOL_ITEMS, MAX_ASSESSMENT_TITLE_UNICODE_SCALARS,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, PoolRevisionMemberReference,
+    QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
+    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, ScoringGeneration,
+    derive_instructor_assessment_availability,
 };
 pub use crate::assessment_activity_rules::{
-    AssessmentActivityRules, AssessmentAttemptContinuationRule, AssessmentAttemptGradeRule,
-    AssessmentAttemptResumeRule, AssessmentCompletionRule, AssessmentNavigationRule,
-    AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule, AssessmentQuestionVariationRule,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolPreviewNonce,
-    QuestionPoolReuseRule, QuestionPoolSelectionInputs, StudentFeedbackReleaseRule,
-    StudentFeedbackReleaseTiming,
+    AssessmentActivityRules, AssessmentAttemptGradeRule, AssessmentAttemptResumeRule,
+    AssessmentNavigationRule, AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule,
+    AssessmentQuestionVariationRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+    QuestionPoolPreviewNonce, QuestionPoolReuseRule, QuestionPoolSelectionInputs,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
 };
 pub use crate::assessment_student_view::{
     InstructorStudentView, InstructorStudentViewDelivery, InstructorStudentViewEntry,
     InstructorStudentViewNotShownReason, InstructorStudentViewQuestionReference,
+};
+pub use crate::assessment_template::{
+    AssessmentTemplate, AssessmentTemplateEditNumber, AssessmentTemplateEditNumberError,
+    AssessmentTemplateId, AssessmentTemplateName, AssessmentTemplateNameError,
+    AssessmentTemplateSettings, AssessmentTemplateSettingsError,
+    MAX_ASSESSMENT_TEMPLATE_NAME_UNICODE_SCALARS,
 };
 pub use crate::assessment_workspace::{
     AssessmentEntryRequest, AssessmentPoliciesValidationFailure,
@@ -226,7 +234,7 @@ pub use crate::question_library::{
     MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QUESTION_ID_ALPHABET,
     QUESTION_ID_COMPACT_LENGTH, QUESTION_ID_IDENTIFIER_LENGTH, QuestionAvailability,
     QuestionAvailabilityEditNumber, QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent,
-    QuestionBackend, QuestionDetails, QuestionDetailsPromptView, QuestionId,
+    QuestionBackend, QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionLineageView,
     QuestionRevisionReference, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
     QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
     QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,

@@ -77,16 +77,20 @@
   - Mismatch: Course Instance storage has no six-month Active lifetime or retention deadline.
 - [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA retention clock.
   - Mismatch: Assessment deadlines exist, but no Course FERPA retention clock is derived from them.
-- [ ] Creating or extending a later Assessment deadline may move those dates, but not beyond the six-month Active lifetime.
-  - Mismatch: No Active lifetime cap or retention-date recalculation exists.
+- [x] Creating or extending a later Assessment deadline may move those dates, but not beyond the six-month Active lifetime.
+  - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies` lock the Course first, reject a Due date after its immutable `active_until_at`, and invoke `ple_data.synchronize_course_assessment_deadline` after an accepted change.
+  - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` stores the current maximum Assessment Due date and moves the active Course retention anchor to that date, or to `active_until_at` when no Due date remains.
+  - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies`, covering release, a cleared last Due date, cap rollback, stale CAS, wrong-Instructor denial, deterministic concurrent saves to two Assessments, an archive race, and frozen archived/deleted retention anchors.
 - [ ] Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
   - Mismatch: The FERPA retention-clock transition is absent.
 - [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and permanent deletion transitions.
   - Mismatch: No configured FERPA retention policy or its transitions exists.
 - [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after creation.
   - Mismatch: No six-month inactivity transition or Instructor warning exists.
-- [ ] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying FERPA retention and deletion.
-  - Mismatch: No six-month Active limit exists.
+- [x] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying FERPA retention and deletion.
+  - Evidence (source): `schemas/base_schema/course_core.sql` `ple_data.enforce_course_instance_retention_schedule` derives and preserves the immutable six-month `active_until_at`; `schemas/base_schema/assessments.sql` `ple_data.save_assessment` and its sibling save functions reject every saved Due date beyond that cutoff.
+  - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` bounds the active retention anchor by the accepted current maximum Due date or that immutable cutoff and does not move an archived or deleted anchor.
+  - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
 - [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself delete Student records.
   - Mismatch: Neither Course inactivity nor FERPA deletion transition is implemented.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
@@ -119,8 +123,8 @@
 ### Revisions and history
 
 - [x] Be conservative about creating revisions.
-  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_private.publish_question_revision` locks the Draft and immediate parent before it creates a successor; its `PQR01` source-checksum comparison rejects an unchanged `question_revision_source_binding` before any successor facts are written.
-  - Decision: A fresh one-time PostgreSQL 17 probe verified title and description metadata changes make no Revision, an unchanged source is rejected without a partial write, a changed source creates the next Revision, and two serialized sessions admit only one successor. Tags, subject, and topic have no persisted metadata fields yet; the probe asserts that present absence rather than inventing a field-level behavior. The probe is temporary and will be removed, not cited as permanent evidence.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_question_revision` locks the Draft and immediate parent before it creates a successor; its `PQR01` source-checksum comparison rejects an unchanged `question_revision_source_binding` before any successor facts are written.
+  - Decision: A fresh one-time PostgreSQL 17 probe exercised `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_question_revision` and verified title and description metadata changes make no Revision, an unchanged source is rejected without a partial write, a changed source creates the next Revision, and two serialized sessions admit only one successor. Tags, subject, and topic have no persisted metadata fields yet; the probe asserts that present absence rather than inventing a field-level behavior. The probe is temporary and will be removed, not cited as permanent evidence.
 - [x] Assessments, Course Instances, and Draft Questions use current state.
   - Evidence (source): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` updates current Assessment state and advances its `assessment_edit_number`.
   - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_api.update_course_theme` updates the current `ple_data.course_instance` row.

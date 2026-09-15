@@ -1,13 +1,15 @@
 //! PostgreSQL adapter for the Student Course landing projections.
 
 use async_trait::async_trait;
-use question_model::{AssessmentAttemptCompletion, AssessmentReference, CourseInstanceReference};
+use question_model::{
+    AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
+};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
-    LiveAssessmentAttemptScore, LiveStudentAssessmentLandingSummary,
+    LiveAssessmentGradeContribution, LiveStudentAssessmentLandingSummary,
     LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore,
     LiveStudentCourseLandingSummary, SessionTokenHash, StoreError,
 };
@@ -100,8 +102,9 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentAssessmentLandingSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT assessment_reference_number, assessment_title, start_decision, \
-             time_limit_seconds, attempt_limit, late_work_rule, display_time_zone, \
+            "SELECT assessment_reference_number, assessment_title, assessment_type, start_decision, \
+             time_limit_seconds, assessment_attempt_limit AS attempt_limit, \
+             late_work_rule, display_time_zone, \
              CASE WHEN available_at IS NULL THEN NULL ELSE \
                  floor(extract(epoch FROM available_at) * 1000)::bigint END AS available_at_millis, \
              CASE WHEN due_at IS NULL THEN NULL ELSE \
@@ -110,8 +113,9 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
                  floor(extract(epoch FROM closes_at) * 1000)::bigint END AS closes_at_millis, \
              floor(extract(epoch FROM evaluated_at) * 1000)::bigint AS evaluated_at_millis, \
              assessment_attempt_number, \
-             assessment_attempt_completion, graded_question_count, question_count, \
-             points_earned, points_possible \
+             assessment_attempt_completion, can_resume_assessment_attempt, \
+             graded_question_count, question_count, \
+             assessment_score_points_earned, assessment_score_points_possible \
              FROM ple_api.list_released_live_student_assessments($1)",
         )
         .bind(course.as_string())
@@ -150,6 +154,10 @@ fn decode_assessment(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentAssessmentLandingSummary, StoreError> {
     let decision = super::student_assessment_decision::decode(row)?;
+    let assessment_type = serde_json::from_value::<AssessmentType>(serde_json::Value::String(
+        row.try_get("assessment_type").map_err(map_sqlx_error)?,
+    ))
+    .map_err(|_| invalid("Assessment Type"))?;
     let assessment_attempt_number = row
         .try_get::<Option<i32>, _>("assessment_attempt_number")
         .map_err(map_sqlx_error)?
@@ -166,27 +174,26 @@ fn decode_assessment(
         Some("completed") => Some(AssessmentAttemptCompletion::Completed),
         Some(_) => return Err(invalid("Assessment Attempt completion")),
     };
+    let can_resume_assessment_attempt = row
+        .try_get("can_resume_assessment_attempt")
+        .map_err(map_sqlx_error)?;
     let graded_question_count = count(row, "graded_question_count")?;
     let question_count = count(row, "question_count")?;
-    let points_earned = optional_finite_nonnegative(row, "points_earned")?;
-    let points_possible = optional_finite_nonnegative(row, "points_possible")?;
-    let score = match (points_earned, points_possible) {
-        (Some(points_earned), Some(points_possible)) if points_earned <= points_possible => {
-            Some(LiveAssessmentAttemptScore {
-                points_earned,
-                points_possible,
-            })
-        }
+    // ASVS 2.2.1: validate the complete database contribution pair at the adapter boundary.
+    let points_earned = optional_finite_nonnegative(row, "assessment_score_points_earned")?;
+    let points_possible = optional_finite_nonnegative(row, "assessment_score_points_possible")?;
+    let assessment_score = match (points_earned, points_possible) {
+        (Some(points_earned), Some(points_possible)) => Some(LiveAssessmentGradeContribution {
+            points_earned,
+            points_possible,
+        }),
         (None, None) => None,
-        _ => return Err(invalid("Assessment score")),
+        _ => return Err(invalid("Assessment grade contribution")),
     };
     if question_count == 0
         || graded_question_count > question_count
-        || (score.is_some() && graded_question_count != question_count)
         || (assessment_attempt_completion.is_none()
-            && (assessment_attempt_number.is_some()
-                || graded_question_count != 0
-                || score.is_some()))
+            && (assessment_attempt_number.is_some() || graded_question_count != 0))
         || (assessment_attempt_completion.is_some() && assessment_attempt_number.is_none())
     {
         return Err(invalid("Assessment progress"));
@@ -197,12 +204,14 @@ fn decode_assessment(
                 .map_err(map_sqlx_error)?,
         )?,
         title: row.try_get("assessment_title").map_err(map_sqlx_error)?,
+        assessment_type,
         decision,
         assessment_attempt_number,
         assessment_attempt_completion,
+        can_resume_assessment_attempt,
         graded_question_count,
         question_count,
-        score,
+        assessment_score,
     })
 }
 

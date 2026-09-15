@@ -1,9 +1,13 @@
-// assessment_workspace_create_page.tsx - title-only Assessment creation for the workspace.
+// assessment_workspace_create_page.tsx - deliberate Assessment creation for the workspace.
 
 import { A, useNavigate, useParams } from "@solidjs/router";
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createSignal, type JSX } from "solid-js";
 
-import type { CourseAssessmentSourceChoice } from "../../api/assessment_release";
+import {
+  ASSESSMENT_TYPE_OPTIONS,
+  assessmentTypePresentation,
+} from "../../assessment_type_presentation";
+import type { AssessmentType } from "../../../generated/api/AssessmentType";
 import { useApplicationApi } from "../../api/application_api";
 import { useSessionBootstrap } from "../../auth/session_context";
 import { courseRouteView } from "../../features/course_appearance/course_theme_context";
@@ -17,7 +21,7 @@ import { useRouteScopeData } from "../../ribbon/route_scope_context";
 import {
   assessmentWorkspaceCreateErrorMessage,
   createdAssessmentQuestionsPath,
-  selectedAssessmentSource,
+  selectedAssessmentType,
 } from "./assessment_workspace_create_model";
 
 type CreateState = "ready" | "saving" | "unavailable";
@@ -30,11 +34,7 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
   const [title, setTitle] = createSignal("");
-  const [sourceChoices, setSourceChoices] = createSignal<
-    ReadonlyArray<CourseAssessmentSourceChoice>
-  >([]);
-  const [sourceReference, setSourceReference] = createSignal("");
-  const [sourcesLoaded, setSourcesLoaded] = createSignal(false);
+  const [assessmentType, setAssessmentType] = createSignal<AssessmentType>();
   const [message, setMessage] = createSignal("");
   const [state, setState] = createSignal<CreateState>("ready");
   let titleInput: HTMLInputElement | undefined;
@@ -55,20 +55,6 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
     );
   };
 
-  onMount(() => void loadSourceChoices());
-
-  async function loadSourceChoices(): Promise<void> {
-    const reference = courseReference();
-    if (reference === null || !mayCreate()) return;
-    try {
-      setSourceChoices(await applicationApi.client.listCourseAssessmentSourceChoices(reference));
-    } catch {
-      setMessage("Assessment sources could not load. Try again before creating an Assessment.");
-    } finally {
-      setSourcesLoaded(true);
-    }
-  }
-
   async function createAssessment(): Promise<void> {
     const currentCourse = course();
     const reference = courseReference();
@@ -80,16 +66,16 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
       setMessage("Enter an Assessment Title to create the Assessment.");
       return;
     }
-    const source = selectedAssessmentSource(sourceChoices(), sourceReference());
-    if (source === undefined) {
-      setMessage("Choose a Blueprint Assessment from this Course's exact Blueprint Revision.");
+    const selectedType = assessmentType();
+    if (selectedType === undefined) {
+      setMessage("Choose an Assessment Type before creating the Assessment.");
       return;
     }
     setState("saving");
     setMessage("");
     try {
       const created = await applicationApi.client.createLiveAssessment(reference, {
-        blueprintAssessmentReference: source.source.blueprint_assessment_reference,
+        assessmentType: selectedType,
         title: title(),
         instructions: "",
       });
@@ -128,7 +114,8 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
           <p class="eyebrow">New assessment</p>
           <h1>Create an Assessment</h1>
           <p class="page-lede">
-            Start with a title. Questions and delivery policies have their own focused steps next.
+            Choose an Assessment Type and enter a title. Questions and delivery policies have their
+            own focused steps next.
           </p>
         </header>
         <form
@@ -152,43 +139,34 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
               }}
             />
           </label>
-          <label class="assessment-editor-field" for="assessment-blueprint-source">
-            Blueprint Assessment source
+          <label class="assessment-editor-field" for="assessment-type">
+            Assessment Type
             <select
-              id="assessment-blueprint-source"
-              value={sourceReference()}
-              disabled={state() === "saving" || !sourcesLoaded()}
+              id="assessment-type"
+              value={assessmentType() ?? ""}
+              disabled={state() === "saving"}
+              required
               onInput={(event) => {
-                setSourceReference(event.currentTarget.value);
+                const value = event.currentTarget.value;
+                setAssessmentType(selectedAssessmentType(value));
                 setMessage("");
               }}
             >
-              <option value="">Choose an Assessment from this Course's Blueprint Revision</option>
-              <For each={sourceChoices()}>
-                {(choice) => (
-                  <option value={choice.source.blueprint_assessment_reference}>
-                    {choice.label}
-                  </option>
-                )}
+              <option value="">Choose an Assessment Type</option>
+              <For each={ASSESSMENT_TYPE_OPTIONS}>
+                {(option) => <option value={option.value}>{option.label}</option>}
               </For>
             </select>
           </label>
-          <Show when={sourcesLoaded() && sourceChoices().length === 0}>
-            <p class="assessment-editor-note">
-              This Course's Blueprint Revision has no Assessment to use. Save a Blueprint Course
-              with an Assessment, then create the Course again.
-            </p>
+          <Show when={assessmentType()}>
+            {(selectedType) => (
+              <p class="assessment-editor-note">
+                {assessmentTypePresentation(selectedType()).description}
+              </p>
+            )}
           </Show>
-          <p class="assessment-editor-note">
-            The source is retained as exact Blueprint provenance. Questions and policies become the
-            current Assessment state after creation.
-          </p>
           <div class="assessment-editor-actions">
-            <button
-              class="primary-action"
-              type="submit"
-              disabled={state() === "saving" || !sourcesLoaded() || sourceChoices().length === 0}
-            >
+            <button class="primary-action" type="submit" disabled={state() === "saving"}>
               {state() === "saving" ? "Creating Assessment..." : "Create Assessment"}
             </button>
             <A class="quiet-link" href={`/courses/${courseReference()!}`}>

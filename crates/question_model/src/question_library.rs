@@ -434,6 +434,19 @@ pub struct QuestionSummary {
     pub published_at: Timestamp,
 }
 
+/// Current Question lineage plus the session-derived Archive affordance.
+///
+/// This projection carries no owner identity. The mutation independently
+/// reauthorizes the current session, Question, ownership, title, and ETag.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionLineageView {
+    /// Browser-safe current Published Question summary.
+    pub summary: QuestionSummary,
+    /// Whether the current viewer is the current owner allowed to request Archive.
+    pub viewer_may_archive: bool,
+}
+
 impl QuestionSummary {
     /// Returns the exact browser-safe common backend surface for this Question.
     ///

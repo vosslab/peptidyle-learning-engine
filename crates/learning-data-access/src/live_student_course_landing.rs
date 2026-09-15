@@ -6,10 +6,20 @@
 
 use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
-use question_model::{AssessmentAttemptCompletion, AssessmentReference, CourseInstanceReference};
+use question_model::{
+    AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
+};
 use serde::Serialize;
 
-use crate::{LiveAssessmentAttemptScore, SessionTokenHash, StoreError};
+use crate::{SessionTokenHash, StoreError};
+
+/// One point-based Assessment grade contribution selected across submitted Attempts.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LiveAssessmentGradeContribution {
+    pub points_earned: f64,
+    pub points_possible: f64,
+}
 
 /// One active Student Course Instance available from the landing page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -46,19 +56,23 @@ pub struct LiveStudentAssessmentLandingSummary {
     pub assessment: AssessmentReference,
     /// Student-facing released Assessment title.
     pub title: String,
+    /// Product-defined pedagogical Type for this Assessment.
+    pub assessment_type: AssessmentType,
     /// Same server-owned policy and start decision returned by Assessment Access.
     pub decision: StudentAssessmentDecisionSummary,
     /// One-based current Assessment Attempt number, or none before work starts.
     pub assessment_attempt_number: Option<u32>,
     /// Current Assessment Attempt completion, or none when work has not started.
     pub assessment_attempt_completion: Option<AssessmentAttemptCompletion>,
+    /// Whether the ordinary start action would resume an existing Assessment Attempt.
+    pub can_resume_assessment_attempt: bool,
     /// Questions with an immutable Grading Result in the current Assessment Attempt.
     pub graded_question_count: u32,
     /// Total questions in the current Assessment; an existing Attempt retains its issued-question evidence.
     pub question_count: u32,
-    /// Current aggregate score when the pinned Assessment disclosure permits it.
+    /// Highest submitted Assessment score when that Attempt's disclosure permits it.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub score: Option<LiveAssessmentAttemptScore>,
+    pub assessment_score: Option<LiveAssessmentGradeContribution>,
 }
 
 /// Session-authorized persistence boundary for the Student Course landing.

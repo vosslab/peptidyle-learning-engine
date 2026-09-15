@@ -13,12 +13,9 @@ import type { CourseQuestionUse } from "../../../generated/api/CourseQuestionUse
 import type { QuestionDetails } from "../../../generated/api/QuestionDetails";
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionDetailsPromptView } from "../../../generated/api/QuestionDetailsPromptView";
-import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import type { QuestionSearchPage } from "../../../generated/api/QuestionSearchPage";
 import type { QuestionUseDetails } from "../../../generated/api/QuestionUseDetails";
 import type { QuestionUseSummary } from "../../../generated/api/QuestionUseSummary";
-import type { AssessmentCompletionRule } from "../../../generated/api/AssessmentCompletionRule";
-import type { AssessmentAttemptContinuationRule } from "../../../generated/api/AssessmentAttemptContinuationRule";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import { decodeQuestionAuthorship } from "../question_authorship";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
@@ -30,7 +27,6 @@ import {
   DecodeError,
   decodeArray,
   decodeBoolean,
-  decodeFiniteNumber,
   decodeNonemptyString,
   decodeNonnegativeInteger,
   decodeNullable,
@@ -119,7 +115,7 @@ export function decodeQuestionSummary(
       field(record, "questionFormat", path),
       `${path}.questionFormat`,
       ["pleQuestionJson", "webworkPg", "webworkPgml", "imathas"],
-    ) as QuestionFormat,
+    ),
     questionType: decodeStringEnum(field(record, "questionType", path), `${path}.questionType`, [
       "multipleChoice",
       "multipleAnswer",
@@ -343,59 +339,6 @@ export function decodeQuestionDetails(value: unknown, path = "response"): Questi
   };
 }
 
-function decodeAssessmentCompletionRule(
-  value: unknown,
-  path: string,
-  strict = false,
-): AssessmentCompletionRule {
-  const record = decodeRecord(value, path);
-  const requirement = kind(record, path);
-  switch (requirement) {
-    case "answerAll":
-    case "allCorrect":
-      if (strict) requireOnlyFields(record, path, ["kind"]);
-      return { kind: requirement };
-    case "scoreAtLeast": {
-      if (strict) requireOnlyFields(record, path, ["kind", "fraction"]);
-      const decoded = {
-        kind: requirement,
-        fraction: decodeFiniteNumber(field(record, "fraction", path), `${path}.fraction`),
-      } satisfies AssessmentCompletionRule;
-      return decoded;
-    }
-    default:
-      throw new DecodeError(`${path}.kind`, "a known Assessment Completion Rule");
-  }
-}
-
-function decodeAssessmentAttemptContinuationRule(
-  value: unknown,
-  path: string,
-  strict = false,
-): AssessmentAttemptContinuationRule {
-  const record = decodeRecord(value, path);
-  const practice = kind(record, path);
-  switch (practice) {
-    case "unlimited":
-    case "closed":
-      if (strict) requireOnlyFields(record, path, ["kind"]);
-      return { kind: practice };
-    case "capped": {
-      if (strict) requireOnlyFields(record, path, ["kind", "maxAdditionalAssessmentAttempts"]);
-      const decoded = {
-        kind: practice,
-        maxAdditionalAssessmentAttempts: decodeNonnegativeInteger(
-          field(record, "maxAdditionalAssessmentAttempts", path),
-          `${path}.maxAdditionalAssessmentAttempts`,
-        ),
-      } satisfies AssessmentAttemptContinuationRule;
-      return decoded;
-    }
-    default:
-      throw new DecodeError(`${path}.kind`, "a known Assessment Attempt Continuation Rule");
-  }
-}
-
 function decodeAssessmentActivityRules(
   value: unknown,
   path: string,
@@ -404,9 +347,7 @@ function decodeAssessmentActivityRules(
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, [
-      "assessmentCompletionRule",
       "assessmentAttemptGradeRule",
-      "assessmentAttemptContinuationRule",
       "questionPoolReuseRule",
       "questionVariationRule",
       "assessmentAttemptResumeRule",
@@ -416,20 +357,10 @@ function decodeAssessmentActivityRules(
     ]);
   }
   const decoded = {
-    assessmentCompletionRule: decodeAssessmentCompletionRule(
-      field(record, "assessmentCompletionRule", path),
-      `${path}.assessmentCompletionRule`,
-      strict,
-    ),
     assessmentAttemptGradeRule: decodeStringEnum(
       field(record, "assessmentAttemptGradeRule", path),
       `${path}.assessmentAttemptGradeRule`,
       ["first", "latest", "highest", "instructorSelected"],
-    ),
-    assessmentAttemptContinuationRule: decodeAssessmentAttemptContinuationRule(
-      field(record, "assessmentAttemptContinuationRule", path),
-      `${path}.assessmentAttemptContinuationRule`,
-      strict,
     ),
     questionPoolReuseRule: decodeStringEnum(
       field(record, "questionPoolReuseRule", path),
@@ -818,7 +749,11 @@ export function decodeAssessmentSummary(
       field(record, "studentFeedbackReleaseRule", path),
       `${path}.studentFeedbackReleaseRule`,
     ),
-    policies: decodeAssessmentActivityRules(field(record, "policies", path), `${path}.policies`),
+    policies: decodeAssessmentActivityRules(
+      field(record, "policies", path),
+      `${path}.policies`,
+      strict,
+    ),
   } satisfies AssessmentSummary;
   return decoded;
 }

@@ -24,3 +24,39 @@ test("Gradebook distinguishes an expired submission still awaiting outcomes from
     }),
   );
 });
+
+test("Gradebook accepts finite non-negative grade contribution pairs", () => {
+  const gradebook = {
+    courseReference: "CI7K3M2Q",
+    studentWork: [
+      {
+        rosterId: "bonus-student",
+        assessmentReference: "A7K3M2Q",
+        assessmentAttemptCompletion: "completed",
+        expiredSubmitting: false,
+        score: { pointsEarned: 3, pointsPossible: 0 },
+      },
+      {
+        rosterId: "extra-credit-student",
+        assessmentReference: "A7K3M2R",
+        assessmentAttemptCompletion: "completed",
+        expiredSubmitting: false,
+        score: { pointsEarned: 4, pointsPossible: 2 },
+      },
+    ],
+  };
+
+  assert.deepEqual(decodeCourseGradebook(gradebook), gradebook);
+  for (const score of [
+    { pointsEarned: -1, pointsPossible: 0 },
+    { pointsEarned: 1, pointsPossible: Number.POSITIVE_INFINITY },
+    { pointsEarned: 1 },
+  ]) {
+    assert.throws(() =>
+      decodeCourseGradebook({
+        ...gradebook,
+        studentWork: [{ ...gradebook.studentWork[0], score }],
+      }),
+    );
+  }
+});

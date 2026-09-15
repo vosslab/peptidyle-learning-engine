@@ -1,6 +1,5 @@
 // assessment_workspace_policy_model.ts - policy-page request construction and local control values.
 
-import type { AssessmentActivityRules } from "../../../generated/api/AssessmentActivityRules";
 import type { SaveLiveAssessmentInput } from "../../api/assessment_release";
 
 /** The teaching default applied when an Instructor chooses a new due date. */
@@ -59,21 +58,6 @@ export type PositiveIntegerDraft = {
   readonly valid: boolean;
 };
 
-export type AssessmentActivityRuleDraftField =
-  "completionFraction" | "additionalAssessmentAttempts";
-
-/** Raw number controls stay local until their typed policy value is valid. */
-export type AssessmentActivityRuleDraft = {
-  readonly completionFraction: string;
-  readonly additionalAssessmentAttempts: string;
-};
-
-export type FractionDraft = {
-  readonly raw: string;
-  readonly value: number | null;
-  readonly valid: boolean;
-};
-
 /**
  * Parses an optional positive whole-number control.
  *
@@ -88,62 +72,4 @@ export function optionalPositiveIntegerDraft(raw: string): PositiveIntegerDraft 
   return Number.isSafeInteger(value) && value <= 2_147_483_647
     ? { raw, value, valid: true }
     : { raw, value: null, valid: false };
-}
-
-/** Accepts the decimal threshold syntax supported by the native number control. */
-export function scoreFractionDraft(raw: string): FractionDraft {
-  if (!/^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/u.test(raw)) {
-    return { raw, value: null, valid: false };
-  }
-  const value = Number(raw);
-  return Number.isFinite(value) && value >= 0 && value <= 1
-    ? { raw, value, valid: true }
-    : { raw, value: null, valid: false };
-}
-
-/** Additional practice Assessment Attempts are a bounded nonnegative whole-number setting. */
-export function nonnegativeIntegerDraft(raw: string): PositiveIntegerDraft {
-  if (!/^[0-9]+$/u.test(raw)) return { raw, value: null, valid: false };
-  const value = Number(raw);
-  return Number.isSafeInteger(value) && value <= 2_147_483_647
-    ? { raw, value, valid: true }
-    : { raw, value: null, valid: false };
-}
-
-export function activityRuleDraftFromRules(
-  policies: AssessmentActivityRules,
-): AssessmentActivityRuleDraft {
-  return {
-    completionFraction: numberDraft(
-      policies.assessmentCompletionRule.kind === "scoreAtLeast"
-        ? policies.assessmentCompletionRule.fraction
-        : 0.8,
-    ),
-    additionalAssessmentAttempts: numberDraft(
-      policies.assessmentAttemptContinuationRule.kind === "capped"
-        ? policies.assessmentAttemptContinuationRule.maxAdditionalAssessmentAttempts
-        : 3,
-    ),
-  };
-}
-
-/** Keeps inactive conditional text available for a later deliberate policy change. */
-export function mergeSavedActivityRuleDraft(
-  current: AssessmentActivityRuleDraft,
-  saved: AssessmentActivityRules,
-): AssessmentActivityRuleDraft {
-  return {
-    completionFraction:
-      saved.assessmentCompletionRule.kind === "scoreAtLeast"
-        ? numberDraft(saved.assessmentCompletionRule.fraction)
-        : current.completionFraction,
-    additionalAssessmentAttempts:
-      saved.assessmentAttemptContinuationRule.kind === "capped"
-        ? numberDraft(saved.assessmentAttemptContinuationRule.maxAdditionalAssessmentAttempts)
-        : current.additionalAssessmentAttempts,
-  };
-}
-
-export function numberDraft(value: number | null): string {
-  return value === null ? "" : String(value);
 }

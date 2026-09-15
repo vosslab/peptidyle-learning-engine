@@ -15,9 +15,9 @@ use crate::{
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssessmentAttemptCompletion {
-    /// The Assessment Attempt has not satisfied its assessment completion requirement.
+    /// The Assessment Attempt has not been submitted.
     InProgress,
-    /// The Assessment Attempt has satisfied its assessment completion requirement.
+    /// The Assessment Attempt was submitted by the Student or automatically at expiry.
     Completed,
 }
 
@@ -57,7 +57,7 @@ pub enum AssessmentAttemptPolicySource {
 ///
 /// Schedule covers available, due, and close instants. The Assessment policy
 /// remains the source for all activity, feedback, ordering, reuse, variation,
-/// completion, and late-work rules because no current adjustment can change
+/// and late-work rules because no current adjustment can change
 /// those facts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -79,9 +79,8 @@ impl Default for AssessmentAttemptPolicySources {
 
 /// One pass through an assessment.
 ///
-/// There is deliberately no stored `complete` boolean. The domain derives
-/// within-Assessment-Attempt completion from current question states, then records the
-/// resulting completion timestamp and score as one transition.
+/// There is deliberately no stored `complete` boolean. Submission records the
+/// terminal timestamp independently of correctness, score, and grading.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssessmentAttempt {
@@ -99,9 +98,9 @@ pub struct AssessmentAttempt {
     pub attempt_number: u32,
     /// Server time at which the Assessment Attempt began.
     pub started_at: Timestamp,
-    /// Server time at which derived completion was recorded, if complete.
-    pub completed_at: Option<Timestamp>,
-    /// Score fraction recorded on completion, if complete.
+    /// Server time at which Student or expiry submission occurred, if submitted.
+    pub submitted_at: Option<Timestamp>,
+    /// Score fraction recorded after grading, when available.
     pub score: Option<f64>,
 }
 
@@ -135,7 +134,7 @@ pub struct AssessmentGrade {
 impl AssessmentAttempt {
     /// Returns the completion state recorded by the authoritative Assessment Attempt.
     pub fn completion(&self) -> AssessmentAttemptCompletion {
-        if self.completed_at.is_some() {
+        if self.submitted_at.is_some() {
             AssessmentAttemptCompletion::Completed
         } else {
             AssessmentAttemptCompletion::InProgress

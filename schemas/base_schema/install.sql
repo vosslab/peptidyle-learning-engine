@@ -35,6 +35,10 @@
 \ir course_media.sql
 \ir profile_media.sql
 \ir assessments.sql
+\ir assessment_creation.sql
+\ir assessment_deadline_sync.sql
+\ir assessment_templates.sql
+\ir assessment_release_validation.sql
 \ir assessment_pool_forks.sql
 \ir assessment_pool_selection.sql
 \ir course_blueprint_adoption.sql

@@ -385,9 +385,17 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   assessmentTemplates: {
-    kind: "unbacked",
-    reason: "My Assessment Templates has no declared route or registered handler.",
-    evidence: ["src/ribbon/ribbon_catalog.ts::assessmentTemplates"],
+    kind: "backed",
+    clientMethod: "ApiClient.listAssessmentTemplates",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/assessment_template.rs::assessment_template_router",
+    },
+    evidence: [
+      "crates/server/src/assessment_template.rs::assessment_template_router",
+      "src/api/http_client/assessment_template.ts::createAssessmentTemplateClient",
+      "src/pages/assessment_templates_page.tsx::AssessmentTemplatesPage",
+    ],
   },
   assessmentOverview: {
     kind: "backed",

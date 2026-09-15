@@ -247,6 +247,7 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
         modules: vec![CreateBlueprintModuleInput {
             label: "Module alpha".to_owned(),
             assessments: vec![BlueprintAssessmentContentInput {
+                assessment_type: question_model::AssessmentType::RegularAssignment,
                 title: title.to_owned(),
                 instructions: AssessmentInstructions::try_new("Read the prompt.".to_owned())
                     .expect("fixture instructions"),
@@ -286,16 +287,8 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                     attempt_limit: std::num::NonZeroU32::new(3),
                     late_work_rule: LateWorkRule::MarkLate,
                     activity_rules: AssessmentActivityRules {
-                        assessment_completion_rule:
-                            question_model::AssessmentCompletionRule::ScoreAtLeast {
-                                fraction: 0.75,
-                            },
                         assessment_attempt_grade_rule:
                             question_model::AssessmentAttemptGradeRule::Latest,
-                        assessment_attempt_continuation_rule:
-                            question_model::AssessmentAttemptContinuationRule::Capped {
-                                max_additional_assessment_attempts: 2,
-                            },
                         question_pool_reuse_rule:
                             question_model::QuestionPoolReuseRule::SelectAgain,
                         question_variation_rule:

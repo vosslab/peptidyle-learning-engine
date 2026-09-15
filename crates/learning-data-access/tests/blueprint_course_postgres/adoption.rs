@@ -35,6 +35,9 @@ WITH source_assessment AS (
     SELECT count(*) = (SELECT count(*) FROM source_assessment)
        AND bool_and(
            target.assessment_id::text IS DISTINCT FROM source.source
+           AND target.origin_kind = 'adopted'
+           AND target.source_blueprint_course_reference_number = $2
+           AND target.source_blueprint_revision_number = $3
            AND target.source_blueprint_assessment_reference::text = source.source
            AND target.assessment_title = source.content ->> 'title'
            AND target.assessment_instructions = source.content ->> 'instructions'
@@ -48,18 +51,9 @@ WITH source_assessment AS (
            AND target.late_work_rule = CASE source.content #>> '{defaults,late_work_rule}'
                WHEN 'accept' THEN 'accept' WHEN 'mark_late' THEN 'mark_late'
                WHEN 'reject' THEN 'reject' END
-           AND target.assessment_completion_rule = CASE source.content #>> '{defaults,activity_rules,assessmentCompletionRule,kind}'
-               WHEN 'answerAll' THEN 'answer_all' WHEN 'allCorrect' THEN 'all_correct'
-               WHEN 'scoreAtLeast' THEN 'score_at_least' END
-           AND target.assessment_completion_score_threshold IS NOT DISTINCT FROM
-               (source.content #>> '{defaults,activity_rules,assessmentCompletionRule,fraction}')::numeric
            AND target.assessment_attempt_grade_rule = CASE source.content #>> '{defaults,activity_rules,assessmentAttemptGradeRule}'
                WHEN 'first' THEN 'first' WHEN 'latest' THEN 'latest' WHEN 'highest' THEN 'highest'
                WHEN 'instructorSelected' THEN 'instructor_selected' END
-           AND target.assessment_attempt_continuation_rule = CASE source.content #>> '{defaults,activity_rules,assessmentAttemptContinuationRule,kind}'
-               WHEN 'unlimited' THEN 'unlimited' WHEN 'capped' THEN 'capped' WHEN 'closed' THEN 'closed' END
-           AND target.max_additional_assessment_attempts IS NOT DISTINCT FROM
-               (source.content #>> '{defaults,activity_rules,assessmentAttemptContinuationRule,maxAdditionalAssessmentAttempts}')::integer
            AND target.question_pool_reuse_rule = CASE source.content #>> '{defaults,activity_rules,questionPoolReuseRule}'
                WHEN 'reuseSelection' THEN 'reuse_selection' WHEN 'selectAgain' THEN 'select_again' END
            AND target.question_variation_rule = CASE source.content #>> '{defaults,activity_rules,questionVariationRule}'

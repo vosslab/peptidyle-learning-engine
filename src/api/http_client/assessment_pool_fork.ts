@@ -1,6 +1,8 @@
 // Strict same-origin transport for Assessment-owned Question Pool fork commands.
 
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
+import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
+import type { AssessmentQuestionPoolSelectionCountReceipt } from "../../../generated/api/AssessmentQuestionPoolSelectionCountReceipt";
 import type { AssessmentReference } from "../../../generated/api/AssessmentReference";
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type {
@@ -8,6 +10,7 @@ import type {
   AppendedAssessmentQuestionPoolForkRevision,
   AssessmentPoolForkClient,
   ImportAssessmentQuestionPoolForkInput,
+  ImportedAssessmentQuestionPoolFork,
 } from "../assessment_pool_fork";
 import {
   decodeAssessmentQuestionPoolForkView,
@@ -167,7 +170,11 @@ export function createAssessmentPoolForkClient(
   basePath: string,
 ): AssessmentPoolForkClient {
   return {
-    getAssessmentQuestionPoolFork: async (course, assessment, entry) => {
+    getAssessmentQuestionPoolFork: async (
+      course,
+      assessment,
+      entry,
+    ): Promise<AssessmentQuestionPoolForkView> => {
       const path = forkPath(course, assessment, entry);
       const fork = await requestJson(
         fetchImplementation,
@@ -178,7 +185,12 @@ export function createAssessmentPoolForkClient(
       requireEntryReceipt(fork.assessmentEntryId, entry, path);
       return fork;
     },
-    importAssessmentQuestionPoolFork: async (course, assessment, input, etag) => {
+    importAssessmentQuestionPoolFork: async (
+      course,
+      assessment,
+      input,
+      etag,
+    ): Promise<ImportedAssessmentQuestionPoolFork> => {
       const path = forkPath(course, assessment);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "POST",
@@ -198,7 +210,13 @@ export function createAssessmentPoolForkClient(
       requireResponseEtag(response, receipt.assessmentEditNumber, path);
       return receipt;
     },
-    appendAssessmentQuestionPoolForkRevision: async (course, assessment, entry, input, etag) => {
+    appendAssessmentQuestionPoolForkRevision: async (
+      course,
+      assessment,
+      entry,
+      input,
+      etag,
+    ): Promise<AppendedAssessmentQuestionPoolForkRevision> => {
       const path = forkPath(course, assessment, entry);
       const response = await requestSameOrigin(fetchImplementation, basePath, path, {
         method: "PUT",
@@ -219,7 +237,7 @@ export function createAssessmentPoolForkClient(
       entry,
       selectionCount,
       etag,
-    ) => {
+    ): Promise<AssessmentQuestionPoolSelectionCountReceipt> => {
       if (!Number.isSafeInteger(selectionCount) || selectionCount < 1) {
         throw new ApiProtocolError("Assessment Pool selection count must be positive");
       }

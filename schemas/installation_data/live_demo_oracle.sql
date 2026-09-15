@@ -124,7 +124,7 @@ BEGIN
               AND owner_account_id = '00000000-0000-0000-0000-000000000101'
               AND short_name = 'BCHM 301'
               AND long_name = 'Biochemistry 301: Proteins and Peptides'
-              AND availability = 'available'
+              AND availability = 'public'
               AND current_blueprint_revision_number = 1
        )
        OR NOT EXISTS (SELECT 1 FROM ple_data.course_instance
@@ -260,6 +260,7 @@ BEGIN
              WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
                AND assessment_status = 'released'
                AND course_id = '00000000-0000-0000-0000-000000000220'
+               AND origin_kind = 'adopted'
                AND source_blueprint_course_reference_number = blueprint_reference
                AND source_blueprint_revision_number = 1
                AND source_blueprint_assessment_reference

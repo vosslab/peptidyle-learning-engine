@@ -70,7 +70,7 @@
       "id": "instructor_course_assignment_workspace_laptop",
       "path": "instructor/course_assignment_workspace_laptop.png",
       "role": "instructor",
-      "routeId": "courseAssignments",
+      "routeId": "courseAssessments",
       "area": "courses",
       "workflow": "seeded teaching course",
       "state": "assignment workspace",
@@ -126,7 +126,7 @@
       "id": "instructor_assignments_due_soon_empty_laptop",
       "path": "instructor/assignments_due_soon_empty_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentsDueSoon",
+      "routeId": "assessmentsDueSoon",
       "area": "assignments",
       "workflow": "upcoming deadlines",
       "state": "no current deadlines",
@@ -140,7 +140,7 @@
       "id": "instructor_profile_default_laptop",
       "path": "instructor/profile_default_laptop.png",
       "role": "instructor",
-      "routeId": "instructorProfile",
+      "routeId": "profile",
       "area": "account",
       "workflow": "profile preferences",
       "state": "default profile",
@@ -298,7 +298,7 @@
       "id": "instructor_assignment_creation_laptop",
       "path": "instructor/assignment_creation_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentCreate",
+      "routeId": "assessmentCreate",
       "area": "assignments",
       "workflow": "assignment release",
       "state": "creation",
@@ -312,7 +312,7 @@
       "id": "instructor_assignment_release_draft_laptop",
       "path": "instructor/assignment_release_draft_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentWorkspaceQuestions",
+      "routeId": "assessmentWorkspaceQuestions",
       "area": "assignments",
       "workflow": "assignment release",
       "state": "draft",
@@ -326,7 +326,7 @@
       "id": "instructor_assignment_release_preview_laptop",
       "path": "instructor/assignment_release_preview_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentPreview",
+      "routeId": "assessmentWorkspaceStudentView",
       "area": "assignments",
       "workflow": "assignment release",
       "state": "answer-free preview",
@@ -340,7 +340,7 @@
       "id": "instructor_assignment_release_released_laptop",
       "path": "instructor/assignment_release_released_laptop.png",
       "role": "instructor",
-      "routeId": "assignmentWorkspacePolicies",
+      "routeId": "assessmentWorkspacePolicies",
       "area": "assignments",
       "workflow": "assignment release",
       "state": "released",
@@ -483,7 +483,7 @@
       "id": "student_assignment_overview_unanswered_laptop",
       "path": "student/assignment_overview_unanswered_laptop.png",
       "role": "student",
-      "routeId": "assignmentOverview",
+      "routeId": "assessmentOverview",
       "area": "assignments",
       "workflow": "assignment entry",
       "state": "unanswered",
@@ -497,7 +497,7 @@
       "id": "student_assignment_overview_unanswered_tablet",
       "path": "student/assignment_overview_unanswered_tablet.png",
       "role": "student",
-      "routeId": "assignmentOverview",
+      "routeId": "assessmentOverview",
       "area": "assignments",
       "workflow": "assignment entry",
       "state": "unanswered",
@@ -511,7 +511,7 @@
       "id": "student_assignment_overview_history_laptop",
       "path": "student/assignment_overview_history_laptop.png",
       "role": "student",
-      "routeId": "assignmentOverview",
+      "routeId": "assessmentOverview",
       "area": "assignments",
       "workflow": "assignment history",
       "state": "previous attempts",
@@ -525,7 +525,7 @@
       "id": "student_assignment_attempt_saved_laptop",
       "path": "student/assignment_attempt_saved_laptop.png",
       "role": "student",
-      "routeId": "assignmentAttempt",
+      "routeId": "assessmentAttempt",
       "area": "assignments",
       "workflow": "assignment attempt",
       "state": "saved response",
@@ -539,7 +539,7 @@
       "id": "student_assignment_attempt_resumed_tablet",
       "path": "student/assignment_attempt_resumed_tablet.png",
       "role": "student",
-      "routeId": "assignmentAttempt",
+      "routeId": "assessmentAttempt",
       "area": "assignments",
       "workflow": "assignment attempt",
       "state": "reloaded saved response",
@@ -553,7 +553,7 @@
       "id": "student_assignment_attempt_submitted_phone",
       "path": "student/assignment_attempt_submitted_phone.png",
       "role": "student",
-      "routeId": "assignmentAttempt",
+      "routeId": "assessmentAttempt",
       "area": "assignments",
       "workflow": "assignment attempt",
       "state": "submitted",
@@ -567,7 +567,7 @@
       "id": "student_assignment_attempt_summary_laptop",
       "path": "student/assignment_attempt_summary_laptop.png",
       "role": "student",
-      "routeId": "assignmentAttemptSummary",
+      "routeId": "assessmentAttemptSummary",
       "area": "assignments",
       "workflow": "assignment history",
       "state": "selected previous attempt",
@@ -675,34 +675,6 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": { "order": 1215, "caption": "Instructor Account creation validation" }
-    },
-    {
-      "id": "sysadmin_scoped_support_entry_laptop",
-      "path": "sysadmin/scoped_support_entry_laptop.png",
-      "role": "sysadmin",
-      "routeId": "supportRoster",
-      "area": "support",
-      "workflow": "scoped roster support",
-      "state": "entry",
-      "scenario": "sysadmin_support",
-      "checkpoint": "support_entry",
-      "viewport": "laptop",
-      "privacyProfile": "sysadmin_scoped_roster",
-      "gallery": { "order": 1310, "caption": "Scoped Support entry" }
-    },
-    {
-      "id": "sysadmin_scoped_support_roster_laptop",
-      "path": "sysadmin/scoped_support_roster_laptop.png",
-      "role": "sysadmin",
-      "routeId": "supportRoster",
-      "area": "support",
-      "workflow": "scoped roster support",
-      "state": "authorized projection",
-      "scenario": "sysadmin_support",
-      "checkpoint": "support_roster",
-      "viewport": "laptop",
-      "privacyProfile": "sysadmin_scoped_roster",
-      "gallery": { "order": 1320, "caption": "Authorized scoped roster projection" }
     }
   ],
   "coverage": {
@@ -732,17 +704,22 @@
         "reason": "The new explicit Sysadmin home requires a fresh Live Demo capture before visual evidence is claimed."
       },
       {
-        "routeId": "instructorProfile",
+        "routeId": "profile",
         "status": "captured",
         "captureIds": ["instructor_profile_default_laptop"]
       },
       {
-        "routeId": "courseAssignments",
+        "routeId": "accountSettings",
+        "status": "deferred",
+        "reason": "Account Settings requires a fresh Live Demo capture before visual evidence is claimed."
+      },
+      {
+        "routeId": "courseAssessments",
         "status": "captured",
         "captureIds": ["instructor_course_assignment_workspace_laptop"]
       },
       {
-        "routeId": "assignmentOverview",
+        "routeId": "assessmentOverview",
         "status": "captured",
         "captureIds": [
           "student_assignment_overview_unanswered_laptop",
@@ -750,7 +727,7 @@
         ]
       },
       {
-        "routeId": "assignmentAttempt",
+        "routeId": "assessmentAttempt",
         "status": "captured",
         "captureIds": [
           "student_assignment_attempt_saved_laptop",
@@ -759,7 +736,7 @@
         ]
       },
       {
-        "routeId": "assignmentAttemptSummary",
+        "routeId": "assessmentAttemptSummary",
         "status": "captured",
         "captureIds": ["student_assignment_attempt_summary_laptop"]
       },
@@ -801,34 +778,39 @@
         "captureIds": ["instructor_blueprint_course_detail_laptop"]
       },
       {
-        "routeId": "assignmentCreate",
+        "routeId": "assessmentCreate",
         "status": "captured",
         "captureIds": ["instructor_assignment_creation_laptop"]
       },
       {
-        "routeId": "assignmentWorkspaceOverview",
+        "routeId": "assessmentWorkspaceOverview",
         "status": "deferred",
         "reason": "The legacy multi-tab Assignment workspace is retired."
       },
       {
-        "routeId": "assignmentWorkspaceQuestions",
+        "routeId": "assessmentWorkspaceQuestions",
         "status": "captured",
         "captureIds": ["instructor_assignment_release_draft_laptop"]
       },
       {
-        "routeId": "assignmentWorkspacePolicies",
+        "routeId": "assessmentWorkspacePolicies",
         "status": "captured",
         "captureIds": ["instructor_assignment_release_released_laptop"]
       },
       {
-        "routeId": "assignmentWorkspaceStudentView",
-        "status": "deferred",
-        "reason": "The legacy multi-tab Assignment workspace is retired; no separate Student-view capture remains."
+        "routeId": "assessmentWorkspaceStudentView",
+        "status": "captured",
+        "captureIds": ["instructor_assignment_release_preview_laptop"]
       },
       {
-        "routeId": "assignmentsDueSoon",
+        "routeId": "assessmentsDueSoon",
         "status": "captured",
         "captureIds": ["instructor_assignments_due_soon_empty_laptop"]
+      },
+      {
+        "routeId": "assessmentTemplates",
+        "status": "deferred",
+        "reason": "Assessment Templates needs a fresh Live Demo capture before rendered evidence is claimed."
       },
       {
         "routeId": "gradebook",
@@ -854,11 +836,6 @@
         ]
       },
       {
-        "routeId": "assignmentPreview",
-        "status": "captured",
-        "captureIds": ["instructor_assignment_release_preview_laptop"]
-      },
-      {
         "routeId": "instructorAccounts",
         "status": "captured",
         "captureIds": [
@@ -866,14 +843,6 @@
           "sysadmin_instructor_account_created_laptop",
           "sysadmin_instructor_account_deactivated_laptop",
           "sysadmin_instructor_account_validation_laptop"
-        ]
-      },
-      {
-        "routeId": "supportRoster",
-        "status": "captured",
-        "captureIds": [
-          "sysadmin_scoped_support_entry_laptop",
-          "sysadmin_scoped_support_roster_laptop"
         ]
       },
       {
@@ -917,17 +886,17 @@
         "captureIds": ["instructor_question_library_laptop"]
       },
       {
-        "id": "tab:productAssignments",
+        "id": "tab:productAssessments",
         "status": "captured",
         "captureIds": ["instructor_assignments_due_soon_empty_laptop"]
       },
       {
-        "id": "tab:assignments",
+        "id": "tab:assessments",
         "status": "captured",
         "captureIds": ["instructor_course_assignment_workspace_laptop"]
       },
       {
-        "id": "tab:studentAssignments",
+        "id": "tab:studentAssessments",
         "status": "captured",
         "captureIds": ["student_course_not_started_laptop"]
       },
@@ -965,11 +934,6 @@
         "id": "tab:instructorAccounts",
         "status": "captured",
         "captureIds": ["sysadmin_instructor_accounts_initial_laptop"]
-      },
-      {
-        "id": "tab:supportRoster",
-        "status": "captured",
-        "captureIds": ["sysadmin_scoped_support_entry_laptop"]
       },
       {
         "id": "task:myBlueprintCourses",
@@ -1022,32 +986,32 @@
         "captureIds": ["instructor_question_library_laptop"]
       },
       {
-        "id": "task:assignmentsDueSoon",
+        "id": "task:assessmentsDueSoon",
         "status": "captured",
         "captureIds": ["instructor_assignments_due_soon_empty_laptop"]
       },
       {
-        "id": "task:assignmentTemplates",
+        "id": "task:assessmentTemplates",
         "status": "deferred",
-        "reason": "No route or handler backs Assignment Templates."
+        "reason": "Assessment Templates needs a fresh Live Demo capture before rendered evidence is claimed."
       },
       {
-        "id": "task:assignmentOverview",
-        "status": "deferred",
-        "reason": "The legacy multi-tab Assignment workspace is retired."
-      },
-      {
-        "id": "task:assignmentQuestions",
+        "id": "task:assessmentOverview",
         "status": "deferred",
         "reason": "The legacy multi-tab Assignment workspace is retired."
       },
       {
-        "id": "task:assignmentPolicies",
+        "id": "task:assessmentQuestions",
         "status": "deferred",
         "reason": "The legacy multi-tab Assignment workspace is retired."
       },
       {
-        "id": "task:assignmentStudentView",
+        "id": "task:assessmentPolicies",
+        "status": "deferred",
+        "reason": "The legacy multi-tab Assignment workspace is retired."
+      },
+      {
+        "id": "task:assessmentStudentView",
         "status": "deferred",
         "reason": "The answer-free release preview is the current Student-view surface."
       },
@@ -1062,9 +1026,9 @@
         "reason": "Course Appearance is an admitted Instructor Ribbon task; the current atlas has no dedicated Appearance capture. The completed M11 browser scenario separately proves reload, enrolled-Student propagation, and second-Course isolation."
       },
       {
-        "id": "task:backToAssignments",
+        "id": "task:backToAssessments",
         "status": "covered_by",
-        "target": "tab:assignments",
+        "target": "tab:assessments",
         "reason": "The destination is the same captured Course Assignment workspace."
       }
     ]

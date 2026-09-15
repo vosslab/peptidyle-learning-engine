@@ -53,6 +53,8 @@ fn materialize(
     for module in &content.modules {
         for assessment in &module.assessments {
             let input = assessment_input(&assessment.content)?;
+            let mut values = assessment_values_json(&input)?;
+            values["assessment_type"] = json!(assessment.content.assessment_type);
             let mut entries = Vec::with_capacity(assessment.content.entries.len());
             // ASVS 2.2.1 and 2.2.3: serialize each closed, typed source
             // variant at its exact Blueprint position.  The database compares
@@ -92,7 +94,7 @@ fn materialize(
             }
             assessments.push(json!({
                 "source": assessment.blueprint_assessment_reference,
-                "values": assessment_values_json(&input)?,
+                "values": values,
                 "entries": entries,
             }));
         }

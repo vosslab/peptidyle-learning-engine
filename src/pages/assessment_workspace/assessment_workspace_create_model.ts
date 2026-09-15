@@ -4,11 +4,12 @@ import type {
   AssessmentRouteReference,
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
-import type { CourseAssessmentSourceChoice } from "../../api/assessment_release";
+import { isAssessmentType } from "../../assessment_type_presentation";
+import type { AssessmentType } from "../../../generated/api/AssessmentType";
 
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 
-/** A successful title-only create always enters the Questions task for the new persisted draft. */
+/** A successful Assessment create always enters the Questions task for the new persisted draft. */
 export function createdAssessmentQuestionsPath(
   courseReference: CourseInstanceRouteReference,
   assessmentReference: AssessmentRouteReference,
@@ -21,12 +22,7 @@ export function assessmentWorkspaceCreateErrorMessage(): string {
   return "The Assessment could not be created. Your title is still here. Try again.";
 }
 
-/** Resolves only the Instructor's deliberate stable Blueprint Assessment choice. */
-export function selectedAssessmentSource(
-  choices: ReadonlyArray<CourseAssessmentSourceChoice>,
-  blueprintAssessmentReference: string,
-): CourseAssessmentSourceChoice | undefined {
-  return choices.find(
-    (choice) => choice.source.blueprint_assessment_reference === blueprintAssessmentReference,
-  );
+/** Accepts only one deliberate selection from PLE's fixed Assessment Type registry. */
+export function selectedAssessmentType(value: string): AssessmentType | undefined {
+  return isAssessmentType(value) ? value : undefined;
 }

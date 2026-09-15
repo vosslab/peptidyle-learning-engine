@@ -290,10 +290,20 @@ export function BlueprintAssessmentContentEditor(
               type="number"
               min="1"
               value={props.content.defaults.assessment_attempt_limit ?? ""}
+              disabled={
+                props.content.assessment_type === "quiz" || props.content.assessment_type === "exam"
+              }
               onInput={(event) =>
                 changeNumber("assessment_attempt_limit", event.currentTarget.value)
               }
             />
+            <Show
+              when={
+                props.content.assessment_type === "quiz" || props.content.assessment_type === "exam"
+              }
+            >
+              <small>Quiz and Exam permit exactly one Assessment Attempt.</small>
+            </Show>
           </label>
           <label>
             Late work

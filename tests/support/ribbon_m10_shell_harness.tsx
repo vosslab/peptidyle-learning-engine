@@ -13,8 +13,10 @@ import {
   useCourseThemePresentation,
 } from "../../src/features/course_appearance/course_theme_context";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
-import type { CourseInstanceView } from "../../src/api/course_instance";
-import type { CourseAssignmentSummary } from "../../src/api/assignment_release";
+import type { CourseInstanceSummary, CourseInstanceView } from "../../src/api/course_instance";
+import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
+import type { ProfileAvatarView } from "../../src/api/profile_avatar";
+import type { CourseAssessmentSummary } from "../../src/api/assessment_release";
 import type {
   AuthenticatedSession,
   CourseRouteView,
@@ -24,8 +26,8 @@ import type {
 import type { CourseId } from "../../generated/api/CourseId";
 // prettier-ignore
 import type {
-  StudentAssignmentLandingSummary,
-} from "../../generated/api/StudentAssignmentLandingSummary";
+  StudentAssessmentLandingSummary,
+} from "../../generated/api/StudentAssessmentLandingSummary";
 import { appRoutes, notFoundRoute } from "../../src/routes";
 import type {
   RibbonControlModel,
@@ -84,7 +86,7 @@ function deferredSession(): DeferredSession {
 }
 
 interface PresentationQueryCounts {
-  readonly assignments: () => number;
+  readonly assessments: () => number;
   readonly courseInstances: () => number;
 }
 
@@ -119,17 +121,17 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
   readonly counts: PresentationQueryCounts;
 } {
   const courses: CursorPage<CourseSummary> = { items: [], nextCursor: null };
-  const assignments: CursorPage<StudentAssignmentLandingSummary> = {
+  const assessments: CursorPage<StudentAssessmentLandingSummary> = {
     items: [],
     nextCursor: null,
   };
-  let assignmentQueries = 0;
+  let assessmentQueries = 0;
   let courseInstanceQueries = 0;
   const queries = {
     courses: queryFunction("courses", () => Promise.resolve(courses)),
-    assignments: queryFunction("course-assignments", (_courseId: CourseId) => {
-      assignmentQueries += 1;
-      return Promise.resolve(assignments);
+    assessments: queryFunction("course-assessments", (_courseId: CourseId) => {
+      assessmentQueries += 1;
+      return Promise.resolve(assessments);
     }),
     resolveCourse: queryFunction("resolve-course", (reference: string) =>
       Promise.resolve({ courseId: `course-${reference}` }),
@@ -140,16 +142,20 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
         deferredScopes === undefined ? Promise.resolve() : deferredScopes.waitForRelease(reference);
       return released.then(() => instructorCourseRouteData(reference));
     }),
-    assignmentAttemptScope: queryFunction("assignment-attempt-scope", () =>
+    assessmentAttemptScope: queryFunction("assessment-attempt-scope", () =>
       Promise.resolve(assignmentAttemptContext("CI7K3M2Q")),
     ),
-    assignmentAttemptHistory: queryFunction("assignment-attempt-history", () =>
+    assessmentAttemptHistory: queryFunction("assessment-attempt-history", () =>
       Promise.reject(
         new Error("Application-shell evidence does not enter attempt-history content."),
       ),
     ),
   };
   const client = {
+    getProfileAvatar: (): Promise<ProfileAvatarView> => Promise.resolve({ avatar: null }),
+    listCourseInstances: (): Promise<ReadonlyArray<CourseInstanceSummary>> => Promise.resolve([]),
+    listBlueprintCourses: (): Promise<CursorPage<BlueprintCourseSummaryView>> =>
+      Promise.resolve({ items: [], nextCursor: null }),
     getCourseInstance: (
       reference: CourseInstanceView["course"]["reference"],
     ): Promise<CourseInstanceView> => {
@@ -169,19 +175,19 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
         activeInstructorCount: 1,
       });
     },
-    listCourseAssignments: (): Promise<ReadonlyArray<CourseAssignmentSummary>> => {
-      assignmentQueries += 1;
+    listCourseAssessments: (): Promise<ReadonlyArray<CourseAssessmentSummary>> => {
+      assessmentQueries += 1;
       return Promise.resolve([]);
     },
   };
   // The current-source App only reaches the typed query subset above in this
   // controlled browser fixture. The current Course Instance surface receives
-  // explicit identity and an empty Assignment list; other routed content has
+  // explicit identity and an empty Assessment list; other routed content has
   // no transport methods to invoke here.
   return {
     api: { client, queries } as unknown as ApplicationApi<OrdinaryBrowserApiClient>,
     counts: {
-      assignments: () => assignmentQueries,
+      assessments: () => assessmentQueries,
       courseInstances: () => courseInstanceQueries,
     },
   };
@@ -208,7 +214,7 @@ export interface RibbonM10ShellHarness {
   readonly fixtureNavigate: (pathname: string) => void;
   readonly fixturePathname: () => string;
   readonly scopeRequestCount: (reference: string) => number;
-  readonly assignmentQueryCount: () => number;
+  readonly assessmentQueryCount: () => number;
   readonly courseInstanceQueryCount: () => number;
   readonly releaseSession: () => void;
   readonly releaseCourseScope: (reference: string) => void;
@@ -235,7 +241,7 @@ function withSelectedTaskControl(
 
 function courseFixture(
   reference: string,
-  selectedTab: "assignments" | "students" | "gradebook" = "assignments",
+  selectedTab: "assessments" | "students" | "gradebook" = "assessments",
   taskRowReserved = false,
 ): RibbonModel {
   const source = M6_RIBBON_FIXTURES.courseInstructor;
@@ -244,20 +250,20 @@ function courseFixture(
     context: { ...source.context, scopeLabel: `Course ${reference}` },
     tabs: withSelectedControl(source.tabs, selectedTab),
     taskAreas: taskRowReserved
-      ? withSelectedTaskControl(source.taskAreas, "assignmentOverview")
+      ? withSelectedTaskControl(source.taskAreas, "assessmentOverview")
       : [],
   };
 }
 
-function productFixture(selectedTab: "courses" | "questions" | "productAssignments"): RibbonModel {
+function productFixture(selectedTab: "courses" | "questions" | "productAssessments"): RibbonModel {
   const source = M6_RIBBON_FIXTURES.productInstructor;
   const taskAreas: ReadonlyArray<RibbonTaskAreaModel> =
     selectedTab === "questions"
       ? withSelectedTaskControl(source.taskAreas, "searchQuestionLibrary")
       : [
           {
-            id: selectedTab === "courses" ? "instructorCourses" : "instructorAssignments",
-            label: selectedTab === "courses" ? "Courses" : "Assignments",
+            id: selectedTab === "courses" ? "instructorCourses" : "instructorAssessments",
+            label: selectedTab === "courses" ? "Courses" : "Assessments",
             controls: [],
           },
         ];
@@ -278,14 +284,21 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
   if (pathname === "/instructor/courses/CI7K3M2Q/gradebook")
     return courseFixture("CI7K3M2Q", "gradebook");
   if (pathname === "/courses/CI4W8QF9") return courseFixture("CI4W8QF9");
-  if (pathname === "/assignment-attempts/R-1") {
+  if (pathname === "/assessment-attempts/R-1") {
     return {
       ...M6_RIBBON_FIXTURES.attemptInstructor,
       taskAreas: M6_RIBBON_FIXTURES.attemptStudent.taskAreas,
     };
   }
-  if (pathname.startsWith("/instructor/courses/CI7K3M2Q/assignments/A9D2RX5")) {
-    return courseFixture("CI7K3M2Q", "assignments", true);
+  const segments = pathname.split("/");
+  if (
+    segments[1] === "instructor" &&
+    segments[2] === "courses" &&
+    segments[3] !== undefined &&
+    segments[4] === "assessments" &&
+    segments[5] !== undefined
+  ) {
+    return courseFixture(segments[3], "assessments", true);
   }
   return courseFixture("CI7K3M2Q");
 }
@@ -417,7 +430,7 @@ export function mountRibbonM10ShellHarness(target: HTMLElement): RibbonM10ShellH
     fixtureNavigate,
     fixturePathname: fixtureHistory.get,
     scopeRequestCount: currentDeferredScopes.requestCount,
-    assignmentQueryCount: currentPresentation.counts.assignments,
+    assessmentQueryCount: currentPresentation.counts.assessments,
     courseInstanceQueryCount: currentPresentation.counts.courseInstances,
     releaseSession: currentSession.release,
     releaseCourseScope: currentDeferredScopes.release,

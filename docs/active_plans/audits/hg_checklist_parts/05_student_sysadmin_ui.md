@@ -3,15 +3,18 @@
 - [x] The Student interface should focus on current Courses, Coursework, and work that needs attention.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` lists current courses; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` lists assigned work.
 - [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
-  - Mismatch: `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` calls the collection "Assignments" and has no Coursework terminology or listed types.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` labels the collective section and its loading and empty states "Coursework," while each item receives one canonical Type from the typed projection.
+  - Mismatch: the actual PostgreSQL landing Store proved the same closed Type column with Regular Assignment and the compiled SolidJS/mock-API browser evidence was accepted, but the connected Student HTTP workflow was not run; this broad Student-facing terminology row remains runtime-unverified.
 - [ ] Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
-  - Mismatch: `src/pages/student_course_landing_page.tsx` `AssignmentCard` has no Assessment Type label.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` renders the specific Type label and uses it in the individual item's open action; `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` uses it in start, resume, and availability language.
+  - Mismatch: the actual PostgreSQL access and landing Stores projected the specific Type and accepted compiled SolidJS/mock-API browser evidence rendered it, but the connected Student HTTP workflow and other Student-facing surfaces were not exercised; this broad interface row remains open.
 - [ ] The Student Ribbon should use familiar Student language rather than internal PLE terms such as Assessment.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` `studentAssignments` provides only an "Assignments" control; no complete Student Ribbon is implemented.
 - N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**, **Bonus Assignments**, **Quizzes**, and **Exams**.
   - Reason: Optional permission does not require current product behavior.
-- [ ] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
-  - Mismatch: `src/pages/student_course_landing_page.tsx` `AssignmentCard` has no type label or icon.
+- [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
+  - Evidence (test): `tests/_temp/assessment_type_icon_render_proof.mjs` renders the production Student component in Chromium and verifies visible Bonus Assignment and Quiz labels beside `star` and `circle-question` glyphs.
 - [x] The Student interface should make the next useful action easy to find.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents the primary "Open Assessment" action.
 - [ ] The Student menu is simpler than the Instructor menu.
@@ -28,12 +31,17 @@
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` redirects the one-entry `courses()` result to its Course reference.
 - [x] Students should be able to see their active Courses and Coursework from the main navigation.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` provides the current-Course index; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` provides its work.
-- [ ] Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
-  - Mismatch: `src/pages/student_course_landing_page.tsx` `progressLabel` covers completed, in-progress, and not-started only; it has no upcoming or missed state.
-- [ ] Coursework lists should make due dates, Type, and completion status easy to scan.
-  - Mismatch: `src/pages/student_course_landing_page.tsx` `AssignmentCard` lacks visible due date and Assessment Type fields.
+- [x] Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
+  - Evidence (source): `src/pages/student_coursework_presentation.ts` `studentCourseworkDisplay` maps the server-owned start decision, completion, and resumability to upcoming, available, in-progress, completed, or missed learner states.
+  - Evidence (test): `tests/test_student_coursework_presentation.mjs` `Coursework display distinguishes resumable, non-resumable unfinished, and completed work` exercises the pure state projection.
+  - Evidence (runtime): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` passed on a fresh PostgreSQL 17 database, proving the landing Store projects scheduled, expired unfinished, active resumable, Attempt-limit-reached resumable, and late-work-refused resumable states; accepted compiled SolidJS/mock-API browser evidence proved their visible presentation. This does not claim a connected HTTP-server run.
+- [x] Coursework lists should make due dates, Type, and completion status easy to scan.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents visible Type, due, completion, and state fields from the typed Student projection.
+  - Evidence (runtime): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` passed on a fresh PostgreSQL 17 database and projected the Regular Assignment Type, due/availability facts, completion, and resumability through the actual landing Store; accepted compiled SolidJS/mock-API browser evidence proved the fields are scannable. This does not claim a connected HTTP-server run.
 - [ ] Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
-  - Mismatch: `src/components/student_assignment_presentation.tsx` `StudentAssignmentStartFacts` has some delivery facts, but does not establish the complete required Type and previous-Attempts presentation.
+  - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` presents the title, specific Type, Question count, points possible, time limit, and previous Attempts before start.
+  - Evidence (source): `src/components/student_assessment_presentation.tsx` `StudentAssessmentStartFacts` owns the compact Question, points, and time-limit facts.
+  - Mismatch: the actual PostgreSQL access Store proved Type and active-Attempt resume, and accepted compiled SolidJS/mock-API browser evidence proved a Quiz label, start action, and Question count; points possible, time limit, and previous-Attempt history have source evidence but were not covered by that browser receipt or a connected HTTP-server run.
 - [x] Students see one Question at a time while completing Coursework.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders one keyed current presentation in one `article.question-card`.
 - [x] While completing Coursework, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.

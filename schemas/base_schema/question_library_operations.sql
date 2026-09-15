@@ -5,7 +5,8 @@ CREATE FUNCTION ple_private.question_library_entries(
 ) RETURNS TABLE (
     question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[],
-    authored_by_current_account boolean, question_license text, availability text,
+    authored_by_current_account boolean, viewer_may_archive boolean,
+    question_license text, availability text,
     availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
     source_media_type text
 ) LANGUAGE plpgsql SECURITY DEFINER
@@ -28,6 +29,9 @@ BEGIN
               WHERE authorship.question_id = revision.question_id
                 AND authorship.revision_number = revision.revision_number
                 AND authorship.author_account_id = ple_api.current_session_account_id()),
+           EXISTS (SELECT 1 FROM ple_data.question_current_owner AS owner
+              WHERE owner.question_id = revision.question_id
+                AND owner.owner_account_id = ple_api.current_session_account_id()),
            license.spdx_expression, lineage.availability, lineage.availability_edit_number,
            binding.source_object_id, binding.source_object_checksum, record.media_type
       FROM ple_data.question_revision AS revision
@@ -73,7 +77,8 @@ CREATE FUNCTION ple_api.list_question_library_entries()
 RETURNS TABLE (
     question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[],
-    authored_by_current_account boolean, question_license text, availability text,
+    authored_by_current_account boolean, viewer_may_archive boolean,
+    question_license text, availability text,
     availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
     source_media_type text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -83,7 +88,8 @@ CREATE FUNCTION ple_api.load_question_library_revision(p_question_id text, p_rev
 RETURNS TABLE (
     question_id text, revision_number integer, backend text, question_format text, question_type text, published_at_millis bigint,
     question_title text, question_description text, author_names text[],
-    authored_by_current_account boolean, question_license text, availability text,
+    authored_by_current_account boolean, viewer_may_archive boolean,
+    question_license text, availability text,
     availability_edit_number bigint, source_object_id uuid, source_object_checksum text,
     source_media_type text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$

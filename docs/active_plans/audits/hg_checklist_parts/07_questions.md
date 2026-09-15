@@ -92,12 +92,12 @@
 
 - [ ] WeBWorK, iMathAS, and H5P are PLE-managed Question Backends.
   - Mismatch: C870 removed every current H5P source, import, adapter, and runtime seam; H5P is not a delivered backend.
-  - Question: Which H5P content type(s) and exact pinned library versions are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
 - [x] The initial primary Question Backends are PLE-native JSON and WeBWorK.
   - Evidence (source): `schemas/base_schema/assessment_attempt_presentation.sql` `backend IN ('ple', 'webwork')` is the delivered presentation boundary.
 - [ ] iMathAS and H5P are supported secondary Question Backends.
   - Mismatch: iMathAS has a launch boundary, while C870 leaves no current H5P source, import, or delivered backend seam.
-  - Question: Which H5P content type(s) and exact pinned library versions are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
 - [x] PLE owns and stores the Question representation used for each Question Backend.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_revision_source_binding` stores backend representations.
 - N/A Imported backend source may be transformed into the form PLE stores and manages.
@@ -114,7 +114,7 @@
   - Mismatch: `crates/question_model/src/question_library.rs` `QuestionBackend` is only an enum discriminator. Issuance and finalization branch separately on backend in `crates/server/src/assignment_delivery.rs` `issue_new_presentations` and `crates/server/src/assignment_delivery/direct_finalization.rs` `evaluate_one`; no common adapter interface covers every backend.
 - [ ] Each Question Backend adapter retains its backend-specific interaction knowledge.
   - Mismatch: `crates/adapters/webwork/src/lib.rs` `WebworkAdapter` establishes an opaque WeBWorK boundary, and `crates/adapters/imathas/src/imathas_question_backend.rs` defines an iMathAS seam, but C870 leaves no current H5P adapter or runtime seam. Evidence from WeBWorK alone cannot establish this claim for each backend.
-  - Question: Which H5P content type(s) and exact pinned library versions are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
 - [x] PLE-native Questions use the PLE Question Backend.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
 - [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
@@ -130,7 +130,7 @@
   - Mismatch: the authorized Student HTTP projection/release behavior remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility.
 - [ ] H5P owns its runtime, interactions, state, and scoring.
   - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
-  - Question: Which H5P content type(s) and exact pinned library versions are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
 - [ ] iMathAS owns its rendering and evaluation.
   - Mismatch: needs runtime rendering and evaluation proof for iMathAS.
 - [ ] Question Backends may support more complex interactions without requiring PLE to implement those interactions.

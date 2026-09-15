@@ -3,10 +3,10 @@
 use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
-    AssessmentAttemptReference, AssessmentReference, CourseInstanceReference, CourseTheme,
-    GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId, QuestionRevisionReference,
-    StudentAssessmentAttemptProgress, StudentFeedback, StudentFeedbackReleaseRule, StudentResponse,
-    Timestamp,
+    AssessmentAttemptReference, AssessmentReference, AssessmentType, CourseInstanceReference,
+    CourseTheme, GradingResult, QuestionAssetId, QuestionAttemptId, QuestionId,
+    QuestionRevisionReference, StudentAssessmentAttemptProgress, StudentFeedback,
+    StudentFeedbackReleaseRule, StudentResponse, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +22,8 @@ pub struct LiveAssessmentAccess {
     pub active_assessment_attempt: Option<AssessmentAttemptReference>,
     /// The effective Student-facing title for the current delivery state.
     pub title: String,
+    /// Product-defined pedagogical Type for this Assessment.
+    pub assessment_type: AssessmentType,
     /// Exact released or issued Question count, never inferred from grading.
     pub question_count: u32,
     /// Exact released or issued total points, never inferred from grading.
@@ -124,12 +126,16 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StudentAssessmentAttemptHistoryEvidence {
     pub history: StudentAssessmentAttemptHistory,
+    /// Assessment Type copied from the current Assessment identity.
+    pub assessment_type: AssessmentType,
     pub feedback_rule: StudentFeedbackReleaseRule,
     pub due_at: Option<Timestamp>,
     pub closes_at: Option<Timestamp>,
     pub submitted_at: Option<Timestamp>,
     /// Database-authoritative time at which the disclosure decision is read.
     pub evaluated_at: Timestamp,
+    /// Current Course cohort completion calculated by the authorized history reader.
+    pub all_students_completed: bool,
     /// True only when every issued position has a graded lifecycle, its exact
     /// grading result, and the matching immutable automated receipt.
     pub grading_is_current: bool,
@@ -467,14 +473,13 @@ pub struct StudentAssessmentAttemptContext {
 /// Result of the single explicit Assessment Attempt submission action.
 #[derive(Debug, Clone, PartialEq)]
 pub enum StudentAssessmentAttemptFinalization {
-    /// All saved working responses became immutable submission evidence.
+    /// Saved working responses became immutable submission evidence; unanswered
+    /// positions remain explicit in the completed Attempt history.
     Submitted {
-        /// Immediate backends return a score. A backend that accepted the
-        /// response but completes later has no score yet.
+        /// Immediate grading returns a score. A grading result that becomes
+        /// current later is absent without changing submission finality.
         score: Option<LiveAssessmentAttemptScore>,
     },
-    /// The Attempt remains open because these one-based positions need saved responses.
-    MissingResponses { positions: Vec<u32> },
 }
 
 /// Database-selected reason for finalizing one Assessment Attempt. The server
@@ -536,9 +541,6 @@ pub enum StudentAssessmentAttemptFinalizationPreparationOutcome {
     AlreadySubmitted {
         score: Option<LiveAssessmentAttemptScore>,
     },
-    MissingResponses {
-        positions: Vec<u32>,
-    },
     Ready(StudentAssessmentAttemptFinalizationPreparation),
 }
 
@@ -583,7 +585,8 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     ) -> Result<StudentAssessmentAttemptFinalizationPreparationOutcome, StoreError>;
 
     /// Atomically accepts only the still-current prepared snapshot and stores
-    /// immutable backend credits, Question Submissions, and completion.
+    /// immutable backend credits, Question Submissions, and the terminal
+    /// Assessment Submission.
     async fn commit_student_assessment_attempt_finalization(
         &self,
         session_token_hash: SessionTokenHash,
@@ -649,7 +652,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
         assessment_attempt: AssessmentAttemptReference,
     ) -> Result<StudentAssessmentAttemptHistoryEvidence, StoreError>;
 
-    /// Loads completed canonical responses and their exact pinned presentation
+    /// Loads submitted canonical responses and their exact pinned presentation
     /// sources after re-authorizing the selected owned Attempt.
     async fn student_assessment_attempt_history_response_sources(
         &self,

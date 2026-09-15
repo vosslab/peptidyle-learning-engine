@@ -81,6 +81,7 @@ test("Assessment Access carries only its authorized answer-free facts and Attemp
   const facts = {
     decision,
     title: "Peptide structure practice",
+    assessmentType: "regular_assignment",
     questionCount: 4,
     pointsPossible: 8,
     previousAttempts: [
@@ -115,6 +116,8 @@ test("Assessment Access carries only its authorized answer-free facts and Attemp
     closedWithoutReleasedQuestions,
   );
   assert.throws(() => decodeLiveAssessmentAccess({ decision }));
+  assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, assessmentType: undefined }));
+  assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, assessmentType: "project" }));
   assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, activeAssessmentAttempt: "12" }));
   assert.throws(() => decodeLiveAssessmentAccess({ ...resumable, attemptId: "private" }));
   assert.throws(() =>

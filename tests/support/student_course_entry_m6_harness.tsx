@@ -4,14 +4,14 @@ import { MemoryRouter, Route, createMemoryHistory, useLocation } from "@solidjs/
 import type { JSX } from "solid-js";
 import { render } from "solid-js/web";
 
-import type { StudentAssignmentDecisionSummary } from "../../generated/api/StudentAssignmentDecisionSummary";
+import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 import { ApplicationApiProvider, type ApplicationApi } from "../../src/api/application_api";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import type {
-  LiveStudentAssignmentLandingSummary,
+  LiveStudentAssessmentLandingSummary,
   LiveStudentCourseLandingSummary,
 } from "../../src/api/live_student_course_landing";
-import { AssignmentOverviewPage } from "../../src/pages/assignment_overview_page";
+import { AssessmentOverviewPage } from "../../src/pages/assessment_overview_page";
 import { StudentCourseLandingPage } from "../../src/pages/student_course_landing_page";
 import { StudentCoursesPage } from "../../src/pages/student_courses_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
@@ -28,7 +28,7 @@ const COURSE_TWO: LiveStudentCourseLandingSummary = {
   shortName: "BIOL 302",
   longName: "Molecular Genetics: Gene Regulation",
 };
-const ASSIGNMENT_DECISION = {
+const ASSESSMENT_DECISION = {
   availableAt: Date.parse("2026-09-14T14:00:00Z"),
   dueAt: Date.parse("2026-09-16T22:00:00Z"),
   closesAt: Date.parse("2026-09-17T22:00:00Z"),
@@ -40,13 +40,39 @@ const ASSIGNMENT_DECISION = {
   startDecision: "may_start",
   publicReason: null,
 } as const;
-const ASSIGNMENT: LiveStudentAssignmentLandingSummary = {
+const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   reference: "A9D2RX5",
   title: "Protein structure practice",
-  decision: ASSIGNMENT_DECISION,
-  assignmentAttemptNumber: null,
-  assignmentAttemptCompletion: null,
-  gradedQuestionCount: 0,
+  assessmentType: "regular_assignment",
+  decision: ASSESSMENT_DECISION,
+  assessmentAttemptNumber: 2,
+  assessmentAttemptCompletion: "inProgress",
+  canResumeAssessmentAttempt: true,
+  gradedQuestionCount: 1,
+  questionCount: 4,
+  assessmentScore: { pointsEarned: 7, pointsPossible: 8 },
+};
+const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
+  ...ASSESSMENT,
+  reference: "A4N8BQ2",
+  title: "Bonus protein challenge",
+  assessmentType: "bonus_assignment",
+  assessmentAttemptNumber: 1,
+  assessmentAttemptCompletion: "completed",
+  canResumeAssessmentAttempt: false,
+  gradedQuestionCount: 2,
+  questionCount: 2,
+  assessmentScore: { pointsEarned: 3, pointsPossible: 0 },
+};
+const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
+  reference: "A7K2CW4",
+  title: "Peptide quiz",
+  assessmentType: "quiz",
+  decision: ASSESSMENT_DECISION,
+  assessmentAttemptNumber: 1,
+  assessmentAttemptCompletion: "completed",
+  canResumeAssessmentAttempt: false,
+  gradedQuestionCount: 4,
   questionCount: 4,
 };
 
@@ -100,34 +126,37 @@ export function mountStudentCourseEntryM6Harness(
           : "/",
   });
   const courses = coursesFor(caseName);
-  const currentDecision = (): StudentAssignmentDecisionSummary => ({
-    ...ASSIGNMENT_DECISION,
+  const currentDecision = (): StudentAssessmentDecisionSummary => ({
+    ...ASSESSMENT_DECISION,
   });
-  const currentAssignment = (): LiveStudentAssignmentLandingSummary => ({
-    ...ASSIGNMENT,
+  const currentAssessment = (): LiveStudentAssessmentLandingSummary => ({
+    ...ASSESSMENT,
     decision: currentDecision(),
   });
   const applicationApi = {
     client: {
       listLiveStudentCourses: () => Promise.resolve(courses),
-      listLiveStudentAssignments: () =>
-        Promise.resolve(caseName === "landing" ? [currentAssignment()] : []),
-      getLiveAssignmentAccess: () =>
+      listLiveStudentAssessments: () =>
+        Promise.resolve(
+          caseName === "landing"
+            ? [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT]
+            : [],
+        ),
+      getLiveAssessmentAccess: () =>
         Promise.resolve({
           decision: currentDecision(),
-          activeAssignmentAttempt: null,
-          title: ASSIGNMENT.title,
-          questionCount: ASSIGNMENT.questionCount,
+          activeAssessmentAttempt: null,
+          title: ASSESSMENT.title,
+          assessmentType: ASSESSMENT.assessmentType,
+          questionCount: ASSESSMENT.questionCount,
           pointsPossible: 8,
           previousAttempts: [],
         }),
     },
     queries: {
-      resolveCourse: () => Promise.resolve({ courseId: "00000000-0000-0000-0000-000000000001" }),
       courseScope: () =>
         Promise.resolve({
           summary: {
-            id: "00000000-0000-0000-0000-000000000001",
             reference: COURSE_ONE.reference,
             shortName: COURSE_ONE.shortName,
             longName: COURSE_ONE.longName,
@@ -145,8 +174,8 @@ export function mountStudentCourseEntryM6Harness(
           <Route path="/" component={StudentCoursesPage} />
           <Route path="/student/courses/:courseRef" component={StudentCourseLandingPage} />
           <Route
-            path="/courses/:courseRef/assignments/:assignmentRef"
-            component={AssignmentOverviewPage}
+            path="/courses/:courseRef/assessments/:assessmentRef"
+            component={AssessmentOverviewPage}
           />
         </MemoryRouter>
       </ApplicationApiProvider>

@@ -66,6 +66,7 @@ impl BlueprintRevisionContent {
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlueprintAssessmentContent {
     blueprint_assessment_reference: BlueprintAssessmentReference,
+    assessment_type: crate::AssessmentType,
     title: AssessmentTitle,
     instructions: AssessmentInstructions,
     entries: Vec<BlueprintAssessmentEntryContent>,
@@ -75,6 +76,7 @@ impl BlueprintAssessmentContent {
     /// Validates all Blueprint Assessment meaning before constructing a baseline.
     pub fn new(
         blueprint_assessment_reference: BlueprintAssessmentReference,
+        assessment_type: crate::AssessmentType,
         title: AssessmentTitle,
         instructions: AssessmentInstructions,
         entries: Vec<BlueprintAssessmentEntryContent>,
@@ -86,6 +88,7 @@ impl BlueprintAssessmentContent {
         defaults.validate()?;
         Ok(Self {
             blueprint_assessment_reference,
+            assessment_type,
             title,
             instructions,
             entries,
@@ -95,6 +98,10 @@ impl BlueprintAssessmentContent {
     /// Returns the stable Blueprint Assessment identity retained across Revisions.
     pub fn blueprint_assessment_reference(&self) -> BlueprintAssessmentReference {
         self.blueprint_assessment_reference
+    }
+    /// Returns the fixed pedagogical purpose retained across Blueprint Revisions.
+    pub fn assessment_type(&self) -> crate::AssessmentType {
+        self.assessment_type
     }
     /// Returns the Blueprint Assessment title.
     pub fn title(&self) -> &str {
@@ -327,6 +334,7 @@ struct EncodedModule<'a> {
 #[serde(rename_all = "snake_case")]
 struct EncodedAssessment<'a> {
     blueprint_assessment_reference: BlueprintAssessmentReference,
+    assessment_type: crate::AssessmentType,
     title: &'a str,
     instructions: &'a AssessmentInstructions,
     entries: Vec<EncodedEntry<'a>>,
@@ -382,6 +390,7 @@ fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
 fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessment<'_> {
     EncodedAssessment {
         blueprint_assessment_reference: assessment.blueprint_assessment_reference(),
+        assessment_type: assessment.assessment_type(),
         title: assessment.title(),
         instructions: assessment.instructions(),
         entries: assessment
