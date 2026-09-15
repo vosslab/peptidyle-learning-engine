@@ -9,12 +9,17 @@ PLE has one installation-wide Question Library. Storage classification
 does not create a second publication audience or a publication tier. The
 canonical live-demo path uses these same domains and delivery rules.
 
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product lifecycle and retention.
+The job, registry, object-address, and current `assignment` names below are
+implementation mechanisms; they do not authorize new product states or a
+generic background-work model.
+
 ## Physical domains
 
 | Domain                        | Object Storage Area | Contents                                                                                                                                                                    | Delivery rule                                                                                                                                                                                                                                                                             |
 | ----------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Published presentation assets | `PublicAssets`      | Only immutable, answer-free renditions of Published Questions                                                                                                               | CDN-backed delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and approved-Instructor Question Library access or an allowed Assignment Access decision for the Student's assigned activity. |
-| Private content               | `PrivateContent`    | Private workspace Question Source and assets, generation and grader keys or payloads, Question Attempt Reproduction Details, renders, and course-record presentation assets | Never CDN-readable. A protected delivery uses its exact server-derived authority.                                                                                                                                                                                                         |
+| Published presentation assets | `PublicAssets`      | Only immutable, answer-free renditions of Published Questions                                                                                                               | CDN-backed delivery is available only after the Question Library publication decision and durable registry are `Ready`, with the exact immutable-public tag and vetted-Instructor Question Library access or an allowed Assessment access decision for the Student's Coursework. |
+| Private content               | `PrivateContent`    | Private Draft Question source/assets, backend state or grading inputs, and Course-record presentation assets                                                               | Never CDN-readable. A protected delivery uses its exact server-derived authority. |
 | Student records               | `StudentRecords`    | Student work, protected course-record artifacts, and annotations                                                                                                            | Never public; delivery requires the exact Student, course, or typed support authority for that record.                                                                                                                                                                                    |
 | Temporary processing          | `TempProcessing`    | Conversion workspaces and short-lived course-banner entries                                                                                                                 | Never signable or browser-served.                                                                                                                                                                                                                                                         |
 
@@ -35,7 +40,7 @@ variant. Important mappings are:
 | Object class                                                        | Object Address variants                                                               | Domain and delivery authority                                                                                                                                                                                                                                                                     |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Private workspace source and imported assets                        | `WorkspaceImportSource`, `WorkspaceQuestionSource`, `WorkspaceImportAsset`            | `PrivateContent`; the Authoring Workspace Owner relationship is required for a private workspace View. Collaboration is a future separately designed capability, not current authority.                                                                                                           |
-| Published answer-free presentation asset                            | `QuestionAsset`                                                                       | `PublicAssets`; approved-Instructor Question Library access or an allowed Assignment Access decision for the Student's assigned activity selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or Question Grading Input. |
+| Published answer-free presentation asset                            | `QuestionAsset`                                                                       | `PublicAssets`; vetted-Instructor Question Library access or an allowed Assessment access decision selects the immutable CDN rendition. This does not expose source, Answer Key, Question Feedback, Question Answer Explanation, or grading input. |
 | Published Question Source, import archive, and private render state | `QuestionSource`, `PublishedImportArchive`, `QuestionRender`                          | `PrivateContent`; only an exact server capability or the authorized private workspace Question Source operation may read it.                                                                                                                                                                      |
 | Generation/grader keys and payloads                                 | Server-only private records and any typed private object written by its owning worker | `PrivateContent`; only the exact grader, generation, worker lease, or capability may read it.                                                                                                                                                                                                     |
 | Course-record presentation asset                                    | `CourseBanner`                                                                        | `PrivateContent`; delivery rechecks the exact current course record and its course relationship.                                                                                                                                                                                                  |
@@ -96,8 +101,8 @@ object or delivery ID never supply authority by themselves:
 
 1. Approved-Instructor Question Library access delivers safe Question Library
    search and details results and the published presentation assets that they reference.
-2. An allowed Assignment Access decision delivers the answer-free
-   presentation needed for that Student's assigned activity.
+2. An allowed Assessment access decision delivers the answer-free
+   presentation needed for that Student's Coursework.
 3. The exact Authoring Workspace Owner relationship delivers a private
    workspace source, asset, author preview, or authoring data. Collaboration is
    a future separately designed capability.
@@ -107,8 +112,8 @@ object or delivery ID never supply authority by themselves:
    that typed check.
 
 `GET /api/assets/{id}` can return only an already-ready published presentation
-asset after the route proves approved-Instructor Question Library access or the exact
-Assignment Access decision. It resolves an opaque registry ID, verifies
+asset after the route proves vetted-Instructor Question Library access or the exact
+Assessment access decision. It resolves an opaque registry ID, verifies
 the complete trusted `QuestionAsset`/`PublicAssets` record shape, then
 redirects to a configured immutable CDN URL. It cannot authorize, audit, or
 issue a protected bearer URL, and it returns the same not-found response for
@@ -118,7 +123,7 @@ Published presentation assets are not anonymous internet content. Delivering
 one through an approved authority does not grant Question Library search,
 details, or delivery of another asset. Question Library search and details
 require authenticated approved-Instructor access. A Student receives an
-assigned presentation through an allowed Assignment Access decision and does not
+Assessment presentation through an allowed Assessment access decision and does not
 receive Question Library access.
 
 `POST /api/assets/{id}/delivery` is the separate protected path. It requires a

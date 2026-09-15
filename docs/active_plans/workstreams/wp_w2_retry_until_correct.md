@@ -1,5 +1,10 @@
 # WP-W2 retry until correct
 
+> **Dated implementation evidence.** This workstream records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Status
 
 **ACCEPTED.** WP-W2 covers J2 only: an existing seeded student visibly retries the

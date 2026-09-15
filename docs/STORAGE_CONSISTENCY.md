@@ -2,12 +2,10 @@
 
 PostgreSQL and object storage are separate durable systems. PLE never claims a distributed transaction between them. Instead it uses typed immutable objects, database-authoritative visibility, and operation-specific repair rules.
 
-The intended model is one installation with global Accounts and exact course,
-Student, workspace, and Question Library scopes. The currently checked-in source
-still contains historical installation-scope types and legacy object and retention
-fields. A future schema and Store cutover replaces those shapes with exact domain
-scopes. This document does not authorize a compatibility alias, a dual key, or a
-parallel installation model while that implementation remains incomplete.
+The intended model is one installation with global Accounts and exact Course,
+Student, workspace, Blueprint, and Question Library scopes. Current legacy
+fields are implementation gaps. This document does not authorize a
+compatibility alias, dual key, or parallel product model.
 
 ## Authority and vocabulary
 
@@ -79,22 +77,20 @@ The corresponding confidentiality and history controls are:
 | Storage-at-rest confidentiality | Per-domain SSE-KMS and encrypted backups                                                                                  |
 | Parser safety for images        | Strict still-image type/container/dimension/full-decode validation                                                        |
 
-Published-content immutability remains intentional. Every content change, including a correction,
-publishes a new immutable question with a fresh Question ID and fresh hidden `(QuestionId, QuestionRevisionNumber)`
-evidence instead of changing object bytes referenced by an existing Assignment, Assignment Attempt, or Question Attempt.
-An optional Question Fork Source may identify the source Question Revision without changing it.
+Published-content immutability remains intentional. A compatible source change
+or correction publishes a new immutable Question Revision under the stable
+Question ID. A substantive fork creates a fresh Question ID and may retain
+ancestry. Neither changes object bytes or exact Revision evidence already used
+by an Assessment Attempt.
 
 ## Retention and repair
 
-Student-record retention freezes a typed manifest scoped to one exact course, stage, and positive
-generation, then processes only that manifest under a leased job. Manifest entries identify exact
-typed object records; they are never a bucket prefix or a caller-selected path. Object deletion and
-relational deletion do not claim completion until the required manifest checks succeed. Shared
-published content, private authoring, and anonymous aggregates are outside a student-record purge.
-
-The current retention source still carries legacy scope fields in its worker command
-and manifest storage. A future source/schema cutover uses the exact
-course/stage/generation scope above; no compatibility scope field is added here.
+Student-record retention deletes only the exact FERPA-protected objects owned
+by the Course records at the applicable stage. Whether implementation uses a
+manifest and lease is an implementation choice, not a product requirement.
+No implementation may use a bucket prefix or caller-selected path as deletion
+authority, or claim completion before exact object and relational outcomes are
+verified. Shared Published content and private authoring are outside the purge.
 
 General Object Storage Checks are not yet implemented. Until they are, operators must preserve missing/mismatched reference evidence and investigate the backing store; application code must not silently delete references or serve unregistered bytes. Production backup restore, KMS rotation, Object Lock retention, lifecycle policy, and cross-region/failover claims need live deployment evidence.
 

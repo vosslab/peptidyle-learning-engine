@@ -47,7 +47,7 @@ the initial Instructor Membership, and every current Instructor member has the
 same teaching authority; no creator-owned authority is retained.
 
 A Student may act only through that Student's current Course Membership and
-Student Record for the exact course. Student-facing assignment delivery,
+Student Record for the exact Course. Student-facing Assessment delivery,
 attempt, response, submission, history, and presentation operations recheck
 that relationship in the transaction. A revoked membership or inactive
 Account therefore stops subsequent access. An Instructor can inspect the
@@ -61,78 +61,99 @@ access to Student Work.
 
 ## Mutable configuration and retained evidence
 
-Course term dates are current Course Instance state. An Assignment is one
-current aggregate protected by its Assignment Edit Number. Its status,
+Course term dates are current Course Instance state. An Assessment is one
+current aggregate protected by its Assessment Edit Number. Its status,
 authored policy, normalized entries, and exact Question Revision pins are
-re-evaluated for a new Attempt. An accepted edit to a Released Assignment
+re-evaluated for a new Attempt. An accepted edit to a Released Assessment
 affects later Attempts after release validation; it does not reinterpret an
 existing Attempt.
 
 An Attempt retains the effective title, instructions, availability, timing,
 policy, and qualified adjustment source needed to interpret its own work. An
-Issued Question retains its Assignment Entry identity and position, exact
-Question Revision, seed and presentation/reproduction binding, point value,
-scoring rule, statistics eligibility, and pool-selection source. Readers use
+Issued Question retains its Assessment position, exact Question Revision,
+Question Pool Revision and selection when applicable, point value, and the
+backend-owned state needed to resume or interpret the interaction. Readers use
 that retained evidence for existing Student Work.
 
-Student Work is immutable to ordinary runtime capabilities. Its root is an
-Assignment Attempt and its dependent issued questions, responses,
-presentations, submissions, grading evidence, backend exchanges, pool
-selection, and statistics observations are database-owned records. Shared
-Question Revisions and assets, current Assignment configuration, and Course
-Membership are not Student Work owned by an Attempt.
+Student Work is rooted in an Assessment Attempt. Complete Question responses
+remain editable while the Attempt is open. Whole-Assessment submission makes
+the finalized saved responses and immutable backend credit fractions durable
+grading evidence. Shared Question Revisions and assets, current Assessment
+configuration, and Course Membership are not Student Work owned by an Attempt.
 
-## Assignment lifecycle operations
+## Assessment lifecycle operations
 
-Release requires current course-Instructor authority, a matching Assignment
-Edit Number, and a release-valid current Assignment. Unrelease has the same
-course predicate plus Released status, the exact Edit Number, and exact current
-title confirmation. The database locks the Assignment first, changes it to
-Unreleased, deletes only the rooted Student Work closure, rebuilds affected
-Question Revision statistics, and writes one redacted audit event in the same
-transaction. The event records actor, Assignment, aggregate deletion counts,
-outcome, and time; it does not contain Student identities, responses, or
-grades.
+Release requires current course-Instructor authority, a matching Assessment
+Edit Number, and a release-valid current Assessment. Unrelease has the same
+course predicate plus Released status, the exact Edit Number when the
+implementation uses one, and exact current title confirmation. The database
+locks the Assessment first, changes it to Unreleased, and deletes only the
+rooted Student Work closure in the same transaction. Shared content, the
+Assessment definition, and Course relationships remain. Human Guidance does
+not require statistics-rebuild or generic audit machinery for this action.
 
 The dedicated no-login `ple_unrelease_executor` capability performs that
 guarded deletion procedure. API, worker, and ordinary application capabilities
-do not inherit it. A failed precondition changes neither Assignment state,
-Student Work, statistics, nor audit state.
+do not inherit it. A failed precondition changes neither Assessment state nor
+Student Work.
 
-## Published Questions and Blueprint Courses
+## Published Questions, Question Pools, and Blueprint Courses
 
-Question Revision and Blueprint Revision are the only product Revision
-concepts. Each is immutable. A Question lineage carries current `available` or
-`archived` state and an Availability Edit Number. A Blueprint Course lineage
-keeps short name, long name, and availability behind one opaque metadata ETag.
-Archive removes content from ordinary
-browsing and new selection; it preserves resolution of exact historical
-revision references. Restore is the corresponding current-state transition.
+Question Revisions, Pool Revisions, and Blueprint Revisions are immutable.
+Human Guidance's general history summary omits Pools while its Pool rules
+explicitly require Pool Revisions. A Published Question may be discoverable or archived.
+A Blueprint Course is Private, Public, or Archived. Private is owner-only and
+cannot be adopted. Public is shared and adoptable. Archived remains visible to
+vetted Instructors through explicit historical discovery, can be forked, and
+cannot be adopted. Exact historical Revision References remain resolvable.
 
-New Assignments and Blueprint Revision pins select exact available Question
+New Assessments and Blueprint Revision pins select exact available Question
 Revisions. A later Question publication, availability transition, correction,
-or worker action never advances an Assignment or retained Student Work pin.
+or worker action never advances an Assessment or retained Student Work pin.
 
-An active Instructor owns Blueprint Course content Save and lineage-metadata
-operations. Complete valid creation atomically produces Available Revision 1.
+An active Instructor may own Private Blueprint Courses and their content Save and
+lifecycle operations. Complete valid creation atomically produces a Private
+Blueprint Course with Revision 1.
 Save requires the exact current Revision and creates its immutable successor
 only for changed canonical content; an unchanged Save returns the current
-Revision with `changed: false`. Accepted requests retain receipts for safe
-replay. Unsaved browser state is not a server domain object, and this reset
+Revision with `changed: false`. Unsaved browser state is not a server domain object, and this reset
 does not define a Blueprint collaborator relationship.
 
+Only the owner changes Blueprint lifecycle state. A Public Blueprint with no
+adoptions may return to Private; a Public Blueprint with an adoption remains
+Public. The owner may archive a Public Blueprint and restore their Archived
+Blueprint to Public. Every vetted Instructor may read Public and Archived
+content, but only Public content may be adopted. Every vetted Instructor may
+fork Public or Archived content into a new Private Blueprint they own.
+
+Adding a new Blueprint Assessment also triggers the Human-Guidance-required
+copy into daughter Course Instances as an Unreleased Assessment. That bounded
+system action does not grant the Blueprint owner Course Membership or access to
+the daughter Courses. Each daughter Course's current co-Instructors decide
+whether to accept offered changes to existing Assessments.
+
+Any vetted Instructor may create a Blueprint Course Change Proposal. Only the
+receiving Blueprint owner chooses accepted changes and creates the resulting
+Blueprint Revision. Proposal authority never grants Course access or directly
+changes daughter Course Instances.
+
+Vetted Instructors may Star or Watch Public and Archived Blueprints. Star
+counts and the identities of vetted Instructors who Starred are visible to
+vetted Instructors. Watch state and subscription membership are private to the
+watcher.
+
 Question authoring workspace relationships remain their own authoring
-capability and do not widen course, Assignment, Blueprint Course, or Student
+capability and do not widen course, Assessment, Blueprint Course, or Student
 Work authority.
 
 ## Workers, objects, and service identities
 
-PLE Accounts are not PostgreSQL roles. API, publisher, grader, renderer,
-worker, database-owner, and cloud-task identities are service identities with
-only their direct capability grants. A worker acts through its typed claim,
-lease, and commit path; a queue payload is an input to validate, not an
-authority token. Worker capabilities do not inherit application or Unrelease
-authority.
+PLE Accounts are not PostgreSQL roles. API, publisher, renderer,
+retention-process, database-owner, and cloud-task identities are technical
+service identities with only their direct capability grants. A background
+process acts only through the exact operation Human Guidance or an approved
+product design requires. A queue payload is input to validate, not authority.
+No service identity creates a Student or Instructor grading workflow.
 
 Object delivery uses the current typed relationship and the database's object
 binding. Browser-facing data names logical resources rather than storage
@@ -142,10 +163,12 @@ and signed object addresses are not browser authorization artifacts.
 
 ## Audit and durable checks
 
-Audit records identify the actor, bounded target, result, and time required by
-their operation while excluding credentials, raw Student responses, grades
-where an audit reference suffices, answer keys, and signed URLs. An audit row
-records an action; it grants no authority.
+Where Human Guidance requires an audit, including scoped Sysadmin support and
+Forced Question Correction, the record identifies the actor, bounded target,
+result, and time while excluding credentials, raw Student responses, grades
+where a reference suffices, answer keys, and signed URLs. An audit record
+documents an action; it grants no authority and is not a generic product
+requirement for every operation.
 
 Permanent tests protect stable authorization and evidence boundaries:
 membership and Student ownership, non-enumeration, forced RLS and closed

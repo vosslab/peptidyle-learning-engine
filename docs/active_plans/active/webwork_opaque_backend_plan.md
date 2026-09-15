@@ -1,5 +1,11 @@
 # Plan: opaque backend-owned WeBWorK interactions
 
+> **Compliance correction, 2026-09-14.** This completed plan is implementation
+> evidence beneath Human Guidance. WeBWorK remains opaque; Assessment is the
+> generic object; the whole Assessment Attempt is submitted; and current Question IDs
+> use `AAAA-ZBBB` with seven random identity characters plus the middle HMAC
+> check character.
+
 Closure status: complete. Archival to `docs/archive/` awaits repair of the external Git-index
 permission failure; the required `git mv` must be run only after that repair.
 
@@ -28,7 +34,7 @@ footer, and `body onLoad=postMessage('loaded','*')`; assets resolve via `getAsse
 output templates are selected by `outputFormat`, so a PLE embed template is an ordinary addition.
 No human step is needed to use fork changes: the local stack builds the sibling working tree.
 
-Question IDs are unaffected: WeBWorK Questions keep ordinary 7-char Crockford IDs; the Published
+Question IDs are unaffected by backend choice: WeBWorK Questions use ordinary `AAAA-ZBBB` Crockford IDs; the Published
 Question Revision's source selects the backend.
 
 ## Objectives
@@ -92,7 +98,7 @@ Question Revision's source selects the backend.
   Fall grading records score and correctness only; the probe tool captures the feedback fields
   so a later task adds one document fetch without changing the render/submit boundary.
 - Claim Open Problem Library breadth.
-- Change Question ID, Assignment, Attempt, or grade-recording lifecycle.
+- Change Question ID, Assessment, Attempt, or grade-recording lifecycle.
 - Keep the old projection path behind a flag.
 
 ## Current state summary
@@ -110,7 +116,7 @@ stack records the image OCI configuration ID (`local_stack_control/renderer.py:3
 1. Shared Question Backend contract (minimal, lifecycle only):
    ```text
    render(question identity, attempt context) -> opaque presentation + opaque state
-   submit(opaque response, opaque state)      -> score + feedback + updated opaque state
+   evaluate(opaque response, opaque state)    -> score + feedback + updated opaque state
    ```
    Presentation, response, and state are adapter-owned opaque bytes with an adapter-declared
    kind tag. No "HTML", "form", or "iframe" vocabulary at this layer. Native PLE Question JSON is
@@ -309,7 +315,7 @@ M11}; {M12, M13 draft}; M13 final.
   persisted-document reproduction belongs to the M6/M8 store and document route; under E2, `issue.rs`
   supplies render-issued state and `grade.rs` returns updated state for M6's restricted worker
   commit after one grade request. This lifecycle
-  does not re-render a document or submit a second browser response.
+  does not re-render a document or send a second browser response for evaluation.
 - Library cleanup: M5 removes projection-derived educational-type assumptions; M8 consumes the
   revision's persisted `question_type` for Question Library metadata, never a PG/HTML inference or
   `MultipleChoice` default.
@@ -367,7 +373,7 @@ M11}; {M12, M13 draft}; M13 final.
 
 - Depends on: M4, M5, M6, M7.
 - Deliverables: `GET /api/assignment-attempts/{assignment_attempt_reference}/questions/{position}/document`
-  using the browser's existing Assignment Attempt reference and issued position (authorized like
+  using the browser's existing Assessment Attempt reference and issued position (authorized like
   presentation, headers per decision C, `no-store`); selected-C CSP includes `base-uri 'none';
   object-src 'none'; frame-ancestors 'self'; form-action 'none'`; C1 handles its opaque-origin
   sender and route-specific CORP requirements, while C2 uses same-origin checks. `assignment_delivery.rs`
@@ -445,7 +451,7 @@ M11}; {M12, M13 draft}; M13 final.
     `browser response capture shares the backend's raw 64 KiB limit`,
     `only the matching capture reply can advance Finish past queued bridge submissions`,
     `parent accepts only the bridge message and builds only the current document route`, and
-    `Finish Assignment captures the active backend document, saves it, then finalizes` protect
+    the legacy-named `Finish Assignment captures the active backend document, saves it, then finalizes` test protects
     the strict capture-save-finalize browser protocol. The 64 KiB check specifically protects
     browser preflight and the shared response API from diverging; repair ordinary drift at the
     layer that diverged. If real supported content reaches the intentional bound, revise the
@@ -517,7 +523,7 @@ in M2; a failure is a defect fixed at its owner, never a PLE-side fallback.
   `*JWT` are absent from the embed document and therefore cannot be captured. M4 rejects reserved
   server-owned names before grading and forwards entries generically, without comma joins or
   content-specific parsing; grade from bridge-captured fields equals the connected evidence payload.
-- Document storage (owner: M5/M6): one document per Question Attempt in a new
+- Document storage (owner: M5/M6): one document per Assessment Attempt Question position in a new
   `backend_document text` column on the existing attempt presentation table
   (`schemas/base_schema/attempt_presentation.sql`), written at issue, read by the document route
   and `reproduce()`. No shared render cache: `lib/cache.rs` is deleted. Reason: a render per
@@ -814,7 +820,7 @@ Use a backend-agnostic interface in PLE. Exchange backend-owned presentation, re
 
 render(question identity, attempt context)
     -> backend-owned presentation + opaque state
-submit(opaque response, opaque state)
+evaluate(opaque response, opaque state)
     -> score + feedback + updated opaque state
 
 Keep backend-specific interaction knowledge within each Question Backend adapter. Model PLE-native response formats within the PLE-native backend. Design shared PLE abstractions around the common lifecycle and outcome contract rather than the interaction models of individual backends.

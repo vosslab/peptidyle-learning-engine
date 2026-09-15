@@ -1,5 +1,7 @@
 ## 2026-08-29
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Additions and New Features
 
 - Implemented `WP-SD1-C/M5` Memory curriculum-adoption dispatcher cutover. The Memory Store now

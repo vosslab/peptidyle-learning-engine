@@ -1,5 +1,10 @@
 # Release history
 
+> **Historical evidence.** Snapshot terminology and feature descriptions below
+> do not override [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). In particular, old
+> generic Assignment, Blueprint availability, grading-job, recovery, and
+> Course-copy models are superseded where they conflict.
+
 PLE remains pre-production. This page records development snapshots; production release acceptance
 remains governed by [ROADMAP.md](ROADMAP.md) and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 

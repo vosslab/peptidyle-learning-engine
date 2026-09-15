@@ -1,301 +1,119 @@
 # Concurrency contracts
 
-PLE runs stateless API and worker replicas against shared PostgreSQL and
-S3-compatible object storage. This document defines the durable atomicity and
-race rules that keep those replicas correct when requests overlap, a process
-dies, or a client retries. It complements
-[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md),
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#intended-database-model),
-[OBJECT_STORAGE.md](OBJECT_STORAGE.md), and the frozen public/API register in
-[CONTRACTS.md](CONTRACTS.md).
-
-This is an implementation contract, not a claim that production deployment or
-every operational recovery workflow is complete. Student and operator actions
-after a failure belong in [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md). Status in
-this document means:
-
-- **Implemented**: current Memory/PostgreSQL and server owners provide the
-  named behavior.
-- **Required**: every new mutating path must follow this rule, even where a
-  broader package has not yet been accepted.
-- **Planned**: the boundary is specified but awaits its named release package
-  and acceptance evidence.
-
-## Authority status
-
-**Current authority.** The current applied schema and implemented Authenticated Session
-boundary establish database and Account facts. Store-backed course, authoring,
-activity, worker, and object operations remain deferred; this document
-specifies the concurrency rules they must satisfy when composed.
-
-**Required for new work.** A mutation must name its transaction boundary,
-an exact repeat rule or compare-and-swap rule, and lock order before it can expose a
-result. A worker must name its lease and, when output can be superseded, its
-generation fence.
-
-**Planned boundaries.** The general Object Storage Check and Repair capability
-remains unimplemented.
-Managed failover and recovery objectives are deployment work; this
-document does not claim either is implemented.
+Concurrency protects current state and immutable evidence; it does not create
+new product revisions or lifecycle states. Product meaning comes from
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
 
 ## Authority model
 
-No API replica, browser tab, worker process, or object-store listing is a
-correctness authority. PostgreSQL records are authoritative for exact Course,
-Student, workspace, and operation state; typed object records and checksums bind
-PostgreSQL metadata to bytes. A browser may repeat an authenticated request, but the server
-reconstructs its Account and exact relationships before deciding whether the operation already
-completed, conflicts, or remains permitted.
+| Boundary | Concurrency authority |
+| --- | --- |
+| Authenticated database work | One protected transaction with server-installed Account context and exact relationship checks |
+| Draft Question | Current Edit Number or equivalent compare-and-swap precondition |
+| Assessment | Current Edit Number or equivalent; not an Assessment Revision |
+| Blueprint content | Expected current Blueprint Revision; a meaningful Save creates one next immutable Revision |
+| Blueprint metadata/lifecycle | Independent current metadata precondition; no Blueprint Revision |
+| Assessment Attempt | One authoritative open Attempt per applicable start/resume operation |
+| Response save and submission | Serialization at the Attempt boundary; saved response wins before submission or is refused afterward |
+| Assessment Unrelease | Serialization at the Assessment root with complete Student Work deletion |
+| Background service | Exact target plus bounded lease only when a decided operation needs asynchronous execution |
 
-| State or decision                              | Authoritative owner                                                                         | Status      | Main implementation owner                                                                                                                                 |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Account identity and row access                | `AuthenticatedSession`, transaction-local forced PostgreSQL RLS                             | Implemented | [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security), [connection.rs](../crates/learning-data-access/src/postgres/connection.rs)     |
-| Mutable authoring and assignment state         | Draft Question Edit Number and Assignment Edit Number preconditions                         | Current     | Base Assignment Policy, aggregate save, release, and Unrelease use their exact current Edit Number.                                                       |
-| Student submission outcome                     | One Assignment Submission per Assignment Attempt and append-only accepted Question evidence | Current     | Whole-Attempt submission and expiry auto-submission converge on one internal Question Submission per answered Question and one immutable backend outcome. |
-| Background work ownership                      | PostgreSQL Job row, immutable target, and opaque lease token                                | Current     | Fixed worker roles claim typed Jobs; grading commit/fail requires the exact current lease token.                                                          |
-| Current analytic projection                    | Assignment/timing generation plus an active lease                                           | Planned     | Future Store-backed scoring and analysis composition                                                                                                      |
-| Published Question Revision                    | Independent immutable source Binding created from an exact Draft Question Edit Number       | Planned     | Future Store-backed publication using accepted parallel draft/published metadata and separate Source Bindings                                             |
-| Blueprint Course reusable content              | Exact current Blueprint Revision ETag                                                       | Current     | Changed explicit Save creates one immutable successor; canonical no-op returns the current Revision with `changed: false`.                                |
-| Cross-system object inventory Check and Repair | Object Storage Check and Repair job                                                         | Planned     | [ROADMAP.md](ROADMAP.md)                                                                                                                                  |
+## Transaction rules
 
-## Account-scoped transactions and retries
+- Install authenticated Account context and perform the protected operation in
+  the same database transaction.
+- Recheck Account state and the exact Course, Student, workspace, or
+  Blueprint-owner relationship inside the transaction.
+- Retry only a whole idempotent owner operation after a retryable database
+  abort. Do not replay individual statements with stale facts.
+- Browser retries use the same logical target and precondition; they do not mint
+  a new record merely because the response was lost.
 
-### Transaction boundary
+## Current-state edits
 
-Every PostgreSQL operation on protected data begins a new transaction from a
-server-derived `AuthenticatedSession`. The store sets `LOCAL ROLE` and the session Account setting
-before querying, and commits or rolls back before returning the connection to the
-pool. A pooled connection carries authority only for its current request. The complete
-forced-RLS and role rule is in
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#row-level-security).
+A meaningful Draft Question or Assessment save advances its current Edit Number
+once. A no-op leaves it unchanged. A stale value conflicts and requires a
+reload; it never overwrites newer content.
 
-Required rules for a new Store mutation:
+Edit Numbers are not history. Only an explicit changed Blueprint Save creates
+an immutable Blueprint Revision. A no-op Save returns the current Revision with
+no new row. Blueprint name and lifecycle changes use current metadata and do
+not create content Revisions.
 
-- Bind every protected read and write to the trusted authenticated Account context and preserve
-  exact course, Student, workspace, and typed operation relationships.
-- Authorize the exact Account relationship within the same transaction as the protected mutation.
-- Commit all relational effects that define one outcome together, or leave no
-  final relational effect. Do not split one receipt, revision update, and
-  queue insertion across independently committed transactions.
-- Treat database time as authoritative for leases, expiry, timing, and
-  durable ordering. A replica clock is not an authority.
+Published Question source changes create one next immutable Question Revision
+under the stable Question ID. Publication serializes against the Draft state it
+validated so a stale request cannot publish a different source.
 
-### Bounded retry scope
+## Attempt convergence
 
-`retry_transaction` in
-[connection.rs](../crates/learning-data-access/src/postgres/connection.rs)
-replays an entire fresh transaction at most three times for PostgreSQL
-serialization failure (`40001`) or deadlock (`40P01`). It does not retry a
-single statement inside an aborted transaction, connection failures, or an
-ambiguous commit.
+Starting or resuming Student work returns the authoritative open Assessment
+Attempt allowed by policy. Concurrent requests cannot create unintended
+parallel Attempts.
 
-| Operation inside a retry closure                                                      | Rule                                                                                                                                                                    | Reason                                                                      |
-| ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| New transaction, authorization, reads, inserts, updates, and commit                   | Allowed                                                                                                                                                                 | The full operation can be repeated after PostgreSQL aborts it.              |
-| Deterministic validation and construction from command data                           | Allowed                                                                                                                                                                 | It has no externally visible effect.                                        |
-| Object-store put/copy/delete, renderer call, email, HTTP callback, or message publish | Not allowed before a replayable commit                                                                                                                                  | Repeating it can duplicate an external effect or leave an ambiguous result. |
-| Random ID, nonce, or receipt generation                                               | Generate before retry only when its value is intentionally the same across retries; otherwise establish the operation's durable identity or receipt before side effects | A retry must converge on one logical operation, not create multiple ones.   |
+Response save and whole-Assessment submission serialize on that Attempt:
 
-An operation that needs an external effect uses a durable prepare/claim/commit
-protocol. The worker first obtains a fenced lease, performs a bounded external
-preparation, then commits only if the same lease is still active. Course-banner
-promotion is the implemented bytes-first example; object-inventory repair is
-the planned generalization.
+- a valid complete response committed first is included in submission;
+- a submission committed first closes the Attempt and refuses a later save;
+- explicit and deadline submission converge on the same submitted Attempt; and
+- repeating a completed submission returns the existing outcome.
 
-## Revisions and immutable publication
+Submission deduplication applies to the whole Assessment Attempt. Internal
+response rows may have identities, but they remain evidence beneath that
+Attempt.
 
-### Compare-and-swap edits
+## Credit and point-value races
 
-Mutable instructor resources use positive revisions. The browser receives a
-strong ETag and returns it in `If-Match`; it does not send a revision in a JSON
-body. The future Store-backed authoring and Course Instance operations parse
-exactly one strong revision, check it against the stored row, and return a
-conflict for a stale edit. Course Appearance instead uses independent
-current-state theme and banner writes; it does not require a shared revision or
-`If-Match` precondition.
+The Question Backend's credit fraction is immutable. Current Assessment
+Question point values are read when a score is calculated. A concurrent point
+edit can change the next score projection but never changes the response or
+regrades it. Human Guidance does not require scoring generations or a
+background score-rebuild lifecycle.
 
-Required behavior:
+## Assessment Unrelease
 
-- Read responses that support mutation expose the current strong revision.
-- A mutation locks or conditionally updates the exact resource, verifies the
-  expected revision and authorization, then advances the revision once.
-- A stale request must return conflict without replacing the newer value or
-  emitting a second downstream job.
-- A repeated Question Submission returns its existing Receipt when its existing
-  Question Attempt and submitted response identify that result; a changed response conflicts.
+Unrelease locks the Assessment before deleting its Attempt roots. It verifies
+the Released state, current precondition when used, exact title confirmation,
+and equal co-Instructor authority. It commits the transition to Unreleased and
+the complete Student Work deletion together. A concurrent save or submission
+either commits first and is included in the deletion, or observes the
+unreleased/missing target and cannot recreate the work.
 
-### Publication race
+## Background operations
 
-Publication consumes one exact Draft Question Edit Number and mints an immutable
-Question Revision under the selected stable Question ID, or creates a new
-Published Question lineage when publication establishes a new Question. It
-locks the draft row, checks its source and Edit Number, checks publisher
-ownership, then writes the immutable revision facts and accepted Published
-Question metadata in the same transaction. A
-concurrent edit or a second publication request cannot silently publish a
-different draft. The publication and assignment-reference constraints are
-described in [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
+The expired-Attempt submitter and retention checker use durable targets and
+idempotent decisions. A bounded public-asset operation may also use an opaque
+lease; a stale lease cannot commit.
 
-Question Revision source is never corrected in place. A source correction
-publishes a new Question Revision; a Title or Description correction updates
-the stable Published Question metadata. Existing assignments and issued attempts retain their pinned exact
-evidence. This makes a race observable as an explicit conflict or a new
-immutable publication, never as changed historical question content.
+Job infrastructure alone does not authorize grading queues, regrading,
+recovery-state machines, generalized audit streams, snapshots, or compatibility
+work. Backend-specific deferred completion remains unresolved until a real
+backend requires it.
 
-## Attempts, submissions, and convergence
+## Cross-system writes
 
-### Attempt identity
+Database and object/provider effects cannot generally share one transaction.
+Use a narrow operation-specific order:
 
-An issued `QuestionAttemptId` binds the authenticated Student Account, exact course,
-Assignment Attempt Question Pool Item, immutable Question Revision, Question Seed, timing state, and
-grading backend. It is the primary response authority. The browser sends the
-minimal Student response; it does not choose an
-Account, Course, Question Seed, Question Backend, or Question Type. The exact browser
-boundary is [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
+1. validate authorization and record the intended exact target;
+2. perform the bounded external effect;
+3. verify the result; and
+4. atomically publish only the verified database state.
 
-### Assignment Attempt finalization convergence
+Retries must be safe for that exact target. Never use a bucket listing,
+provider response, queue message, or browser claim as target authority.
 
-Explicit Student finalization and deadline auto-submission share one evidence writer. Both lock the
-Assignment root and exact Assignment Attempt before accepting saved responses. The first successful
-finalization creates one immutable Assignment Submission and one internal Question Submission per
-answered Question. Immediate Question Backends commit their immutable normalized credit outcome in
-that submission operation.
+## Locking discipline
 
-| Situation                                                     | Required result                                                                                         | Implemented owner                                                       |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Client loses the response after explicit finalization commits | Repeating finalization returns the existing submitted state without new evidence                        | [attempt_operations.sql](../schemas/base_schema/attempt_operations.sql) |
-| Expiry sweep overlaps an explicit finalization request        | One Assignment Submission wins under the same root lock; the other path converges                       | [attempt_operations.sql](../schemas/base_schema/attempt_operations.sql) |
-| Response save overlaps finalization                           | Serialization accepts the saved value before finalization or refuses the late change after finalization | [attempt_operations.sql](../schemas/base_schema/attempt_operations.sql) |
-| Expiry finds an unanswered Question                           | Close that Question unanswered without inventing a response or result                                   | [attempt_operations.sql](../schemas/base_schema/attempt_operations.sql) |
-
-## Leases and generation fences
-
-### Worker leases
-
-Workers claim jobs through PostgreSQL with a newly generated opaque lease
-token. A complete/fail/commit operation verifies all of the following before
-making its result current:
-
-- the job is still `leased`;
-- its token equals the claimant's token;
-- its lease has not expired according to PostgreSQL time; and
-- the worker command matches the claimed job's bounded payload.
-
-A stale public-asset worker cannot complete or publish after another worker reclaims the Job.
-Public-asset process continuity may use bounded lease expiry and internal requeue, not memory held
-by an API replica. This Job rule does not describe Attempt submission, backend grading, or a
-Student/Instructor action. The fresh baseline's public-asset queue ownership is recorded in
-[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
-
-Phase 2 background execution is limited to expiry auto-submission and
-backend-specific polling. Native PLE and WeBWorK return their normalized credit
-outcome during ordinary submission. Background execution has no public grading
-state and no Student or Instructor retry action.
-
-### Completion fences
-
-When background completion is required, its lease token identifies the sole worker
-that may commit the immutable backend outcome for an accepted response. Commit
-requires the exact current lease token and unexpired PostgreSQL-time lease. A
-stale worker writes nothing. A completed outcome is terminal; no Student or
-Instructor grading-retry path exists. Scores are read-time calculations from
-stored outcomes and current point values, not a separate generation contract.
-
-### iMathAS Question Backend Sessions and Result Exchanges
-
-An iMathAS Question Backend Session is server-created and bound to the exact
-course/Student/attempt scope, expiry-bound, and revocable. Its random bearer token is stored only as a
-hash; backend state is encrypted before persistence. The browser-visible
-embed is presentation-only and cannot grade itself.
-
-An iMathAS Result Exchange is separately lease-fenced and
-indeterminate-safe. Its exact iMathAS Session and result identities bind the Assignment Attempt, Question Revision, Question Seed, and Source Object Checksum,
-iMathAS Response Checksum, backend correlation, Session identity, and Result Exchange identity before verification.
-Before an effectful backend POST, the holder must atomically prove the exact
-launch-token hash and an unexpired authoritative lease, then write the durable
-pre-dispatch marker. A crash or ambiguous outcome leaves that marker in place:
-no retry, new claim/launch, grade, finalization, or revocation may guess that
-the backend did or did not act. A valid verified outcome clears the marker
-only in the same final persistence transition. Grade retrieval is a
-structurally safe GET-only operation, never a fall-through backend action.
-Only the holder of the active lease can move it from `verifying` to `ready_to_commit`;
-a verified token then binds the final commit. `failed` records a safe failure code,
-and `cancelled` records its terminal time; neither permits a retained backend result.
-This is a deferred iMathAS Question Backend Store and adapter requirement.
-
-## Cross-system commit boundaries
-
-Object bytes and relational metadata cannot commit atomically in one database
-transaction. This section defines the race-safe commit boundary; the
-caller/operator outcome and repair actions are in
-[FAILURE_RECOVERY.md](FAILURE_RECOVERY.md), and the storage identity contract
-is [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
-
-### Current Course Banner promotion
-
-The Course Banner capability stages verified source bytes under a temporary
-non-signable identity, then prepares the source plus normalized hero and card
-objects before independent current-state promotion. Its Store binds each upload
-to one Course, Account, expiry, and Object Reference; prepared work records
-preserve consumption and cleanup state so a competing request cannot delete
-another Course's object or undo a current pointer. Promotion does not use a
-shared Course Appearance revision. An executable worker for expired uploads and
-repair-required cleanup is not yet present; the durable records retain the work
-for that missing recovery path.
-
-### Planned Object Storage Check and Repair fence
-
-The general Object Storage Check job must compare typed
-database records with bucket inventory, repair only evidence-backed
-prepare/promote/cleanup states, and record every decision. It must not treat a
-bucket listing as permission to expose, delete, or recreate an object. Until
-that package is accepted, new cross-system workflows must provide their own
-bounded recovery state and must fail closed when the relational and object
-facts disagree.
-
-## Locking and deadlock discipline
-
-PostgreSQL detects a deadlock and maps it to the bounded full-transaction retry
-above, but retry is a safety net, not an excuse for arbitrary lock order.
-
-Required ordering for a new multi-row mutation:
-
-1. Establish `AuthenticatedSession` and authorize the exact course, Student, workspace,
-   or leased operation target.
-2. Lock the highest shared owner first: Course/Assignment or Assignment Attempt, as applicable.
-3. Lock its direct child next: enrollment or assignment item.
-4. Lock attempt, receipt, candidate, or projection rows last, in stable ID or
-   assignment-position order when there is more than one.
-5. Acquire an external lease before preparation; re-check it inside the final
-   account-and-relationship-scoped transaction before publishing an effect.
-
-Existing Assignment Attempt save and finalization paths lock the Assignment root, Assignment
-Attempt, and issued Question rows before response or submission evidence. Existing scoring paths lock the assignment owner before
-staging/current projection rows. New code that needs a different order must
-document why it cannot use this hierarchy and add a focused concurrent
-behavior test. Do not hold a database row lock while making an unbounded
-network call.
+Lock the highest shared owner before its children and keep a stable order across
+operations. For Student Work, that normally means Assessment, Attempt, then
+selected Question/response rows. For Course membership, lock the Course or
+roster root before the relationship row. Keep network calls outside database
+locks when doing so does not weaken the operation's exact-target guarantee.
 
 ## Review checklist
 
-Before accepting a new mutating API, Store method, worker, or object workflow,
-verify all applicable points:
-
-- [ ] Account and exact relationship authority is reconstructed server-side inside its database
-      transaction.
-- [ ] The mutation has one durable authority and a clear conflict result.
-- [ ] Retries cover only a complete replayable transaction; external effects
-      are outside that retry or fenced by a durable receipt/lease.
-- [ ] A stale ETag, lease, generation, predecessor, or exact operation identity cannot
-      overwrite the newer result.
-- [ ] Concurrent equal requests converge on one receipt; different requests
-      conflict without destroying evidence.
-- [ ] Object bytes have a typed identity, checksum, lifecycle row, and bounded
-      recovery behavior.
-- [ ] Locks follow the documented hierarchy, and no lock is held across an
-      unbounded network dependency.
-- [ ] Memory behavior remains a conformance model; PostgreSQL remains the
-      production authority and receives a focused live/RLS oracle where needed.
-
-The durable acceptance authorities are [ROADMAP.md](ROADMAP.md) and
-[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
+For every competing write, identify the authoritative owner, precondition,
+lock order, idempotency identity, lost-response behavior, stale-work fence, and
+evidence that two real concurrent operations converge. Do not call a new enum
+or receipt a concurrency solution unless the product actually needs that
+object.

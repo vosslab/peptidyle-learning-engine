@@ -1,5 +1,10 @@
 # WP-W6 J4 visible Mastery and Exam policy contrast
 
+> **Dated implementation evidence.** This workstream records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Status
 
 **ACCEPTED.** The paired J4 policy contrast passed in the retained-volume M5

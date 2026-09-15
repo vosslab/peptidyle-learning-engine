@@ -1,6 +1,6 @@
 # Chapter 1 pilot content
 
-The first teaching set contains two assignments and eight questions total. Genetics Chapter 1
+The first teaching set contains two Assessments and eight Questions total. Genetics Chapter 1
 and Biochemistry Chapter 1 each contain exactly:
 
 - one algorithmic WeBWorK multiple-choice question;
@@ -12,10 +12,10 @@ The authoritative human-readable inventory is
 [`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml). It uses
 question slugs, titles, subject and course display names, point values, Question Types, and source paths
 rather than UUIDs. The publication seed reads that validated inventory instead of maintaining a
-second human-visible question list. The instructor UI presents one canonical `AAA-BBBB` Crockford
+second human-visible question list. The Instructor UI presents one canonical `AAAA-ZBBB` Crockford
 Question ID for each question. Server-side checksum validation and Account authorization
-resolve that exact assigned question subject to lifecycle policy; internal UUIDs and immutable
-snapshots remain hidden for grading and Question Attempt Reproduction Details.
+resolve that exact selected Question subject to lifecycle policy; internal UUIDs
+and the minimum backend/Revision evidence remain hidden.
 
 ## Source and review boundary
 
@@ -59,9 +59,8 @@ tests own Chapter One replay and grading semantics; the graph has its ordinary
 product lifecycle rather than seed-specific permanence. The local persona selector
 and throwaway storage remain confined to private bootstrap/local disposable use
 and are absent before a public gateway. Historical pilot evidence used
-`P-...-v1` references, but current instructor-facing IDs use canonical `AAA-BBBB`
-Crockford Question IDs while immutable snapshots stay internal for grading and
-Question Attempt Reproduction Details.
+`P-...-v1` references, but current Instructor-facing IDs use canonical `AAAA-ZBBB`
+Crockford Question IDs while exact Revision and backend evidence stay internal.
 
 Browser student behavior is selected only through the canonical wrapper:
 

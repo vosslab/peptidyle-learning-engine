@@ -13,6 +13,13 @@ never justifies a non-functional or presentation-only surface. Repair the
 application boundary when necessary so the capture comes from the working
 system.
 
+Screenshots and the generated atlas describe current implementation, not
+product authority. If they show generic Assignment labels, the old Product
+Ribbon, Available/Draft Blueprint states, response-level finalization, Grade
+Categories, or another conflict, [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) wins and
+the image records an implementation gap. A docs-only compliance pass does not
+rewrite image pixels or the source-owned generated atlas.
+
 ## Ownership
 
 Screenshot ownership follows the user-facing Product Role surface. Instructor,

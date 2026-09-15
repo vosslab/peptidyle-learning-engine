@@ -1,184 +1,147 @@
-# Student Work Records
+# Student Work records
 
-This document describes the current Assignment and Student Work model. The
-canonical terms and boundaries are in
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md); the human product authority
-is [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Database ownership and privilege
-boundaries are described in
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
+This document applies the current Assessment and Student Work model from
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). The canonical vocabulary is in
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
 
-PLE separates current teaching configuration from immutable Student Work.
-An Assignment is one current Course Instance-owned aggregate. An Assignment
-Attempt is one retained occurrence of that Assignment for one Student Record.
-Only Question Revision and Blueprint Revision are Revision concepts.
+PLE separates current teaching configuration from retained Student Work. A
+Course Instance Assessment is one current aggregate. An Assessment Attempt is
+one occurrence of that Assessment for one Student. Published Questions,
+published Question Pools, and Blueprint Courses have immutable Revisions;
+Student Work merely retains their exact evidence.
 
-## Assignment current state
+## Assessment current state
 
-An Assignment has a stable identity within its Course Instance and one current
-set of teaching settings:
+An Assessment has a stable identity within its Course Instance and one current
+set of teaching settings, including:
 
-- title and instructions;
-- availability, due, and close timestamps;
-- whole-Attempt limits and late-work rule;
-- completion, grade, continuation, reuse, variation, resume, display,
-  navigation, and ordering policies;
-- feedback-release settings; and
-- Assignment Status.
+- title, instructions, and Assessment Type;
+- availability and deadline values;
+- Attempt limit, late-work behavior, and feedback behavior;
+- Question ordering, navigation, display, and randomization behavior;
+- ordered fixed Questions or Question Pool selections; and
+- current point values.
 
-`Assignment Edit Number` is the qualified optimistic-concurrency value for the
-current aggregate. An accepted meaningful save advances it once. An unchanged
-save keeps it. A caller supplies the expected value for a competing save,
-release, or Unrelease operation.
+An Assessment Edit Number may protect concurrent current-state saves. It is not
+an Assessment Revision or historical snapshot.
 
-`Assignment Status` is current lifecycle state: `Unreleased`, `Released`,
-`Closed`, or `Archived`. Release is a validated state transition. A Released
-Assignment remains editable when its resulting current configuration passes
-release validation. Accepted Released Assignment edits govern future Attempts;
-they do not reinterpret an existing Attempt.
+An Assessment is Unreleased or Released. Release is explicit. A deadline may
+make a released Assessment unavailable for new work without adding Closed or
+Archived lifecycle states. Accepted edits govern future behavior and current
+score calculations as described below; they do not silently replace the exact
+Question or Pool Revision already selected for an open Attempt.
 
-An Assignment created from reusable content retains `BlueprintAssignmentSource`:
-the exact Blueprint Revision Reference and the stable Blueprint Assignment
-Reference from which it was copied. That provenance explains creation and does
-not create another Assignment Revision or restrict later current edits.
+An Assessment copied from a Blueprint Assessment may retain the exact Blueprint
+Revision and stable Blueprint Assessment reference as provenance. This does not
+create an Assessment Revision or prevent later Course-local editing.
 
-## Assignment composition
+## Assessment composition
 
-Current composition uses ordered Assignment Entries. Each entry is either:
+Each ordered Assessment position uses either:
 
-- a Fixed Question with one exact Question Revision pin; or
-- a Question Pool with a selection count, per-item points, selection-order
-  policy, and eligible Question Pool Items.
+- one exact Published Question Revision; or
+- a Question Pool selection with an exact Pool Revision and selection count.
 
-Every Question Pool Item also pins one exact Question Revision. A newer
-Question Revision never advances an Assignment Entry or pool item implicitly.
-Current entry and pool configuration is the source for a future Attempt. Its
-availability supports ordinary current authoring without changing evidence
-already issued to Students.
+Starting an Attempt records the exact Questions selected from a Pool and the
+backend state needed to render them. Later Question or Pool publication does not
+change an existing Attempt.
 
 ## Student Work hierarchy
 
 | Record | Owns or retains |
 | --- | --- |
-| Student Record | One Student Account's educational record in one Course Instance |
-| Assignment Attempt | One effective occurrence of one Assignment for that Student Record |
-| Question Pool Selection | The exact selected Pool Items for one Attempt when a pool is used |
-| Issued Question | One position, Assignment Entry, exact Question Revision, seed, and per-question evidence |
-| Question Attempt | One delivered attempt at an Issued Question |
-| Saved Response / Question Submission | The Student's retained response state and accepted submission |
-| Grading evidence | Forward-only grading state, result, receipt, and statistics observation evidence |
+| Student record | One global Student Account's FERPA-protected data in one Course Instance |
+| Assessment Attempt | One occurrence of an Assessment for that Student |
+| Question selection | Exact Question or Pool Revision evidence and fixed position |
+| Backend state | Opaque state needed to render and interpret that selected Question |
+| Saved response | The Student's replaceable complete response while the Attempt is open |
+| Finalized response evidence | The saved response retained as part of the submitted whole Assessment Attempt |
+| Credit outcome | The Question Backend's immutable credit fraction and permitted feedback |
 
-The Course Instance and Assignment establish scope. Every child is constrained
-to the same Assignment Attempt, Student Record, Course Instance, and exact
-published Question Revision relationship. PostgreSQL maintains these ownership
-relationships and row-level authorization; browser identifiers do not establish
-authority.
+Every child remains constrained to the same Student, Course Instance,
+Assessment, and Attempt. Browser identifiers do not establish those
+relationships.
 
 ## Retained Attempt evidence
 
-Starting an Attempt copies the effective Assignment facts required to interpret
-that occurrence. This includes its title and instructions; availability, due,
-and close timestamps; whole-Attempt time limit; late-work, completion,
-feedback-release, reuse, variation, ordering, navigation, display, and resume
-policies; and effective student-specific values with their accommodation source
-and Edit Number when an accommodation changed them.
+An Attempt retains only what is needed to interpret Student Work correctly:
 
-This is evidence, not an Assignment snapshot family. Current Assignment state
-continues to decide eligibility for a future Attempt. Retained Attempt facts
-decide how an existing Attempt, its timing, disclosure, scoring, and history
-are interpreted after a later current Assignment edit.
+- the Student, Course, Assessment, Attempt number, and timestamps;
+- the fixed Assessment timing that applies to that Attempt;
+- the exact Question or Pool Revision selections;
+- randomization seed or opaque backend state;
+- the Student's saved response and its whole-Attempt finalization evidence;
+- the immutable credit fraction returned by each backend; and
+- the feedback-disclosure condition that applies.
 
-An Issued Question retains the facts specific to one issued position:
+This is not an Assessment snapshot family, software-version archive, rendered
+page archive, or general replay service. Supporting implementation evidence may
+be more specific when a real backend needs it, but it may not create another
+product revision concept.
 
-- its Assignment Entry identity and issue position;
-- its exact Question Revision;
-- its Question Seed;
-- its point value, scoring rule, and statistics eligibility;
-- its pool-selection source when applicable; and
-- its presentation and reproduction binding.
+## Response and submission behavior
 
-The presentation binding retains the source and ready asset rendition selected
-for delivery. Resume and replay read that retained binding so a later asset or
-current Assignment change cannot alter an already-issued question.
+A Student can move among all Questions in an open Attempt. A complete response
+can be saved and replaced. An incomplete response is not saved as complete and
+is not graded.
 
-Question Pool Selection retains the exact selected items. The issued questions
-for that selection must match its retained item set. Reuse and variation policy
-therefore remain interpretable without consulting later current composition.
+Saving changes only the working response. The whole Assessment Attempt is
+submitted in one Student action or automatically at its deadline. That action
+finalizes all saved complete responses together; other positions remain
+unanswered. After submission, Student responses are immutable.
 
-## Delivery and grading evidence
+The Question Backend may evaluate a complete saved response early, but PLE does
+not expose a Student-visible grading outcome until the whole Attempt is
+submitted. The backend's credit fraction is immutable. Score readers multiply
+that fraction by the Assessment Question's current point value, so changing
+point values recalculates scores without regrading.
 
-`Question Attempt` records the delivery occurrence for an Issued Question,
-including server timing and its operational state. A saved response remains
-associated with that Question Attempt. An accepted Question Submission is
-immutable Student evidence. Forward-only grading records connect the accepted
-submission to its immutable credit result, receipt, and eligible anonymous
-statistics observations.
-
-Completion and grade selection use retained Attempt policy and Issued Question
-facts. Assignment Progress and the Gradebook are derived views over this
-evidence; they do not replace it. Authorized readers receive only the fields
-permitted by the retained feedback-release policy and current authorization.
-
-The trusted server, Store, and PostgreSQL issue timestamps, reference numbers,
-seeds, selection results, and grading transitions. The browser supplies
-responses and current-state preconditions, never authoritative Student Work
-facts or teaching authority.
+Human Guidance allows multiple Attempts according to Assessment policy but does
+not define which Attempt contributes to a Course grade. This model therefore
+does not impose highest, latest, first, or average selection.
 
 ## Authorization and concurrency
 
-A Student works only through the exact active Student Course Membership and
-Student Record. A Teaching Team Member acts only through a current Instructor
-Course Membership. Each protected operation verifies the relationship at the
-trusted boundary and applies the same scope inside PostgreSQL.
+A Student works only through the exact active Student Course relationship and
+Student record. Every co-Instructor has equal authority through a current
+Instructor Course relationship. The Course creator or first Instructor has no
+extra privilege.
 
-Attempt start, response save, submission, internal completion commit, and Unrelease take
-the Assignment root lock before changing Attempt-rooted Student Work. The lock
-order gives exactly one operation the next state: an in-flight worker either
-commits before Unrelease or finds no remaining target after it.
+Attempt start/resume, response save, whole-Assessment submission, automatic
+deadline submission, and Assessment Unrelease must serialize at the Assessment
+and Attempt boundary so two operations cannot create conflicting Student Work.
+The implementation may use database locks or compare-and-swap values; those are
+mechanisms, not product lifecycle states.
 
-Student Work evidence is immutable after its accepted transition. Private
-tables deny ordinary update and delete paths; narrowly owned database routines
-perform the allowed forward transitions.
+## Assessment Unrelease
 
-## Assignment Unrelease
+Unrelease is a high-consequence Instructor action. The interface requires the
+exact Assessment title as typed confirmation. The successful operation:
 
-Assignment Unrelease is the high-consequence Instructor operation that returns
-a Released Assignment to `Unreleased` current state. The Instructor confirms
-the exact title and supplies the current Assignment Edit Number. PostgreSQL
-verifies current Teaching Team authority and Released status while holding the
-Assignment root lock.
+1. verifies equal co-Instructor authority and the current Released state;
+2. changes the Assessment to Unreleased;
+3. deletes all Student Work owned by that Assessment; and
+4. preserves the Assessment definition, Course relationships, and shared
+   Published Questions and Pools.
 
-One transaction then:
+The action must be all-or-nothing. Human Guidance does not require a generic
+audit-event architecture for every action. Any retained evidence beyond the
+necessary destructive-action result must be justified by the security or
+support boundary, not invented here.
 
-1. counts affected Assignment Attempts, Question Submissions, Assignment
-   Submissions, and Grading Results for the result and audit evidence;
-2. changes Assignment Status to `Unreleased` and advances the Assignment Edit
-   Number;
-3. deletes the Assignment Attempt roots; their owned Student Work closure
-   follows constrained cascades;
-4. rebuilds statistics for the affected exact Question Revisions from surviving
-   observation receipts; and
-5. records one immutable, redacted audit event with the actor, Assignment,
-   aggregate counts, outcome, and time.
+## Retention
 
-The closure includes Attempt-rooted issued questions, pool selections, question
-attempts, saved responses, submissions, delivery and presentation bindings,
-grading results, receipts, correction links, and statistics
-observations. It preserves the Assignment's current entries, shared Question
-Revisions, shared assets, Course relationships, and the redacted Unrelease
-event. The dedicated no-login database executor owns the guarded destructive
-routine; application and worker roles do not receive general deletion
-authority.
-
-An Unrelease precondition failure leaves Assignment Status, Assignment Edit
-Number, Student Work, statistics, and audit evidence unchanged.
+Student Work follows the Course retention clock. Removing or deactivating the
+Student's Course access does not delete the global Account or Student Work. See
+[RETENTION_POLICY.md](RETENTION_POLICY.md) for notice, archive, recovery-period,
+and permanent-deletion rules.
 
 ## Related boundaries
 
-- [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) maps the end-to-end
-  assessment path.
+- [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) maps the end-to-end path.
 - [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines the
-  answer-safe Student transport boundary.
-- [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md) explains the
-  teaching rationale for configurable completion and practice.
-- [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) describes the implemented
-  PostgreSQL catalog and installation lifecycle.
+  Student transport boundary.
+- [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) defines opaque
+  backend ownership and credit fractions.
+- [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) describes the database
+  enforcement boundary.

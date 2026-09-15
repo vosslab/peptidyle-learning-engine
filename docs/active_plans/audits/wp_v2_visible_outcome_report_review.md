@@ -1,5 +1,10 @@
 # WP-V2 visible-outcome report review
 
+> **Dated implementation evidence.** This review records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Supersession addendum
 
 This review remains accepted evidence for its bounded schema-v1 J1 report. It

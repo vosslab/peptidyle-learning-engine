@@ -124,7 +124,7 @@ The manifest receives the publisher's exact Question Revision references.
 The default local stack runs `provision` for a fresh database. Start with
 `--without-live-demo` to opt out before provisioning. Re-running `apply`
 converges on the same ordinary Accounts, Authoring Workspace, Blueprint,
-Course, roster, and released Assignment. See
+Course, roster, and released Assessment. See
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
 [schemas/installation_data/README.md](../schemas/installation_data/README.md).
 
@@ -233,7 +233,7 @@ Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, gateway, private standalone WeBWorK PG renderer, and one internal worker
 Service Identity. The generic expiry worker shares the ordinary Attempt evaluator
 and runs a 60-second sweep. It reads immutable source only through S3 and the
-private WeBWorK renderer boundary; iMathAS keeps its separate session and receipt
+private WeBWorK renderer boundary; iMathAS keeps its separate session and result-verification
 boundary. This exposes no grading lifecycle:
 
 ```bash

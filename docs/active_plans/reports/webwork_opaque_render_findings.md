@@ -1,5 +1,10 @@
 # WeBWorK opaque render findings
 
+> **Dated implementation evidence.** This report records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Scope
 
 This is one-time connected evidence for the opaque WeBWorK boundary. It is not

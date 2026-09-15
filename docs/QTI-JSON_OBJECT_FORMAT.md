@@ -110,12 +110,12 @@ inside one strict `response` object. The common top-level members are
 `format`, `questionTitle`, `questionDescription`, `prompt`, `response`, optional
 `feedback`, optional `questionHint`, optional `tags`, optional `questionLicense`, optional
 `questionCitation`, and `language`. Unknown and duplicate members are refused at every level. Points,
-Question Attempt Limit, and Question Attempt Time Limit are not PLE Question JSON source members:
-the exact Assignment Entry owns points and those controls. An Assignment Attempt retains its
-effective policy facts, and each Issued Question retains the exact Assignment Entry, Question
-Revision, seed, and presentation evidence needed to interpret Student Work after an Assignment
-changes. Student Feedback Release remains Assignment-owned through the independent six-field
-`StudentFeedbackReleaseRule`.
+Assessment Attempt Limit and Assessment Attempt Time Limit are not PLE Question JSON source members:
+the exact Assessment Question owns points and the Assessment owns those controls. An Assessment Attempt retains its
+effective policy facts, and each selected Question retains the exact Assessment
+position, Question Revision, seed or opaque backend state, and presentation
+evidence needed to interpret Student Work after an Assessment changes. Feedback
+disclosure remains Assessment-owned and independently configurable.
 
 The eight exact response shapes are:
 
@@ -194,7 +194,7 @@ answer-bearing PLE JSON
  PLE Question Backend
        /        \
       v          v
-Question         Grading Result and optional
+Question         Credit fraction and optional
 Presentation     protected teaching content
 ```
 
@@ -217,8 +217,8 @@ validation succeeds.
 
 Publication turns one validated Draft into the ordinary Published Question
 model; PLE Question JSON has no separate QTI-shaped persistence model. A new
-lineage receives a server-minted compact seven-character Crockford Base32
-Question ID. Its browser-facing form is grouped as `AAA-BBBB`; the hyphen is
+lineage receives a server-minted compact eight-character Crockford Base32
+Question ID. Its browser-facing form is grouped as `AAAA-ZBBB`; the hyphen is
 presentation only. A later publication keeps that same lineage ID and creates
 the next exact Question Revision.
 
@@ -267,7 +267,8 @@ The native codec currently enforces these bounds:
   digits, `_`, or `-`, are unique, and are at most 64 bytes;
 - Question Prompt, choice, Question Title, tag, language, and Question License text is nonblank and bounded;
 - Choice, Correct, and Incorrect Feedback is optional; when present, it is nonblank and bounded;
-- Assignment Entry validates points and attempt/time controls outside this source contract.
+- The Assessment Question validates points and the Assessment validates Attempt
+  and timing controls outside this source contract.
 
 The current contract additionally enforces exact Question-Type-specific bindings: accepted text
 answers are nonempty and unique; multi-blank IDs and answers are complete;
@@ -278,8 +279,8 @@ region subsets are complete and internally consistent.
 
 Choice Feedback is selected for the submitted choice. Correct or Incorrect
 Feedback is appended according to the server-derived grade. The
-assignment-owned Student Feedback Release Rule decides whether and when the
-Student receives that teaching content.
+Assessment-owned disclosure settings decide whether and when the Student
+receives that teaching content.
 
 Canonicalization preserves choice order because order is authored behavior.
 Whitespace and JSON object-member order do not change the canonical checksum.

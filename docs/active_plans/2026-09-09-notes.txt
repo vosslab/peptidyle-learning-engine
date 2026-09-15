@@ -1,3 +1,7 @@
+HISTORICAL SOURCE NOTES. These notes predate the current Assessment vocabulary,
+Product Ribbon, Profile menu, and grading boundaries. HUMAN_GUIDANCE.md is the
+current authority; conflicting ideas below are preserved only as dated input.
+
 The main organizing rule I used is: **student sections describe what students see and do; instructor sections describe what instructors see, do, or configure.** That avoids mixing configuration controls into the student-interface design.
 
 # Student Interface
@@ -212,4 +216,3 @@ Time limit
 
 10 minutes
 Automatic submission
-

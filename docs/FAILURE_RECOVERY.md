@@ -1,286 +1,120 @@
 # Failure and recovery contract
 
-PLE has intentionally small, stateless API replicas, but its correctness does not depend on a
-request reaching the same process twice. This document tells a student, browser,
-or operator whether to retry, reload, stop, or require repair after an outcome
-is known or becomes uncertain. It deliberately does not repeat the transaction,
-compare-and-swap, lease, generation, object, or cache mechanics that make an
-outcome safe; those belong to [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md)
-and [STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md).
+PLE preserves authoritative state and gives the user a bounded next action.
+Failure handling does not create a second product lifecycle. Current product
+meaning comes from [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
 
-It describes implemented code-bound behavior and labels planned operational work. It does not
-claim automatic failover, a recovery objective, managed point-in-time recovery, or production high
-availability. Those require the release evidence defined by
-[ROADMAP.md](ROADMAP.md) and [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
+## Outcome rule
 
-The canonical live-demo browser path uses these same ordinary application contracts. Its seeded
-people and records are fictional live data, and regeneration is a disposable reset; it is not a
-second recovery or product path.
+Every effectful request ends in one of three conditions:
 
-## Authority status
+| Condition | Meaning | Client behavior |
+| --- | --- | --- |
+| Committed | The durable effect is known to exist | Show current state; a replay returns the same outcome |
+| Rejected | Authorization, validation, lifecycle, or stale-state rules refused the effect | Correct the visible issue or reload before another attempt |
+| Indeterminate | An external effect may have happened but was not safely confirmed | Reconcile the exact operation identity before retrying |
 
-**Current authority.** Route-safe errors, Assignment Attempt save/finalization receipts,
-policy-permitted completed results, no-store responses, and bounded private-backend failures determine
-the current caller-visible outcomes described below.
+Do not report success before the authoritative commit. Do not invent a result
+from a timeout, provider error, missing cache entry, or worker message.
 
-**Required for new work.** Each capability must classify failures as committed,
-rejected, retryable, or indeterminate; preserve enough durable evidence to
-resolve an indeterminate request; and define the safe student/operator action.
-Its race-safety mechanism is specified separately in
-[CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).
+## Request errors
 
-**Planned boundaries.** Question Presentation Checksum recovery awaits its accepted
-payload migration; Object Storage Checks remain planned; managed point-in-time
-recovery and production failover remain deployment work. None is current
-automatic recovery behavior.
+- Authentication failure does not reveal a protected target.
+- Authorization failure for a foreign Student or Course record is
+  non-enumerating where appropriate.
+- Invalid or unknown input is rejected before mutation.
+- A stale Edit Number or lifecycle precondition conflicts and requires reload.
+- A retryable database abort retries only the complete idempotent owner
+  operation.
+- A dependency outage preserves input/evidence and returns a bounded unavailable
+  state; it does not count as an incorrect Student answer.
 
-## Recovery rule
+Error responses containing protected context use `no-store` and omit Answer
+Keys, responses, grades, backend state, credentials, object paths, and raw
+provider output.
 
-Every state-changing path falls into one of four outcomes:
+## Assessment Attempt recovery
 
-| Outcome       | Meaning                                                                                                   | Caller behavior                                                                                                   |
-| ------------- | --------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Committed     | The requested durable effect is known to be visible.                                                      | Show the returned receipt or current Assignment Attempt Summary.                                                  |
-| Rejected      | Validation, authorization, lifecycle, or immutable-state rules refused the request before a valid effect. | Do not retry unchanged automatically; correct the visible condition or reload.                                    |
-| Retryable     | A dependency or serializable transaction was unavailable before a known commit.                           | Retry only through the operation's documented record/revision/Receipt or lease boundary.                          |
-| Indeterminate | The client lost contact while a commit might have happened.                                               | Preserve the request identity, query/retry through its durable receipt, and never create a second logical action. |
+The Student saves complete Question responses while the Assessment Attempt is
+open. A lost save response can be retried against the same Attempt and Question
+position. Reload restores only responses the server actually saved.
 
-The application must never turn an indeterminate result into a new attempt, seed, response,
-worker effect, object identity, or user-visible grade. Nor may it replace an integrity failure with
-best-effort data. PLE either reconstructs the exact durable state or fails closed.
+The Student submits the whole Assessment Attempt. Explicit submission and
+automatic deadline submission converge on one submitted Attempt and finalize
+the same saved responses. A lost success response is recovered by
+reading or repeating that same Attempt transition.
 
-## Imperfect-data recovery
+If the browser remains disconnected through the deadline, the server submits
+the whole Attempt, finalizes the complete responses saved before expiry, and
+leaves other positions unanswered. This ordinary deadline behavior is the
+Assessment recovery path;
+there is no separate Student-visible recovery state machine.
 
-The four outcomes above remain the classification for every state-changing path. The following
-rules determine how PLE keeps unaffected work available when a specific item is imperfect:
+## Question Backend failure
 
-- **Salvageable:** Normalize or reconstruct only from authoritative facts. Preserve original
-  evidence when needed, and never guess identity, Product Role, authority, credential state, or a
-  committed outcome.
-- **Clean retry:** Discard only ephemeral attempt state and repeat the same logical operation.
-  Preserve durable operation identity where an earlier commit may exist.
-- **Irrecoverable item:** Quarantine, revoke, or omit that exact item and continue the batch,
-  page, demo, or unrelated capability.
-- **Security-sensitive loss:** Fail the affected credential or operation closed while keeping
-  unrelated Accounts, personas, routes, and services available.
-- **Disposable Live Demo data:** Its owner may perform one clean, owner-scoped regeneration when
-  corrupt disposable state could explain the result. A repeated deterministic failure becomes a
-  reported defect or deferred capability rather than an endless reset loop.
-- **Persistent or production-like data:** Never delete or recreate it merely to make a gate pass.
+The backend owns rendering, response interpretation, grading, feedback, and
+opaque state. PLE preserves the response and exact backend binding when an
+operation fails. It never converts unavailability to zero credit or lets the
+browser grade.
 
-## Error and HTTP boundary
-
-`StoreError` is deliberately backend-neutral. It classifies a persistence
-result; it is not a browser error schema and does not authorize exposing its
-attached diagnostic text.
-
-| Store result                                 | Durable meaning                                                                                                                | Normal recovery                                                                                                                  |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `NotFound`                                   | No visible record exists in the active scope.                                                                                  | Treat as absent; routes may also use it to conceal a foreign record.                                                             |
-| `AlreadyExists`                              | Immutable identity or first-writer boundary already exists.                                                                    | Resolve the existing immutable record only when the operation defines exact replay. Otherwise reload.                            |
-| `Forbidden`                                  | Caller context lacks the required Account relationship, course/Student ownership, workspace relationship, capability, or role. | Stop. Preserve concealment of a foreign Account's record.                                                                        |
-| `Conflict`                                   | A compare-and-swap, lifecycle, or immutable-state precondition changed.                                                        | Reload the authoritative Student Question Attempt View or Assignment Attempt Summary and ask the user to review before retrying. |
-| `RetryableTransaction`                       | PostgreSQL aborted the whole serializable/deadlock transaction.                                                                | Retry only at the owner-defined transaction boundary with its exact operation facts.                                             |
-| `TimedOut`                                   | The database-authoritative attempt deadline already passed.                                                                    | Stop the submission path and reload the current attempt or summary.                                                              |
-| `InvalidRecord` or Assignment Activity Rules | Trusted code or accepted wire data violated an Assignment policy rule.                                                         | Do not retry unchanged; return the bounded, route-approved validation message.                                                   |
-| `Unavailable`                                | A bounded dependency is unavailable.                                                                                           | Preserve input and retry the same logical operation after recovery.                                                              |
-| `LeaseLost`                                  | A background worker no longer owns the exact lease token it claimed.                                                           | Write nothing, log the bounded category, and continue; lease expiry may make the unfinished internal operation eligible again.   |
-
-HTTP routes project this classification narrowly. For example,
-The deferred Assignment Attempt route maps a missing attempt record to `404`, an Assignment Attempt conflict
-or expired attempt to `409`, malformed accepted input to `422`, and storage or backend
-unavailability to `503`. It sends `Cache-Control: no-store` error responses. Other routes may use
-different public wording or concealment. In particular, a Student-owned Assignment Attempt lookup returns not
-found for a nonowner rather than confirming that the attempt exists. A new route must copy the
-relevant boundary's concealment rule instead of exposing a raw `StoreError` or making one global
-status mapping.
-
-Browser errors contain a stable short message only. They never contain SQL, Object Addresses, bucket
-names, signed URLs, checksums not already public, Account or course identities, leases, renderer/provider
-state, source archives, answer keys, or raw backend errors.
-
-## Assignment Attempt auto-submission and request replay
-
-The durable attempt is the authority for student, course, assignment, question revision, seed,
-timing, and grading backend. Autosave preserves responses and reconnecting resumes the same active
-Attempt. Recovery is the server automatically submitting the saved responses at expiry and closing
-Questions without a saved response as unanswered. A replica reconstructs that state from
-PostgreSQL; the browser cannot resolve an uncertain submission by issuing a different attempt.
-
-- The exact Question Attempt is the response identity. Whole-Attempt Student submission and
-  deadline finalization converge on one accepted response per answered Question.
-- While the Attempt is active, saving a position persists its latest valid response. If a save loses
-  connectivity, the browser keeps the visible response and may repeat that position save after
-  reconnecting while server-owned time remains.
-- Whole-Attempt Student submission and deadline auto-submission create immutable Question
-  Submissions for successfully saved responses. Questions without a saved response close unanswered.
-  Replaying finalization returns the same submitted state and never creates another result.
-- A Question Backend that completes immediately returns its immutable normalized credit fraction and
-  receipt in the ordinary submission operation. A backend-specific internal completion path may
-  poll when the backend requires it; authorized readers derive policy-redacted Student Feedback from
-  immutable evidence without contacting the backend again.
-- If the deadline has elapsed, the Store refuses later response changes. The background expiry path
-  finalizes the durable saved state when no Student request exists; client clocks never extend a
-  deadline.
-- A returned conflict means the student must reload the durable state. This is particularly
-  important after another tab, a timed auto-submit, or an instructor policy change changes the
-  attempt lifecycle.
-
-The Assignment Attempt contract in [API_CONTRACTS.md](API_CONTRACTS.md) keeps the response body
-browser-safe while the server resolves the retained Question Attempt evidence. PLE does not treat
-Question Attempt Reproduction Details as client authority.
+Human Guidance does not define a public pending-grading status, Instructor
+Retry button, regrading operation, mutable result, or generic grading worker.
+If a real backend cannot return its immutable credit fraction in the ordinary
+operation, the required internal continuation and its failure semantics remain
+a backend-specific unresolved design until explicitly accepted.
 
 ## Replica and cache continuity
 
-API replicas have no correctness-bearing process memory. The shared PostgreSQL session store,
-authenticated Account context, Assignment Attempts, saved responses, Question Submissions, and
-shared S3-compatible object store allow a surviving replica to resume an authorized active Attempt
-or read its accepted state. The exact topology and evidence are in
-[MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md).
+API replicas carry no correctness-bearing process memory. PostgreSQL, typed
+object storage, and the responsible backend boundary hold durable state. A
+surviving replica can resume an authorized open Attempt from those authorities.
 
-- A gateway removes an unready API replica from rotation. A replica's readiness checks database
-  schema compatibility and object-store bucket access, not optional question-backend reachability.
-- A PLE Question, course read, or authentication request can continue when an optional private
-  renderer is down. The renderer-backed question itself returns a bounded `503`; PLE does not
-  pretend it graded or substitute another question.
-- A process crash after an Attempt save or finalization is handled by reading durable state. A
-  process crash before commit leaves no accepted write and the normal owner may repeat the request.
-- Immutable render and asset caches accelerate delivery but are never correctness authority. Cache
-  keys bind immutable version and seed; entries contain only safe public render data. A miss may
-  rerender privately. A reproduction, Question Attempt Reproduction Details, or checksum disagreement fails closed rather
-  than serving a near match.
+Cache misses rerender or refetch only through the authorized owner. Cache
+mismatches fail closed. A cache never supplies Student ownership, saved-work
+truth, submission state, timing, credit, or feedback policy.
 
-## Background completion
+## Object and provider effects
 
-Background execution is limited to automatic submission of expired Attempts and
-backend-specific completion polling. It has no public grading state, attention count,
-or user retry control. A stale worker writes no result. Dependency failure preserves
-saved work while an Attempt remains active; an expired Attempt remains closed to edits
-until ordinary submission can complete. Internal diagnostics expose only bounded error
-categories to the Sysadmin who can repair the dependency.
+For an effect outside PostgreSQL, record and verify the exact target rather than
+assuming a timeout means success or failure. Publish the database-visible state
+only after the effect is verified. A retry is scoped to that same target and is
+safe if it repeats.
 
-Workers log only `StoreError` categories and aggregate pass counts. Diagnostics
-must not serialize a raw error object because it may contain identifiers or
-dependency-specific text.
+Generic object cleanup cannot become authority to delete Student records.
+Assessment Unrelease and Course retention own their exact deletion boundaries.
 
-## Effectful iMathAS Question Backend dispatch
+## Retention failure
 
-An iMathAS Question Backend can receive an effectful POST after PLE has sent
-bytes but before PLE receives a valid response. Retrying that request as though
-nothing happened could duplicate an upstream action or make PLE and the
-backend disagree about the attempt. The iMathAS Question Backend activity lease therefore
-uses a durable pre-dispatch fence:
+The retention process checks the stored final Assessment deadline and later
+Student activity, sends required Instructor notice, removes FERPA-protected
+records from normal interfaces, keeps them recoverable during the retention
+period, and permanently deletes them at expiry.
 
-1. while the exact activity lease is still valid, PLE atomically records an
-   indeterminate marker bound to the lease-token hash before the backend POST;
-2. it sends the one server-built backend request; and
-3. it clears that exact marker only after a valid, accepted response has been
-   processed.
+Each pass is idempotent. A partial failure must not advance the reported stage
+past completed work, shorten the clock, duplicate material notices, or expose
+archived records in ordinary interfaces. Exact job/event/receipt machinery is
+an implementation choice, not a required product model.
 
-A timeout, transport error, malformed response, process crash, or lease-loss
-after step 1 leaves the marker in place. Reclaim, relaunch, grade finalization,
-and normal revocation reject that attempt rather than issuing another effectful
-backend POST. The browser receives bounded unavailable/conflict behavior and
-must not auto-retry with a new launch. This is deliberately conservative: it
-preserves at-most-once local dispatch rather than guessing whether the external
-side effect occurred.
+## Restore and schema refusal
 
-The marker is durable evidence, not an automatic recovery protocol. Resolving
-an indeterminate iMathAS Result requires an authorized operator procedure and
-backend-specific evidence that can establish the outcome without replaying
-the POST. Until such a procedure is designed and tested for a backend, the
-attempt remains fenced. Read-only grade/result retrieval must remain
-structurally side-effect-free; it may not be used as a hidden dispatch retry.
+A restored database or object set is accepted only after structural,
+authorization, integrity, and release compatibility checks succeed. Restoration
+does not bypass retention or revive permanently deleted Student records.
 
-## Object and provider outcomes
+An incompatible schema fails startup clearly. Do not add an undocumented
+compatibility layer that silently changes product meaning.
 
-Typed object storage is bytes-first and checksum-verified. Its authoritative
-identity and cross-system state rules are in
-[STORAGE_CONSISTENCY.md](STORAGE_CONSISTENCY.md) and
-[OBJECT_STORAGE.md](OBJECT_STORAGE.md). This table states recovery actions,
-not object commit mechanics.
+## Diagnostics
 
-| Condition                                    | Required behavior                                                                           |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Immutable put finds exact existing bytes     | The owner may reuse it only where its transaction contract explicitly defines exact replay. |
-| Immutable put finds different existing bytes | Refuse; never overwrite or reinterpret the key.                                             |
-| Read is missing or checksum mismatches       | Fail closed, withhold delivery or grading input, retain the database evidence, and alert.   |
-| Database record exists but bytes do not      | Treat as a broken reference, not as a reason to delete the record or return a substitute.   |
-| Bytes exist without a database record        | Treat as an orphan; do not serve it.                                                        |
-| Object-store dependency is unavailable       | Return bounded unavailable behavior and leave durable metadata/leases recoverable.          |
-
-Object Storage Checks are planned, not implemented. Until that capability
-is accepted, operators preserve the evidence and repair the backing store;
-application code must not silently delete mismatched records.
-
-Private iMathAS and WeBWorK communication is a question-local dependency. It uses bounded private
-transport and server-held credentials. A timeout or outage returns a safe `503` for the affected
-question, does not put credentials or source in browser diagnostics, and does not make API
-readiness fail for unrelated native work. Effectful external activity follows the pre-dispatch
-fence above rather than an automatic POST retry. The adapter cache and reproducibility rules are
-defined in [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md).
-
-## Schema refusal and restore
-
-Application startup verifies the embedded SQLx epoch through a restricted migration-state
-projection. `Pending`, `Modified`, `Dirty`, unknown, or unavailable migration state does not become
-an application write. The API reports safe dependency/schema state through readiness and workers
-refuse schema-incompatible draining. Migration code and the operator-only status/migrate/verify
-commands are in [postgres/migrations.rs](../crates/learning-data-access/src/postgres/migrations.rs)
-and [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#fresh-migration-epoch).
-
-- Applied migration files are immutable. Repair uses a forward migration or a deliberate recovery
-  procedure; it never edits a checksum already recorded in a durable database.
-- An incompatible or dirty ledger is an operator incident. Do not fabricate SQLx ledger rows,
-  disable verification, or route traffic around the readiness boundary.
-- PostgreSQL-major changes preserve the old volume, restore into a new clean cluster, verify the
-  migration ledger, logical data, roles/grants/RLS, application writes, and protected database-function calls, then
-  retain the old volume until recovery is accepted. See
-  [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
-- A local logical restore exercise is evidence for local recovery only. Managed point-in-time
-  recovery, backup retention, KMS, numerical recovery objectives, and production failover remain
-  deployment work.
-
-Any connected validation of backup, restore, deletion, migration, or fault behavior is a dated
-disposable exercise, recovery drill, or controlled fault injection against fictional live-demo
-data. Such exercises do not claim that the corresponding production operation is deployed.
-
-## Diagnostic minimization
-
-Recovery needs enough evidence to classify an operation, but diagnostics are not a second
-browser-facing data channel.
-
-- Browser responses may contain a status, a short stable message, and a route-safe identifier
-  already visible to the caller. They never contain Object Addresses, buckets, manifests, signed URLs,
-  leases, provider payloads, source bytes, answer keys, raw responses, SQL, credentials, or a
-  foreign Account's course, Student, workspace, or record existence.
-- Durable audit and access records remain course/Student-owned and retention-bound. Store the minimum
-  operation identity, authenticated Account, exact target scope, reason category, and time needed for investigation.
-- Worker and server logs use stable error categories such as `unavailable` or `conflict`; attach
-  protected correlation data only in the authorized operator boundary and never copy it into an
-  HTTP response.
-- Before adding a diagnostic field, decide whether it is necessary to recover a correct durable
-  state. If not, omit it. A Checksum, such as a Question Presentation Checksum, supports consistency diagnosis; it is
-  not authentication, transport security, or permission to reveal protected content.
+Diagnostics identify the operation class, safe correlation, time, and bounded
+failure category. They exclude credentials, private source, answers, Student
+responses, grades, raw backend payloads, and FERPA-linked exports. Operational
+logs have their own bounded retention and never serve as an undeclared Student
+record archive.
 
 ## Change checklist
 
-A new mutation, worker, cache, backend, or storage capability must state its recovery boundary
-before implementation:
-
-1. Specify which failures reject, retry, remain indeterminate, or fail closed.
-2. Define the public status, preserved student input, and concealment rule separately from
-   internal errors.
-3. State how an indeterminate request finds its existing durable outcome; link the atomicity
-   mechanism to [CONCURRENCY_CONTRACTS.md](CONCURRENCY_CONTRACTS.md).
-4. State when a cache or provider result must be discarded and reloaded from the
-   durable authority.
-5. Define the operator escalation boundary for missing, mismatched, or unavailable dependencies.
-6. Add behavior-focused tests for the recovery path only when it is stable, deterministic, and
-   meaningful under [PYTEST_STYLE.md](PYTEST_STYLE.md). Use disposable live checks for real
-   migrations, RLS, object stores, containers, or replica recovery rather than turning those
-   environment probes into fragile permanent tests.
-
-The active implementation and release plans remain the source of truth for package order and
-acceptance. This document makes their failure behavior easier to find; it does not authorize a
-feature before its work package is accepted.
+For a new failure path, identify the authoritative state, how the caller learns
+whether it committed, the safe retry identity, what is preserved, what the user
+sees, and which real boundary test proves it. Add recovery machinery only for a
+demonstrated failure mode.

@@ -1,80 +1,69 @@
-# PLE interface design review: historical visual reference
+# PLE interface design review
 
 ## Outcome
 
-This historical review describes the intended interface as one teaching product rather than a
-sequence of bordered components. Its retained visual references use the desktop 16:10 workspace at
-1280 by 800 CSS pixels for Instructor and Sysadmin work, an adaptable reading-and-response flow for
-Student work, and course themes that retain their palette identity. Student profiles remain variable
-across the maintained laptop, tablet, iPhone Pro aspect, and square profiles. Increased contrast is
-an optional account presentation preference rather than the visual default.
+PLE presents one teaching product with stable page geometry, role-specific
+workspaces, honest empty states, and visible keyboard-operable actions.
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) is the interface authority;
+[UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md) provides the working design contract.
 
-It is not evidence of the current built-app teaching workflow. The connected Live Demo now runs the
-real role-owned application surfaces described in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md); the
-screenshots named below remain historical references and do not replace its current browser or
-manifest-owned visual evidence.
+Older screenshots, routes, and mockups remain evidence about a previous build.
+They do not preserve old Product Ribbon tabs, generic Assignment terminology,
+Blueprint draft/publication states, Grade Categories, response-level
+finalization, or Instructor grading operations.
 
-This review implements [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md). It changes presentation and human
-navigation, not course content, grading, answer secrecy, course authorization, assignment behavior,
-or learning semantics.
+## Current findings
 
-## Page-level findings and resolution
+| Area | Current resolution |
+| --- | --- |
+| Global shell | Keep stable Ribbon, Context Row, Task Row when applicable, breadcrumbs, page heading, and content geometry. Sign Out belongs in the Profile menu. |
+| Instructor primary navigation | Courses, Questions, and Assessments. Do not split Question Library or Blueprint Courses into competing primary tabs. |
+| Course tasks | My Blueprint Courses, My Active Courses, My Inactive Courses, and Search Public Blueprint Courses. |
+| Question tasks | My Questions, My Draft Questions, Starred, Watched, Search Question Library, and Browse Question Library. Search and Browse remain distinct actions. |
+| Assessment tasks | Assessments Due Soon and My Assessment Templates. |
+| Assessment editor | Use Assessment Question Editor for composition and Assessment Properties Editor for settings. An Edit Number is not a Revision. |
+| Student work | Use Coursework collectively and the specific Assessment Type for an item. Present one Question at a time with navigation to all Questions and saved status. |
+| Submission | Save complete responses without grading disclosure; submit the whole Assessment with one clear action. |
+| Empty collections | Keep required backed destinations visible and explain how to create the first item. Do not offer unavailable future controls as usable. |
+| Student View | Keep Instructor identity and authority; show an answer-free preview and create no Student Work. |
+| Gradebook and roster | Show only authorized Course data; all current co-Instructors are equal. Human Guidance does not define weighted Grade Categories or a Course Grade Scheme. |
+| High-consequence actions | Put Assessment Unrelease, Published Question Archive, and Blueprint Course Archive in a Danger Zone. Unrelease requires the typed Assessment title; archive actions explain their effect and require clear confirmation. |
+| Responsive layout | Preserve hierarchy, reading order, keyboard access, and visible saved/submission state without horizontal page overflow. |
 
-Every row below records a historical intended resolution and a historical visual or test reference.
-Current functionality and visual evidence are governed by the Live Demo specification and the
-Screenshot Contract rather than these historical references.
+## Assessment Type appearance
 
-| Area                                | Historical design resolution                                                                                                                                                                                                                                                                                                                                                                                                                                               | Historical reference                                                                          |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Global shell and hierarchy          | Uses Courses as the instructor home workspace rather than a duplicative Dashboard dropdown; presents the ordered Product Ribbon: Courses, Question Library, Blueprint Courses, and Account; keeps current invitations visible; reduces page-title scale and permanent explanatory noise; removes the slogan footer; and separates global, course, and page navigation by composition and active state.                                                                     | Current [Screenshot atlas](SCREENSHOT_ATLAS.md) and Ribbon coverage ledger                    |
-| Assignment workspace                | Selecting an assignment title opens its Overview. Questions and Policies are separate pages with focused controls, compact rows, bounded Question Search Results, and a visible save action; Student view provides a stable-identity, answer-free inspection.                                                                                                                                                                                                              | T6 workspace behavior tests and the 1280 by 800 geometry contract                             |
-| Question reuse                      | Favors whole-assignment copy and an existing-assignment checklist; direct `AAA-BBBB` Question ID entry remains a recovery and communication path. No public version or UUID is required.                                                                                                                                                                                                                                                                                   | Questions-page keyboard and reuse tests                                                       |
-| Question Library                    | Uses All Questions, My Questions, My Question Drafts, Starred, and Watched as distinct intended interface Tasks. All Questions and My Questions query Published Questions; My Question Drafts is a future unbacked destination intended for isolated private authoring storage. It allocates the useful screen width to Question Search, facets, and results. The result viewport grows with loaded rows up to a shared cap instead of leaving a large empty bordered box. | Current atlas Question Library workflow and the full-width/few-row geometry contract          |
-| Gradebook and roster                | Presents student names, keeps the compact summary table primary, and loads one composed Assignment Attempt history panel only on request. UUIDs remain internal.                                                                                                                                                                                                                                                                                                           | Current atlas Gradebook and roster workflows; one-request and lazy-history tests              |
-| Course identity                     | Preserves all 15 stored palettes, uses the full canvas anchor for the course environment, gives tinted work/group/card surfaces distinct roles, and uses the raw secondary plus accent anchors for active course navigation and identity rails. The chooser previews the applied system instead of reducing each theme to tiny swatches or an unrelated banner.                                                                                                            | Generated theme contact sheet; only a dedicated Course Appearance capture remains deferred in the current atlas ledger |
-| Student question                    | Keeps timer, prompt, figures, response, status, and actions in one visual sequence. Choices are compact grouped rows rather than independent heavy cards.                                                                                                                                                                                                                                                                                                                  | Current atlas Question progression and responsive captures                                    |
-| Optional accessibility presentation | Standard is the default. Increased contrast changes text, focus, and boundary tokens while retaining the course canvas and hue anchors. Forced colors remains an independent platform mode.                                                                                                                                                                                                                                                                                | Shared theme and forced-colors browser contracts                                              |
+The five Types are Regular Assignment, Practice Question Assignment, Bonus
+Assignment, Quiz, and Exam. Assignment is not the generic product noun. Type
+appearance can help scanning but must preserve text labels and contrast.
 
-Historical instructor screenshot references are collected in
-[INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md). Generated design artifacts remain under
-`generated/ui/ui_design/` and `generated/ui/course_appearance/`, including the theme contact sheet
-and measured `palette_metrics.json` report; neither replaces fresh browser acceptance evidence.
+## Historical visual evidence
 
-In the historical design, Student view keeps the Instructor account and course authority in place
-while presenting an answer-free student landing. It is an inspection surface, not an Assignment
-Attempt. The current connected delivery and Gradebook workflows have their own role-gated contracts;
-these historical references do not describe or validate them.
+[SCREENSHOT_ATLAS.md](SCREENSHOT_ATLAS.md) groups the current captured files,
+many of which still show older implementation terminology. The atlas must label
+those discrepancies. [INSTRUCTOR_PAGE_VISUALS.md](INSTRUCTOR_PAGE_VISUALS.md)
+and [STUDENT_PAGE_VISUALS.md](STUDENT_PAGE_VISUALS.md) explain how to interpret
+historical captures.
 
-## Historical measured visual contract
+Pixels do not prove authorization, submission semantics, grading secrecy, or
+backend ownership. Those need behavior evidence. A screenshot becomes current
+visual evidence only after fresh capture at the required viewport and human
+review.
 
-- Standard course body, supporting, link, and card text measures from 5.50:1 through 7.92:1 across
-  all 15 themes. The design-system guard requires at least 5.5:1 and caps shared ordinary standard
-  text at 8.25:1.
-- Standard action, hover, and active-course-navigation text measures from 5.64:1 through 9.30:1.
-  Saturated action colors are
-  not lightened merely to match the ordinary-text ceiling.
-- Increased contrast intentionally has no upper contrast ceiling. It retains the selected theme's
-  canvas, secondary, and accent anchors.
-- Focus remains attached to the focused control. Standard mode uses the modest shared indicator;
-  increased contrast strengthens it, and forced-colors yields to the browser palette.
-- The 1280 by 800 library controls and result surface each exceed 1,100 CSS pixels of useful width.
-  Student targets at 800 by 1280 and 393 by 852 have no horizontal overflow.
+## Visual and accessibility measurements
 
-## Historical adaptability contract
+Retain the measured course palettes, focus visibility, forced-colors support,
+reduced-motion behavior, compact choice rows, and variable Student viewport
+profiles. Shared design tokens should own shell width, gutters, vertical rhythm,
+control size, responsive navigation, and Course-theme surfaces.
 
-The governing distance decisions are CSS custom properties in the `:root` design-system block, not
-copied magic numbers across pages. Shell width and gutters, vertical rhythm, panel and row padding,
-control size, Question Library row/window size, assignment columns, bounded lists, table overflow
-thresholds, course-canvas extent, fade distance, color-wash strength, identity-rail size, and mobile
-navigation density each have a named `--ple-*` token. The course-appearance `THEME_MIX` recipe owns
-surface and readable-color projection percentages for all fifteen palettes. Future
-observation-driven changes therefore begin with one shared control and the canonical viewport and
-contrast checks described in the design guide.
+The primary no-mouse path uses native controls, Tab/Shift+Tab, Enter for links,
+and Space for choices and buttons. Extensions such as arrows, digits, or Enter
+from a response field never replace visible controls.
 
-## Validation and limits
+## Validation boundary
 
-The production build, strict TypeScript/lint/format checks, offline behavior tests, focused browser
-tests, walkthrough-runner tests, and server tests are the permanent gates. Live external or
-disposable PostgreSQL, MinIO, and WebWork cases remain explicit acceptance runs; this historical
-review does not claim those environments or a current browser workflow unless a dated acceptance
-record names the run.
+Use type/lint/format checks for source integrity, focused browser tests for
+role navigation and interactions, no-transport assertions for denied routes,
+and fresh screenshots for rendered review. Do not turn a current route count,
+DOM ancestry, exact Tab count, or screenshot inventory into a permanent product
+test.

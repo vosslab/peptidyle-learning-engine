@@ -1,5 +1,7 @@
 ## 2026-09-03
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Additions and New Features
 
 - Completed vocabulary row 263: Question Asset Reference is now the one complete logical asset/checksum pair at Question-content boundaries. The Question Model, PLE Question JSON source, QTI conversion, presentation codec, generated TypeScript, strict browser decoders, protected delivery routing, and rendering use `questionAsset`; the strict PLE source reader rejects the retired `asset` member. Private QTI worker storage and technical asset-route wording remain distinct. Focused Rust (247) and browser (34) gates, TypeScript, formatting, contextual residual, and diff checks pass without changing a shared fixture. The 2026-09-04 independent [vocabulary final audit](archive/vocabulary_final_audit_candidate_2026-09-04.md) records PASS for all 417 replacement rows after operative plan reconciliation, contextual review, and a fresh final-tree aggregate.

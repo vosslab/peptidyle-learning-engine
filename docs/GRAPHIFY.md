@@ -1,5 +1,10 @@
 # Repository map
 
+This generated architecture view describes current source identifiers, not
+product authority. Legacy Assignment, Available Blueprint, grading-job, or
+response-finalization names are implementation gaps under
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
+
 ![Community-level repository graph](GRAPHIFY_map.svg)
 
 This Graphify snapshot maps 11809 symbols and 32668 relationships into 394 communities. The illustration keeps the largest 12 communities, scales each circle by membership, and weights each line by cross-community relationships.

@@ -31,9 +31,10 @@ remain durable behavior checks without assuming which theme follows another. Exa
 full geometry snapshots do not remain in the suite. Retained checks cover user-visible behavior;
 [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md) records the lifetime classification.
 
-- Banner preview images transferred their 6:1 preferred width into the grid's minimum sizing, which
-  widened the document to 720 px at the phone profile. The form, preview group, and image now have
-  explicit zero minimum inline sizing, so the responsive width is authoritative.
+- The then-current 6:1 Banner preview transferred its preferred width into the grid's minimum
+  sizing, which widened the document to 720 px at the phone profile. The form, preview group, and
+  image received explicit zero minimum inline sizing. This is retained implementation evidence;
+  the 6:1 page-width geometry is not the current product target.
 - Several raw decorative accent anchors did not support their palette-role label at normal text
   contrast. The Accent role now uses a recognizable low-strength accent tint with the derived ink
   color; the named checked native radio remains the actual selection state.

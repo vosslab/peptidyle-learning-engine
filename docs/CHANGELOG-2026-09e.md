@@ -1,5 +1,7 @@
 ## 2026-09-06
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Additions and New Features
 
 - Completed Live Demo restoration M18. The current direct Instructor can

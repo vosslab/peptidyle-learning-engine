@@ -1,206 +1,191 @@
 # Code architecture
 
-PLE is a pre-production teaching platform. Its core boundary is between reusable published
-content and Course-owned teaching records: the browser receives answer-free views, while PostgreSQL
-and server-side services retain authorization, answer keys, grading inputs, and Student Work.
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) is the product authority and
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines the implementation vocabulary.
+PLE separates reusable teaching content from Course-owned Student records. The
+browser receives role-appropriate, answer-safe views; PostgreSQL and
+server-side services retain authorization, private Question source, backend
+state, grading inputs, and FERPA-protected Student Work.
+
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) is the product authority. Current source
+paths and identifiers document the implementation, including gaps where
+`assignment`, `available`, or response-finalization names have not yet been
+migrated.
 
 ## Major components
 
-| Component                                                       | Ownership                                                                                                                 |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Shared typed identifiers, Question and Blueprint contracts, current Assignment state, and retained Student Work evidence. |
-| [crates/domain/](../crates/domain/)                             | Pure policy, timing, validation, scoring, disclosure, and generation rules.                                               |
-| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts and PostgreSQL implementations, including transaction and row-security context.                           |
-| [crates/server/](../crates/server/)                             | Axum HTTP routes, authenticated request composition, authorization, and server-only service composition.                  |
-| [crates/grading/](../crates/grading/)                           | Answer-bearing grading decisions; it is not a browser dependency.                                                         |
-| [crates/adapters/](../crates/adapters/)                         | PLE, WeBWorK, iMathAS, QTI, and H5P integration boundaries behind typed Question operations.                              |
-| [crates/objects/](../crates/objects/)                           | Typed object addresses, integrity metadata, image validation, and object-store backends.                                  |
-| [crates/browser-api-contract/](../crates/browser-api-contract/) | Rust declarations used to generate browser-facing TypeScript contracts.                                                   |
-| [src/](../src/)                                                 | SolidJS application, strict HTTP decoders, answer-free presentation, routes, and UI features.                             |
-| [local_stack_control/](../local_stack_control/)                 | Disposable-stack lifecycle and connected acceptance orchestration.                                                        |
+| Component | Ownership |
+| --- | --- |
+| [crates/question_model/](../crates/question_model/) | Shared typed content, current Assessment implementation, and Student Work structures |
+| [crates/domain/](../crates/domain/) | Pure policy, timing, validation, score calculation, and disclosure rules |
+| [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, PostgreSQL transactions, and row-security context |
+| [crates/server/](../crates/server/) | HTTP routes, authenticated composition, authorization, and server-only dependencies |
+| [crates/grading/](../crates/grading/) | Native answer-bearing grading code; never a browser dependency |
+| [crates/adapters/](../crates/adapters/) | Native, WeBWorK, iMathAS, QTI, and H5P boundaries behind Question Backend operations |
+| [crates/objects/](../crates/objects/) | Typed object identity, integrity, validation, and storage backends |
+| [crates/browser-api-contract/](../crates/browser-api-contract/) | Rust declarations used to generate browser-facing TypeScript contracts |
+| [src/](../src/) | SolidJS shell, strict decoders, role-specific pages, and answer-safe interaction |
+| [local_stack_control/](../local_stack_control/) | Disposable-stack lifecycle and connected acceptance orchestration |
 
-The Rust workspace root is [Cargo.toml](../Cargo.toml). Browser dependencies and the TypeScript
-toolchain are declared in [package.json](../package.json). Generated TypeScript declarations are
-derived from Rust by [crates/project-tools/src/tsgen.rs](../crates/project-tools/src/tsgen.rs);
-authored decoders in [src/api/decoders/](../src/api/decoders/) validate responses at runtime.
+The Rust workspace is rooted at [Cargo.toml](../Cargo.toml); browser tooling is
+declared in [package.json](../package.json). Generated TypeScript derives from
+Rust declarations, while authored runtime decoders reject unexpected wire data.
 
-## Database lifecycle
+## Product-domain boundaries
 
-[schemas/base_schema/](../schemas/base_schema/) is the canonical PostgreSQL structure for a fresh
-database. Its short [install.sql](../schemas/base_schema/install.sql) manifest includes domain
-modules in dependency order. Each module owns the current tables, constraints, indexes, functions,
-row-security policies, and grants for its domain. Cross-domain relationships live in
-[cross_domain_constraints.sql](../schemas/base_schema/cross_domain_constraints.sql), rather than in
-a corrective layer.
+```text
+Draft Question --publish--> Published Question + immutable Revisions
+Question Pool -------------> stable Pool + immutable Revisions
 
-Before the first human-approved production deployment, a structural correction updates its owning
-base module and is verified with a fresh database. The manifest contains DDL only. PostgreSQL 17
-`psql` installs it in one transaction through the `cargo tools database initialize` coordinator.
-The coordinator also provides `migrate` for SQLx forward changes and application-role `verify`.
-[schemas/migrations/](../schemas/migrations/) currently contains only its directory marker; it is
-reserved for timestamped, immutable forward migrations after the first
-human-approved production deployment freezes the base. The rule is maintained
-in [schemas/base_schema/README.md](../schemas/base_schema/README.md).
+Blueprint Course (Private/Public/Archived)
+  +-- immutable changed-content Revisions
+  +-- Blueprint Assessments
+               |
+               | adopt exact Public Blueprint Revision
+               v
+Course Instance
+  +-- equal co-Instructor and Student relationships
+  +-- Course Instance Assessments (current state)
+        +-- Assessment Attempts and FERPA-protected Student Work
+```
 
-`cargo tools database initialize` creates only the schema. The separate,
-convergent `schemas/installation_data/` phase then supplies product data.
-`cargo tools installation-data provision` includes the complete Live Demo by
-default: it runs the Pilot publication and database-owned graph, then creates
-cross-system Student Work and grading effects through their owning product
-paths. `--without-live-demo` skips this phase; `apply` is only the narrower
-convergent SQL/Pilot graph. Neither creates a demo-only model: Accounts,
-Blueprint Revision, Course, roster, released Assignment, and exact
-Question Revision pins are ordinary product records.
+Blueprints contain no Students, dates, time zones, or relative schedules. A
+Course Instance can instead start empty. Adoption copies current Blueprint
+Assessments. New Blueprint Revisions are offered to daughter Course Instances
+for Instructor review and approval, and changes to existing Assessments are
+never applied silently. A newly added Blueprint Assessment is automatically
+copied as an Unreleased Course Instance Assessment. Published Questions,
+published Question Pools, and Blueprint Courses have immutable Revision
+families; Human Guidance's general history summary omits Pools even though its
+Pool rules explicitly require them.
 
-## Content and revision model
+Forks retain their source Blueprint and Revision so later source changes can be
+discovered and selectively applied. Blueprint Course Change Proposals compare
+canonical Blueprint JSON, leave acceptance with the receiving owner, and create
+a receiving Blueprint Revision only when accepted. They never directly change
+a daughter Course Instance.
 
-Question and Blueprint reusable content use immutable Revisions. A Question
-lineage stores current availability, while each immutable Question Revision
-preserves its published content. A complete Blueprint creation atomically
-creates Available Revision 1; each changed explicit Save from its current
-Revision creates a successor. Blueprint browser edits remain protected local
-working state until Save.
-
-Question IDs use the seven-character compact storage form. The familiar `AAA-BBBB` spelling is
-presentation-only; the first six Crockford Base32 characters are random and the final character is
-validated with server-held HMAC-SHA-256 material. The detailed format and issuance boundary are in
-[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
-
-Course Instance terms and Assignment configuration express current state. An Assignment has one
-stable identity, status, qualified Assignment Edit Number, authored policy, entries, and Question
-Pool Items. An entry or pool item pins the exact Question Revision selected for it; later Question
-publication does not advance that pin. `BlueprintAssignmentSource` records exact Blueprint
-provenance without creating another Revision family.
+A Course Instance keeps its own deliberately entered short and long names and
+at least one assigned Instructor. Publishing its reusable structure creates a
+new Private Blueprint lineage without copying Students, Course dates, releases,
+Student Work, or other delivery state.
 
 ## Assessment data flow
 
 ```text
-published Question Revision
-  -> current Course Assignment pins exact revision
-  -> authorized Student starts or resumes an Assignment Attempt
-  -> Attempt and Issued Question retain effective policy, revision, seed, score, and source facts
-  -> saved response and submission records retain Student Work
-  -> server-only grader produces result and statistics observations
-  -> answer-free history, feedback, and Gradebook readers expose allowed views
+Assessment fixes Question or Pool Revision selection
+  -> authorized Student starts or resumes an Assessment Attempt
+  -> backend renders one answer-free Question with opaque state
+  -> Student saves complete responses and navigates all Questions
+  -> Student or deadline submits the whole Assessment Attempt
+  -> backend credit fractions remain immutable
+  -> PLE calculates scores from current Question point values
+  -> policy discloses permitted results and feedback
 ```
 
-An existing Attempt is interpreted from its retained Attempt and Issued Question evidence, not from
-later mutable Assignment state. A later released Assignment save is accepted when current release
-validation passes; later Attempts use the accepted state.
+Saving changes only the working response. The only submission workflow closes
+the whole Assessment Attempt. Current internal `question_submission` rows or
+`/assignment-attempts/` routes are implementation structures beneath this
+target product boundary; their names do not define product actions.
 
-## External Question Backends
+The server-owned Attempt expiry path and the periodic expiry process converge
+on the same idempotent whole-Assessment submission operation. The periodic path
+exists so abandoned expired Attempts are submitted without another browser
+request.
 
-Question Type is immutable author-declared educational metadata on each
-Published Question Revision. An author selects it while binding a Draft
-Question Source; publication retains it for discovery and presentation. A
-Question Backend owns the controls and interaction structure it uses for that
-type, so PLE never infers Question Type from backend HTML or response fields.
-
-WeBWorK uses the shared external-backend lifecycle:
+## Question Backend flow
 
 ```text
-immutable PG source + Question Seed
-  -> server-only WebworkAdapter -> private renderer JSON request
-  -> immutable backend document on the Question Attempt
-  -> authorized same-origin document route -> sandboxed backend-owned iframe
-  -> ordered opaque form pairs -> generic saved response/finalization
-  -> server-only stateless renderer grade request -> normalized credit
+trusted exact Question source + Revision + randomization/backend state
+  -> registered Question Backend
+  -> answer-free native presentation or opaque document + opaque state
+  -> typed native response or bounded opaque response
+  -> backend-owned evaluation and feedback
+  -> immutable credit fraction stored by PLE
 ```
 
-The adapter sends source, path, seed, and opaque response bytes only to the
-renderer. It renders once at issuance and grades once after submission. E1 is
-stateless: WeBWorK has no replay record, renderer cache, or per-attempt backend
-state in PLE. The browser bridge preserves ordered duplicate form names and
-ordinary hidden PG answer fields without recognizing controls; renderer
-credentials never enter the embed document. PLE provides only an accessible
-document baseline, while WeBWorK and Question-authored CSS own the document's
-structure and presentation.
+PLE never infers Question Type from backend controls or implements a second
+parser for them. WeBWorK form names, values, hidden fields, and interaction
+semantics remain opaque. Native PLE Question JSON is private, unpublished,
+unversioned, static, and strictly validated; author JavaScript is isolated and
+untrusted.
 
-The server exposes the retained document only after Student ownership and
-issued-position authorization. It gives the document `no-store`, CSP, and
-same-origin CORP headers. The separate public asset proxy serves only validated
-`webwork2_files` and `pg_files` paths from the private renderer, with no caller
-supplied origin, redirect following, query string, or arbitrary media type.
+If a real backend needs deferred technical completion, that mechanism remains
+inside the adapter boundary. Human Guidance does not define a public grading
+job, Retry action, regrading lifecycle, or mutable result.
 
-Assignment Unrelease is a database-owned operation. It checks current Teaching Team authority,
-the Assignment Edit Number, and a title confirmation; changes the Assignment to Unreleased; removes
-the Student Work closure rooted at that Assignment; rebuilds affected statistics; and records a
-redacted audit event atomically. The Store and HTTP routes expose impact counts without exposing
-Student records unnecessarily.
+## Database lifecycle
 
-## Authorization and runtime boundaries
+[schemas/base_schema/](../schemas/base_schema/) is the canonical fresh-install
+structure. Its short manifest includes domain modules in dependency order and
+installs atomically. Before production baseline approval, a structural fix
+changes the owning module. Later production changes use reviewed forward
+migrations.
 
-PostgreSQL is authoritative for relationships, transactions, row-level security, role grants,
-concurrency checks, and destructive-operation closure. Runtime services verify and use the installed
-schema; application credentials do not own DDL. The database coordinator uses the migration role
-only for initialization and forward migration, while `database verify` reads the restricted
-application projection.
+Structure and ordinary installation data are separate. Live Demo records use
+the normal domain model. Omitting the optional Live Demo teaching graph does
+not remove the normal Genetics Question bundle.
 
-The server resolves authenticated sessions and Teaching Team or Student relationships before Store
-operations. Browser contracts are closed and decoded strictly. The browser does not receive Answer
-Keys, grading inputs, private Question Sources, backend credentials, or broad database authority.
+See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
+[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
 
-One server-owned expiry worker runs the generic Attempt evaluator and a
-60-second expiry sweep. It invokes the ordinary finalization boundary for an
-expired Attempt, reads immutable source only through S3 and the private
-WeBWorK renderer boundary, and has no public grading state or UI contract.
-iMathAS retains its separate session and receipt boundary. PostgreSQL access
-remains inside `learning-data-access`, so the server crate does not own a
-database driver.
+## Authorization boundaries
 
-## Browser and service flow
+The server resolves the authenticated Account and current Product Role, then
+checks the exact Course, Student, workspace, or Blueprint-owner relationship.
+PostgreSQL repeats the protected predicate through forced RLS and narrow
+functions in the same transaction.
+
+All current co-Instructors are equal. The Course creator has no extra
+privilege. Sysadmin support access to FERPA-protected records is deliberate,
+scoped, and recorded rather than ambient.
+
+## Browser flow
 
 ```text
-SolidJS route
-  -> same-origin HTTP client and strict decoder
-  -> Axum route and authenticated session
-  -> Store contract and PostgreSQL RLS/function boundary
-  -> typed answer-free response
-  -> browser state and accessible presentation
+SolidJS page
+  -> same-origin client and strict decoder
+  -> authenticated server route
+  -> Store and PostgreSQL authorization boundary
+  -> typed, role-appropriate response
+  -> accessible stable-layout interface
 ```
 
-[src/features/blueprint_course/](../src/features/blueprint_course/) owns the Blueprint Revision
-editor. [src/pages/assignment_workspace/](../src/pages/assignment_workspace/) owns instructor
-Assignment editing and release surfaces. Student delivery and retained presentation flow through
-[src/pages/assignment_attempt_page.tsx](../src/pages/assignment_attempt_page.tsx) and related
-components. Shared navigation and capability admission live in [src/ribbon/](../src/ribbon/).
-For backend-owned delivery,
-[crates/server/src/webwork_document_route.rs](../crates/server/src/webwork_document_route.rs)
-serves the retained document,
-[crates/server/src/webwork_asset_proxy.rs](../crates/server/src/webwork_asset_proxy.rs)
-serves its bounded assets, and
-[src/components/question_response_controls/backend_owned_document.tsx](../src/components/question_response_controls/backend_owned_document.tsx)
-hosts it and captures the generic response.
+The Instructor Ribbon uses Courses, Questions, and Assessments. Student
+delivery appears under Coursework, and a particular item uses its Assessment
+Type name. Sign Out belongs in the Profile menu. Required backed destinations
+remain visible with honest empty states; unimplemented capabilities are not
+shown as usable controls.
 
-## Verification boundaries
+Current source directories such as `src/pages/assignment_workspace/` document
+where legacy implementation lives. New product documentation and UI use
+Assessment terminology.
 
-Fast deterministic checks live in [tests/](../tests/). Rust checks validate the workspace;
-TypeScript checks validate the browser code and decoders. Database and service acceptance live in
-[tests/e2e/](../tests/e2e/) and use a disposable PostgreSQL stack. Browser journeys and screenshots
-are separate rendered evidence, coordinated by [local_stack_control/](../local_stack_control/).
+## Storage and retention
 
-The commands in [README.md](../README.md) are the contributor entry points. Passing a focused
-check establishes only that check's stated boundary. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
-distinguishes permanent regression tests from connected and visual evidence.
+Typed object records bind logical identity, data class, owner scope, media type,
+and checksum. The server constructs physical paths and authorized delivery;
+browsers do not name buckets or raw keys.
+
+The final Assessment deadline starts the Course retention clock; later Student
+activity resets it. An idempotent background pass supports notice, FERPA
+archive, recovery during the retention period, and permanent deletion while
+preserving Course metadata, Assessment definitions, Questions, and settings.
+Exact job/table shapes and numeric durations are not product decisions here.
 
 ## Extension points
 
-- Add structural DDL to the owning [schemas/base_schema/](../schemas/base_schema/) module while the
-  pre-production baseline remains editable.
-- Add a timestamped SQLx migration in [schemas/migrations/](../schemas/migrations/) only after the
-  first human-approved production deployment freezes the base.
-- Add reusable domain types in [crates/question_model/](../crates/question_model/) or
-  [crates/domain/](../crates/domain/) before adapting them to storage or HTTP.
-- Add PostgreSQL access through [crates/learning-data-access/](../crates/learning-data-access/) and
-  expose it through a bounded route in [crates/server/](../crates/server/).
-- Add browser DTO decoding in [src/api/decoders/](../src/api/decoders/) alongside the HTTP client
-  and feature that consume it.
-- Add ordinary installation data in `schemas/installation_data/` only
-  when PostgreSQL owns the complete data invariant.
+- Add durable domain types before storage and transport adapters.
+- Add PostgreSQL access through the learning-data-access boundary.
+- Add routes through authenticated server composition and closed DTOs.
+- Add a Question Backend only after its opaque source, render, response,
+  grading, failure, and secret boundaries are complete.
+- Add browser features only for capabilities admitted by the current role and
+  backed by real routes.
+- Add background processing only for an exact decided behavior; a generic job
+  framework is not feature authority.
 
-## Evidence scope
+## Verification boundaries
 
-- Connected fresh-install, repeated installation-data, and full browser-journey acceptance remain
-  separate gates; this document does not claim their completion.
+Fast deterministic tests, Rust/TypeScript checks, connected PostgreSQL tests,
+live backend probes, browser journeys, and visual captures establish different
+evidence. Passing one layer does not claim another. See
+[TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).

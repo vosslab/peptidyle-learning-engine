@@ -35,8 +35,8 @@ visible content already proves the state.
 
 ### Browser typography
 
-Written browser UI uses the locally bundled Atkinson Hyperlegible Next family before system
-sans-serif fallbacks. Explicit monospace rules remain for code, machine identifiers, and
+Written browser UI uses the locally bundled official Atkinson Hyperlegible Next family before system
+sans-serif fallbacks. Atkinson Hyperlegible Mono is the local monospace face for code, machine identifiers, and
 alignment-sensitive content. Backend, native-renderer, and export typography have their own output
 requirements and remain outside this browser rule.
 
@@ -65,7 +65,7 @@ custom properties in `src/style.css` own the geometry most likely to change afte
 | `--ple-panel-padding`, `--ple-row-padding-*`                 | Work surfaces, Question Search rows, tables, and editor rows                           |
 | `--ple-control-min-height`, `--ple-dense-row-min-height`     | Shared controls and compact instructor records                                         |
 | `--ple-reading-max-inline`, bounded-list geometry            | Reading measure and Question Library working height                                    |
-| `--ple-instructor-*-min-inline`, `--ple-filter-*-min-inline` | Assignment columns and Question Search filter allocation                               |
+| `--ple-instructor-*-min-inline`, `--ple-filter-*-min-inline` | Assessment columns and Question Search filter allocation                               |
 | `--ple-*-table-min-inline`, `--ple-*-block-size`             | Deliberate overflow thresholds for dense data and bounded lists                        |
 | `--ple-course-scope-*`, `--ple-course-theme-*`               | Course canvas inset, color washes, identity rail, and surface fade                     |
 | `.ple-shell-frame`                                           | The one structural viewport-height floor for Ribbon and non-Ribbon shells              |
@@ -123,12 +123,15 @@ turning each local group into a card or making an ordinary state change rearrang
   preserve those landmarks instead of introducing positive `tabindex` or focus-driven navigation.
   Browser evidence covers keyboard activation, focus placement, reflow, contrast, and forced-color
   behavior alongside visual inspection.
+- **Student input excludes uploads.** Student content entry uses Question-owned response controls;
+  Students receive no file-upload capability. Instructor-created content uses text boxes where
+  Human Guidance calls for authored text.
 
 ## Navigation
 
-Global navigation, course navigation, assignment progress, and page actions are different layers and
+Global navigation, Course navigation, Assessment progress, and page actions are different layers and
 must look different. The Application Shell makes global and course navigation quiet and persistent
-in the Ribbon. Assignment progress communicates sequence and state in the Context Row. Page actions
+in the Ribbon. Assessment progress communicates sequence and state in the Context Row. Page actions
 live with the content they affect.
 
 [INTERFACE_TERMINOLOGY.md](INTERFACE_TERMINOLOGY.md) owns Ribbon vocabulary and canonical visible
@@ -146,56 +149,72 @@ the same Application Shell and Ribbon architecture with a completely distinct me
 
 | Ribbon Scope | Instructor | Student | Sysadmin |
 | --- | --- | --- | --- |
-| Product | **Courses**, **Questions**, **Assignments** | **Courses** | **Courses** |
-| Course Instance | **Assignments**, **Students**, **Gradebook**, **Teaching Operations**, **Blueprint Updates**, **Course Setup** | **Assignments** | **Teaching Operations** |
-| Assignment Attempt | No Slots | **Attempt** | No Slots |
+| Product | **Courses**, **Questions**, **Assessments** | **Courses**, **Coursework** | Accounts, Instructors, Courses, and system administration |
+| Course Instance | Assessments, Students, Gradebook, Blueprint Updates, and Course Setup | Coursework | Course support through a scoped Sysadmin surface |
+| Assessment Attempt | No Slots | **Attempt** | No Slots |
 
 The Instructor Product Schema's three Tabs are the owner's taxonomy of teaching work, not a
 derivation from the present route hierarchy. Blueprint Courses, active Courses, rosters, and Course
 settings belong below Courses; Question discovery and owned Draft Questions belong below Questions;
-templates, due-soon work, editing, release, and grading belong below Assignments. The Student and
-Sysadmin Product and Course Instance schemas above remain structural rules even when an individual
-destination is not yet backed.
+templates, due-soon work, editing, and release belong below Assessments. Student navigation uses
+Coursework and specific Assessment Type names rather than the internal Assessment object name.
+Sysadmin navigation exposes platform administration without granting ambient Course or FERPA access.
 
 Product Role is available with the Authenticated Session, so one Account uses one stable schema for
 each scope throughout its session. Exact server and Store checks continue to authorize every
 destination and operation.
 
-Place the single Peptidyle home identity, one boxed Product Role plate, Instructor Product Tabs,
-Sign Out, and the far-right Instructor Profile control in one information-dense top bar at a desktop
+Place the single Peptidyle home identity, one Product Role label, role-specific Product Tabs,
+and the far-right Profile control in one information-dense top bar at a desktop
 1280 by 800 viewport. Product Role has no duplicate account-label rendering. Every visible Ribbon
-navigation item has a same-origin Font Awesome glyph and text except Profile: the Instructor-only
+navigation item has a same-origin Font Awesome glyph and text except Profile. Every signed-in role's
 Profile link has the accessible name `Profile` while its visible rounded-square content is a generic
-user glyph or the uploaded Profile image. Sign Out precedes Profile. Build that single bar first;
+user glyph or the selected Profile image. Sign Out is in the Profile menu rather than the top bar.
+Students choose from PLE-provided playful avatars and cannot upload a Profile image; Instructors and
+Sysadmins may choose a provided avatar or add their own image. Build that single bar first;
 retain a separate Tab Row only when responsive or focus-order evidence demonstrates a named failure
 at a named viewport. Authenticated Ribbon routes do not add a separate site-header identity band;
 the site header is the fallback for routes without a Ribbon. Account Security, Instructor Course
 Invitations, and Sign In use Context Controls. Their routes retain the current Ribbon Schema and
 render with No Selected Ribbon Tab.
 
+A permanent breadcrumb row sits below the top Ribbon for every signed-in role. It preserves its
+space at every depth, uses human-readable linked names from the role home to the current page, and
+keeps Course and Assessment context without exposing internal identifiers.
+
+Role identity uses consistent cues: Sysadmin is tomato red, Instructor is teal green, and Student
+is lavender/purple. Color supplements the visible role label and never communicates role alone.
+
 The Instructor task rows are ordered as follows:
 
 - **Courses:** **My Blueprint Courses**, **My Active Courses**, **My Inactive Courses**, **Search
-  Public Blueprint Courses**. Active/Inactive and public Blueprint search remain Unavailable until
-  their complete capabilities exist; their positions are retained without a placeholder link.
+  Public Blueprint Courses**. All required backed destinations remain visible when their collections
+  are empty; the empty page explains the collection and offers the first useful action.
 - **Questions:** **My Questions**, **My Draft Questions**, **Starred**, **Watched**, **Search
-  Question Library**, **Browse Question Library**. Starred and Watched remain Unavailable until
-  backed. Draft Questions remain private authoring rather than Question Library membership.
-- **Assignments:** **Assignments Due Soon**, **My Assignment Templates**. Due Soon remains
-  Unavailable until its authorized cross-course view exists; templates retain their named position.
+  Question Library**, **Browse Question Library**. Search and Browse are distinct paths into the
+  same Question Library. A task remains Unavailable until its complete workflow is backed. Draft
+  Questions remain private authoring rather than Question Library membership.
+- **Assessments:** **Assessments Due Soon**, **My Assessment Templates**. A future or unavailable
+  capability does not appear usable until its complete authorized workflow exists.
 
-Within a Course, **Assignments**, **Students**, **Gradebook**, **Teaching Operations**, **Blueprint
-Updates**, and **Course Setup** remain Course navigation. Course Setup has **Grade Settings** and
-**Appearance** Tasks. Create Assignment is a Page Action. Assignment composition and delivery are
-separate Instructor tasks: the composition surface makes selecting, adding, removing, and ordering
-Questions primary; the settings surface owns timing, release, scoring, attempts, randomization,
-late-work, and disclosure. Their visible names are secondary and do not require a route-wide rename.
+Within a Course, **Assessments**, **Students**, **Gradebook**, **Blueprint Updates**, and **Course
+Setup** are Instructor navigation areas when their workflows exist. Create Assessment is a Page
+Action. Assessment content and properties are separate Instructor tasks: the Assessment Question
+Editor makes selecting, adding, removing, and ordering Questions primary; the Assessment Properties
+Editor owns dates, scoring, Attempts, late work, release, disclosure, and other whole-Assessment
+settings.
 
-Assignment Attempt uses one Student Ribbon Slot, **Attempt**, and one Ribbon Task, **Back to
-Assignments**. Reserve a fixed-width, tabular-numeral position in the Ribbon Context Row for
-**Assignment Attempt Progress**, such as `Question 3 of 7`. Keep Question navigation and timing in
-the Attempt content so Assignment length never changes Ribbon topology. The Instructor and Sysadmin
-Assignment Attempt schemas contain no Slots.
+Blueprint Updates makes a newer parent Revision and the Course's current source Revision obvious,
+shows proposed changes for review, and requires the daughter Course Instructor to approve changes
+to existing Assessments. Newly added Blueprint Assessments appear automatically as Unreleased
+Course Instance Assessments. Fork source updates and Blueprint Course Change Proposals likewise
+show differences before the responsible owner accepts them.
+
+Assessment Attempt uses one Student Ribbon Slot, **Attempt**, and one Ribbon Task, **Back to
+Coursework**. Reserve a fixed-width, tabular-numeral position in the Ribbon Context Row for
+**Assessment Attempt Progress**, such as `Question 3 of 7`. Keep Question navigation and timing in
+the Attempt content so Assessment length never changes Ribbon topology. The Instructor and Sysadmin
+Assessment Attempt schemas contain no Slots.
 
 Within each Ribbon Schema, Slots available to every applicable Course Membership Role come first and
 relationship-narrowed Slots form the remaining suffix. Resolve that suffix before displaying it,
@@ -217,8 +236,8 @@ text, and color together; color alone is not the indicator.
 
 ## Controls and action priority
 
-- Primary: one filled action for the page's main commitment, such as Save assignment or Submit
-  answer.
+- Primary: one filled action for the page's main commitment, such as Save Assessment or Submit
+  Assessment.
 - Secondary: a quiet filled or subtle bordered action for a meaningful alternative.
 - Tertiary: text or icon-and-text controls for reversible local utilities such as Move, Copy, or
   Review.
@@ -242,6 +261,9 @@ next step; a dashed placeholder alone is not a finished state.
 
 ## Course themes
 
+An Instructor may upload one small centered Course banner and choose the Course's three-color
+palette. Theme names use biomes and habitats such as Forest, Grassland, Ocean, and Desert.
+
 Each stored three-color palette is meaningful. Standard presentation uses the full canvas anchor for
 the course environment, then derives separate tinted work, grouping, and reading-card surfaces. The
 raw secondary anchor identifies the active course-navigation section with a measured light or dark
@@ -262,9 +284,22 @@ three tiny swatches or an unrelated banner as the theme's primary identity.
 
 Increased contrast is an account-backed presentation option. It strengthens text, focus, selected
 states, and necessary boundaries while retaining the same theme hue family and course identity. It
-does not change course data, question content, grading, assignment behavior, or authorization.
+does not change Course data, Question content, grading, Assessment behavior, or authorization.
 Forced-colors is automatic browser/operating-system behavior and remains independent of the stored
 preference.
+
+## Assessment Type appearance
+
+Every Coursework item shows its specific Type through both a label and a consistent Font Awesome
+icon; color may reinforce but never carry the Type alone. The product-defined icons are:
+
+| Assessment Type | Icon |
+| --- | --- |
+| Regular Assignment | `pen-to-square` |
+| Practice Question Assignment | `arrows-spin` |
+| Bonus Assignment | `sparkles` |
+| Quiz | `square-q` |
+| Exam | `file-signature` |
 
 ## Focus and accessibility
 
@@ -280,10 +315,10 @@ accidental activation. Reduced motion and forced-colors preferences remain honor
 ## Content identity
 
 Show names and titles first. Never show or announce UUIDs. Application routes and copyable links use
-short typed references: `C-n`, `A-n`, `R-n`, and `W-n`; questions use one `AAA-BBBB` Crockford Base32
+short typed references: `C-n`, `A-n`, `R-n`, and `W-n`; Questions use one `AAAA-ZBBB` Crockford Base32
 Question ID without a public version suffix. A public reference identifies a resource for a person;
 it never grants access, and the server resolves it within the existing course, role, membership, and
-ownership boundary. Assignment import and existing-assignment checklists carry groups of questions;
+ownership boundary. Assessment import and existing-Assessment checklists carry groups of Questions;
 direct Question ID entry remains an occasional recovery and communication path.
 
 ## Validation

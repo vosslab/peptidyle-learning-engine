@@ -1,178 +1,142 @@
 # Database authorization
 
-This document describes the PostgreSQL authority boundary implemented by the
-canonical base schema. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) defines product
-authority, and [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines the
-meaning of product terms. This document explains how PostgreSQL enforces those
-decisions.
+This document explains how PostgreSQL enforces the product decisions in
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Current table and function identifiers
+are implementation evidence. A legacy `assignment` or lifecycle name does not
+override the product contract.
 
 ## Principle
 
-PLE application accounts are not PostgreSQL roles. A request authenticates an
-Account, then its protected transaction installs that trusted account identity
-in `ple.session_account_id`. Database functions resolve the account's active
-state and exact current relationship before they read or change protected data.
-Browser input, URLs, queue payloads, object addresses, and worker payloads are
-untrusted scope claims, not authority.
+PLE Accounts are not PostgreSQL roles. An authenticated request installs its
+trusted Account identity for a protected transaction. Database policies and
+functions resolve current Account state and the exact Course, Student,
+workspace, Blueprint-owner, or narrow service relationship before reading or
+changing protected data.
 
-The database is default-deny. Protected tables use forced row-level security
-(RLS); schemas, tables, sequences, and functions receive explicit grants; and
-the runtime has no owner, superuser, database-creation, role-creation, or
-`BYPASSRLS` capability. A missing session identity or current relationship
-denies the operation in the same transaction as the data access.
+The database is default-deny. Protected relations use forced row-level security
+where appropriate; runtime roles receive explicit grants and do not own the
+database, bypass RLS, or inherit broad migration authority. Browser fields,
+URLs, queue messages, and object paths are untrusted selectors.
 
-## Bootstrap, ownership, and migration
+## Bootstrap and runtime roles
 
-The platform bootstrap is deliberately outside the application. One privileged
-bootstrap transaction creates every PLE PostgreSQL role: the non-login
-`ple_database_owner`; four non-login schema owners
-(`ple_data_owner`, `ple_private_owner`, `ple_audit_owner`, and
-`ple_api_owner`); the ordinary application capabilities; the typed worker
-capabilities; the no-login Unrelease executor; and the non-inheriting
-`ple_migrator` login.
+Privileged bootstrap and migration run outside the application. The canonical
+base schema owns pre-production structure; after a production baseline, later
+structural changes use reviewed forward migrations.
 
-The base validates that complete role graph, then creates its schemas, objects,
-and explicit grants. `ple_migrator` is `NOCREATEROLE` and has exactly six
-direct `SET`-only memberships: the database owner, the four schema owners,
-and `ple_unrelease_executor`. It has no membership in `ple_app`, `ple_auth`,
-or `ple_student`.
+Application and service logins receive only the capability their process needs:
 
-`ple_migrator` installs the base through the small `base_schema/install.sql`
-manifest and is the only principal that can write the schema-qualified SQLx
-ledger, `ple_migration._sqlx_migrations`. It has no database-wide `CREATE`
-privilege: its SQLx `CREATE` privilege is confined to `ple_migration` because
-SQLx checks its ledger on every forward-migration run. The migration schema and
-ledger are unavailable to `PUBLIC`.
+| Capability | Purpose |
+| --- | --- |
+| application | Authenticated product operations and schema compatibility checks |
+| authentication | Session resolution and account-state operations |
+| Student | Narrow Student-facing operations when separate database privilege is useful |
+| service | One exact public-asset, retention, backend, or other approved technical operation |
+| migration | Bootstrap/schema change only; unavailable to runtime requests |
 
-The application does not read the ledger directly. `ple_api.ple_schema_state`
-is a read-only, security-barrier projection of the current base release
-identity and forward SQLx ledger. It reports `pre-production` today. At the
-first human-approved production cutover, the SQL projection and Rust
-`BASE_RELEASE_IDENTITY` change together to one immutable production-baseline
-identifier recorded in [CHANGELOG.md](CHANGELOG.md). `ple_app` selects the
-projection for application verification, and `ple_migrator` selects it for the
-coordinator's post-install verification. The direct migrator read is limited to
-that projection; it does not give a runtime capability ledger-write or DDL
-authority. `ple_app` cannot alter the projection, ledger, or any schema object.
+A generic worker or queue role is not product authority. Each service function
+must bind its exact target and cannot infer a grading, recovery, audit, or
+compatibility workflow merely because job infrastructure exists.
 
-Before the first human-approved production deployment, structural corrections
-belong in their owning base-schema module. That cutover freezes the base; later
-structural changes are immutable SQLx forward migrations. This lifecycle rule
-keeps authorization simple rather than adding another authorization mechanism.
+## Product authorization
 
-## Runtime principals
+- A Student reads and changes only the Student's own record through an active
+  relationship to the exact Course Instance.
+- Every current co-Instructor has equal teaching and FERPA authority for the
+  exact Course Instance. The creator or first Instructor has no extra power.
+- Private Draft Question operations require the current authoring-workspace
+  relationship.
+- A Blueprint Course's owner alone saves its content and changes its Private,
+  Public, or Archived lifecycle state.
+- Vetted Instructors may discover Public Blueprints and may explicitly include
+  Archived Blueprints in read-only discovery; Private is owner-only.
+- Current co-Instructors of a daughter Course decide whether to apply offered
+  changes to its existing Assessments. Automatic creation of a newly added
+  Blueprint Assessment does not grant the Blueprint owner Course access.
+- Any vetted Instructor may create a Blueprint Course Change Proposal; only
+  the receiving Blueprint owner accepts changes into a new Revision.
+- A Sysadmin product role is not ambient Course membership or FERPA authority.
+  Support access is deliberate, scoped, and recorded.
 
-The base provides three ordinary no-login capabilities:
+Account deactivation closes new access while preserving authorship, Course
+relationships, Student Work, and history. Course membership removal does not
+delete Student records. Retention and permanent closure are separate
+operations.
 
-| Capability    | Purpose                                                                    |
-| ------------- | -------------------------------------------------------------------------- |
-| `ple_app`     | Authenticated application operations and read-only schema verification.    |
-| `ple_auth`    | Session resolution and authentication operations.                          |
-| `ple_student` | Bounded student-facing operations where a separate capability is required. |
+## Revision and current-state boundaries
 
-Platform provisioning creates separate `LOGIN NOINHERIT` service identities.
-Each has only the direct `SET` memberships required by its process. In
-particular, `ple_api_login` can assume `ple_app` and `ple_auth`; the individual
-grading and publisher logins can assume only their matching worker capability.
-They are non-administrative and have neither object ownership nor unrelated
-memberships. A process connects as its login and explicitly assumes its one
-operation capability; it does not gain authority from a broad shared database
-role.
+Published Question Revisions and Blueprint Revisions are immutable. Draft
+Questions, Course Instances, Assessments, Attempts, and Student Work do not gain
+revision histories from database Edit Numbers or event rows.
 
-Worker capabilities receive only the registered claim, lease, read, and commit
-functions for their typed work. For example, the iMathAS grading capability
-executes its two claim/commit procedures but has no direct protected-table
-access. A worker locks a durable, typed lease before acting; the function checks
-that the job kind, target type, and exact target agree. This prevents a queue
-message or backend response from widening its scope.
+A Blueprint is created Private with Revision 1. A content Save creates a new
+Revision only when canonical content changes. Names and lifecycle state remain
+current lineage metadata.
 
-## Application authority
+Update-review records and Blueprint Course Change Proposals do not become
+Revision families. Accepted Blueprint content changes create an ordinary new
+Blueprint Revision.
 
-`ple_api` functions resolve the transaction-local Account and use current
-database facts for authorization:
+A Course Instance Assessment is current state and is Unreleased or Released.
+Date-derived availability is not a Closed or Archived stored state.
 
-- an active Instructor plus current Instructor membership authorizes teaching
-  operations for that exact course;
-- a Student owns only their current course record and derived Attempt data;
-- authoring operations require their current workspace relationship, and
-  Blueprint Course content Save and metadata operations require the current
-  Blueprint owner relationship;
-  and
-- a Sysadmin is a product role, not ambient Student-record or teaching
-  authority. Support access remains a separately scoped, audited capability.
+## Student Work and Assessment Unrelease
 
-Course membership, account state, availability, workspace, and Blueprint owner
-facts are checked when the protected operation runs. Revoking a relationship or
-deactivating an account therefore closes the relevant capability without relying
-on an earlier route-level decision. The API uses non-enumerating failures for
-targets that the session may not resolve.
+Ordinary runtime roles cannot mutate submitted Student Work. An open Assessment
+Attempt permits saved-response replacement through the authorized product
+operation. Whole-Assessment submission makes the response evidence immutable.
 
-Question and Blueprint revisions are immutable evidence. Their stable
-lineages hold availability, and an archived lineage is excluded from new
-selection while exact historical references continue to resolve. Assignment
-state is current and protected by its qualified Assignment Edit Number; Student
-Work retains the evidence needed to interpret an existing Attempt after a later
-Assignment change.
+Assessment Unrelease is a narrow destructive operation. It:
 
-## RLS and trusted function seams
+1. verifies an equal co-Instructor relationship, Released state, current Edit
+   Number when used, and typed confirmation of the exact Assessment title;
+2. changes the Assessment to Unreleased;
+3. deletes all Student Work owned by that Assessment atomically; and
+4. preserves the Assessment definition, Course relationships, and shared
+   Published Questions and Pools.
 
-Every protected relation enables and forces RLS. Policies are role-specific and
-use the current Account, membership, ownership, workspace, or lease predicate
-that applies to the operation. Table owners do not bypass these policies merely
-because they own the table.
+The implementation may use a dedicated no-login function to constrain this
+authority. Human Guidance does not require generalized audit events, grading
+receipts, correction links, or statistics-rebuild machinery as part of the
+product definition.
 
-Some operations need a small privileged seam: immutable-event triggers,
-cross-table invariants, session resolution, scoped API operations, and typed
-worker commits. Those functions use `SECURITY DEFINER` only for their declared
-capability, have a fixed trusted `search_path` beginning with `pg_catalog`, and
-are revoked from `PUBLIC`. The calling role receives execution only where the
-base grants that exact function. This keeps a necessary invariant close to the
-data without turning a schema owner into a runtime identity.
+## Retention authorization
 
-## Student Work and Assignment Unrelease
+The final Assessment deadline starts the Course retention clock and later
+Student activity resets it. An idempotent background process can send the
+Instructor notice, remove FERPA-protected records from normal interfaces,
+preserve recoverability during the retention period, and permanently delete
+them at expiry.
 
-Student Work is immutable to ordinary runtime roles. Its root is an Assignment
-Attempt; dependent Issued Questions, Question Attempts, responses,
-presentations, submissions, grading evidence, backend exchanges, pool
-selections, observation receipts, and related records follow root-oriented
-foreign-key cascades. Shared Questions, assets, current Assignment structure,
-and course membership are outside that closure.
+Database enforcement must prevent Student and ordinary Instructor routes from
+bypassing the archive stage. Course metadata, Assessment definitions,
+Questions, and settings remain after FERPA-protected Student records are
+deleted. Numeric durations and exact job/event/table shapes are not decided in
+Human Guidance.
 
-`ple_unrelease_executor` is a dedicated no-login capability. It owns the
-single `SECURITY DEFINER` Unrelease operation and has the narrow grants needed
-to lock the Assignment, read redacted impact counts, update its lifecycle
-state, delete the Attempt root, rebuild affected Question Revision statistics,
-and append the audit event. It is not a service login and no API or worker
-capability inherits its authority.
+## Trusted function seams
 
-Unrelease first locks the Assignment using the same ordering as Attempt start,
-save, submission, and grading. It then verifies current teaching authority,
-Released state, exact Assignment Edit Number, and exact title confirmation.
-The status transition, complete Student Work closure deletion, statistics
-rebuild, and redacted audit event commit together. The audit event contains the
-actor, Assignment, aggregate counts, outcome, and time; it excludes Student
-identities, responses, and grades. A rejected precondition leaves all of those
-facts unchanged.
+Some operations need a small privileged seam for session resolution,
+cross-table invariants, exact destructive operations, or narrow service work.
+Such functions:
+
+- use a fixed trusted `search_path`;
+- are revoked from `PUBLIC`;
+- receive only the minimum grants needed;
+- recheck exact Account and relationship authority; and
+- perform the protected read/write in one transaction.
 
 ## Deployment boundary
 
-The short-lived database-migrator image contains the PostgreSQL 17 client, the
-base manifest, optional installation-data manifest, and forward migrations. It
-is the only shipped image that carries `psql` or schema-installation material.
-API and worker runtime images contain neither `psql` nor DDL authority.
-
-Production provisioning occurs from a short-lived, audited administration
-environment in the private network. It bootstraps the platform identities,
-installs and verifies the base, provisions the narrowly scoped service logins,
-and then deploys application processes with their own TLS-verified credentials.
-The application pool verifies its login and capability contract at startup;
-successful infrastructure provisioning alone is not authorization evidence.
+Runtime images do not need schema-installation tools or DDL authority.
+Provisioning supplies separate TLS-verified credentials for migration,
+application, authentication, and any narrow service capability. Successful
+infrastructure provisioning alone is not authorization evidence.
 
 ## Verification scope
 
-Permanent checks cover the durable security properties: default-deny grants,
-forced RLS, owner and runtime-role separation, fixed-path privileged functions,
-worker capability membership, restricted schema-state access, non-enumeration,
-and the Unrelease closure. Fresh-installation, failed-install rollback, and
-connected service exercises remain integration evidence rather than a catalog
-inventory frozen into this document.
+Permanent checks protect default-deny grants, forced RLS, owner/runtime
+separation, trusted-function configuration, non-enumerating foreign-record
+failures, equal co-Instructor access, scoped Sysadmin support, whole-Attempt
+submission, Unrelease closure, and retention fences. Connected PostgreSQL
+exercises remain distinct from catalog-only or mocked evidence.

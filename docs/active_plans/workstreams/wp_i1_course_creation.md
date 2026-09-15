@@ -1,5 +1,10 @@
 # WP-I1 visible course creation
 
+> **Dated implementation evidence.** This workstream records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Scope
 
 This work package adds only the instructor-visible course-creation surface for

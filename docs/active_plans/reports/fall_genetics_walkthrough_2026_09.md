@@ -1,5 +1,10 @@
 # Genetics Blueprint Course: scope-correction receipt
 
+> **Dated implementation evidence.** This report records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 Reviewed September 13, 2026.
 
 Status: M4 is complete as of 2026-09-14. The fresh canonical runtime at

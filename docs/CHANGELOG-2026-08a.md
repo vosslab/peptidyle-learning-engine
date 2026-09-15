@@ -1,5 +1,7 @@
 ## 2026-08-28
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Fixes and Maintenance
 
 - Accepted `WP-INST-WN1-A` after two `REVISE` rounds and a fresh `ACCEPT`. Its ledger binds

@@ -123,14 +123,15 @@ authenticate as `student@mail.roosevelt.edu` while the message is sent from a de
 `@gmail.com` account.
 
 Course Roster Import permits exact configured domains such as `mail.roosevelt.edu`. A suffix such
-as `.edu` is not an authorization rule. The public authentication-start response must not reveal
+as `.edu` establishes the United States institutional-address eligibility rule but is not Course
+authorization. Student email is immutable after Account creation. The public authentication-start response must not reveal
 whether an address belongs to an Account, is inactive, is outside the permitted domain, or is
 currently rate-limited (ASVS 6.3.1, 6.6.2-6.6.3).
 
 ## Authentication-message content
 
 Authentication messages contain no Student name, Course name, roster ID, Account identifier,
-Product Role, grade, Assignment, or Student Work. A message contains only the installation name,
+Product Role, grade, Assessment, or Student Work. A message contains only the installation name,
 authentication link or code, expiration information, and instructions to ignore an unrequested
 message.
 

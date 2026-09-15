@@ -2,13 +2,21 @@
 
 ## Status
 
-Accepted and implemented for M6 and M8. This decision closed M3 in
+The storage, validation, authorization, and cleanup material below records the
+accepted M6/M8 implementation. Its banner sizing and placement decision is
+superseded by [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md), which now requires a
+small centered Course banner. The former 6:1 page-width hero and 5:2 card crops
+remain historical implementation evidence, not current product requirements.
+Human Guidance does not settle the replacement pixel dimensions, aspect ratio,
+or crop behavior; those details remain unresolved.
+
+This record originally closed M3 in
 [the archived Course Appearance plan](../../archive/cryptic_foraging_hennessy.md).
 
-## Decision
+## Historical implementation decision
 
-A Course Banner retains one verified, immutable private source object and has
-two immutable, normalized WebP delivery renditions:
+A Course Banner implementation retained one verified, immutable private source
+object and two immutable, normalized WebP delivery renditions:
 
 - the course-entry hero is a 6:1 wide crop, with a 1200 by 200 CSS-pixel
   reference box; and
@@ -46,8 +54,8 @@ fallback until container queries are appropriate). The floor prevents a
 60-pixel phone strip; the cap avoids consuming more than 200 pixels above the
 fold.
 
-![Rendered candidate crops at every canonical profile. The selected 6:1 row
-is framed in blue.](assets/course_appearance_banner_ratio_specimen.svg)
+![Historical candidate crops at every canonical profile. The formerly selected
+6:1 row is framed in blue.](assets/course_appearance_banner_ratio_specimen.svg)
 
 The committed rendered specimen uses the actual calculated page widths at
 one-half scale, matching candidate heights, and identical center-marked

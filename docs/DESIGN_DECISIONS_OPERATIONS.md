@@ -24,9 +24,12 @@ installation targets the selected Python 3.12 environment.
 
 **Decision.** The Gradebook Summary is server-derived. Authorized Student-work inspection validates the exact course composite, writes its audit fact atomically, and returns an answer-free `no-store` Student-work inspection result with only the Student response and issued presentation needed for teaching.
 
-### Inspected work names its Student and Assignment
+### Inspected work names its Student and Assessment
 
-**Decision.** The authorized Student-work inspection result includes server-resolved Student and Assignment labels, never placing those labels in cursors, URLs, or browser storage.
+**Decision.** The authorized Student-work inspection result includes
+server-resolved Student and Assessment labels, never placing those labels in
+cursors, URLs, or browser storage. Current `assignment` wire or source names are
+implementation gaps and do not change the product term.
 
 ### PLE-owned wire names use direct Serde DTOs
 
@@ -34,4 +37,9 @@ installation targets the selected Python 3.12 environment.
 
 ### Blueprint-operation authorization
 
-**Decision.** Course creation owns normal minimal Blueprint creation. The Blueprint-operation transport is closed to its six defined operations and resolves its authenticated Account only through `SessionRecord`.
+**Decision.** Course creation may create an empty Course Instance or adopt a
+Public Blueprint. A Blueprint is created Private with Revision 1. Only its
+owner may Save content or change its Private, Public, or Archived lifecycle.
+The transport resolves its authenticated Account only through `SessionRecord`;
+current operation counts and route names are implementation details rather than
+product lifecycle authority.

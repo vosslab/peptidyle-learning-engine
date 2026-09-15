@@ -9,25 +9,26 @@ or an authorization decision.
 
 Each published `QuestionRevision` is immutable. A stable Question ID may therefore
 have multiple exact versions without changing the identity that instructors use.
-Assignments, issued work, and evidence retain their exact version pins; no
-operation resolves an assignment through an implicit latest version.
+Assessments, issued work, and evidence retain their exact Revision pins; no
+operation resolves an Assessment through an implicit latest Revision.
 
 ## Format
 
-The canonical stored Question ID is seven compact Crockford Base32 characters.
-Its canonical browser display is `AAA-BBBB`, using a `3-4` grouping:
+The canonical stored Question ID is eight compact Crockford Base32 characters.
+Its canonical browser display is `AAAA-ZBBB`, using a `4-4` grouping:
 
 ```text
-7K3-M9QP
+AAAA-ZBBB
 ```
 
-The compact stored form of this example is `7K3M9QP`. The first six characters
-are the random lineage identity. The seventh character is a server-validated
-HMAC-SHA-256 check character. The hyphen is presentation-only and is not part
-of the stored identifier.
+The compact stored shape is `AAAAZBBB`. The four characters before the check
+character and the three characters after it are the seven random lineage
+identity characters. `Z` shows the position of the server-validated
+HMAC-SHA-256 check character; it is not a literal required character. The
+hyphen is presentation-only and is not part of the stored identifier.
 
-The identifier is non-sequential and copyable. Six Crockford Base32 identity
-characters provide 32^6 possible identities without exposing creation order.
+The identifier is non-sequential and copyable. Seven Crockford Base32 identity
+characters provide 32^7 possible identities without exposing creation order.
 
 ## Crockford alphabet
 
@@ -40,8 +41,8 @@ Use this Crockford Base32 alphabet:
 Canonical stored and displayed IDs use uppercase characters. Input parsing is
 forgiving at the transcription boundary:
 
-- Accept either the compact seven-character form or one hyphen in the canonical
-  `3-4` display position.
+- Accept either the compact eight-character form or one hyphen in the canonical
+  `4-4` display position.
 - Accept lowercase and normalize to uppercase.
 - Accept `O` or `o` as `0`.
 - Accept `I`, `i`, `L`, or `l` as `1`.
@@ -52,17 +53,19 @@ forgiving at the transcription boundary:
 The validation character detects common transcription errors. It is not an
 authentication, authorization, or existence proof.
 
-Version 1 derives it as follows:
+The check character is derived as follows:
 
 ```text
-identifier = six canonical Crockford Base32 identity characters
+identifier = seven canonical Crockford Base32 identity characters
 hmac_output = HMAC-SHA-256(question_id_secret, identifier)
 validation_value = the high five bits of hmac_output byte zero
 validation_character = CrockfordBase32(validation_value)
 ```
 
-The HMAC input is the six uppercase ASCII identity characters without the
-hyphen or a domain prefix. Stable vectors use this exact rule.
+The HMAC input is the seven uppercase ASCII identity characters in display
+order, excluding the check character, hyphen, and any domain prefix. The
+derived character occupies the fifth position of the compact stored ID and
+the first position after the display hyphen.
 
 ## Secret handling
 
@@ -78,9 +81,10 @@ recovery are application-state operations rather than ordinary configuration.
 
 The publish transition mints a Question ID only for a new published lineage:
 
-1. Generate six random Crockford Base32 characters from a cryptographically
+1. Generate seven random Crockford Base32 characters from a cryptographically
    secure source.
-2. Derive its validation character.
+2. Derive the validation character and insert it in the documented middle
+   position.
 3. Copy the immutable source bytes to their server-created target address and
    atomically persist the Question ID with its new lineage and first immutable
    version.
@@ -90,8 +94,8 @@ The publish transition mints a Question ID only for a new published lineage:
 Question ID allocation. The base schema checks the compact uppercase Crockford
 shape; the trusted server verifies the HMAC character before identifier-based
 resolution. Correctly minted full IDs already uniquely determine their
-six-character identity for one deployment secret, so the schema has no
-redundant first-six-character uniqueness constraint.
+seven-character identity for one deployment secret, so the schema does not
+need a second identity-only uniqueness constraint.
 
 The publisher retries only a PostgreSQL `23505` violation of that primary key.
 It deletes the just-written target object before that conclusive retry; another
@@ -109,35 +113,36 @@ Question ID or Question Revision Number.
 
 An accepted same-lineage publication keeps the Question ID and assigns the next
 Question Revision Number. Publication of a separate lineage mints a new Question
-ID and starts that lineage at Version Number 1. The
+ID and starts that lineage at Question Revision Number 1. The
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the change-operation
 meanings and [QUESTION_MODEL.md](QUESTION_MODEL.md) owns their typed model.
 
 ## Exact pins and evidence
 
-Every fixed Assignment Entry and Question Pool Item pins one exact
-`QuestionRevisionReference`. Browser-safe `AssignmentSummary` entries expose a
-Question ID through `FixedQuestionAssignmentEntrySummary` and
+Every fixed Assessment entry and Question Pool item pins one exact
+`QuestionRevisionReference`. Current browser-safe `AssignmentSummary` entries expose a
+Question ID through legacy `FixedQuestionAssignmentEntrySummary` and
 `QuestionPoolItemSummary`, without exposing the server-owned exact-version
-reference. An explicit,
-revision-checked Assignment update may choose a new Available version.
+reference. Those implementation type names do not preserve Assignment as the
+generic product term. An explicit,
+Edit-Number-checked Assessment update may choose a newer Published Question Revision.
 Publication, availability changes, correction processing, and background work
-preserve the Assignment's selected reference.
+preserve the Assessment's selected reference.
 
-Every Issued Question retains that exact Question Revision Reference and
-selection evidence. Every Question Attempt retains its server-generated seed
-and reproduction evidence. Grading evidence and audit records resolve the
-same exact pair. A Student receives content only through server-authorized
-Assignment Access for that reference.
+Student Work retains that exact Question Revision Reference and selection
+evidence. A backend that uses randomization retains its server-generated seed
+or opaque state; native PLE Question JSON is static and receives no random
+seed. The grading outcome resolves the same exact Revision. A Student receives
+content only through server-authorized Assessment access for that reference.
 
 ## Publication and availability
 
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the canonical lifecycle
 meanings. Question Publication Requirements name the conditions for one Draft
-Question Revision; Question Publication Validation returns its ordered Question
+Question; Question Publication Validation returns its ordered Question
 Publication Issues. A Question Publication Event creates the first Question Revision
-in a new lineage. A Question Availability Event records the stable lineage's current
-Available or Archived state for ordinary browsing and new selection. Either state
+in a new lineage. Current lineage metadata records whether the Published
+Question is Archived for ordinary browsing and new selection. Either condition
 preserves exact historical resolution through the same Question Revision Reference.
 
 ## Authorization boundary
@@ -146,26 +151,26 @@ Question IDs are public references, not bearer credentials. A valid ID does not
 grant Question Library access, reveal whether a question exists to an unauthorized
 caller, establish ownership, or grant course or Student authority. Question Library
 resolution requires an authenticated active Instructor. Student delivery
-requires exact Assignment Access for that Student and Assignment. Anonymous callers cannot browse,
+requires exact Assessment access for that Student and Assessment. Anonymous callers cannot browse,
 search, resolve, or inspect a Question ID.
 
 ## Display and entry
 
-Display IDs in canonical uppercase `3-4` form and keep them visually subordinate
+Display IDs in canonical uppercase `4-4` form and keep them visually subordinate
 to the human-readable title. Copy actions copy the canonical form. Search and
-entry controls accept both `7K3-M9QP` and `7K3M9QP`, then normalize to the
+entry controls accept both `AAAA-ZBBB` and `AAAAZBBB`, then normalize to the
 canonical display form.
 
 ## Required behavior
 
 The implementation is complete when:
 
-- one visible `AAA-BBBB` ID names each stable published lineage;
+- one visible `AAAA-ZBBB` ID names each stable published lineage;
 - each publication has an immutable Question Revision identified by one exact
   Question Revision Reference;
-- same-lineage publication advances the Version Number and a separate lineage
+- same-lineage publication advances the Question Revision Number and a separate lineage
   receives a new Question ID;
-- assignments, attempts, and evidence retain exact version pins;
+- Assessments, Attempts, and evidence retain exact Revision pins;
 - equivalent Crockford input normalizes consistently and malformed input is
   rejected before authorized resolution; and
 - the HMAC secret remains outside browser and WebAssembly boundaries.

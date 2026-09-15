@@ -1,248 +1,103 @@
 # Ribbon task model
 
-## Purpose and boundary
+## Purpose and authority
 
-This task model explains how the Application Shell helps an Instructor, Student, or Sysadmin keep
-their place while content changes. It records a navigation model, not a promise that every designed
-destination is usable today. Canonical surface names come from
-[INTERFACE_TERMINOLOGY.md](../INTERFACE_TERMINOLOGY.md); placement and responsive behavior come from
-[UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md).
+This model applies the navigation decisions in
+[HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). It separates stable product
+navigation from page-local actions and current implementation gaps.
 
-The current production capability registry records a mix of backed and unavailable destinations.
-The connected Live Demo reaches role-owned Instructor, Student, and Sysadmin workflows after seeded
-Account entry. The current capability and role ceiling for each destination are generated in the
-[Ribbon destination ledger](RIBBON_DESTINATION_LEDGER.md). An unavailable destination is not a
-disabled promise, an empty-state substitute, or permission evidence. It remains absent until a
-complete usable path has backing evidence in
-[capability_registry.ts](../../src/ribbon/capability_registry.ts).
+The Ribbon keeps its declared rows and geometry stable while content loads,
+changes, becomes empty, or reports an error. Route admission is presentation,
+not authorization; the server rechecks every protected request.
 
-The models below therefore distinguish two states:
+## Product frame
 
-- **Current implementation:** the behavior presently supported by the shell and its truthful
-  capability admission boundary.
-- **Designed path after admission:** the interaction that applies only when the named destination
-  has a backed route and is available to the signed-in Product Role. This is not a new workflow or
-  authorization rule; it is the stable navigation behavior an admitted capability must join.
+The top bar owns application identity, current Product Role, and Profile access.
+Sign Out belongs inside the Profile menu rather than beside the primary tabs.
+The Context Row identifies the current Course, Assessment, or other scope. The
+Task Row contains sibling destinations for the selected primary area. Deep
+pages use breadcrumbs and retain one visible page heading.
 
-The dense top bar combines application identity, Product Role context, and Product Tabs. When the
-declared route has a task group, the optional Task Row answers "which part of that work can I
-enter?". The Application Shell places a breadcrumb prelude between the Ribbon and route content for
-deep routes. The top bar and any present Task Row retain their order while route content changes;
-the breadcrumb prelude reserves its own space while its authorized labels resolve. This applies the
-supporting UI-literature survey's principles of stable geometry,
-proximity, discrete responsive states, and readable keyboard focus, touch, and contrast without
-turning the survey into product requirements.
+Loading, denial, an empty collection, or a route error changes the content
+area, not the surrounding Ribbon geometry. Focus moves to the main content
+heading after successful navigation and to a useful recovery target after an
+error.
 
-## Shared interaction model
+## Instructor product navigation
 
-### Re-orientation after a content change
+The primary tabs are:
 
-An admitted Ribbon link acknowledges activation at the clicked control: the selected link receives
-`aria-current="page"` and pending feedback before route content resolves. The Application Shell stays
-mounted, the rows reserved by the declared route topology retain their geometry, and focus moves to
-the one `#main-content` target after a pathname change. A content error stays inside that target and
-offers recovery without removing the Ribbon. The skip link reaches the same target directly.
+1. Courses
+2. Questions
+3. Assessments
 
-This means a person can re-orient from the dense top bar, then confirm the selected Tab or Task and
-the shell-owned breadcrumb trail when present, then resume reading or working in the content area.
-A scoped course label, Assignment Attempt label, admission result, loading state, or content error
-never replaces the page heading or changes the navigation declared by route topology.
+Their Task Rows are:
 
-### Account-end controls
+| Primary tab | Tasks |
+| --- | --- |
+| Courses | My Blueprint Courses; My Active Courses; My Inactive Courses; Search Public Blueprint Courses |
+| Questions | My Questions; My Draft Questions; Starred; Watched; Search Question Library; Browse Question Library |
+| Assessments | Assessments Due Soon; My Assessment Templates |
 
-The boxed Product Role plate appears once in the dense top bar; no second account-label rendering
-repeats that context. Instructor Sign Out precedes the far-right Profile link. Profile is the one
-accessible icon-only exception to the ordinary glyph-plus-text Ribbon pattern: its link name is
-`Profile`, and its visible rounded-square content is the generic user glyph until the Instructor's
-uploaded thumbnail is available. Student and Sysadmin schemas omit Profile.
+Search and Browse are different interactions. Search Question Library exposes
+an explicit query/filter workflow. Browse Question Library supports
+discovery without pretending it is the same operation.
 
-### Course Instance Tabs
+Required backed destinations remain visible when their collection is empty and
+the content area explains how to create the first item. A genuinely
+unimplemented future capability is not displayed as a usable control. An
+implementation that lacks a Human-Guidance-required destination is a product
+gap to record, not authority to delete that destination from this model.
 
-When a backed Course Instance route is available, the Course Instance Ribbon Scope supplies its
-Product Role's ordered schema. An Instructor's designed Tabs are **Assignments**, **Students**,
-**Gradebook**, **Teaching Operations**, **Blueprint Updates**, and **Course Setup**; a Student's is
-**Assignments**; a Sysadmin's is **Teaching Operations**. Capability admission may omit an unavailable
-destination, but the schema never changes order because loading, a title, or a page error occurs.
+## Course Instance navigation
 
-An Instructor's backed assignment-workspace Tasks are **Overview**, **Questions**, and **Policies**.
-**Grading Operations** and **Student View** remain absent until backed. **Grade Settings** and
-**Appearance** are Course Setup Tasks when backed. **Create Assignment** is a Page Action in
-Assignments content, not a Ribbon Tab or Task. A route declaring one of these task groups reserves the
-Task Row even when no Task is admitted, so admission never moves the content origin. A route with no
-declared task group omits that row.
+Course pages expose only implemented Course-local teaching tasks and preserve
+the Course identity in context. Every current co-Instructor sees the same
+teaching destinations; the creator or first Instructor has no special set.
 
-### Assignment Attempt boundary
+Assessment composition is the **Assessment Question Editor**. Settings are the
+**Assessment Properties Editor**. Create Assessment is a page action in the
+appropriate content, not a competing primary Ribbon tab.
 
-The Assignment Attempt Ribbon Scope is a Student scope. Its schema contains **Attempt** and the
-**Back to Assignments** Task; **Assignment Attempt Progress** belongs in the dense top bar, while
-question navigation and timing remain in Attempt content. Instructor and Sysadmin Assignment Attempt
-schemas contain no Tabs. Both Student controls are backed: **Back to Assignments** returns to the
-authorized Assignment access route with the current Course and Assignment references. Question
-positions and timers remain content state rather than variable Ribbon navigation.
+Student View is an Instructor preview that retains Instructor identity and
+creates no Student Work. It is not a Product Role switch.
 
-## Instructor task model
+## Student navigation
 
-**Trigger.** An Instructor enters a backed Product or Course Instance destination, changes an
-admitted Course Instance Tab, or opens an assignment-workspace Task from Assignments.
+Student work is collectively **Coursework**. A specific item uses its exact
+Assessment Type name. Within an Assessment Attempt, Question navigation and
+saved status stay in the content area while the Ribbon and context remain
+stable.
 
-**Goal.** Teach from the correct Course Instance while recognizing the active destination and keeping
-the next course-management decision available without having to rediscover navigation after content
-changes.
+The return action is **Back to Coursework**. The completion action is **Submit
+Assessment** and submits the whole Attempt, finalizing all saved responses
+together.
 
-**Decision points.**
+## Sysadmin navigation
 
-- At Product scope, choose among the Instructor's **Courses**, **Questions**, and **Assignments**
-  Tabs. Their task rows are, respectively, My Blueprint Courses / My Active Courses / My Inactive
-  Courses / Search Public Blueprint Courses; My Questions / My Draft Questions / Starred / Watched /
-  Search Question Library / Browse Question Library; and Assignments Due Soon / My Assignment
-  Templates. A task appears only when its usable path is backed.
-- At Course Instance scope, confirm the course identity in the dense top bar, then choose the admitted
-  Course Instance Tab appropriate to the teaching decision.
-- On Assignments, use the content-local **Create Assignment** Page Action when creating rather than
-  navigating; use the admitted **Overview**, **Questions**, and **Policies** Assignment workspace
-  Tasks only after an assignment is selected. Question edits keep their page-owned leave guard.
-- On a route reached through a Context Control, recognize **No Selected Ribbon Tab** as an intentional
-  state and use the persistent schema to return to a teaching destination.
+The Sysadmin Ribbon exposes implemented platform administration and scoped
+support entry points only. It does not imply Course membership or ambient FERPA
+access. Human Guidance does not specify a complete fixed Sysadmin tab/task list,
+so this document does not invent one.
 
-**Information needs.** The Instructor needs the one boxed Product Role plate, accessible Profile
-control, selected Course Instance label, selected Tab or Task, shell-owned parent trail on a deep
-route, page heading, and the route-local teaching data. The Instructor does not need an opaque
-identifier, a second course navigation surface, or a loading replacement for the Ribbon.
+## Responsive and keyboard behavior
 
-**Error and recovery.** If route content fails, the content-region recovery explains that the learning
-space, navigation, and any active Assignment Attempt remain available. The Instructor may retry that
-page or use a visible Ribbon link when one is admitted. If an intended destination is absent, the
-current honest explanation is that it has no backed usable path; the UI does not imply that an
-Instructor can obtain it by retrying, changing a role, or entering a guessed URL. Sign-out failure
-keeps the session open, reports the failure through the shell's live status, and permits a retry.
+- Preserve source order and meaningful labels at every viewport.
+- Collapse presentation without reordering tasks or hiding the selected
+  destination.
+- Keep the primary keyboard path available through native links and buttons.
+- Announce pending navigation and content errors without remounting the whole
+  shell.
+- Do not use icon-only controls except where the visible surrounding context and
+  accessible name make the action unambiguous.
 
-**Completion evidence.** The selected link and the content heading agree on the teaching location;
-the dense top bar names the same Course Instance; a deep route has an ordered breadcrumb trail with a
-current terminal; the focused `#main-content` content is available after navigation; and no
-course-navigation control changes position during loading, recovery, or content replacement.
+## Current implementation evidence
 
-**Current implementation boundary.** The Instructor's backed Product and Course Instance routes
-provide current Courses, Question Library, Blueprint Course, Course Instance, Assignment Workspace,
-roster, and Gradebook workflows. The ledger names the precise backed destinations; unavailable
-designed positions remain absent rather than suggesting unfinished teaching operations are usable.
+[RIBBON_DESTINATION_LEDGER.md](RIBBON_DESTINATION_LEDGER.md) is generated from
+the current route catalog and capability registry. Its old labels and omitted
+required destinations are implementation gaps. The ledger must not be read as
+permission to replace the product model above.
 
-**Assignment Attempt entry and exit.** An Instructor has no designed Assignment Attempt Ribbon Tab.
-Entering a Student's attempt is not an Instructor Ribbon workflow in the current model, and there is
-no admitted Instructor attempt route to document. If a future instructor-facing review capability is
-designed, it needs its own declared scope, route, authorization, and task model; it must not borrow
-the Student **Attempt** Tab.
-
-## Student task model
-
-**Trigger.** A Student enters an admitted Course Instance destination, chooses **Assignments**, enters
-an admitted Assignment Attempt, or activates **Back to Assignments**.
-
-**Goal.** Find the current Course Instance, begin or resume the correct Assignment Attempt, answer
-questions in content, and return to Assignments without losing orientation or keyboard reachability.
-
-**Decision points.**
-
-- At Product scope, choose the admitted **Courses** Tab to find the relevant Course Instance.
-- At Course Instance scope, confirm the course label, then choose the Student's sole designed Tab,
-  **Assignments**.
-- At Assignment Attempt scope, confirm **Attempt** and **Assignment Attempt Progress** before working
-  in Attempt content. Use content-local question controls for sequence and responses; use **Back to
-  Assignments** to leave the attempt surface.
-- After a content update, use the selected Tab or Task and the page heading to decide whether to
-  continue, retry the current page, or return to Assignments.
-
-**Information needs.** The Student needs the course name, selected **Assignments** or **Attempt**
-state, readable Assignment Attempt Progress, the current question or recovery content, and a clear
-way to return to Assignments. A deep route has a shell-owned parent trail. The Student does not need
-a Question Library, Instructor controls, unavailable destinations, answer-bearing data outside the
-active content boundary, or an opaque resource identifier.
-
-**Error and recovery.** The persistent shell keeps the selected location visible while the content
-region reports a loading or error state. The Student can use the skip link or keyboard focus to reach
-`#main-content`, retry the page when offered, or select an admitted persistent destination. A missing
-or unbacked control is not a denied action: it is absent because there is no complete usable path to
-offer. Sign-out failure leaves the session open and presents a retryable live-status message.
-
-**Completion evidence.** On an admitted Course Instance route, **Assignments** is selected and the
-course label is stable. On an admitted Assignment Attempt route, **Attempt** is selected, progress
-is contextual rather than a changing Tab, and **Back to Assignments** returns to the Course Instance
-Assignments destination. Keyboard operation reaches identity, Ribbon Tabs, Ribbon Tasks, the
-breadcrumb trail when present, then the content target in logical order; focus and selection remain
-visible without depending on color alone.
-
-**Current implementation boundary.** The Student's backed Course index, Course Instance
-**Assignments** landing, Assignment Access, one-Question **Attempt**, submission, recovery, and
-**Back to Assignments** routes are current role-owned workflows. This does not weaken the delivery
-or recovery authorization boundaries.
-
-## Sysadmin task model
-
-**Trigger.** A Sysadmin enters a backed Product or Course Instance destination, changes an admitted
-Course Instance Tab, or returns from a Context Control route with No Selected Ribbon Tab.
-
-**Goal.** Orient to the active account and course context, reach the backed system or course-support
-surface, and recover from content failure without gaining unintended access to Student records.
-
-**Decision points.**
-
-- At Product scope, choose an admitted **Courses** destination or the backed **Instructor Accounts**
-  and **Scoped Support** system destinations.
-- At Course Instance scope, confirm the Course Instance label and choose admitted **Teaching
-  Operations** only when it has a backed usable path.
-- Use a Context Control route when account-level work is appropriate, recognizing that no Tab may be
-  selected while the same Ribbon schema persists.
-- Treat a missing Student roster, Gradebook, or Assignment Attempt control as an intentional boundary,
-  not a cue to seek general FERPA access.
-
-**Information needs.** The Sysadmin needs the one boxed Product Role plate, selected Course Instance
-context when present, selected destination, and route-local support information. The Sysadmin does
-not need permanent Student roster, grade, or Assignment Attempt navigation in the general schema;
-the product's FERPA boundary remains enforced by route and server authorization.
-
-**Error and recovery.** A content failure leaves the Application Shell intact and offers retry or a
-return to a supported location. If a support capability is absent, the appropriate recovery is to
-use an admitted path or await the complete capability package; the Ribbon does not advertise a
-placeholder or infer access from the Sysadmin role. Sign-out recovery follows the shared shell
-behavior and does not leave a false signed-out state.
-
-**Completion evidence.** The dense top bar and selected Tab identify the same supported context; a
-content recovery preserves the same Ribbon instance and focus target; and no general Student,
-Gradebook, or Assignment Attempt control is introduced merely because the account is Sysadmin.
-
-**Current implementation boundary.** The Sysadmin has backed **Instructor Accounts** and **Scoped
-Support** routes. They are separately role-gated and do not grant ambient Course, Student Record,
-Gradebook, or Assignment Attempt access. **Teaching Operations** remains unavailable until it has
-its own complete path.
-
-**Assignment Attempt entry and exit.** The Sysadmin Assignment Attempt schema intentionally has no
-Tabs, and the current product admits no attempt workflow. A request to inspect a particular Student's
-attempt must be designed as an explicit, course-scoped, authorized support capability before it can
-appear; this model supplies no implied entry or exit path.
-
-## Heuristic and accessibility ledger
-
-Each row ties a user-facing reason to a concrete acceptance check. The named evidence files are the
-current implementation checks; future capability admission must keep the same checks meaningful.
-
-| Guideline                                             | User-facing rationale                                                                                                                                                                   | Concrete acceptance check                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Stable spatial memory and visibility of system status | A person can keep their place because selection changes at the chosen control while the dense top bar, optional Tasks, breadcrumb prelude, and content origin remain recognizable.      | `tests/playwright/ribbon_m10_shell_evidence.mjs` proves one persistent Ribbon instance, topology-aware navigation and breadcrumb identity across route transitions, and content-only recovery; the non-browser E2E [pending-navigation check](../../tests/e2e/e2e_ribbon_pending_navigation.mjs) proves pending feedback is local to a link. |
-| Nielsen: match between system and teaching task       | Course identity, **Assignments**, **Attempt**, and **Back to Assignments** use the terms a teacher or student needs to recognize work, rather than internal route or database names.    | `tests/test_ribbon_catalog.mjs` and `tests/test_ribbon_contract.mjs` assert catalog labels and declared route mapping; a documentation review checks vocabulary against [INTERFACE_TERMINOLOGY.md](../INTERFACE_TERMINOLOGY.md).                                                                                                             |
-| Nielsen: user control and recovery                    | A content problem does not trap a person or erase navigation: they can retry the page, return to courses, or use an admitted destination.                                               | `tests/playwright/ribbon_m10_shell_evidence.mjs` triggers content recovery, then activates Tabs with mouse and keyboard while confirming the same Ribbon remains mounted.                                                                                                                                                                    |
-| Nielsen: consistency and standards                    | The same row role and link treatment communicate the same thing across scopes; the Task role appears only on routes whose declared topology contains tasks.                             | `tests/test_ribbon_schema.mjs` and `tests/test_ribbon_catalog.mjs` assert closed schemas and ordered controls; the non-browser E2E [Application Shell component check](../../tests/e2e/e2e_ribbon_app_component.mjs) asserts selected-link semantics and topology-aware rows.                                                                |
-| WCAG 2.2 SC 3.2.3 Consistent Navigation               | Repeated navigation stays in a predictable order within its declared route topology, so a keyboard or screen-reader user does not have to relearn the shell after content changes.      | `tests/test_ribbon_schema.mjs` proves ordered schema positions; `tests/playwright/ribbon_m10_shell_evidence.mjs` checks persistent shell identity and one Ribbon navigation surface across taskful and taskless transitions.                                                                                                                 |
-| WCAG 2.2 SC 3.2.4 Consistent Identification           | A control with the same purpose keeps the same accessible label and visual name wherever it appears.                                                                                    | `tests/test_ribbon_catalog.mjs` and `tests/test_ribbon_icons.mjs` keep catalog labels as link names and verify icon treatment supplements rather than replaces the label; the non-browser E2E [Application Shell component check](../../tests/e2e/e2e_ribbon_app_component.mjs) verifies the rendered selected-link semantics.               |
-| Keyboard operation and focus order                    | Students can reach navigation, a deep-route breadcrumb trail, and learning content without a pointer, and a route change has one predictable content destination.                       | `tests/playwright/ribbon_m10_shell_evidence.mjs` checks the focused skip link, ordered breadcrumb semantics, and its `#main-content` target; `src/application_shell.tsx` moves focus to that target after pathname changes.                                                                                                                  |
-| Visible focus and non-color selection                 | A keyboard user can see the active control and current location even when hue is not distinguishable.                                                                                   | `tests/playwright/ribbon_m9b_density_evidence.mjs` measures focus and selection styles; `src/ribbon/app_ribbon.css` pairs focus outline with selected weight and underline or task background treatment.                                                                                                                                     |
-| Reflow, text resizing, and discrete responsive states | A smaller viewport or larger text changes presentation deliberately without changing navigation meaning, hiding a normal destination label, or making the selected control unreachable. | `tests/playwright/ribbon_m9_responsive_evidence.mjs` and `tests/playwright/ribbon_geometry_evidence.mjs` cover narrow, tablet, and 200% text geometry, overflow cues, and selected-control reveal.                                                                                                                                           |
-| Contrast and forced colors                            | Text, selection, focus, and essential boundaries remain distinguishable for people using a course theme or a high-contrast system mode.                                                 | `tests/playwright/ribbon_m9b_density_evidence.mjs` covers contrast, forced-colors, and reduced-motion behavior; [UI_DESIGN_GUIDE.md](../UI_DESIGN_GUIDE.md) records the ordinary-text and focus treatment requirements.                                                                                                                      |
-| Motion preference                                     | Understanding the current location does not depend on an animation, and people who reduce motion do not receive unnecessary movement.                                                   | `tests/playwright/ribbon_m9b_density_evidence.mjs` checks the reduced-motion projection; `src/ribbon/app_ribbon.css` contains the `prefers-reduced-motion` treatment.                                                                                                                                                                        |
-| Truthful capability admission                         | A person never spends effort activating a dead control or interpreting an unavailable feature as a role failure.                                                                        | `tests/test_ribbon_capability_registry.mjs` proves `Available` is the only visible admission state; the generated [Ribbon destination ledger](RIBBON_DESTINATION_LEDGER.md) records the current role ceiling for each declared destination.                                                                                                  |
-
-## Maintenance rule
-
-When a backend capability becomes complete, update its registry evidence and run the integration
-checklist in [FRONTEND_CAPABILITY_INTEGRATION.md](FRONTEND_CAPABILITY_INTEGRATION.md). Update this task
-model only if the capability changes a person's trigger, decision, information need, recovery, or
-completion evidence. Do not add a control simply to make a row look occupied, and do not move an
-existing control to make a new capability fit.
+[FRONTEND_CAPABILITY_INTEGRATION.md](FRONTEND_CAPABILITY_INTEGRATION.md) defines
+how a real destination becomes usable without confusing visibility with server
+authorization.

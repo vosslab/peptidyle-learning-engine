@@ -1,5 +1,10 @@
 # WP-W3 leave and return
 
+> **Dated implementation evidence.** This workstream records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Status
 
 **ACCEPTED.** J3 passed in the retained-volume M5 walkthrough through the

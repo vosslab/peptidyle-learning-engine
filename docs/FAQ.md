@@ -1,235 +1,162 @@
 # Frequently asked questions
 
-This page answers common orientation questions about PLE's learning model, reusable Blueprint
-Courses, private Course Instances, security boundaries, and local services. It links to the
-authoritative contracts for implementation detail.
-
-The disposable Live Demo is the current connected PLE application. Its seeded Account entry
-replaces identity verification only; the implemented role- and relationship-gated routes are
-listed in [API_CONTRACTS.md](API_CONTRACTS.md). Answers that describe deferred work say so
-explicitly. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) for the executable boundary.
+These answers follow [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Current routes or
+screens with older names are implementation gaps, not a different product.
 
 ## What is a Blueprint Course?
 
-A **Blueprint Course** is the reusable course-level lineage. Complete valid
-creation produces immutable Revision 1, and each changed explicit Save produces
-a successor Revision. Unsaved edits remain protected browser working state.
-Every vetted (approved) Instructor can reuse the current Revision of an Available
-Blueprint Course. Historical Revisions remain resolvable for existing provenance.
-A Blueprint Course has no Students, live deadlines,
-releases, accommodations, grades, or delivery settings.
+A Blueprint Course is reusable Course content with no Students, dates, time
+zones, or relative schedules. It is created Private with Revision 1. A changed
+explicit Save creates the next immutable Revision; a no-op creates none.
+
+Private is owner-only and cannot be adopted. Public is visible to vetted
+Instructors and adoptable. Archived is read-only, omitted from ordinary
+discovery and new adoption, available only through explicit archived inclusion,
+and forkable.
 
 ## What is a Course Instance?
 
-A **Course Instance** is the teaching and delivery aggregate created from exactly one Blueprint
-Course. Its parent and applied Blueprint revision are immutable. It is private to its current equal
-Teaching Team Members and enrolled Students, and owns enrollment, deadlines, releases, accommodations,
-grades, and delivery settings. It is the only course type that receives student work.
+A Course Instance is delivered teaching with Students, equal co-Instructors,
+Course dates, Assessments, Attempts, and FERPA-protected records. It may adopt
+one exact Public Blueprint Revision or start empty. Adoption copies Blueprint
+Assessments into editable Course Instance Assessments.
 
-## How will I create a course?
+## Do Blueprint changes update daughter Courses?
 
-The current Instructor workflow can create a Course Instance from a Blueprint Course's current Revision.
-The retained design also permits first creating a minimal Blueprint Course. A Course Instance has
-its own teaching title, term, and IANA time zone; it receives reusable Blueprint Revision Content
-but never assignment dates, Students, invitations, grades, or other delivery
-state from another instance.
+Newly added Blueprint Assessments are automatically copied into daughter Course
+Instances as unreleased Assessments. New Blueprint Revisions are offered for
+the daughter Course Instructor's review and approval, and changes to existing
+Assessments are never applied silently.
 
-## How do Blueprint updates reach a Course Instance?
+## Can Instructors propose Blueprint changes?
 
-They do not yet propagate. A saved Blueprint Revision is exact reusable
-content: an Instructor creates a Course Instance from the current Revision, and
-the resulting Course Instance owns its current delivery configuration. Future
-propagation adds a newly added Blueprint Assignment to eligible Instances as
-Unreleased, while a change inside a retained Assignment needs Instructor review
-and approval. Blueprint-to-Course update proposals and propagation are future product work, listed in
-[TODO.md](TODO.md).
+Yes. An Instructor may create a Blueprint Course Change Proposal. The receiving
+owner decides what to accept; acceptance creates a new Revision of the receiving
+Blueprint. A proposal never directly changes daughter Course Instances.
 
-## What Blueprint and Course reuse is available now?
+## Can I fork a Blueprint?
 
-Complete valid creation creates immutable Blueprint Revision 1, and an Owner's
-changed explicit Save creates later Revisions. An Instructor can create a Course
-Instance from the Blueprint's current Revision; the new Course retains that exact source as
-provenance. Forking Blueprints, copying a Course for a new term, shifting
-Course dates, and Blueprint-to-Course propagation are not current workflows.
-They need bounded product designs before they gain routes, storage, or UI; see
-[TODO.md](TODO.md).
+Yes. A fork starts a new Private Blueprint lineage with ancestry. A Private
+Blueprint is owner-only until its owner makes it Public.
 
-## Is PLE tied to one format?
+## What is an Assessment?
 
-No. PLE gives Instructors one learning and assignment model while adapters bring different question
-sources into it. Every supported technology uses the same Draft Question, publication, Assignment,
-issuance, presentation, submission, evaluation, feedback-release, and Gradebook operations. PLE
-Question JSON supports multiple choice, multiple answer,
-fill-in-the-blank, multiple blanks, numerical entry, matching, ordering, and image hotspots.
-WeBWorK retains its own rendered document, interaction semantics, response interpretation, and
-grading behind the shared lifecycle; its author-declared Question Type is educational metadata, not
-an inference from its controls. iMathAS and H5P retain their distinct Question Sources behind the
-shared operations. QTI is an interchange boundary:
-accepted imports become PLE Question JSON before entering the Draft Question lifecycle. See [QUESTION_MODEL.md](QUESTION_MODEL.md)
-and [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
+Assessment is the generic object that organizes Questions and Question Pools
+into graded or practice work. The five Assessment Types are Regular Assignment,
+Practice Question Assignment, Bonus Assignment, Quiz, and Exam. Assignment is
+used only inside those three Type names.
 
-## Does mastery end practice?
+Blueprint Assessments contain reusable content and teaching settings but no
+Students or delivery dates. Course Instance Assessments deliver work to
+Students. Assessment Templates contain reusable settings but no Questions or
+Pools.
 
-No. Mastery, scoring, continued practice, and the Question Variation Rule are independent Assignment rules. An
-Instructor can require mastery, keep the highest score, allow unlimited practice after completion,
-and issue fresh parameter seeds for each new Assignment Attempt. A resumed Question Attempt keeps its original seed so its
-question does not change mid-attempt. See [ACTIVITY_MODEL.md](ACTIVITY_MODEL.md).
+## Does PLE support repeated practice?
 
-## How does an exam differ?
+Yes. Instructors control the allowed number of Assessment Attempts. Regular
+Assignments default to unlimited Attempts, and Students may practice toward a
+perfect score when settings allow it. Each Attempt retains its own exact
+Question/Pool Revision evidence and Student Work.
 
-An Assignment teaching pattern gives Instructors a teaching-intent starting point rather than asking them to
-compose implementation policies. A mastery assignment gives immediate full feedback, permits
-retries, and can offer fresh later practice. An exam uses a controlled Assignment Attempt, restricted feedback, and
-no continued practice. PLE keeps completion, grading, Question Variation, and feedback rules separate so
-a Course Instance can use either activity honestly. See [MASTERY_ASSIGNMENT_DESIGN.md](MASTERY_ASSIGNMENT_DESIGN.md).
+Human Guidance does not yet say which Attempt contributes to a Course grade
+when several exist.
 
-## What runs in Solid and Wasm?
+## How does submission work?
 
-The Solid single-page application presents routes, input controls, progress, and recovery states.
-Its one browser-safe Rust WebAssembly module generates allowed parameters and validates response
-format. `src/wasm/index.ts` is the sole browser import boundary for generated `wasm-bindgen` glue;
-components use its typed facade rather than raw exports. See [FRONTEND_ARCHITECTURE.md](FRONTEND_ARCHITECTURE.md)
-and [SOLID_MODEL.md](SOLID_MODEL.md).
+The Student navigates all Questions and saves complete responses while the
+Assessment Attempt is open. Incomplete responses are not saved as complete or
+graded. Saving changes only the working response.
 
-## Why is grading server-only?
+The whole Assessment Attempt is submitted at once, either by the Student or
+automatically at its deadline. That action finalizes all saved responses
+together, and other positions remain unanswered. The server-owned wall clock
+continues while the browser is closed or disconnected.
 
-The browser may check response format, but it never receives Answer Keys, Question Grader code,
-or correctness decisions. Those live in `crates/grading`, outside the WebAssembly dependency
-closure. The server repeats format validation and makes the authoritative grading decision. The
-browser's key-free server format-validation fallback is planned but has no Server Route in the current
-server route set. A Student submission is graded on the server, and an authorized
-Instructor Gradebook reads the resulting server-owned record. See [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md)
-and [QUESTION_MODEL.md](QUESTION_MODEL.md).
+## Who grades a Question?
+
+The selected Question Backend owns rendering, interaction, response
+interpretation, grading, feedback, and opaque backend state. It returns an
+immutable credit fraction. PLE stores that fraction and calculates points from
+the Assessment Question's current point value.
+
+Changing point values recalculates scores without regrading. PLE has no ordinary
+Instructor grading, Retry, regrading, or mutable-result workflow.
+
+## Is PLE tied to one Question format?
+
+No. Native PLE Question JSON supports eight strictly validated static Question
+types. WeBWorK owns its opaque document, controls, response interpretation, and
+grading. Other backends use the same ownership boundary. QTI is an import path;
+accepted items become native Draft Questions instead of remaining a second
+runtime model.
 
 ## Is PLE Question JSON QTI?
 
-No. PLE Question JSON is the small, strictly validated, answer-bearing authoring format for ordinary
-static Questions. The PLE Question Backend interprets the complete source to produce an answer-free
-Question Presentation and evaluate Student Responses on the server. QTI is a bounded import/export adapter and archival interchange
-format, so vendor XML and QTI expression trees do not become PLE's internal schema. See
-[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) and
-[QUESTION_MODEL.md](QUESTION_MODEL.md).
+No. Native PLE Question JSON is private, unpublished, unversioned, static, and
+strictly validated. QTI is a hostile-input import/interchange format.
 
-## Can a Student browser contact WeBWorK?
+## Can a Student browser contact WeBWorK directly?
 
-No. PLE is the sole WeBWorK renderer client. The renderer is private; the browser receives an
-authenticated exact backend-owned document through PLE's same-origin route and saves an opaque,
-bounded canonical ordered-pair response through PLE. WeBWorK owns the document, its controls, and
-grading behavior. The connected Chapter 1 cases are representative evidence for that boundary,
-not a claim of Open Problem Library compatibility breadth. See
-[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md) and
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
+No. PLE is the private renderer's only client. The browser receives an
+authorized opaque document through PLE and sends a bounded opaque response back
+to PLE. It receives no renderer credential, private source, Answer Key, or raw
+grading result.
 
-## Why PostgreSQL and a renderer?
+## Why is grading server-only?
 
-They have separate jobs. PostgreSQL stores PLE-owned accounts, Blueprint Courses, Course Instances,
-assignments, attempts, and scores under exact relationship authorization and row-
-level security. The private external PG renderer evaluates the exact issued WeBWorK question and has no PLE
-database, student credentials, persistent volume, or host-published port. PLE remains the only
-assignment, roster, and Gradebook system. See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
-[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
+Browser code may validate response shape, but it has no Answer Key, private
+grading input, or authority to assign credit. The backend grades from trusted
+server state. This also keeps author JavaScript in native Questions untrusted.
 
-## How do students sign in?
+## What is Student View?
 
-PLE Accounts use stable opaque Account IDs and one immutable Product Role. The only current
-browser sign-in path is the disposable Live Demo's visible seeded Account selector. It issues the
-ordinary server-owned Authenticated Session for the selected configured Account; it does not grant
-a Product Role or course authority. A Sysadmin can use Create Instructor Account to create an
-Active Instructor Account with its server-assigned Account ID and fixed Instructor Product Role,
-and can use the current Instructor Accounts browser task to manage that lifecycle.
+Student View is an Instructor's answer-free preview. It keeps the Instructor
+Account and Course authority and creates no Student relationship, Assessment
+Attempt, response, credit, or Student Work.
 
-Course Invitation claim is a current Student route. The browser's current
-invitation-export surface downloads protected mailer input but never sends mail.
-Email-code authentication, passkey authentication and management, and SMTP
-delivery remain future designs. The deferred passkey capability supplies no
-configuration, setup credential, command, or Browser Surface. See
-[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), [SECURITY_MODEL.md](SECURITY_MODEL.md), and
-[ROADMAP.md](ROADMAP.md).
+## How are roles separated?
+
+Each global Account has exactly one immutable Product Role: Student,
+Instructor, or Sysadmin. All co-Instructors in a Course have equal authority.
+A Sysadmin has no ambient Course membership or FERPA access; support access is
+deliberate, scoped, and recorded.
+
+## What happens when access or an Account is deactivated?
+
+New access stops, but authorship, Course relationships, Student Work, and
+history remain. Reactivation restores access through still-valid
+relationships. Permanent closure and Course-record retention are separate.
+
+## What happens to old Student records?
+
+The final Assessment deadline starts the Course retention clock, and later
+Student activity resets it. Instructors receive notice before FERPA-protected
+records leave normal interfaces. Records remain recoverable during the
+retention period, are then permanently deleted, and the Course becomes
+inactive. Course metadata, Assessments, Questions, and settings remain.
+
+## What runs in Solid and Wasm?
+
+Solid renders the role-specific interface and calls the same-origin Rust API.
+The browser-safe Wasm boundary can format or validate answer-free response
+shapes. It never owns authorization, Answer Keys, grading, or Student Work.
+
+## Is the Live Demo a separate product?
+
+No. It is a disposable installation with seeded fictional Accounts and ordinary
+product records. Its Account selector replaces identity verification only. The
+server still derives Product Role, Course relationships, and authorization.
 
 ## Is PLE ready for production?
 
-Not yet. PLE is still pre-production. The live demo is a functional, disposable installation, but
-it is not release acceptance. Phase 2 audit cleanup of obsolete grading-job/failure residue and
-its focused verification remain open, as does the Genetics Blueprint publication and delivery
-evidence. Provider, mailbox, passkey, multi-replica, security, HCI, and release gates also remain
-open. See
-[ROADMAP.md](ROADMAP.md) and [TODO.md](TODO.md).
+Consult [ROADMAP.md](ROADMAP.md), [TODO.md](TODO.md), and current release
+evidence. A functional Live Demo or passing lower-layer test is not by itself a
+production-readiness claim.
 
-## Is the live demo read-only?
+## Where should a contributor record a decision?
 
-No. The current demo is a functional, disposable PLE installation with implemented Course,
-authoring, roster, delivery, submission, grading, Gradebook, and bounded administration workflows.
-Its database and object storage are disposable, so regeneration restores seeded state. See
-[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
-
-## Are live-demo roles isolated from one another?
-
-No. Seeded personas use ordinary accounts, memberships, courses, and records in the same installation.
-An Instructor's Course Instance is private to its current equal Teaching Team Members and enrolled Students;
-the data is disposable because the installation can be regenerated, not because each role has a
-private sandbox. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [USER_ROLES.md](USER_ROLES.md).
-
-## Is Student view the same as entering as a Student?
-
-No. **Student view** is an answer-free, no-store inspection of the current assignment that retains
-the Instructor session and creates no student work. Ordinary Student entry uses the enrolled
-Student's authority and can create an Assignment Attempt, Question Attempt, submission, score, and Gradebook evidence. Use
-Student view to inspect delivery; use Student entry to exercise graded work. See
-[ACTIVITY_MODEL.md](ACTIVITY_MODEL.md) and [API_CONTRACTS.md](API_CONTRACTS.md).
-
-## Why does ADAPT appear in historical discussions?
-
-ADAPT is prior art, not a PLE product model. Its documentation used the term **Alpha course** for a
-shared reusable course tree. PLE learned from that surface while adopting the single canonical
-**Blueprint Course** aggregate. PLE defines no Alpha type, route, Store, schema branch, or
-compatibility alias. See [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-
-## Can I reuse a question or assignment?
-
-Yes, but reuse is explicit and versioned. Select a published question by its human-readable Question
-ID, reuse an assignment's ordered questions, or draw from a reusable pool. A saved Blueprint
-Revision can supply ordered modules and assignments when an Instructor creates a new Course Instance.
-Existing issued Assignment Attempts keep their immutable question snapshot. See
-[LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
-
-## What happens if automated grading stalls?
-
-Submission uses the Question Backend to produce the response's credit fraction, then PLE records
-that immutable outcome. The Student sees the completed result and permitted feedback; the
-Gradebook reads scores from stored fractions and current Assignment Entry points. There is no
-Student or Instructor grading-status, attention, regrade, or retry-grading workflow. If a backend
-is unavailable before submission completes, saved responses remain and the Student can submit
-again while the Attempt remains open. Expired abandoned Attempts are finalized through the same
-ordinary path by the narrow background process. The browser never receives an answer, grading
-internals, or a hidden key. See [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) and
+Product intent belongs in Human Guidance. Cross-module implementation contracts
+belong in [CONTRACTS.md](CONTRACTS.md) and focused owner documents. Unresolved
+work belongs in [TODO.md](TODO.md) or an active plan only after the product
+choice is settled. Accepted implementation evidence belongs in
 [CHANGELOG.md](CHANGELOG.md).
-
-## Can the browser or another Student see answer keys?
-
-No. Public `QuestionPresentation`, `QuestionSummary`, and `StudentAssignmentDetail` results are
-answer-free. Answer Keys, private Question Source,
-grading rules, and provider credentials remain on the server; exact relationship authorization also
-restricts educational records. See [SECURITY_MODEL.md](SECURITY_MODEL.md) and [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md).
-
-## Does the demo role selector grant a role?
-
-No. It replaces only the normal identity-verification ceremony. The server resolves the selected
-seeded account and derives the ordinary session, course membership, role, and authorization from live
-PLE state. After entry, the browser uses the same application and authorization paths as any other
-session. See [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md).
-
-## Why does a submission identify an attempt?
-
-A durable question attempt binds the authenticated student, Course Instance, assignment, immutable
-question revision, seed, timing state, and grading backend. The browser therefore sends only that
-attempt's route identity and the student's answer. Presentation checksums and
-compact Presentation Response Item References detect a stale or mismatched display; they are consistency checks, not
-authentication or grading proof. See [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
-
-## Where should a contributor record a durable decision?
-
-Use [CONTRACTS.md](CONTRACTS.md) for frozen module and service boundaries, and the focused durable
-document for the subject, such as [OBJECT_STORAGE.md](OBJECT_STORAGE.md), [RETENTION_POLICY.md](RETENTION_POLICY.md),
-or [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). Use
-[TODO.md](TODO.md) for unfinished-work routing and [CHANGELOG.md](CHANGELOG.md) for accepted
-implementation evidence. A bounded work item may refine only its explicitly assigned scope.

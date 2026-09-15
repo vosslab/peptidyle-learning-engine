@@ -6,6 +6,12 @@ destination, create a route, or make a Service available. The Application Shell 
 the capability registry is its truthful visibility ceiling; route access boundaries and the server
 remain the authorization owners.
 
+[HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) owns which destinations the product
+requires. If a required destination is not yet backed, that is an implementation
+gap; the registry cannot redefine the product by omitting it. Once a required
+destination is backed, keep it visible with an honest empty state when its
+collection has no items. Do not display unrelated future capabilities as usable.
+
 A destination is **backed** only when its complete usable path exists: a declared and mounted
 route, a real page rather than a placeholder, the typed browser client method used by that page,
 and the registered server handler that method targets wherever a call is required. A page that
@@ -13,8 +19,9 @@ genuinely needs no server call may be backed with a specific no-server-call rati
 client method, server test, or structural fixture by itself never makes a destination backed.
 Ribbon visibility never grants permission to view or perform an operation.
 
-The current Assignment workspace admits **Overview**, **Questions**, and **Policies** through its
-shared typed Assignment loader. The Questions page additionally reads the published Question picker;
+The current legacy Assessment workspace admits **Overview**, **Questions**, and **Policies** through its
+shared typed `assignment` loader. Product copy uses **Assessment Question Editor**
+and **Assessment Properties Editor**. The Questions page additionally reads the Published Question picker;
 its page-owned unsaved-changes guard remains in force when the Ribbon navigates between tasks.
 
 Use the repository's precise capability vocabulary in evidence and review:

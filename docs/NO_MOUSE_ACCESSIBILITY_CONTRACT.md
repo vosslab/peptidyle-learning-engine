@@ -3,7 +3,7 @@
 ## Status and authority
 
 This is the durable interaction contract for every PLE-owned student browser surface. It applies to
-the course, assignment, Assignment Attempt, response, Student Feedback, summary, continued practice,
+the Course, Coursework, Assessment Attempt, response, Student Feedback, summary, continued practice,
 auto-submission,
 asset, and PLE-owned iMathAS Question Backend boundary. For a backend-owned document, PLE owns its
 generic Student UI framing, keyboard reachability, bridge and lifecycle, and baseline theme; the
@@ -24,9 +24,10 @@ conformance.
 
 The primary student may be working remotely on a laptop, may have limited dexterity, may use a
 keyboard because a pointer is unavailable or tiring, or may combine the keyboard with a screen
-reader. The critical task is to open assigned work, understand each Question, save responses, finish
-the Assignment Attempt, read the authorized result, handle a failure, and continue practice without touching a
-mouse or trackpad.
+reader. The critical task is to open Coursework, understand each Question, save responses, submit
+the Assessment Attempt, read the authorized result, handle a failure, and continue practice without touching a
+mouse or trackpad. Saving changes the working response; the critical completion
+action submits the whole Assessment Attempt and finalizes all saved responses.
 
 Failure has educational consequences: an inaccessible control can prevent a student from answering,
 can consume limited time, or can make a saved response appear lost. No student action may therefore
@@ -37,10 +38,10 @@ undocumented shortcut.
 
 PLE keeps two keyboard evidence layers so a failure names the right owner:
 
-1. **Primary platform path.** The complete course-to-mastery journey works with Tab and Shift+Tab
+1. **Primary platform path.** The complete Course-to-Assessment journey works with Tab and Shift+Tab
    for focus, Space for native choice selection and button activation, and Enter for native link
    activation. Response persistence is available through the visible Save response button, and
-   whole-Attempt submission is available through the visible Finish Assignment action. This path
+   whole-Attempt submission is available through the visible Submit Assessment action. This path
    does not require an arrow key, digit shortcut, response-input Enter, or Escape.
 2. **Question Response Control extensions.** Enter-to-activate from an eligible ready response input, composite-control
    arrows, visible-choice digits 1-9, and Escape provide efficient Question Response Control behavior. Each
@@ -93,16 +94,16 @@ native radio controls supply the behavior.
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | Enter the application | The first useful Tab stop exposes Skip to learning content; Enter moves focus to main content                                                    | Main content is focused and named                                              |
 | Choose a course       | Tab reaches the course link; Enter opens it                                                                                                      | Route content loads and main receives focus                                    |
-| Choose an assignment  | Tab reaches Start assignment; Enter opens it                                                                                                     | Assignment title and action are available                                      |
+| Choose an Assessment  | Tab reaches the Assessment under Coursework; Enter opens it                                                                                      | Assessment title, Type, and action are available                               |
 | Begin or resume       | Tab reaches Start or continue practice; Space activates it                                                                                       | Question heading and Question Response Control appear                          |
 | Read the question     | Reading order follows prompt, assets, instructions, response, status, then save                                                                  | No interactive content is skipped or inserted out of order                     |
 | Answer                | A PLE-native Question Response Control follows its Question-Type-specific contract; a backend-owned document follows its backend-owned semantics | The selected or entered response is visibly represented                        |
 | Validate              | Format state is announced without grading or disclosing an answer                                                                                | Ready or actionable validation text is available                               |
 | Save                  | Tab reaches Save response; Space persists the current position                                                                                   | Pending state prevents a duplicate save                                        |
-| Finish                | Tab reaches Finish Assignment; Space finalizes the whole Assignment Attempt                                                                      | Submitted state prevents duplicate finalization                                |
+| Finish                | Tab reaches Submit Assessment; Space submits the whole Assessment Attempt                                                                         | Submitted state prevents duplicate submission                                  |
 | Read Student Feedback | Authorized Student Feedback receives a heading and sensible focus; unreleased Student Feedback is not inferred                                   | Student can read result and next action                                        |
-| Continue              | Tab and Space operate Continue, Back to assignment, or Start another practice Assignment Attempt                                                 | The next question, assignment, or fresh-seed practice Assignment Attempt opens |
-| Reconnect or expire   | Before expiry, reauthentication resumes the same Attempt; at expiry, the server auto-submits saved responses                                     | The clock is unchanged and no grading action is offered                        |
+| Continue              | Tab and Space operate Continue, Back to Coursework, or Start another Assessment Attempt                                                          | The next Question, Assessment, or allowed new Attempt opens                    |
+| Reconnect or expire   | Before expiry, reauthentication resumes the same Attempt; at expiry, the server submits the whole Attempt and finalizes saved responses         | The clock is unchanged and no grading action is offered                        |
 
 Route changes focus the main content rather than leaving focus on a removed navigation element.
 Student Feedback may focus its heading and later its primary advance control only when the student has not
@@ -115,8 +116,8 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 - Tab enters the native radio group at the checked option or the browser's initial native option.
 - Space selects the focused option; Tab then reaches the explicit Save response button.
 - As separately tested extensions, native radio arrows move focus and selection, number keys 1-9
-  may select a visible ordinal while a choice has focus, and Enter may submit a locally ready
-  response from that input.
+  may select a visible ordinal while a choice has focus, and Enter may activate Save response for a
+  locally ready response from that input.
 - Choice labels are readable text; visual letters such as A or B are not the response identity.
 
 ### Multiple answer
@@ -124,8 +125,8 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 - Tab and Shift+Tab move through the checkbox set; Space toggles only the focused choice; the
   explicit Save response button completes the primary path.
 - As separately tested extensions, arrow keys move focus among choices without changing selection,
-  digits 1-9 toggle a visible choice while a checkbox has focus, and Enter submits only when the
-  selection-count rule is satisfied.
+  digits 1-9 toggle a visible choice while a checkbox has focus, and Enter activates Save response
+  only when the selection-count rule is satisfied.
 - A visible label and programmatic checked state identify every choice.
 
 ### Fill in the blank and multi-blank
@@ -179,13 +180,14 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 - The current selection is programmatically available without exposing the private correct-region
   set.
 - If a pedagogically equivalent keyboard interaction cannot be provided, the item is not eligible
-  for a graded PLE assignment.
+  for a graded PLE Assessment.
 
-### Short text, file, and iMathAS Question Backend controls
+### Short text and iMathAS Question Backend controls
 
 - A multiline short-text field retains ordinary text-entry keys; Tab reaches Save response and Space
   activates it.
-- PLE-owned iMathAS Question Backend launch, readiness, submit, return, and error recovery expose native
+- Students have no file-upload control. A Question Backend does not widen that product boundary.
+- PLE-owned iMathAS Question Backend launch, readiness, response capture, return, and error recovery expose native
   buttons reachable with Tab and activated with Space. The iframe has a title and cannot trap focus.
   A third-party tool's internal interface is separately evaluated; PLE does not call the whole task
   accessible merely because its launch button is accessible.
@@ -196,8 +198,8 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   interpretation. PLE does not infer its educational Question Type from those controls or convert
   them into a PLE-native Question Response Control.
 - PLE provides a titled, keyboard-reachable document frame, ordinary focus movement into and out of
-  that frame, its generic baseline theme, and the authorized save and submission lifecycle.
-- The document bridge captures the complete submitted form as a bounded opaque canonical ordered-pair
+  that frame, its generic baseline theme, response saving, and whole-Assessment submission.
+- The document bridge captures the complete backend form payload as a bounded opaque canonical ordered-pair
   Student Response. It preserves repeated names, form order, and legitimate backend hidden fields;
   it never carries renderer credentials to the document.
 - The Question Backend remains responsible for accessibility of its document and controls. PLE
@@ -207,13 +209,14 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 ## Timing, continued practice, and auto-submission
 
 - No keyboard operation requires a key to be pressed within a shorter interval than pointer use.
-- A server deadline is announced, preserves the last valid controlled response, and submits it at
-  most once according to the assignment policy.
+- A server deadline is announced, preserves the last valid saved responses, and submits the whole
+  Attempt at most once according to the Assessment policy.
 - Before Attempt expiry, reauthentication keeps the current response available for the Student to
   save or edit without resetting the server clock. At expiry, the server automatically submits the
-  saved responses and closes Questions without a saved response as unanswered.
-- Mastery completion exposes Start another practice through ordinary Tab and Space. A fresh practice
-  receives fresh server-owned seeds; resuming the current attempt preserves its seed.
+  whole Attempt, finalizes its saved responses, and leaves other Questions unanswered.
+- When Assessment policy allows another Attempt, its action is reachable through
+  ordinary Tab and Space. A new Attempt receives its own server-owned
+  randomization state; resuming the current Attempt preserves its state.
 - A student can leave a Question Response Control with Escape or a visible return action without committing an
   answer. If leaving would discard local work, PLE asks for confirmation through a keyboard-complete
   dialog.
@@ -233,9 +236,9 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
 
 Permanent tests protect stable user behavior, not today's component layout:
 
-- current connected routes complete the implemented course-to-assignment-to-question workflow
-  through explicit submission and recovery with the primary platform keys;
-- Question Type evidence separately identifies arrow, digit, Enter-to-submit, and Escape extension
+- current connected routes complete the implemented Course-to-Assessment-to-Question workflow
+  through explicit whole-Assessment submission and recovery with the primary platform keys;
+- Question Type evidence separately identifies arrow, digit, Enter-to-save, and Escape extension
   regressions while operating real production components;
 - the student question and Student Feedback surfaces have no serious or critical axe findings;
 - focus management tests cover Student Feedback, summaries, route changes, recovery, and avoidance of
@@ -274,7 +277,7 @@ does not establish screen-reader comprehension, shortcut discoverability, or con
 - [ ] The action has a visible, labeled native control or a justified tested composite.
 - [ ] Tab and Shift+Tab reach and leave it in task order.
 - [ ] Space completes the primary selection or button action without requiring a shortcut.
-- [ ] Arrow, digit, Enter-to-submit, or Escape extensions are scoped, documented, and tested apart
+- [ ] Arrow, digit, Enter-to-save, or Escape extensions are scoped, documented, and tested apart
       from the primary platform journey.
 - [ ] Focus remains visible, is restored after content reload, and is never trapped.
 - [ ] Dynamic state is announced once with an actionable message.
@@ -293,7 +296,7 @@ replace the remaining human assistive-technology acceptance below.
 
 The remaining human boundary is deliberate. Before claiming accessibility for the local Fall pilot,
 run representative VoiceOver/Safari and NVDA/browser walkthroughs through the visible local sign-in,
-Instructor Course/roster/Assignment setup, and Student take/Student Feedback/repeated-Attempt path. Canonical PLE
+Instructor Course/roster/Assessment setup, and Student take/Student Feedback/repeated-Attempt path. Canonical PLE
 email-code sign-in, Course Invitation claim, future Account credential settings, and any real
 third-party provider remain separate production-account accessibility evidence. Optional SSO account
 linking, if introduced later, needs its own focused accessibility evaluation and does not replace

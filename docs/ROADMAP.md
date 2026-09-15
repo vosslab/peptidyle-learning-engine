@@ -48,10 +48,10 @@ The final material tree has passed the following release-readiness evidence:
   closure and lock race;
 - default full Live Demo provisioning and replay, plus the connected explicit
   opt-out that leaves no product-data roots and exposes no demo surface;
-- released Assignment edits with retained existing-Attempt evidence and
-  accepted-current-state later Attempts; Question and Blueprint archive/restore;
-  Blueprint Revision creation, Save, no-op, and replay; and Assignment Unrelease;
-- authoring API/S3/browser publication and WebWork worker-grading boundaries;
+- released legacy-Assignment implementation edits with retained existing-Attempt evidence
+  and accepted-current-state later Attempts; Question and old Blueprint archive/restore;
+  Blueprint Revision creation, Save, no-op, and replay; and legacy Assignment Unrelease;
+- authoring API/S3/browser publication and WebWork backend boundaries;
   and
 - backup restore followed by the ordinary migrate-and-verify path, together with
   the aggregate Rust, TypeScript/Node, and Python gates.
@@ -63,9 +63,9 @@ or teardown subsystem.
 
 ## Product work that remains separate
 
-The reset establishes the current model: Question Revisions and Blueprint
-Revisions are immutable publication evidence; Course and Assignment
-configuration are current state; Attempts and Issued Questions retain the
+The reset establishes implementation evidence: Question Revisions and Blueprint
+Revisions are immutable publication evidence; Course and Assessment
+configuration are current state; Attempts retain the
 facts needed to interpret Student Work. It removes retired Assignment, Course
 Schedule, Question Change Proposal, and Course Retention Revision scaffolding
 instead of presenting incomplete capabilities as launch work.
@@ -84,8 +84,10 @@ protects a durable behavior, authorization boundary, evidence-integrity rule,
 or schema lifecycle requirement; record one-time rebuild investigations in
 the changelog rather than making them permanent suites.
 
-The remaining release decision is human approval of the first production
-deployment. It freezes the base and opens the forward-migration era. Preservation
+Production approval also requires the implementation to be reconciled with
+Human Guidance where current route, schema, and UI evidence still uses the old
+Assessment or Blueprint lifecycle. Approval freezes the base and opens the
+forward-migration era. Preservation
 or upgrade of an existing user-data database is outside this pre-production
 release boundary.
 

@@ -1,4 +1,4 @@
-## 2026-08-31
+## 2026-08-31 - historical implementation evidence; Human Guidance supersedes conflicting product intent
 
 - Question Fork Source now records an immutable Draft Question-to-source-Question Revision relationship and automatically binds the same source to a separate Published Question lineage during trusted Question Source transfer. The fresh PostgreSQL oracle proves the relation and application-role denial; the Fork Question Store, review/history, and publication credit/license coordinator remain open.
 - Assignment Attempt preparation now requires each selected Question Pool Item to create exactly one matching Issued Question before opening its authenticated persistence transaction, matching the existing trusted PostgreSQL exact-selection check.

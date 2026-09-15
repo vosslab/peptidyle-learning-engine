@@ -12,9 +12,13 @@ and service-capability boundaries are in
 
 ## Student
 
+- A Student Account uses the required university or institutional email
+  address (`.edu` in the United States); that email address is immutable.
+- A Student authenticates by passkey or email code and may register multiple
+  passkeys across devices.
 - A Student joins an exact Course Instance through a Student Course Membership
   and Student Record.
-- A Student can use only that Student's current course-scoped Assignment,
+- A Student can use only that Student's current course-scoped Assessment,
   Attempt, response, submission, history, and presentation paths.
 - A Student cannot enumerate classmates, author shared Questions, administer a
   course, inspect another Student's work, or receive answer keys, private
@@ -22,6 +26,7 @@ and service-capability boundaries are in
 
 ## Instructor
 
+- An Instructor authenticates by passkey or email code, without a password.
 - An active Instructor has global Question Library and authoring capability.
 - An active Instructor with a current Instructor Course Membership has the
   teaching authority for that exact Course Instance.
@@ -30,15 +35,30 @@ and service-capability boundaries are in
   creator or owner privilege.
 - Membership revocation closes only that course authority. Account
   deactivation also closes the Account's Instructor capabilities.
+- Instructor Account deactivation preserves authored content, Course
+  relationships, and historical records. Reactivation restores the same
+  Account and Product Role; permanent closure is a separate deliberate action.
 
 ## Sysadmin
 
 - A Sysadmin performs platform operations and creates approved Instructor
   Accounts through the bounded account-creation operation.
+- Sysadmin authentication requires stronger protection than ordinary Accounts,
+  such as TOTP in addition to the primary login path.
 - A Sysadmin does not receive Course Membership merely by being Sysadmin and
   has no ambient access to course records or Student Work.
 - Course bootstrap and support work use their own exact, audited scope. They
   do not turn a platform role into teaching authority.
+
+## Future Course roles
+
+Course Observer, Student Observer, and Grader are possible future Course roles,
+not current Product Roles. Course Observers are read-only and may receive Course
+content plus non-FERPA aggregate information. Student Observers require
+authorized read-only access to one Student's Course information. Graders are not
+currently needed because Assessment grading is automatic. Their future
+authorization must be added as explicit relationships rather than widening a
+current Product Role.
 
 ## Course membership
 
@@ -55,16 +75,21 @@ relationship grants access. The database evaluates the relationship within
 the protected operation, so a prior browser result or route decision cannot
 outlive a revocation.
 
+An Instructor may deactivate and later restore a Student's access to that
+Course. The Instructor may also reset Course login access and send a new signup
+code. Neither action changes the global Student Account identity or deletes
+Student Work.
+
 ## Service identities are not human roles
 
-`ple_app`, `ple_auth`, `ple_student`, public-asset publication, grading,
-workers, schema owners, and `ple_unrelease_executor` are PostgreSQL
+`ple_app`, `ple_auth`, `ple_student`, public-asset publication, Question Backend
+evaluation, approved background processes, schema owners, and `ple_unrelease_executor` are PostgreSQL
 capabilities or service identities. They are not Accounts, Product Roles,
 Course Membership roles, browser personas, or human permissions. Each service
 login can assume only the capability required by its process.
 
 The Unrelease executor is especially narrow: it can perform the guarded,
-audited Assignment Unrelease transaction, but it is not an application or
+audited Assessment Unrelease transaction, but it is not an application or
 worker login and confers no ordinary Student-record access.
 
 ## Canonical language
@@ -75,6 +100,7 @@ instructor** or **Teaching Team member** for exact course authority. Use
 capability** for its restricted database role. A workspace owner is an access
 relationship, not a fourth Product Role.
 
-Only **Question Revision** and **Blueprint Revision** are product Revision
-concepts. Assignment and Course Instance configuration are current state;
-existing Student Work relies on retained Attempt and Issued Question evidence.
+Published **Question Revisions**, published **Question Pool Revisions**, and
+**Blueprint Revisions** are the product Revision concepts. Assessment and
+Course Instance configuration are current state; existing Student Work relies
+on retained Attempt and Issued Question evidence.

@@ -1,5 +1,10 @@
 # WeBWorK opaque E2E findings
 
+> **Dated implementation evidence.** This report records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Scope
 
 This record closes the one-time connected acceptance work for M12 of the

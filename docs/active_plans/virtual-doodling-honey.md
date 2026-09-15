@@ -1,5 +1,11 @@
 # Plan: Compact the authenticated Ribbon chrome
 
+> **Historical implementation plan.** This completed Ribbon-compaction design
+> records the old shell and its migration. Current product intent gives every
+> signed-in role a Profile menu containing Sign Out and uses the current Ribbon
+> tasks in [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md). Conflicting account-label,
+> Sign Out, task, and generic-Assignment details below are dated evidence only.
+
 ## Context
 
 The authenticated shell stacks four horizontal bands before content:

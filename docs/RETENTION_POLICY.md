@@ -1,63 +1,65 @@
 # Student-record retention policy
 
-Peptidyle distinguishes reusable teaching content from the records owned by a
-Course Instance. Published Questions, their immutable Question Revisions,
-Question Sources, Question Library records, Blueprint Courses, private
-authoring workspaces, and Instructor drafts are not Course-owned Student
-records. A future Course lifecycle action therefore cannot use a Course as
-authority to delete shared teaching content.
+This document applies the current retention decisions in
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). It distinguishes reusable teaching
+content from FERPA-protected Student records and does not add lifecycle states
+or recovery machinery beyond that guidance.
 
-Course work, Assignment Attempts, submissions, grades, and their exact
-interpretive evidence belong to the Course lifecycle independently of the
-Student Account's lifetime. Assignment definitions remain current mutable
-configuration; an Attempt and its Issued Questions retain the facts required
-to interpret that Student Work directly. Retained Attempt and Issued Question
-evidence preserves that interpretation through later configuration changes.
+## Durable boundary
 
-## Current boundary
+Published Questions and their immutable Question Revisions, Question Pools and
+their revisions, Blueprint Courses and their revisions, Draft Questions, and
+Instructor-owned authoring content are not Student records owned by a Course
+Instance. Archiving or deleting Student records must not delete this reusable
+teaching content.
 
-The base schema contains no Course-retention configuration, plan, revision,
-event, job target, receipt, API, Store operation, worker, or browser route.
-It consequently does not claim to archive, strip, delete, or extend the
-lifecycle of a Course's Student records. The notice, archive, and deletion
-timing in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remains product policy to be
-implemented by a complete future capability, rather than a hidden database
-default.
+A Student Account is global and is separate from the Student's data in a Course
+Instance. Removing or deactivating the Student's Course access does not delete
+the Account or Course work. Instructor Account deactivation and permanent
+Account closure likewise remain separate from Course retention.
 
-Draft Question cleanup is a separate authoring concern. A configured
-Authoring Workspace cleanup may remove expired draft rows, editable metadata,
-and draft source objects after its recovery period. Publication has already
-copied the accepted content and metadata into immutable Published Question
-storage, so this cleanup does not make a Published Question incomplete.
+## Retention clock
 
-## Technical object cleanup
+The final Assessment deadline in a Course Instance starts the retention clock.
+Later Student activity in that Course resets the clock. The retention duration
+and notice interval are deployment policy; Human Guidance does not assign
+numeric values, so this document does not invent them.
 
-Generic object-storage cleanup is implemented independently of Course
-retention. An exact storage check identifies one immutable storage anchor;
-`ple_private.object_cleanup_manifest` records the permitted disposition for
-that checked object; and `ple_audit.object_cleanup_receipt` records the
-result. The model supports the owners of course media and profile media. It
-does not make a bucket prefix, object listing, Course, or browser request
-authority to delete data.
+Before FERPA-protected Student records leave normal product interfaces, the
+system notifies the Course's Instructors. At the archive point:
 
-Object cleanup remains technical work: its manifest and receipt say what an
-authorized object owner may remove and what happened. They do not express a
-Student-record policy or stand in for a Course-wide retention outcome.
+- Student Work and other FERPA-protected Course records leave normal Instructor
+  and Student interfaces.
+- The records remain recoverable during the configured retention period.
+- Course metadata, Assessment definitions, Questions, and Course settings
+  remain available to authorized Instructors.
+- The Course becomes inactive after its FERPA-protected Student records are
+  permanently deleted.
 
-## Future Course retention capability
+At the end of the configured retention period, the archived FERPA-protected
+Student records are permanently deleted. Backup, deployment-log, and
+operational-log retention are infrastructure policies and must not become an
+undeclared product archive of Student records.
 
-[TODO.md](TODO.md) tracks Active and Inactive Courses as a future vertical
-capability. When approved, that work must define the product lifecycle,
-authorized actors, exact Student-record scope, durable outcome evidence,
-Store and PostgreSQL transaction, worker behavior where needed, API and
-browser contract, and connected acceptance together. Its design must preserve
-shared content and the retained evidence needed to interpret surviving
-Student Work.
+## Processing boundary
 
-Backup, deployment, and operational-log retention are infrastructure policies.
-They are separate from product-record lifecycle and must not become an
-undeclared Student-record archive.
+A background process checks stored deadlines and later Student-activity dates,
+sends the required Instructor notice, performs the archive transition, and
+permanently deletes records whose retention period has expired. Repeating the
+same pass is idempotent: it must not duplicate notices, shorten a clock, revive
+deleted records, or partially reapply a completed transition.
 
-See [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md#structure-and-installation-data),
-[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) for the current boundaries.
+The exact table, job, event, receipt, and worker shapes are implementation
+details, not product concepts. They may be documented only when implementation
+evidence requires them. Human Guidance does not require a general-purpose
+recovery-state machine, historical snapshot service, or compatibility layer for
+this policy.
+
+Draft Question cleanup and generic object-storage cleanup are separate technical
+concerns. Neither is authority to delete FERPA-protected Student records or to
+change a Course Instance's retention clock.
+
+See [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
+[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md), and
+[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) for the access and vocabulary
+boundaries.

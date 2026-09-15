@@ -1,3 +1,11 @@
+# Historical screenshot-corpus prompt
+
+> This exploratory prompt predates the current Human Guidance compliance pass.
+> Use [SCREENSHOT_CONTRACT.md](../SCREENSHOT_CONTRACT.md) for current evidence
+> ownership and [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) for product intent.
+> Counts, labels, routes, and example workflows below are dated input, not
+> current requirements.
+
 Investigate how to turn the existing screenshot system into a comprehensive, durable visual corpus of the PLE application.
 
 My goal is broader than maintaining a few representative screenshots. I want a reasonably complete visual survey of the major pages, states, and workflows available to each Product Role: Instructor, Student, and Sysadmin, plus important public/signed-out surfaces. The existing 69 screenshots are closer to the intended scope than the current 8 automated captures.

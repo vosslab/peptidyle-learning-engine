@@ -1,5 +1,7 @@
 ## 2026-09-08
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Behavior or Interface Changes
 
 - Compacted authenticated Application Shell chrome by moving the single

@@ -27,18 +27,19 @@ durable release direction remains in [ROADMAP.md](ROADMAP.md).
   and `properties` routes in `OTHER_REPOS/adapt/resources/js/router/routes.js`; the official guide
   supplies the corresponding user-facing assignment and question workflows.
 - Comparison evidence: PLE adopts the useful navigation shape in its
-  [Instructor page map](INSTRUCTOR_PAGE_VISUALS.md): an assignment title opens an assignment-local
-  Instructor home, Questions owns question and pool authoring, Policies (the PLE name for delivery
-  properties) owns delivery rules, and Student view exposes the current student landing.
-- Boundary and advantage: PLE's [live-demo specification](LIVE_DEMO_SPEC.md) currently exposes
-  only seeded Account session entry, not a live Student workflow. Its retained
+  [Instructor page map](INSTRUCTOR_PAGE_VISUALS.md): an Assessment title opens its editing surface,
+  the Assessment Question Editor owns Question and Pool composition, the Assessment Properties
+  Editor owns delivery settings, and Student View is an answer-free Instructor preview.
+- Boundary and advantage: PLE's [live-demo specification](LIVE_DEMO_SPEC.md) uses the ordinary
+  teaching graph and Student delivery workflow after seeded Account session entry. Its retained
   [adapter contract](ADAPTER_DEVELOPMENT.md) keeps answer keys and grading decisions server-only
   and defines an answer-free browser contract; its
   [test-evidence model](TEST_EVIDENCE_MODEL.md) requires restored browser evidence before teaching
   workflows can be claimed. These are PLE design boundaries, not claims about ADAPT parity.
 - Provenance: Confirmed by the explicit PLE prior-art records and the authoritative ADAPT guides
   checked on 2026-08-28. The ignored `OTHER_REPOS/adapt` checkout is read-only corroboration for
-  route-level structure, not a PLE dependency or current-upstream compatibility claim.
+  route-level structure, not a PLE dependency or current-upstream compatibility claim. ADAPT's
+  Assignment terminology remains external prior-art vocabulary, not PLE's generic object name.
 
 ### WeBWorK2
 
@@ -114,8 +115,9 @@ durable release direction remains in [ROADMAP.md](ROADMAP.md).
   documents copying questions and downloading/uploading packages. PLE's
   [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md#current-adapter-posture) records the supported
   bounded static-import path.
-- Notes: current H5P Package content remains ungraded practice in PLE because browser-evaluated answers do not satisfy
-  PLE's server-owned grading boundary.
+- Notes: current H5P Package content is only ungraded implementation evidence. Human Guidance's
+  supported secondary H5P backend owns its runtime, interactions, state, and scoring behind PLE's
+  server-owned outcome boundary; that complete integration remains a product gap.
 
 ### QTI Package Maker
 

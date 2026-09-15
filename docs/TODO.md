@@ -18,22 +18,24 @@ are in [ROADMAP.md](ROADMAP.md).
       through ordinary Question publication.
 - [ ] Build public Blueprint Course search as one bounded projection, Store,
       Server, authorization, and browser workflow capability.
-- [ ] Build My Questions, Starred Questions, and Watched Questions as bounded
+- [ ] Build My Questions, Starred, and Watched as bounded
       ownership or saved-state capabilities with their required read paths,
       authorization, and browser workflows.
-- [ ] Build reusable Assignment Templates as a bounded domain, Store, Server,
+- [ ] Build reusable Assessment Templates as a bounded domain, Store, Server,
       authorization, and browser workflow capability.
-- [ ] Build Question Change Proposal as a complete domain, Store, Server,
-      authorization, and browser workflow capability. Its design begins from
-      the implemented Question publication and Forced Question Correction
-      boundaries; it has no pre-existing persistence contract to extend.
+- [ ] Build Blueprint update review, source-fork update discovery and selective
+      application, Blueprint Course Change Proposals, and canonical Blueprint
+      JSON import/export as complete, authorized workflows. Existing Assessment
+      changes require review; newly added Blueprint Assessments copy to daughter
+      Courses automatically as Unreleased Assessments.
 - [ ] Remove the generic Question Seed input from static PLE Question JSON
       issuance; static declarative sources do not vary and do not execute code.
-- [ ] Build Course Retention as a complete domain, Store, Server,
-      authorization, worker, and browser workflow capability. Its design must
-      define the Course-wide Student Work lifecycle and evidence it requires;
-      it has no pre-existing retention-plan or revision persistence contract to
-      extend.
+- [ ] Implement the Course retention behavior already defined by Human
+      Guidance: final-Assessment-deadline clock, later-Student-activity reset,
+      Instructor notice, FERPA archive from normal interfaces, recoverability
+      during the retention period, permanent deletion, and Course inactivity.
+      Numeric durations and exact Store/worker shapes remain to be chosen; no
+      retention Revision family is required.
 
 ## Production release
 

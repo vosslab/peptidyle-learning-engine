@@ -17,22 +17,23 @@ adapter, not for defining a new student Question Type. The shared public contrac
 - Deliver an answer-free Question Presentation for a PLE-native Question. A backend-owned Question
   instead delivers its exact attempt-bound document through the generic document route. Neither
   path puts source bytes, credentials, correct answers, or private feedback in a browser request.
-- Accept an immutable, verified Source Object Reference at issue time and retain the protected attempt
-  Question Attempt Reproduction Details required for grade. A browser request never
-  chooses an endpoint, source path, source bytes, Question Seed, iMathAS Profile, or renderer identity.
-- Record Source Object Reference and Source Object Checksum, Question Backend/Grader/Renderer versions, parameter
-  hash, Rendered Question SHA-256, and bound assets in `QuestionAttemptReproductionDetails`. Presentation-bearing
-  attempts also persist a checksummed public snapshot and server-only Question Grading Input; missing or
-  mismatched state makes grade unavailable rather than reissuing.
-- Keep iMathAS Question Backend configuration, credentials, network policy, iMathAS Question Backend Session
-  authentication state, and backend verification inside the server composition and adapter boundary. The browser speaks only to the
-  same-origin PLE API.
+- Accept an immutable, verified Source Object Reference at issue time and retain only the protected
+  backend state and exact Revision evidence needed to interpret the response. A browser request
+  never chooses an endpoint, source path, source bytes, Question Seed, iMathAS Profile, or renderer
+  identity.
+- Current records may still retain `QuestionAttemptReproductionDetails`, renderer versions, hashes,
+  snapshots, or Question Grading Input. Those fields are legacy implementation evidence, not a
+  universal adapter contract. A new adapter retains only the exact source/Revision relationship,
+  opaque backend state, saved response, and outcome evidence its demonstrated behavior requires.
+- Keep iMathAS Question Backend configuration, credentials, network policy, iMathAS Question Backend
+  Session authentication state, and backend verification inside the server composition and adapter
+  boundary. The browser speaks only to the same-origin PLE API.
 
 ## Declare capabilities first
 
 Every adapter returns `QuestionBackendCapabilities` from the closed `Capability` set in
 `crates/question_model/src/capability.rs`. The empty declaration is safe: an undeclared capability
-is unavailable. Assignment validation compares requested behavior with that declaration before
+is unavailable. Assessment validation compares requested behavior with that declaration before
 publication, so an instructor sees every missing capability before a student starts work.
 
 Declare only capabilities the adapter enforces for every source it accepts:
@@ -45,8 +46,8 @@ Declare only capabilities the adapter enforces for every source it accepts:
 
 Adding a capability expands the enum and its exhaustive consumers, then requires contract, adapter,
 assignment-validation, generated-client, and browser tests. Do not add an adapter-specific boolean
-or a second capability vocabulary. The capability declaration is serialized in reproducibility
-records and must iterate deterministically.
+or a second capability vocabulary. Retain the declaration with backend evidence only when it is
+needed to interpret Student Work, and iterate it deterministically.
 
 ## Build the adapter seam
 
@@ -59,27 +60,30 @@ Use the following sequence for a question-agnostic adapter.
    relationship. QTI package and item references belong to Workspace Import evidence; an accepted
    QTI item becomes PLE Question JSON before this Question Source boundary.
 2. At import or publication, preserve the exact source in typed object storage with its SHA-256,
-   media type, Question License, Source Object Reference and Source Object Checksum, immutable Question Revision binding, and any required assets.
+   media type, Question License, Source Object Reference and Source Object Checksum, immutable
+   Question Revision binding, and any required assets.
    Source archives are private and non-signable. Do not reconstruct source identity from a title or
    display label.
 3. Ask the registered Question Backend to issue its answer-free presentation. A PLE-native backend
    supplies the typed Question Presentation; a backend-owned adapter persists its exact returned
-   document on the Question Attempt. The generic model never interprets a backend document or
-   imposes universal Answer Key or Question Grading Input records.
-4. Implement `issue` with the trusted Question ID, Question Revision Number, Source Object Reference,
-   and Question Seed inputs. It returns an answer-free
-   `QuestionPresentation`, a parameter hash, and complete `QuestionAttemptReproductionDetails`.
-5. Implement `grade` at the server boundary. Validate the persisted issued state and use retained
-   immutable Question Attempt Reproduction Details where a private grader needs them. A PLE-native
+   document for the selected Assessment Attempt position. The generic model never interprets a
+   backend document or imposes universal Answer Key or Question Grading Input records.
+4. Implement `issue` with the trusted Question ID, Question Revision Number, Source Object
+   Reference, and a Question Seed only for a backend that uses one. It returns an answer-free
+   `QuestionPresentation` or opaque backend document plus only the protected backend state needed
+   to resume and interpret the response.
+5. Implement `grade` at the server boundary. Validate the persisted issued state and use the
+   minimum retained opaque backend evidence the private grader needs. A PLE-native
    backend translates its typed response through protected bindings and Question Grading Input. A
    backend-owned adapter receives only the bounded canonical ordered `[name, value]` pairs captured
-   from its document, preserving duplicate names and order without interpreting controls. A
-   Question Backend that needs a private first-grade contract persists a typed, checksummed
-   issue-time contract and consumes that contract rather than a current published Question Revision,
-   grader, or renderer. Never trust a browser-provided score, session authentication state, source,
-   Question Seed, or backend response fields; do not rerender a receipt-era attempt.
-6. Register the backend through the server Assignment Attempt boundary, where course authorization, attempt
-   identity, Question Attempt one-submission rule, timer policy, and persistence remain PLE responsibilities.
+   from its document, preserving duplicate names and order without interpreting controls. If a
+   demonstrated backend interaction needs additional private issue-time state to interpret the
+   response, retain only that opaque state rather than creating a universal snapshot or replay
+   contract. Never trust a browser-provided score, session authentication state, source, Question
+   Seed, or backend response fields; do not substitute current content for an existing Attempt.
+6. Register the backend through the server Assessment Attempt boundary, where Course authorization,
+   response saving, Assessment Attempt submission, timer policy, and persistence remain PLE
+   responsibilities.
 
 The PLE Question Backend is the small reference: it interprets the complete current PLE Question JSON
 and produces the answer-free Question Presentation and server-owned evaluation behavior required by
@@ -101,17 +105,20 @@ Object Reference, Source Object Checksum, and Question Renderer Version that ide
 implementation, and Question Presentation identity. Cache keys and bytes exclude installation
 identity, Answer Key data, credentials, raw backend responses, browser submissions, and upstream
 session state. The current WeBWorK adapter intentionally has no render cache: it issues one exact
-backend-owned document per Question Attempt and grades it through the stateless E1 renderer path.
+backend-owned document per selected Assessment position and grades it through the stateless E1 renderer path.
 
-Static Questions still record a Question Seed and a deterministic parameter hash. This makes the Question Attempt
-record uniform and lets reproduction reject swapped Question Revision/Source Object/Question Attempt Reproduction Details.
+Native PLE Question JSON is static and receives no Question Seed. The server
+uses the exact Question Revision and any authored answer-choice-order setting to
+reject swapped source or presentation state.
 
 ## Browser and grading boundary
 
-The browser renders `QuestionPresentation` blocks and validates response format locally. It submits a
-typed response to PLE; the server owns the authoritative Question Attempt, Question Seed, source resolution, grading,
-feedback release, and receipt. `crates/grading` is intentionally outside the Wasm closure, and
-`crates/server/src/*_backend.rs` are the server bridges that repeat immutable Question Source and Question Attempt Reproduction Details
+The browser renders `QuestionPresentation` blocks and validates response format
+locally. It sends a typed response to PLE for saving; the server owns the
+authoritative Assessment Attempt, Question Seed, source resolution, grading,
+feedback disclosure, and retained evidence. `crates/grading` is intentionally
+outside the Wasm closure, and `crates/server/src/*_backend.rs` are the server
+bridges that repeat immutable Question Source and retained backend-evidence
 validation before invoking an adapter.
 
 Question Backends need an additional boundary. An adapter accepts deployment-selected
@@ -127,8 +134,8 @@ needed, correlate and verify it with server-held attempt state before it becomes
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                     | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain open.                                      |
 | QTI Import        | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, and PLE Question JSON mapping      | The accepted static-import boundary deliberately supports only those profiles. Accepted items use the PLE Question Backend after conversion.                             |
-| H5P               | Supported H5P Package parsing and current ungraded-practice behavior                                                                                                         | H5P retains its distinct package source behind the shared Draft Question, publication, Assignment, and delivery operations as integration advances.                      |
-| iMathAS           | Immutable Question Source snapshot, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed. |
+| H5P               | Supported H5P Package parsing and current ungraded-practice implementation evidence                                                                                         | Human Guidance requires the supported secondary backend to own runtime, interactions, state, and scoring; the current ungraded slice is a gap, not the target model.      |
+| iMathAS           | Exact immutable Question Source/Revision evidence, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed. |
 | WeBWorK           | Private standalone `/render-api` Question Backend client, exact attempt-bound backend document, generic ordered-pair capture, server-only grading, and private stateless container | WeBWorK owns PG controls and grading semantics. PLE retains the document, response, lifecycle, and outcome without projecting PGML or inferring a Question Type. |
 
 For the exact current WeBWorK protocol, configuration ownership, and required evidence, use
@@ -162,12 +169,13 @@ documentation, or release notes.
 
 ## Contributor checklist
 
-- [ ] Capability declaration is exact and assignment validation refuses unsupported use.
-- [ ] Published source and all assets are immutable, checksummed, private where required, and carried
-      in Question Attempt Reproduction Details.
+- [ ] Capability declaration is exact and Assessment publication validation refuses unsupported use.
+- [ ] Published source and all assets are immutable, checksummed, private where required, and bound
+      to the exact selected Question Revision.
 - [ ] Issued PLE-native presentation or backend-owned document is answer-free, browser-safe, and
-      Question Revision/Question Seed bound; a backend-owned document remains opaque to PLE.
-- [ ] Grading runs server-side from trusted state and revalidates the Question Source plus issued Question Attempt Reproduction Details.
+      bound to its exact Question Revision plus backend randomization state when applicable; a
+      backend-owned document remains opaque to PLE.
+- [ ] Grading runs server-side from trusted state and revalidates the Question Source plus required opaque backend state.
 - [ ] iMathAS Question Backend integration has no browser endpoint, credential, launch secret, upstream state, or
       browser-trusted score.
 - [ ] Conformance, recorded, and live tests are labeled by the evidence they actually supply.

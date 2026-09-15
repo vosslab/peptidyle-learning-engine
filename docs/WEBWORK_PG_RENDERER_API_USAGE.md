@@ -4,7 +4,7 @@ PLE uses the standalone `webwork-pg-renderer` service as an opaque Question
 Backend. WeBWorK owns PG/PGML rendering, document structure, controls,
 interaction semantics, response interpretation, grading, partial credit, and
 backend state. PLE owns authorization, immutable Question Revision selection,
-Assignment Attempt lifecycle, persistence, and recorded outcomes.
+Assessment Attempt lifecycle, persistence, and recorded outcomes.
 
 Question Type is immutable author-declared educational metadata on the
 Published Question Revision. PLE uses it for labels, filtering, and search;
@@ -55,8 +55,8 @@ a second Question presentation format.
 ## Backend-owned document
 
 The adapter stores `renderedHTML` verbatim as one immutable backend document
-per issued WeBWorK Question Attempt, along with its SHA-256 and renderer OCI
-identity. The Student document route re-authorizes the current student and
+per selected WeBWorK Question in an Assessment Attempt, along with its SHA-256
+and renderer OCI identity. The Student document route re-authorizes the current Student and
 attempt position before returning that exact document with `no-store`.
 
 The embed document omits renderer JWT inputs, form action, submit controls,
@@ -137,10 +137,11 @@ Each fork change increases the merge surface for upstream WeBWorK renderer
 updates.
 
 `devel/webwork_render_probe.py` is a development probe for a running renderer.
-It renders `ple_embed`, can submit ordered form pairs, records the response
-envelope and document observations, and writes evidence outside the tracked
-source tree. The one-time representative findings selected C2 and E1; they are
-implementation evidence, not a permanent compatibility corpus or fixture set.
+It renders `ple_embed`, can send ordered form pairs for evaluation, records the
+response envelope and document observations, and writes evidence outside the
+tracked source tree. The one-time representative findings selected C2 and E1;
+they are implementation evidence, not a permanent compatibility corpus or
+fixture set.
 
 Permanent tests cover stable contracts such as request construction, envelope
 validation, ordered-pair forwarding, server-owned field refusal, score mapping,

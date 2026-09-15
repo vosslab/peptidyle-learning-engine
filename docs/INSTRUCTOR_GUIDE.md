@@ -2,66 +2,66 @@
 
 ## Current local Live Demo
 
-The current local Live Demo lets a reader select the seeded Elena Rivera Instructor
-persona on the visible account page. The server resolves the configured Account
-and creates the ordinary Authenticated Session. The selector supplies neither
-course authority nor a browser role claim.
+The local Live Demo lets a reader enter as the seeded Elena Rivera Instructor
+Account. The selector creates the ordinary authenticated session; it supplies
+neither Course authority nor a browser role claim.
 
-After entry, the Instructor can use the Question Library and private authoring,
-create Blueprint Courses and Course Instances, import a roster, create and
-release Assignments, inspect answer-free Gradebook evidence, and download the
-protected Course Invitation export. Each action requires the stored Instructor
-role and exact Course relationship where applicable. Start the local stack
-through [USAGE.md](USAGE.md); [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
-[API_CONTRACTS.md](API_CONTRACTS.md) define the current route boundary.
+The current implementation exposes Question Library and authoring, Blueprint
+Courses, Course Instances, roster import, Assessment editing/release,
+answer-free Student Work inspection, Gradebook evidence, and protected Course
+Invitation export. Some current routes and labels still use `assignment`; that
+is an implementation gap, not current product vocabulary.
 
-## Instructor teaching boundary
+Start the stack through [USAGE.md](USAGE.md). Current route evidence is in
+[API_CONTRACTS.md](API_CONTRACTS.md), and product intent is in
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md).
 
-PLE's retained product design separates reusable **Blueprint Course** content
-from a term-specific **Course Instance**. A Blueprint Course contains no
-Students, deadlines, releases, accommodations, grades, or delivery settings. A
-Course Instance owns those teaching records and derives access from its exact
-Teaching Team Members and Student memberships.
+## Teaching workflow
 
-The current Instructor workflow is:
+1. Create a Private Blueprint Course, use a Public Blueprint, or create an
+   empty Course Instance.
+2. When adopting a Blueprint, select one exact Public Blueprint Revision.
+3. Review offered Blueprint Revisions before applying changes to existing
+   daughter-Course Assessments. Newly added Blueprint Assessments arrive
+   automatically as Unreleased Assessments.
+4. Invite another Instructor as an equal co-Instructor when needed; the creator
+   or first Instructor has no extra authority.
+5. Add Students through the Course roster relationship.
+6. Create and edit Course Instance Assessments using Published Questions and
+   Question Pools.
+7. Run Assessment Release Validation, correct every reported issue, and release
+   only after it passes.
+8. Use Student View for answer-free preview and the Gradebook for authorized
+   results.
 
-1. Create or select a Blueprint Course, then create a Course Instance from one
-   exact Blueprint revision.
-2. Author and release Course Instance assignments using published Questions
-   and Course-owned delivery rules.
-3. Invite or otherwise establish exact Student Course Memberships.
-4. Inspect answer-free Student delivery and authorized Gradebook evidence.
-5. Inspect answer-free Gradebook results. Instructors do not grade, regrade, or retry Student work.
+Instructors do not grade, regrade, or retry Student responses. The selected
+Question Backend grades automatically and returns an immutable credit fraction.
 
-These Store-backed workflows preserve server-held Answer Keys, exact
-relationship-derived authorization, immutable issued evidence, and separate
-Student ownership. A public route reference locates an intended resource; it
-never grants authority. The browser downloads invitation-export data but does
-not send mail.
+## Assessment changes and Unrelease
 
-## Assignment changes and Unrelease
+An Assessment is current Course teaching configuration, not a Revision family.
+An Edit Number may prevent stale saves. Fixed Questions and Pool selections
+retain exact Revision evidence so later publication does not silently change an
+existing Attempt.
 
-An Assignment is one current teaching aggregate. Each save supplies its current
-Assignment Edit Number and receives the authoritative Assignment and its next
-Edit Number. Its fixed Questions and pool items pin exact Question Revisions,
-so later Question publication never changes an Assignment silently.
+The high-consequence **Unrelease** action requires the exact Assessment title.
+It returns the Assessment to Unreleased and atomically deletes all Student Work
+for that Assessment. It preserves the Assessment definition, Course
+relationships, and shared Published Questions and Pools.
 
-Release validates the current Assignment. A Released Assignment may be edited
-when the resulting current configuration remains release-valid; an accepted
-edit governs later Attempts. Existing Attempts continue to use their retained
-Assignment and Issued Question evidence, including their exact Question
-Revision and issued seed.
+Changing a Question's point value recalculates scores from stored immutable
+credit fractions. It does not regrade responses.
 
-**Unrelease** is the deliberate destructive reset operation for a Released
-Assignment. The Instructor confirms the exact current title and Edit Number.
-The system presents only aggregate impact counts, returns the Assignment to
-Unreleased, and atomically removes the Assignment's Student Work. It retains
-the current Assignment, Course relationships, and shared published Questions.
+## Navigation
 
-## Accessibility contract
+The Instructor Ribbon uses Courses, Questions, and Assessments. The task rows
+and exact names are defined in [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md). Sign
+Out is in the Profile menu. Empty collections keep real destinations visible
+and explain how to create the first item.
 
-The Instructor interface uses visible controls and the keyboard model in
-[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). The
-current connected browser owner verifies its supported workflow; role-owned
-screenshots remain one-time rendered evidence under
-[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md).
+## Accessibility
+
+Visible controls and keyboard behavior follow
+[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md).
+Screenshots are rendered evidence only after fresh capture and review; they do
+not establish authorization or current product intent by themselves.

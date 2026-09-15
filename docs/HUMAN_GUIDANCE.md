@@ -427,7 +427,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
 - Course metadata, Assignment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
 - **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
-- Student Work includes Assessment Attempts, saved and submitted Question responses, grading outcomes, and the evidence needed to interpret that work.
+- Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
 - Student Work is an umbrella term; the underlying records retain their own identities and purposes.
 - Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
 - Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
@@ -557,7 +557,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - H5P owns its runtime, interactions, state, and scoring.
 - iMathAS owns its rendering and evaluation.
 - Question Backends may support more complex interactions without requiring PLE to implement those interactions.
-- A Question Backend returns an immutable credit fraction for a submitted response.
+- A Question Backend returns an immutable credit fraction for each complete response it evaluates.
 - PLE stores the immutable credit fraction as the grading outcome.
 - Assignment scores are calculated from stored credit fractions and current Question point values.
 - Changing Question point values recalculates scores without another Question Backend interaction.
@@ -920,12 +920,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Assessment responses and submission
 
-- Assessments are submitted as a whole; Questions are not submitted individually.
+- The Student submission action submits the whole Assessment Attempt.
 - A Question either has a complete saved response or has no saved response.
 - PLE saves complete Question responses as the **Student** works.
 - The Student may change a saved response while the Assessment Attempt remains open.
-- Submitting the Assessment Attempt submits all saved Question responses together.
-- Questions without a saved response are submitted unanswered.
+- Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
+- Questions without a saved response remain unanswered when the Attempt is submitted.
 - PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
 - A Question Backend may evaluate a response before Assessment submission when needed for its interaction.
 - The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
@@ -941,20 +941,20 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Resuming an Attempt does not reset, pause, or extend its time limit.
 - Attempt expiration is checked whenever a **Student** interacts with the Attempt.
 - Background processing ensures expired Attempts are submitted even when the **Student** is no longer connected.
-- When an Attempt expires, PLE submits its saved responses and leaves unanswered Questions unanswered.
+- When an Attempt expires, PLE submits the whole Attempt, finalizing its saved responses and leaving other Questions unanswered.
 
 ### Student Work
 
 - Student Work keeps the exact Published Question Revision delivered to the **Student**.
 - For a Question Pool, Student Work keeps the exact Question Pool Revision and Published Question Revision selected.
-- Student Work keeps the **Student's** submitted response and the grading outcome returned by the Question Backend.
+- Student Work keeps each saved response as finalized with the submitted Attempt and the grading outcome returned by the Question Backend.
 - Changes to Assessment content do not replace Question evidence already delivered in existing Attempts.
 - PLE should retain only the additional historical Student Work data needed to interpret or grade that work correctly.
 
 ### Assessment scoring
 
 - Blueprint Assessments and Course Instance Assessments assign point values to Questions.
-- A Question Backend returns an immutable credit fraction for each submitted response.
+- A Question Backend returns an immutable credit fraction for each complete response it evaluates.
 - PLE stores the credit fraction as the Question grading outcome.
 - Course Instance Assessment scores are calculated from stored credit fractions and current Question point values.
 - Changing Question point values recalculates affected Assessment scores.

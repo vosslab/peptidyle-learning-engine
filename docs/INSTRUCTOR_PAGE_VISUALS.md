@@ -7,10 +7,20 @@ The historical Instructor and Sysadmin page map uses the fixed 1280 by 800 CSS-p
 viewport profile. Student profiles remain variable and use the maintained viewport profiles declared
 below.
 
+## Current product correction
+
+Do not use the historical routes, captions, or screenshots below as product
+requirements. Current intent is in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md):
+Blueprints are Private, Public, or Archived; Private is owner-only; Course
+Instances can adopt a Public Blueprint or start empty; generic teaching objects
+are Assessments; current co-Instructors are equal; and Human Guidance does not
+define Grade Categories, weighted Course Grade Schemes, or Instructor grading
+operations.
+
 In the historical product reference, Blueprint Courses show reusable course-level content and
-structure. Published Blueprint Courses are visible to all vetted Instructors; drafts are private to
-their owner and authorized collaborators. Course Instances are created from exactly one Blueprint
-parent and are private to their current equal Teaching Team Members and enrolled Students. Course
+structure. Its old publication/draft labels are superseded by the current
+Private/Public/Archived lifecycle. Course Instances may now adopt a Public Blueprint or start empty
+and are private to their current equal co-Instructors and enrolled Students. Course
 Instance pages own deadlines, releases, accommodations, grades, and delivery settings. No Blueprint
 page shows Student records or live delivery state.
 
@@ -26,34 +36,34 @@ an image.
 | Historical page reference | Historical example route                                     | What the historical view establishes                                                                                               |
 | ------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Courses                   | `/`                                                          | Instructor home, choose or create a Blueprint, and create a Course Instance                                                        |
-| Course Instances          | `/courses/C-1`                                               | Course Instance identity, local navigation, and assignment scanning                                                                |
-| Blueprint Courses         | `/blueprint-courses`                                         | Reusable Blueprint list, publication state, and owned drafts                                                                       |
-| Blueprint detail          | `/blueprint-courses/:blueprintCourseRef`                     | Ordered modules and assignments, revision, publication, and fork actions                                                           |
-| Assignment overview       | `/instructor/courses/C-1/assignments/A-1`                    | Assignment home opened from the linked title                                                                                       |
-| Student assignment page   | `/courses/C-1/assignments/A-1`                               | Question count, grade policy, feedback, and practice entry                                                                         |
-| New assignment            | `/instructor/courses/C-1/assignments/new`                    | Empty assignment authoring state and Question Library entry points                                                                 |
-| Assignment Questions      | `/instructor/courses/C-1/assignments/A-1/questions`          | Title, ordered questions, pools, discovery, reuse, and server samples                                                              |
-| Assignment Policies       | `/instructor/courses/C-1/assignments/A-1/policies`           | Instance instructions, release, delivery, lifecycle, access, and checks                                                            |
-| Assignment Student view   | `/instructor/courses/C-1/assignments/A-1/student-view`       | Stable-identity, answer-free Student landing with Instructor identity active                                                       |
+| Course Instances          | `/courses/C-1`                                               | Historical Course Instance route with old generic-Assignment copy                                                                  |
+| Blueprint Courses         | `/blueprint-courses`                                         | Historical Blueprint list with superseded publication/draft labels                                                                 |
+| Blueprint detail          | `/blueprint-courses/:blueprintCourseRef`                     | Historical modules and generic-Assignment copy; current object is Assessment                                                       |
+| Assessment overview       | `/instructor/courses/C-1/assignments/A-1`                    | Historical route spelling for the current Assessment object                                                                        |
+| Student Assessment page   | `/courses/C-1/assignments/A-1`                               | Historical route spelling; Student navigation now calls the collection Coursework                                                  |
+| New Assessment            | `/instructor/courses/C-1/assignments/new`                    | Historical route spelling for Assessment authoring                                                                                 |
+| Assessment Questions      | `/instructor/courses/C-1/assignments/A-1/questions`          | Assessment Question Editor content                                                                                                  |
+| Assessment Properties     | `/instructor/courses/C-1/assignments/A-1/policies`           | Assessment Properties Editor content                                                                                               |
+| Assessment Student View   | `/instructor/courses/C-1/assignments/A-1/student-view`       | Answer-free Instructor preview; creates no Student Work                                                                             |
 | Grading operations        | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Retired status concept; it is not a current route or an Instructor grading action                                                  |
 | Students                  | `/instructor/courses/C-1/students`                           | Invitation, enrollment policy, pending invitation, and roster context                                                              |
 | Gradebook                 | `/instructor/courses/C-1/gradebook`                          | Compact Student-assignment progress without expanded raw records                                                                   |
-| Grade settings            | `/instructor/courses/C-1/grade-settings`                     | Weighted categories, assignment membership, totals, and audited export                                                             |
+| Grade settings            | `/instructor/courses/C-1/grade-settings`                     | Superseded mockup; Human Guidance does not define weighted categories or a Course Grade Scheme                                     |
 | Course appearance         | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context                                                          |
-| Question Library          | `/library`                                                   | Published Question views, Starred, Watched, Question Search, filters, Question IDs, and the planned My Question Drafts destination |
-| Question Details          | `/library/7K3-M9QP`                                          | Human-facing identity, source context, Question Statistics, and Student-facing prompt                                              |
-| My Question Drafts        | `/workspace`                                                 | Historical private authoring reference; the current Ribbon retains this as an unbacked future destination                          |
-| My Question Draft editor  | `/workspace/W-1`                                             | Historical QTI import and PLE Question JSON authoring reference; unavailable in the current Browser Surface                        |
+| Question Library          | `/library`                                                   | Published Question views, Starred, Watched, Search Question Library, Browse Question Library, filters, and Question IDs             |
+| Question Details          | `/library/AAAA-ZBBB`                                         | Human-facing identity, source context, Question Statistics, and Student-facing prompt                                              |
+| My Draft Questions        | `/workspace`                                                 | Required current Question task; an implementation must show an honest empty state if not yet backed                                |
+| My Draft Question editor  | `/workspace/W-1`                                             | Historical QTI import and PLE Question JSON authoring reference; unavailable in the current Browser Surface                        |
 | Live Demo sign-in         | `/sign-in`                                                   | Deployment-gated seeded Account selector for the disposable demo                                                                   |
 
-The authentication completion pages, invitation redemption, and Assignment Attempt pages are outside
+The authentication completion pages, invitation redemption, and Assessment Attempt pages are outside
 this historical Instructor-workspace gallery. Their current role-owned routes are described in
 [INSTRUCTOR_GUIDE.md](INSTRUCTOR_GUIDE.md), [STUDENT_GUIDE.md](STUDENT_GUIDE.md), and
 [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md). This gallery remains historical visual reference rather than
 current workflow evidence.
 
-In the historical reference, Student view is an answer-free inspection surface that creates no
-Assignment Attempt, Question Attempt, submission, receipt, grade, or enrollment. Historical ordinary
+In the historical reference, Student View is an answer-free inspection surface that creates no
+Assessment Attempt, response, submission, grade, or enrollment. Historical ordinary
 Student delivery then creates graded work that flows to the Instructor Gradebook. Current Student
 delivery and Gradebook evidence are separate functional PLE workflows; these historic captures do
 not demonstrate them.
@@ -68,12 +78,12 @@ review remain required before a current UI change can claim visual acceptance.
 The historical Course Instance pages use the Grass palette in standard presentation. This makes the
 gallery useful as a design reference for normal theme character, density, hierarchy, navigation, and
 page-level composition. The current Live Demo runs the functional Instructor teaching surfaces
-described in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md); it remains distinct from future email-code and
-passkey authentication adapters.
+described in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md); email-code and passkey authentication remain
+required product capabilities and current implementation gaps.
 
 [SCREENSHOT_ATLAS.md](SCREENSHOT_ATLAS.md#instructor) is the complete current
 Instructor gallery. It groups Course operations, authoring, Blueprint Course,
-Assignment release, and Gradebook states so related captures can be compared
+Assessment release, and Gradebook states so related captures can be compared
 without relying on retired path families.
 
 ## Refreshing historical screenshot references

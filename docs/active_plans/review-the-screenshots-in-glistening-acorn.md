@@ -1,5 +1,11 @@
 # Top bar cleanup and browser typography
 
+> **Historical implementation plan.** The completed top-bar work below records
+> the implementation boundary at that time. Current product intent gives every
+> signed-in role a rightmost Profile avatar and puts Sign Out inside the Profile
+> menu. [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) supersedes the Instructor-only
+> Profile and separate Sign Out design below.
+
 ## Scope and evidence
 
 The current screenshot corpus in `docs/screenshots/` shows the Product Role twice in each

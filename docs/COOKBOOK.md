@@ -2,7 +2,7 @@
 
 Use these recipes to operate the current disposable PLE developer stack. Startup establishes a real
 HTTPS deployment and a representative used Course through ordinary product contracts. The seeded
-personas can exercise the current Question Library, Course, roster, Assignment, Student delivery,
+personas can exercise the current Question Library, Course, roster, Assessment, Student delivery,
 grading, and Gradebook workflows in the browser.
 
 Read [INSTALL.md](INSTALL.md) for prerequisites, [USAGE.md](USAGE.md) for the supported command
@@ -85,13 +85,13 @@ boundaries. They do not prove a current visible teaching workflow; see
 Use the seeded course as accumulated product state, not a scripted presentation:
 
 1. Sign in as Elena Rivera. Open `Biochemistry 301: Proteins and Peptides`; inspect its released
-   Assignment, roster, and Gradebook. Mary, Jack, and Avery should appear as completed and scored,
+   Assessment, roster, and Gradebook. Mary, Jack, and Avery should appear as completed and scored,
    in progress, and not started.
-2. Sign in as Mary Okafor. Open the same Course Instance and confirm her completed Assignment and
+2. Sign in as Mary Okafor. Open the same Course Instance and confirm her completed Assessment and
    score.
-3. Sign in as Jack Nguyen. Open the Assignment and resume his existing in-progress Assignment
+3. Sign in as Jack Nguyen. Open the Assessment and resume his existing in-progress Assessment
    Attempt.
-4. Sign in as Avery Thompson. Confirm the Assignment is not started, then start it from the
+4. Sign in as Avery Thompson. Confirm the Assessment is not started, then start it from the
    beginning. This intentionally mutates the disposable acceptance state; restart the Live Demo to
    restore the baseline.
 

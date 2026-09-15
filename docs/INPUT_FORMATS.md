@@ -14,7 +14,8 @@ values, hidden correct choices, private rubrics, grading code, provider credenti
 results, Object Addresses, or source archives. The complete allowlist and privacy boundary are in
 [API_CONTRACTS.md](API_CONTRACTS.md).
 
-Authoring, import, grading, and export workers may handle private payloads after authorization.
+Authorized server operations and Question Backends may handle private payloads inside their
+own boundaries.
 Private source bytes, Answer Keys, Question Feedback, Question Answer Explanations,
 and format-specific Question Grading Input remain in their owning adapter or
 object-store boundary;
@@ -41,7 +42,7 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 | PLE Question JSON      | Private PLE Question JSON route; `application/vnd.peptidyle.question+json`  | One answer-bearing document with the closed eight Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB                                                | PLE Question JSON adapter source (currently `crates/adapters/ple/src/question_json.rs`), [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
 | Canvas QTI 1.2 ZIP     | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and QTI Import Package Checksum evidence stay private    | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs)                                                     |
 | Blackboard QTI 2.1 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free                                             | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs)                                             |
-| H5P `.h5p` package     | Trusted private adapter/object-store boundary                               | Current `H5P.MultiChoice` support is key-free and ungraded; the retained package format participates in the shared Draft Question and publication lifecycle as that integration advances | [crates/adapters/h5p/src/import.rs](../crates/adapters/h5p/src/import.rs), [CONTRACTS.md](CONTRACTS.md)                                         |
+| H5P `.h5p` package     | Trusted private adapter/object-store boundary                               | The current key-free, ungraded `H5P.MultiChoice` slice is implementation evidence only; Human Guidance requires H5P to own runtime, interactions, state, and scoring as a supported secondary Question Backend | [crates/adapters/h5p/src/import.rs](../crates/adapters/h5p/src/import.rs), [CONTRACTS.md](CONTRACTS.md) |
 
 QTI conversion produces one complete PLE Question JSON Draft Question through
 the shared authoring contract. Workspace Import separately retains the original
@@ -79,36 +80,32 @@ student@example.edu,900123456
 
 - The media type is `text/csv`; the body is at most 1 MiB and 500 data rows.
 - Headers must be exactly `email,roster_id` in that order.
-- Preview normalizes and classifies rows; commit selects preview row numbers with strong revisions
-  and the exact Course Roster Import/revision boundary. Raw CSV bytes are not retained after normalized staging.
+- Preview normalizes and classifies rows; commit selects preview row numbers against the exact
+  current Course Roster Import state and its concurrency control. Raw CSV bytes are not retained
+  after normalized staging.
 - `roster_id` is course-scoped matching data, not an account key or authentication credential.
 
 The route follows the ownership rules in [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
 
-## Retained CSV export contract
+## Grade export is not specified
 
-### Course totals
-
-The deferred `POST /api/courses/{course}/grade-export.csv` contract requires an empty body and
-returns synchronous, no-store `text/csv; charset=utf-8` attachment data, bounded to 500 active
-students. No current server route exposes this CSV. The response begins with `metadata` and
-`student` records and declares `totalPoints` or `weightedCategories` plus the fixed four-decimal
-half-away-from-zero rule. Unavailable rows carry a status instead of a score. Durable audit
-metadata is PII-free; email and display name exist only in the response.
-
-Route authorization, response headers, and retention are defined in
-[API_CONTRACTS.md](API_CONTRACTS.md) and [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md).
+Human Guidance does not define a Gradebook export format, Course Grade Scheme, or Grade Category
+model. No CSV route, weighted-category representation, queued export state, or long-lived export
+artifact is approved by this page. A future export needs its own product decision, FERPA boundary,
+and current-state contract before it becomes an interface.
 
 ## Planned formats and routes
 
 These are retained future-contract work, not current interfaces:
 
-- Canvas and Blackboard QTI profile export as background jobs with queued status and protected
-  downloads. No profile exporter has shipped.
+- QTI export and archival interchange are product intent. No particular Canvas or Blackboard
+  exporter profile, job model, queued status, or protected download workflow is approved or
+  shipped by this page.
 - A future external QTI-JSONL adapter. PLE Question JSON remains the authoritative internal
   source contract; QTI-JSONL is not a current upload format.
-- Broader scored H5P conversion. Current H5P remains ungraded key-free practice; any scored
-  conversion requires a separate bounded, evidence-backed adapter contract.
+- Complete the supported secondary H5P Question Backend so H5P owns runtime, interactions, state,
+  and scoring behind the common backend contract. The current ungraded slice is an implementation
+  gap, not the target product behavior.
 
 YAML is not a generic input or output interface. The checked-in pilot Question Set manifest is a
 controlled source input owned and validated by

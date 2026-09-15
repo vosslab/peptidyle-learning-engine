@@ -1,5 +1,7 @@
 ## 2026-09-02
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Fixes and Maintenance
 
 - Completed vocabulary row 99: validation, normalization, sorting, renumbering, and

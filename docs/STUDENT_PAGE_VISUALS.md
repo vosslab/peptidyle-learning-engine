@@ -6,6 +6,12 @@ demo fixture, not the current built-app Browser Surface. Browser behavior and no
 remain the authority for access control; retained screenshots show historical student-visible
 composition and establish no current acceptance.
 
+Current product corrections: Student work is collectively Coursework; a
+specific item uses its Assessment Type; the Student sees one Question at a time
+with navigation to all Questions and saved status; responses save while the
+Attempt is open; and only the whole Assessment Attempt is submitted. Historical
+Assignment labels and routes below are implementation evidence only.
+
 ## Evidence contract
 
 The historical student captures used these exact CSS-pixel viewports. The current canonical capture
@@ -33,7 +39,7 @@ an instructor-only route must receive the same denial and no instructor transpor
 ## Current visual references
 
 [SCREENSHOT_ATLAS.md](SCREENSHOT_ATLAS.md#student) groups the current Student
-Course, invitation, Assignment, Question progression, responsive, and
+Course, invitation, Assessment, Question progression, responsive, and
 authorization-denial captures. Browser assertions, not pixels, establish the
 authorization boundary.
 
@@ -47,8 +53,8 @@ require a fresh capture and human visual review before they can claim visual acc
 
 | Surface                                  | Role    | Evidence purpose                    | Screenshot area             |
 | ---------------------------------------- | ------- | ----------------------------------- | --------------------------- |
-| Student assignment list                  | Student | Allowed course work                 | `docs/screenshots/student/` |
-| Student Assignment or Assignment Attempt | Student | Allowed Student task                | `docs/screenshots/student/` |
+| Student Coursework list                  | Student | Allowed Course work                 | `docs/screenshots/student/` |
+| Student Assessment or Assessment Attempt | Student | Allowed Student task                | `docs/screenshots/student/` |
 | Student access denial                    | Student | Fail-closed instructor-route denial | `docs/screenshots/student/` |
 | Roster denial probe                      | Student | No instructor transport             | Behavioral browser suite    |
 | Gradebook denial probe                   | Student | No instructor transport             | Behavioral browser suite    |
@@ -59,8 +65,9 @@ manifest, rather than this table, declares executable screenshot artifacts.
 ## Evidence boundaries
 
 The current Browser Surface exercises seeded identity entry, Student Course Invitation claim,
-Assignment Access, delivery, and submission. Email-code and passkey authentication remain future
-work. Keep authenticated Student artifacts under `docs/screenshots/student/` and pre-authentication
+Assessment access, delivery, and whole-Assessment submission. It does not yet provide the required
+email-code and passkey authentication, which remains an implementation and acceptance-evidence gap.
+Keep authenticated Student artifacts under `docs/screenshots/student/` and pre-authentication
 artifacts under `docs/screenshots/public/`; keep current evidence free of Answer Keys, Question
 Grader code, private source, real email, real identifying records, UUIDs, and FERPA records.
 Deterministic fictional fixture addresses in the reserved `example.invalid` domain are permitted

@@ -3,6 +3,15 @@
 This ledger distinguishes what the Ribbon is designed to name from what the
 current product can truthfully offer as a live destination.
 
+> **Product-compliance boundary.** This generated ledger describes current
+> implementation evidence only. Its `Assignments` label, older Course task
+> groups, Profile/Sign Out placement, and omission of Human-Guidance-required
+> destinations are implementation gaps. The target Ribbon is defined by
+> [HUMAN_GUIDANCE.md](../HUMAN_GUIDANCE.md) and
+> [RIBBON_TASK_MODEL.md](RIBBON_TASK_MODEL.md): Instructor primary tabs are
+> Courses, Questions, and Assessments. Do not edit the generated table by hand
+> during this docs-only pass.
+
 <!-- BEGIN GENERATED RIBBON DESTINATION LEDGER -->
 
 ## Generated capability evidence

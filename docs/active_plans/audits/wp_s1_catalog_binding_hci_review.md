@@ -1,5 +1,10 @@
 # WP-S1 retained catalog-binding HCI review
 
+> **Dated implementation evidence.** This review records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Scope and verdict
 
 Independent read-only review of the repair for the retained-catalog binding

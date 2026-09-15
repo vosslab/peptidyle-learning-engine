@@ -1,5 +1,10 @@
 # WP-W2 retry report review
 
+> **Dated implementation evidence.** This review records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Type Safety
 
 - ACCEPTED after re-review: the exported renderer now accepts `unknown` collections and is total

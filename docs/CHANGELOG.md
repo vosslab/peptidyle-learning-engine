@@ -1,5 +1,10 @@
 # Changelog
 
+> **Historical implementation evidence.** Changelog entries preserve what was
+> changed and believed at the time. They are not product authority. Current
+> intent comes from [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), which supersedes old
+> Assignment, Blueprint, lifecycle, grading, role, retention, and UI models.
+
 ## 2026-09-14
 
 ### Additions and New Features
@@ -22,6 +27,21 @@
   Questions no longer cause searches to fail above one page. Server and frontend checks passed.
 
 ### Fixes and Maintenance
+
+- Reconciled the complete `docs/` corpus against Human Guidance as current product authority.
+  Current specifications, contracts, guides, and active plans now use the same Assessment,
+  Blueprint, Question, role, authorization, retention, grading, and interface models. Temporary
+  reports inventory all 295 documentation files, preserve compatible detail and dated evidence,
+  and record unresolved product questions and generated artifacts without inventing answers or
+  editing their source-owned generators. The submission language now names only the whole
+  Assessment Attempt as the submission target; saved Question responses are finalized together by
+  that action. Six fresh independent Plan, Test, Style, Documentation, Legacy, and Comment reviews
+  then corrected stale authentication status, unsupported unanswered-score and retry behavior,
+  overbroad backend evaluation and score-retention claims, universal adapter snapshot machinery,
+  and ambiguous report references and statuses. The reports retain the unresolved generated-artifact
+  refreshes, their current naming/placement style issue, and the limits of structural inventory as
+  semantic proof. This was a documentation-only change; source code, schemas, tests, configuration,
+  and migrations were not modified.
 
 - Reorganized Human Guidance under the approved Development, vocabulary, Accounts and roles,
   Interface, Data and history, Questions, Courses, and Assessments hierarchy. A temporary exact

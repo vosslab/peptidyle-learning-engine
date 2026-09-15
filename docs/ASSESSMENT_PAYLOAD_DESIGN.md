@@ -2,93 +2,84 @@
 
 ## Status and authority
 
-This document describes the current Student Assignment Attempt payload boundary. The controlling
-product behavior is in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). The durable lifecycle and security
-owners are [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md),
-[CONTRACTS.md](CONTRACTS.md), [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md), and
-[SECURITY_MODEL.md](SECURITY_MODEL.md).
+This document defines the target Student Assessment Attempt boundary under
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Existing `/assignment-attempts/` route
+segments and `assignmentAttempt` fields are implementation names awaiting a
+separate code migration; they do not make Assignment the generic product term.
 
-Submission belongs to the Assignment Attempt. The browser saves working responses by Question
-position, but it does not submit or grade individual Questions. Recovery is the server-owned
-auto-submission of saved responses when the Assignment Attempt expires.
+Submission belongs to the whole Assessment Attempt. The browser saves working
+responses by Question position; the whole-Attempt action finalizes them as
+Student Work.
 
-## Current browser contract
+## Browser exchange
 
-One public `R-n` Assignment Attempt reference selects the current Student-owned Attempt. The
-browser uses focused, answer-free routes:
+An opaque public Attempt reference selects the authorized Student's Attempt.
+The browser needs focused, answer-free operations:
 
-| Purpose                          | Method and route                                                              | Public result                                                                          |
-| -------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Display context and server timer | `GET /api/assignment-attempts/{attempt}/context`                              | Course and Assignment labels, Attempt number, display zone, expiry, and remaining time |
-| Question navigation              | `GET /api/assignment-attempts/{attempt}/student-progress`                     | Fixed positions and `unanswered`, `saved`, `submitted`, or `closed` state              |
-| One presentation                 | `GET /api/assignment-attempts/{attempt}/student-question?position={position}` | Answer-free presentation and the Student's saved working response                      |
-| Backend-owned document           | `GET /api/assignment-attempts/{attempt}/questions/{position}/document`        | One authorized immutable backend document                                              |
-| Save working response            | `PUT /api/assignment-attempts/{attempt}/responses/{position}`                 | Attempt, position, and `saved` acknowledgement                                         |
-| Submit whole Attempt             | `POST /api/assignment-attempts/{attempt}/submission`                          | Attempt and `submitted` acknowledgement                                                |
+| Purpose | Product result |
+| --- | --- |
+| Display context and timer | Course and Assessment labels, Attempt number, authoritative expiry, and remaining time |
+| Navigate Questions | Fixed positions plus saved or unanswered status |
+| Display one Question | Answer-free presentation and the Student's current saved response |
+| Save a response | Attempt, position, and a saved acknowledgement |
+| Submit Assessment | Whole-Attempt submitted acknowledgement |
+| Read a disclosed result | Only result and feedback currently allowed by policy |
 
-All responses are `no-store`. The browser validates canonical `R-n` references and positive
-positions before sending a same-origin request. Strict decoders reject unknown response fields,
-foreign references, position mismatches, and unexpected HTTP status codes.
-
-The browser does not receive Account IDs, Student Record IDs, private database IDs, Answer Keys,
-grading inputs, worker lease facts, provider credentials, raw provider results, or Instructor-only
+Responses containing Student Work are `no-store`. The browser does not receive
+Account IDs, private Student-record IDs, Answer Keys, private grading inputs,
+backend credentials, worker state, raw provider results, or Instructor-only
 data.
 
-## Assignment Attempt flow
+## Attempt flow
 
 ```text
-server starts one timed Assignment Attempt
-                    |
-                    v
-server issues a fixed Question set and immutable presentations
-                    |
-                    v
-Student opens positions and saves working responses
-                    |
-          +---------+---------+
-          |                   |
-          v                   v
-Student reconnects       Attempt expires
-to same active Attempt        |
-          |                   v
-          |             server auto-submits
-          |             all saved responses
-          |                   |
-          +---------+---------+
-                    |
-                    v
-whole Attempt has one immutable Assignment Submission
-                    |
-                    v
-automated grading creates terminal immutable results
+server starts one Assessment Attempt and fixes its Question selections
+                         |
+                         v
+Student opens one Question at a time and saves complete responses
+                         |
+              +----------+----------+
+              |                     |
+              v                     v
+       Student reconnects     deadline is reached
+       to the same Attempt           |
+              |                     v
+              |             server submits Attempt
+              +----------+----------+
+                         |
+                         v
+the whole Attempt is submitted once; policy controls disclosure
 ```
 
-Reconnect, reload, and another authenticated browser session resume the same active Attempt. They
-do not pause, reset, or extend its wall-clock deadline. Autosave preserves working responses; it is
-not submission and it is not recovery.
+Reloading or reconnecting resumes the same open Attempt with its fixed deadline
+and successfully saved responses. It does not extend time or create another
+Attempt.
 
 ## Presentation payload
 
-The selected Question presentation contains only facts needed to render the Student experience:
+The selected Question presentation contains only what the Student interface
+needs:
 
-- immutable Question Revision reference and Question Seed;
-- presentation nonce and public Presentation Token;
-- ordered prompt blocks and immutable asset references;
-- public input constraints and a response-format discriminant; and
-- presentation-scoped references for addressable response items.
+- the exact published Question or Pool Revision evidence;
+- opaque Question Backend state needed to preserve the interaction;
+- ordered prompt content and authorized asset references;
+- public input constraints; and
+- the Student's current saved response, when one exists.
 
-The response-format `kind` tells the browser whether to render a choice, text, numeric, matching,
-ordering, hotspot, backend-owned, or other supported control. Private tolerances, Answer Keys,
-rubrics, weights, source objects, renderer credentials, and grading configuration remain on the
-server.
+Private tolerances, Answer Keys, rubrics, private source, credentials, and
+grading configuration remain on the server. Binary assets use authorized asset
+routes rather than browser-supplied object-store paths.
 
-Binary assets are fetched separately through authorized immutable asset routes. They are not
-embedded in the JSON presentation. A Question Presentation Checksum binds the complete public
-presentation retained by the server.
+PLE-native Questions use one of the strictly supported native controls. A
+backend-owned Question returns an opaque document plus opaque state. PLE must
+not infer educational Question Type from HTML controls or parse a backend's
+form fields to reproduce its grading semantics.
 
 ## Saved response payload
 
-The browser saves the exact response selected for one issued position:
+A response save identifies the Attempt and Question position and sends only the
+response shape required by that Question Backend. For example, a current native
+implementation may use:
 
 ```http
 PUT /api/assignment-attempts/R-7/responses/2
@@ -104,171 +95,87 @@ Content-Type: application/json
 }
 ```
 
-The response `kind` is a closed browser wire discriminant. The server reproduces the exact issued
-presentation selected by the authenticated Attempt and position, validates the public response
-format, translates presentation-scoped item references to durable private references, and then
-saves the canonical response.
+The path and field names above document current implementation evidence, not
+preferred product terminology. The server resolves the exact Student, Course,
+Assessment, Question, Revision, backend, and backend state. It never accepts
+those authorities merely because the browser names them.
 
-A later valid save for the same active position replaces the working saved response. Finalization
-serializes against saves. After the Attempt is submitted or expires, the working response cannot be
-changed.
+A complete valid response replaces the working saved response while the Attempt
+is open. An incomplete response is not saved as complete and is not graded.
+After whole-Assessment submission or automatic deadline submission, the
+response cannot be changed.
 
-The save acknowledgement is deliberately small:
+The acknowledgement is deliberately small. It contains no separate
+response-finalization receipt, Student-visible grading result, next-Question
+reservation, or grading action.
 
-```json
-{
-  "assignmentAttempt": "R-7",
-  "position": 2,
-  "responseState": "saved"
-}
-```
+## Whole-Assessment submission
 
-There is no public per-Question submission receipt, grading result, successor Question, prefetch
-reservation, or grading action on this route.
+Selecting the product action to submit the Assessment submits the entire open
+Attempt. Every saved complete response is finalized as Student Work in that one
+transition; positions without a complete saved response remain unanswered.
 
-## Attempt submission and recovery
+At the deadline, the server performs the same whole-Attempt transition using
+the responses saved before expiry. Repeating an already-completed transition
+returns the existing submitted state without duplicating results.
 
-The Student can select `Finish Assignment` to request whole-Attempt finalization. Explicit
-finalization succeeds only when every fixed Question position has a saved response. If a response
-is missing, the Attempt remains active; the existing progress read identifies the positions that
-still need work.
+Human Guidance does not require a public Assessment Submission receipt object
+or a separate response-finalization product model. Implementations may retain
+normalized internal evidence, but documentation and interfaces must not turn
+that evidence into another Student action or lifecycle family.
 
-Expiry has different missing-response behavior. PostgreSQL owns the deadline and atomically:
+## Evaluation and outcome
 
-- submits every response saved before the deadline;
-- closes each Question without a saved response as unanswered;
-- creates one immutable Assignment Submission with finalization kind `deadline`; and
-- obtains immutable Question Backend credit outcomes for accepted saved responses.
+The Question Backend may evaluate a complete saved response before the whole
+Attempt is submitted. PLE stores the immutable credit fraction returned by the
+backend. It does not expose a Student-visible grading outcome until submission
+and the applicable disclosure point.
 
-This expiry transition is recovery. Student operations enforce the server-owned expiry instant
-before allowing a change, while narrow background execution submits expired Attempts that need no
-further Student request. Reads remain read-only. Repeating the transition returns the
-already-submitted state without creating another Assignment Submission, Question Submission, or result.
+Scores use the current point value for each Assessment Question and the stored
+credit fraction. A point-value edit can change the calculated score but does
+not regrade the response or change the fraction.
 
-## Internal submission evidence
-
-The database uses one internal immutable Question Submission for each saved response accepted when
-the whole Attempt finalizes. This is evidence beneath the Assignment Submission; it is not a
-Student-visible per-Question submission action.
-
-For each supported accepted response, the same transaction creates:
-
-- one Question Submission rooted at the exact Question Attempt;
-- the immutable normalized credit result and receipt when the Question Backend completes immediately.
-
-A Question closed unanswered at expiry has no Question Submission or result and contributes
-zero points. The Attempt-level status reader still represents that position as terminal.
-
-## Outcome completion
-
-The Question Backend evaluates an immutable accepted response once and PLE stores its immutable
-normalized credit fraction and receipt. A backend that requires polling uses an internal
-lease-fenced completion path. This mechanism is not a Student or Instructor lifecycle. No user can
-grade, retry, reopen, overwrite, or replace accepted work or a Grading Result in PLE.
+No browser or Instructor grading, Retry, regrading, result-replacement, or
+grading-job action is part of this contract. If a real backend needs deferred
+technical completion, it remains an internal adapter concern and cannot create
+a second product lifecycle.
 
 ## Authorization binding
 
-An issued Question is resolved through one closed server-side relationship:
+The server closes every operation over one relationship:
 
 ```text
-(authenticated Account, Course Membership, Student Record,
- Assignment Attempt, issued position, Question Attempt,
- immutable Question Revision, Question Seed, presentation binding)
+authenticated Account
+  -> active Student Course relationship
+  -> Student record in that Course
+  -> Assessment Attempt
+  -> Question position and exact backend state
 ```
 
-The public Attempt reference and position are selectors only. They do not grant authority. The
-server resolves Student ownership and performs each protected read or write through forced RLS in
-the same transaction. Another Account, Course, Student Record, Attempt, position, presentation,
-provider identifier, or cache entry cannot widen that relationship.
+Public references are selectors, not access grants. Each protected read or
+write verifies the relationship again at the trusted boundary.
 
-No Instructor grading-detail route exists. Course-authorized Gradebook reads project only
-answer-free completed results; they do not grant grading, regrading, retry, or background-work
-control.
+## Backend-owned responses
 
-## Presentation consistency
+A WeBWorK or other backend-owned response may be bounded opaque form data. PLE
+stores and forwards it without adding a control parser. The 64 KiB shared
+response bound applies to the canonical opaque browser payload; backend source,
+document, envelope, and asset limits are separate contracts.
 
-Presentation Response Item References are four lowercase hexadecimal characters scoped to one
-Question presentation. They identify choices, blank slots, matching sides, ordering items, and
-hotspot regions without exposing durable authored references.
-
-Rust derives these references with CRC-16/CCITT-FALSE from domain-separated presentation facts.
-Issuance rejects a collision across the complete presentation and retries with a new nonce up to
-the bounded issuance limit. CRC16 is a compact correspondence check, not authentication or secrecy.
-
-The server also stores a SHA-256 Question Presentation Checksum over the complete normalized public
-presentation. The public Presentation Token carries its bounded prefix. The checksum detects stale
-or mixed presentation state; it does not replace TLS, session authentication, RLS, lifecycle checks,
-or server-only grading.
-
-## Backend ownership
-
-Native PLE responses use typed response controls and are translated through the retained issued
-presentation. A WeBWorK Question keeps its interaction document and submitted form payload opaque
-to PLE. PLE stores and forwards the exact backend-owned response, while the WeBWorK adapter alone
-understands renderer fields and grading semantics.
-
-Backend ownership does not change Attempt behavior. The Student saves responses during the active
-Attempt, and explicit finalization or expiry auto-submission accepts the whole Attempt. Provider
-failure can delay internal completion but cannot create a browser or Instructor grading action.
-
-[QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md) owns the detailed backend contracts.
-
-## Caching boundary
-
-PLE may cache an answer-free native presentation by immutable Question Revision, Question Seed, and
-presentation binding. Immutable assets may use content-addressed browser caching. Cache entries
-never contain Answer Keys, private grading inputs, credentials, session material, or raw provider
-results.
-
-The browser does not prefetch, reserve, promote, or receive a successor Question. The fixed issued
-Question set already belongs to the Assignment Attempt, and the Student selects one position at a
-time. [CACHING_AND_PREFETCH.md](CACHING_AND_PREFETCH.md) records the current no-prefetch boundary.
+Backend ownership does not change Attempt behavior: the Student saves during an
+open Attempt, and whole-Assessment submission finalizes those saved responses
+together.
 
 ## Failure behavior
 
-| Failure                                     | Required behavior                                                                                                   |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Save loses connectivity                     | Keep the edit in the control, show that saving did not finish, and allow the same active response to be saved again |
-| Browser reloads before expiry               | Restore the server-saved response and continue the same Attempt with the original deadline                          |
-| Browser remains disconnected through expiry | Server auto-submits the saved responses and closes unanswered Questions                                             |
-| Explicit finalization has missing responses | Keep the Attempt active; use the existing progress read to identify missing positions                               |
-| Finalization response is lost               | A repeated whole-Attempt request converges on the existing Assignment Submission                                    |
-| Internal completion pauses before a result  | Preserve accepted evidence; the lease-fenced internal operation may resume                                          |
-| Backend completion fails                    | Preserve accepted evidence and expose bounded diagnostics only to the Sysadmin who can repair the dependency        |
-| Grading Result exists                       | Return authorized feedback projections; never contact the backend again                                             |
+| Failure | Required behavior |
+| --- | --- |
+| Save loses connectivity | Keep the response visible and allow another save while the Attempt remains open. |
+| Browser reloads | Restore the successfully saved response and original deadline. |
+| Deadline passes offline | Submit the Attempt using the complete responses saved before expiry. |
+| Submission response is lost | Repeating the whole-Attempt request returns the existing submitted state. |
+| Backend fails | Preserve Student work, disclose no invented result, and show a bounded error. |
 
-[FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) owns the generic request and infrastructure failure
-taxonomy. Its Assignment Attempt section uses the same narrower definition: recovery is expiry
-auto-submission.
-
-## Evidence
-
-Permanent tests protect:
-
-- strict browser decoders and same-origin route construction;
-- saved-response validation and exact position binding;
-- reconnect restoration without an unintended save;
-- failed autosave preservation and explicit save acknowledgement;
-- explicit whole-Attempt finalization and missing-response refusal;
-- bounded expiry sweeps and atomic deadline auto-submission;
-- one immutable submission/result lineage under concurrent claims and stale leases;
-- authorized feedback projections; and
-- absence of public grading states, polling, mutations, and retired per-Question submission routes.
-
-Connected PostgreSQL and live-browser evidence remain distinct from fast deterministic offline
-tests under [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
-
-## Retired designs
-
-The following concepts are not part of the current contract:
-
-- a Student per-Question submit action or public per-Question submission-status route;
-- browser `nextIssued`, `nextPending`, prefetch reservation, or promotion state;
-- a separate browser recovery state machine;
-- browser-visible connectivity recovery after grading;
-- an Instructor grading, Retry, or regrading operation;
-- a grading-operation generation used to create a newer result; and
-- mutable or replacement Grading Results.
-
-Historical plans or reports may retain those names as superseded evidence. They do not authorize
-implementation.
+This contract has no separate browser recovery state machine. Detailed backend
+ownership is in [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md);
+the lifecycle is in [ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md).

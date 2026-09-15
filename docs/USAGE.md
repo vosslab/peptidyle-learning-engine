@@ -38,19 +38,22 @@ graph and its data boundaries.
 
 ## Work with Blueprint Courses
 
-Open a Blueprint Course and choose **Create Course Instance from this Blueprint**.
-The Course creation form selects its current saved Revision; enter Course names and
-term dates, then choose **Create Course Instance**. This adopts the complete Blueprint:
-all assignments, including quizzes, exams, practice, and bonus assignments, become independently
-editable Course Assignments. Their Questions, pools, points, instructions, and defaults are retained;
-assignment dates start unset. Set dates in the Course Instance and review the assignments
-before releasing them. Adoption either completes in full or creates no Course Instance.
+Open a Public Blueprint Course and choose **Create Course Instance from this
+Blueprint**, or create an empty Course Instance. The adoption form selects one
+exact saved Revision; enter Course names and term dates, then choose **Create
+Course Instance**. Blueprint Assessments become independently editable
+Unreleased Course Instance Assessments. Their Types, Questions, Pools, points,
+instructions, and teaching defaults are retained; delivery dates start unset.
+Set dates in the Course Instance and review the Assessments before release.
+Adoption either completes in full or creates no Course Instance.
 
-The Blueprint overview lists assignments without editable fields. For a Blueprint
+The Blueprint overview lists Assessments without editable fields. For a Blueprint
 you own, choose **Open Course Editor**, then **Edit assignment** beside one assignment.
-Use **Return to assignment list** to switch assignments. Local edits stay available
+The quoted old labels identify current implementation controls; the target copy
+is **Edit Assessment** and **Return to Assessment list**. Local edits stay available
 until **Save Blueprint Course** creates a Revision or you discard them. Course names
-and availability are grouped in a separate expandable section.
+and Private/Public/Archived lifecycle are current metadata and do not create a
+Revision.
 
 ## Choose installation data
 

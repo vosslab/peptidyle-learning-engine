@@ -31,8 +31,8 @@ Cross-system work in the complete demo stays with its owning application paths.
 ## Long-running services
 
 The current local stack has the Services listed below. Its one long-running worker is the
-Assignment Attempt expiry worker: it finalizes abandoned expired Attempts through the ordinary
-submission path and reaches the private renderer adapter only when that finalization is WeBWorK.
+Assessment Attempt expiry worker: it submits expired Attempts through the ordinary
+whole-Assessment path and reaches the private renderer adapter only when that work is WeBWorK.
 It exposes no grading lifecycle. Public-asset publication is a separate one-shot profile, not
 generic worker work. Both remain separate from the browser-facing API.
 
@@ -40,7 +40,7 @@ generic worker work. Both remain separate from the browser-facing API.
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `gateway`                | Serves the built browser client and forwards same-origin `/api` and `/health` requests to the API. It is the only PLE browser entry point.                             | None. The built `dist/` directory is mounted read-only.                                | Publishes one loopback port; joins only `gateway_api`.                                          |
 | `api`                    | Authenticates sessions, authorizes course actions, coordinates attempts, and delivers either PLE-native presentations or exact backend-owned documents.                | None in the container. Authoritative records live in PostgreSQL and MinIO.             | Joins the data network, `gateway_api`, and `renderer_private`.                                  |
-| `worker`                 | Runs Assignment Attempt expiry finalization through the ordinary submission path; it has read-only Question Source access and private renderer access for WeBWorK.     | None in the container. Attempt records are in PostgreSQL; source objects are in MinIO. | Joins the data network and `renderer_private`; no browser, gateway, or public outbound network. |
+| `worker`                 | Runs Assessment Attempt expiry submission through the ordinary whole-Assessment path; it has read-only Question Source access and private renderer access for WeBWorK. | None in the container. Attempt records are in PostgreSQL; source objects are in MinIO. | Joins the data network and `renderer_private`; no browser, gateway, or public outbound network. |
 | `public-asset-publisher` | One-shot, profile-selected public-asset publication after its own pending registry record exists; it is not a generic background worker.                               | None in the container. Its own Job state is in PostgreSQL.                             | Joins the data network only.                                                                    |
 | `postgres`               | Stores relational platform authority: identities, courses, memberships, assignments, attempts, submissions, scores, jobs, and audit records.                           | `ple_pgdata`, a named volume mounted at PostgreSQL's data directory.                   | Publishes a loopback development port and joins the data network.                               |
 | `minio`                  | Stores typed objects too large or inappropriate for relational rows: content packages, Student-specific exports and annotated exams, and temporary processing objects. | `ple_miniodata`, a named volume mounted at `/data`.                                    | Publishes loopback development API and console ports and joins the data network.                |
@@ -120,7 +120,7 @@ projects or volumes with global Podman commands.
 | -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | default data network | `postgres`, `minio`, `api`, setup jobs, `database-migrator` | Relational and object-storage communication.                                                                                                        |
 | `gateway_api`        | `gateway`, `api`                                            | Same-origin browser delivery without publishing the API directly.                                                                                   |
-| `renderer_private`   | `api`, `worker`, `webwork-renderer`                         | Private PG render/grade traffic for the API and Assignment Attempt expiry finalization. The browser, gateway, PostgreSQL, and MinIO do not join it. |
+| `renderer_private`   | `api`, `worker`, `webwork-renderer`                         | Private PG render/grade traffic for the API and Assessment Attempt expiry path. The browser, gateway, PostgreSQL, and MinIO do not join it. |
 
 There is no `webwork_db_private` network because PLE does not run WeBWorK2 or
 MariaDB. WebWork2 remains reference material for application behavior; the

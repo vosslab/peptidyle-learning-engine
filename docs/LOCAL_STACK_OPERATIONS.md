@@ -34,7 +34,7 @@ is only a lookup/input value; it cannot establish authority.
 | Account, session, and passkey | Global `AccountId`                                                     | Server session and PostgreSQL                                     |
 | Published question            | Stable `QuestionId` lineage plus immutable `QuestionRevisionReference` | Approved-Instructor Question Library                              |
 | Draft authoring               | `WorkspaceId` plus owner/collaborators                                 | Workspace relationship                                            |
-| Reusable curriculum           | Blueprint Course Reference plus exact Blueprint Revision               | Blueprint Course Owner lifecycle or Active Instructor read access |
+| Reusable curriculum           | Blueprint Course Reference plus exact Blueprint Revision               | Owner for Private/lifecycle; vetted Instructor for Public or explicitly included Archived read |
 | Course and assignment         | `CourseId` and child records                                           | Current Instructor Course Membership                              |
 | Student work and grades       | Exact course plus Student owner                                        | Student self or current course Instructor                         |
 | Jobs and objects              | Typed target from the locked lease                                     | Store/PostgreSQL capability boundary                              |
@@ -42,9 +42,9 @@ is only a lookup/input value; it cannot establish authority.
 Current Teaching Team Members are equal. Course creation inserts the creator's first
 ordinary Instructor membership and does not create an elevated owner. Students
 see only their own work in enrolled courses. Published questions remain in one
-shared Instructor Question Library after publication. Published Question
-lineage availability is `Available` or `Archived`; only an `Available` Published
-Question is eligible for ordinary new selection. Exact archived Question
+shared Instructor Question Library after publication. Published Questions are
+discoverable until Archived; only a non-archived Published Question is eligible
+for ordinary new selection. Exact archived Question
 Revisions remain resolvable. Draft Question Source Bindings and Answer Keys remain private.
 
 Institution names, roster IDs, display labels, provider IDs, renderer IDs, and
@@ -157,9 +157,9 @@ accept a browser role claim.
 The default local installation runs `cargo tools installation-data provision`
 after the API and supporting services are ready. It creates the database-owned
 Pilot Question publication, ordinary Accounts, Blueprint Revision, Course,
-roster, and released Assignment, then uses ordinary authenticated routes for
+roster, and released Assessment, then uses ordinary authenticated routes for
 the cross-system Student Work and grading effects. Mary and Jack receive real
-Assignment Attempts; Avery remains enrolled without one. The database-owned
+Assessment Attempts; Avery remains enrolled without one. The database-owned
 manifest is convergent; the full provision command is the canonical owner for
 the complete known-good Live Demo.
 

@@ -8,6 +8,11 @@ an AWS deployment has been accepted. The local source of truth is
 for the fixed browser profile. The lifecycle and recovery commands are in
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md).
 
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product meaning. Legacy
+`assignment`, nested Question-attempt/submission, grading-job, or Course-owner
+names below identify current implementation and deployment work; they do not
+define additional product objects.
+
 ## Single installation
 
 PLE is one installation with global accounts. An authenticated session resolves
@@ -19,13 +24,13 @@ not a new authorization claim.
 
 | Record or capability                                            | Exact owner or scope                                                  | Authorization                                                   |
 | --------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Account, Authentication Email, future passkey, session          | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys are deferred                 |
+| Account, Authentication Email, required passkeys, session       | Global `AccountId` and Authenticated Session                          | Account/session contract; passkeys remain an implementation gap |
 | Published question and presentation asset                       | Stable `QuestionId` lineage and immutable Question Revision Reference | Every active Instructor                                         |
 | Draft Question or private curriculum workspace                  | `WorkspaceId` and Authoring Workspace relationship                    | Authoring Workspace Owner or Workspace Collaborator             |
 | Blueprint Course metadata or Blueprint Revision                 | Exact Blueprint Course and current Revision reference                 | Blueprint Course Owner                                          |
-| Course, roster, assignment, schedule                            | Exact `CourseId` and child identity                                   | Current Instructor Course Membership                            |
-| Assignment Attempt, Question Attempt, response, grade, artifact | Exact `CourseId` plus Student owner                                   | Student self or current course Instructor                       |
-| Question Folder, Star, Watch, or Saved Question Search          | Account-owned reference to a Published Question                       | Exact Account relationship; Question Folder Shares are explicit |
+| Course, roster, Assessment, schedule                            | Exact `CourseId` and child identity                                   | Current equal co-Instructor Course relationship                 |
+| Assessment Attempt, response, credit, artifact                  | Exact `CourseId` plus Student owner                                   | Student self or current equal co-Instructor                     |
+| Question Star or Watch                                         | Account-owned reference to a Published Question                       | Exact Account relationship                                     |
 | Job, object, or provider state                                  | Typed course, workspace, Question Library, or system target           | Locked lease and durable target                                 |
 
 Every current course Instructor, including a Teaching Team Member, has the same
@@ -33,8 +38,8 @@ teaching and FERPA-read authority. Course creation creates the first ordinary
 Instructor membership; it does not create a privileged owner row. A Student
 can read only that Student's records in an enrolled course. A private workspace
 is not a course or Question Library. The Question Library exposes only reviewed,
-answer-free Question Search Results: every Published Question is discoverable to an
-active Instructor, while only `Available` Question Revisions are ordinarily selectable.
+answer-free Question Search Results: every non-archived Published Question is
+discoverable to a vetted Instructor and ordinarily selectable.
 
 Institution names, roster identifiers, display labels, provider identifiers,
 renderer IDs, and similar fields are metadata for display, audit, provenance,
@@ -130,19 +135,20 @@ API replicas share all correctness state:
 
 - Session tokens are opaque, HttpOnly values. PostgreSQL stores their hashes,
   expiry, and revocation, so a session and its revocation work on every replica.
-- Attempts, timing, immutable Question Revision References, saved responses, Assignment
-  Submissions, internal Question Submissions, grades, and audit evidence are PostgreSQL records.
+- Attempts, timing, immutable Question/Pool Revision References, saved
+  responses, whole-Assessment submission state, credit fractions, and required
+  evidence are PostgreSQL records.
 - Object identity, checksum, bucket policy, and signed delivery remain
   server-owned in the shared object store and database metadata.
 - Grading and provider credentials stay server-side. The browser receives no
   answer key, private payload, or provider secret.
 
 A replica with a different database, bucket set, session configuration, or
-renderer identity is a split-brain deployment, not scale-out. If the future
-passkey capability is separately accepted and enabled, every participating
-replica must also use the same WebAuthn relying-party identity and its reviewed
-credential configuration. Passkeys are currently deferred, so no WebAuthn
-configuration is required for the supported topology. Provider and institutional
+renderer identity is a split-brain deployment, not scale-out. When the
+Human-Guidance-required passkey capability is implemented, every participating
+replica uses the same WebAuthn relying-party identity and its reviewed
+credential configuration. The current topology's missing WebAuthn
+configuration is an implementation gap. Provider and institutional
 fields remain metadata; they do not replace PLE account/session or course
 relationships.
 
@@ -178,9 +184,9 @@ relaunch until the owning recovery policy resolves them. Local defaults are
 ## Configuration equality
 
 Every API replica uses the same database, object-store endpoint and bucket
-names, PLE account/session settings, and renderer identity. The deferred
-passkey capability has no current WebAuthn relying-party setting. If a future
-accepted passkey deployment enables that capability, its participating API
+names, PLE account/session settings, and renderer identity. The required
+passkey capability has no current WebAuthn relying-party setting. When the
+implementation enables that capability, its participating API
 replicas must use the same reviewed WebAuthn relying-party identity and
 credential configuration. Worker replicas share the PostgreSQL queue and object
 store but use the worker-only database capability. Deployment tasks use separate
@@ -232,7 +238,7 @@ The `replica_restart` profile remains a typed disposable-stack configuration
 for the future course-delivery Service. Its browser-free oracle returns
 when the fresh Store and route contracts can issue and replay Student work.
 That successor will start two API replicas against one PostgreSQL and one
-MinIO, prove durable repeat Question Submission resolution through the peer, and
+MinIO, prove durable repeated whole-Assessment submission resolution through the peer, and
 keep observability headers within its dedicated test image.
 
 ## Production baseline

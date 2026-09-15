@@ -11,9 +11,9 @@ complete inventory of every route-local signal.
 | ------------------------------------ | -------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Session identity and roles           | Context containing a signal accessor         | `SessionProvider`                       | Browser-visible state contains identity and roles only. Authentication events replace it; server authorization remains authoritative.                                                       |
 | Shared key-free Wasm facade          | Resource and context                         | `WasmRuntimeProvider`                   | One startup resource loads the facade before Question Response Controls render. Consumers read context; fallback validation stays behind the same facade.                                   |
-| Course route identity and appearance | Route `createAsync` resource and context     | `CourseThemeScope`                      | One route-owned query loads the authorized `CourseRouteView` for Course, Assignment Attempt, and summary paths. Descendants consume it without a second transport request.                  |
+| Course route identity and appearance | Route `createAsync` resource and context     | `CourseThemeScope`                      | One route-owned query loads the authorized `CourseRouteView` for Course, Assessment Attempt, and summary paths. Descendants consume it without a second transport request.                  |
 | Course-theme CSS variables           | JSX-derived token functions                  | `CourseThemeScope`                      | The scope applies tokens only below a course-owned route and disposes on pathname change. Global routes receive no course variables.                                                        |
-| PLE PLE Question JSON draft          | Signals, memos, effects, and `<For>`         | `PleQuestionJsonEditorPage`             | The author editor keeps private source, revision, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                            |
+| PLE Question JSON Draft Question     | Signals, memos, effects, and `<For>`         | `PleQuestionJsonEditorPage`             | The author editor keeps private source, Edit Number, review, status, and locks local. Reducers replace the explicit editor state; derived source/errors stay memos.                          |
 | Student-equivalent author preview    | Signal and answer-free Question Preview      | `PleQuestionJsonPreview`                | Choice selection is local only. The normal preview has no correct answer, feedback, grading, request, URL, or storage write; an explicit author-only panel may display the protected check. |
 | iMathAS Question Backend Launch      | Signals, refs, effect, and lifecycle cleanup | `ImathasQuestionBackendResponseControl` | The browser receives a same-origin launch path only after activation. Readiness is presentation state; it cannot provide a score, backend identity, or grading input.                       |
 | Route-local screens                  | Signals or router `createAsync` resources    | Owning route                            | Each route owns its pending, ready, error, and retry state. Use a resource for route-backed async data and signals for local interaction state.                                             |
@@ -52,7 +52,7 @@ on disposal; a request counter rejects late launch results after a new attempt o
 ## Routing and async data
 
 `@solidjs/router` owns navigation. Links use `<A>`; imperative navigation is reserved for a state
-transition such as creating a workspace or entering an Assignment Attempt. Route-backed reads use the router's
+transition such as creating a workspace or entering an Assessment Attempt. Route-backed reads use the router's
 `createAsync` queries where a shared route cache is useful, while the private PLE Question JSON workspace editor uses a
 keyed `createResource` for its private draft read.
 
@@ -81,29 +81,31 @@ than treating a resource as always resolved.
 
 ## Question Response Control state
 
-The ordinary reference Question Response Control owns only student input and browser-safe format status. Its phase is a
+The ordinary reference Question Response Control owns only Student input, save state, and browser-safe format status. Its phase is a
 discriminated union:
 
 ```text
-idle -> validating -> ready -> submitted
-                   `-> invalid
-           request `-> failed -> validating
+idle -> validating -> ready -> saving -> saved
+                   `-> invalid       `-> failed -> saving
 ```
 
-Selecting a value updates the controlled input and calls the shared Wasm format validator. A
+Selecting a value updates the controlled input and calls the shared Wasm format validator. Saving
+persists a complete working response without exposing a grading outcome. A
 monotonically increasing validation request number keeps a slow older result from replacing a newer
 result. No client state guesses correctness.
 
 The iMathAS Question Backend control is also implemented. It follows its own local phase progression:
 
 ```text
-idle -> loading -> awaitingReady -> ready -> submitting -> submitted
+idle -> loading -> awaitingReady -> ready -> saving -> saved
                  `-> failed
 ```
 
-Opening the iMathAS Question Backend first persists only the ordinary iMathAS Question Backend response marker, then asks the PLE
+Opening the iMathAS Question Backend asks the PLE
 API for a protected same-origin launch path. The iframe is sandboxed; its ready message must come
-from that origin and that iframe. The final submission remains the ordinary PLE response flow.
+from that origin and that iframe. Backend completion saves the Question
+response; the Student still submits the whole Assessment Attempt through the
+ordinary PLE flow.
 
 ## Server and browser boundary
 
@@ -116,7 +118,9 @@ from that origin and that iframe. The final submission remains the ordinary PLE 
 | iMathAS iframe presentation and same-origin readiness status                     | iMathAS Question Backend Launch authorization, configuration, correlation, verification, correctness, and grade recording            |
 | Countdown display reconciled from server data                                    | Deadline and late-submission verdict                                                                                                 |
 
-The Assignment Entry owns points, scoring treatment, attempt limits, timing, and grade aggregation.
+The Assessment Question owns points; the Assessment owns Attempt limits,
+timing, and disclosure. The Question Backend owns credit, and the whole
+Assessment Attempt owns submission.
 The same browser/server ownership split applies to every registered Question Backend; QTI Import maps
 accepted items into PLE Question JSON before the shared Draft Question and publication operations.
 

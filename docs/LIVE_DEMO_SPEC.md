@@ -9,8 +9,9 @@ application, or a special lifecycle of its own.
 
 After canonical database structure initialization, the operator runs the
 explicit installation-data provision command. That operation includes this
-environment by default; `--without-live-demo` makes it a no-data opt-out. The
-choice never changes the installed schema or application model. Once
+environment by default; `--without-live-demo` omits the fictional teaching
+graph but retains ordinary shipped Genetics content. The choice never changes
+the installed schema or application model. Once
 provisioned, every record follows the same archive, retention, Unrelease, and
 deletion rules as corresponding product data. There is no demo-specific marker,
 role, teardown capability, or report artifact.
@@ -27,12 +28,12 @@ first uses the ordinary Pilot Question publisher to create the required
 published Question Revisions and their object bindings, then applies the
 database-owned Live Demo graph. The publisher returns exact Question Revision
 references to the SQL manifest; the manifest validates that mapping before it
-creates dependent records. `--without-live-demo` leaves all installation data
-unprovisioned.
+creates dependent records. `--without-live-demo` leaves the fictional Live Demo
+graph unprovisioned while retaining the shipped Genetics content.
 
 Question identifiers are ordinary opaque identifiers. Their canonical stored
-form is the compact seven-character Crockford Base32 value; APIs display the
-same value as `AAA-BBBB`. Pilot source slugs and source checksums select the
+form is the compact eight-character Crockford Base32 value; APIs display the
+same value as `AAAA-ZBBB`. Pilot source slugs and source checksums select the
 reviewed content internally, but are neither public Question IDs nor a special
 Question namespace.
 
@@ -46,7 +47,7 @@ fresh installation:
   Question Revision pins;
 - a Course Instance, Instructor relationship, invitations, Student records,
   and Course Memberships; and
-- the released Assignment and its exact Question Revision pins.
+- the released Assessment and its exact Question Revision pins.
 
 The manifest is intentionally not a substitute for systems that own effects
 outside PostgreSQL. The established owner paths create Attempts, retained
@@ -60,14 +61,16 @@ The reusable Blueprint Course is **Biochemistry 301: Proteins and Peptides**.
 Elena Rivera owns its ordinary save-created Blueprint Revision. The resulting
 Course Instance is `BCHM 301`, also named **Biochemistry 301: Proteins and
 Peptides**, runs from 2026-08-24 through 2026-12-11 in `America/Chicago`, and
-has Elena as its Assigned Instructor.
+has Elena as its first ordinary co-Instructor, with no greater authority than a
+later co-Instructor.
 
 The ordinary publisher makes all eight reviewed Pilot Questions available in
 the Question Library, including the four WeBWorK Questions described in
 [`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml).
-Its released Assignment, **Chapter 1 Pilot Practice**, uses the four
+Its released Assessment, **Chapter 1 Pilot Practice**, has Type **Practice
+Question Assignment** and uses the four
 PLE-native PLE Question JSON Pilot Questions. Each entry pins the exact
-published Question Revision. The Assignment instructions are: "Complete the
+Published Question Revision. The Assessment instructions are: "Complete the
 four reviewed Chapter 1 practice questions."
 
 The database-owned graph includes the three ordinary Student records and
@@ -78,7 +81,7 @@ the demonstration work states through normal delivery and grading paths.
 | -------------- | -------------- | -------------------------------------- |
 | Mary Okafor    | `BIO301-MARY`  | Completed and graded work              |
 | Jack Nguyen    | `BIO301-JACK`  | Open work with saved responses         |
-| Avery Thompson | `BIO301-AVERY` | Released Assignment available to start |
+| Avery Thompson | `BIO301-AVERY` | Released Assessment available to start |
 
 These are ordinary relationships and Student Work records. Instructor views,
 Student views, and Gradebook results derive from them under the normal
@@ -102,15 +105,15 @@ academic access.
 
 ## Product boundaries
 
-Students receive Questions only through authorized Assignment access for their
-exact Course, Assignment, and Student record. Retained Attempt and Issued
-Question evidence keeps old work interpretable after later Assignment edits.
+Students receive Questions only through authorized Assessment access for their
+exact Course, Assessment, and Student record. Retained Attempt evidence keeps
+old work interpretable after later Assessment edits.
 Submission, grading, feedback, asset access, and Gradebook projections retain
 their own authorization and disclosure boundaries; a terminal grade does not
 by itself disclose answers or feedback.
 
 The Instructor can use the ordinary Question Library, Blueprint Course, Course
-Instance, roster, Assignment, release, Gradebook, and invitation-export
+Instance, roster, Assessment, release, Gradebook, and invitation-export
 workflows within stored authority. Invitation export does not send mail;
 `launchers/send_invitations.py` remains the attended local mail action.
 

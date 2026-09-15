@@ -1,5 +1,10 @@
 # WP-A2 assignment arrangement
 
+> **Dated implementation evidence.** This workstream records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Scope
 
 - Package: WP-A2, seeded-course Mastery and Exam arrangement.

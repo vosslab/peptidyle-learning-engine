@@ -1,0 +1,38 @@
+# Product conflicts
+
+Temporary working report for the corpus-wide Human Guidance compliance pass.
+
+[HUMAN_GUIDANCE.md](../../../HUMAN_GUIDANCE.md) is the authority for current PLE product intent.
+This report records direct contradictions that are corrected during the pass.
+
+## Resolved product conflicts
+
+| Product area | Stale model found | Human Guidance resolution | Representative current documents |
+| --- | --- | --- | --- |
+| Generic activity | Assignment used as the object, editor, route concept, and navigation noun | Assessment is the object; Assignment remains only inside three Assessment Type names | [TERMINOLOGY_CONTRACT.md](../../../TERMINOLOGY_CONTRACT.md), [ASSESSMENT_LIFECYCLE.md](../../../ASSESSMENT_LIFECYCLE.md), [API_CONTRACTS.md](../../../API_CONTRACTS.md), [FRONTEND_ARCHITECTURE.md](../../../FRONTEND_ARCHITECTURE.md) |
+| Blueprint lifecycle | Draft, Available, or Published used as Blueprint states | Private, Public, and Archived are the only Blueprint lifecycle states | [DESIGN_DECISIONS.md](../../../DESIGN_DECISIONS.md), [AUTHORIZATION_CONTRACTS.md](../../../AUTHORIZATION_CONTRACTS.md), [DATABASE_STRUCTURE.md](../../../DATABASE_STRUCTURE.md) |
+| Blueprint relationships | Adoption described as either a permanently shared object or a completely disconnected copy | Adoption copies current content, offers later Revisions for Instructor review, automatically adds new Blueprint Assessments as Unreleased, and never silently changes existing Assessments | [CONTRACTS.md](../../../CONTRACTS.md), [CODE_ARCHITECTURE.md](../../../CODE_ARCHITECTURE.md), [FAQ.md](../../../FAQ.md) |
+| Blueprint collaboration | Updates, fork-source review, Change Proposals, and canonical JSON were removed as speculative | These workflows are explicit product intent; exact routes and persistence remain undecided | [DESIGN_DECISIONS.md](../../../DESIGN_DECISIONS.md), [TERMINOLOGY_CONTRACT.md](../../../TERMINOLOGY_CONTRACT.md), [TODO.md](../../../TODO.md) |
+| Revision families | A current role guide named only Question and Blueprint Revisions | Published Question, published Question Pool, and Blueprint content use Revisions; Assessment, Course Instance, and Draft Question use current state | [USER_ROLES.md](../../../USER_ROLES.md), [QUESTION_MODEL.md](../../../QUESTION_MODEL.md), [DATA_CONTRACTS.md](../../../DATA_CONTRACTS.md) |
+| Assessment submission | Separate response-finalization actions and Question Attempt lifecycles | Complete responses save while open; submitting the whole Assessment Attempt finalizes them together | [ACTIVITY_MODEL.md](../../../ACTIVITY_MODEL.md), [ASSESSMENT_PAYLOAD_DESIGN.md](../../../ASSESSMENT_PAYLOAD_DESIGN.md), [QUESTION_BACKEND_CONTRACTS.md](../../../QUESTION_BACKEND_CONTRACTS.md) |
+| Student keyboard response action | Enter-to-submit shortcuts and a Student file-control heading | Optional Enter activates Save response; only Submit Assessment submits; Students have no upload capability | [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](../../../NO_MOUSE_ACCESSIBILITY_CONTRACT.md), [STUDENT_GUIDE.md](../../../STUDENT_GUIDE.md) |
+| Grading | Public grading jobs, Retry/regrade actions, mutable outcomes, and point snapshots | The backend returns an immutable credit fraction; PLE calculates scores from current Question point values | [ASSESSMENT_LIFECYCLE.md](../../../ASSESSMENT_LIFECYCLE.md), [CONCURRENCY_CONTRACTS.md](../../../CONCURRENCY_CONTRACTS.md), [FAILURE_RECOVERY.md](../../../FAILURE_RECOVERY.md) |
+| Assessment lifecycle | Draft, Closed, Archived, or revisioned Assessments | Course Instance Assessments are current Unreleased/Released state; date access is derived | [ASSESSMENT_LIFECYCLE.md](../../../ASSESSMENT_LIFECYCLE.md), [DATABASE_STRUCTURE.md](../../../DATABASE_STRUCTURE.md) |
+| Templates and grading configuration | Assessment Templates treated as reusable Question content; weighted Grade Categories treated as retained contract | Templates contain settings only; Human Guidance defines no Course Grade Scheme or Grade Category model | [TERMINOLOGY_CONTRACT.md](../../../TERMINOLOGY_CONTRACT.md), [INPUT_FORMATS.md](../../../INPUT_FORMATS.md), [UI_DESIGN_REVIEW.md](../../../UI_DESIGN_REVIEW.md) |
+| Accounts and Course authority | Privileged Course owner, mutable Product Role, ambient Sysadmin FERPA access, or Course-owned Student Account | Product Role is immutable; co-Instructors are equal; Student Accounts are global; Sysadmin support is scoped and recorded | [USER_ROLES.md](../../../USER_ROLES.md), [ENROLLMENT_DESIGN.md](../../../ENROLLMENT_DESIGN.md), [AUTHORIZATION_CONTRACTS.md](../../../AUTHORIZATION_CONTRACTS.md) |
+| Authentication | Email code and passkeys described as unapproved future product ideas | Students and Instructors use email code or passkey; Student institutional email is immutable; Sysadmin uses stronger protection | [USER_ROLES.md](../../../USER_ROLES.md), [IDENTITY_CONTRACTS.md](../../../IDENTITY_CONTRACTS.md), [MULTI_SERVER_SETUP.md](../../../MULTI_SERVER_SETUP.md), [STUDENT_PAGE_VISUALS.md](../../../STUDENT_PAGE_VISUALS.md) |
+| Shared top bar | Instructor-only Profile access and a separate top-bar Sign Out action | Every signed-in role has a rightmost Profile avatar; Sign Out is inside the Profile menu | [UI_DESIGN_GUIDE.md](../../../UI_DESIGN_GUIDE.md), [RIBBON_TASK_MODEL.md](../../../ux/RIBBON_TASK_MODEL.md), and file-local notices on the superseded top-bar plans |
+| Course banner geometry | A 6:1 page-width hero and 5:2 card crop presented as the selected product design | The Course banner is small and centered; exact dimensions and crop behavior remain unresolved | [UI_DESIGN_GUIDE.md](../../../UI_DESIGN_GUIDE.md), [course_appearance_banner_storage_and_sizing.md](../../decisions/course_appearance_banner_storage_and_sizing.md), and [course_appearance_banner_ratio_specimen.svg](../../decisions/assets/course_appearance_banner_ratio_specimen.svg) |
+| Native PLE Question JSON | Version negotiation, algorithmic generation, or seed input | The format is private, unpublished, unversioned, static, strictly validated, and receives no seed | [QUESTION_MODEL.md](../../../QUESTION_MODEL.md), [QTI-JSON_OBJECT_FORMAT.md](../../../QTI-JSON_OBJECT_FORMAT.md), [DETERMINISM_CONTRACT.md](../../../DETERMINISM_CONTRACT.md) |
+| H5P and iMathAS | The current incomplete adapter slice treated as the target product | Both are supported secondary Question Backends; incomplete connected behavior is an implementation gap | [QUESTION_BACKEND_CONTRACTS.md](../../../QUESTION_BACKEND_CONTRACTS.md), [ADAPTER_DEVELOPMENT.md](../../../ADAPTER_DEVELOPMENT.md), [INPUT_FORMATS.md](../../../INPUT_FORMATS.md) |
+| Retention | Fixed academic calendar, manual inactivity, immediate deletion, or general recovery state | Final Assessment deadline and later Student activity drive notice, archive, recovery period, deletion, and inactive Course state | [RETENTION_POLICY.md](../../../RETENTION_POLICY.md), [DATA_CLASSIFICATION.md](../../../DATA_CLASSIFICATION.md), [DATABASE_AUTHORIZATION.md](../../../DATABASE_AUTHORIZATION.md) |
+
+## Historical evidence boundaries
+
+Archived plans, completed workstreams, source notes, and changelogs remain dated evidence rather
+than rewritten history. Loose plan files that otherwise looked current now carry a file-local
+authority notice. Generated route,
+graph, screenshot, and manifest artifacts remain implementation evidence where their source owners
+are outside this docs-only task. Their status is explicit in
+[COMPLIANCE_SUMMARY.md](COMPLIANCE_SUMMARY.md) and
+[UNRESOLVED_OR_AMBIGUOUS_ITEMS.md](UNRESOLVED_OR_AMBIGUOUS_ITEMS.md).

@@ -1,800 +1,216 @@
 # Security model
 
-## Binding single-installation model
+This document applies [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) to trust,
+authorization, Question Backends, FERPA records, and browser boundaries. It
+does not infer product features from current tables, workers, routes, or old
+plans.
 
-PLE uses global accounts, exact course membership and Student ownership for FERPA authority,
-Instructor-owned private workspaces, and one shared Question Library. The current
-[ROADMAP.md](ROADMAP.md) routes account-and-relationship-scoped
-RLS and capability correction across the product stack; durable PostgreSQL
-authorization detail is owned solely by [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
+## Trust model
 
-Peptidyle keeps grading authority on the server. The browser may determine
-whether a response is structurally ready to submit, but it never receives an
-answer key or makes a correctness decision.
+Treat browsers, URLs, form fields, JSON, uploaded archives, imported Questions,
+backend documents, callback payloads, cache entries, queue messages, and object
+paths as untrusted input. The server derives authority from an authenticated
+Account plus the exact stored relationship required by the operation.
 
-This is the cross-cutting enforcement model. It names the boundaries that
-must hold across routes, storage, workers, adapters, and browser code. The
-specialized durable contracts own their detailed data shapes and operations:
+Each Account has one immutable Product Role: Student, Instructor, or Sysadmin.
+Course relationships supply Course authority. Product Role, object possession,
+or a visible Reference never substitutes for that relationship.
 
-- [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md) classifies protected data
-  and its permitted projections.
-- [USER_ROLES.md](USER_ROLES.md) owns the closed Student, Instructor, and
-  Sysadmin human-role model.
-- [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) is the sole durable
-  PostgreSQL authorization authority: it owns roles, RLS, transaction-local
-  authenticated-session context, grants, and database-side capability predicates.
-- [OBJECT_STORAGE.md](OBJECT_STORAGE.md) owns typed keys, delivery grants, and
-  Object Storage Check and Repair.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) owns the student
-  render, response, Question Presentation Checksum, and Presentation Response Item Reference wire contract.
-- [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) owns caller-visible recovery and
-  evidence-preserving failure handling.
+## Authorization boundaries
 
-This document states the intended single-installation authority. The active
-release plan records the work required to carry it across every HTTP, storage,
-worker, adapter, and browser boundary.
+### Student
 
-PostgreSQL forces RLS for every protected private-workspace and course-record
-table. A transaction sets only the authenticated `AuthenticatedSession`; policies and
-narrow authorization functions derive exact current membership, Student ownership, or
-workspace collaboration from durable rows. A worker receives one typed lease:
-claims one durable, typed lease and derives its course, workspace, Question Library, or
-system target from the locked job row. Leases, Object Addresses, adapter handles,
-and Question Backend state remain typed server-side values, not browser DTO fields.
+A Student may access only Courses with an active Student relationship and only
+that Student's own Coursework, Assessment Attempts, saved responses, submitted
+work, and disclosed results. Removing Course access or deactivating the Account
+blocks new access without deleting Student Work.
 
-## Grading boundary
+### Instructor
 
-| Browser-safe surface                           | Server-only surface                |
-| ---------------------------------------------- | ---------------------------------- |
-| Input schema and browser-side response state   | `grading::AnswerKey`               |
-| Parameter generation from a supplied seed      | Expected numeric values            |
-| Response-format validation                     | Correct choice IDs and ordering    |
-| Timer display and pure state transitions       | Accepted text and private rubrics  |
-| Correctness and point results after disclosure | Checkers and correctness decisions |
+All current co-Instructors have equal authority within the Course Instance. The
+creator or first Instructor has no greater access. Teaching actions and FERPA
+reads are limited to the exact Course relationship.
 
-The browser-safe model explains the input shape and public grading policy. The
-current compatibility Question Presentation may expose a numeric tolerance or that exactly
-two choices are required. The reserved compact student presentation must not
-expose tolerance; [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md)
-owns that cutover. The expected number and the two correct choice IDs remain
-in `crates/grading`.
+### Sysadmin
 
-`crates/grading` is the browser-excluded authority for checkers, answer keys,
-and correctness decisions. It is not the only server-only component that
-handles protected Answer Keys, Question Feedback, and format-specific Question Grading Input. The PLE Question JSON source compiler
-parses canonical author source and splits it into answer-free public content
-and private Answer Key/Question Feedback records. `crates/learning-data-access` then validates
-and carries PLE Question JSON Private Grading as an opaque grading payload, bound to the
-answer-free Question Content, for authorized staging, publication, and grader retrieval.
-It does not expose the canonical bytes through browser-facing stores, routes,
-generated contracts, or the Wasm closure.
+A Sysadmin administers the platform but has no ambient Course membership or
+FERPA access. Support access to Student records is deliberate, narrowly scoped,
+and recorded. Creating or configuring a Course does not silently give the
+Sysadmin an Instructor relationship.
 
-Ungraded content has no `AnswerKey`; it does not use a browser-safe placeholder
-key. Current H5P Package content remains ungraded practice because its own evaluation runs in
-the browser. The authenticated author-role-only PLE Question JSON source `GET`/`PUT` route
-is the narrow exception for an instructor's own canonical source. It uses
-`Cache-Control: no-store` and a strong ETag, exposes no signed object URL or
-checksum, and does not widen student, public, non-author, or Wasm contracts.
+### Future Course roles
 
-`grading::grade(question, response, key)` repeats browser-safe format
-validation before consulting the key. Its generic all-or-nothing checker owns
-numeric exact, absolute, relative, and significant-figure comparisons;
-multiple-choice set comparison; declared short-text matching; and exact
-ordering. It returns only correctness and points. Partial-credit questions use
-a contracted deterministic backend or explicit private rubric. Each supported
-Question Type has an automated validation and server-grading contract; an
-unsupported artifact receives a clear fail-closed result.
+Course Observer, Student Observer, and Grader are future Course relationships.
+They have no authority until their capability, consent/disclosure, and privacy
+contracts are explicitly implemented. Grader is not currently needed because
+Question grading is automatic.
 
-## Format validation
+## Database enforcement
 
-`domain::validation::validate_response_format` checks only student-controlled
-structure:
+Protected PostgreSQL operations use server-installed Account context, exact
+Course/workspace/Blueprint relationships, forced RLS, and least-privilege
+roles. Security-definer functions are narrow, have a fixed trusted search path,
+are unavailable to `PUBLIC`, and recheck the exact target.
 
-- response kind matches the Question Response Format;
-- numeric input is finite;
-- selection count, uniqueness, and IDs are valid;
-- short text fits its character limit;
-- ordering is an exact permutation of the displayed items; and
-- each Response Item Reference matches the issued Question Presentation.
+Foreign protected records use non-enumerating failures where revealing
+existence would leak information. A route check and database check defend the
+same relationship; neither trusts the other layer's caller-supplied ID.
 
-This function has no answer-key parameter and cannot determine correctness.
-The browser calls it through `wasm_bridge::validate_response_format`; the
-server repeats it before grading because client validation is a convenience,
-not an authority.
+See [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
 
-## Compile-time closure
+## Question authoring and publication
 
-The shipped workspace dependency closure of `wasm_bridge` is exactly:
+A Draft Question is private, mutable, unpublished, and unversioned. Its source,
+Answer Key, private feedback, provider configuration, and preview remain inside
+the authorized workspace.
+
+Publication validates server-held source and creates or advances a stable
+Published Question lineage with immutable Question Revisions. Published
+answer-free content may be discovered by vetted Instructors. Private source,
+Answer Keys, grading inputs, workspace identifiers, and credentials remain
+private.
+
+A Published Question ID is a human reference, not access authority. Question
+Archive is a high-consequence owner action and must not erase immutable Revision
+evidence used by Assessments or Student Work.
+
+## Question Backend boundary
+
+The selected Question Backend is the only authority for its render, controls,
+response interpretation, grading, feedback, and backend-specific state. PLE
+must not parse backend-owned controls or trust browser claims about Question
+Type, source, correct answers, or credit.
+
+PLE supplies trusted source, exact Revision, and randomization/backend state.
+It receives an answer-free presentation plus opaque state, then later a credit
+fraction and protected feedback. The fraction is immutable. PLE calculates
+scores from current Assessment Question point values without regrading.
+
+Backend failure never becomes an incorrect Student response. A backend-specific
+continuation, callback, token, or signature remains server-only and scoped to
+the exact Student, Course, Attempt, Question Revision, and operation. It cannot
+create a public grading queue, Retry action, mutable result, or second Attempt
+lifecycle.
+
+## Native PLE Question JSON
+
+The native format is private, unpublished, unversioned, static, and strictly
+validated. Server grading is authoritative. Author JavaScript runs in an
+isolated untrusted context with no session credential, Answer Key authority,
+same-origin application access, storage authority, or network authority beyond
+the deliberately supplied sandbox.
+
+Strict decoders reject unknown fields, invalid types, unsupported controls,
+unsafe URLs, and out-of-bound data. Browser validation improves feedback but
+does not replace server validation.
+
+## Assessment Attempt boundary
+
+The server binds each operation to:
 
 ```text
-wasm_bridge
-+-- domain
-|   `-- question_model
-`-- question_model
+authenticated Account
+  -> active Student Course relationship
+  -> Student record
+  -> released Assessment
+  -> open Assessment Attempt
+  -> Question position and exact Revision/backend state
 ```
 
-It contains no `grading` crate. `tests/test_crate_boundaries.py` resolves the
-normal, build, and target-specific local dependency tables conservatively and
-fails if any other workspace crate enters this closure. Including build
-dependencies matters because a build script could otherwise embed secret data
-without becoming a runtime dependency.
-
-Run the closure gate with the selected Python 3.12 interpreter:
-
-```bash
-source source_me.sh && python3 -m pytest tests/test_crate_boundaries.py
-```
-
-## Export allowlist
-
-`tests/e2e/e2e_wasm_export_allowlist.mjs` builds the current bridge, processes it
-with the lockfile-matched `wasm-bindgen` tooling, and compares every export name
-and kind with a committed allowlist. Its disposable processed module lives
-inside a temporary output directory.
-
-The reviewed application exports are currently:
-
-- `bridge_version`;
-- `question_attempt_timing_decision`;
-- `validate_assignment_config`; and
-- `validate_response_format`;
-- `preview_ple_draft`; and
-- `verify_presentation_descriptor`.
-
-The allowlist also names the exact memory, table, allocator, and lifecycle
-exports required by `wasm-bindgen`. A new Rust export fails the gate until a
-reviewer determines that it is key-free and deliberately updates the list.
-An answer-bearing export is rejected rather than added.
-
-`question_attempt_timing_decision` is safe in the browser because its inputs
-are an already disclosed Question Attempt Time Limit and server timestamps,
-and its output cannot reveal an answer.
-The server still supplies the authoritative evaluation timestamp and decides
-whether to accept a submission; browser time remains display-only.
-
-`validate_assignment_config` receives only Question Revisions and backend
-capability declarations already shown to an instructor. Its violations name a
-question revision and a missing capability, never an answer or grading key. The
-server independently calls the same domain function before publication.
-
-`preview_ple_draft` receives an unversioned draft-workspace result and
-a seed. It produces only the Question Title, Question Prompt, and Question Response Format for a PLE
-drafts; other adapters return an explicit `offlinePreview` unavailability
-result. `domain` builds the Question Prompt, while PLE Question Backend key
-derivation remains in its server-only crate. The bridge therefore cannot
-construct an answer key, Question Attempt Reproduction Details, published identity, grade, or score.
-
-`verify_presentation_descriptor` recomputes only the deterministic descriptor
-for already disclosed public Question Presentation and asset-binding data. It returns a
-consistency result and cannot issue an attempt, accept a submission, resolve a
-durable mapping, or disclose a key. The server retains the full Question Presentation Checksum
-and decides whether a request belongs to that presentation.
-
-Run the export gate directly:
-
-```bash
-node tests/e2e/e2e_wasm_export_allowlist.mjs
-```
-
-The crate-closure check remains in the fast repository gate. The export allowlist
-is an explicit non-browser E2E because it builds the Rust target and runs bindgen.
-
-## Authentication and authorization derivation
-
-Each global Account has exactly one Product Role; many Accounts may share the
-same Product Role. Account creation fixes that Product Role permanently; Account
-State is derived from immutable Account State Events
-(`Active`, `Deactivated`, or `Closed`). An Authenticated Session belongs only to
-an Active Account and retains that Account-derived Product Role through its
-role-pinned foreign key. A session is not course, workspace, FERPA, or support
-authority: each protected operation derives its exact additional authority from
-durable relationships in its transaction. Deactivation or closure prevents new
-sessions and revokes existing ones.
-
-After Instructor Vetting, an Active Sysadmin Account calls the private Create
-Instructor Account operation. The server generates the Account ID and, in one
-transaction, creates the fixed Instructor Product Role, initial Active Account
-State, and private Instructor Authentication Email. That same transaction writes
-immutable qualified audit evidence naming the acting Sysadmin Account. The audit
-event stores Account identifiers, role qualification, and database-authoritative
-time only; it stores no email, credential, passkey label, or browser data.
-
-PLE stores no password verifier. Email-code adapters are not an accepted current
-credential capability, and no email-replacement or credential-recovery operation
-is implemented. The Live Demo's seeded-persona entry is the currently available,
-demo-only identity-verification substitute; it uses the same server-owned session
-contract and is not a second credential transport.
-
-Authentication uses one `__Host-` opaque session cookie. The raw 256-bit
-credential is generated from the operating-system random source, marked
-HttpOnly, and never enters browser `localStorage`, logs, or PostgreSQL. The
-cookie has no `Max-Age` or `Expires` attribute, so ordinary authentication is
-limited to the browser session. Shared session storage contains only its
-SHA-256 hash and database-authoritative creation, bounded expiration, and
-revocation state.
-
-Production cookies are `Secure; HttpOnly; SameSite=Lax; Path=/` and have no
-`Domain` attribute. The `__Host-` prefix makes those host-only constraints
-browser-enforceable. The canonical browser path uses the HTTPS gateway. There
-is no production embedded `SameSite=None` mode: a future LTI integration must
-introduce and review a separate browser/session design rather than weaken the
-first-party session contract.
-
-Every unsafe cookie-authenticated request must present the exact canonical
-HTTPS `Host` and same `Origin`; duplicate or malformed cookie inputs are
-rejected. The API does not grant credentialed cross-origin CORS. These checks
-supplement, rather than replace, `SameSite=Lax`. No iMathAS Question Backend browser
-cookie or cross-origin exception exists.
-
-The schema and typed contracts retain private WebAuthn/passkey foundations, but
-the passkey capability is deferred. There is no passkey configuration,
-installation setup credential or command, HTTP route, Browser Surface, session
-issuance path, or completed WebAuthn ceremony. Passkey absence therefore does
-not affect health, ordinary session resolution/logout, or seeded-demo entry.
-
-Session resolution constructs one server-owned
-Authenticated Session from trusted Account and session identity; its persisted
-Account-derived Product Role is immutable and FK-pinned to that Account. Request
-paths, headers, and JSON cannot select a role, course, workspace, or capability.
-Each protected operation derives its exact course membership, Student ownership,
-workspace relationship, or narrowly audited service capability from durable
-records in the same transaction.
-
-## Encryption and secret boundary
-
-Managed PostgreSQL, object storage, backups, and deployment volumes use
-provider-managed encryption at rest with scoped KMS keys. This is the durable
-baseline for source, protected records, and image objects. PLE does **not**
-blanket-encrypt public published content in the application: immutable public
-objects need CDN delivery and integrity comes from their canonical SHA-256
-binding, publication authority, and object-store immutability. Application
-encryption is selective: AEAD protects secrets that must be stored and later
-used, such as iMathAS Question Backend Launch state. Keys, database URLs, SMTP credentials,
-and Question Backend credentials stay in deployment secret storage and least-privilege
-runtime roles, never tracked configuration or browser DTOs.
-
-## iMathAS Question Backend Session
-
-Question Model owns `ImathasQuestionBackendBinding`; LDA persists that binding and owns the server-only iMathAS Question Backend Session, typed Reference,
-preparation/restore/lease/verified-Result-Exchange Store boundary, and backend-state
-protection. The stored state uses XChaCha20-Poly1305 with a key identifier,
-fresh nonce, associated exact session facts, bounded ciphertext, and key
-rotation. iMathAS owns only strict versioned opaque iMathAS Launch State bytes,
-HMAC authentication over exact Grading Context and Challenge, and iMathAS Launch/Result
-protocol verification. The binding pins `imathas_remote_grading_v1`. `2026090102` enforces exact fields, full restore,
-half-open validity, immutable binding, forward revocation, Exchange-only
-consumption, and RLS/least-privilege SECURITY DEFINER functions.
-
-LDA mints the one immutable 256-bit iMathAS Session Challenge with the OS
-CSPRNG, retries all-zero output, and reconstructs it only from validated private
-storage. It expires with its Session and is accepted once only through verified
-Exchange. iMathAS carries and verifies the signed `ple_launch_challenge` claim;
-the PostgreSQL oracle directly proves `ple_api_owner` cannot mutate it.
-
-LDA also owns the private, redacted, non-Serde iMathAS Grading Context:
-exact Question Attempt ID, Question Revision Reference, and Question Seed. It
-inherits Student, Course, and Assignment authority from the owning Session and
-Question Attempt, and expires with that Session. Its accepted
-`authentication_payload_v1` bytes differ from the verified iMathAS Launch
-Binding Checksum, Challenge, iMathAS Result Token, and iMathAS
-Result. The direct `question_attempt_id` schema cutover and live four-axis
-mismatch cases protect every member; the browser receives no Context DTO.
-
-LDA owns the bounded `1..=8192` opaque iMathAS Result Token and
-its redacted non-Serde checksum. iMathAS receives raw bytes server-to-server,
-verifies the iMathAS protocol, and derives the checksum only after success.
-Raw bytes never reach browser state, generated contracts, durable records,
-logs, or Debug output. The checksum is written only as
-`imathas_result_token_sha256` on the verified iMathAS Result Exchange in the atomic consume
-transition; it is absent from the iMathAS Question Backend Session and verification state.
-
-The iMathAS Result Exchange exclusively owns the immutable server-only iMathAS Result.
-Its first profile has only a validated finite `[0,1]` normalized score with one
-accepted zero representation; LDA derives, rather than accepts, its checksum
-from `ple:imathas-result:v1\\0` followed by the score's IEEE-754 binary64
-bytes. That checksum is never the Result Token checksum and neither
-belongs on a Grading Result. `ImathasGradingContext` remains exactly its
-three identity fields. The iMathAS Session stores authentication and Result lifecycle facts and
-binds the exact Question Attempt ID. Authenticated staging consumes the Session and
-creates the marker `StudentResponse::ImathasQuestionBackend {}` Question Submission and retains
-ready Result Exchange evidence. The backend's normalized credit fraction is the immutable outcome
-PLE records; current Assignment Entry points determine score on read. If this backend requires
-deferred completion, a narrow server-only background path may finish it without exposing a queue,
-attention state, retry-grading action, or grading status to either Student or Instructor. The
-current audit cleanup still removes legacy job/failure vocabulary from the internal boundary; that
-residue is not a product state. No iMathAS Result DTO or raw result is generated or exposed to the
-browser. LTI remains future registered-protocol planning with no current schema path.
-
-`AutomatedGradingReceiptChecksum` is LDA-owned, redacted, and non-Serde. Only
-the atomic worker commit derives it, after locked lineage and final Result
-validation, from fixed ordered v1 bytes: the ASCII version prefix; Receipt,
-Result, grading, Submission, Attempt, Job, and Session UUID bytes; both
-Exchange evidence checksums; correct byte; validated canonical big-endian
-binary64 points; and signed big-endian commit milliseconds. It excludes raw
-tokens, credentials, keys, and browser data. No command, API, browser, or
-adapter supplies it; exact committed replay returns the stored checksum rather
-than accepting a candidate value.
-
-The SolidJS launch shell POSTs the same-origin request, accepts only validated
-`{ launchUrl }`, and opens an iframe without Challenge, Session, or backend-secret
-state. Its LDA-backed Rust route, cookie/env production backend composition, and
-live-backend acceptance remain absent. iMathAS protocol handles, source bytes, tokens,
-and grades remain server-only. Generic hosted MyOpenMath remains outside the
-supported boundary.
-
-## QTI Import boundary
-
-QTI processing occurs inside the authorized Workspace Import boundary. PLE
-checks the archive limits and checksum, parses the selected QTI Profile as
-hostile input, and reports supported and unsupported items before commit. Each
-accepted flat item becomes one complete PLE Question JSON Draft Question. The
-original archive, profile, item reference, mappings, warnings, and checksums
-remain private Workspace Import evidence.
-
-Every later operation uses the ordinary backend-agnostic Draft Question,
-publication, Assignment, issuance, submission, and evaluation contracts with
-the PLE Question Backend. The active QTI-to-PLE Question JSON convergence
-removes QTI runtime dispatch and QTI grading-store access. Connection strings, archive bytes, answer
-data, and diagnostics remain outside browser DTOs, TypeScript, WASM, errors,
-and Debug output.
-
-## Student-record retention boundary
-
-Student records are FERPA data and treated as radioactive: course-scoped,
-Student-owned where applicable, minimized, and excluded from general logs and analytics;
-reusable published content is not. Every
-student-facing Store and PostgreSQL path checks the same course-retention access predicate, so
-archive cannot be bypassed through Assignment Attempts, summaries, feedback, exports, iMathAS Question Backend operations, or protected
-StudentRecord assets. Instructor/Sysadmin retention views expose only coarse
-lifecycle, fixed notification copy, and a strong revision-not student, object,
-job, lease, or generation identity. This payload-free lifecycle authority is
-one registered `SysadminSupportCapability` in addition to the separately
-audited, closed exact-course support capability. The closed registry in
-[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry)
-binds every support capability to one course, purpose, operation set, expiry,
-and audit trail. A Sysadmin platform role alone never grants course access,
-Gradebook access, Assignment Analysis, responses, or Assignment Attempts.
-
-Only the scheduler creates a closed retention job binding. The retention Job
-prepare and commit functions require the exact course, stage, generation, job,
-and active typed lease. They persist a typed StudentRecord object manifest
-before delivery revocation. The worker refuses a key outside the lease's typed
-CourseRecord scope or a non-StudentRecord key and treats an already absent
-object as an already-complete deletion. Permanent deletion then removes only
-relationally course-owned Student rows and changes the lifecycle to deleted
-after residual checks pass. Shared published content, drafts, and anonymous
-aggregates are outside that delete authority.
-
-The complete lifecycle, retained/deleted table classes, and honest backup limitation are documented
-in [RETENTION_POLICY.md](RETENTION_POLICY.md).
-
-The authentication cookie has no analytics, advertising, tracking, or
-preference purpose. Nonessential storage, including `localStorage`, requires a
-separate consent path. Persistent `remember me` behavior is not part of the
-ordinary session contract and requires explicit user choice plus a
-jurisdiction-specific compliance review before implementation.
-
-Before authentication, the PostgreSQL `ple_auth` role can see only the
-`authenticated_session` row matching the presented one-way hash. Resolving that row is
-the only production path that constructs `AuthenticatedSession`; account values from
-URLs, headers, or JSON never establish RLS context. Missing, malformed,
-unknown, expired, and revoked credentials all return the same unauthenticated
-response.
-
-## Author-preview boundary
-
-The ordinary browser/WASM draft preview remains key-free. A separate
-`GET /api/workspaces/{workspace}/author-preview` route exists only after an
-explicit instructor action. It resolves the stored draft through the same
-owner/collaborator binding as workspace editing, requires the exact saved
-strong `If-Match` revision, and returns the same absent result for Students,
-nonparticipants, and unshared workspaces. Responses are `no-store`.
-
-The author route never serializes `AnswerKey`, Question Feedback, Question
-Answer Explanation, Question Grading Input, source
-backend-specific location field, Object Address, Question Backend credential, or published identity. A supported
-PLE Question Implementation may supply only display-ready Question Answer and Question Answer Explanation
-content through its server-only adapter seam. External sources and PLE
-PLE Question Implementations without a reviewed presentation return an explicit unavailable state;
-they do not invent a Question Answer or Question Answer Explanation. The editor saves before requesting this
-view, rejects a mismatched response ETag, and keeps author-preview data out of
-browser persistence. Student routes deny the authoring surface before its
-repository or author-preview client is constructed.
-
-## Question Library publication boundary
-
-The Question Library has one installation-wide visibility rule:
-every Published Question used in an Assignment is visible to every active Instructor.
-Private drafts remain inside their owner/collaborator workspace until the
-atomic publication transition commits. Question Library routes resolve `AuthenticatedSession`
-first; paths and bodies cannot select another account, workspace relationship,
-publication identity, or capability. Forced PostgreSQL RLS and account-and-relationship-scoped
-Store predicates protect private workspace Question Sources and private grading records. Question Library search and
-details return only the reviewed Instructor-safe result.
-
-The Question Library audience is the authenticated approved-Instructor set.
-Student access remains Assignment Access-authorized delivery, and anonymous web
-requests receive no Question Library access.
-
-The browser supplies a workspace identifier, but never a new `QuestionId`, a
-publication scope, or a backend capability declaration. The server loads the
-account-authorized draft, resolves capabilities from its trusted adapter
-registry, returns the complete capability-violation list, and generates fresh
-published identities for a new work, correction, or derivative. The Store
-compares and locks the same draft before atomically creating the self-contained
-Question Revision, its immutable Question Source, the initial Published Question
-metadata, and Question Library publication state. Publication writes a new Question
-Revision-owned Source Object Reference rather than reusing the draft object
-path. Draft retention is a separate recovery and expiration policy; published
-reads never join through the Draft Question.
-
-For a new lineage, the server-only coordinator asks PostgreSQL to authorize the active Instructor
-session and resolve only the exact current Draft Question Edit Number's Source Object Record. It
-then requires complete agreement between that database record and the object-store read before
-copying the bytes to a fresh Question Revision address. The database transaction rechecks the draft
-and both source records, closing the authorization/state race before publication commits. Question
-IDs use six OS-CSPRNG Crockford Base32 characters and one HMAC-SHA-256 validation character under a
-redacted 256-bit installation secret. The public identifier is not an authentication credential and
-grants no authority. P2 exposes neither the secret nor draft source bytes to generated or browser
-contracts, and no Publication Server Route is exposed.
-
-Publication requires an Active Instructor Account and any installation-wide review
-gate. `Sysadmin` status alone does not publish or provide Question Library access.
-Post-publication transitions require an Active Instructor Account and the recorded
-author relationship. Database
-privileges permit only lifecycle fields to change; published identity, global
-visibility, payload, capabilities, metadata, authorship, and lineage cannot be
-updated or deleted by the application role.
-
-The no-drift contract pins every assignment and grading record to an exact
-Question Revision. Editorial or accessibility corrections may continue a
-Question ID under its immutable version history; a changed objective, Question Type,
-or substantially different task becomes a fork with a new Question ID.
-Existing assignments retain their exact references until an Instructor makes a
-deliberate, revision-checked replacement. The server resolves only the version
-chosen by that controlled operation, and never silently changes issued or
-graded work.
-
-Question Library search results contain hot browser-safe metadata only. They expose a
-Question Backend but no PLE Question Implementation name, WeBWorK path, QTI package identifier,
-prompt, Question Response Format, or answer-bearing value. H5P Package Import is outside the
-Question Library and retains its archival package identity privately.
-Every Published Question remains discoverable to every active Instructor. Its
-Question Revision Availability is `Available` or `Archived`; the safe reader result
-shows that exact availability. Selection eligibility is separate: only `Available`
-Question Revisions may be selected for an ordinary new assignment. Archived
-Question Revisions remain resolvable for exact historical references and
-retained assignments, but are excluded from ordinary new selection. This
-lifecycle behavior does not add a successor, "latest" resolution, or automatic
-assignment replacement.
-
-## Course authorization boundary
-
-Every course route resolves `AuthenticatedSession` before selecting a course. A global
-active Instructor may create a course; Sysadmin status alone does not satisfy
-that predicate. A Sysadmin creates an Instructor Account after Instructor Vetting;
-a person who needs both roles uses separate Accounts. Creation atomically establishes the first
-ordinary Instructor membership. Access to an existing course requires an
-exact current `course_membership` row. Every current Teaching Team Member has the same
-teaching authority; course creation does not create an owner or elevated
-creator capability. `Sysadmin` is not a course membership variant. Its
-`SysadminSupportCapability` is resolved through the closed registry in
-[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md#sysadmin-support-capability-registry),
-which records the authenticated account, purpose, course, operation, expiry, and time and exposes
-only the approved `minimum_projection`-bounded response data. Current Instructor Course Membership remains the
-normal authority for general teaching records.
-
-Course and membership tables use forced account-and-relationship-scoped RLS. Nonmembers receive
-the same not-found response as absent courses, limiting identity disclosure.
-Students may list and resolve assignments in their courses but receive a
-forbidden response for assignment creation. Assignment writes validate each
-selected Question ID against Question Library lifecycle state; no question
-payload, answer key, or grading code is copied into the course row or returned
-by browse.
-
-The current human-role model is closed to Student, Instructor, and Sysadmin.
-Future Grader, Course Observer, and Student Observer relationships are explicit
-typed, revocable grants rather than new ambient human roles.
-
-A Course Observer grant is bound to exactly one `CourseId`, one stated purpose,
-one issuer, an expiry and revocation state, an audit identity, and a closed
-disclosure policy. It is read-only. Its exact-course assignment result may
-include assignment titles, instructions, release state, and the ordered
-answer-free content of the published questions assigned in that course. Its
-separate named assignment-completion result contains only a safe Student
-display label, assignment identity, and `completed` or `not_completed` state. A
-named completion row never includes a score, grade, response, attempt detail,
-feedback, accommodation, enrollment detail, Student-record asset, or arbitrary
-course record. The result exposes no private source, answer key, grading
-rule, rubric, Question Backend payload, or hidden diagnostic.
-
-The Course Observer aggregate-grade result is a different typed result. It
-contains only an anonymous, formula-labeled, privacy-safe course aggregate after the
-disclosure threshold is met. It has no Student subject, enrollment, row-level
-score, small cell, or linkable metadata. The disclosure decision considers the
-combination of named completion and aggregate output; the server suppresses an
-aggregate when that combination could identify a Student or infer an individual
-score. Completion rows and aggregate cells are never joined by a Student key in
-the browser, route, cursor, audit payload, or cache. Course Observer grants do
-not satisfy current Instructor, Gradebook, Student-work inspection, or Student
-Observer predicates.
-
-Every successful Course Observer read records an audit event containing the
-server-derived account, exact course, grant, purpose, reader-result kind, disclosure
-policy revision, result, and authoritative time. It contains no Student name,
-response, score, Answer Key, Question Grading Input, or private content. Denials use the ordinary
-concealed authorization result and do not create a Student-record access fact.
-The Store rechecks the grant's exact course, purpose, expiry, revocation, and
-disclosure policy in the same transaction as each returned result. Revocation is
-serialized with reads and takes effect immediately; cached observer data is
-discarded and cannot be replayed as current authority.
-
-A Student Observer requires its own exact one-Student binding, explicit Student
-consent, stated purpose and disclosure policy, expiry, immediate revocation,
-and audit events. Its read-only result is separately typed and limited to
-that consented Student's records; it does not inherit a Course Observer or
-Instructor capability, and a Course Observer grant cannot satisfy its consent
-predicate. Observer responses are `Cache-Control: no-store`; completion and
-aggregate data never enters URLs, cursors, browser storage, or a generic cache.
-
-Assignment creation and focused replacement accept Question IDs, while ordinary
-update retains its assigned item identities and changes assignment-owned fields.
-Request JSON cannot supply an account, course, assignment ID, hidden
-publication pair, workspace draft, capability declaration, source, or question
-payload. The server resolves each Question ID through Question Library publication state,
-accepts only `Available` Question Revisions for ordinary new selection. Archived
-Question Revisions remain available for exact historical references and retained
-assignments, but ordinary new selection rejects both. It uses the persisted
-immutable capability declaration with
-`validate_assignment_config`. The browser may display the returned safe title,
-Question ID, and capability violations, but it is never the capability authority.
-
-Assignment edits use a positive strong revision ETag. Course authorization is
-resolved before the `If-Match` precondition, so malformed or missing revisions
-cannot become a membership or course-existence oracle. Memory performs
-replacement under one write lock; PostgreSQL binds account, course, assignment,
-and revision in the update transaction and locks every selected version against
-a concurrent lifecycle transition. Stale writes conflict without changing the
-stored assignment. Direct course Instructors may mutate;
-students receive forbidden and unrelated or foreign courses remain absent.
-All success and error responses are `no-store`.
-
-## Assignment export boundary
-
-PLE has no current Assignment Export service. No Assignment Export route, Store,
-worker, persistence record, delivery path, browser DTO, or authorization boundary
-is implemented. The implemented `export_crate` is an answer-key-free pure DOCX/PDF
-renderer; it has no request, account, course, object-delivery, or worker authority.
-QTI remains an interchange format, and Course Grade CSV export remains a separate
-implemented boundary.
-
-A future Assignment Export service requires a private immutable Assignment Export
-Manifest with the complete authorized request, lease-scoped execution, protected
-delivery, retention, and acceptance boundary defined in
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md). An Object ID or a renderer
-result does not establish that Manifest or authorize an export.
-
-## Assignment Attempt authorization and grading boundary
-
-The presentation model and its server-persisted binding are implemented, but
-the current student HTTP route still accepts the broader tagged
-`StudentResponse` body, including the browser-supplied response `kind`. The
-current route rederives and validates the expected Question Response Format from the attempt;
-`kind` is therefore not submission authority. The current grading-payload
-contract owns a future atomic wire cutover to authenticated Question Attempt ID,
-the one-Submission-per-Question-Attempt boundary, Question Presentation Checksum, and a format-minimal answer. That target
-also introduces CRC16 Presentation Response Item References and a SHA-256-backed Question Presentation Checksum
-to detect inconsistent presentation state. Neither target value
-authenticates the student or grades an answer. All component scoring and
-partial credit remain server-owned in both contracts.
-
-The current tagged render `QuestionResponseFormat` also exposes some
-grading-adjacent metadata, including numeric tolerance and short-text match
-mode. That metadata does not disclose an expected answer, but it is broader
-than rendering requires. The target render data retains only public
-input constraints and displayed units while keeping tolerances, normalization
-rules, answer keys, weights, and rubrics server-only.
-
-Assignment Attempt reads and mutations require the authenticated `AccountId` stored on the
-enrollment **and an active `Student` course membership at the Store/DB
-boundary**; they never infer authorization by equating that identity with
-`StudentRecordId`. This is repeated for Assignment Attempt, enrollment, summary, saved-response,
-finalization, `/student-feedback-release`, issuance, and iMathAS Question Backend paths.
-PostgreSQL checks it in the same transaction with the roster lock, and the
-in-memory Store uses the corresponding atomic lock. Course instructors retain a
-separate, explicitly authorized historical-record result after removal;
-that Instructor authority never leaks into a student-scoped Store method.
-Direct course instructors may read enrollment history and
-summaries, but only the Account that owns the Student Record through an active
-Student Course Membership may start or submit that Student Record's Assignment
-Attempt. Other Accounts receive not found so record existence is not disclosed.
-
-Each issued Question receives an operating-system-random Question Seed. Starting an Assignment
-Attempt retains all issued Question identities, revisions, seeds, presentation bindings, and private
-Question Attempt Reproduction Details. Resuming the same active Attempt returns its retained state;
-server-owned database timestamps determine its start, expiry, response saves, and finalization.
-
-The Student browser requests one answer-free Question Presentation at a time by Assignment Attempt
-and position. It holds no answer, source, grading rule, or durable authority. Successfully saved
-responses remain attached to the active Attempt across authenticated browser sessions. Student
-finalization and server-owned expiry auto-submission use only that durable saved state; the browser
-cannot choose a later Question Revision or create a different grading target.
-
-PLE-native grading validates browser-visible Presentation Response Item References
-and response shape against the checksummed issued public snapshot, then validates
-the server-only Question Grading Input before calling the native grader. The
-immutable Question Submission retains the response that was durably saved when the Assignment
-Attempt was finalized. Finalization rejects malformed saved data and atomically accepts one
-Question Submission per answered Question Attempt, closes unanswered Questions, and creates the
-corresponding pending grading rows and ready Jobs. Repeating finalization is idempotent; later
-response changes cannot replace accepted work.
-
-The current Student Assignment Attempt routes expose focused context, answer-free progress, one
-selected presentation and saved working response, a small save acknowledgement, whole-Attempt
-finalization, and policy-permitted completed results. Private Question Attempt Reproduction Details,
-implementation IDs, source objects, grading inputs, Job facts, and raw provider results remain on
-the server. The tagged Student Response `kind` selects a closed response shape but grants no
-authority; the server rederives the exact issued presentation from the authenticated Attempt and
-position. Policy-permitted result and feedback projections may contain correctness and points, but
-never an Answer Key, expected value, private rubric, or checker state.
-
-## WeBWorK backend-owned document and grading boundary
-
-An issued WeBWorK Question has one immutable, attempt-bound Backend Document.
-The Student document route rederives the authenticated Student's ownership of
-the exact Assignment Attempt and issued position before returning those bytes.
-Unavailable, foreign, PLE-native, and incomplete positions are concealed before
-any document bytes are returned. The browser receives HTML only; the source,
-seed, private grading data, response, and backend state remain server-only.
-Question Type is immutable author-declared educational metadata on the Published
-Question Revision. It is not inferred from the Backend Document, its controls,
-or a submitted response.
-
-The server-to-renderer HTTP client has a fixed renderer origin and sends a
-closed request assembled from trusted source, Question Revision, seed, and
-display flags. It accepts only bounded JSON with a JSON media type, rejects
-redirects and duplicate or unsupported envelope members, and validates the
-expected response shapes before use. Renderer-issued problem, session, and
-answer JWTs are private server inputs. PLE rejects a rendered document that
-reflects any of those exact values, so renderer credentials and renderer state
-never enter the Student document or a durable Student Response.
-
-Generic submission accepts only the `BackendOwned` response paired with an
-issued `BackendOwned` format, with a bounded 64 KiB opaque payload. Generic
-persistence does not interpret that payload. The same ordinary submission path
-and Assignment Attempt expiry worker call the WeBWorK adapter for its single
-renderer grading request. The adapter requires canonical JSON
-encoding of ordered `[name, value]` pairs, preserves duplicate pairs, and
-rejects empty, oversized, or case-insensitive server-owned and reserved names.
-It then adds the trusted source, seed, and server flags itself. This is
-backend-specific protocol validation, deliberately outside the generic save
-path. A malformed backend payload can therefore be saved as opaque Student
-work, but its grade fails closed before the renderer is called. WeBWorK uses
-the E1 stateless lifecycle: one grade request, no renderer-issued state, and
-no replay or render cache.
-
-The Backend Document is displayed in the selected C2 iframe context with
-`allow-scripts allow-forms allow-same-origin`. Its response has the exact
-document CSP, `Cross-Origin-Resource-Policy: same-origin`, and
-`Cache-Control: no-store` headers. This context depends on trusted same-origin PG code; it does
-not claim isolation from third-party code in the document. The bridge accepts a
-capture reply only from the exact iframe window and same origin, and correlates
-it to an exact 16-lowercase-hex capture ID. It transports form pairs without
-recognizing a PG control or Question Type.
-
-The public WeBWorK asset proxy uses one fixed private renderer base and only
-the `webwork2_files` and `pg_files` namespaces. It validates the requested
-path, rejects redirects, returns only allowed media types, and enforces its
-8 MiB response limit before serving an asset. These controls let renderer and
-PG resources load through PLE without granting a browser-chosen upstream URL
-or exposing the renderer network boundary.
-
-## iMathAS Question Backend indeterminate-effect boundary
-
-An untrusted iMathAS Question Backend operation can be effectful. Before PLE
-dispatches a backend `POST`, the Store atomically records a pre-dispatch
-marker tied to the current, unexpired activity-lease token. Only a valid
-iMathAS response can clear that exact marker. A timeout, I/O failure, process
-death, lease expiry, or later launch leaves the attempt permanently
-indeterminate and fail-closed: it cannot be reclaimed, relaunched, graded, or
-finalized automatically. Read-only backend retrieval is structurally a GET;
-the browser has no generic backend proxy. The student receives a generic
-accessible recovery message directing them to the instructor, rather than
-details that could disclose backend state or invite a duplicate action.
-
-## Asset delivery boundary
-
-Question Content Blocks carry an internal logical `QuestionAssetId`, never a bucket name,
-physical key, or signed URL. `/api/assets/{id}` resolves the identifier through
-the database-authoritative immutable registry. The registry accepts only a
-`QuestionAsset` whose Question, Question Revision, asset, object, bucket, and category all
-agree, or a course-scoped `StudentRecord` authorized for the current Account;
-source packages, render caches, and `temp-processing` objects cannot be
-registered for this route.
-
-Workspace Import Sources and Question Sources are never direct delivery targets and the
-typed object contract refuses to sign either key. Question Sources include PLE Question JSON,
-WeBWorK PG, iMathAS content, H5P packages, and future registered Question Formats. A QTI archive
-is Workspace Import evidence; each accepted QTI item becomes PLE Question JSON before entering
-the Draft Question lifecycle.
-An instructor preview or export must use a separate authorized result that
-redacts or deliberately includes the authorized Question Answer, Question Answer Explanation, or other named private record for that operation; it must
-not expose the source object URL.
-
-Published Question Library assets redirect to the configured immutable CDN URL
-without authentication or an object-store signing call. Private workspace
-content and Student records require an opaque HttpOnly session that resolves to
-an Authenticated Session and Account, then the exact workspace relationship,
-Course Membership, or Student ownership predicate for the requested record.
-Forced account-and-relationship-scoped RLS limits the candidate row, the Store
-checks that authenticated Account satisfies the applicable exact stored
-relationship, and missing or unauthorized protected objects both return not found. Every successful
-protected authorization appends an audit event before requesting the signed
-URL. The event includes the authenticated account, course or workspace scope, delivery ID, object
-ID, bucket, and database timestamp, but never the cookie or URL.
-
-The object backend selects the lifetime from the typed bucket, and the route
-rejects a result that exceeds 60 minutes for `content` or 5 minutes for
-`student-records`. Protected redirects use `Cache-Control: no-store`,
-`Pragma: no-cache`, and `Referrer-Policy: no-referrer`; public redirects use an
-immutable cache policy and checksum ETag. Signed URLs are response headers
-only and must not enter JSON, application logs, browser storage, or persisted
-markup.
-
-## Diagnostics and observability
-
-Diagnostics preserve enough evidence to investigate a boundary failure without
-becoming another delivery path. Browser responses carry only short,
-route-approved messages. They do not contain raw SQL, Object Addresses, bucket
-names, signed URLs, protected account or course identities, leases, source
-archives, Question Backend state, answer keys, or raw backend errors.
-
-Server and worker diagnostics use bounded error categories and safe record
-identities only where an operator needs correlation. Credentials, raw session
-cookies, Question Backend launch values, renderer fields, source bytes, private grading
-payloads and raw Student answers are never general log
-fields. A new diagnostic must use the [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md)
-class of each field and record the appropriate authorization and retention
-owner before it is emitted.
-
-Security-relevant delivery authorization appends an audit event before a
-protected object URL is requested. Background-work diagnostics preserve only
-the evidence necessary to recover through their durable receipt or lease
-boundary. [FAILURE_RECOVERY.md](FAILURE_RECOVERY.md) defines the required
-operator recovery boundary; it is not acceptable to reveal a hidden
-cause merely to make a support response more convenient.
-
-## Placement rule
-
-Place new code according to the information it needs and the decision it
-makes:
-
-- Put response parsing and structural validation in `crates/domain` when the
-  result is independent of a correct answer.
-- Put expected values, accepted answers, grading rubrics, partial-credit
-  weights, and correctness decisions in `crates/grading`.
-- Expose a domain function through `crates/wasm` only when all inputs and
-  outputs are safe for a student to inspect.
-- Return correctness and points through the server-controlled Student Feedback Release Rule;
-  never return the key or checker state.
-
-When uncertain, ask whether the value would help a student infer the correct
-response before submission. If yes, it belongs on the server-only side.
-
-## Verification and change control
-
-Security controls require evidence at the boundary they claim to protect.
-Wasm closure and export-allowlist tests prove browser exclusion; Memory tests
-prove pure and Store behavior; live PostgreSQL tests prove migrations, roles,
-grants, and forced RLS; private renderer checks prove a Question Backend protocol; and
-browser traces prove what a student-facing page actually receives. No one
-class substitutes for another. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
-defines those limits, while the active release plan names the required gate for
-each work package.
-
-When adding or changing a path that handles protected data, update its owning
-contract and verify all of the following: the data classification, authenticated
-authorization, RLS and transaction boundary where applicable, server-only
-grading boundary, retention/deletion owner, browser-visible result, diagnostic
-redaction, and recovery behavior. The narrowest relevant security test runs
-first; the package's full acceptance gate then verifies the integrated claim.
+A complete response can be saved and replaced while the Attempt is open. An
+incomplete response is not saved as complete or graded. Saving changes only the
+working response and exposes no Student-visible grading outcome.
+
+The Student submits the whole Assessment Attempt, or the deadline submits it
+automatically. That action finalizes all saved responses together; unanswered
+positions remain unanswered. Repeating submission is idempotent. After
+submission, responses and credit fractions are immutable.
+
+Protected Attempt routes return only the answer-free presentation, saved-state
+information, the Student's response, authoritative timing, and results or
+feedback permitted by policy. They never return Answer Keys, private grading
+inputs, backend credentials, worker state, or raw provider output.
+
+## Assessment Unrelease
+
+Unrelease requires current equal co-Instructor authority, Released state, and
+typed confirmation of the exact Assessment title. It atomically changes the
+Assessment to Unreleased and deletes all Student Work for that Assessment while
+preserving its definition, Course relationships, and shared Published content.
+Failure leaves both state and Student Work unchanged.
+
+## Blueprint boundary
+
+Private Blueprints are owner-only and cannot be adopted. Public Blueprints are
+visible to vetted Instructors and adoptable. Archived Blueprints are read-only,
+excluded from ordinary discovery and new adoption, available only through
+explicit archived inclusion, and forkable.
+
+Only the owner saves or changes lifecycle state. Public can return to Private
+only before any adoption. Archived restores to Public. Blueprint content has no
+Students, dates, time zones, or relative schedules.
+
+Newer Blueprint Revisions are offered to daughter Course Instructors for
+review; existing Assessment changes are never silently applied. A newly added
+Blueprint Assessment is automatically copied as an Unreleased Assessment, but
+that system action gives the Blueprint owner no access to daughter Course or
+Student records. A Blueprint Course Change Proposal is accepted only by the
+receiving Blueprint owner and never changes a daughter Course directly.
+
+## Import and backend-document boundaries
+
+QTI and other imports are hostile archives. Enforce size/count/path/media
+bounds, reject traversal and external entity/network resolution, and convert
+only supported items. Imported runtime Questions become native Draft Questions;
+the archive does not remain a second runtime model.
+
+WeBWorK and similar documents remain opaque. The browser may receive one
+authorized document in an isolated frame and return bounded ordered form data.
+PLE does not inspect hidden fields or controls to reproduce backend semantics.
+Credentials, renderer URLs, source bytes, cookies, and raw grading output remain
+private.
+
+## Object and asset boundary
+
+The database owns logical object identity and scope. The server constructs
+typed storage keys, verifies checksums and media types, and returns only
+authorized bytes or short-lived delivery results. A bucket name, prefix, object
+ID, checksum, or signed URL is not durable authorization.
+
+Only answer-free published assets are eligible for shared delivery. Draft
+source, Answer Keys, backend state, Student responses, grades, and FERPA records
+remain in private scopes.
+
+## Retention boundary
+
+The final Assessment deadline starts the Course retention clock; later Student
+activity resets it. Instructors receive notice before FERPA-protected records
+leave normal interfaces. Those records remain recoverable during the retention
+period and are then permanently deleted. Course metadata, Assessment
+definitions, Questions, and settings remain.
+
+The processing pass is idempotent and cannot report a stage that did not
+complete. Backup and operational-log policy must not become an undeclared
+Student-record archive. See [RETENTION_POLICY.md](RETENTION_POLICY.md).
+
+## Browser, cache, export, and diagnostics
+
+- Use secure, HttpOnly, host-bound session cookies and same-origin protected
+  requests.
+- Keep credentials, private source, Answer Keys, responses, grades, backend
+  state, and FERPA payloads out of URLs, persistent browser storage, logs,
+  traces, screenshots, and generic analytics.
+- Use `no-store` for protected Student and Assessment responses.
+- Cache only answer-free immutable data under exact keys; a cache never
+  authorizes, grades, submits, or extends an Attempt.
+- Exports require an explicit field allowlist, exact authorization, and a
+  retention owner. Human Guidance does not define an Assessment Export service.
+- Browser errors are bounded and accessible without exposing protected details.
+
+## Change control
+
+A new security-sensitive path names its authenticated principal, exact stored
+relationship, protected data class, browser projection, storage scope,
+retention behavior, failure behavior, and boundary-level acceptance evidence.
+Do not add generalized audit, snapshot, recovery, background-worker, or
+compatibility machinery without a concrete Human Guidance-compatible need.

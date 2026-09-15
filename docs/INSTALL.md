@@ -84,8 +84,8 @@ operation also creates the complete ordinary, removable Live Demo teaching graph
 cargo tools installation-data provision
 ```
 
-The Genetics Blueprint has eleven ordered topic assignments and is reusable by
-vetted Instructors as an Available Blueprint. `--without-live-demo` does not omit
+The Genetics Blueprint has eleven ordered topic Assessments and is reusable by
+vetted Instructors when Public. `--without-live-demo` does not omit
 this example course; it omits only the fictional Live Demo teaching graph.
 `provision` runs content publication and the database-owned Live Demo graph, then
 creates the Live Demo's cross-system Student Work and grading effects through their

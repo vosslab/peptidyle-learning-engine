@@ -6,6 +6,13 @@
 > [TEST_EVIDENCE_MODEL.md](../TEST_EVIDENCE_MODEL.md); this audit's visual fixtures do not establish
 > canonical screenshot provenance before V1.
 
+> **Current product correction.** Student work is Coursework; the generic
+> object is Assessment; complete responses save while the Attempt is open; and
+> the visible completion action submits the whole Assessment Attempt and
+> finalizes all saved responses together.
+> The `Submit answer` and Assignment-oriented task descriptions below are
+> historical fixture evidence, not current workflow requirements.
+
 Status: implementation and focused acceptance complete for the evidence scope recorded below. The
 live PLE-owned WebWork keyboard path passed on 2026-08-10; representative screen-reader and real
 third-party-provider evaluation remains pending.
@@ -18,12 +25,13 @@ not present. No student participants or screen-reader users were recruited for t
 of any embedded frame remains the embedded application's responsibility.
 
 The durable required behavior is now separated from this dated evidence in
-`docs/NO_MOUSE_ACCESSIBILITY_CONTRACT.md`. New Question Formats must satisfy that contract as part
-of their own acceptance package.
+[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](../NO_MOUSE_ACCESSIBILITY_CONTRACT.md). New Question Formats
+must satisfy that contract as part of their own acceptance package.
 
-The acceptance goal is direct: a student can open a course, open an assignment, begin or resume a
-Assignment Attempt, answer every currently implemented Question Format, submit, read feedback, continue, review an
-summary, recover from an error, and return without a mouse. The completed evidence demonstrates the
+The current acceptance goal is direct: a Student can open a Course, open Coursework, begin or resume
+an Assessment Attempt, answer every currently implemented Question Format, save complete responses,
+navigate all Questions, submit the whole Assessment Attempt, review permitted results, recover from
+an error, and return without a mouse. The completed evidence demonstrates the
 full route only for the built mock journey below; the remaining Question Formats have the fixture or
 source-inspection coverage named in their rows.
 
@@ -34,10 +42,11 @@ The simulator separates the keyboard contract into two independently failing lan
 | Evidence layer                       | Keys and behavior                                                                                                      | Failure classification                       |
 | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | Primary platform journey             | Tab and Shift+Tab move focus; Space selects choices and activates buttons; Enter activates links                       | Browser/platform accessibility regression    |
-| Question Response Control extensions | Enter-to-submit from a response input, Arrows, digits 1-9, and Escape operate their bounded Question Response Controls | PLE shortcut or composite-control regression |
+| Question Response Control extensions | Enter-to-save from a response input, Arrows, digits 1-9, and Escape operate their bounded Question Response Controls | PLE shortcut or composite-control regression |
 
 The primary journey never uses an Arrow key, digit shortcut, response-input Enter, or Escape. A
-student can always reach the visible Submit answer action. Extension scenarios use production
+Student can always reach the visible Save response action and the separate whole-Assessment Submit
+Assessment action. Extension scenarios use production
 response components, but their convenience does not become a prerequisite for answering.
 
 ## Task model
@@ -45,12 +54,13 @@ response components, but their convenience does not become a prerequisite for an
 | Step             | Student goal                          | Primary platform path            | Completion evidence                                          |
 | ---------------- | ------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
 | Enter content    | Bypass repeated navigation            | Tab to skip link, Enter          | Main content receives focus                                  |
-| Choose work      | Open course and assignment            | Tab to each native link, Enter   | Each route loads and main content receives focus             |
-| Start practice   | Begin or resume an Assignment Attempt | Tab to the button, Space         | Current question and Question Response Control appear        |
+| Choose work      | Open Course and Coursework            | Tab to each native link, Enter   | Each route loads and main content receives focus             |
+| Start practice   | Begin or resume an Assessment Attempt | Tab to the button, Space         | Current Question and Question Response Control appear        |
 | Answer           | Enter a response                      | Tab to the choice, Space         | Format status announces ready or explains the problem        |
-| Submit           | Record the response                   | Tab to Submit answer, Space      | Feedback or recovery state appears                           |
-| Continue         | Move to the next task                 | Tab to the visible action, Space | Next question or Assignment Attempt-complete summary appears |
-| Review and leave | Inspect results or return             | Tab to the visible action, Space | Assignment overview or new practice Assignment Attempt opens |
+| Save response    | Record a complete response            | Tab to Save response, Space      | Saved status or a validation error appears                   |
+| Navigate         | Move to another Question              | Tab to the visible action, Space | Selected Question appears with saved status preserved        |
+| Submit Assessment | Submit the whole Attempt             | Tab to Submit Assessment, Space  | Submitted status and permitted result appear                 |
+| Review and leave | Inspect results or return             | Tab to the visible action, Space | Coursework or another permitted Assessment Attempt opens     |
 
 The former built-mock browser scenario cited here is no longer present. Current focused executable
 evidence is the offline Question Response Control, Student Feedback panel, and frontend-contract checks below.
@@ -61,12 +71,12 @@ Question Format.
 
 | Question Format          | Primary platform path                                                               | Separately tested or documented extensions                                     | Accepted evidence                                                                         |
 | ------------------------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| Single choice            | Tab enters the native radio group; Space selects; Tab and Space submit explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter submits | Built mock platform journey, rendered extension scenarios, and live PLE-owned WebWork path |
-| Multiple answer          | Tab moves through checkboxes; Space toggles; Tab and Space submit explicitly        | Arrows move focus without changing selection; digits toggle; Enter submits     | Rendered production-component platform and extension fixtures                              |
-| Numeric                  | Tab reaches input and Submit answer; typing enters data; Space activates submission | Browser number adjustment Arrows and ready-input Enter-to-submit               | Source inspection plus shared response-controller tests                                   |
-| Short text               | Tab reaches textarea and Submit answer; Space activates submission                  | Escape returns; Enter remains ordinary multiline text entry                    | Native textarea/button semantics and source inspection                                    |
-| Ordering                 | Tab reaches visible move buttons; Space moves and submits                           | Up/Down Arrow moves the item and announces its new position                    | Rendered production-component platform and extension fixtures                              |
-| iMathAS Question Backend | Tab reaches launch, submit, return, and retry buttons; Space activates them         | Escape returns; native frame internals retain their own contract               | Rendered browser fixture plus source inspection; real backend internals remain unevaluated |
+| Single choice            | Tab enters the native radio group; Space selects; Tab and Space save explicitly   | Native radio Arrows select; digits 1-9 select a visible ordinal; Enter saves | Built mock platform journey, rendered extension scenarios, and live PLE-owned WebWork path |
+| Multiple answer          | Tab moves through checkboxes; Space toggles; Tab and Space save explicitly        | Arrows move focus without changing selection; digits toggle; Enter saves     | Rendered production-component platform and extension fixtures                              |
+| Numeric                  | Tab reaches input and Save response; typing enters data; Space activates Save     | Browser number adjustment Arrows and ready-input Enter-to-save               | Source inspection plus shared response-controller tests                                   |
+| Short text               | Tab reaches textarea and Save response; Space activates Save                      | Escape returns; Enter remains ordinary multiline text entry                  | Native textarea/button semantics and source inspection                                    |
+| Ordering                 | Tab reaches visible move buttons; Space moves; Save response is separate          | Up/Down Arrow moves the item and announces its new position                  | Rendered production-component platform and extension fixtures                              |
+| iMathAS Question Backend | Tab reaches launch, save, return, and retry buttons; Space activates them         | Escape returns; native frame internals retain their own contract             | Rendered browser fixture plus source inspection; real backend internals remain unevaluated |
 
 ## Findings and corrections
 

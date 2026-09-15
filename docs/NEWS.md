@@ -1,6 +1,11 @@
 # News
 
-PLE remains pre-production; these notes describe the current development snapshot.
+> **Historical release narrative.** These notes preserve what earlier
+> development snapshots claimed. They are not current product requirements.
+> [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes their generic Assignment,
+> Blueprint availability, grading-job, recovery, and Course-copy descriptions.
+
+PLE remains pre-production; these notes describe dated development snapshots.
 
 ## v26.09 - 2026-09-04
 

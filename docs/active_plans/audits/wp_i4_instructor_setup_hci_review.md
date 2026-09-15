@@ -1,5 +1,10 @@
 # WP-I4 instructor setup HCI review
 
+> **Dated implementation evidence.** This review records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Acceptance addendum
 
 The handoff integration that was pending in this review subsequently passed in

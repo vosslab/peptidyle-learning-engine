@@ -1,5 +1,10 @@
 # File structure
 
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns product meaning. Paths containing
+`assignment`, `available`, grading-job, or response-finalization names locate
+current legacy implementation; their descriptions below use the target product
+model and do not make those path names canonical.
+
 This map identifies the owning location for current PLE behavior. The design boundaries are in
 [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md); product meaning is in
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
@@ -48,20 +53,20 @@ schemas/
 |  +- question_*.sql                  Question lineages, stewardship, authoring, assets, and their operations
 |  +- object_records.sql              Typed object-record ownership
 |  +- blueprints.sql                  Blueprint lineage, save-created Revisions, and availability
-|  +- course_blueprint_adoption.sql   Complete atomic Blueprint adoption into teaching Assignments
+|  +- course_blueprint_adoption.sql   Complete atomic Public Blueprint adoption into Course Instance Assessments
 |  +- course_*.sql                    Course terms, membership, roster, operations, and media
 |  +- profile_media.sql               Instructor profile-media ownership
-|  +- assignments.sql                 Current Assignment state and exact Question pins
-|  +- assignment_operations.sql       Assignment release and current-state operations
+|  +- assignments.sql                 Legacy-named current Assessment state and exact Question/Pool pins
+|  +- assignment_operations.sql       Legacy-named Assessment release and current-state operations
 |  +- attempt_*.sql                   Attempt, retained evidence, interaction, presentation, access, operations, and history
 |  +- delivery_*.sql                  Question delivery and backend bindings
 |  +- jobs.sql                        Short-lived leased execution records
 |  +- grading.sql                     Submission records and private grading state transitions
 |  +- grading_access.sql              Restricted grading readers, Gradebook, and worker wrappers
-|  +- student_assignment_landing.sql  Student-facing current Assignment landing readers
+|  +- student_assignment_landing.sql  Legacy-named Student Coursework/Assessment landing readers
 |  +- statistics.sql                  Question Revision observation and statistic records
 |  +- corrections.sql                 Forced Question Correction evidence
-|  +- unrelease.sql                   Atomic Assignment Unrelease operation and audit evidence
+|  +- unrelease.sql                   Atomic Assessment Unrelease and Student Work deletion
 |  +- cross_domain_constraints.sql    Relationships spanning domain modules
 |  `- api_compatibility.sql           Restricted application-facing schema projection
 +- installation_data/
@@ -86,7 +91,7 @@ migrations belong in `schemas/migrations/`. SQLx configuration belongs to
 
 | Path                                                            | Purpose                                                                                                                                         |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [crates/question_model/](../crates/question_model/)             | Shared product concepts: Question IDs and Revisions, save-created Blueprint Revisions, current Assignments, and retained Student Work evidence. |
+| [crates/question_model/](../crates/question_model/)             | Shared product concepts: Question IDs/Revisions, Pool Revisions, Blueprint Revisions, current Assessments, and retained Student Work evidence. |
 | [crates/domain/](../crates/domain/)                             | Pure validation, timing, policy, scoring, disclosure, and generation behavior.                                                                  |
 | [crates/grading/](../crates/grading/)                           | Server-only answer-bearing checkers.                                                                                                            |
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store traits, PostgreSQL implementations, SQLx forward-migration ledger support, and schema verification.                                       |
@@ -124,14 +129,14 @@ src/
 |                               Generic iframe host and opaque form-pair capture
 +- features/
 |  +- blueprint_course/         Blueprint Revision editing and explicit Save UI
-|  +- question_picker/          Available published-Question selection UI
+|  +- question_picker/          Published, non-archived Question selection UI
 |  +- question_curation/        Question Library discovery and availability UI
 |  +- question_attempt/         Student Attempt interactions
 |  +- course_appearance/        Authorized course appearance UI
 |  `- instructor_profile/       Instructor profile UI
 +- pages/
-|  +- assignment_workspace/     Current Assignment edit, release, and Unrelease UI
-|  +- assignment_access/        Student Assignment entry UI
+|  +- assignment_workspace/     Legacy-named Assessment edit, release, and Unrelease UI
+|  +- assignment_access/        Legacy-named Student Coursework/Assessment entry UI
 +- ribbon/                      Capability-aware navigation catalog and rendering
 +- styles/                      Browser-wide styles and local font declarations
 +- wasm/                        Browser bridge modules

@@ -1,5 +1,10 @@
 # WP-I4 instructor setup
 
+> **Dated implementation evidence.** This workstream records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Scope
 
 This workstream adds the fixed local instructor J11/J12/J13 browser child. It preserves schema-v1

@@ -1,5 +1,10 @@
 # Course Appearance code audit
 
+> **Dated implementation evidence.** This review records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 Date: 2026-09-09. Scope: the complete working-tree change from `HEAD`, including staged,
 unstaged, and untracked files, for
 [cryptic_foraging_hennessy.md](../../archive/cryptic_foraging_hennessy.md).

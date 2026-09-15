@@ -1,5 +1,10 @@
 # WP-W1 first keyboard journey
 
+> **Dated implementation evidence.** This workstream records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Status
 
 **ACCEPTED.** The manager and independent forced-build runs passed the repaired J1 path through

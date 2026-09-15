@@ -1,5 +1,13 @@
 # Plan: Phase 2 Student decisions and scoring trust
 
+> **Compliance correction, 2026-09-14.** Assessment is the generic object;
+> complete Question responses save while the Attempt is open; the whole
+> Assessment Attempt is the submission target and finalizes them together;
+> native PLE JSON receives no random seed; and current point values apply to the
+> backend's immutable credit fractions. Any old snapshot, Entry, Question
+> Attempt/Submission, grade-selection, or deferred-completion language below is
+> implementation evidence, not additional product intent.
+
 Status: in progress. M1 and M2.5 are complete. The former M2/M3 background grading lifecycle is
 superseded and is not completion evidence. M2.5 audit cleanup removed obsolete grading-job, retry,
 and attention residue; its fresh aggregate receipt is session 38324. M4 remains retained and open.
@@ -14,37 +22,37 @@ Attempts, autosave continuity, and expiry finalization. Those behaviors remain c
 
 The former interim implementation accepted saved responses, queued grading Jobs, later recorded a
 result, and exposed grading states, polling, and Gradebook attention counts. That public lifecycle
-is rejected and not current guidance. Background execution remains justified only for abandoned
-expiry finalization and a backend whose completion is deferred; both stay hidden from Students and
-Instructors.
+is rejected and not current guidance. Background execution remains justified for abandoned expiry
+finalization so an expired Attempt is submitted even when the Student never returns.
 
-The approved architecture model is direct: a Question Backend evaluates a submitted response and
-returns credit; PLE records immutable credit as Student Work; PLE calculates Assignment scores
-from that credit and current Assignment Entry point values. PLE does not gain a generic regrade
+The approved architecture model is direct: a Question Backend evaluates a complete response and
+returns credit; PLE records immutable credit as Student Work; PLE calculates Assessment scores
+from that credit and current Assessment Question point values. PLE does not gain a generic regrade
 operation or interpretation of backend control formats.
 
 ## Objectives
 
 - Preserve M1 access, time-zone, continuity, timer locking, and expiry behavior.
-- Store one immutable normalized credit fraction for every submitted Question response.
+- Store one immutable normalized credit fraction for every response finalized with an Assessment
+  Attempt.
 - Calculate displayed scores from stored credit, current Entry points, and the issued scoring rule.
 - Remove the user-visible grading lifecycle and instructor-attention workflow.
 - Retain the eleven-topic Genetics Blueprint Course after corrected behavior is verified.
 
 ## Design philosophy
 
-Apply KISS aggressively. Direct saved-snapshot evaluation and atomic commit satisfy the product
-contract. Reuse the existing worker for abandoned expiry and deferred backend completion; a queue,
-worker, retry policy, materialized score, extra state, or permanent test earns inclusion only for
-that demonstrated operation. One-time source, renderer, and timing probes remain temporary evidence.
+Apply KISS aggressively. Direct saved-response evaluation and atomic commit satisfy the product
+contract. Narrow the existing worker to abandoned expiry submission. A queue, retry policy,
+materialized score, extra state, or permanent test earns inclusion only for a demonstrated approved
+operation. One-time source, renderer, and timing probes remain temporary evidence.
 
 ## Scope
 
 - Replace grading-time point snapshots with immutable normalized credit and current-point scoring.
 - Change manual submission and expiry finalization to use one direct finalizer, reusing the existing
-  worker for abandoned Attempts and deferred backend completion.
+  worker only for abandoned expired Attempts.
 - Remove grading states, polling, attention counts, and grading-detail routes.
-- Permit zero-valued Assignment Entries consistently with the Rust point-value type while preserving
+- Permit zero-valued legacy `Assignment Entry` rows consistently with the Rust point-value type while preserving
   the current positive-denominator completion rule.
 - Complete the retained Genetics Blueprint Course after M2.5.
 
@@ -82,10 +90,10 @@ completion semantics.
 
 - A Question Backend owns presentation, response interpretation, grading, partial-credit meaning,
   and backend-specific state. PLE stores its outcome without a generic regrade capability.
-- One direct finalizer owns authorized saved-snapshot capture and atomic acceptance. A backend may
-  return credit immediately or complete through hidden polling; the existing worker finalizes
-  abandoned expiry work and deferred completion. Before expiry, saved work remains open; after
-  expiry, edits remain closed.
+- One direct finalizer owns authorized saved-response capture and atomic acceptance. The Question
+  Backend returns the immutable credit fraction for the complete response. The existing worker
+  finalizes abandoned expiry work through that same path. Before expiry, saved work remains open;
+  after expiry, edits remain closed.
 - PostgreSQL owns immutable credit, expiry locking, current Entry values, and score readers. Atomic
   commit rejects a stale snapshot, so older saved work cannot become accepted after a newer save.
 - A shared SQL scorer joins issued_question.assignment_entry_id to the current fixed point value or
@@ -98,7 +106,7 @@ completion semantics.
 | Milestone / workstream | Components                                                             | Review boundary                                         |
 | ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
 | M2.5 / K1              | grading.sql, assignments.sql, score readers and projections            | Immutable credit and current-point scoring              |
-| M2.5 / K2              | submission/finalization paths, adapters, existing worker               | Immediate or hidden-polled completion; atomic commit    |
+| M2.5 / K2              | submission/finalization paths, adapters, existing expiry worker        | Direct backend result and atomic commit                  |
 | M2.5 / K3              | grading Jobs, worker composition, status API/browser, Gradebook detail | Remove only lifecycle machinery K1/K2 makes unnecessary |
 | M4 / J                 | ordinary Question publication and Blueprint authoring                  | Retained curriculum, not fixture content                |
 
@@ -108,7 +116,7 @@ completion semantics.
 | ---- | --------------------------------------- | ------------------------------------------------------ | ------------------------------------------------ |
 | M1   | Student decisions and resumable Attempt | Complete access, zone, save/reconnect, and timer lock  | Preserve completed behavior                      |
 | M2.5 | Direct credit and current-point scoring | Credit storage, direct finalization, lifecycle removal | Fixed response credit; points change scores only |
-| M4   | Genetics Blueprint Course               | Publish eleven ordered topic Assignments               | Retained semester-ready Blueprint                |
+| M4   | Genetics Blueprint Course               | Publish eleven ordered topic Assessments               | Retained semester-ready Blueprint                |
 
 ### Milestone: M1 Student decisions and resumable Attempt
 
@@ -124,8 +132,8 @@ completion semantics.
 - Depends on: M1 because direct finalization respects its expiry lock.
 - Deliverables: WP-K1 through WP-K3.
 - Entry criteria: architect approval of direct credit and on-read scoring. Approved 2026-09-13.
-- Exit criteria: every submitted response has one immutable credit result; manual, expiry, and
-  hidden backend completion share a path; score reads use current points without backend
+- Exit criteria: every response finalized with an Attempt has one immutable credit result; manual,
+  expiry, and hidden backend completion share a path; score reads use current points without backend
   interaction; no public grading lifecycle remains.
 - Parallel-plan ready: yes after K1. K2 and K3 have separate owners; schema is serialized through
   K1. Maximum two.
@@ -164,19 +172,17 @@ completion semantics.
 - Touch points: attempt operations, submission server path, native/WeBWorK adapter paths, expiry
   finalization, and the existing worker.
 - Depends on: WP-K1.
-- Outcome: authorized saved snapshot, then atomic current-snapshot verification and commit of
-  Question Submissions, credit, and Attempt completion. Backend completion may be immediate or
-  hidden polling; abandoned expiry uses the existing worker.
+- Outcome: authorized saved-response capture, then atomic current-state verification and commit of
+  finalized saved responses, credit, and Attempt completion. Abandoned expiry uses the existing
+  worker through the same finalizer.
 - Acceptance criteria: backend failure and pre-commit process loss record no acceptance; replay
   reads immutable credit; concurrent save rejects stale preparation; expiry/manual/worker races
-  converge through server clock and unique Assignment Submission; unanswered expiry positions close
-  at zero without backend evaluation. Gradebook, result, and export reads never call a Backend or
+  converge through server clock and one whole-Assessment submission; unanswered expiry positions
+  remain unanswered without backend evaluation. Gradebook, result, and export reads never call a Backend or
   write; expires_at logically blocks edits and counts before physical finalization.
-- Decision procedure: reuse the existing worker to submit abandoned expired Attempts and to poll a
-  backend only when that backend has accepted a response but not returned credit. Do not delete and
-  recreate it or expose its progress publicly.
-- Evidence: focused native/WeBWorK checks plus a disposable abandoned-expiry and hidden-completion
-  behavior observation.
+- Decision procedure: reuse the existing worker only to submit abandoned expired Attempts. Do not
+  delete and recreate it or expose its progress publicly.
+- Evidence: focused native/WeBWorK checks plus a disposable abandoned-expiry behavior observation.
 - Obvious follow-on: WP-K3.
 
 ### Work package: WP-K3 Retire grading lifecycle surface
@@ -186,7 +192,7 @@ completion semantics.
   contracts, status routes/clients/decoders/polling, Gradebook attention fields/detail, and tests.
 - Depends on: WP-K2.
 - Outcome: remove four public states and all Student/Instructor grading-progress or attention paths.
-  Narrow the existing worker to abandoned expiry and deferred backend completion.
+  Narrow the existing worker to abandoned expiry submission.
 - Acceptance criteria: no state/polling/attention projection or grading/regrading/retry-grading
   capability survives; unrelated public-asset Jobs remain intact.
 - Evidence: public-contract/route search, focused authorization, and visible submit/result check.
@@ -196,7 +202,7 @@ completion semantics.
 
 - Owner: one Question/Blueprint integration owner with independent review.
 - Depends on: M2.5.
-- Outcome: retain one reusable Blueprint Course with eleven ordered Genetics topic Assignments, with
+- Outcome: retain one reusable Blueprint Course with eleven ordered Genetics topic Assessments, with
   each current source bank retained as a Question Pool.
 - Acceptance criteria: source grouping and variation survive in those Pools; opaque backends retain
   document/grading ownership; no bank is silently flattened or omitted.

@@ -1,5 +1,7 @@
 ## 2026-09-10
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Fixes and Maintenance
 
 - Corrected the Live Demo Course seed after Course-zone retirement. It now sends the strict

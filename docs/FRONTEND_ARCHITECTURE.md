@@ -1,146 +1,151 @@
 # Frontend architecture
 
 PLE is a SolidJS single-page application backed by a same-origin Rust API and
-an answer-free Rust WebAssembly facade. The browser presents authorized,
-server-owned course, assignment, and Student Work data. The server owns
-authorization, release, availability, timing, publication, grading, and
-retained evidence interpretation.
-
-[CONTRACTS.md](CONTRACTS.md) and [API_CONTRACTS.md](API_CONTRACTS.md) own the
-wire contract. [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the
-meaning of current state and immutable Revisions. This document describes the
-browser implementation boundary.
+an answer-free Rust/Wasm boundary. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) owns
+product behavior. Current source directories, routes, and DTOs with
+`assignment` or old Blueprint-state names are implementation gaps.
 
 ## Application structure
 
 ```text
-src/routes.ts and src/route_contract.ts
-  -> route access boundary and application shell
+src/route_contract.ts and src/routes.ts
+  -> role-admitted application shell
     -> page composition in src/pages/
       -> feature workflows in src/features/
         -> typed same-origin API client in src/api/
-          -> strict decoding of server JSON
+          -> strict runtime decoding of server JSON
 ```
 
-[src/routes.ts](../src/routes.ts) derives every product route from the single
-[src/route_contract.ts](../src/route_contract.ts) declaration. A route's
-product-role check is presentation admission only; each request independently
-receives server authorization. Opaque route references locate a candidate and
-never grant access.
+Route Product Role checks control presentation only. Every request repeats
+authorization on the server. An opaque route Reference locates a candidate; it
+never grants access.
 
-[src/api/application_api.tsx](../src/api/application_api.tsx) provides one
-typed client and router-owned query identities. [src/api/client.ts](../src/api/client.ts)
-is the browser-safe client shape. [src/api/http_client/](../src/api/http_client/)
-owns same-origin transport, no-store response handling, and HTTP error mapping.
-The decoders in [src/api/decoders/](../src/api/decoders/) accept closed,
-bounded JSON shapes before pages use them. Rust owns serialized field spelling;
-the TypeScript types in `generated/api/` are derived from Rust contract roots.
+Generated TypeScript reflects Rust wire contracts. Authored decoders reject
+unknown or malformed data before a page uses it. An existing wire name may be
+documented for migration, but new product copy uses the Human Guidance term.
 
-## Product routes
+## Role workspaces
 
-The executable route contract includes these user-facing areas:
+### Instructor
 
-| Area                    | Routes                                                                                  | Browser responsibility                                                          |
-| ----------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Account and invitations | `/`, `/sign-in`, `/profile`, invitation routes                                          | Session-oriented navigation and account-owned actions                           |
-| Student delivery        | Student Course landing, Assignment access, `R-*` Attempt and summary routes             | Answer-free start, resume, response, submission, and disclosed history views    |
-| Question authoring      | `/library`, Question detail, `/authoring/drafts`                                        | Library discovery and private Draft editing/publication                         |
-| Blueprint Courses       | `/blueprint-courses` and detail route                                                   | Browse, complete creation, explicit Revision Save, and lineage metadata actions |
-| Course teaching         | Course, Assignment workspace, roster, Gradebook, appearance, grade settings, operations | Current Course configuration and Instructor workflows                           |
-| System support          | Instructor-account and scoped-support roster routes                                     | Bounded Sysadmin tools                                                          |
+The primary Ribbon tabs are Courses, Questions, and Assessments.
 
-The exact paths, route parameters, product-role admission, ribbon state, and
-layout remain in [src/route_contract.ts](../src/route_contract.ts). A browser
-route does not exist for a capability merely because its API transport exists.
+- Courses: My Blueprint Courses, My Active Courses, My Inactive Courses, and
+  Search Public Blueprint Courses.
+- Questions: My Questions, My Draft Questions, Starred, Watched, Search
+  Question Library, and Browse Question Library.
+- Assessments: Assessments Due Soon and My Assessment Templates.
 
-## Current Assignment workflow
+The Question Library is one subject-agnostic collection designed for thousands
+of Questions. Search, Browse, filters, sorting, dense results, and bulk metadata
+editing support finding and cleaning up large imports without opening every
+Question.
 
-The Assignment workspace is one current mutable aggregate. Its browser client
-is [src/api/assignment_release.ts](../src/api/assignment_release.ts), with
-transport in [src/api/http_client/assignment_release.ts](../src/api/http_client/assignment_release.ts)
-and page composition in [src/pages/assignment_workspace/](../src/pages/assignment_workspace/).
+Course Instance pages expose Course-local roster, Assessments, Gradebook,
+appearance, and other implemented teaching tasks. Every current co-Instructor
+has equal access. Student View is an answer-free preview, not another Product
+Role or a Student Work creator.
 
-- Saves, inline changes, release, and Unrelease carry the quoted Assignment
-  Edit Number ETag. A `412` leaves the local draft available for reload or
-  correction.
-- Assignment Entries and picker rows carry exact `QuestionRevisionReference`
-  pins. The workspace describes future Attempt configuration; it does not
-  create an Assignment Revision.
-- Release validation precedes the explicit release action. A successful release
-  returns the current Assignment and its next ETag.
-- The policies page displays a Released Assignment's aggregate Unrelease
-  impact and requires the current title before submitting the destructive
-  transition. The returned receipt exposes aggregate deletion counts only.
-- A later accepted released save affects future Attempts. Existing Attempt
-  pages read the server's retained Attempt and Issued Question evidence,
-  including exact Question Revision and presentation binding.
+### Student
 
-`Assignment Revision`, Assignment snapshot, and successor-revision browser
-types, routes, decoders, and pages are absent.
+Student work is collectively Coursework. A particular Assessment uses its
+Assessment Type name. The Attempt page presents one Question at a time while
+keeping navigation to all Questions and saved-status information available.
+The primary completion action is **Submit Assessment** and targets the whole
+Assessment Attempt.
 
-## Published content and Blueprint Courses
+### Sysadmin
 
-Question and Blueprint availability belong to their stable lineages. The
-Question availability client in
-[src/api/question_availability.ts](../src/api/question_availability.ts) uses an
-exact Availability Edit Number ETag. The Blueprint client in
-[src/api/blueprint_course.ts](../src/api/blueprint_course.ts) uses one opaque
-metadata ETag for names and availability. Archive includes title confirmation;
-restore carries the applicable lineage ETag. Ordinary discovery lists
-Available lineages, while an authorized exact immutable Revision read remains
-available after archive.
+The Sysadmin shell exposes implemented platform administration only. It does
+not imply ambient Course membership or FERPA access. Scoped support access is
+deliberate and recorded.
 
-A complete Blueprint Course create request atomically creates its stable
-Available lineage and immutable Revision 1. The owner-facing workflow in
-[src/features/blueprint_course/](../src/features/blueprint_course/) keeps
-incomplete and unsaved work in browser state. One explicit Save submits the
-complete reusable structure with the exact current Revision ETag. Changed
-content creates the next immutable Revision; a canonical no-op returns the
-current Revision. Navigation and window-close guards protect dirty state, and
-a stale-save conflict retains the Instructor's local work. Rename, archive,
-and restore use the lineage metadata ETag without creating a Revision.
+## Shell behavior
 
-Blueprint Revision content is answer-free reusable course structure. A Course
-Assignment exposes `BlueprintAssignmentSource`: the stable Blueprint Assignment
-Reference plus its exact Blueprint Revision Reference. It is provenance, not a
-third Revision model.
+The shell owns stable Ribbon and page geometry, Account context, Profile menu,
+breadcrumbs, responsive behavior, and focus restoration. Sign Out is in the
+Profile menu. Required backed destinations remain visible when a collection is
+empty and show an honest empty state. Future capabilities are not rendered as
+usable buttons.
 
-## Student Work boundary
+Exact labels and composition are in
+[UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md) and
+[INTERFACE_TERMINOLOGY.md](INTERFACE_TERMINOLOGY.md).
 
-The Attempt route presents one issued question at a time and keeps only the
-current response state needed for recovery. It sends typed response and
-submission commands and renders only server-authorized status and feedback.
-[src/wasm/index.ts](../src/wasm/index.ts) is the sole browser import boundary
-for generated Wasm helpers; those helpers provide answer-free validation and
-formatting, never authorization or grading.
+## Assessment editor
 
-The client bundle and browser storage exclude answer keys, grading input,
-private source/object locations, undisclosed feedback, and authority. The
-server decides whether an Attempt can start or resume and reconstructs an
-existing Attempt from retained evidence rather than mutable Assignment state.
+The Instructor uses the Assessment Question Editor for composition and the
+Assessment Properties Editor for settings. An Assessment is current state; an
+Edit Number may protect saves, but no Assessment Revision exists.
 
-## Browser behavior
+Release is explicit. Unrelease is a Danger Zone operation with exact-title
+confirmation and deletes all Student Work for that Assessment. The UI must
+state that consequence before the action.
 
-- Every private API read uses the typed same-origin client and no-store
-  response handling.
-- Mutations use their applicable ETag and idempotency identity. The client
-  preserves input on recoverable conflicts or dependency errors.
-- Cursor lists use their declared cursor contracts; pages do not synthesize an
-  offset fallback.
-- Local storage contains only consent-appropriate preferences. Session storage
-  is limited to explicitly requested in-progress response recovery and clears
-  at the documented boundary. Credentials and protected academic records are
-  not browser storage.
-- Pages keep semantic labels, visible validation, keyboard-equivalent actions,
-  focus recovery, and answer-free error messages. Accessibility authorities are
-  [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md) and
-  [COLOR_CONTRAST_ACCESSIBILITY.md](COLOR_CONTRAST_ACCESSIBILITY.md).
+Current implementation under paths such as `src/pages/assignment_workspace/`
+or clients named `assignment_*` remains the code migration site. Those names do
+not define product copy.
+
+## Blueprint editor
+
+A new or forked Blueprint is Private and starts with Revision 1. The owner-only
+editor holds unsaved work locally until explicit Save. A meaningful Save creates
+the next immutable Blueprint Revision; a no-op creates none. Rename and
+Private/Public/Archived lifecycle changes do not create content Revisions.
+
+Public Blueprints are adoptable. Private Blueprints are owner-only. Archived
+Blueprints are read-only, hidden from ordinary discovery, available only by
+explicit archived inclusion, and forkable. Blueprints have no dates, Students,
+time zones, or relative schedules.
+
+Daughter Courses expose newer Blueprint Revisions for Instructor review and
+approval. Existing Assessment changes are never silently applied; newly added
+Blueprint Assessments appear automatically as Unreleased Course Instance
+Assessments. Forks expose later source changes for selective review. Blueprint
+Course Change Proposals show proposed differences to the receiving owner and do
+not directly change daughter Courses.
+
+Public and Archived Blueprint detail supports visible Stars and private
+Watches. Star counts and the vetted Instructors who Starred are visible to
+vetted Instructors; Watch membership is visible only to the watcher. Adoption
+and forking do not create either relationship.
+
+## Student Attempt boundary
+
+The Attempt page requests one answer-free Question presentation and the
+Student's current saved response. A complete response can be saved and replaced
+while the Attempt is open. An incomplete response is not saved as complete.
+
+Saving changes only the working response and does not expose a grading outcome.
+Whole-Assessment submission or the deadline closes the Attempt and finalizes
+all saved responses together. Results and feedback appear only when policy
+allows them.
+
+Wasm may provide answer-free validation and formatting. It never owns Account
+authority, Course access, Answer Keys, backend credentials, grading, credit, or
+submission state.
+
+## Backend-owned documents
+
+The frontend hosts an authorized backend document in an isolated frame and
+captures the bounded opaque response shape defined by that backend. It does not
+inspect controls, infer Question Type, or rewrite the interaction into native
+PLE semantics.
+
+## Browser data rules
+
+- Protected API requests use the typed same-origin client and `no-store`.
+- Credentials, Student responses, grades, private Question source, Answer Keys,
+  and backend state do not enter persistent browser storage.
+- Recoverable errors preserve the visible Student/Instructor edit when safe.
+- Cursor pages follow server cursors and do not synthesize another paging model.
+- Pages use semantic labels, visible validation, keyboard-equivalent actions,
+  and accessible focus recovery.
 
 ## Verification
 
-Keep focused TypeScript and Node coverage for strict decoding, route/reference
-binding, ETag behavior, Question Draft and response recovery, Blueprint dirty
-state, and answer-free DTOs.
-Use real-stack browser acceptance for visible authoring, teaching, delivery,
-and destructive-workflow journeys. [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md)
-classifies permanent checks separately from one-time implementation evidence.
+Focused TypeScript tests protect strict decoding, route/reference binding,
+current-state concurrency, answer-free DTOs, and Attempt saving. Real-stack
+browser acceptance protects visible role workflows, whole-Assessment
+submission, authorization, empty states, responsive layout, and destructive
+actions. Screenshots are supporting rendered evidence, not product authority.

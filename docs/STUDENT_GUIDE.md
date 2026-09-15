@@ -2,46 +2,46 @@
 
 ## Current local Live Demo
 
-The current Live Demo lets a reader enter a seeded Student Account through the
-visible account selector. That selector creates the ordinary server-owned
-Authenticated Session for the configured Account. It does not supply a course
-membership, Student record, or authorization claim.
+The local Live Demo lets a reader enter through a seeded Student Account. The
+selector creates the ordinary authenticated session; it does not supply Course
+membership, a Student record, or authorization by itself.
 
-After entry, a seeded Student can claim their own Course Invitation, open an
-authorized Course Instance and released Assignment, start or resume an
-Assignment Attempt, use the issued Question Response Controls, save responses,
-and submit the Assignment Attempt. The server evaluates Course Membership, Assignment Access,
-timing, and Student ownership at every protected boundary. Start the local
-stack using [USAGE.md](USAGE.md); [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and
-[API_CONTRACTS.md](API_CONTRACTS.md) define the current route boundary.
+Some current routes and labels still use `assignment`. The current product term
+is Assessment, and Student work is collectively Coursework.
 
-## Student delivery boundary
+## Student workflow
 
-The retained PLE product contract gives a Student access only through an exact
-active Course Membership, Student ownership, an allowed Assignment Access
-decision, and the exact Course and Assignment. The Student then receives only
-the Questions issued for that Assignment Attempt.
+1. Open an authorized Course Instance and choose an Assessment under
+   Coursework. A particular item is labeled with its Assessment Type, such as
+   Quiz or Regular Assignment.
+2. Start or resume an Assessment Attempt.
+3. Work one Question at a time and navigate among all Questions in the
+   Assessment.
+4. Save complete responses. A saved response remains editable while the
+   Attempt is open.
+5. Submit the whole Assessment Attempt, or let the server submit its saved
+   complete responses automatically at the deadline.
+6. Read results and feedback only when the Assessment policy allows them.
+7. Start another Attempt only when Assessment policy permits it.
 
-The current workflow is:
+Incomplete responses are not saved as complete and are not graded. The server
+owns timing and Course access, and the Question Backend owns rendering,
+response interpretation, grading, feedback, and opaque backend state. The
+browser never receives private Question source, Answer Keys, credentials, or
+undisclosed results.
 
-1. Open an authorized Course Instance and Assignment.
-2. Start or resume an Assignment Attempt.
-3. Save each response through the visible Question Response Controls.
-4. Submit the Assignment Attempt, or let the server submit its saved responses automatically when
-   its wall-clock time expires.
-5. Read the completed Assignment result and permitted Student Feedback.
-6. Begin another Assignment Attempt only when Assignment rules
-   allow it.
+Removing or deactivating the Student's Course access does not delete the global
+Student Account or Student Work. Course retention is a separate notified
+process.
 
-The server keeps Answer Keys, Question Graders, private Question Source data,
-and Question Attempt Reproduction Details outside the Student browser boundary.
-Student Feedback is a separate policy-evaluated projection. The server also determines
-timing, late-work treatment, and authorization; the browser does not infer them
-from its own clock or from an identifier.
+Start the local stack with [USAGE.md](USAGE.md). See
+[ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md) for the Attempt contract and
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) for product intent.
 
-## Accessibility contract
+## Accessibility
 
-The Student interface uses visible controls and the keyboard model in
-[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md). The
-current connected browser owner validates this journey; role-owned screenshots
-remain one-time rendered evidence under [SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md).
+The Student interface follows
+[NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md), keeps
+Question navigation and saved status visible, and preserves stable page
+geometry. Screenshots require fresh capture and behavior evidence before they
+claim current acceptance.

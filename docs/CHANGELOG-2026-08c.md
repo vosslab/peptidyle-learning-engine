@@ -1,5 +1,7 @@
 ## 2026-08-30
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Changes
 
 - Replaced the authored-Published-Question picker label with My Questions. It resolves through the

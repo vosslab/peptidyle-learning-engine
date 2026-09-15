@@ -19,7 +19,7 @@ PLE applies that purpose narrowly to Questions:
 
 - Classify the work required for full credit on one exact Question Revision.
 - Search the Question Library by either dimension or by their intersection.
-- Review the balance of cognitive work across an Assignment or Course.
+- Review the balance of cognitive work across an Assessment or Course.
 - Keep intended cognitive demand separate from observed Question Difficulty.
 
 The classification describes the Question's assessed task in its teaching context. It does not

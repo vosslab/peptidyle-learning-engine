@@ -1,5 +1,7 @@
 ## 2026-09-01
 
+> Historical implementation evidence; [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) supersedes conflicting product intent below.
+
 ### Fixes and Maintenance
 
 - Completed `WP-SD1-A-TERM-01-APS1`: the direct domain/private-helper rename now uses Assignment Policy Source while preserving the richer authorized source, identity-free Assignment Policy Source Kind, membership privacy, and wire-owned `source` field. Focused 22 Rust and 14 Node tests, TypeScript, formatting, exact-search, and diff gates passed. No schema, generated contract, wire, fixture, feature, or test was added.

@@ -1,5 +1,10 @@
 # Pilot final retained live review
 
+> **Dated implementation evidence.** This review records repository state and
+> conclusions at its stated time. It is not current product authority;
+> [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) supersedes conflicting product
+> vocabulary, lifecycle, grading, role, authorization, and interface claims below.
+
 ## Verdict
 
 ACCEPTED. An independent, unmodified retained-stack rerun passed the complete

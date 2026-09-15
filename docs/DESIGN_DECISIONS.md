@@ -1,1648 +1,480 @@
 # Design decisions
 
-<!-- VENDORED HEADER: START -->
-
-Record each durable decision about how this code and repository are shaped, once it is settled, with
-the reasoning a later reader needs. Guidance Neil Voss states belongs in
-[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), dated history in `docs/CHANGELOG.md`, open discussion in
-`docs/active_plans/decisions/`. [PROPAGATED HEADER - ENTRIES BELOW ARE YOURS]
-<!-- VENDORED HEADER: END -->
+This file records the durable rationale that supports
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). Human Guidance is the authority for
+current product intent. Code, schemas, screenshots, tests, changelogs, and old
+plans are evidence about implementation or history; they do not override it.
 
-This is PLE's conceptual entrypoint for settled product and architecture decisions. It answers
-"why is this boundary here?" and points to the contract that answers "how does it work?" It does
-not replace the release direction in [ROADMAP.md](ROADMAP.md), unfinished-work routing in
-[TODO.md](TODO.md), acceptance rules in [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md), or the
-named code owner.
-
-## How to use the documentation
-
-PLE documentation has three deliberately different layers:
-
-1. **Source authorities** decide what is allowed now: [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
-   [CONTRACTS.md](CONTRACTS.md), the current schema and named code owner. Execution-only
-   notes may narrow a work item but never replace those authorities.
-2. **Decision and contract maps** explain why a boundary exists and how its parts connect. Start
-   here, then use the focused maps named under each decision.
-3. **Operating and reference documents** explain a local workflow, input format, deployment shape,
-   accessibility journey, or external integration. They make a boundary usable but do not silently
-   change its authority.
+## How to use this document
 
-This ordering prevents a useful explanation from being mistaken for an accepted release claim.
+- Use the decision and consequence together.
+- Follow linked owner documents for implementation detail.
+- Treat a current source identifier that uses obsolete vocabulary as a migration
+  gap, not as a competing product decision.
+- Do not infer a feature from a generic table, enum, worker, capability, or
+  mockup.
+- If Human Guidance does not resolve a choice, record it as unresolved instead
+  of expanding this file by inference.
 
-## Reading this index
-
-- **Decision** is a durable direction, not a suggestion or UI preference.
-- **Consequence** is the constraint that a change must preserve.
-- **Owner** identifies the authoritative code and detailed contract.
-- **Planned closure** names work that is deliberately not claimed as complete.
+## Product model
 
-The [CONTRACTS.md](CONTRACTS.md) register is the change-control catalog for public module and API
-boundaries. This index gives those entries their product and architectural rationale.
-
-## Database baseline and evidence
-
-### The base schema is the pre-production source
-
-**Decision.** `schemas/base_schema/` is the modular, canonical DDL source for PLE before the
-first human-approved production deployment. `install.sql` only orders the domain modules. A
-structural correction updates its owning module directly. That first approved production deployment
-freezes the base; every later structural change is an immutable SQLx forward migration.
+### Assessment is the generic activity object
 
-**Why.** A fresh pre-production reset is the opportunity to express the intended database directly.
-Folding corrections into the owned module keeps the current catalog readable and prevents a new
-history of corrective patches.
+**Decision.** PLE calls the generic object an Assessment. Assignment appears
+only inside the Assessment Type names Regular Assignment, Practice Question
+Assignment, and Bonus Assignment. Quiz and Exam complete the five current
+Types.
 
-**Consequence.** The base creates each final relation, invariant, function, policy, grant, and
-ordinary role in its owning module. The SQLx ledger is
-`ple_migration._sqlx_migrations` and contains forward changes only after the freeze. There is no
-baseline digest, epoch, classifier, retired-schema compatibility reader, or
-legacy-upgrade path. `ple_api.ple_schema_state` remains the restricted,
-read-only application projection of the fixed `pre-production` baseline label
-and SQLx forward ledger; it is verification state, not a compatibility or
-baseline-management subsystem.
+**Why.** A single generic noun keeps course content, attempts, navigation, and
+data relationships understandable while Types communicate teaching purpose.
 
-**Owner.** [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md),
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md), `schemas/base_schema/`, and
-`crates/project-tools/src/database/`.
+**Consequence.** Current `assignment` code, schema, route, and DTO names are
+implementation gaps. They must not cause new documentation or UI to reintroduce
+Assignment as the generic object.
 
-### Database initialization stays small
+### Reusable and delivered course content are different objects
 
-**Decision.** `cargo tools database initialize` installs the DDL base and creates no product data.
-`migrate` applies pending forward migrations, and application-role `verify` reads the restricted
-schema-state projection. Fresh installation ordinarily follows with `cargo tools installation-data
-provision`, which includes the Live Demo by default; `--without-live-demo` explicitly selects an
-empty product-data installation.
+**Decision.** A Blueprint Course contains Blueprint Assessments and no Students
+or dates. A Course Instance contains Course Instance Assessments and Student
+relationships. An Instructor-owned Assessment Template is reusable Assessment
+settings outside either Course kind and contains no Questions or Pools.
 
-**Why.** These are the actual operating needs: install a fresh database, advance it after the
-freeze, and confirm that the application can use it. A separate baseline-management subsystem
-would not improve those outcomes.
+**Why.** Reuse, teaching delivery, and personal templates have different
+ownership and privacy boundaries.
 
-**Consequence.** The migrator retains only the authority needed for these operations; runtime
-roles have neither DDL nor migration-ledger write authority. Structure and data remain separate:
-`provision` composes the convergent database-owned `apply` operation with required owning service
-paths for cross-system effects. The resulting data is ordinary product data, while the schema is
-the one production model.
+**Consequence.** Adoption copies Blueprint content into the Course Instance and
+retains exact Blueprint Revision provenance. New Blueprint Revisions are
+offered to daughter Courses for Instructor review; existing Assessment changes
+are never applied silently. A newly added Blueprint Assessment is automatically
+copied as an Unreleased Course Instance Assessment.
 
-**Owner.** `crates/project-tools/src/database/`, `schemas/base_schema/`, and
-`schemas/installation_data/`.
+### Current state is not a hidden revision family
 
-### Live Demo is ordinary initial data
+**Decision.** Published Questions, published Question Pools, and Blueprint
+Courses have immutable Revision families. Human Guidance's general history
+summary names Questions and Blueprints while its Pool section explicitly
+requires Pool Revisions; this document preserves the explicit Pool rule. Draft
+Questions, Course Instances, Assessments, Attempts, Student Work, names, and
+lifecycle metadata use current state. Edit Numbers are concurrency controls,
+not historical content.
 
-**Decision.** A production installation defaults to the complete known-good Live Demo after
-structure exists. The idempotent data manifest writes facts that PostgreSQL completely owns;
-object storage, publication, renderer, backend, worker, or other cross-system effects remain with
-their owning paths.
+**Why.** History is valuable only where the product needs exact reusable or
+submitted evidence. Universal snapshots create cost and a misleading object
+model.
 
-**Why.** Ownership, not fixture size, determines the simplest correct provisioning path. Direct
-SQL makes database-owned state reproducible without creating a demo schema, special role, marker,
-or teardown service.
+**Consequence.** New revision, snapshot, receipt, event, or replay types require
+a specific Human Guidance-compatible need. Generic auditability is not enough.
 
-**Consequence.** The Live Demo uses ordinary Accounts, published Questions, save-created Blueprint
-Revision records, Courses, Assignments, memberships, and lifecycle rules. An operator can opt out
-before provisioning. Once present, those records follow the same product retention and deletion
-rules as any other content.
+### Course Instances keep their own identity and may become new Blueprints
 
-**Owner.** [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), `schemas/installation_data/`, Pilot content,
-and the owners of any cross-system effects.
+**Decision.** A Course Instance has deliberately entered short and long names,
+not names derived from a parent Blueprint. It starts empty or from a Public
+Blueprint, always has at least one assigned Instructor, and may be deliberately
+published as a new Blueprint Course.
 
-### Assignment state and Student Work have distinct owners
+**Why.** A teaching Course needs its own identity and delivery context, while a
+Blueprint contains reusable Course structure without Student records or dates.
 
-**Decision.** Assignment is one mutable current aggregate with an Assignment Edit Number and
-released status. An Assignment Attempt and its Issued Questions retain the exact effective facts
-needed to interpret Student Work: authored delivery facts, effective policy values and sources,
-exact Question Revision, seed, presentation binding, point value, scoring rule, statistics
-eligibility, pool-selection source, and issue position.
+**Consequence.** Publishing reusable Course structure creates a new Blueprint
+lineage rather than converting the teaching Course or exposing its Students,
+dates, Student Work, or other delivery state.
 
-**Why.** Current teaching configuration must support deliberate released edits for later Attempts,
-while earlier work must remain interpretable without consulting mutable Assignment state.
+## Accounts, roles, and authorization
 
-**Consequence.** Release validates current Assignment state. Accepted released edits affect future
-Attempts only. Every selected Assignment entry or pool item pins an exact Question Revision;
-publication never advances a pin implicitly. Attempt interpretation reads its retained evidence,
-independently of later teaching-configuration changes.
+### Product roles are global and exclusive
 
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), Assignment and Student Work
-families in `schemas/base_schema/`, and their Store and server contracts.
+**Decision.** Each global Account has exactly one immutable Product Role:
+Student, Instructor, or Sysadmin. A person needing multiple roles uses separate
+Accounts.
 
-### Question publication and Blueprint Saves have two revision families
-
-**Decision.** Question Revision and Blueprint Revision are PLE's only Revision concepts. Stable
-Question lineages carry current Available or Archived state with qualified Edit Numbers and
-append-only availability events. Blueprint lineage short name, long name, and availability share
-one opaque metadata ETag. Complete valid Blueprint creation atomically creates Available Revision
-1; a changed explicit Save creates each later immutable Revision.
-
-**Why.** Reusable content needs exact durable history. Mutable working and teaching state
-needs current values plus concurrency control, not a parallel revision family.
-
-**Consequence.** Archive removes ordinary browsing and new selection while exact historical
-references continue to resolve. A Save never resets availability. A changed Save based on the exact
-current Revision creates one immutable successor and receipt; a canonical no-op returns the
-current Revision with `changed: false`. Blueprint Assignment provenance is an exact Blueprint Revision
-Reference plus stable Blueprint Assignment Reference, named `BlueprintAssignmentSource`.
-
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), Blueprint and Question lineage
-families in `schemas/base_schema/`, and the corresponding Store contracts.
-
-### Question IDs have one compact identity
-
-**Decision.** The canonical stored Question ID is seven uppercase Crockford Base32 characters.
-The browser displays it as `AAA-BBBB`: the hyphen is presentation only. Its first six characters
-come from the OS cryptographic random source; its seventh is the HMAC-SHA-256-derived validation
-character for the installation secret.
-
-**Why.** The identifier is a stable Question lineage locator for people and systems, not a creation
-sequence or Pilot namespace. A valid full ID already uniquely identifies its six-character identity
-for one installation secret.
-
-**Consequence.** The database stores and uniquely constrains the valid full compact ID. Publication
-retries only the specific full-ID uniqueness conflict. Pilot data, fixtures, documentation, and
-code use valid generated IDs; `PNE-*` has no product meaning or compatibility role.
-
-**Owner.** [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md), Question lineage schema, and the
-server-side Question publisher.
-
-### Unrelease deletes one closed Student Work graph
-
-**Decision.** Assignment Unrelease is one guarded database operation. It locks the Assignment,
-checks current Teaching Team authority, Released state, exact Assignment Edit Number, and exact
-title confirmation; it then returns the Assignment to Unreleased, removes its Student Work closure,
-rebuilds affected statistics, and records a redacted aggregate audit event atomically.
-
-**Why.** Returning a released Assignment to authoring state has a clear and irreversible student
-work consequence. A single owner makes authorization, concurrency, deletion, and statistics
-consistent.
-
-**Consequence.** Root-oriented foreign keys define the closure from Assignment Attempts through
-issued work, responses, presentations, submissions, grading, exchanges, observations, and
-correction links. Shared Questions, shared assets, current Assignment content, course membership,
-and the redacted audit event survive. Only the dedicated no-login executor can invoke the guarded
-deletion routine; ordinary Student Work remains immutable.
-
-**Owner.** Assignment and Student Work schema families, the Unrelease Store/API operation, and
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md).
-
-## Learning and content
-
-### Static sources do not carry a variation rule
-
-**Decision.** Static PLE Question JSON and QTI-imported static Questions do not carry a
-Question-authored `Static` variation-rule field or receive a Question Seed. Static is a
-characteristic of the complete Question Source. These declarative formats do not contain runnable
-code. The Assignment-owned Question Variation Rule remains the separate choice to reuse or replace
-Question Variations in later Assignment Attempts.
-
-**Why.** A source field whose only current value is `Static` repeats what the source format and QTI
-profile already establish. It would also overload the Assignment rule that governs later-Attempt
-behavior. QTI is interchange input and converts an accepted static item to PLE Question JSON; it is
-not a runtime Question Backend or a second source-policy owner.
-
-**Consequence.** PLE Question JSON, QTI mapping, Draft Question, and Question Revision contracts add
-no `RandomizationDefinition::Static`, `QuestionVariationDefinition::Static`, or
-`questionVariationDefinition`. A future seeded Question Generator must introduce its complete
-source, publication, issuance, grading, repair, and reproduction path; it does not add a
-Question-authored variation rule. `AssignmentQuestionVariationRule` remains the separate
-Assignment-owned choice between Reuse Variation and New Variation.
-
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), and the PLE and QTI adapters.
-
-### Draft and published source bindings are separate
-
-**Decision.** Draft Question Source Binding and Question Revision Source Binding are
-separate relationships and separate persistence boundaries. Each binds one complete opaque
-format-specific Question Source to its exact owner together with Question Backend, Question Format,
-Source Object Reference, Source Object Checksum, and any exact backend-specific location. Neither
-binding has a surrogate UUID.
-
-**Why.** Drafts are high-churn sandbox content with expiration, while Published Question Revisions
-are durable shared content. One mixed table would make published source resolution carry nullable
-draft ownership, draft update behavior, and cleanup concerns. Qualified bindings preserve the
-real owner and lifecycle boundary.
-
-**Consequence.** Draft saves replace only the Draft Question Source Binding. New-lineage
-publication resolves and verifies the exact current draft source, then writes the same bytes to a
-new immutable Question Revision Object Address. The P1 Store transaction rechecks the exact Draft
-Question Edit Number and source facts before it
-creates the complete first Question Revision and Question Revision Source Binding. Published reads
-use only the latter. The private-authoring baseline directly creates the two qualified Source
-Binding tables instead of a mixed owner relationship.
-Existing RLS, grants, retry semantics, and typed addresses apply to each exact relationship.
-Because PLE is pre-production, the base module creates and operates on the qualified bindings
-directly. Publication, Question Search isolation, Server Routes, and cleanup use those owner
-boundaries without a retired mixed-table compatibility layer.
-
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) and the Question authoring base
-schema family.
-
-### References remain scoped locators
-
-**Decision.** Opaque UUID-backed private record IDs and SQL `*_id` keys remain
-IDs. A public Reference is a separate reviewed, prefixed, authorization-scoped
-locator, and it exists only where a product boundary approves it.
-
-**Why.** Rebranding a UUID as a Reference conceals a different representation
-and collapses the distinction between record identity, route location, and
-authority. Existing `C-`, `M-`, `A-`, `R-`, and `U-` references prove that a
-locator needs its own grammar and authorized resolution boundary.
-
-**Consequence.** `CourseInstanceReference`, `CourseMembershipReference`,
-`AssignmentReference`, and `AssignmentAttemptReference` remain separate from
-their private IDs. No Student Record, Issued Question, or Question Attempt
-Reference is invented. A future locator requires separate product, schema,
-resolver, service, wire, and privacy decisions; it does not rename SQL keys or
-trusted UUID values.
-
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) and
-[NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) define the durable naming
-boundary; the active release plan owns any future implementation allocation.
-
-**Completion.** `WN1-TERM-LEARNING-REFERENCE-H0` is accepted and completed
-after independent review. This documentation-only correction changes no source,
-schema, generated contract, route, test, detector, or migration allocation.
-
-### Question agnosticism
-
-**Decision.** PLE is a learning engine, not a question-authoring language or a single renderer.
-PLE Question JSON, WeBWorK PG, iMathAS, H5P Packages, and future registered Question technologies
-retain their distinct Question Source and Question Backend boundaries behind typed server-side
-adapters. QTI import/export/archive is the flat-question interchange pathway. A supported QTI
-import becomes PLE Question JSON before it enters the Draft Question and publication lifecycle.
-Draft Question remains the shared mutable authoring lifecycle for every supported Question Type,
-Question Format, and Question Backend. Its identity and lifecycle are independent of PLE Question
-JSON. Authoring, validation, preview, testing, publication, Assignment selection, issuance,
-presentation, submission, evaluation, and feedback release use the same PLE contracts for every
-Question Backend. Each shared operation resolves the registered backend and delegates its
-format-specific work. Publication freezes the selected format-specific Question Source into the new
-immutable Question Revision.
-
-**Why.** Biology, genetics, and biochemistry need both reusable static questions and generated
-questions without making a vendor format or a browser Question Response Control the platform's core model.
-
-**Consequence.** A new Question Backend adds a bounded adapter, public Question Presentation,
-format-specific private evaluation artifacts when needed, and a capability declaration. It does not
-spread vendor fields, answer rules, or renderer details through storage, browser DTOs, and UI components.
-**Owner.** [ADAPTER_DEVELOPMENT.md](ADAPTER_DEVELOPMENT.md),
-[QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md), and the adapter entries in
-[CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
-**Planned closure.** The release plan owns full student-runtime and authoring acceptance for the
-eight PLE Question Types, broader WeBWorK compatibility, and explicitly bounded export claims.
-
-### Bloom classification follows publication
-
-**Decision.** Publishing a Question Revision leaves its Question Bloom Classification unassigned
-and completes immediately. AI classification work searches for unassigned Published Question
-Revisions and assigns each initial Bloom Cognitive Process and Bloom Knowledge Dimension pair. An
-Instructor may later edit either value without creating a Question Revision.
-
-**Why.** The Anderson and Krathwohl revision provides a useful two-dimensional search model for
-the cognitive work and knowledge a Question assesses. Searching for unassigned Published Questions
-supports automatic library-wide classification without coupling publication to AI availability or
-a dedicated queue. Later Instructor correction preserves teaching judgment when course context
-changes the best pair.
-
-**Consequence.** A Published Question remains usable and discoverable while classification is
-unassigned. Classification metadata targets the exact immutable Question Revision while remaining
-separate from its content. Question Search exposes assigned pairs through independent dimension
-facets and their derived 4 by 6 intersection. Instructor correction updates that metadata without a
-Reason for Edit. Bloom classification remains distinct from cohort-measured Question Difficulty.
-
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns the canonical fields.
-[QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the rubric, timing, search
-semantics, and color associations.
-
-**Planned closure.** Question Model, persistence, unassigned-classification search, server,
-generated API, strict decoder, Question Search, Instructor metadata editing, and browser owners
-implement the result boundary. A separate AI integration plan must settle model execution,
-protected input, scheduling, concurrent claims, retry behavior, and operational evidence.
-
-### Mastery is an assignment activity
-
-**Decision.** Mastery assignments mean repeated practice with immediate educational feedback,
-fresh Question Seeds on a new Assignment Attempt, and a highest-score learning record. A first perfect score does not
-silently end practice.
-
-**Why.** The teaching goal is confident transfer to varied problems, not one completion of a fixed
-set. The instructor should choose a recognizable activity such as Mastery, Exam, or Practice rather
-than assemble ordinary pedagogy from implementation primitives.
-
-**Consequence.** The domain keeps completion, grade, continued-practice, Question Variation, timing, and
-feedback policies orthogonal for correctness. The instructor and student interfaces present
-opinionated activity behavior, with only evidence-supported advanced controls.
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#course-content-philosophy),
-`crates/question_model/src/assignment_activity_rules.rs`, and
-[crates/domain/src/policy.rs](../crates/domain/src/policy.rs).
-**Planned closure.** Each new Question Type preserves the same retry, feedback, score, and
-continued-practice semantics through its owning release package.
-
-### Assignment activity uses Instructor language
-
-**Decision.** An Assignment contains ordered **Assignment Entries**, each a
-Fixed Question or Question Pool. Each **Assignment Attempt** binds one exact
-Student Record and Assignment. Its concrete, ordered selections are **Issued
-Questions**. A **Question Attempt** is one try at one of those selected
-questions, and a **Question Submission** accepts its student **Response**. An
-optional **Assignment Submission** finalizes the whole Assignment Attempt while
-Question Submissions own the Responses.
-
-**Why.** An Instructor can clearly distinguish an attempt at a whole Assignment
-from an attempt at one Question and can distinguish per-question answer
-acceptance from whole-Assignment finalization. Issued Question is
-necessary immutable evidence for pool selection, exact Question Revision,
-source entry, order, and scoring treatment. Assignment remains the sole live
-teaching object.
-
-**Consequence.** Assignment Attempt links directly to one Student Record and
-Assignment; Issued Question links that pass to its source Assignment Entry and
-exact Question Revision; Question Attempt links to one Issued Question; Question
-Submission links to one Question Attempt; and Assignment
-Submission, when required, links directly to the Assignment Attempt. New
-PLE-owned documentation, UI, routes, types, and schema use this full hierarchy.
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
-**Planned closure.** The downstream source, schema, Store, API, and browser
-work own the coordinated implementation cutover and its acceptance
-evidence.
-
-### Mutable Draft Question cut supersedes draft revision history
-
-**Decision.** One mutable Draft Question belongs to one Authoring Workspace. Its private
-Draft Question UUID is server-only; its opaque Draft Question Reference supports authorized
-Instructor navigation. Each accepted save updates that same Draft Question and advances its positive
-Draft Question Edit Number, which is the concurrency token. Its complete opaque format-specific
-Question Source and current Draft Question Source Binding belong to that Draft Question; the
-binding has no surrogate UUID.
-Future authorized atomic publication validates one exact Edit Number, then mints an immutable
-Question Revision in the installation-wide Question Library under a stable QuestionId. The
-Question Revision Reference is
-`{ QuestionId, positive Question Revision Number }` and is also the storage identity.
-
-Draft Questions are isolated sandbox authoring content. They may be incomplete,
-invalid, experimental, duplicated, or abandoned. Draft rows, editable metadata,
-and Draft Question Source Object References remain in private Authoring Workspace
-storage and are absent from Published Question tables and indexes. Draft Question
-Metadata and Published Question Metadata use parallel tables with shared field
-validation where the facts correspond, while their owner keys, mutability, RLS,
-indexes, and retention remain separate. Publication validates the exact Draft
-Question Edit Number, copies the accepted values into the Published Question
-Metadata table, writes the complete source to a new immutable Question
-Revision-owned object path, and stores a new Source Object Reference and
-Source Object Checksum for that published object. Mutable Published Question
-metadata such as Question Title and Question Description belongs to the stable
-Question lineage and may change without creating a Question Revision. Immutable
-Question Revision language applies to its source and exact historical evidence,
-not to every Published Question metadata field. The Question Revision has no
-identity, storage, or lifecycle dependency on the Draft Question or its object path.
-
-Draft Question cleanup uses the last accepted edit time and a configured expiration
-policy. Publishing a Question does not make retention of its source Draft Question
-necessary; cleanup may remove the draft rows, draft metadata, and draft source object
-after any configured recovery period while the Published Question remains complete.
-
-This supersedes retained Draft Question Revision, Draft Question Revision Number, Draft Question
-Revision UUID, and Draft Question Revision Reference concepts. It also supersedes Draft Question
-Revision ownership for Draft Question Source Binding. The Authoring Workspace remains owned by its
-Instructor and shared only through an explicit workspace relationship. The browser receives only the
-opaque Draft Question Reference and the Draft Question Edit Number. The Question stewardship decision
-below classifies whether a later publication creates another version in that lineage or a fork with a
-new QuestionId. Every Assignment's pinned Question Revision remains
-exactly resolvable in both Available and Archived states, with availability visible in the
-Instructor-safe Question Library view. Publication has one Question Library visibility contract.
-Selection eligibility is separate: Available versions appear in ordinary discovery and selection;
-Archived versions remain available through exact historical references. Student access remains bound to an
-Assignment Access, and anonymous web access receives no Question Library authority.
-
-**Why.** This prevents the classic LMS failure where a later edit changes what an earlier Student
-was assessed on, while giving every Instructor an equal path to discover, organize, reuse, and
-improve shared educational content. Course-record deletion leaves the Question Library intact.
-Keeping drafts private prevents unfinished material from reducing discovery quality.
-
-**Consequence.** Existing Assignments and issued Assignment Attempts retain their exact references. An Instructor
-must deliberately replace or opt in to a newer version; no publication, correction, or background
-action may advance an assignment. Browser requests never choose a hidden version. Internal
-Question Revision Reference evidence supports replay, grading, audit, source history, and authorized
-transport only; publication atomically records the version payload, lineage, source history, and
-visibility. The assigned `AAA-BBBB` Question ID names the durable lineage. The `(Question ID,
-positive Question Revision Number)` pair is the sole immutable content identity used by exact
-Assignment and evidence pins.
-**Owner.** [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[SECURITY_MODEL.md](SECURITY_MODEL.md#question-library-publication-boundary), and the Question Library rows
-in [CONTRACTS.md](CONTRACTS.md#domain-contracts).
-
-### Published Question stewardship keeps exact pins
-
-**Decision.** A stable Question ID names one lineage and every Question Revision is immutable. A
-Question Owner may publish a validated same-lineage improvement; a vetted Instructor may fork an
-exact Revision into a private Draft for a new lineage. Forced Question Correction remains the
-separate Sysadmin action for a critical flaw.
-
-**Why.** Stable lineages let Instructors recognize and improve reusable content while immutable
-content preserves reproducible assessment. A bounded current model should not preserve incomplete
-Change Proposal persistence merely as scaffolding.
-
-**Consequence.** A compatible improvement publishes a new same-lineage Revision; a different
-objective, task, type, or educational purpose creates a new lineage. Assignments and Student Work
-retain exact Question Revision pins, and ordinary publication never changes them. Question
-statistics remain qualified by exact Revision. A future proposal capability begins with a complete
-authorized workflow rather than retired tables or event branches.
-
-**Owner.** [QUESTION_MODEL.md](QUESTION_MODEL.md),
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), and the Question lineage and statistics
-families.
-
-### Forced Question Correction is Sysadmin-approved
-
-**Decision.** Every `QuestionRevision` remains immutable, including during an emergency. A validated
-corrected QuestionRevision exists before a closed, immutable, privacy-safe
-**Forced Question Correction** Manifest is created. The Manifest binds the flawed version, replacement
-version, reason (`security_flaw` or `critical_correctness_flaw`), affected bindings and evidence,
-and deterministic remediation. A Sysadmin alone approves the correction. Approval immediately
-stops new selection and issuance of the flawed version and atomically activates one authoritative
-correction mapping and Correction Generation. New resolution follows that mapping immediately. Bounded,
-idempotent, Correction-Generation-fenced workers apply the authoritative correction mapping and remediation across all
-active BlueprintCourse, CourseInstance, assignment, pool, and future-issuance references and
-perform its remediation; the operation uses no unbounded cross-course SQL transaction. Every
-unissued binding passes a deterministic compatibility check recorded in the manifest. No
-per-course approval follows.
-In-progress items are deterministically reissued or excused. Issued and graded work never silently
-swaps versions. Completed work receives a superseding correction receipt and deterministic
-recalculation, such as full credit or exclude-and-rescale when no correct answer exists. Original
-prompts, responses, scores, and receipts remain immutable history. The flawed version remains
-resolvable for authorized history and is marked superseded.
-**Why.** Emergency correctness and security response must stop new exposure quickly while applying
-one consistent remediation to every active teaching reference. A closed manifest and deterministic
-compatibility/remediation check prevent a correction from changing task meaning invisibly. Immutable
-original evidence preserves reproducibility, while one Sysadmin approval avoids inconsistent
-course-by-course emergency decisions.
-
-**Consequence.** Instructors receive audited correction results and action items through their
-authorized course surfaces. The Sysadmin correction result contains aggregate affected-version, assignment,
-and course counts plus manifest status, but no Student identities, responses, grades, or private
-CourseInstance identity. Replacement validation, manifest creation, Sysadmin approval, atomic
-reference advancement, reissue or excuse, superseding receipt, course remediation, and
-recalculation each append an attributable immutable record containing the authenticated Account, reason, time, and
-exact QuestionRevision references. The Question Library labels the flawed version as superseded while
-retaining its original evidence and controlled historical resolution.
-**Owner.** [SECURITY_MODEL.md](SECURITY_MODEL.md),
-[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[CONTRACTS.md](CONTRACTS.md#domain-contracts), `crates/question_model/src/question_library.rs`,
-and `crates/domain/src/statistics.rs`.
-
-### Instructor-facing Question identities are operational
-
-**Decision.** Seven compact Crockford Base32 characters are the stored Question ID; `AAA-BBBB` is
-its single human-facing rendering. The first six characters are random and the seventh is an
-HMAC-SHA-256 validation character. Instructors may copy it from the library, but assignment reuse
-and checklists are the preferred shared workflow. UUIDs and sequential numbers remain internal.
-
-**Why.** An identifier shown to a person needs to support the work that person actually does:
-recognizing, communicating, copying, and entering an exact question. A UUID is valuable at internal
-boundaries, but it is oversized and hostile for this instructor task.
-
-**Consequence.** The Questions workspace accepts one or more Question IDs, normalizes documented
-Crockford transcription aliases, and requires server validation before changing the draft. Invalid,
-unavailable, unauthorized, or duplicate input preserves the pasted text and assignment. Every
-published version keeps its stable QuestionId lineage or starts a new fork according to the semantic
-change class; an explicit source-history link names the source, and an Instructor deliberately replaces
-or opts in to a newer version for any assignment that should use it.
-The server-only new-lineage publisher generates the six random Crockford characters with the OS
-CSPRNG and computes the seventh character with HMAC-SHA-256 under a redacted installation secret.
-The schema has one valid compact full-ID uniqueness boundary, and publication retries only that
-conflict. Secret loading, rotation, publication, lookup validation, and browser entry remain their
-owning composition and Question Library packages.
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#questions),
-[`QUESTION_ID_SPEC.md`](QUESTION_ID_SPEC.md), `crates/question_model/src/question_library.rs`, and
-Question Library API in
-[CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
-
-### Assignment work is one aggregate
-
-**Decision.** The Assignment Workspace exposes focused Overview, Questions, Policies, and
-Student-view tasks over one course-scoped current Assignment. Its Assignment Edit Number is the
-concurrency token. Questions own ordered fixed-or-pool content; Policies own instructions,
-schedule, limits, late work, disclosure, and lifecycle.
-
-**Why.** Instructors work on one teaching object. Current-state writes keep that work direct while
-the Edit Number prevents concurrent saves from overwriting each other.
-
-**Consequence.** `If-Match` protects accepted changes and returns the complete current Assignment
-with its new ETag. Release validates the resulting current state. A released save remains valid
-when that state passes release validation and changes future Attempts only; existing Attempts read
-their retained evidence. Empty Unreleased Assignments are valid. Student view is an answer-free
-read and creates no Student Work.
-
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), Assignment schema and Store
-families, and [API_CONTRACTS.md](API_CONTRACTS.md#instructor-assignment-workspace).
-
-### BlueprintCourse owns reusable course structure
-
-**Decision.** A Blueprint Course is one stable reusable lineage. Complete valid creation atomically
-creates an Available Blueprint and immutable Revision 1 with modules, assignments, relative
-schedule defaults, and exact Question Revision pins. An explicit changed Save based on the current
-Revision creates its successor; unsaved browser edits remain local working state.
-
-**Why.** Reusable course content needs one exact reference sequence. Explicit Save makes Revision
-boundaries meaningful while retaining a direct editor model and exact Course Instance provenance.
-
-**Consequence.** A Blueprint Course has no Students, live deadlines, releases, accommodations,
-grades, or FERPA state. Available content is browseable and selectable by active Instructors;
-Archived content is not, although exact Blueprint Revision References remain resolvable. A
-Blueprint Assignment Source records exact Blueprint Revision and stable Blueprint Assignment
-References as provenance for an ordinary current Assignment. Course Instances own their delivery
-state after creation from the Blueprint's advertised exact current Revision. Later Blueprint Saves
-do not change existing Instances. Future propagation automatically adds a newly added Blueprint
-Assignment as Unreleased to eligible Instances, while a change within a retained Assignment needs
-Instructor review and approval.
-
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md),
-[CONTRACTS.md](CONTRACTS.md#blueprint-and-instance-courses), and the Blueprint schema and Store
-families.
-
-### Python owns complex orchestration
-
-**Decision.** Python owns orchestration that keeps state, parses values, creates private temporary
-files, controls subprocess or Podman lifecycle, polls, cleans up, or aggregates lanes. Bash may only
-be a tiny direct `exec` or `source` wrapper and may not become a second state machine.
-
-**Why.** The typed `local_stack_control` boundary already centralizes provider selection, private
-environment handling, disposable-owner authority, process arguments, readiness, and cleanup. A
-parallel shell program drifts from those security and lifecycle contracts.
-
-**Consequence.** Python `local_stack_control` owns lifecycle and aggregate acceptance. The Python lifecycle conversion
-retired the former `launch.sh`, `_restart.sh`, and `local_identity_bootstrap.sh` launchers together
-in favor of direct focused Python ownership rather than a wrapper or dual launcher. It was accepted
-on 2026-08-15 after final Validation and independent review.
-**Planned closure.** Remaining E2E, developer, renderer-probe, and destructive-cleanup shell
-programs
-migrate only in later dependency-ordered packages. A retained wrapper stays logic-free.
-
-## Grading and student traffic
-
-### Grading stays on the server
-
-**Decision.** Answer keys, grading rules, provider credentials, and correctness decisions never
-enter browser JSON, generated TypeScript, or the WebAssembly dependency closure.
-
-**Why.** A browser can be inspected and modified. Client-side grading would expose answer-bearing
-content and turn a student-controlled device into an authority.
-
-**Consequence.** The browser performs presentation and format assistance only. It submits a
-response to a server-owned attempt; the native grader or private adapter calculates correctness,
-partial credit, and permitted feedback.
-**Owner.** [SECURITY_MODEL.md](SECURITY_MODEL.md#grading-boundary),
-[crates/grading/src/lib.rs](../crates/grading/src/lib.rs), and the Question Grading and Question Model Wasm boundaries in
-[CONTRACTS.md](CONTRACTS.md#boundary-invariants).
-**Planned closure.** Every new Question Backend and Question Type must prove the same closure before its
-Question Presentation is accepted.
-
-### The attempt is the grading authority
-
-**Decision.** Assignment Attempt identity and Authenticated Session bind each position save and the
-one whole-Attempt finalization. The server loads the complete Attempt relationship and turns each
-successfully saved response into one immutable private Question Submission before grading.
-
-**Why.** An issued Question Attempt already binds Student Record, Course Instance, Assignment,
-Assignment Attempt, Issued Question, immutable Question Revision, seed, timing, policy,
-Question Response Format, and grading backend. Repeating those values expands traffic and creates conflicting
-sources of truth.
-
-**Consequence.** Server code loads and validates the issued position before saving a response.
-Student finalization and expiry auto-submission use the same ordinary finalization path. The
-Question Backend produces one immutable credit fraction, which PLE records with the accepted
-response; score readers apply current Assignment Entry points. Finalization replay returns the
-same submitted result. Reads remain reads and never call a Question Backend or mutate Student
-Work.
-**Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#attempt-authority),
-[Question Model Student Work Records](../crates/question_model/src/lib.rs), and the
-Assignment Attempt API contract in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
-
-**Current boundary.** The Student saves responses by Assignment Attempt and position, then submits
-the Assignment Attempt once. At expiry, the server performs that finalization automatically. The
-browser sees the completed result, not an automatic-grading status or a grading lifecycle. A
-narrow background pass completes abandoned expiry finalization and any backend-specific deferred
-completion without becoming a product state.
-
-### Submission owns the stored grading outcome
-
-**Decision.** A Question Backend evaluates the accepted response during ordinary Attempt
-finalization and returns a normalized credit fraction. PLE stores that fraction immutably and
-computes Assignment scores on read from the current Assignment Entry points. PLE has no Instructor
-grading, regrading, retry-grading, or public grading-status workflow.
-
-**Why.** The backend owns response interpretation and grading semantics. Stored credit preserves
-the evidence PLE needs to score later without inventing a backend-agnostic regrade operation or a
-second lifecycle.
-
-**Consequence.** A narrow background pass is justified only to submit an expired abandoned Attempt
-through the same finalization path, or to finish a backend that explicitly requires deferred
-completion. It exposes neither a queue nor a Student or Instructor action. The Phase 2 audit
-cleanup removes remaining obsolete grading-job residue; it is not evidence for a product lifecycle.
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md),
-[ASSESSMENT_LIFECYCLE.md](ASSESSMENT_LIFECYCLE.md), and the Assignment Attempt API contract in
-[CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
-
-### Render once, answer compactly
-
-**Decision.** A rich, answer-free render payload is separate from a much smaller response payload.
-Assets travel by logical reference through cacheable asset routes, not as repeated inline bytes.
-
-**Why.** Responsiveness depends more on avoiding repeated render data and renderer work than on
-trimming a few JSON characters. The split also keeps server evidence out of the browser.
-
-**Consequence.** The target response is an attempt-bound `presentationToken` plus the minimal
-answer for the exact Question Response Format. `kind` belongs in the render payload so a Question Response Control can be drawn, but the
-server derives its response decoder from the issued attempt.
-**Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#target-network-contract)
-and [OBJECT_STORAGE.md](OBJECT_STORAGE.md#delivery-grants).
-**Planned closure.** The payload persistence and one-screen `StudentQuestionAttemptView` remain owned by the
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
-
-### Presentation Response Item References have presentation identity
-
-**Decision.** Selectable Response Items receive compact, attempt-presentation-scoped Presentation Response Item References. CRC16 is
-an error-detection and correspondence mechanism, never authentication or proof of correctness.
-
-**Why.** A visible label such as `B` is only a position. A Presentation Response Item Reference binds a Question Choice, Ordering Item,
-Matching Prompt, Matching Choice, Text Entry Slot, Hotspot Surface, or Hotspot Region to the exact public state the Student saw.
-
-**Consequence.** PLE enforces uniqueness inside one presentation and maintains the authoritative
-Response Item Binding to durable Response Item References server-side. A whole-presentation Question Presentation Checksum detects stale or
-inconsistent render state; normal session, attempt, RLS, and idempotency controls remain the
-security boundary.
-**Owner.** [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md#presentation-response-item-references) and
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
-**Planned closure.** The codec and its owning persistence changes land atomically with the minimal response wire format;
-no current endpoint treats CRC16 as a bearer token.
-
-## Data and operations
-
-### Repeated mutations use existing identity first
-
-**Decision.** Repeated-request handling belongs to each exact operation. Use its existing record
-identity, revision, Request Checksum, Receipt, signed result identity, and database constraints
-before adding a separate Retry Token. A qualified Retry Token is allowed only when an implemented
-Store and Server Route demonstrate a concrete request that those existing facts cannot identify
-safely. The HTTP `idempotency-key` header remains transport vocabulary.
-
-**Why.** A universal Retry Token model creates parallel identity and matching rules for operations
-that already have unique durable subjects. That increases implementation and validation work
-without improving correctness. The exceptional operation can add a narrow token later without
-redesigning unrelated operations.
-
-**Consequence.** The pre-production `RequestRetryToken`, `QuestionSubmissionRetryToken`,
-`CourseRosterRetryToken`, and `ImathasResultExchangeRetryToken` candidates were removed after
-operation-by-operation review found no demonstrated need. A browser-only type, future contract, or
-unaccepted persistence slice does not establish need. Add a qualified token only with its exact
-Store, Server Route, conflict behavior, and acceptance evidence; otherwise use the operation's
-existing identity and constraints.
-
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), the exact operation contract, and its
-implemented Store and Server Route.
-
-### One installation uses exact domain ownership
-
-**Decision.** PLE is one installation with global accounts and one Question Library. Private drafts
-belong to an Instructor-owned workspace. Courses, memberships,
-assignments, Student work, grades, and audit evidence belong to an exact course; Student records
-also bind the Student owner. Every active Instructor has the same product capabilities, while
-current direct course membership determines which FERPA records that Instructor may use.
-
-**Why.** Educational records need exact authorization, retention, and deletion. A shared question
-library should improve through discovery, Question Folders, reuse, and evidence-backed replacement
-without carrying Student identity or introducing an institution hierarchy.
-
-**Consequence.** Authentication resolves the Account from the server session. PostgreSQL forced RLS
-evaluates current course membership, Student ownership, private-workspace relationships, or the
-specific audited Sysadmin capability in the same transaction. Published Question Library content is global
-and immutable. Background work and object delivery carry the smallest real owner such as the
-Course Instance, Authoring Workspace, Assignment, Assignment Attempt, or Question Attempt UUID.
-**Owner.** [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[SECURITY_MODEL.md](SECURITY_MODEL.md), and `crates/learning-data-access`.
-**Planned closure.** Production deployment must still demonstrate the real non-superuser roles,
-network boundaries, backups, and managed recovery controls.
-
-### Enrollment is course-level
-
-**Decision.** One opaque PLE Account UUID names a global Student Account across courses and
-semesters. Its institutional email is immutable for the lifetime of that Student Account. A
-Student Record belongs to exactly one Student Account and Course Instance. Course Enrollment
-creates a Student Course Membership episode bound to that stable Student Record; re-enrollment
-creates a new membership episode bound to the existing record.
-An Assignment Attempt directly binds that Student Record to one Assignment. An Assignment Grade
-binds the same pair and selects its contributing Assignment Attempt. Assignment lists and empty
-activity states are derived from Active Student Course Membership, Assignment Status, and
-effective access rules.
-
-**Why.** A Student retains one global PLE Account across courses and semesters. The Account UUID
-is the stable identity, and its immutable institutional email is the planned Course Roster Import
-matching value. The current system does not implement email authentication; future passwordless
-sign-in must use the same Account rather than make email an Account key. Course-scoped
-authorization, Student ownership, and RLS control disclosure through separate Student Records and
-Student Course Memberships. Passkeys remain a deferred optional-convenience design for that
-Account.
-
-**Consequence.** The current Course Roster Import transaction uses each
-institutional email to resolve an existing Student Account or create one when none exists, then
-complete its Store, route, invitation, and Course Enrollment transaction atomically. Current
-authentication ceremonies authenticate existing Accounts only. An authorized pre-activity Assignment read returns
-an empty `AssignmentProgress` result. Starting an Assignment Attempt creates the direct Student
-Record-to-Assignment activity relationship transactionally; calculating a Grade creates its exact
-grade record. New Assignments add Assignment Content, while Student rows appear with actual Student work.
-Student Work Records and Grades follow their ordinary retention policy independently of the Student
-Account's lifetime. Server-issued evidence establishes every Account, Course Membership, Student
-Record, and invitation claim.
-**Owner.** [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md),
-[IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md), and the course capabilities in
-`crates/learning-data-access` and `crates/server/src/course/`.
-
-**Current boundary and planned closure.** Course Roster Import and invitation claim are implemented
-with their Store, Server Route, and transaction evidence. Operator-configured email-provider,
-optional-passkey, multi-replica, security, and HCI evidence remain open.
-
-### Course Roster change numbers stay exact
-
-**Decision.** Course-bound browser contracts use `rosterChangeNumber`, typed as the generated
-`CourseRosterChangeNumber` canonical positive PostgreSQL-BIGINT decimal string. The browser emits
-and verifies its strong ETag as the exact quoted decimal.
-
-**Why.** The containing Course scope supplies the subject, so repeating it in the member name adds
-no ownership. A JavaScript number could lose valid PostgreSQL-BIGINT precision, while the prior
-`rosterRevision` wording incorrectly implies retained roster revisions.
-
-**Consequence.** Course Roster pages, roster aggregate actions, invitation email-rule responses,
-roster-import responses, calculated Gradebook pages, and submitted Assignment Attempt chooser pages
-use the same exact string. `CourseInvitationStatePrecondition`, `importRevision`, scheme revisions,
-and scoring generations remain distinct contracts.
-
-**Owner.** `generated/api/CourseRosterChangeNumber.ts`, `src/api/enrollment.ts`, and the Course
-Roster and Gradebook browser decoders own the current browser boundary.
-
-### Current personas are Student, Instructor, and Sysadmin
-
-**Decision.** Each PLE account has exactly one immutable current Student, Instructor, or Sysadmin
-role. A person needing multiple roles uses separate accounts; Dr. Voss may use separate Instructor
-and Sysadmin accounts. Instructor Vetting is real-person validation before the Sysadmin Create Instructor Account operation, and teaching requires
-direct Instructor membership. A Sysadmin creates a Course Instance only for an explicitly assigned
-active Instructor account, which receives the initial membership; the Sysadmin receives none.
-The later verified Instructor Authentication Email replacement operation may replace that email; the
-same Instructor Account retains its Product Role, Question authorship and ownership, Authoring
-Workspace relationships, Course Memberships, authored content, and teaching history.
-Course help uses an explicit, audited, time-bounded support capability with a stated purpose.
-Sysadmin has no ambient FERPA browsing. Publishing content is an Instructor action; the
-public-asset publisher is a service identity, not a person. Every active Instructor has the same
-product capabilities, including shared Question discovery, Question Folders, publication, reuse, and
-improvement workflows.
-
-**Why.** Ambient administrator or manager roles turn one compromised platform
-credential into access to every student's educational record. A publisher
-human role also confuses author approval with the least-authority service that
-writes and verifies immutable public objects before activation.
-
-**Consequence.** Product Role is the closed Student/Instructor/Sysadmin set, represented by
-`ProductRole` in code, and Account/session storage carries one Product Role, never a collection. Course
-Membership is the smaller Student/Instructor relation and must match Product Role. Sysadmin Accounts
-cannot hold Course Membership. A Course
-may have multiple current Teaching Team Member accounts with equal teaching authority. A support capability
-names the exact course and, when needed, Student; it expires on a recorded deadline and records
-the authenticated account, purpose, action, and time for every boundary crossing. All course-linked Student data
-receives the FERPA radioactive handling discipline. The Course Membership,
-support-capability, and FERPA handling boundaries require their own implementation
-and acceptance evidence.
-
-**Session issuance rule.** The Authenticated Session issuance operation accepts an existing Account identity
-and opaque session parameters, then derives Product Role from the immutable Account row in the same
-trusted transaction. A passwordless ceremony, browser request, or adapter never selects Product
-Role. The resulting Authenticated Session stores the derived role and remains bound to that Account
-for its lifetime. This keeps the fixed-role decision at the trusted service boundary (ASVS 2.2.1,
-7.2.1, and 8.3.1). The `2026082906` Authenticated Session Resolution function and `SessionStore` implement this derivation; the
-passwordless ceremony and connected authentication acceptance remain separate work.
-
-The authorization boundary remains capability-oriented so a later package can add bounded Grader,
-Course Observer, or Student Observer relationships without widening the current personas. A Course
-Observer receives anonymous aggregate grades and no Student-level FERPA records. Each future
-relationship lands with its visible workflow, revocation, audit, and privacy contracts.
-
-**Owner.** [USER_ROLES.md](USER_ROLES.md),
-[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md), and
-[DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md). Accepted accountable-course-assignment evidence
-is recorded in [CHANGELOG.md](CHANGELOG.md).
-
-### Course accountability is assigned and transferable
-
-**Decision.** Each CourseInstance records one accountable assigned Instructor from its current
-Instructor memberships. Every current Teaching Team Member keeps the same teaching and FERPA predicates.
-An audited atomic course-administration operation transfers the assignment only after the successor
-holds a current Instructor membership.
-
-**Why.** An accountable Instructor gives course creation, handoff, and support records one clear
-human responsibility without turning one ordinary Teaching Team Member into a broader authority class.
-
-**Consequence.** The CourseInstance stores the assigned Instructor as a validated Instructor
-account reference. A deferred integrity check requires that account's current Instructor membership
-at transaction commit, including after revocation or transfer. Course creation inserts the assigned
-Instructor's first ordinary membership in the same transaction. Authorization continues to evaluate
-the same predicate for every current Teaching Team Member; only accountability and audit identify the
-assigned Instructor.
-
-**Owner.** [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md), the course-membership schema, and the
-teaching-authority Store contract.
-
-### APIs are stateless; durable state is shared
-
-**Decision.** Any API replica can serve an authenticated request. Durable state lives in PostgreSQL,
-object storage, and the queue; a browser copy or a replica's memory never establishes authority.
-
-**Why.** Scale should come from adding replicas and surviving process restarts, not sticky sessions
-or a privileged in-memory coordinator.
-
-**Consequence.** Sessions, Assignment Attempts, saved responses, finalization receipts, and leases
-are durable. Replica replacement reads the same fenced state, and workers use exact lease ownership.
-
-**Owner.** [MULTI_SERVER_SETUP.md](MULTI_SERVER_SETUP.md),
-[CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md#current-and-target-topology), and Background Job Execution in
-[CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
-
-**Planned closure.** Deployment-scale, clock-skew, soak, and managed-service evidence belong to the
-release/deployment packages rather than ordinary offline tests.
+**Why.** Role-specific interfaces and access rules remain explicit.
+
+**Consequence.** Course relationships do not change the Account's Product Role.
+Future Course Observer, Student Observer, and Grader roles are separate Course
+relationships, not Product Roles. Grader is not currently needed because
+grading is automatic.
+
+### Course authority comes from relationships
+
+**Decision.** All current co-Instructors in a Course Instance have equal
+teaching and FERPA authority. The creator or first Instructor has no greater
+authority. Student access is limited to active Course relationships and the
+Student's own record.
+
+**Why.** A privileged Course owner would contradict ordinary co-teaching and
+make staff changes unsafe.
+
+**Consequence.** A route ID or visible Course reference never grants access.
+The server and database rederive the exact Account, Course relationship,
+Student record, and operation predicate.
+
+### Sysadmin is platform administration, not ambient FERPA access
+
+**Decision.** Sysadmins manage platform configuration and operations but do not
+automatically read Course Student records. Support access is deliberate,
+scoped, and recorded.
+
+**Why.** Operational privilege and educational-record access have different
+purposes.
+
+**Consequence.** A Sysadmin-created Course gains an ordinary Instructor
+relationship for its teaching staff; the Sysadmin does not acquire Course
+membership merely by creating or supporting it.
+
+### Account state preserves history
+
+**Decision.** Deactivation blocks new access but preserves authorship, Course
+relationships, Student Work, and history. Reactivation restores eligible
+relationships. Permanent closure is a separate process.
+
+**Why.** Authentication state must not become accidental content or record
+deletion.
+
+## Questions and Pools
+
+### Draft and Published Questions are separate
+
+**Decision.** A Draft Question is private, mutable, unpublished, and
+unversioned. Publication creates or advances a stable Published Question
+lineage with immutable Question Revisions.
+
+**Why.** Private authoring and public reuse have different access, storage, and
+evidence needs.
+
+**Consequence.** Draft cleanup cannot damage published content. Metadata edits
+that do not change Question source do not create Revisions. A substantive fork
+creates a new Question ID with attribution.
+
+### Public Question and Pool IDs are checked human references
+
+**Decision.** The display form is `AAAA-ZBBB`; the compact form is eight
+Crockford Base32 characters. Seven characters are random identity and the
+first character after the hyphen is an HMAC-derived check character.
+
+**Why.** A short copyable Reference benefits from typo detection without
+becoming sequential or authorization-bearing.
+
+**Consequence.** See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) for generation
+and validation. UUIDs remain internal.
+
+### Question Pools are published revisioned content
+
+**Decision.** A Question Pool has a stable public identity and immutable Pool
+Revisions. An Assessment records the exact Pool Revision and selected Question
+evidence used for an Attempt.
+
+**Why.** Reuse and random selection must remain explainable after later edits.
+
+**Consequence.** A Pool change never silently rewrites an Assessment or
+existing Student Work.
+
+### Question Backends own Question behavior
+
+**Decision.** A Question Backend owns rendering, interaction, response
+interpretation, grading, feedback, and backend state. PLE owns authorization,
+Assessment and Attempt workflow, persistence of immutable credit fractions,
+score calculation, and disclosure.
+
+**Why.** Parsing an external backend's controls inside PLE duplicates semantics
+and inevitably drifts.
+
+**Consequence.** Backend presentation and state are opaque. PLE does not infer
+Question Type from controls. A backend outage never becomes an incorrect
+response. See [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
+
+### Native PLE Question JSON stays deliberately small
+
+**Decision.** Native PLE Question JSON is private, unpublished, unversioned,
+strictly validated, and static. It supports the eight named native Question
+types in Human Guidance. Author JavaScript is isolated and untrusted; grading
+is server-side.
+
+**Why.** A closed source shape is easier to validate and teach than a public
+extension ecosystem or compatibility framework.
+
+**Consequence.** Native-format changes do not add version negotiation. New
+behavior requires an explicit product decision and coordinated strict-shape
+change.
+
+## Blueprint Courses
+
+### Blueprints use Private, Public, and Archived lifecycle states
+
+**Decision.** Creation and forks start Private. Private is owner-only and
+cannot be adopted. Public is visible to vetted Instructors and adoptable.
+Archived is read-only, excluded from ordinary discovery and new adoption,
+visible only through explicit archived inclusion, and forkable.
+
+**Why.** Visibility, reuse, and retirement need clear author-controlled states.
+
+**Consequence.** Only the owner changes lifecycle state. Public may return to
+Private only before any adoption. Once adopted, it remains Public unless
+Archived. Archived restores to Public.
+
+### Blueprint Saves create content Revisions only when content changes
+
+**Decision.** A Blueprint is created Private with Revision 1. Explicit Save
+creates the next immutable Revision only after a meaningful canonical content
+change. A no-op save creates nothing. Name and lifecycle metadata changes do
+not create Revisions.
+
+**Why.** Each Revision should identify an actual reusable course-content state.
+
+**Consequence.** Relative schedules, Course dates, Students, and time zones do
+not belong in a Blueprint. Course Instance creation supplies real dates and
+local settings.
+
+### Adoption, updates, forks, and Change Proposals preserve provenance
+
+**Decision.** A Course Instance may adopt a Public Blueprint or start empty.
+Adoption records the exact Blueprint Revision. New Revisions are offered to
+daughter Courses for review and approval. A fork starts a new Private Blueprint
+lineage with ancestry and may selectively bring in later source changes.
+Instructors may propose changes to another Blueprint through a Blueprint Course
+Change Proposal; accepted changes create a new receiving Blueprint Revision.
+
+**Why.** Instructors need both reproducible adoption and independent control.
+
+**Consequence.** Newly added Blueprint Assessments are automatically copied to
+daughter Course Instances as Unreleased Assessments. Changes to existing
+Assessments require the daughter Course Instructor's review and approval.
+Change Proposals never change daughters directly; accepted changes reach them
+through the normal Blueprint update workflow.
+
+### Canonical Blueprint JSON is the comparison and exchange form
+
+**Decision.** Canonical Blueprint JSON contains Blueprint metadata plus ordered
+Blueprint Assessments, their reusable settings, Published Questions, and
+published Question Pools. It is complete enough for comparison, import,
+export, exchange, and recreation, but is not the primary persistence model.
+
+**Why.** Blueprint comparison and exchange need one exact portable form without
+turning that interchange representation into the storage architecture.
+
+**Consequence.** Blueprint JSON contains no deadlines, release dates, Student
+data, or Course Instance delivery settings. Change Proposals compare Blueprint
+Revisions through this canonical representation.
+
+### Blueprint Stars and Watches belong to the lineage
+
+**Decision.** Vetted Instructors may Star or Watch Public and Archived
+Blueprint Courses. Stars are visible endorsements; Watch state is private and
+drives notifications about Revisions and other important changes. Forking or
+adopting does not automatically Star or Watch.
+
+**Why.** Endorsement and notification choices apply to a Blueprint lineage;
+adoption and forking are separate Course-creation decisions.
+
+**Consequence.** Stars and Watches follow the Blueprint lineage across all of
+its Revisions. They are not copied into a fork or daughter Course.
+
+## Assessments and Student Work
+
+### Assessments have a small release lifecycle
+
+**Decision.** A Course Instance Assessment is Unreleased or Released. Release
+is explicit. Date-based availability does not create Closed or Archived
+Assessment states.
+
+**Why.** Extra stored states duplicate values already determined by release and
+time.
+
+**Consequence.** Unrelease is the high-consequence reversal. It requires the
+typed Assessment title and deletes all Student Work for that Assessment while
+preserving the Assessment and shared content.
+
+### The whole Assessment Attempt is the submission boundary
+
+**Decision.** Complete Question responses are saved and remain editable while
+the Attempt is open. Incomplete responses are not saved as complete or graded.
+The Student submits the whole Attempt; the deadline can submit it
+automatically. That transition finalizes all saved responses together.
+
+**Why.** Students need reliable navigation and saved work without accidentally
+finalizing one Question at a time.
+
+**Consequence.** The product has no separate response-finalization action,
+public per-response finalization state, or Question-level grading workflow.
+Repeating a whole-Attempt submission converges on the same result.
+
+### Backend credit is immutable; points remain current
+
+**Decision.** The Question Backend returns an immutable credit fraction. PLE
+stores it unchanged and calculates the score using the Assessment Question's
+current point value.
+
+**Why.** Point corrections should update totals without pretending the Student
+gave a different response or requiring regrading.
+
+**Consequence.** PLE has no ordinary regrading, grading Retry, mutable result,
+or scoring-freshness lifecycle. A current point-value edit recalculates scores
+from stored fractions.
+
+### Attempt policy remains configurable without invented grade selection
+
+**Decision.** Instructors control Attempt limits and Assessment behavior.
+Regular Assignment defaults support repeated work toward success. Human
+Guidance does not yet choose which Attempt contributes to a Course grade when
+several exist.
+
+**Why.** A familiar default should not silently become a universal Gradebook
+formula.
+
+**Consequence.** Do not document highest, latest, first, or average Attempt as
+the product rule until it is decided. Human Guidance also does not define a
+Course Grade Scheme or Grade Category model.
+
+### Evidence is minimal and purpose-bound
+
+**Decision.** Retain exact Question/Pool Revision selection, backend state
+needed to interpret the response, the response, immutable credit fraction, and
+disclosure state.
+
+**Why.** Student Work must remain explainable without creating an unnecessary
+historical surveillance or replay system.
+
+**Consequence.** Human Guidance does not require rendered-page snapshots,
+software-version snapshots, generalized receipts, compatibility layers, or
+public background-grading machinery.
+
+## Interface
+
+### One stable Ribbon frame serves role-specific work
+
+**Decision.** The shell keeps stable page geometry, separates global context
+from page tasks, and preserves required backed destinations even when their
+collections are empty. Sign Out is in the Profile menu.
+
+**Why.** Stable geometry and honest empty states reduce cognitive load and
+prevent unavailable controls from masquerading as features.
+
+**Consequence.** Instructor primary tabs are Courses, Questions, and
+Assessments. Their exact task rows come from Human Guidance. Student work is
+collectively Coursework, while a specific item uses its Assessment Type name.
+
+### Role interfaces expose only real capabilities
+
+**Decision.** Student, Instructor, and Sysadmin interfaces differ by actual
+role responsibility. Future controls are not presented as usable. Student View
+is an Instructor preview mode, not a second Account role or persistent Student
+record.
+
+**Why.** Disabled or speculative controls teach the wrong workflow.
+
+### High-consequence actions are distinct
+
+**Decision.** Assessment Unrelease, Published Question Archive, and Blueprint
+Course Archive use a Danger Zone. Unrelease requires typing the Assessment
+title. Archive actions explain their effect and require clear confirmation;
+Human Guidance does not prescribe typed-title confirmation for them.
+
+**Why.** These actions have meaningfully different consequences from ordinary
+editing.
+
+## Data, privacy, and operations
+
+### Student Account and Course data have separate lifetimes
+
+**Decision.** Student Accounts are global. Course removal, account
+deactivation, or ordinary account closure does not delete Student Work.
+
+**Why.** Authentication, access, and educational-record retention are separate
+legal and product concerns.
+
+### Retention starts from the final Assessment deadline
+
+**Decision.** The final Assessment deadline starts the Course retention clock;
+later Student activity resets it. Instructors receive notice before
+FERPA-protected records leave normal interfaces. Records remain recoverable
+during the retention period, are then permanently deleted, and the Course
+becomes inactive. Course metadata, Assessment definitions, Questions, and
+settings remain.
+
+**Why.** The product must protect records while providing a predictable end to
+ordinary FERPA retention.
+
+**Consequence.** The background check is idempotent. Numeric durations and
+table/job shapes are deployment and implementation decisions not specified by
+Human Guidance. See [RETENTION_POLICY.md](RETENTION_POLICY.md).
+
+### APIs remain stateless and durable state is shared
+
+**Decision.** Correctness-bearing state belongs in PostgreSQL, typed object
+storage, or the responsible Question Backend boundary, not API-process memory
+or browser caches.
+
+**Why.** Requests must survive restarts and multiple replicas.
+
+**Consequence.** Caches contain answer-free reusable data only and never become
+authorization, response, timing, or grading authority.
 
 ### Object storage is typed and server-owned
 
-**Decision.** Binary and archival bytes live behind typed server-generated Object Addresses and immutable
-`ObjectRecord` evidence; client requests name logical delivery IDs, never buckets or paths.
+**Decision.** The database owns logical object identity and scope; the server
+constructs storage keys and verifies integrity. Browsers use authorized logical
+delivery routes.
 
-**Why.** A bucket path is storage implementation detail and an authorization hazard. Typed objects
-bind lifecycle, checksum, media type, source history, and delivery policy to the correct owner.
+**Why.** Raw paths and bucket prefixes are not authorization models.
 
-**Consequence.** Writes verify SHA-256, source and temporary objects are non-deliverable, protected
-asset delivery is authorized and audited, and the database records intended existence while storage
-proves bytes exist.
+### Background workers are justified by exact product needs
 
-**Owner.** [OBJECT_STORAGE.md](OBJECT_STORAGE.md),
-[crates/objects/src/lib.rs](../crates/objects/src/lib.rs), and Object Storage in
-[CONTRACTS.md](CONTRACTS.md#storage-and-adapter-contracts).
+**Decision.** Expired-Attempt submission and retention checks use idempotent
+background processing because they must complete without a connected browser.
+Bounded asset preparation may use an operation-specific background mechanism.
+A generic worker framework does not authorize grading
+queues, recovery states, audit machinery, or compatibility jobs.
 
-**Planned closure.** Inventory checks, orphan cleanup, and handling of missing referenced bytes
-remain a release package.
+**Why.** Infrastructure should implement a decided behavior, not create product
+behavior by implication.
 
-### Privacy deletes records, not learning evidence
+## Implementation and evidence
 
-**Decision.** The owner defaults for the CourseInstance lifecycle are notice after 30 days, archive
-Student records after 100 days, and permanent deletion after 365 days. Course-owned assignment
-Assignment Content normally remains; identity-free anonymous aggregates remain available to improve the
-shared library.
+### One canonical database baseline serves fresh installation
 
-**Why.** Students need privacy by default, while question quality improves only if non-identifying,
-non-retractable aggregate evidence survives a student record's lifecycle.
+**Decision.** Pre-production database structure has one reviewed canonical
+fresh-install path. Installation data is separate from structure and is
+explicitly selected.
 
-**Consequence.** Deletion removes the course-owned student graph and its typed student-record
-objects, but never follows immutable assignment references into shared publication. Anonymous
-statistics have their own aggregation and k-anonymous disclosure boundary.
+**Why.** Fresh and repeated installation should be understandable and
+deterministic.
 
-**Owner.** [RETENTION_POLICY.md](RETENTION_POLICY.md),
-[DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md#radioactive-records-and-retention), and
-Question Statistics and Course Retention in [CONTRACTS.md](CONTRACTS.md#api-and-service-contracts).
+### Tests prove behavior at the owning boundary
 
-**Planned closure.** A deployment operator may configure a later ordered retention policy.
-Production backup
-retention and recovery objectives require explicit infrastructure choices and evidence.
+**Decision.** Fast deterministic tests, connected PostgreSQL tests, live
+backend probes, and browser acceptance prove different things. A passing lower
+layer does not claim acceptance at a higher layer.
 
-## Browser and accessibility
+**Why.** Mocked or structural evidence cannot prove a real teaching workflow.
 
-### Solid renders; Rust/Wasm validates browser-safe work
+**Consequence.** Permanent tests protect stable external behavior, not internal
+call order, inventories, current dates, artificial delays, or tunable defaults.
+See [TEST_EVIDENCE_MODEL.md](TEST_EVIDENCE_MODEL.md).
 
-**Decision.** SolidJS owns interactive browser composition. Rust/Wasm owns deterministic,
-answer-free shared computation such as format validation, timing display, state transitions, and
-generated contract support.
+### Current implementation and target product remain distinguishable
 
-**Why.** Solid provides a small reactive UI layer while Rust preserves server/browser consistency
-for
-appropriate deterministic calculations without exposing the grader.
+**Decision.** Documentation may describe an existing old route, table, or UI
+when needed for migration or operations, but must label it as implementation
+evidence and state the target Human Guidance term or behavior nearby.
 
-**Consequence.** The browser may import only the deliberate Wasm export allowlist. Private keys,
-grading code, database access, object paths, and provider credentials remain outside that closure.
+**Why.** Pretending old implementation does not exist is inaccurate; treating
+it as product authority perpetuates it.
 
-**Owner.** [CODE_ARCHITECTURE.md](CODE_ARCHITECTURE.md#browser-client),
-[SECURITY_MODEL.md](SECURITY_MODEL.md#compile-time-closure), and Question Model Wasm and Browser API Client in
-[CONTRACTS.md](CONTRACTS.md#platform-contracts).
+## Unresolved decisions
 
-**Planned closure.** New Wasm exports require an explicit security and generated-contract review;
-performance work follows measured need rather than speculative porting.
+This compliance pass intentionally leaves the following for the product owner:
 
-### Keyboard is the primary student path
+- the precise timing relationship between Practice Question correct-answer
+  feedback and the rule that grading outcomes appear only after whole-Attempt
+  submission;
+- which Attempt contributes to a Course grade when multiple Attempts exist;
+- whether Course Grade Schemes or Grade Categories should exist;
+- exact Student and Sysadmin Ribbon slot composition beyond Human Guidance's
+  stated minimums;
+- numeric retention and notice durations;
+- whether Course copy/rollover/date-shift workflow is desired;
+- whether any real Question Backend needs deferred completion; and
+- exact route names for Blueprint lifecycle transitions.
 
-**Decision.** Every student action works without a mouse. Tab and Shift+Tab move focus; Space uses
-native selection or activates a focused button; native links retain Enter. Arrows, digits,
-Enter-to-submit, and Escape are optional Question Response Control extensions.
-
-**Why.** Keyboard-only operation is a core learning path, not an accessibility afterthought. It also
-makes the normal sequence of understand, answer, submit, recover, and continue testable.
-
-**Consequence.** A visible platform-keyboard journey is required before shortcut tests. Drag-only,
-hover-only, coordinate-only, or time-critical required interactions are not eligible for a student
-question; hotspot questions need a pedagogically equivalent keyboard path.
-
-**Owner.** [NO_MOUSE_ACCESSIBILITY_CONTRACT.md](NO_MOUSE_ACCESSIBILITY_CONTRACT.md) and the browser
-contracts in [CONTRACTS.md](CONTRACTS.md#browser-contracts).
-
-**Planned closure.** Each new Question Type supplies its own keyboard evidence as it lands; it
-does not wait for a generic final audit.
-
-## Question Backend systems and evidence
-
-### Question Backends own presentation and evaluation
-
-**Decision.** Each Question Backend owns presentation, interaction semantics,
-response interpretation, grading, partial credit, feedback, and backend-specific
-state for its Questions. PLE owns authorization, immutable Question identity,
-Assignment and Attempt lifecycle, persistence, recorded outcomes, and minimal
-generic hosting.
-
-**Why.** A backend may implement the same educational Question Type through
-different controls and interaction structures. Preserving its native document
-and opaque response boundary keeps that implementation knowledge with the
-backend while PLE supplies one consistent lifecycle.
-
-**Consequence.** The boundary has two layers: PLE hosts backend-owned
-presentation and exchanges opaque backend values through a shared lifecycle and
-outcome contract; each backend adapter implements its own transport. The
-shared lifecycle renders a Question from its identity and Attempt context, then
-submits opaque response and state values for score, feedback, and updated state.
-The WeBWorK adapter renders and grades through the renderer API without PLE
-parsing or translating PG controls. iMathAS and H5P adopt the same boundary
-through their own transports when their adapters are implemented. An author
-declares the immutable educational Question Type on the Published Question
-Revision; PLE uses that metadata for presentation and discovery without
-inferring it from backend controls.
-
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md#question-backend-ownership),
-`crates/adapters/webwork`, and
-[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
-
-### H5P Package Import retains its minimal QSOM1 adaptation
-
-**Decision.** H5P is the `h5p` Question Format and bounded H5P Package Import path.
-**Why.** Its immutable archive, checksum, content type, and import fingerprint retain archival evidence for an unpublished, key-free, ungraded practice payload; it has no server validation, issue, reproduction, or automated-grading lifecycle.
-**Consequence.** H5P retains its exact format-specific archive/source boundary with only the minimal
-QSOM1 adaptation. It creates no generic PLE source fields, generic Assignment attempt/time controls, or
-generic grading-rule facts. Its importer retains hostile-input archive validation, immutable archive
-resolution, checksum verification, and unsupported-feature refusal; graded Questions use an approved
-Question Backend.
-**Owner.** [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#question-format-and-question-type), [INPUT_FORMATS.md](INPUT_FORMATS.md), and `crates/adapters/h5p/src/import.rs`.
-
-### Tests prove behavior at the right layer
-
-**Decision.** Permanent focused tests are deterministic, offline, behavior-focused evidence.
-Connected acceptance remains permanent only when a durable PostgreSQL, storage, or service
-boundary cannot be proved at a smaller layer. Reset investigations, performance observations,
-backup rehearsals, and visual probes are one-time evidence unless they independently satisfy the
-permanent-test checklist.
-
-**Why.** A permanent test suite must stay trustworthy and fast enough to run often. Exact file
-layouts, tunable constants, mock wiring, and live infrastructure can create false confidence or
-maintenance burden without proving student behavior.
-
-**Consequence.** Memory and mock backends support unit and conformance behavior. A retained
-connected oracle names the durable real-system boundary it protects. One-time probes are recorded
-and removed after they answer their implementation question. A source-size gate is permanent
-architecture evidence because it protects capability ownership.
-
-**Owner.** [PYTEST_STYLE.md](PYTEST_STYLE.md),
-[DEVELOPMENT.md](DEVELOPMENT.md#choose-the-right-gate),
-and [E2E_TESTS.md](E2E_TESTS.md).
-
-**Planned closure.** Each release package records its exact permanent and one-time evidence before
-status can claim the behavior is accepted.
-
-## Product presentation and operations
-
-### Viewport and visual evidence profiles
-
-**Decision.** Instructor and Sysadmin design and permanent visual evidence use the canonical 1280
-by 800 CSS-pixel desktop 16:10 viewport profile. The historical screenshot filename label `laptop`
-identifies that exact 1280 by 800 evidence profile. Student design also covers 800 by 1280 portrait
-tablet, 393 by 852 narrow phone, and 800 by 800 square profiles; profile weights guide planning and
-do not create screenshot quotas or pixel-equivalence acceptance.
-
-**Why.** The owner prioritizes desktop teaching and administration while Student devices vary.
-Semantic usability, accessibility, privacy, and task completion are stronger evidence than exact
-rendered dimensions.
-
-### The Live Demo is acceptance for the real PLE
-
-**Decision.** The Live Demo establishes representative ordinary product records through their
-owning paths: direct data SQL or guarded PostgreSQL functions for facts PostgreSQL completely owns,
-and the owning service paths for genuine cross-system effects. It then exercises real Instructor and
-Student workflows as launch-readiness evidence. It is an acceptance environment for PLE, not a
-separate demo product or presentation model.
-
-**Why.** Parallel mock state can look convincing while bypassing the schema, authorization,
-workflow, and accumulated-state behavior that must work for real teaching.
-
-**Consequence.** The startup Course, roster, Assignment, Student work, and Gradebook state use the
-same PostgreSQL records and browser surfaces as ordinary use. The data-only manifest establishes
-the state PostgreSQL completely owns. Product code never branches on a
-persona, expected score, or showcase state. Future launch demonstrations follow this rule where it
-applies.
-
-**Owner.** [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md),
-[LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md), and the fixed Developer Browser Suite
-controller.
-
-### Teaching workspaces use task-owned composition
-
-**Decision.** Instructor assignment work is composed as focused Overview, Questions, Policies,
-Grading operations, and Student-view tasks over one authoritative assignment. Useful desktop width
-goes to scanning and
-editing; the complete current task and primary save action should fit comfortably at 1280 by 800.
-
-**Why.** Task-level hierarchy is easier to teach and operate than a grid of equally padded cards.
-Separating content from policy prevents unrelated fields from competing on one page.
-
-### Product navigation exposes Questions through one library surface
-
-**Decision.** The Instructor Product Ribbon has three ordered Tabs: Courses, Questions, and
-Assignments. Account and Profile are Ribbon Context Controls. This is the owner's teaching-work
-taxonomy, not a derivation of the current route hierarchy. The Questions task row is My Questions,
-My Draft Questions, Starred, Watched, Search Question Library, and Browse Question Library, in that
-order. Starred and Watched retain their positions while Unavailable. My Draft Questions enters the
-separate private Authoring Workspace Store when its complete usable path is backed.
-
-**Why.** Courses, Questions, and Assignments are the three things an Instructor manages. The
-taxonomy keeps primary teaching work visible without promoting a current implementation hierarchy
-into a product constraint. Ownership, publication state, endorsement, and notification subscription
-remain distinct destinations rather than competing top-level repositories.
-
-**Consequence.** Courses owns Blueprint, active, inactive, and public-search task positions;
-Questions owns discovery and authored-question tasks; Assignments owns Due Soon and templates.
-Question Folders, Question Tags, Saved Question Searches, and search facets organize or find
-Questions within their applicable destination. Star means visible endorsement, and Watch means
-private notification subscription.
-
-**Owner.** `src/ribbon/ribbon_catalog.ts` declares the catalog;
-`src/ribbon/ribbon_contract.ts` selects it; [UI_DESIGN_GUIDE.md](UI_DESIGN_GUIDE.md) owns its
-order and presentation.
-
-### The Application Shell owns one Ribbon for every Product Role
-
-**Decision.** `src/application_shell.tsx` owns the one persistent Application Shell and Ribbon for
-every authenticated Product Role on every admitted application route. `src/ribbon/ribbon_contract.ts`
-selects the ordered Ribbon Schema from the declared route, Ribbon Scope, immutable Product Role, and
-truthful capability admission; `src/ribbon/app_ribbon.tsx` presents the Context, Tab, and optional
-Task Rows according to declared route topology. Route pages own their task heading, workflow content,
-route-specific recovery, and Page Actions at the point of work. Public, unknown or unmatched, and
-signed-out routes do not fabricate a Ribbon.
-An authenticated route that matches a declared scoped pattern but carries an invalid declared
-reference retains that declared, data-free Ribbon schema: it does not resolve scope data, fall back
-to Product scope, or expose usable controls.
-
-**Why.** One persistent navigation landmark preserves spatial memory for Instructor, Student, and
-Sysadmin work alike: a tab change remains a task change within one application rather than a new
-page frame. Keeping headings and mutations with their route content avoids both duplicated course
-identity and navigation controls that pretend to perform a page operation. The former
-Instructor-only course-management frame could not provide that invariant across product scopes or
-async route data.
-
-**Consequence.** The retired course-management frame, course-management navigation, and assignment
-workspace navigation do not regain a parallel navigation role. The named rows selected by route
-topology retain their geometry when a deferred scope label, content error, theme, or
-capability-admission result changes. A declared but truthfully empty Tab or Task row remains reserved
-rather than being filled with disabled or invented destinations; a route without a task group omits
-the Task Row entirely. Identity, selected-control, focus, keyboard, contrast, and responsive browser
-evidence must prove this behavior. Course Setup retains Grade Settings and Appearance as Ribbon
-Tasks, while Create Assignment remains the Assignments Page Action.
-
-**Owner.** `src/application_shell.tsx` owns persistent shell composition, focus transfer, and the
-content boundary; `src/ribbon/ribbon_contract.ts` owns route, scope, role, and capability selection;
-and `src/ribbon/app_ribbon.tsx` owns Ribbon-row presentation. The exact retirement responsibility
-map is `docs/ux/RIBBON_RETIREMENT_RESPONSIBILITY_INVENTORY.md`;
-individual route-page components own their content and Page Actions.
-
-### Interface cleanup: settled Ribbon and Assignment work
-
-**Decision.** The Instructor Product Ribbon uses one dense top bar with Peptidyle, one boxed Product
-Role plate, Courses, Questions, Assignments, Sign Out, and the far-right Profile control. Product Role
-has no second account-label rendering. Every visible navigation item has a Font Awesome glyph plus
-text except the Instructor-only Profile control: its visible rounded-square content is a generic
-user glyph or the Instructor's uploaded thumbnail, while its accessible name remains `Profile`.
-Courses tasks are My Blueprint Courses, My Active Courses, My Inactive Courses, and Search Public
-Blueprint Courses. Assignments tasks are Assignments Due Soon and My Assignment Templates. Unbacked
-destinations remain Unavailable without a placeholder link.
-Assignment composition and delivery are separate tasks: Edit Assignment makes selecting, adding,
-removing, and ordering Questions primary; Assignment Settings owns timing, release, scoring,
-attempts, randomization, late work, and disclosure. The labels are secondary; the five focused
-Assignment routes remain the implementation seam. Student delivery has one live lane: the
-one-Question Assignment Attempt surface.
-
-**Why.** The owner settled a compact traditional application menu and two distinct Instructor jobs.
-One Student delivery lane avoids duplicate state and recovery behavior.
-
-**Consequence.** A separate Tab Row survives only after named responsive or focus-order evidence
-requires it. Sign Out remains before Profile so the icon-only Profile control is the final
-account-end control. Student and Sysadmin Ribbons have no Profile control. The older duplicate
-Assignment surface retires instead of becoming another editing path. Question navigation and the
-subtle remaining-time timer stay in Attempt content. Capability admission never turns a reserved
-future position into a false link.
-
-**Owner.** `src/application_shell.tsx`, `src/ribbon/ribbon_contract.ts`, and
-`src/ribbon/app_ribbon.tsx` own shell selection and presentation; the Assignment route family owns
-the two Instructor tasks; `src/pages/assignment_attempt_page.tsx` owns Student delivery.
-
-### Interface cleanup: account-owned time zones
-
-**Decision.** An Assignment deadline is an absolute instant with no Course or Assignment time-zone
-owner. `CourseTerm` retains exactly two inclusive, ordered calendar dates (`startDate` and `endDate`)
-and no zone. An Instructor Account owns an IANA zone for entering wall-clock values and Instructor
-display. The server checks the plain local input date against the CourseTerm before interpreting it in
-that authenticated Account zone, and continues to reject DST gaps and ambiguities. A Student Account
-owns its IANA display zone, initially defaultable from the Instructor at enrollment. The Course zone
-retires. Changing a profile zone changes only later interpretation and display; it never moves an
-existing stored deadline.
-
-**Why.** `timestamptz` already correctly stores deadline instants. A Course clock is fictitious for
-a distributed course and creates a second competing preference owner. The authored-local resolver
-in `crates/question_model/src/assignment/teaching_settings_local.rs` owns the calendar-bound check
-and Account-zone conversion. `crates/domain/src/preview_plane.rs` and
-`crates/question_model/src/blueprint_operations.rs` each receive the acting Account zone at their
-existing preview or schedule-resolution boundary.
-
-**Consequence.** Wall-clock input carries no zone; the authenticated Account supplies it. Stored
-instants are not universally revalidated through a Course clock when they are read or displayed.
-Preview and Blueprint schedule work resolve with the acting Account zone. Every display names and
-uses the applicable Account zone, while countdowns continue to use server-computed remaining duration.
-
-**Owner.** Account preference storage owns Account zones; after the production
-freeze, a forward migration owns any structural change to that storage;
-`crates/question_model/src/course_term.rs` owns calendar-date validation;
-`crates/question_model/src/assignment/teaching_settings_local.rs` owns the local-date bound check
-and local-time interpretation; `crates/domain/src/preview_plane.rs` and
-`crates/question_model/src/blueprint_operations.rs` own their respective Account-zone resolution;
-the due-date editor and display surfaces own Account-zone presentation.
-
-### Interface cleanup: randomization ownership
-
-**Decision.** An Assignment owns optional Question-order randomization. A PLE-native Question owns
-whether its answer choices randomize when presented; an Assignment never overrides that choice.
-
-**Why.** Question order and answer-choice order have different owners.
-
-**Consequence.** Assignment Settings exposes only Question-order randomization. PLE-native
-Question authoring, issuance, and presentation own the answer-choice declaration; backend
-Questions retain their backend presentation.
-
-**Owner.** Assignment policy owns Question order; Question presentation owns answer-choice order.
-
-### Interface cleanup: Assignment disclosure timing
-
-**Decision.** Assignment policy keeps six independently timed disclosures: score, per-item
-correctness, correct answer, Question feedback, Question answer explanation, and class statistics.
-It also owns a separate `submitted_response` timing for a Student's recorded response in
-previous-attempt history. New Assignments release score, correctness, and submitted response after
-submission; correct answer, Question feedback, Question answer explanation, and class statistics
-default to Never.
-
-**Why.** A recorded Student response, correctness, accepted answer, authored feedback, and score
-are different disclosures. The existing fields could not express the owner's correctness-only
-previous-attempt choice without coupling separate policies. Question-authored feedback can contain
-answer-bearing material, so its safe default is independent from useful normal feedback about the
-Student's own work.
-
-**Consequence.** Assignment Properties presents each timing independently. M7 evaluates
-`submitted_response` when it projects previous-attempt history; M5 continues returning the saved
-response needed to resume an active Attempt. Existing explicit Assignment policy values remain
-unchanged.
-
-**Owner.** `crates/question_model/src/assignment_activity_rules.rs` owns the policy shape;
-`crates/domain/src/student_feedback_release.rs` owns its pure evaluation; the Assignment Workspace
-and its persistence boundary own editing and storage; M7 owns the prior-attempt response projection.
-
-### Interface cleanup: effective Assignment Question order
-
-**Decision.** A new Assignment presents one Question at a time and defaults its Assignment-owned
-Question order to Shuffled. Start selects pool items without replacement and records the resulting
-contiguous Issued Question positions. Resume reconstructs from retained Issue evidence rather than
-the Student-facing position.
-
-**Why.** The current Assignment policy must guide a new Attempt while an issued Attempt keeps its
-own stable sequence through retry and resume. Position describes presentation sequence; it is not a
-source identity.
-
-**Consequence.** Authored order remains an explicit Assignment choice. Question-pool reuse controls
-whether a later Attempt reuses its pool selection or selects again, and Question variation controls
-whether it reuses or receives a new variation. Those controls do not change answer-choice order,
-which remains Question presentation behavior. A draft may omit a duration, but release requires the
-Instructor to save a positive whole-Attempt time limit; PLE supplies no invented duration default.
-An exact retry of the current full Workspace policy returns its current Edit Number without a
-mutation; a changed policy retains the ordinary one-step Edit Number advance.
-
-**Owner.** Assignment policy, Student Work, and Question presentation schema and Store families.
-
-### Authenticated identity lives in the Ribbon Context Row
-
-**Decision.** Authenticated routes with a Ribbon present one Peptidyle home identity as the leading
-Context Row anchor. They do not render the separate site header. Routes without a Ribbon retain the
-site header as their fallback identity and navigation surface.
-
-**Why.** Two persistent Peptidyle identity bands consume teaching space and create competing shell
-hierarchy without adding orientation. The Context Row already owns application and account context.
-
-**Consequence.** The brand remains a plain named home link with visible keyboard focus, a
-coarse-pointer target, and narrow-screen clipping behavior. Removing the duplicate band changes no
-route, Product Role, capability, or authorization decision.
-
-**Owner.** `src/application_shell.tsx` selects Ribbon versus fallback-header composition;
-`src/ribbon/app_ribbon.tsx` and `src/ribbon/app_ribbon.css` own the authenticated brand presentation.
-
-### The shell frame owns the viewport-height floor
-
-**Decision.** `.ple-shell-frame` is the one structural owner of the `100dvh` minimum and composes
-chrome above a `minmax(0, 1fr)` content track. The shell and course-theme canvas do not subtract
-header or Ribbon band heights from their own minimum heights.
-
-**Why.** A structural grid expresses the actual relationship between chrome and content. Repeated
-viewport arithmetic couples independent components, overflows short pages when chrome changes, and
-creates more than one owner for the same geometry.
-
-**Consequence.** Short pages fill the viewport without document overflow, tall content grows the
-document normally, and themed and unthemed canvases share the same frame contract. Ribbon row tokens
-still describe Ribbon geometry; they no longer participate in page-height subtraction.
-
-**Owner.** `src/application_shell.tsx` owns the frame structure and `src/style.css` owns its viewport
-floor. `src/features/course_appearance/course_theme_variables.tsx` paints the framed content canvas.
-
-### Declared route topology owns Task Row reservation
-
-**Decision.** Context and Tab Rows are present for every Ribbon. The Task Row is present exactly when
-the declared route has a task group. Capability admission, relationship checks, deferred data,
-loading, and errors may change Task contents but never decide whether the row exists.
-
-**Why.** Reserving an empty Task Row on routes that cannot contain tasks wastes vertical space.
-Using admission to hide it would leak authorization or asynchronous state into geometry and move the
-content origin as checks resolve.
-
-**Consequence.** A task-capable route retains its row even when every Task is unavailable; a
-taskless route omits it. Transitions are stable within each declared topology, while transitions
-between taskful and taskless routes deliberately adopt the destination route's compact geometry.
-
-**Owner.** `src/ribbon/ribbon_contract.ts` owns declared task-group topology;
-`src/application_shell.tsx` and `src/ribbon/app_ribbon.tsx` project it without consulting admission.
-
-### Course appearance derives usable roles from three anchors
-
-**Decision.** A Course selects one three-color biome or habitat theme and may add a centered Banner.
-One verified private source produces centered, lossless WebP renditions: a 1200 by 200 (6:1) hero
-and a 1000 by 400 (5:2) card. The hero uses a responsive 120--200 pixel height rather than a fixed
-box. The default `grass` anchors are `#73C167`, `#008852`, and `#BDDEB1`; readable interface roles
-are derived without changing the stored anchors.
-
-**Why.** The owner wants Blackboard Original-like course identity, not three decorative swatches on
-otherwise identical white pages. Derived roles preserve recognizable color while meeting contrast
-and accessibility needs. A shorter wide hero preserves course identity without consuming the former
-large above-fold space, while a separate card crop keeps the meaningful center visible at smaller
-surfaces. Course identity text remains outside the artwork, so no scrim damages Instructor content.
-
-**Consequence.** The Instructor previews the two fixed centered crops before saving. The Banner
-source and both deliveries are server-owned; no caller selects a path, crop, or rendition. Theme
-and Banner saves remain independent behind one authorized appearance reader.
-
-**Owner.** `crates/question_model/src/course_appearance.rs` owns fixed rendition identities;
-`src/features/course_appearance/course_theme_registry.ts` owns palette roles; and
-`docs/active_plans/decisions/course_appearance_banner_storage_and_sizing.md` records the measured
-selection.
-
-### Instructor Profile stores one normalized thumbnail
-
-**Decision.** An Instructor Profile accepts a still image at any useful source aspect and stores
-one fixed 256 by 256 centered, lossless WebP thumbnail. The same Profile component presents that
-thumbnail in one rounded-square silhouette. Source bytes, crop choices, storage paths, and
-alternative renditions are not Profile state or caller inputs.
-
-**Why.** A single normalized identity image gives a predictable profile appearance while allowing
-ordinary source photographs. Server-owned normalization and typed object storage preserve the
-existing authorization, checksum, cleanup, and delivery boundaries without creating a media
-platform or Student upload capability.
-
-**Consequence.** The attested active Instructor is the only Profile thumbnail owner and recipient
-of its current opaque delivery reference. Replacement retires the prior delivery and uses the
-existing deletion, storage-check, cleanup-manifest, job, and audit-receipt lineage, including
-compensation after a failed finalization. The durable transaction and delivery boundary stays
-function-only under forced RLS; it retains explicit definer mode, fixed search paths, and a scoped
-transaction advisory lock.
-
-**Owner.** `crates/question_model/src/profile_thumbnail.rs` owns thumbnail identity;
-`crates/learning-data-access/src/profile_thumbnail.rs` owns the Store contract;
-`schemas/base_schema/profile_media.sql` owns persistence and database authority;
-`crates/server/src/instructor_profile.rs` owns the self-only HTTP boundary; and
-`src/features/instructor_profile/profile_thumbnail.tsx`,
-`src/features/instructor_profile/profile_thumbnail_url.ts`, and
-`src/features/instructor_profile/ribbon_profile_avatar.tsx` own browser thumbnail presentation and
-its cleanup-safe delivery projection.
-
-### Browser typography uses locally bundled Atkinson Hyperlegible Next
-
-**Decision.** Written browser UI uses locally bundled Atkinson Hyperlegible Next normal and italic
-variable web fonts. `src/styles/browser_fonts.css` declares the browser-local font faces;
-`src/style.css` owns only the global stack that places the family before system sans-serif fallbacks.
-Explicit browser monospace rules retain their own font choices; backend, native-renderer, and export
-font choices remain outside this browser-presentation decision.
-
-**Why.** The selected typeface supports the owner's readable written interface preference without a
-runtime dependency on a third-party font host. Keeping deliberate monospace and renderer choices
-preserves contexts where character alignment or output fidelity is the requirement.
-
-**Consequence.** The checked browser build copies the font files, license, and provenance record
-from `src/assets/fonts/atkinson_hyperlegible_next/` to the same-origin `dist/` asset path. A build
-failure identifies a repairable local asset or stylesheet rule; it does not silently substitute a
-remote font request.
-
-**Owner.** `src/assets/fonts/atkinson_hyperlegible_next/` owns the retained font distribution and
-its OFL/provenance record; `src/styles/browser_fonts.css` owns browser font-face declarations;
-`src/style.css` owns the global browser font stack; and `pipeline/build.mjs` owns local asset
-copying and delivery verification.
-
-## Demonstration and release evidence
-
-### Instructor Assignment lists use product naming
-
-**Decision.** The Instructor-authorized Assignment list is the ordinary product
-capability `GET /api/course-instances/{course_instance_reference}/assignments`,
-backed by `LiveAssignmentStore::list_course_assignments` and
-`ple_api.list_course_assignments`. Its names do not carry a `live_demo_`
-prefix.
-
-**Why.** An Instructor needs to discover the Assignments owned by an exact
-Course Instance independently of seeded demonstration data. The Live Demo is
-the first consumer, not the owner of this capability. Earlier neighbouring
-Assignment Workspace functions retain historical milestone-based
-`live_demo_` names; that prefix is not a product naming pattern to extend.
-
-**Consequence.** The route requires the caller's current direct Instructor
-Course Membership and returns only Assignment Reference, Assignment Title,
-Assignment Status, and Assignment Edit Number. Anonymous, Student, Sysadmin,
-and foreign-Instructor access is concealed as `404`, and the projection carries
-no Student identity, response, answer, or grading state.
-
-**Owner.** [API_CONTRACTS.md](API_CONTRACTS.md),
-[DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md), and the Assignment Store and
-Server Route contracts.
-
-### Exact owners bind authorization decisions
-
-**Decision.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) and
-[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) are the binding
-single-installation authorization contracts for Account identity, Question Library
-publication, course records, private authoring, workers, objects, exports,
-retention, observer relationships, and Sysadmin support. Each protected
-operation resolves its Account from the active session and checks the durable
-owner and exact predicate those contracts define.
-
-**Why.** Every authorization decision needs an object that names its real scope.
-That keeps Question Library access, course records, private work, and worker leases
-independently reviewable without relying on an ambient installation boundary.
-
-**Consequence.** Baseline relations, Store contracts, protected authorization functions, and acceptance
-cases derive their parent identifiers and predicates from those contracts.
-Observer and support relations remain narrow recorded grants, workers keep
-immutable typed targets and leases, and object delivery verifies its actual
-Question Library, workspace, Course Instance, Student Record, or lease parent.
-
-**Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md) for
-PostgreSQL authorization and [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md)
-for product and service authorization.
-
-### Student View Scenario admission preserves its branch
-
-**Decision.** An allowed Assignment Delivery Preview evaluation reports the
-closed `StudentViewScenarioAdmission` output. The selected-Student origin pairs
-only with `SelectedStudentActiveStudentCourseMembership`; the hypothetical
-origin pairs only with `HypotheticalStudentViewScenarioAdmission`.
-
-**Why.** Active Student Course Membership proves a real Student Record's
-relationship to a Course Instance. Hypothetical scenario admission proves only
-Course and Assignment scope. A shared output field named after selected
-membership would claim the wrong proof for an identity-free scenario.
-
-**Consequence.** The browser contract rejects cross-paired origin and admission
-values. `ActiveStudentCourseMembershipGrantReason` continues to describe actual
-selected-membership surfaces. The hypothetical branch retains its private
-admission evaluator and policy decision. The output has no person locator or
-authority token. The declared Assignment Delivery Preview route, Store, schema,
-PostgreSQL persistence, fixture, and browser feature do not exist yet.
-
-**Owner.** `crates/question_model/src/preview_plane.rs` owns the public output;
-`crates/domain/src/preview_plane.rs` owns branch evaluation; and
-[CONTRACTS.md](CONTRACTS.md) owns the browser contract and Browser Surface availability status.
-
-### Locked public-asset job targets carry authorization ownership
-
-**Decision.** Every implemented durable public-asset Job has one immutable server-resolved target,
-a closed worker kind, and at most one opaque current lease. A public-asset Job targets one immutable
-Question Revision. Other future Job kinds must define an equally exact typed target before they are
-added; grading Jobs are not part of the current product model.
-
-**Why.** An object identifier alone cannot establish the authorization parent
-for export or import work. Persisting the resolved target at enqueue time
-makes a claim self-contained, prevents work from following mutable surrounding
-state, and gives each recovery and revocation path one exact boundary to verify.
-
-**Consequence.** Enqueue resolves the target from authorized records and writes it atomically.
-Target and worker kind never change. Claim, commit, and fail reject a stale lease token; only the
-fixed worker role can invoke its matching procedures. This decision does not create a generic
-background-job framework or a grading lifecycle.
-**Owner.** [DATABASE_AUTHORIZATION.md](DATABASE_AUTHORIZATION.md),
-[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[jobs.sql](../schemas/base_schema/jobs.sql).
-
-### Assignment Export enters only as a complete typed service
-
-**Decision.** PLE has no current Assignment Export service. The Assignment Export stub removal establishes
-that baseline by removing unused export tables, export-only Job target members, and present-tense
-service claims. The package includes the former route/Store/worker/delivery claims in `SECURITY_MODEL`,
-identity claims in `IDENTITY_CONTRACTS`, authorization and retention claims in
-`DATABASE_AUTHORIZATION`, worker/storage/classification/audit claims in `MULTI_SERVER_SETUP`,
-`OBJECT_STORAGE`, `DATA_CLASSIFICATION`, and `AUTHORIZATION_CONTRACTS`, the Background Job
-Execution consumer in `CONTRACTS`, and the active plan/customer-spec request, worker, and
-milestone claims. The answer-key-free DOCX/PDF renderer and QTI interchange remain independently
-implemented. A future
-Assignment Export Manifest is a server-created private immutable typed frozen input for one exact
-Assignment state and its required evidence; it is not an Object ID or preparatory schema.
-
-**Why.** The retired records name an Assignment Export Reference, Manifest, Artifact, Format, and
-State without a Store, route, worker, browser contract, or authorized delivery. An opaque object
-reference cannot express the immutable selection and private-data authority a real export needs.
-
-**Consequence.** A future service introduces its Manifest, ordered Question Revision selection,
-printable Question Asset Object References and Checksums, format and component-release members,
-and per-format private-input allow-lists as one authorized transaction. It also supplies requester
-authorization, retry binding, least-privilege lease-scoped execution, private delivery, `no-store`
-status/download projection, retention, redacted audit evidence, and connected acceptance. ASVS
-2.1.1--2.3.4, 8.1.1--8.3.2, and 14.1.1--14.2.7 require evidence at that admission.
-
-**Owner.** The future Assignment Export service package owns its domain/schema/Store/route/worker
-boundary and the PostgreSQL catalog, least-privilege, object, and connected acceptance evidence.
-
-### Direct demo entry replaces verification only
-
-**Decision.** Public demo entry may select a seeded Student, Instructor, or Sysadmin identity, but
-the server still resolves the ordinary Account, session, Product Role, membership, and
-authorization. It does not exercise email authentication or passkey enrollment/sign-in: both are
-future capabilities, and the passkey capability is currently deferred.
-
-**Why.** SMTP is not configured for current acceptance. Bypassing only email verification keeps the
-demo accessible without replacing authorization or claiming unverified email delivery.
-
-### Seeded Students enter the Course through the roster
-
-**Decision.** Elena's roster import resolves each Student Authentication Email to an existing
-global Student Account or creates that Account when none exists. The target Student then claims the
-invitation, which creates the course-scoped Student Record and active Student Course Membership.
-The Live Demo manifest may establish those wholly PostgreSQL-owned relational results directly or
-through guarded PostgreSQL functions.
-
-**Why.** The ordinary roster operation remains the product workflow. Its completed relational state
-is database-owned, so the installation manifest can reproduce that state without a second
-controller path while preserving the same relationship-owned Course access.
-
-**Consequence.** The Live Demo data manifest may establish the fictional global Student Accounts,
-their authentication emails, Course Invitations, Student Records, and active Course Memberships
-because PostgreSQL owns those complete relational facts. Attempt, response, submission, and grade
-facts use their established owning paths when real presentation, storage, renderer, worker, or
-backend effects are required.
-
-**Owner.** [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md), the Course Roster API and Store contracts,
-`schemas/installation_data/`, and the project-tools installation-data command.
-
-### The canonical walkthrough is a focused teaching loop
-
-**Decision.** The pilot walkthrough has an Instructor create a course, add an active Student, build
-a representative four-Question Chapter 1 Assignment from Published Questions in the Question Library, and observe the
-Student's submitted and scored work. The complete eight-question sweep is a separate release gate.
-
-**Why.** A focused realistic loop demonstrates first success without substituting a one-question
-toy or forcing the full release Question Library into every walkthrough.
-
-## Content and grading formats
-
-### iMathAS Session, Context, and evidence have one owner
-
-**Decision.** Question Model owns the typed `ImathasQuestionBackendBinding`: iMathAS Deployment Reference, iMathAS Item Reference, and the pinned `imathas_remote_grading_v1` profile.
-LDA owns the sole server-only iMathAS Question Backend Session, persists that exact binding, and owns its typed Session Reference, preparation/restore/lease/iMathAS Result Exchange Store boundary, and XChaCha20-Poly1305 backend-state protection with rotation.
-The iMathAS adapter owns iMathAS Launch Reference, iMathAS Launch State protocol bytes, iMathAS Render Cache Entry, and iMathAS Launch/Result HMAC and protocol verification. LDA mints the Session's OS-CSPRNG 256-bit Challenge, which iMathAS carries only as signed `ple_launch_challenge`.
-`ImathasGradingContext` remains exactly its redacted non-Serde `{ QuestionAttemptId, QuestionRevisionReference, QuestionSeed }` triple, expires with its Session, and preserves `authentication_payload_v1`. The Session stores authentication and Result lifecycle facts and binds QuestionAttemptId; the atomic worker commit locks the selected IssuedQuestion, resolves its point_value and scoring_rule, and combines those Assignment facts with backend QuestionEvaluation to write the Assignment-owned GradingResult.
-The iMathAS Result Token and checksum are LDA evidence after server-to-server verification; raw bytes never persist or enter browser/generated/log/Debug output.
-
-**Why.** One owner lets the delivery-backend base modules enforce exact restore,
-RLS, forward iMathAS Session/Result Exchange transitions, and four-axis context
-mismatch refusal without a parallel adapter or browser identity boundary. The
-browser launch shell accepts only validated `{ launchUrl }`; its LDA-backed Rust
-route, cookie/env backend composition, and live-backend acceptance remain
-separate work.
-
-### iMathAS Ready-to-Commit job model is superseded
-
-**Decision.** The former Ready-to-Commit, worker-leased grading-Job model is superseded by the
-Phase 2 v2 submission boundary. The disconnected iMathAS delivery path is being removed; it does
-not establish a current queue, pending grading state, attention state, retry policy, or public
-operation.
-
-**Why.** That model joined backend-result persistence to the rejected public grading lifecycle.
-PLE's current authority is smaller: a Question Backend owns evaluation, PLE stores its immutable
-credit fraction, and score readers apply current point values.
-
-**Consequence.** No replacement iMathAS workflow is designed here. If an approved backend later
-requires deferred completion, it must remain internal and use the ordinary Attempt submission
-boundary without exposing a grading lifecycle. Existing private Result evidence remains private.
-**Owner.** [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) and
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md).
-
-### PLE Question JSON is the static-Question authority
-
-**Decision.** PLE Question JSON is unversioned and has one current, strictly validated source shape.
-It is canonical for MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
-`format: "pleQuestionJson"` identifies the document, and all stored native Questions and readers are
-upgraded together whenever its shape changes. Its source excludes points, Question Attempt Limit,
-and Question Attempt Time Limit; the exact Assignment Entry owns those facts. YAML may compile once
-into that contract. QTI is an import, export, and archival pathway rather than a stored runtime
-Question Format or Question Backend. An accepted Workspace Import validates and maps each supported
-QTI item into one complete PLE Question JSON Draft Question.
-When that Draft Question is published, its Question Revision owns the mapped PLE Question JSON as
-its immutable Question Source and the PLE Question Backend presents and evaluates it. Published
-Questions backed by WeBWorK, iMathAS, H5P, or another registered technology retain their own
-complete Question Source and Question Backend boundary. The QTI-to-PLE Question JSON mapping
-applies specifically to supported flat QTI imports.
-
-The original QTI package, QTI Profile, QTI Package Item Reference, mappings, warnings, checksums, and
-vendor points remain Workspace Import evidence. QTI export may be generated from PLE Question JSON
-where the supported mapping preserves its meaning. A future explicitly authored PLE Question JSON
-Accessibility Alternative may serve a Question whose primary source uses WeBWorK, iMathAS, H5P, or
-another registered technology. It uses the shared backend-agnostic Question operations and remains
-separate future implementation and authoring work.
-
-**Why.** One deterministic cross-language contract avoids competing source models. QTI preserves
-interchange and import evidence without dictating runtime storage, presentation, or grading.
-
-**Owner.** [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md).
-
-### Native interactions adapt the QTI self-test model
-
-**Decision.** PLE Question Implementations borrow the QTI Package Maker self-test's compact task, obvious submit, visible response state, per-part completion, plain-language feedback, reset, and completed state. PLE retains server-only grading, labeled controls, keyboard operation, and recoverable errors.
-
-**Why.** Students should learn one clear interaction vocabulary without importing client-side answers, drag-only controls, result-string protocols, or inaccessible presentation choices.
-
-### Binary question assets use object storage
-
-**Decision.** Images and other binary references keep bytes, checksums, media types, lifecycle, and authorization in typed PLE object storage rather than JSON or database rows. Optional feedback remains part of the complete format-specific Question Source; its Question Backend may derive Question Feedback for an authorized release.
-
-**Why.** Typed storage preserves authorization and lifecycle boundaries while keeping the canonical question contract compact even when author feedback is incomplete.
-
-## Related decisions
-
-### Question Library Browse is browser presentation, not Question Search transport
-
-**Decision.** Generated `QuestionSearchRequest`, `QuestionSearchResult`, and
-`QuestionSearchPage` name only the Question Model transport contract. The
-flattened answer-free browser contract is the `QuestionLibraryBrowse*` family:
-row, evidence, facet aggregate, query, page, repository, state, session,
-decoder, normalization, virtual-window helper, and page-item bound. The
-production API repository is the sole explicit generated-to-browse adapter.
-`QuestionSearchAuthorship` remains generated vocabulary in the browse query,
-and `questionSearchRequest()` remains the server-request constructor. No alias
-or dual local/generated browser shape is permitted.
-
-**Why.** The generated result is `{ summary, evidence }` and the generated
-page carries server facets, whereas the browser contract has display text,
-author names, capabilities, browser evidence, and aggregates. Calling both
-shapes Question Search makes wrong imports and wrong-shape calls plausible.
-The available Library, Question Picker, and Assignment Editor need the flattened
-presentation shape, while accepted QC2 removed the Question Curation aggregate;
-stale Graphify Curation edges are not consumer authority.
-
-**Consequence.** This direct terminology cutover changes no Store, route,
-schema, generated transport source, fixture, or behavior. Independent QLB1
-review passed, and the browser-local/generated Question Search collision is
-closed.
-
-The settled identity, authentication, privacy, recovery, and Blueprint Revision
-decisions are retained in [IDENTITY_CONTRACTS.md](IDENTITY_CONTRACTS.md). The
-focused local-stack, Gradebook, wire-contract, and Blueprint-operation decisions
-are retained in [DESIGN_DECISIONS_OPERATIONS.md](DESIGN_DECISIONS_OPERATIONS.md).
-
-## Blueprint adoption and discovery
-
-A Blueprint Course is adopted into a Course Instance. Adoption atomically creates every
-Blueprint Assignment, including its ordered fixed Questions and Question Pools, exact Question
-Revision pins, instructions, points, and assignment policies. Fresh Assignment, entry, and pool
-item identities make each adoption independently editable. The Course Instance retains the exact
-Blueprint Revision provenance. This makes a Blueprint a complete reusable course rather than an
-empty course shell. No Student Work is adopted.
-
-Blueprint Courses have no relative schedules. Adopted Assignments start Unreleased with
-availability, due, and close dates unset. Instructors set those dates in the Course Instance;
-reusable content does not need calendar-offset machinery.
-
-Blueprint discovery can sort by total adoptions or total Students ever enrolled. Adoption totals
-count Course Instances across all Revisions. Enrollment totals count each Student once per Course
-Instance, including ended memberships; leaving and rejoining the same Course Instance does not
-increase the total. The interface exposes aggregate counts, not Student identities.
-
-Owners: the Blueprint and Course Instance contracts in [API_CONTRACTS.md](API_CONTRACTS.md),
-`crates/learning-data-access/src/postgres/course_blueprint_adoption.rs`, and
-`schemas/base_schema/course_blueprint_adoption.sql`.
+See the temporary
+[COMPLIANCE_SUMMARY.md](active_plans/reports/human_guidance_compliance/COMPLIANCE_SUMMARY.md)
+for the corpus review.

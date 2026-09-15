@@ -1,347 +1,161 @@
 # Identity contracts
 
-## Binding single-installation model
-
-PLE is one installation with global accounts. The intended global Account contract
-requires each account to have one global `AccountId` and exactly one immutable
-Student, Instructor, or Sysadmin Product Role; a person who needs multiple Product Roles uses
-separate accounts. A session then establishes one Account and its one Session Product Role, and
-an operation derives authorization from the exact course membership, Student
-ownership, workspace relationship, approved-Instructor state, or narrowly typed
-platform capability that applies to that operation. The Account and Authenticated
-Session storage boundary is implemented; service, database, and release acceptance
-remain separately incomplete.
-
-Every Published Question used in an Assignment is shared Instructor-visible Question Library
-content. A private draft has no Question Library identity and remains visible only
-through its workspace relationship until validated publication creates a stable
-Published Question identity and its first immutable Question Revision. Shared Question Library content is answer-free
-and contains no Student records.
-
-This document maps identities and their scopes. It supplements
-[USER_ROLES.md](USER_ROLES.md), [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
-[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md),
-[TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md), and
-[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md). [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md)
-records the checked-in migration from the former installation-scope model to these identities.
+This document maps PLE identities to the current product model in
+[HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md). A current database or route name may
+still contain `assignment` or another superseded term; that is implementation
+evidence, not a second product vocabulary.
 
 ## Rules that apply everywhere
 
-- A durable ID names one stored thing. It does not prove that its holder may
-  read, change, or discover that thing.
-- The server resolves the session to a global account and session identity; browser
-  requests never establish a user, approval state, course membership, Student
-  ownership, workspace relationship, job target, or role by supplying an ID.
-- `AccountId`, `CourseId`, `WorkspaceId`, and published `QuestionId` are
-  globally unique. Parent relationships, lifecycle state, and operation-specific
-  predicates establish access.
-- Educational records are owned by their exact Course Instance and Student
-  Course Membership relationships. They do not inherit authority from a
-  Product Role or a visible Course Reference.
-- Published Questions are shared. Each Question Revision owns immutable source and
-  exact historical evidence, while stable-lineage discovery metadata such as Question
-  Title and Question Description may be updated independently. Courses, memberships,
-  enrollments, Assignment Attempts, Question Attempts, jobs, and protected objects are
-  independent records that may refer to an exact Question Revision.
-- Rust uses distinct newtypes where mixing values would be a correctness risk.
-  UUID strings appear only at a trusted server or defined browser boundary.
-- A checksum or digest detects disagreement in otherwise valid data. It is not
-  authentication, authorization, transport security, or an answer key.
+- A durable ID names one thing. Possessing or supplying it does not authorize
+  access.
+- The server resolves the authenticated Account and exact stored relationship
+  required by the operation.
+- A checksum detects disagreement in otherwise valid data. It does not provide
+  authentication or authorization.
+- Public References are human-facing selectors. Internal UUIDs remain behind
+  trusted boundaries.
+- Published Questions, published Question Pools, and Blueprint Courses have
+  immutable Revision families. Human Guidance's general history summary omits
+  Pools even though its Pool rules explicitly require Pool Revisions.
 
-## Account, session, and relationship identities
+## Account and relationship identities
 
-| Identity or value         | Scope                                 | Intended use                                                                                                                                                       |
-| ------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `AccountId`               | Global, durable                       | Names one PLE login account across courses and workspaces. It is distinct from Student membership and enrollment identity.                                         |
-| Product Role              | Global Account Product Role and state | Stores exactly one closed Student, Instructor, or Sysadmin Product Role. Account/session storage never combines Product Roles.                                     |
-| `SessionId`               | Global, durable session record        | Names one server-tracked login session, including expiry and revocation state.                                                                                     |
-| `SessionTokenHash`        | Server-only session record            | Stores the hash of the opaque browser credential. The raw credential is never a DTO, record reference, or log value.                                               |
-| Active Instructor Account | Global Account Product Role and state | An Account with Instructor Product Role and active Account State establishes current Instructor product capabilities and is re-evaluated for protected operations. |
-| `Sysadmin` Product Role   | Implemented global Account state      | Names limited platform operations. It has no Course Membership; teaching and FERPA reads use current Instructor Course Membership authority or audited support.    |
+PLE is one installation with global Accounts. Each Account has exactly one
+immutable product role: Student, Instructor, or Sysadmin. A person who needs
+more than one role uses separate Accounts.
 
-The server resolves the opaque first-party session credential to a `SessionRecord`
-with its global account and session identity. The browser receives only its own answer-free
-`AuthSessionResponse` Account data. It never receives another person's `AccountId`, a raw session
-token, or an authority-bearing Account-State claim.
+| Identity or relationship | Scope and meaning |
+| --- | --- |
+| Account ID | One global login Account; distinct from Course membership and Student Work |
+| Student email | The immutable university or institutional address for one Student Account |
+| Session ID | One server-tracked login session; not the browser credential itself |
+| Product role | The Account's one immutable Student, Instructor, or Sysadmin role |
+| Course Instance ID | One delivered Course |
+| Course relationship | One Account's Student or Instructor relationship to one Course |
+| Student record ID | The global Student Account's FERPA-protected record in one Course Instance |
+| Blueprint Course ID | One reusable Blueprint lineage and current lifecycle state |
+| Blueprint owner relationship | The one Instructor who owns that Blueprint lineage |
+| Authoring workspace ID | One private Draft Question workspace |
 
-### Session authority ownership
+Every current co-Instructor has equal Course authority. The creator or first
+Instructor has no special ownership. A Sysadmin Account does not gain Course
+membership or ambient FERPA access from its global role.
 
-[`learning_data_access::session`](../crates/learning-data-access/src/session.rs)
-is the sole owner of server-only session identities: `SessionId`,
-`SessionTokenHash`, `SessionLifetime`, `SessionRecord`, and `SessionStore`.
-`SessionId` is a separate durable record identity, not a token hash,
-token-derived value, or browser reference. A resolved session identifies its
-global account and session, while the operation's exact relationship supplies
-course, workspace, Student, or other authority. It has no browser serialization shape.
-Neither type belongs in `question_model` or generated browser contracts.
+Removing a relationship or deactivating an Account does not erase the related
+Course history or Student Work. Retention is a separate Course process.
 
-[`learning_data_access::postgres::sessions`](../crates/learning-data-access/src/postgres/sessions.rs) owns
-only the transaction adapter that installs already-resolved account and session facts
-in a protected database transaction. It does not mint, define, re-export, or
-authorize `SessionId`, `AccountId`, course membership, workspace
-relationships, or Student ownership. The adapter applies transaction-local
-resolved session facts and forced-RLS denial; domain and Store owners evaluate the exact
-relationship or typed capability.
-The current legacy installation-scope context in this module is migration input,
-not a second session or Account contract and not a global replacement identity.
+Students and Instructors authenticate through passkeys or email codes. A
+Student may have multiple passkeys, but the Student's institutional email does
+not change. Authentication factors prove Account access; they do not establish
+Course membership.
 
-## Course, Student, and relationship identities
+## Content identities
 
-| Identity              | Owns or names                                                  | Authority and relation                                                                                                                         |
-| --------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CourseId`            | One teaching course or section                                 | Global durable course identity. Course-scoped records carry this exact parent.                                                                 |
-| `CourseMembershipId`  | One immutable course-membership episode                        | Binds one `AccountId`, one `CourseId`, a role, lifecycle, and roster revision. Revocation preserves evidence; rejoining creates a new episode. |
-| Student membership    | Current `CourseMembershipId` with Student role                 | Participates in exact Student ownership checks for course work and educational records.                                                        |
-| Instructor membership | Current `CourseMembershipId` with Instructor role              | Together with current approval, establishes `current_course_instructor(account_id, course_id, now)`.                                           |
-| `StudentRecordId`     | One Student Record for one Student Account and Course Instance | Binds a Student's course relationship to the durable educational record across membership episodes; it is not a session or role substitute.    |
-| `AssignmentId`        | One course assignment                                          | Has one exact `CourseId` parent and owns its current policy and ordered Assignment Entries.                                                    |
-| `AssignmentEntryId`   | One current Assignment Entry                                   | Names one Fixed Question or Question Pool in its Assignment Content.                                                                           |
-| `AssignmentAttemptId` | One Assignment Attempt                                         | Target identity for one pass through one exact Student Record and Assignment; later practice creates another Assignment Attempt.               |
-| `IssuedQuestionId`    | One selected Question Revision                                 | Binds an Assignment Attempt to exact immutable content, Assignment Entry, delivery order, and scoring treatment.                               |
-| `QuestionAttemptId`   | One server-issued try                                          | Binds an Issued Question to its seed, timing, status, Question Attempt Reproduction Details, and grading backend.                              |
+| Identity | Scope and meaning |
+| --- | --- |
+| Draft Question ID | One private, mutable, unpublished Draft Question |
+| Question ID | One stable Published Question lineage, displayed as `AAAA-ZBBB` |
+| Question Revision Reference | One immutable Revision in a Published Question lineage |
+| Question Pool ID | One stable published Pool lineage, using the same public ID shape |
+| Pool Revision Reference | One immutable Revision of a Question Pool |
+| Blueprint Revision Reference | One immutable saved content state of a Blueprint Course |
+| Assessment ID | One current Blueprint or Course Instance Assessment; not a revision family |
+| Assessment Attempt ID | One Student's occurrence of one Course Instance Assessment |
+| Object ID | One immutable stored object; never a browser authorization grant |
 
-The future Store-backed Sysadmin Course Instance Creation operation binds an exact BlueprintCourse source and
-revision, an explicitly assigned active Instructor account, and a
-server-reserved CourseInstance identity. One transaction creates the
-CourseInstance, that account's first ordinary Instructor membership, and an
-append-only audit event; it gives the Sysadmin account no membership. Every
-current Teaching Team Member has the same teaching and FERPA-read predicates.
-The future course-invitation design permits an authorized course Instructor to
-invite an active Instructor Account; its planned acceptance transaction will
-recheck role agreement, approval, invitation state, and roster revision
-atomically. No course-invitation route exists today.
+The visible Question and Pool ID contains seven random Crockford Base32 identity
+characters plus one HMAC-derived check character. The compact form is eight
+characters; the display form inserts a hyphen after four characters. See
+[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
 
-Student work is authorized by the authenticated `AccountId` owning the active
-Student membership and enrollment for the exact course. Direct current
-Teaching Team Members use the same course predicate for permitted teaching-record
-reads; neither another course nor a visible record ID extends that authority.
+Published Question metadata and immutable Question Revision content are
+separate. A source change creates a Question Revision. A compatible metadata
+edit does not create a Revision. A substantive fork creates a new Question ID.
 
-## Workspace and publication identities
+Question Pools follow the same stable-lineage plus immutable-Revision pattern.
+An Assessment records exact Question or Pool Revision evidence so later
+publication cannot silently alter existing Student Work.
 
-| Identity                    | Scope                                        | Intended use                                                                                                                                                                                          |
-| --------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `WorkspaceId`               | Global durable private-authoring root        | Names one draft workspace. Its owner/collaborator relationships, rather than its ID, authorize draft, import, source, asset, preview, and publication actions.                                        |
-| Workspace relationship      | Durable `AccountId` to `WorkspaceId` binding | Records owner or explicit collaborator access and its lifecycle/revision. It owns private draft visibility.                                                                                           |
-| `WorkspaceImportId`         | One private staged import                    | Names an import within its workspace. It never becomes a public Question Library reference.                                                                                                           |
-| `QuestionId`                | Stable Published Question lineage identity   | Human-facing Question Library reference for one Published Question lineage. Every Published Question used in an Assignment is discoverable by active Instructors through the shared Question Library. |
-| `QuestionRevisionReference` | Server-only immutable Question Revision      | Pairs one Question ID with its positive Question Revision Number for exact assignment, delivery, grading, replay, audit, and source evidence.                                                         |
-| `QuestionAssetId`           | Logical published content asset              | Names a published logical asset; it does not grant object delivery.                                                                                                                                   |
-| `ObjectId`                  | Immutable stored bytes                       | Names stored source, asset, export, or student-record bytes under an exact typed scope.                                                                                                               |
+## Blueprint identities and lifecycle
 
-Authoring Workspace relationships govern only private Question authoring. A
-Blueprint Course has its own Blueprint Course Owner and does not use Workspace
-Collaborator relationships. Its reusable structure exists only in immutable
-save-created Blueprint Revisions. The owner controls content Save plus the
-short name, long name, and availability protected by the lineage's opaque
-metadata ETag.
+A Blueprint Course is created Private with Revision 1. An explicit Save creates
+the next immutable Blueprint Revision only when canonical content changed; a
+no-op returns the current Revision and creates nothing. Name and lifecycle
+metadata changes do not create Blueprint Revisions.
 
-Validated publication either starts a new stable Published Question identity for a new
-question or records a new immutable `QuestionRevision` under an existing stable
-`QuestionId` lineage. A correction or compatible material improvement does not
-mint a new `QuestionId`; it preserves the lineage and creates exact new
-`QuestionId`/`QuestionRevisionNumber` evidence. A full fork for an incompatible objective,
-task, Question Type, or educational purpose creates a private draft and,
-after validation, a new `QuestionId` with source attribution and visible
-ancestry.
+The lifecycle state belongs to the Blueprint lineage:
 
-Published-question stewardship currently has three distinct paths:
+- Private: owner-only and unavailable for adoption;
+- Public: visible to vetted Instructors and available for adoption; or
+- Archived: read-only, excluded from ordinary discovery and new adoption, but
+  discoverable through explicit archived inclusion and forkable.
 
-- An owner moderate edit passes Question Publication Validation and creates a new
-  immutable version in the same `QuestionId` lineage.
-- Any Instructor may create a full fork as a private Draft Question. Validated
-  publication creates a separate lineage with a new `QuestionId`, source
-  attribution, and preserved ancestry.
-- A `ForcedQuestionCorrection` is a separately audited Sysadmin operation for
-  a critical security or correctness flaw. It maps one flawed immutable
-  version to a validated replacement `QuestionRevision` in the stable lineage
-  and records deterministic remediation; it is not ordinary editing.
+Only the owner changes Blueprint lifecycle state. A Public Blueprint can return
+to Private only before any Course Instance has adopted it. Archived restores to
+Public. A Revision Reference remains exact regardless of later lifecycle
+changes.
 
-Question Change Proposal, including a possible **Suggest an improvement**
-action, is a future product capability. It has no current persistence,
-lifecycle, event, Revision, API, or authority contract. Original authorship,
-contributor credit, history, and compatible Creative Commons licensing remain
-preserved across the current paths. Assignments and graded work retain exact
-immutable version pins and are never changed automatically by a later revision.
-A correction mapping may affect only future unissued resolution and its audited
-remediation; issued and graded evidence remains pinned to the original.
+Blueprints contain no Students, dates, time zones, or relative schedules.
 
-Question Library discovery and reuse use current approved-Instructor state.
-Question Search and Question Details release only answer-free, content-focused fields.
-It excludes Student-linked data, accepted responses, grades, source packages,
-private grader payloads, provider identifiers and credentials, Object Addresses,
-signed URLs, and workspace identifiers.
+Adoption and fork ancestry retain the source Blueprint and exact Revision.
+Those references support daughter update review and selective fork updates;
+they do not authorize a silent mutation. A Blueprint Course Change Proposal
+targets one receiving Blueprint and creates a new receiving Revision only for
+changes its owner accepts.
 
-## Current and future course relationships
+## Assessment and Student Work identities
 
-Current Course Membership relationships provide the closed Student and
-Instructor Course Membership model. Future least-authority relationships are separate
-records; each carries subject `AccountId`, exact `CourseId`, relationship kind,
-explicit capability set, issuer and issue time, lifecycle/revision, audit ID,
-and its required disclosure policy.
+Assessment is the generic product object. The word Assignment appears only in
+the three Assessment Type names Regular Assignment, Practice Question
+Assignment, and Bonus Assignment.
 
-| Relationship                         | Intended returned data               | Identity boundary                                                                                                                                                |
-| ------------------------------------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Grader                               | Bounded grading work                 | Uses an explicit grant and exact grading target; it does not become a course manager.                                                                            |
-| Course Observer (for example, ADAPT) | Anonymous aggregate grades           | Uses a typed aggregate-grade result with disclosure thresholds and no Student subject, enrollment, row, small-cell, linkable metadata, answers, or FERPA record. |
-| Student Observer                     | A consent-backed view of one Student | Binds observer, one Student, and one explicit revocable consent/disclosure record.                                                                               |
+An Assessment Attempt owns the Student's saved responses and whole-Assessment
+submission state. An implementation may assign internal row IDs to Question
+positions or response evidence, but those IDs must not create another Student
+action or product Attempt family.
 
-These relationships complement rather than replace course membership. They
-remain separate from Student ownership, Instructor teaching, roster,
-Gradebook, response, export, artifact, assignment-write, and worker predicates
-until each workflow has its complete privacy and disclosure contract.
+The Question Backend owns opaque render state and response interpretation. PLE
+binds that state to the authenticated Student, Course, Assessment Attempt,
+Question position, and exact Revision evidence. A browser-supplied Attempt or
+position is only a selector.
 
-## Typed operational identities and scopes
+## Future Course relationships
 
-| Identity                 | Scope                               | Intended use                                                                                                                                                                                                      |
-| ------------------------ | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `JobId`                  | Durable queue record                | Names one durable work unit. It does not establish a worker lease or target authorization.                                                                                                                        |
-| `JobLeaseToken`          | One worker claim                    | Opaque server/worker capability for the current lease. It is replaced on reclaim and never enters a browser contract.                                                                                             |
-| Job target scope         | Locked job manifest                 | Question Library work uses the exact `question_revision` Job Target resolved from immutable job metadata. Job Kind Registration, target type, generation, and Job claim-and-lease grant agree before work starts. |
-| `AssetDeliveryId`        | Protected delivery lookup           | Refers to an authorized `QuestionAssetId`, `ObjectId`, or course banner. It does not mint another logical object or grant raw storage access.                                                                     |
-| `AttemptSupportActionId` | One exact Instructor support action | Audits a sensitive action against its exact course and attempt scope.                                                                                                                                             |
-| `ScoringGeneration`      | Current-score fence                 | Positive monotonic generation that makes obsolete work harmless without deleting history.                                                                                                                         |
+Course Observer, Student Observer, and Grader are future Course roles. They are
+not product roles and do not exist merely because a generic capability or row
+shape could represent them. Each requires its own Course relationship and
+privacy contract before it becomes available. A Grader is not currently needed
+because PLE grading is automatic.
 
-A worker derives every target from its locked current lease and immutable job
-manifest. Queue payload, retry input, provider response, object reference, and
-caller input are evidence; they do not establish the exact Job Target authority.
+## Operational identities
 
-## Human-facing references and browser identifiers
+Internal job, lease, delivery, or support IDs name narrow technical operations.
+They do not establish product roles or justify new product lifecycle states.
+Scoped Sysadmin support access to FERPA-protected records must identify the
+support purpose and be recorded, but Human Guidance does not require a general
+audit identity for every ordinary action.
 
-Human-facing References help people find a permitted record. They are not durable
-authorization facts. The server resolves each Reference from the authenticated
-session account and the appropriate parent relationship before returning a record.
+## Browser and secret boundaries
 
-| Value                                                                                                         | Browser use                                     | Server meaning                                                                                                                                                     |
-| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `QuestionId` (`AAA-BBBB`)                                                                                     | Question Library search, display, and selection | Resolves one stable Published Question lineage after approved-Instructor authorization; not a Question Revision selector or answer authority.                      |
-| `CourseInstanceReference`, `AssignmentReference`, `AssignmentAttemptReference`, `AuthoringWorkspaceReference` | Human-readable route/display References         | Positive `C-`, `A-`, `R-`, and `W-` References resolve only inside the authenticated Account's authorized Course Instance or Authoring Workspace relationship.     |
-| `QuestionAttemptId` in a route                                                                                | Names an already issued Question Attempt        | Server additionally verifies exact active Student Record ownership or permitted current Instructor scope.                                                          |
-| `PresentationResponseItemReference`                                                                           | Presentation-scoped Response Item Reference     | Maps only through server-held attempt presentation state to a semantic item identity.                                                                              |
-| `QuestionPresentationNonce` and `QuestionPresentationToken`                                                   | Presentation binding values                     | The nonce participates in the complete server-held Question Presentation Checksum; the public token is its compact comparison value. Neither authorizes a request. |
-| Student Hotspot Selection                                                                                     | One selected presentation-scoped Hotspot Region | Resolves through the exact issued presentation to a durable Hotspot Region; authored geometry remains in Question Response Format.                                 |
-
-Response Item Reference remains a server-side semantic identity for a Question Choice, slot, match
-endpoint, order item, or hotspot region. `QuestionSeed` plus generator version and the
-full stored Question Presentation Checksum reproduce an issued variant. They are not
-student authority to select another variant or browser input to define grading.
-
-## Credentials, capabilities, and answer boundaries
-
-| Value                                                        | Holder and use                      | Storage and disclosure boundary                                                                                          |
-| ------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Raw session cookie                                           | Browser and authentication endpoint | Database stores only `SessionTokenHash`; raw token never enters DTOs, logs, or analytics.                                |
-| Future email authentication secret                           | Future email-code ceremony          | Deferred design only: if implemented, it must be short-lived, single-use, browser-bound, and persist only a hash.        |
-| Future passkey credential state                              | Account boundary                    | Deferred passkey design only; it is not a current credential, route, Store, or Browser Surface.                          |
-| `JobLeaseToken` and iMathAS Result Tokens                    | Exact worker/Result Exchange        | Opaque bounded capabilities, redacted from diagnostics and never serialized into generic question or submission records. |
-| Signed object URL                                            | Authorized delivery result          | Short-lived storage result, not an object identity or reusable browser capability.                                       |
-| Answer keys, scoring rules, private rubrics, grader payloads | Restricted server grading boundary  | Never appear in the Question Library, ordinary browser, Wasm, observer, or student-response DTOs.                        |
+- Raw session credentials, signing keys, Answer Keys, private rubrics, backend
+  credentials, and provider tokens never enter ordinary browser DTOs, URLs,
+  logs, analytics, or examples.
+- A signed object URL is a short-lived delivery result, not a durable object
+  identity.
+- A presentation token or checksum checks correspondence with server-held
+  state; it never authenticates the Student.
+- Student-visible public IDs and Course/Assessment References are resolved only
+  after authorization.
 
 ## Maintainer checklist
 
-When adding an identifier or protocol value, document:
+For each new identifier, document what it names, its scope, who mints it, where
+it persists, whether it crosses into a browser, and which stored relationship
+authorizes its use. If possession conveys authority, use a bounded opaque
+capability with expiry and redaction rather than an ordinary ID.
 
-1. What exact thing it names and its globally unique or parent-bound scope.
-2. Whether it is durable, human-facing, semantic, presentation-scoped, a
-   stale-work fence, checksum, relationship, or capability.
-3. Which layer mints it, where it is persisted, and which server boundary may
-   serialize it to a browser.
-4. Which exact account/session predicate, course/Student ownership, workspace
-   relationship, or typed operational scope authorizes its use.
-5. Whether a browser or worker can derive it from an authenticated attempt or
-   current lease instead of resending it.
-6. Whether possession conveys authority. If so, use a bounded opaque
-   capability with expiry, redaction, and an explicit storage boundary.
-
-## Settled identity and Blueprint decisions
-
-## Identity, authentication, and compliance
-
-### Visible identifiers are human-readable References
-
-**Decision.** Visible content, navigation URLs, documentation, and copyable links never expose
-UUIDs. Published questions use one non-sequential Crockford Base32 ID displayed as `AAA-BBBB`;
-internal UUIDs may remain in hidden server and transport boundaries.
-
-**Why.** People need identifiers they can recognize and communicate. A public reference is a
-Reference, not authorization, and persistence identity should not leak into the interface.
-
-### Future invitations and recovery may use verified email
-
-**Decision.** PLE accounts are global within the installation. A future, separately accepted
-passwordless verified-email design may provide registration, invitation, sign-in, and passkey
-recovery. If adopted, SMTP delivery may be optional and an Instructor may share a one-time
-invitation link through a trusted LMS. Neither email-code authentication, invitation links, SMTP
-delivery, nor passkey recovery is a current route, Store, or Browser Surface.
-
-**Why.** This retains a comprehensible future account-recovery direction without representing an
-unimplemented credential pathway as current authentication. The current seeded Live Demo selector
-is a demo-only identity-verification substitute that issues the ordinary Authenticated Session.
-
-### Authentication storage is strictly necessary
-
-**Decision.** Production authentication uses one host-only `__Host-` HttpOnly, Secure,
-`SameSite=Lax`, `Path=/` browser-session cookie with bounded server expiration and immediate
-revocation. Persistent login, tracking, or embedded LTI requires separate review and consent.
-
-**Why.** The bearer credential must remain unreadable to JavaScript and limited to providing the
-requested signed-in service. Necessary-storage classification still requires clear disclosure and
-deployment-specific legal review.
-
-### Security controls preserve privacy and recovery guidance
-
-**Decision.** PostgreSQL, object storage, backups, and deployment volumes use scoped managed
-encryption at rest; application AEAD is reserved for stored secrets. Unauthorized users receive
-generic unavailable outcomes with accessible guidance that does not disclose protected details.
-
-**Why.** Concealment and humane teaching guidance are complementary. The regulatory basis includes
-the EU ePrivacy Directive Article 5(3), Article 29 Working Party Opinion 04/2012, and current ICO
-strictly-necessary storage guidance.
-
-### Blueprint Revision identities
-
-**Decision.** A Blueprint Course lineage owns immutable saved Blueprint
-Revisions only. Complete valid creation atomically creates Available Revision
-
-1. An explicit Save based on the current Revision creates one next Revision
-   only when canonical content changed; a canonical no-op returns the current
-   Revision with `changed: false`. Browser working state is unsaved and local.
-
-**Why.** One Revision sequence makes each reusable state and each Course
-Instance provenance reference unambiguous without adding a second Blueprint
-version sequence.
-
-**Consequence.** Blueprint Course Owner authority is required for its content
-Save and lineage metadata operations. Authoring Workspace Owner and Workspace Collaborator
-relationships authorize private Question authoring only; they neither grant
-Blueprint authority nor become reusable-course authority.
-
-### Blueprint lineage availability
-
-**Decision.** The Blueprint Course lineage carries the current Available or
-Archived state, short name, and long name under one opaque metadata ETag. Immutable Blueprint Availability
-Events record each transition; Blueprint Revisions do not carry independent
-availability state.
-
-**Why.** Availability governs ordinary browsing and new course selection for a
-Available lineage, while exact historical Blueprint Revision References must
-remain resolvable.
-
-**Consequence.** Archiving removes the lineage from ordinary browsing and new
-selection without invalidating exact Revision references. Restoring is an
-ordinary lineage transition, and a later Save does not reset availability.
-
-## Related documents
-
-- [USER_ROLES.md](USER_ROLES.md) defines the closed current human personas.
-- [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md) defines operation
-  authorization and its migration target.
-- [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) defines the human-facing Question
-  ID, Question Revision Number, and exact Question Revision Reference.
-- [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) defines Question
-  publication, availability, and stewardship vocabulary.
-- [QUESTION_MODEL.md](QUESTION_MODEL.md) defines public question data and
-  server-only Answer Keys.
-- [ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md) defines student
-  render, response, and presentation consistency.
-- [SECURITY_MODEL.md](SECURITY_MODEL.md) defines authentication, grading,
-  storage, and provider boundaries.
+See [USER_ROLES.md](USER_ROLES.md),
+[AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
+[QUESTION_MODEL.md](QUESTION_MODEL.md), and
+[ASSESSMENT_PAYLOAD_DESIGN.md](ASSESSMENT_PAYLOAD_DESIGN.md).
