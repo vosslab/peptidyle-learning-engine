@@ -26,7 +26,7 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use objects::{
     ObjectAddress, ObjectRecord, ObjectStore, PutObject, Sha256Checksum,
-    image_validation::{normalized_course_banner_webp, verify_still_image},
+    image_validation::{normalized_course_banner_webp, verify_course_banner_still_image},
 };
 use question_model::{
     CourseAppearanceView, CourseBannerReference, CourseBannerRendition, CourseBannerUpdate,
@@ -74,11 +74,7 @@ pub fn course_appearance_router(
         )
         .route(
             "/api/course-banners/{banner}/delivery",
-            post(deliver_banner_hero),
-        )
-        .route(
-            "/api/course-banners/{banner}/delivery/card",
-            post(deliver_banner_card),
+            post(deliver_banner),
         )
         .with_state(RouteState {
             sessions,
@@ -225,14 +221,23 @@ async fn stage_banner_upload(
         Ok(value) => value.to_vec(),
         Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Banner is invalid"),
     };
-    let verified = match verify_still_image(&bytes) {
+    // The exact visual 5:1 shape is a Course Banner contract, not a client
+    // hint. Refuse it before the temporary object is staged so promotion can
+    // never need to crop or pad user content.
+    let verified = match verify_course_banner_still_image(&bytes) {
         Ok(value) => value,
         Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Banner is invalid"),
     };
     let upload = CourseBannerUploadReference::generate();
     let media_type = verified.media_type.canonical_media_type().to_string();
     let address = ObjectAddress::CourseBannerUpload { course, upload };
-    let metadata = banner_metadata(&address, &bytes, media_type.clone());
+    let metadata = banner_metadata(
+        &address,
+        &bytes,
+        media_type.clone(),
+        verified.width,
+        verified.height,
+    );
     let expires = now().as_unix_millis().saturating_add(15 * 60 * 1_000);
     let staged_address = match state
         .banners
@@ -326,31 +331,48 @@ async fn promote_banner(
     };
     let banner = CourseBannerReference::generate();
     let source_address = ObjectAddress::CourseBannerSource { course, banner };
-    let hero_address = ObjectAddress::CourseBannerRendition {
+    let rendition_address = ObjectAddress::CourseBannerRendition {
         course,
         banner,
-        rendition: CourseBannerRendition::Hero,
-    };
-    let card_address = ObjectAddress::CourseBannerRendition {
-        course,
-        banner,
-        rendition: CourseBannerRendition::Card,
+        rendition: CourseBannerRendition::Banner,
     };
     let source_bytes = staged.bytes;
-    let (hero_width, hero_height) = CourseBannerRendition::Hero.dimensions();
-    let (card_width, card_height) = CourseBannerRendition::Card.dimensions();
-    let hero_bytes = match normalized_course_banner_webp(&source_bytes, hero_width, hero_height) {
+    // Revalidate the staged bytes before promotion.  Its durable dimensions
+    // are evidence only; the object store is re-read and decoded so a stale or
+    // substituted temporary object cannot reach the immutable delivery path.
+    let verified = match verify_course_banner_still_image(&source_bytes) {
         Ok(value) => value,
         Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Banner is invalid"),
     };
-    let card_bytes = match normalized_course_banner_webp(&source_bytes, card_width, card_height) {
-        Ok(value) => value,
-        Err(_) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Banner is invalid"),
-    };
-    let source_metadata =
-        banner_metadata(&source_address, &source_bytes, claimed.canonical_media_type);
-    let hero_metadata = banner_metadata(&hero_address, &hero_bytes, "image/webp".to_string());
-    let card_metadata = banner_metadata(&card_address, &card_bytes, "image/webp".to_string());
+    if verified.width != claimed.width || verified.height != claimed.height {
+        mark_repair(&state, token, course, None, claimed.object_id).await;
+        return route_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Course Appearance unavailable",
+        );
+    }
+    let (rendition_width, rendition_height) = CourseBannerRendition::Banner.dimensions();
+    let rendition_bytes =
+        match normalized_course_banner_webp(&source_bytes, rendition_width, rendition_height) {
+            Ok(value) => value,
+            Err(_) => {
+                return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Course Banner is invalid");
+            }
+        };
+    let source_metadata = banner_metadata(
+        &source_address,
+        &source_bytes,
+        claimed.canonical_media_type,
+        verified.width,
+        verified.height,
+    );
+    let rendition_metadata = banner_metadata(
+        &rendition_address,
+        &rendition_bytes,
+        "image/webp".to_string(),
+        rendition_width,
+        rendition_height,
+    );
     let prepared = match state
         .banners
         .prepare_course_banner_promotion(
@@ -361,8 +383,7 @@ async fn promote_banner(
                 banner,
                 update: update.clone(),
                 source: source_metadata.clone(),
-                hero: hero_metadata.clone(),
-                card: card_metadata.clone(),
+                rendition: rendition_metadata.clone(),
             },
         )
         .await
@@ -378,16 +399,10 @@ async fn promote_banner(
             prepared.source_put_work_id,
         ),
         (
-            &prepared.hero,
-            hero_bytes,
-            hero_metadata,
-            prepared.hero_put_work_id,
-        ),
-        (
-            &prepared.card,
-            card_bytes,
-            card_metadata,
-            prepared.card_put_work_id,
+            &prepared.rendition,
+            rendition_bytes,
+            rendition_metadata,
+            prepared.rendition_put_work_id,
         ),
     ];
     if write_prepared_objects(
@@ -467,26 +482,9 @@ async fn remove_banner(
     }
 }
 
-async fn deliver_banner_hero(
-    State(state): State<RouteState>,
-    Path(banner): Path<String>,
-    headers: HeaderMap,
-) -> Response {
-    deliver_banner(State(state), banner, CourseBannerRendition::Hero, headers).await
-}
-
-async fn deliver_banner_card(
-    State(state): State<RouteState>,
-    Path(banner): Path<String>,
-    headers: HeaderMap,
-) -> Response {
-    deliver_banner(State(state), banner, CourseBannerRendition::Card, headers).await
-}
-
 async fn deliver_banner(
     State(state): State<RouteState>,
-    banner: String,
-    rendition: CourseBannerRendition,
+    Path(banner): Path<String>,
     headers: HeaderMap,
 ) -> Response {
     let Ok(banner) = Uuid::parse_str(&banner) else {
@@ -507,7 +505,7 @@ async fn deliver_banner(
             .get(&ObjectAddress::CourseBannerRendition {
                 course,
                 banner,
-                rendition,
+                rendition: CourseBannerRendition::Banner,
             })
             .await
         {
@@ -574,12 +572,16 @@ fn banner_metadata(
     address: &ObjectAddress,
     bytes: &[u8],
     media_type: String,
+    width: u32,
+    height: u32,
 ) -> CourseBannerObjectMetadata {
     CourseBannerObjectMetadata {
         object_id: address.object_id(),
         sha256: Sha256Checksum::compute(bytes),
         byte_length: u64::try_from(bytes.len()).unwrap_or(u64::MAX),
         media_type,
+        width,
+        height,
     }
 }
 
@@ -731,8 +733,7 @@ async fn cleanup_removal(
 ) {
     for (address, put_work_id) in [
         (&removal.source, removal.source_put_work_id),
-        (&removal.hero, removal.hero_put_work_id),
-        (&removal.card, removal.card_put_work_id),
+        (&removal.rendition, removal.rendition_put_work_id),
     ] {
         cleanup_address(
             state,
@@ -908,7 +909,7 @@ fn store_error_response(error: StoreError) -> Response {
         }
         StoreError::InvalidRecord(_)
         | StoreError::AlreadyExists
-        | StoreError::AssignmentActivity(_)
+        | StoreError::AssessmentActivity(_)
         | StoreError::TimedOut
         | StoreError::LeaseLost
         | StoreError::Unavailable(_) => route_error(

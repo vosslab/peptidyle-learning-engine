@@ -100,7 +100,7 @@ export const COURSE_THEME_REGISTRY = {
     onSecondary: "#000000",
   }),
   grass: theme({
-    name: "Grass",
+    name: "Grassland",
     anchors: { canvas: "#bddeb1", secondary: "#73c167", accent: "#008852" },
     action: "#006b40",
     onSecondary: "#172033",

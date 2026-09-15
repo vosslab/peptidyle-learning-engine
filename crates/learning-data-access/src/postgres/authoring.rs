@@ -2,7 +2,9 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
-use question_model::{DraftQuestionReference, ObjectId, QuestionType, Timestamp, WorkspaceId};
+use question_model::{
+    DraftQuestionReference, ObjectId, QuestionFormat, QuestionType, Timestamp, WorkspaceId,
+};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use uuid::Uuid;
 
@@ -11,8 +13,9 @@ use super::connection::map_sqlx_error;
 use crate::authoring::validate_initial_draft_source_binding;
 use crate::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
-    DraftQuestionEditNumber, DraftQuestionUuid, SaveAuthoringDraftInput, SessionTokenHash,
-    StoreError, validate_workspace_question_source_object_record,
+    DraftQuestionEditNumber, DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput,
+    SaveAuthoringDraftInput, SessionTokenHash, StoreError,
+    validate_workspace_question_source_object_record,
 };
 
 /// PostgreSQL Store for private Authoring Workspace and Draft Question operations.
@@ -102,15 +105,17 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         validate_workspace_question_source_object_record(workspace, &input.source_record)?;
         validate_initial_draft_source_binding(
             &input.source_record.media_type,
+            input.question_format,
             input.webwork_pg_path.as_deref(),
         )?;
+        let question_format = question_format_wire(input.question_format)?;
         let address = encode_address(&input.source_record)?;
         let size = postgres_size(input.source_record.size_bytes)?;
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let reference_number: i64 = sqlx::query_scalar(
-            "SELECT ple_api.create_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
+            "SELECT ple_api.create_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
         )
         .bind(workspace.as_uuid())
         .bind(input.draft_question_uuid.as_uuid())
@@ -125,6 +130,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         .bind(&input.language)
         .bind(&input.webwork_pg_path)
         .bind(question_type_wire(input.question_type)?)
+        .bind(question_format)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -191,6 +197,27 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         self.load_authoring_draft(session_token_hash, input.reference)
             .await
     }
+
+    async fn save_authoring_draft_general_feedback(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: SaveAuthoringDraftGeneralFeedbackInput,
+    ) -> Result<AuthoringDraft, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        sqlx::query("SELECT * FROM ple_api.save_authoring_draft_general_feedback($1, $2, $3)")
+            .bind(i64::from(input.reference.number()))
+            .bind(input.expected_edit_number.as_postgres_bigint())
+            .bind(&input.general_feedback)
+            .fetch_optional(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?
+            .ok_or(StoreError::NotFound)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        self.load_authoring_draft(session_token_hash, input.reference)
+            .await
+    }
 }
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraftSummary, StoreError> {
@@ -225,6 +252,7 @@ fn decode_draft(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraft, StoreErro
         description: row
             .try_get("question_description")
             .map_err(map_sqlx_error)?,
+        general_feedback: row.try_get("general_feedback").map_err(map_sqlx_error)?,
         question_type: question_type_from_wire(
             &row.try_get::<String, _>("question_type")
                 .map_err(map_sqlx_error)?,
@@ -238,6 +266,13 @@ fn question_type_wire(value: QuestionType) -> Result<String, StoreError> {
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))
         .ok_or_else(|| invalid("Question Type"))
+}
+
+fn question_format_wire(value: QuestionFormat) -> Result<String, StoreError> {
+    serde_json::to_value(value)
+        .ok()
+        .and_then(|value| value.as_str().map(str::to_owned))
+        .ok_or_else(|| invalid("Question Format"))
 }
 
 fn question_type_from_wire(value: &str) -> Result<QuestionType, StoreError> {

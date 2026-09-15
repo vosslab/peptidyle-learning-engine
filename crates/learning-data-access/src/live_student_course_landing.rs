@@ -1,15 +1,15 @@
-//! Student-authorized Course and released Assignment landing projections.
+//! Student-authorized Course and released Assessment landing projections.
 //!
-//! The landing boundary exposes only public Course and Assignment references
+//! The landing boundary exposes only public Course and Assessment references
 //! with learner-facing titles. PostgreSQL derives the current active Student
 //! Account and exact active Student Course Membership before it projects them.
 
 use async_trait::async_trait;
-use browser_api_contract::student_assignment_decision::StudentAssignmentDecisionSummary;
-use question_model::{AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference};
+use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
+use question_model::{AssessmentAttemptCompletion, AssessmentReference, CourseInstanceReference};
 use serde::Serialize;
 
-use crate::{LiveAssignmentAttemptScore, SessionTokenHash, StoreError};
+use crate::{LiveAssessmentAttemptScore, SessionTokenHash, StoreError};
 
 /// One active Student Course Instance available from the landing page.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -38,27 +38,27 @@ pub struct LiveStudentCourseInvitationSummary {
     pub long_name: String,
 }
 
-/// One released Assignment available from an authorized Student Course.
+/// One released Assessment available from an authorized Student Course.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LiveStudentAssignmentLandingSummary {
-    /// Public Assignment reference, never an internal Assignment identity.
-    pub assignment: AssignmentReference,
-    /// Student-facing released Assignment title.
+pub struct LiveStudentAssessmentLandingSummary {
+    /// Public Assessment reference, never an internal Assessment identity.
+    pub assessment: AssessmentReference,
+    /// Student-facing released Assessment title.
     pub title: String,
-    /// Same server-owned policy and start decision returned by Assignment Access.
-    pub decision: StudentAssignmentDecisionSummary,
-    /// One-based current Assignment Attempt number, or none before work starts.
-    pub assignment_attempt_number: Option<u32>,
-    /// Current Assignment Attempt completion, or none when work has not started.
-    pub assignment_attempt_completion: Option<AssignmentAttemptCompletion>,
-    /// Questions with an immutable Grading Result in the current Assignment Attempt.
+    /// Same server-owned policy and start decision returned by Assessment Access.
+    pub decision: StudentAssessmentDecisionSummary,
+    /// One-based current Assessment Attempt number, or none before work starts.
+    pub assessment_attempt_number: Option<u32>,
+    /// Current Assessment Attempt completion, or none when work has not started.
+    pub assessment_attempt_completion: Option<AssessmentAttemptCompletion>,
+    /// Questions with an immutable Grading Result in the current Assessment Attempt.
     pub graded_question_count: u32,
-    /// Total questions in the current Assignment; an existing Attempt retains its issued-question evidence.
+    /// Total questions in the current Assessment; an existing Attempt retains its issued-question evidence.
     pub question_count: u32,
-    /// Current aggregate score when the pinned Assignment disclosure permits it.
+    /// Current aggregate score when the pinned Assessment disclosure permits it.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub score: Option<LiveAssignmentAttemptScore>,
+    pub score: Option<LiveAssessmentAttemptScore>,
 }
 
 /// Session-authorized persistence boundary for the Student Course landing.
@@ -81,14 +81,14 @@ pub trait LiveStudentCourseLandingStore: Send + Sync {
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<LiveStudentCourseInvitationSummary>, StoreError>;
 
-    /// Lists released Assignments after exact Course-membership authorization.
+    /// Lists released Assessments after exact Course-membership authorization.
     ///
     /// A foreign, malformed, inactive, or ended Course is concealed as
     /// [`StoreError::Forbidden`]; an authorized Course without releases returns
     /// an empty list.
-    async fn list_released_live_student_assignments(
+    async fn list_released_live_student_assessments(
         &self,
         session_token_hash: SessionTokenHash,
         course: CourseInstanceReference,
-    ) -> Result<Vec<LiveStudentAssignmentLandingSummary>, StoreError>;
+    ) -> Result<Vec<LiveStudentAssessmentLandingSummary>, StoreError>;
 }

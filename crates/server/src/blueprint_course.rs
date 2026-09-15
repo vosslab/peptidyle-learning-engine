@@ -18,14 +18,17 @@ use axum::{
 use browser_api_contract::blueprint_course::{BlueprintCourseSaveResponse, BlueprintRevisionView};
 use learning_data_access::{
     BlueprintCourseStore, QuestionLibraryStore, SessionTokenHash, StoreError,
-    StoredBlueprintAssignmentContent, StoredBlueprintAssignmentEntry, StoredBlueprintCourse,
+    StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
     StoredBlueprintCourseContent,
-    postgres::{PostgresBlueprintCourseStore, PostgresQuestionLibraryStore, PostgresSessionStore},
+    postgres::{
+        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore, PostgresQuestionLibraryStore,
+        PostgresSessionStore,
+    },
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    BlueprintAssignmentContentView, BlueprintAssignmentEntryView,
-    BlueprintCourseAssignmentContentView, BlueprintCourseReference, BlueprintCourseSummaryView,
+    BlueprintAssessmentContentView, BlueprintAssessmentEntryView,
+    BlueprintCourseAssessmentContentView, BlueprintCourseReference, BlueprintCourseSummaryView,
     BlueprintCourseView, BlueprintMetadataEtag, BlueprintMetadataState, BlueprintModuleView,
     BlueprintRevision, BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId,
     QuestionRevisionReference, QuestionSearchResult, RenameBlueprintCourseInput,
@@ -40,16 +43,21 @@ use crate::{
     question_publication::HmacQuestionIdIssuer,
 };
 
+mod fork;
+
+use fork::fork_blueprint;
+
 const MAX_PAGE_SIZE: u16 = 100;
 const MAX_IDEMPOTENCY_KEY_BYTES: usize = 128;
 
 #[derive(Clone)]
-struct BlueprintCourseRouteState {
-    sessions: Arc<PostgresSessionStore>,
-    blueprints: PostgresBlueprintCourseStore,
-    question_library: PostgresQuestionLibraryStore,
-    objects: S3ObjectStore,
-    question_id_issuer: HmacQuestionIdIssuer,
+pub(super) struct BlueprintCourseRouteState {
+    pub(super) sessions: Arc<PostgresSessionStore>,
+    pub(super) blueprints: PostgresBlueprintCourseStore,
+    pub(super) lineage: PostgresBlueprintLineageStore,
+    pub(super) question_library: PostgresQuestionLibraryStore,
+    pub(super) objects: S3ObjectStore,
+    pub(super) question_id_issuer: HmacQuestionIdIssuer,
 }
 
 /// Registers the Instructor Blueprint lifecycle. Composition supplies the
@@ -57,6 +65,7 @@ struct BlueprintCourseRouteState {
 pub fn blueprint_course_router(
     sessions: Arc<PostgresSessionStore>,
     blueprints: PostgresBlueprintCourseStore,
+    lineage: PostgresBlueprintLineageStore,
     question_library: PostgresQuestionLibraryStore,
     objects: S3ObjectStore,
     question_id_issuer: HmacQuestionIdIssuer,
@@ -75,8 +84,16 @@ pub fn blueprint_course_router(
             put(rename_blueprint),
         )
         .route(
+            "/api/course-blueprints/{reference}/publish",
+            post(publish_blueprint),
+        )
+        .route(
             "/api/course-blueprints/{reference}/revisions/{revision}",
             get(load_revision),
+        )
+        .route(
+            "/api/course-blueprints/{reference}/revisions/{revision}/fork",
+            post(fork_blueprint),
         )
         .route(
             "/api/course-blueprints/{reference}/archive",
@@ -86,9 +103,14 @@ pub fn blueprint_course_router(
             "/api/course-blueprints/{reference}/restore",
             post(restore_blueprint),
         )
+        .route(
+            "/api/course-blueprints/{reference}/return-to-private",
+            post(return_blueprint_to_private),
+        )
         .with_state(BlueprintCourseRouteState {
             sessions,
             blueprints,
+            lineage,
             question_library,
             objects,
             question_id_issuer,
@@ -316,8 +338,22 @@ async fn archive_blueprint(
         &state,
         &headers,
         reference,
-        Some(input.confirmation_long_name),
-        true,
+        BlueprintLifecycleAction::Archive {
+            confirmation_long_name: input.confirmation_long_name,
+        },
+    )
+    .await
+}
+async fn publish_blueprint(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Response {
+    transition_availability(
+        &state,
+        &headers,
+        reference,
+        BlueprintLifecycleAction::Publish,
     )
     .await
 }
@@ -326,14 +362,44 @@ async fn restore_blueprint(
     headers: HeaderMap,
     Path(reference): Path<String>,
 ) -> Response {
-    transition_availability(&state, &headers, reference, None, false).await
+    transition_availability(
+        &state,
+        &headers,
+        reference,
+        BlueprintLifecycleAction::Restore,
+    )
+    .await
 }
+async fn return_blueprint_to_private(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Response {
+    transition_availability(
+        &state,
+        &headers,
+        reference,
+        BlueprintLifecycleAction::ReturnToPrivate,
+    )
+    .await
+}
+
+/// The HTTP surface names the only four lifecycle commands.  It deliberately
+/// does not accept a client-selected availability string: C49 is the complete
+/// state machine, and its Store transaction owns the owner/adoption predicates
+/// (ASVS 2.2.1, 2.3.1, 8.2.2, 8.3.1).
+enum BlueprintLifecycleAction {
+    Publish,
+    Archive { confirmation_long_name: String },
+    Restore,
+    ReturnToPrivate,
+}
+
 async fn transition_availability(
     state: &BlueprintCourseRouteState,
     headers: &HeaderMap,
     value: String,
-    confirmation: Option<String>,
-    archive: bool,
+    action: BlueprintLifecycleAction,
 ) -> Response {
     let reference = match parse_reference(&value) {
         Ok(value) => value,
@@ -347,21 +413,33 @@ async fn transition_availability(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let result = if archive {
-        state
-            .blueprints
-            .archive_blueprint(
-                session,
-                reference,
-                expected,
-                confirmation.as_deref().unwrap_or_default(),
-            )
-            .await
-    } else {
-        state
-            .blueprints
-            .restore_blueprint(session, reference, expected)
-            .await
+    let result = match action {
+        BlueprintLifecycleAction::Publish => {
+            state
+                .blueprints
+                .publish_blueprint(session, reference, expected)
+                .await
+        }
+        BlueprintLifecycleAction::Archive {
+            confirmation_long_name,
+        } => {
+            state
+                .blueprints
+                .archive_blueprint(session, reference, expected, &confirmation_long_name)
+                .await
+        }
+        BlueprintLifecycleAction::Restore => {
+            state
+                .blueprints
+                .restore_blueprint(session, reference, expected)
+                .await
+        }
+        BlueprintLifecycleAction::ReturnToPrivate => {
+            state
+                .blueprints
+                .return_blueprint_to_private(session, reference, expected)
+                .await
+        }
     };
     match result {
         Ok(value) => metadata_response(value),
@@ -369,11 +447,11 @@ async fn transition_availability(
     }
 }
 
-enum RouteLoadError {
+pub(super) enum RouteLoadError {
     Store(StoreError),
     Unavailable,
 }
-async fn load_view(
+pub(super) async fn load_view(
     state: &BlueprintCourseRouteState,
     session: SessionTokenHash,
     reference: BlueprintCourseReference,
@@ -473,15 +551,15 @@ async fn content_modules(
             Ok(BlueprintModuleView {
                 blueprint_module_reference: module.blueprint_module_reference,
                 label: module.label.clone(),
-                assignments: module
-                    .assignments
+                assessments: module
+                    .assessments
                     .iter()
-                    .map(|assignment| {
-                        Ok(BlueprintCourseAssignmentContentView {
-                            blueprint_assignment_reference: assignment
-                                .blueprint_assignment_reference,
-                            content: assignment_content_view(
-                                &assignment.content,
+                    .map(|assessment| {
+                        Ok(BlueprintCourseAssessmentContentView {
+                            blueprint_assessment_reference: assessment
+                                .blueprint_assessment_reference,
+                            content: assessment_content_view(
+                                &assessment.content,
                                 &questions,
                                 &current_question_revisions,
                             )?,
@@ -499,35 +577,35 @@ fn content_question_revisions(
     content
         .modules
         .iter()
-        .flat_map(|module| module.assignments.iter())
-        .flat_map(|assignment| assignment.content.entries.iter())
+        .flat_map(|module| module.assessments.iter())
+        .flat_map(|assessment| assessment.content.entries.iter())
         .flat_map(|entry| match entry {
-            StoredBlueprintAssignmentEntry::Fixed {
+            StoredBlueprintAssessmentEntry::Fixed {
                 question_revision, ..
             } => std::slice::from_ref(question_revision).iter(),
-            StoredBlueprintAssignmentEntry::Pool {
+            StoredBlueprintAssessmentEntry::Pool {
                 question_revisions, ..
             } => question_revisions.iter(),
         })
         .cloned()
         .collect()
 }
-fn assignment_content_view(
-    content: &StoredBlueprintAssignmentContent,
+fn assessment_content_view(
+    content: &StoredBlueprintAssessmentContent,
     questions: &BTreeMap<QuestionRevisionReference, QuestionSearchResult>,
     current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
-) -> Result<BlueprintAssignmentContentView, RouteLoadError> {
+) -> Result<BlueprintAssessmentContentView, RouteLoadError> {
     let entries = content
         .entries
         .iter()
         .map(|entry| match entry {
-            StoredBlueprintAssignmentEntry::Fixed {
+            StoredBlueprintAssessmentEntry::Fixed {
                 question_revision,
                 points_possible,
                 scoring_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
-            } => Ok(BlueprintAssignmentEntryView::Fixed {
+            } => Ok(BlueprintAssessmentEntryView::Fixed {
                 question: Box::new(question_view(
                     question_revision,
                     questions,
@@ -538,7 +616,7 @@ fn assignment_content_view(
                 question_attempt_limit: *question_attempt_limit,
                 question_attempt_time_limit: *question_attempt_time_limit,
             }),
-            StoredBlueprintAssignmentEntry::Pool {
+            StoredBlueprintAssessmentEntry::Pool {
                 question_revisions,
                 selection_count,
                 points_per_item,
@@ -546,7 +624,7 @@ fn assignment_content_view(
                 selection_rule,
                 question_attempt_limit,
                 question_attempt_time_limit,
-            } => Ok(BlueprintAssignmentEntryView::Pool(ReusablePoolView {
+            } => Ok(BlueprintAssessmentEntryView::Pool(ReusablePoolView {
                 items: question_revisions
                     .iter()
                     .map(|reference| {
@@ -568,7 +646,7 @@ fn assignment_content_view(
             })),
         })
         .collect::<Result<Vec<_>, RouteLoadError>>()?;
-    Ok(BlueprintAssignmentContentView {
+    Ok(BlueprintAssessmentContentView {
         title: content.title.clone(),
         instructions: content.instructions.clone(),
         entries,
@@ -620,8 +698,8 @@ fn valid_create_question_ids(
     input
         .modules
         .iter()
-        .flat_map(|module| module.assignments.iter())
-        .all(|assignment| valid_assignment_question_ids(issuer, assignment))
+        .flat_map(|module| module.assessments.iter())
+        .all(|assessment| valid_assessment_question_ids(issuer, assessment))
 }
 fn valid_replace_question_ids(
     issuer: &HmacQuestionIdIssuer,
@@ -630,26 +708,26 @@ fn valid_replace_question_ids(
     input
         .modules
         .iter()
-        .flat_map(|module| module.assignments.iter())
-        .all(|assignment| valid_assignment_question_ids(issuer, &assignment.content))
+        .flat_map(|module| module.assessments.iter())
+        .all(|assessment| valid_assessment_question_ids(issuer, &assessment.content))
 }
-fn valid_assignment_question_ids(
+fn valid_assessment_question_ids(
     issuer: &HmacQuestionIdIssuer,
-    input: &question_model::BlueprintAssignmentContentInput,
+    input: &question_model::BlueprintAssessmentContentInput,
 ) -> bool {
     input
         .entries
         .iter()
         .flat_map(|entry| match entry {
-            question_model::BlueprintAssignmentEntryInput::Fixed(value) => {
+            question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
                 std::slice::from_ref(&value.question_id).iter()
             }
-            question_model::BlueprintAssignmentEntryInput::Pool(value) => value.items.iter(),
+            question_model::BlueprintAssessmentEntryInput::Pool(value) => value.items.iter(),
         })
         .all(|question_id| issuer.validates_question_id(question_id))
 }
 
-fn parse_reference(value: &str) -> Result<BlueprintCourseReference, Box<Response>> {
+pub(super) fn parse_reference(value: &str) -> Result<BlueprintCourseReference, Box<Response>> {
     value.parse().map_err(|_| Box::new(concealed()))
 }
 fn quoted_if_match(headers: &HeaderMap) -> Result<&str, Box<Response>> {
@@ -688,7 +766,7 @@ fn expected_metadata_etag(headers: &HeaderMap) -> Result<BlueprintMetadataEtag, 
 }
 // The operation name, standard transport key, and exact serialized command
 // form one receipt key; a new deliberate operation uses a new key (ASVS 2.3.1).
-fn request_checksum<T: Serialize>(
+pub(super) fn request_checksum<T: Serialize>(
     operation: &'static str,
     headers: &HeaderMap,
     payload: &T,
@@ -717,7 +795,7 @@ fn valid_idempotency_key(value: &str) -> bool {
         && value.len() <= MAX_IDEMPOTENCY_KEY_BYTES
         && value.bytes().all(|byte| byte.is_ascii_graphic())
 }
-fn blueprint_response(status: StatusCode, view: BlueprintCourseView) -> Response {
+pub(super) fn blueprint_response(status: StatusCode, view: BlueprintCourseView) -> Response {
     let revision = view.current_revision.revision;
     let mut response = crate::auth::no_store((status, Json(view)).into_response());
     match HeaderValue::from_str(&format!("\"{revision}\"")) {
@@ -756,7 +834,7 @@ fn metadata_response(state: BlueprintMetadataState) -> Response {
         Err(_) => unavailable(),
     }
 }
-async fn instructor_session_hash(
+pub(super) async fn instructor_session_hash(
     state: &BlueprintCourseRouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
@@ -784,7 +862,7 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
         .collect::<Option<Vec<_>>>()?;
     (!values.is_empty()).then(|| values.join("; "))
 }
-fn store_error_response(error: StoreError) -> Response {
+pub(super) fn store_error_response(error: StoreError) -> Response {
     match error {
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
         StoreError::Conflict | StoreError::RetryableTransaction => {
@@ -798,16 +876,16 @@ fn store_error_response(error: StoreError) -> Response {
             "Blueprint Course is invalid",
         ),
         StoreError::AlreadyExists => route_error(StatusCode::CONFLICT, "Blueprint Course conflict"),
-        StoreError::AssignmentActivity(_)
+        StoreError::AssessmentActivity(_)
         | StoreError::TimedOut
         | StoreError::LeaseLost
         | StoreError::Unavailable(_) => unavailable(),
     }
 }
-fn concealed() -> Response {
+pub(super) fn concealed() -> Response {
     route_error(StatusCode::NOT_FOUND, "Blueprint Course not found")
 }
-fn unavailable() -> Response {
+pub(super) fn unavailable() -> Response {
     route_error(
         StatusCode::SERVICE_UNAVAILABLE,
         "Blueprint Course unavailable",
@@ -844,7 +922,7 @@ mod tests {
 
     #[test]
     fn retained_older_question_pin_uses_its_exact_revision_and_is_not_selectable() {
-        let question_id: QuestionId = "000-0000".parse().expect("Question ID");
+        let question_id: QuestionId = "0000-X000".parse().expect("Question ID");
         let older = QuestionRevisionReference {
             question_id: question_id.clone(),
             revision_number: question_model::QuestionRevisionNumber::new(1).expect("revision one"),

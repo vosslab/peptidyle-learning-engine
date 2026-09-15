@@ -1,14 +1,14 @@
 // Browser-safe Instructor Gradebook evidence boundary.
 
-import type { AssignmentReference } from "../../generated/api/AssignmentReference";
-import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
+import type { AssessmentReference } from "../../generated/api/AssessmentReference";
+import type { AssessmentAttemptCompletion } from "../../generated/api/AssessmentAttemptCompletion";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 
 /** One answer-free progress aggregate for an active Student. */
 export interface CourseGradebookStudentWork {
   readonly rosterId: string;
-  readonly assignmentReference: AssignmentReference;
-  readonly assignmentAttemptCompletion: AssignmentAttemptCompletion | null;
+  readonly assessmentReference: AssessmentReference;
+  readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
   /** Derived from server time; no grading operation or queue state. */
   readonly expiredSubmitting: boolean;
   /** Null while an expired Attempt is awaiting background submission. */

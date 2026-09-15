@@ -22,7 +22,7 @@ pub enum StoreError {
     /// Record shape violates a model invariant.
     InvalidRecord(String),
     /// Pure activity evaluation rejected the transition.
-    AssignmentActivity(AssignmentActivityError),
+    AssessmentActivity(AssessmentActivityError),
     /// The database-authoritative timer no longer accepts this response.
     TimedOut,
     /// Backend state is temporarily unavailable.
@@ -46,7 +46,7 @@ impl std::fmt::Display for StoreError {
             Self::LeaseLost => write!(formatter, "grading lease was lost"),
             Self::Forbidden => write!(formatter, "operation is not authorized"),
             Self::InvalidRecord(message) => write!(formatter, "invalid record: {message}"),
-            Self::AssignmentActivity(error) => {
+            Self::AssessmentActivity(error) => {
                 write!(formatter, "activity transition rejected: {error}")
             }
             Self::TimedOut => write!(formatter, "question attempt timed out"),
@@ -57,8 +57,8 @@ impl std::fmt::Display for StoreError {
 
 impl std::error::Error for StoreError {}
 
-impl From<AssignmentActivityError> for StoreError {
-    fn from(error: AssignmentActivityError) -> Self {
-        Self::AssignmentActivity(error)
+impl From<AssessmentActivityError> for StoreError {
+    fn from(error: AssessmentActivityError) -> Self {
+        Self::AssessmentActivity(error)
     }
 }

@@ -8,8 +8,8 @@ import {
   type RouteParams,
 } from "../navigation/route_params";
 import {
-  parseAssignmentAttemptReference,
-  parseAssignmentReference,
+  parseAssessmentAttemptReference,
+  parseAssessmentReference,
   parseBlueprintCourseReference,
   parseCourseInstanceReference,
   parseCourseMembershipReference,
@@ -19,6 +19,7 @@ import {
 import {
   ROUTE_CONTRACT,
   productRoleMayAccessRoute,
+  productRoleHomeRouteId,
   routeContractForPathname,
   type ContentLayout,
   type RibbonScope,
@@ -65,9 +66,9 @@ export interface RibbonViewerIdentity {
 export interface RibbonContextLabels {
   readonly courseShortName?: string;
   readonly courseLongName?: string;
-  readonly assignmentTitle?: string;
-  readonly assignmentAttemptTitle?: string;
-  readonly assignmentAttemptProgress?: string;
+  readonly assessmentTitle?: string;
+  readonly assessmentAttemptTitle?: string;
+  readonly assessmentAttemptProgress?: string;
 }
 
 /** The declared public route parameters are strings only; no resource is admitted here. */
@@ -94,8 +95,8 @@ export interface RibbonActionDescriptor {
 export interface RibbonContextModel {
   readonly productLabel: "Student" | "Instructor" | "Sysadmin";
   readonly scopeLabel?: string;
-  readonly assignmentLabel?: string;
-  readonly assignmentAttemptProgress?: string;
+  readonly assessmentLabel?: string;
+  readonly assessmentAttemptProgress?: string;
   /** Account-endcap positions remain modeled while truthful admission withholds them. */
   readonly accountControls: ReadonlyArray<RibbonContextControlModel>;
   readonly signOutAction: RibbonActionDescriptor;
@@ -163,10 +164,10 @@ const PRODUCT_LABELS = {
 const TASK_AREA_LABELS: Readonly<Record<RibbonTaskArea, string>> = Object.freeze({
   instructorCourses: "Courses",
   instructorQuestions: "Questions",
-  instructorAssignments: "Assignments",
-  assignment: "Assignment",
+  instructorAssessments: "Assessments",
+  assessment: "Assessment",
   courseSetup: "Course setup",
-  assignmentAttempt: "Assignment attempt",
+  assessmentAttempt: "Assessment attempt",
 });
 
 const RESOLVED_RELATIONSHIP: RibbonRelationshipState = Object.freeze({
@@ -184,17 +185,18 @@ const SIGN_OUT_ACTION: RibbonActionDescriptor = Object.freeze({
 
 function accountControlsFor(productRole: ProductRole): ReadonlyArray<RibbonContextControlModel> {
   return Object.freeze(
-    RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) => control.productRole === productRole).map(
-      (control) =>
-        Object.freeze({
-          id: control.id,
-          label: control.label,
-          availability: control.availability,
-          glyph: control.glyph,
-          ...(control.id === "profile" && control.availability === "Available"
-            ? { href: "/profile" }
-            : {}),
-        }),
+    RIBBON_CONTEXT_CONTROL_CATALOG.filter((control) =>
+      control.productRoles.includes(productRole),
+    ).map((control) =>
+      Object.freeze({
+        id: control.id,
+        label: control.label,
+        availability: control.availability,
+        glyph: control.glyph,
+        ...(control.id === "profile" && control.availability === "Available"
+          ? { href: "/profile" }
+          : {}),
+      }),
     ),
   );
 }
@@ -203,8 +205,8 @@ type RouteParamParser = (value: string) => string | null;
 
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
   courseRef: parseCourseInstanceReference,
-  assignmentRef: parseAssignmentReference,
-  assignmentAttemptRef: parseAssignmentAttemptReference,
+  assessmentRef: parseAssessmentReference,
+  assessmentAttemptRef: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
   questionRef: parseQuestionRouteReference,
   draftQuestionRef: parseDraftQuestionReference,
@@ -340,8 +342,14 @@ function hrefFor(
   control: RibbonCatalogControl<RibbonDestinationId>,
   routeState: RibbonRouteState,
   availability: RibbonAvailability,
+  productRole: ProductRole,
 ): string | undefined {
   if (availability !== "Available" || control.destination.kind !== "route") return undefined;
+  // The Courses tab is the role's stable home, not the anonymous root resolver.
+  // This preserves direct role navigation even if a caller does not first visit `/`.
+  if (control.id === "courses" && routeState.route.ribbon.scope === "product") {
+    return buildRoutePath(productRoleHomeRouteId(productRole), {});
+  }
   const targetParams = targetParamsFor(control, routeState);
   if (targetParams === undefined) return undefined;
   return buildRoutePath(control.destination.routeId, targetParams);
@@ -368,7 +376,7 @@ function modelForControl<Id extends RibbonDestinationId>(
     productRole,
     relationshipStateFor(entry.relationshipRequirement),
   );
-  const href = hrefFor(control, routeState, admission);
+  const href = hrefFor(control, routeState, admission, productRole);
   const availability = href === undefined && admission === "Available" ? "Unavailable" : admission;
   return Object.freeze({
     id: control.id,
@@ -395,17 +403,17 @@ function contextFor(
   labels: RibbonContextLabels,
 ): RibbonContextModel {
   const scopeLabel = route.ribbon.scope === "courseInstance" ? labels.courseShortName : undefined;
-  const assignmentLabel =
+  const assessmentLabel =
     route.ribbon.scope === "courseInstance"
-      ? labels.assignmentTitle
-      : labels.assignmentAttemptTitle;
-  const assignmentAttemptProgress =
-    route.ribbon.scope === "assignmentAttempt" ? labels.assignmentAttemptProgress : undefined;
+      ? labels.assessmentTitle
+      : labels.assessmentAttemptTitle;
+  const assessmentAttemptProgress =
+    route.ribbon.scope === "assessmentAttempt" ? labels.assessmentAttemptProgress : undefined;
   return Object.freeze({
     productLabel: PRODUCT_LABELS[productRole],
     ...(scopeLabel === undefined ? {} : { scopeLabel }),
-    ...(assignmentLabel === undefined ? {} : { assignmentLabel }),
-    ...(assignmentAttemptProgress === undefined ? {} : { assignmentAttemptProgress }),
+    ...(assessmentLabel === undefined ? {} : { assessmentLabel }),
+    ...(assessmentAttemptProgress === undefined ? {} : { assessmentAttemptProgress }),
     accountControls: accountControlsFor(productRole),
     signOutAction: SIGN_OUT_ACTION,
   });
@@ -420,7 +428,7 @@ function taskAreasFor(
   const instructorProductGroup =
     group === "instructorCourses" ||
     group === "instructorQuestions" ||
-    group === "instructorAssignments";
+    group === "instructorAssessments";
   if (instructorProductGroup && productRole !== "instructor") return Object.freeze([]);
 
   const areas: RibbonTaskAreaModel[] = [];
@@ -482,15 +490,15 @@ function breadcrumbsFor(
   const drafts = breadcrumbLink("questionDrafts");
   const blueprints = breadcrumbLink("blueprintCourses");
   const courseParams = { courseRef: routeState.params.courseRef };
-  const courseAssignments = breadcrumbLink("courseAssignments", courseParams);
+  const courseAssessments = breadcrumbLink("courseAssessments", courseParams);
   const studentCourse = breadcrumbLink("studentCourseLanding", courseParams);
-  const assignmentParams = {
+  const assessmentParams = {
     courseRef: routeState.params.courseRef,
-    assignmentRef: routeState.params.assignmentRef,
+    assessmentRef: routeState.params.assessmentRef,
   };
-  const instructorAssignment = breadcrumbLink("assignmentWorkspaceOverview", assignmentParams);
-  const studentAssignment = breadcrumbLink("assignmentOverview", assignmentParams);
-  const assignmentLabel = labels.assignmentTitle ?? "Assignment";
+  const instructorAssessment = breadcrumbLink("assessmentWorkspaceOverview", assessmentParams);
+  const studentAssessment = breadcrumbLink("assessmentOverview", assessmentParams);
+  const assessmentLabel = labels.assessmentTitle ?? "Assessment";
 
   function courseTrail(current: string, courseHref: string | undefined): RibbonBreadcrumbModel[] {
     if (courses === undefined || courseHref === undefined || labels.courseLongName === undefined)
@@ -503,7 +511,7 @@ function breadcrumbsFor(
   }
 
   switch (routeState.route.id) {
-    case "courseAssignments":
+    case "courseAssessments":
     case "studentCourseLanding":
       return courses !== undefined && labels.courseLongName !== undefined
         ? Object.freeze([
@@ -535,63 +543,63 @@ function breadcrumbsFor(
             breadcrumbLinkItem("My Blueprint Courses", blueprints),
             breadcrumbCurrent("Blueprint Course"),
           ]);
-    case "assignmentWorkspaceQuestions":
-    case "assignmentWorkspacePolicies":
-    case "assignmentWorkspaceStudentView": {
+    case "assessmentWorkspaceQuestions":
+    case "assessmentWorkspacePolicies":
+    case "assessmentWorkspaceStudentView": {
       const section = {
-        assignmentWorkspaceQuestions: "Questions",
-        assignmentWorkspacePolicies: "Settings",
-        assignmentWorkspaceStudentView: "Student View",
+        assessmentWorkspaceQuestions: "Questions",
+        assessmentWorkspacePolicies: "Settings",
+        assessmentWorkspaceStudentView: "Student View",
       }[routeState.route.id];
-      const base = courseTrail(assignmentLabel, courseAssignments);
-      if (base.length === 0 || instructorAssignment === undefined) return Object.freeze([]);
+      const base = courseTrail(assessmentLabel, courseAssessments);
+      if (base.length === 0 || instructorAssessment === undefined) return Object.freeze([]);
       return Object.freeze([
         ...base.slice(0, -1),
-        breadcrumbLinkItem(assignmentLabel, instructorAssignment),
+        breadcrumbLinkItem(assessmentLabel, instructorAssessment),
         breadcrumbCurrent(section),
       ]);
     }
-    case "assignmentWorkspaceOverview":
-      return Object.freeze(courseTrail(assignmentLabel, courseAssignments));
-    case "assignmentOverview":
-      return Object.freeze(courseTrail(assignmentLabel, studentCourse));
-    case "assignmentCreate":
-      return Object.freeze(courseTrail("New Assignment", courseAssignments));
-    case "assignmentPreview":
-      return Object.freeze(courseTrail("Delivery Check", courseAssignments));
+    case "assessmentWorkspaceOverview":
+      return Object.freeze(courseTrail(assessmentLabel, courseAssessments));
+    case "assessmentOverview":
+      return Object.freeze(courseTrail(assessmentLabel, studentCourse));
+    case "assessmentCreate":
+      return Object.freeze(courseTrail("New Assessment", courseAssessments));
+    case "assessmentPreview":
+      return Object.freeze(courseTrail("Delivery Check", courseAssessments));
     case "gradebook":
-      return Object.freeze(courseTrail("Gradebook", courseAssignments));
+      return Object.freeze(courseTrail("Gradebook", courseAssessments));
     case "courseAppearance":
-      return Object.freeze(courseTrail("Appearance", courseAssignments));
+      return Object.freeze(courseTrail("Appearance", courseAssessments));
     case "courseRoster":
-      return Object.freeze(courseTrail("Students", courseAssignments));
-    case "assignmentAttempt":
+      return Object.freeze(courseTrail("Students", courseAssessments));
+    case "assessmentAttempt":
       if (
         courses === undefined ||
         studentCourse === undefined ||
-        studentAssignment === undefined ||
+        studentAssessment === undefined ||
         labels.courseLongName === undefined ||
-        labels.assignmentAttemptTitle === undefined
+        labels.assessmentAttemptTitle === undefined
       ) {
         return Object.freeze([]);
       }
       return Object.freeze([
         breadcrumbLinkItem("Courses", courses),
         breadcrumbLinkItem(labels.courseLongName, studentCourse),
-        breadcrumbLinkItem(labels.assignmentAttemptTitle, studentAssignment),
-        breadcrumbCurrent("Assignment attempt"),
+        breadcrumbLinkItem(labels.assessmentAttemptTitle, studentAssessment),
+        breadcrumbCurrent("Assessment attempt"),
       ]);
-    case "assignmentAttemptSummary":
+    case "assessmentAttemptSummary":
       return courses !== undefined &&
         studentCourse !== undefined &&
-        studentAssignment !== undefined &&
+        studentAssessment !== undefined &&
         labels.courseLongName !== undefined &&
-        labels.assignmentAttemptTitle !== undefined
+        labels.assessmentAttemptTitle !== undefined
         ? Object.freeze([
             breadcrumbLinkItem("Courses", courses),
             breadcrumbLinkItem(labels.courseLongName, studentCourse),
-            breadcrumbLinkItem(labels.assignmentAttemptTitle, studentAssignment),
-            breadcrumbCurrent("Assignment attempt"),
+            breadcrumbLinkItem(labels.assessmentAttemptTitle, studentAssessment),
+            breadcrumbCurrent("Assessment attempt"),
           ])
         : Object.freeze([]);
     default:
@@ -601,23 +609,23 @@ function breadcrumbsFor(
 
 function breadcrumbPreludeReservedFor(route: RouteContract): boolean {
   switch (route.id) {
-    case "courseAssignments":
+    case "courseAssessments":
     case "studentCourseLanding":
     case "questionDetail":
     case "questionDraftEditor":
     case "blueprintCourseDetail":
-    case "assignmentCreate":
-    case "assignmentWorkspaceOverview":
-    case "assignmentWorkspaceQuestions":
-    case "assignmentWorkspacePolicies":
-    case "assignmentWorkspaceStudentView":
-    case "assignmentPreview":
+    case "assessmentCreate":
+    case "assessmentWorkspaceOverview":
+    case "assessmentWorkspaceQuestions":
+    case "assessmentWorkspacePolicies":
+    case "assessmentWorkspaceStudentView":
+    case "assessmentPreview":
     case "gradebook":
     case "courseAppearance":
     case "courseRoster":
-    case "assignmentOverview":
-    case "assignmentAttempt":
-    case "assignmentAttemptSummary":
+    case "assessmentOverview":
+    case "assessmentAttempt":
+    case "assessmentAttemptSummary":
       return true;
     default:
       return false;

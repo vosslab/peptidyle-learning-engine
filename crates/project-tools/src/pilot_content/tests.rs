@@ -62,6 +62,6 @@ fn validated_mapping_selects_the_four_ple_question_json_revisions_in_plan_order(
         .expect("approved PLE Question JSON publications resolve");
 
     assert_eq!(selected.len(), 4);
-    assert_eq!(selected[0].question_id.to_string(), "A02-BCDE");
-    assert_eq!(selected[3].question_id.to_string(), "A07-BCDE");
+    assert_eq!(selected[0].question_id.to_string(), "A02B-XCDE");
+    assert_eq!(selected[3].question_id.to_string(), "A07B-XCDE");
 }

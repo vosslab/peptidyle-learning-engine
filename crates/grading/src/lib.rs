@@ -12,7 +12,7 @@ pub mod ple_question_json;
 
 pub use crate::key::AnswerKey;
 
-/// Backend evaluation before Assignment-owned scoring is applied.
+/// Backend evaluation before Assessment-owned scoring is applied.
 #[derive(Debug, Clone, PartialEq)]
 pub enum QuestionGradingOutcome {
     Evaluated(question_model::QuestionEvaluation),

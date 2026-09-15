@@ -176,20 +176,10 @@ export const COURSE_APPEARANCE_STYLES = `
   display: block;
   min-inline-size: 0;
   inline-size: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-control, 0.25rem);
-}
-
-/* The hero stays small and centered, matching the 1200 by 200 rendition ratio. */
-.course-appearance-banner-hero {
-  aspect-ratio: 6 / 1;
-  block-size: clamp(120px, calc(100cqi / 6), 200px);
-}
-
-.course-appearance-banner-card {
-  aspect-ratio: 5 / 2;
 }
 
 .course-appearance-banner-course-name {

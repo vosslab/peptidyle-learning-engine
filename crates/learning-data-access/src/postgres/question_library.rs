@@ -225,6 +225,10 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         "imathas" => QuestionBackend::Imathas,
         _ => return Err(invalid("Question Backend")),
     };
+    let question_format = serde_json::from_value(serde_json::Value::String(
+        row.try_get("question_format").map_err(map_sqlx_error)?,
+    ))
+    .map_err(|_| invalid("Question Format"))?;
     let question_type: QuestionType = serde_json::from_value(serde_json::Value::String(
         row.try_get("question_type").map_err(map_sqlx_error)?,
     ))
@@ -256,6 +260,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
             revision_number,
         },
         backend,
+        question_format,
         question_type,
         published_at: Timestamp::from_unix_millis(published_at_millis),
         question_title: row.try_get("question_title").map_err(map_sqlx_error)?,

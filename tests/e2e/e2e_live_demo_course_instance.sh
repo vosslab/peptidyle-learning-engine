@@ -118,7 +118,7 @@ items = json.loads(sys.argv[1]).get("items")
 if not isinstance(items, list) or not items:
     raise SystemExit("Question Library did not return a published Question")
 question_id = items[0].get("summary", {}).get("questionId")
-if not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
+if not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
     raise SystemExit("Question Library did not return an opaque Question ID")
 print(question_id)
 ' "$1"
@@ -169,7 +169,7 @@ course_payload() {
 	python3 -c '
 import json, sys
 blueprint, revision, assigned, short_name, long_name = sys.argv[1:]
-print(json.dumps({"blueprintCourse":blueprint,"blueprintRevision":revision,"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
+print(json.dumps({"source":{"kind":"adopted","blueprintCourse":blueprint,"blueprintRevision":revision},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
 ' "$1" "$2" "$3" "$4" "$5"
 }
 
@@ -307,7 +307,7 @@ if not isinstance(source["blueprint_assignment_reference"], str) or not source["
 }
 
 prove_authority() {
-	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint revision_one replacement saved revision_two candidates assigned course_created course_reference second_course_created second_course_reference course_list course_view source_choices stale_created newer_created newer_course_reference
+	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint revision_one metadata_etag private_adoption published replacement saved revision_two candidates assigned course_created course_reference second_course_created second_course_reference course_list course_view source_choices stale_created newer_created newer_course_reference
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	sysadmin_cookie="$(persona_cookie morganSysadmin)"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -324,13 +324,14 @@ prove_authority() {
 		echo "Instructor could not create the exact Blueprint source" >&2
 		exit 1
 	fi
-read -r blueprint revision_one < <(python3 -c '
+read -r blueprint revision_one metadata_etag < <(python3 -c '
 import json, re, sys
-value=json.loads(sys.argv[1]); reference=value.get("reference"); revision=value.get("current_revision")
+value=json.loads(sys.argv[1]); reference=value.get("reference"); revision=value.get("current_revision"); metadata_etag=value.get("metadata_etag")
 if (not isinstance(reference,str) or not re.fullmatch(r"BP-[1-9][0-9]{0,9}",reference)
-    or revision != {"reference": reference, "revision": "1"}):
+    or revision != {"reference": reference, "revision": "1"}
+    or not isinstance(metadata_etag, str) or not metadata_etag):
     raise SystemExit("Blueprint creation did not return available exact Revision 1")
-print(reference, revision["revision"])
+print(reference, revision["revision"], metadata_etag)
 ' "$(response_body "$created")")
 	candidates="$(request '/api/course-instance-creation/instructors' "$sysadmin_cookie")"
 	if [ "$(response_status "$candidates")" != "200" ]; then
@@ -349,6 +350,16 @@ if len(set(references)) != len(references):
     raise SystemExit("Assigned Instructor selection duplicates a public Account Reference")
 print(references[0])
 ' "$(response_body "$candidates")")"
+	private_adoption="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$course_short_name" "$course_long_name")")"
+	if [ "$(response_status "$private_adoption")" != "422" ]; then
+		echo "Private Blueprint Course accepted a new Course Instance adoption" >&2
+		exit 1
+	fi
+	published="$(request "/api/course-blueprints/$blueprint/publish" "$instructor_cookie" POST '' "\"$metadata_etag\"")"
+	if [ "$(response_status "$published")" != "200" ]; then
+		echo "Instructor could not publish the Blueprint source for Course Instance adoption" >&2
+		exit 1
+	fi
 	course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$course_short_name" "$course_long_name")")"
 	if [ "$(response_status "$course_created")" != "201" ]; then
 		echo "Sysadmin could not create the Course Instance for the selected Instructor (HTTP $(response_status "$course_created"): $(response_body "$course_created"))" >&2

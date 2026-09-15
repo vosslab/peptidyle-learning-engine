@@ -14,19 +14,19 @@ SET CONSTRAINTS ALL DEFERRED;
 -- the smallest ordinary native Question source needed for direct evaluation.
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.object_record (object_id, object_address, object_storage_area, object_data_class, sha256, size_bytes, media_type, created_at) VALUES
-('e3000000-0000-0000-0000-000000000001', '{"kind":"questionSource","questionRevision":{"questionId":"BCDEFG0","revisionNumber":1},"object":"e3000000-0000-0000-0000-000000000001"}'::jsonb, 'private-content', 'question-source', decode(repeat('e3', 32), 'hex'), 1, 'application/json', clock_timestamp());
+('e3000000-0000-0000-0000-000000000001', '{"kind":"questionSource","questionRevision":{"questionId":"BCDEXFG0","revisionNumber":1},"object":"e3000000-0000-0000-0000-000000000001"}'::jsonb, 'private-content', 'question-source', decode(repeat('e3', 32), 'hex'), 1, 'application/json', clock_timestamp());
 INSERT INTO ple_private.question_revision_source_binding (question_id, revision_number, backend, question_format, source_object_id, source_object_checksum, created_at) VALUES
-('BCDEFG0', 1, 'ple', 'pleQuestionJson', 'e3000000-0000-0000-0000-000000000001', repeat('e3', 32), clock_timestamp());
+('BCDEXFG0', 1, 'ple', 'pleQuestionJson', 'e3000000-0000-0000-0000-000000000001', repeat('e3', 32), clock_timestamp());
 
 -- Save A, prepare it, then save B at the same millisecond. Response bytes are
 -- part of the immutable snapshot fence, so stale backend work leaves no
 -- partial submission, result, receipt, or completion behind.
 SET LOCAL ROLE ple_api_owner;
 SELECT set_config('ple.session_account_id', '00000000-0000-0000-0000-00000000eb05', true);
-SELECT * FROM ple_api.start_assignment_attempt('e3000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-00000000eb06', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000011","assignment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDEFG0","revision_number":1,"question_seed":"301"}]'::jsonb);
+SELECT * FROM ple_api.start_assignment_attempt('e3000000-0000-0000-0000-000000000010', '00000000-0000-0000-0000-00000000eb06', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000011","assignment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDEXFG0","revision_number":1}]'::jsonb);
 SET LOCAL ROLE ple_private_owner;
-INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256, issued_at, question_attempt_state, backend_name, backend_version, grader_name, grader_version, rendered_question_sha256, issued_capability) VALUES
-('e3000000-0000-0000-0000-000000000031', 'e3000000-0000-0000-0000-000000000011', 301, repeat('31', 32), clock_timestamp(), 'open', 'ple', '1', 'ple', '1', decode(repeat('31', 32), 'hex'), 'not_applicable');
+INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, issued_at, question_attempt_state, backend_name, backend_version, grader_name, grader_version, rendered_question_sha256, issued_capability) VALUES
+('e3000000-0000-0000-0000-000000000031', 'e3000000-0000-0000-0000-000000000011', clock_timestamp(), 'open', 'ple', '1', 'ple', '1', decode(repeat('31', 32), 'hex'), 'not_applicable');
 SET LOCAL ROLE ple_api_owner;
 SELECT * FROM ple_api.save_student_assignment_attempt_response((SELECT assignment_attempt_reference_number FROM ple_api.read_started_student_assignment_attempt('e3000000-0000-0000-0000-000000000010')), 1, '{"kind":"shortText","text":"response A"}'::jsonb);
 SELECT set_config('ple.test_direct_attempt_reference', assignment_attempt_reference_number::text, true) FROM ple_api.read_started_student_assignment_attempt('e3000000-0000-0000-0000-000000000010');
@@ -125,13 +125,12 @@ $$;
 -- issued position remains in the possible-score denominator at zero credit.
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_private.course_roster_profile (
-    course_roster_profile_id, course_id, student_account_id, roster_email,
-    roster_id, created_at
+    course_roster_profile_id, course_id, student_account_id, roster_id, created_at
 ) VALUES (
     'e3000000-0000-0000-0000-000000000003',
     '00000000-0000-0000-0000-00000000eb01',
     '00000000-0000-0000-0000-00000000ea02',
-    'expiry-student-920001@example.test', 'expiry-student-920001', clock_timestamp()
+    'expiry-student-920001', clock_timestamp()
 )
 ON CONFLICT DO NOTHING;
 SET LOCAL ROLE ple_private_owner;
@@ -155,10 +154,10 @@ ON CONFLICT (student_record_id, assignment_id) DO UPDATE
 SET LOCAL ROLE ple_api_owner;
 -- The generic baseline maps Student record eb02 to Student Account ea02.
 SELECT set_config('ple.session_account_id', '00000000-0000-0000-0000-00000000ea02', true);
-SELECT * FROM ple_api.start_assignment_attempt('e3000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-00000000eb02', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000021","assignment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDEFG0","revision_number":1,"question_seed":"311"}]'::jsonb);
+SELECT * FROM ple_api.start_assignment_attempt('e3000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-00000000eb02', '00000000-0000-0000-0000-00000000ed01', '[]'::jsonb, '[{"issued_question_id":"e3000000-0000-0000-0000-000000000021","assignment_entry_id":"00000000-0000-0000-0000-00000000ed02","issued_position":0,"question_id":"BCDEXFG0","revision_number":1}]'::jsonb);
 SET LOCAL ROLE ple_private_owner;
-INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256, issued_at, question_attempt_state, backend_name, backend_version, grader_name, grader_version, rendered_question_sha256, issued_capability) VALUES
-('e3000000-0000-0000-0000-000000000041', 'e3000000-0000-0000-0000-000000000021', 311, repeat('41', 32), clock_timestamp(), 'open', 'ple', '1', 'ple', '1', decode(repeat('41', 32), 'hex'), 'not_applicable');
+INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, issued_at, question_attempt_state, backend_name, backend_version, grader_name, grader_version, rendered_question_sha256, issued_capability) VALUES
+('e3000000-0000-0000-0000-000000000041', 'e3000000-0000-0000-0000-000000000021', clock_timestamp(), 'open', 'ple', '1', 'ple', '1', decode(repeat('41', 32), 'hex'), 'not_applicable');
 ALTER TABLE ple_private.assignment_attempt DISABLE TRIGGER assignment_attempt_retains_evidence;
 UPDATE ple_private.assignment_attempt SET expires_at = started_at WHERE assignment_attempt_id = 'e3000000-0000-0000-0000-000000000020';
 ALTER TABLE ple_private.assignment_attempt ENABLE TRIGGER assignment_attempt_retains_evidence;

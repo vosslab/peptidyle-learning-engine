@@ -1,7 +1,7 @@
 //! Crate-private PostgreSQL row bindings for iMathAS Question Backend Sessions.
 
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    AccountId, AssessmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
     SourceObjectReference, Timestamp,
 };
 
@@ -18,7 +18,7 @@ pub(crate) struct ImathasQuestionBackendSessionStorageParts {
     pub(crate) reference: ImathasQuestionBackendSessionReference,
     pub(crate) account: AccountId,
     pub(crate) course: CourseId,
-    pub(crate) assignment: AssignmentId,
+    pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
@@ -36,7 +36,7 @@ pub(crate) struct ImathasQuestionBackendSessionStorageParts {
 pub(crate) struct ImathasQuestionBackendSessionRestoreParts {
     pub(crate) account: AccountId,
     pub(crate) course: CourseId,
-    pub(crate) assignment: AssignmentId,
+    pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,

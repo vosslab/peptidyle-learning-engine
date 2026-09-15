@@ -111,7 +111,7 @@ if not isinstance(item, dict) or set(item) != {"reference", "description"}: rais
 reference=item["reference"]
 if (not isinstance(reference, dict) or set(reference) != {"questionId", "revisionNumber"}
     or not isinstance(reference["questionId"], str)
-    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}", reference["questionId"]) is None
+    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", reference["questionId"]) is None
     or not isinstance(reference["revisionNumber"], int) or reference["revisionNumber"] < 1):
     raise SystemExit("Question picker lacks an exact Question Revision")
 print(json.dumps(reference, separators=(",", ":")))

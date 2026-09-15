@@ -4,7 +4,7 @@
 //! deliberately exclude external-affiliation IDs, UUIDs, email, policy inputs, jobs, object
 //! keys, recipient lists, Answer Key facts, and clock authority. A server maps
 //! its authorized Store/domain result into these values after resolving Active Student
-//! Course Membership and Effective Assignment Policy.
+//! Course Membership and Effective Assessment Policy.
 
 use std::num::{NonZeroU32, NonZeroU64};
 use std::str::FromStr;
@@ -12,8 +12,8 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CourseInvitationReference, LocalDateAndTime, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
+    CourseInvitationReference, LocalDateAndTime, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, Timestamp,
 };
 
 pub use crate::preview_plane::HypotheticalStudentViewScenarioModifiers;
@@ -186,10 +186,10 @@ pub enum TeachingTimeFieldPatch {
 /// Explicit adjustment state for a resolved positive integer field.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum TeachingAssignmentAttemptTimeLimitFieldPatch {
+pub enum TeachingAssessmentAttemptTimeLimitFieldPatch {
     Inherit,
     Set {
-        value: TeachingAssignmentAttemptTimeLimitSeconds,
+        value: TeachingAssessmentAttemptTimeLimitSeconds,
     },
     Unrestricted,
 }
@@ -206,21 +206,21 @@ pub enum TeachingAttemptLimitFieldPatch {
 /// Positive time limit that fits the PostgreSQL `INTEGER` policy column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u32", into = "u32")]
-pub struct TeachingAssignmentAttemptTimeLimitSeconds(NonZeroU32);
+pub struct TeachingAssessmentAttemptTimeLimitSeconds(NonZeroU32);
 
-impl TryFrom<u32> for TeachingAssignmentAttemptTimeLimitSeconds {
+impl TryFrom<u32> for TeachingAssessmentAttemptTimeLimitSeconds {
     type Error = &'static str;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         NonZeroU32::new(value)
-            .filter(|limit| limit.get() <= MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+            .filter(|limit| limit.get() <= MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS)
             .map(Self)
-            .ok_or("time limit must fit the assignment policy bounds")
+            .ok_or("time limit must fit the assessment policy bounds")
     }
 }
 
-impl From<TeachingAssignmentAttemptTimeLimitSeconds> for u32 {
-    fn from(value: TeachingAssignmentAttemptTimeLimitSeconds) -> Self {
+impl From<TeachingAssessmentAttemptTimeLimitSeconds> for u32 {
+    fn from(value: TeachingAssessmentAttemptTimeLimitSeconds) -> Self {
         value.0.get()
     }
 }
@@ -235,9 +235,9 @@ impl TryFrom<u32> for TeachingAttemptLimit {
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         NonZeroU32::new(value)
-            .filter(|limit| limit.get() <= MAX_ASSIGNMENT_ATTEMPT_LIMIT)
+            .filter(|limit| limit.get() <= MAX_ASSESSMENT_ATTEMPT_LIMIT)
             .map(Self)
-            .ok_or("attempt limit must fit the assignment policy bounds")
+            .ok_or("attempt limit must fit the assessment policy bounds")
     }
 }
 
@@ -254,7 +254,7 @@ pub struct AccommodationAdjustmentView {
     pub available_at: TeachingTimeFieldPatch,
     pub due_at: TeachingTimeFieldPatch,
     pub closes_at: TeachingTimeFieldPatch,
-    pub assignment_attempt_time_limit_seconds: TeachingAssignmentAttemptTimeLimitFieldPatch,
+    pub assessment_attempt_time_limit_seconds: TeachingAssessmentAttemptTimeLimitFieldPatch,
     pub attempt_limit: TeachingAttemptLimitFieldPatch,
 }
 
@@ -344,7 +344,7 @@ mod tests {
         assert!(
             serde_json::from_str::<AccommodationAdjustmentView>(concat!(
                 r#"{"available_at":{"kind":"inherit"},"due_at":{"kind":"inherit"},"#,
-                r#""closes_at":{"kind":"inherit"},"assignment_attempt_time_limit_seconds":{"kind":"set","#,
+                r#""closes_at":{"kind":"inherit"},"assessment_attempt_time_limit_seconds":{"kind":"set","#,
                 r#""value":2147483648},"attempt_limit":{"kind":"inherit"}}"#
             ))
             .is_err()
@@ -354,7 +354,7 @@ mod tests {
     #[test]
     fn pending_invitation_serializes_server_owned_expiry_without_inviter() {
         let row = PendingCourseInvitationView {
-            reference: "CI-4".parse().unwrap(),
+            reference: "I-4".parse().unwrap(),
             course_label: TeachingDisplayLabel::try_from("Biochemistry".to_owned()).unwrap(),
             state: CourseInvitationStateView::Pending,
             expires_at: Timestamp::from_unix_millis(2_592_000_000),

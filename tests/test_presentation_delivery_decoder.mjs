@@ -9,8 +9,7 @@ import {
 
 function presentation(response) {
   return {
-    questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
-    question_seed: 2,
+    questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 1 },
     presentationNonce: "0123456789abcdef0123456789abcdef",
     questionTitle: "Question",
     prompt: [],
@@ -57,9 +56,22 @@ test("Question Presentation rejects an extra multiple-answer response field", ()
   );
 });
 
+// Permanent boundary test: native reproduction evidence must never become browser data.
+// A failure means restore the closed public decoder, not a compatibility path for these fields.
+test("Question Presentation rejects legacy native reproduction fields", () => {
+  const issued = presentation({ kind: "fillIn", maxCharacters: 10 });
+  for (const field of ["question_seed", "generated_parameter_sha256"]) {
+    assert.throws(
+      () => decodeIssuedQuestionPresentation({ ...issued, [field]: "server-only" }),
+      DecodeError,
+      field,
+    );
+  }
+});
+
 test("selected Student Question Presentation retains its exact Question Revision", () => {
   const selected = {
-    questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+    questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
     prompt: [],
     response: { kind: "fillIn", maxCharacters: 10 },
   };

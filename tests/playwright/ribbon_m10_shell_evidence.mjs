@@ -229,8 +229,7 @@ try {
     [currentCase.locator('[data-ribbon-control="courses"]'), "the Courses Tab"],
     [currentCase.locator('[data-ribbon-control="questions"]'), "the Questions Tab"],
     [currentCase.locator('[data-ribbon-control="productAssignments"]'), "the Assignments Tab"],
-    [currentCase.getByRole("link", { name: "Profile" }), "the Profile control"],
-    [currentCase.getByRole("button", { name: "Sign out" }), "the Sign out action"],
+    [currentCase.getByRole("button", { name: "Profile" }), "the Profile control"],
     [
       currentCase.locator('[data-ribbon-control="myBlueprintCourses"]'),
       "the first backed task after the dense top bar",
@@ -639,8 +638,8 @@ try {
 
   await page.evaluate(() => window.ribbonM10.currentNavigate("/"));
   await waitForPath(page, "current-production", "/");
-  const currentSignOut = currentCase.getByRole("button", { name: "Sign out" });
-  await currentSignOut.click();
+  await currentCase.getByRole("button", { name: "Profile" }).click();
+  await currentCase.getByRole("menuitem", { name: "Sign out" }).click();
   await waitForPath(page, "current-production", "/sign-in");
   assert.equal(
     await currentCase.locator(".ple-app-ribbon").count(),
@@ -850,7 +849,6 @@ try {
   await fixtureCase.locator("[data-m10-fixture-content]").waitFor({ state: "visible" });
   await assertOneStableRibbon(page, "fixture-shell", fixtureRibbon, true);
 
-  const fixtureSignOut = fixtureCase.getByRole("button", { name: "Sign out" });
   await fixtureCase.evaluate((root) => {
     root.querySelector(".ple-app-ribbon")?.dispatchEvent(
       new CustomEvent("ple-ribbon-action", {
@@ -879,7 +877,11 @@ try {
     1,
     "valid closed action is handled once",
   );
-  await fixtureSignOut.click();
+  const fixtureProfile = fixtureCase.getByRole("button", { name: "Profile" });
+  await fixtureProfile.focus();
+  await page.keyboard.press("ArrowDown");
+  const fixtureMenu = fixtureCase.getByRole("menu", { name: "Profile menu" });
+  await fixtureMenu.getByRole("menuitem", { name: "Sign out" }).click();
   await flush(page);
   assert.equal(
     await page.evaluate(() => window.ribbonM10.signOutActions()),

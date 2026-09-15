@@ -9,6 +9,7 @@ import {
   decodeSafeInteger,
   decodeStringEnum,
   decodeTrue,
+  decodeUuid,
 } from "./decoder";
 import { requireOnlyFields } from "./decoders/shared";
 
@@ -38,11 +39,22 @@ export interface LiveDemoSelectedAccount {
   readonly authenticated: true;
 }
 
+/** An opaque pending Sysadmin ceremony; this is never an authenticated session. */
+export interface LiveDemoPendingSysadminTotp {
+  readonly pendingMfa: true;
+  readonly attestationId: string;
+}
+
+export type LiveDemoSelection = LiveDemoSelectedAccount | LiveDemoPendingSysadminTotp;
+
 /** Deployment-only authentication convenience; it is not a product identity model. */
 export interface LiveDemoClient {
   readonly listSeededDemoAccounts: () => Promise<SeededDemoAccounts>;
-  readonly selectSeededDemoAccount: (
-    persona: SeededDemoPersona,
+  readonly selectSeededDemoAccount: (persona: SeededDemoPersona) => Promise<LiveDemoSelection>;
+  /** Completes the existing browser-bound Sysadmin TOTP ceremony. */
+  readonly completeSeededDemoSysadminTotp: (
+    attestationId: string,
+    code: string,
   ) => Promise<LiveDemoSelectedAccount>;
 }
 
@@ -113,6 +125,16 @@ export function decodeLiveDemoSelectedAccount(
   path = "response",
 ): LiveDemoSelectedAccount {
   return decodeAuthenticated(value, path);
+}
+
+export function decodeLiveDemoSelection(value: unknown, path = "response"): LiveDemoSelection {
+  const record = decodeRecord(value, path);
+  if (record.authenticated === true) return decodeAuthenticated(value, path);
+  requireOnlyFields(record, path, ["pendingMfa", "attestationId"]);
+  return {
+    pendingMfa: decodeTrue(record.pendingMfa, `${path}.pendingMfa`),
+    attestationId: decodeUuid(record.attestationId, `${path}.attestationId`),
+  };
 }
 
 export function decodeSeededDemoPersona(value: unknown, path = "persona"): SeededDemoPersona {

@@ -143,7 +143,7 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
           instructor.locator(".course-appearance-form").first().getByRole("status"),
         ).toContainText("Theme saved.");
         await expectSavedTheme(instructor, "grass");
-        await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(2);
+        await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(1);
       });
 
       await test.step("Instructor reload proves the stored theme and saved banner", async () => {
@@ -151,7 +151,7 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
         await expect(instructor.locator('[data-route-surface="courseAppearance"]')).toBeVisible();
         await expect(instructor.getByRole("radio", { name: /^Grass/u })).toBeChecked();
         await expectSavedTheme(instructor, "grass");
-        await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(2);
+        await expect(instructor.locator("[data-course-banner-saved-preview] img")).toHaveCount(1);
       });
 
       await test.step("Enrolled Student opens the normal Course home and receives its saved appearance", async () => {

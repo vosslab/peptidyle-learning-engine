@@ -1,8 +1,8 @@
 //! Pure validation for Instructor Course Invitations.
 //!
-//! This module is deliberately separate from Student Assignment Access. It validates
+//! This module is deliberately separate from Student Assessment Access. It validates
 //! teaching-operation facts supplied by a Store transaction but never grants
-//! Student Assignment Access, calculates effective policy, reads a clock, or writes
+//! Student Assessment Access, calculates effective policy, reads a clock, or writes
 //! a direct membership.
 
 use question_model::{

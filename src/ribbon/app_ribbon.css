@@ -21,6 +21,7 @@
   --ple-ribbon-space-row: var(--ple-space-3);
   --ple-ribbon-space-inline: var(--ple-space-4);
   --ple-ribbon-space-cue: var(--ple-space-6);
+  --ple-ribbon-space-endcap: var(--ple-space-7);
   --ple-ribbon-context-surface: color-mix(
     in srgb,
     var(--ple-surface-soft) 88%,
@@ -68,7 +69,9 @@
   grid-template-rows: var(--ple-ribbon-top-block-size) var(--ple-ribbon-reserved-task-size);
   block-size: var(--ple-ribbon-block-size);
   min-inline-size: 0;
-  overflow: clip;
+  /* Each row still clips only its own scrolling content. The Profile menu is
+     an account-endcap overlay and must remain visible above the next row. */
+  overflow: visible;
   color: var(--ple-ink);
   background-color: var(--ple-card-surface);
   background-image: linear-gradient(
@@ -180,6 +183,7 @@
 .ple-app-ribbon__top-bar {
   gap: var(--ple-ribbon-space-row);
   padding-inline: var(--ple-ribbon-space-inline);
+  padding-inline-end: var(--ple-ribbon-space-endcap);
   background-color: var(--ple-ribbon-context-surface);
   background-image:
     linear-gradient(to bottom, rgb(255 255 255 / 34%), transparent 66%),
@@ -282,10 +286,10 @@
 
 /* Controls remain flat in their resting state. Presentation classes are a
    catalog declaration, never a proxy for role or priority. */
-.ple-app-ribbon__sign-out,
 .ple-app-ribbon__link,
 .ple-app-ribbon__brand,
-.ple-app-ribbon__profile {
+.ple-app-ribbon__profile,
+.ple-app-ribbon__profile-menu-item {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -325,15 +329,11 @@
   font-weight: 680;
 }
 
-.ple-app-ribbon__sign-out {
-  margin-inline-start: auto;
-  border-inline-start: 1px solid var(--ple-ribbon-rule);
-  border-radius: 0;
-  padding-inline: var(--ple-ribbon-space-control);
-  color: var(--ple-muted);
-  cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 700;
+.ple-app-ribbon__profile-endcap {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: calc((var(--ple-ribbon-top-block-size) - 2rem) / 2);
+  inset-inline-end: var(--ple-ribbon-space-inline);
 }
 
 .ple-app-ribbon__profile {
@@ -357,6 +357,35 @@
 .ple-app-ribbon__profile .ple-app-ribbon__icon {
   inline-size: 1.15rem;
   block-size: 1.15rem;
+}
+
+.ple-app-ribbon__profile-menu {
+  position: absolute;
+  z-index: 4;
+  inset-block-start: calc(100% + var(--ple-ribbon-space-tight));
+  inset-inline-end: 0;
+  display: grid;
+  min-inline-size: 12rem;
+  padding: var(--ple-ribbon-space-tight);
+  border: 1px solid var(--ple-ribbon-rule);
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.ple-app-ribbon__profile-menu-item {
+  inline-size: 100%;
+  justify-content: flex-start;
+  border-radius: calc(var(--ple-radius-control) / 2);
+  padding-inline: var(--ple-ribbon-space-control);
+  color: var(--ple-ink);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.ple-app-ribbon__profile-menu-item:hover {
+  background: var(--ple-ribbon-interaction-surface);
 }
 
 /* Tabs answer which destination: this is the strongest repeated rhythm, with
@@ -436,15 +465,14 @@
 }
 
 .ple-app-ribbon__link:hover,
-.ple-app-ribbon__sign-out:hover,
 .ple-app-ribbon__brand:hover,
 .ple-app-ribbon__profile:hover {
   background-color: var(--ple-ribbon-interaction-surface);
 }
 
 .ple-app-ribbon__link:active,
-.ple-app-ribbon__sign-out:active,
-.ple-app-ribbon__profile:active {
+.ple-app-ribbon__profile:active,
+.ple-app-ribbon__profile-menu-item:active {
   box-shadow: inset 0 0 0 1px var(--ple-ribbon-rule);
 }
 
@@ -474,18 +502,18 @@
 }
 
 .ple-app-ribbon__link:focus-visible,
-.ple-app-ribbon__sign-out:focus-visible,
 .ple-app-ribbon__brand:focus-visible,
-.ple-app-ribbon__profile:focus-visible {
+.ple-app-ribbon__profile:focus-visible,
+.ple-app-ribbon__profile-menu-item:focus-visible {
   z-index: 1;
   outline: var(--ple-ribbon-space-tight) solid var(--ple-focus);
   outline-offset: var(--ple-ribbon-space-tight);
 }
 
 .ple-app-ribbon__link:focus-visible::before,
-.ple-app-ribbon__sign-out:focus-visible::before,
 .ple-app-ribbon__brand:focus-visible::before,
-.ple-app-ribbon__profile:focus-visible::before {
+.ple-app-ribbon__profile:focus-visible::before,
+.ple-app-ribbon__profile-menu-item:focus-visible::before {
   position: absolute;
   inset: 0;
   border: 1px solid var(--ple-focus);
@@ -550,7 +578,6 @@
     --ple-ribbon-space-inline: var(--ple-space-2);
   }
 
-  .ple-app-ribbon__sign-out,
   .ple-app-ribbon__link,
   .ple-app-ribbon__brand,
   .ple-app-ribbon__profile {
@@ -569,84 +596,6 @@
   }
 }
 
-/* Student work has one Product Tab, but its signed-in identity and explicit
-   Sign Out still exceed one compact line at phone and tablet widths. Keep
-   those controls in reading order across two dense grid lines so selecting a
-   Tab cannot scroll either end control outside the physical viewport. */
-@media (max-width: 60rem) {
-  .ple-ribbon-shell-grid:has(.ple-app-ribbon[data-ribbon-product-role="student"]) {
-    --ple-ribbon-top-block-size: 5rem;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] {
-    --ple-ribbon-top-block-size: 5rem;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar {
-    display: grid;
-    grid-template-areas:
-      "identity details"
-      "tabs sign-out";
-    /* Both tracks need a bounded share of the row. An intrinsic `auto`
-       metadata track can otherwise consume the entire course title, leaving
-       the identity controls to paint on top of it. */
-    grid-template-columns: minmax(11rem, 1fr) minmax(0, 1fr);
-    grid-template-rows: repeat(2, minmax(0, 1fr));
-    column-gap: var(--ple-ribbon-space-row);
-    row-gap: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__top-bar::after {
-    display: none;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-identity {
-    grid-area: identity;
-    gap: var(--ple-ribbon-space-tight);
-    padding-inline-end: var(--ple-ribbon-space-tight);
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-details {
-    grid-area: details;
-    overflow: hidden;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__context-details > span {
-    flex: 0 1 auto;
-    min-inline-size: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"]
-    .ple-app-ribbon__context-details
-    > .ple-app-ribbon__course-scope-label {
-    flex: 0 0 auto;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__tabs {
-    grid-area: tabs;
-    margin-inline-start: 0;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] .ple-app-ribbon__sign-out {
-    grid-area: sign-out;
-    margin-inline-start: 0;
-  }
-}
-
-@media (max-width: 60rem) and (pointer: coarse) {
-  .ple-ribbon-shell-grid:has(.ple-app-ribbon[data-ribbon-product-role="student"]) {
-    --ple-ribbon-top-block-size: 5.5rem;
-  }
-
-  .ple-app-ribbon[data-ribbon-product-role="student"] {
-    --ple-ribbon-top-block-size: 5.5rem;
-  }
-}
-
 @media (forced-colors: active) {
   .ple-app-ribbon {
     background-image: none;
@@ -662,7 +611,6 @@
 
   .ple-app-ribbon__context-identity,
   .ple-app-ribbon__context-details > span + span,
-  .ple-app-ribbon__sign-out,
   .ple-app-ribbon__profile {
     border-color: ButtonText;
   }
@@ -729,17 +677,17 @@
   }
 
   .ple-app-ribbon__link:focus-visible,
-  .ple-app-ribbon__sign-out:focus-visible,
   .ple-app-ribbon__brand:focus-visible,
-  .ple-app-ribbon__profile:focus-visible {
+  .ple-app-ribbon__profile:focus-visible,
+  .ple-app-ribbon__profile-menu-item:focus-visible {
     outline-color: Highlight;
     outline-offset: var(--ple-ribbon-space-tight);
   }
 
   .ple-app-ribbon__link:focus-visible::before,
-  .ple-app-ribbon__sign-out:focus-visible::before,
   .ple-app-ribbon__brand:focus-visible::before,
-  .ple-app-ribbon__profile:focus-visible::before {
+  .ple-app-ribbon__profile:focus-visible::before,
+  .ple-app-ribbon__profile-menu-item:focus-visible::before {
     border-color: ButtonText;
   }
 }

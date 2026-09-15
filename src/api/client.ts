@@ -2,8 +2,8 @@
 
 import type { QuestionAssetId } from "../../generated/api/QuestionAssetId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
-import type { AssignmentId } from "../../generated/api/AssignmentId";
-import type { AssignmentAttempt } from "../../generated/api/AssignmentAttempt";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
+import type { AssessmentAttempt } from "../../generated/api/AssessmentAttempt";
 import type { QuestionSummary } from "../../generated/api/QuestionSummary";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
@@ -14,30 +14,26 @@ import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../generated/api/CourseBannerUploadReceipt";
-import type {
-  InstructorProfile,
-  InstructorProfileThumbnail,
-  UpdateInstructorProfileInput,
-} from "./instructor_profile";
+import type { ProfileAvatarView, SelectProvidedProfileAvatarInput } from "./profile_avatar";
+import type { ProfileSettings, UpdateAccountSettingsInput } from "./profile_settings";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../generated/api/QuestionAttemptId";
-import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
-import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
+import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
+import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
 import type { CourseInvitationReference } from "../../generated/api/CourseInvitationReference";
 import type { CourseInvitationTerminalActionRequest } from "../../generated/api/CourseInvitationTerminalActionRequest";
 import type { PendingCourseInvitationsPage } from "../../generated/api/PendingCourseInvitationsPage";
 import type { CourseInvitationStatePrecondition } from "../../generated/api/CourseInvitationStatePrecondition";
-import type { AssignmentReference } from "../../generated/api/AssignmentReference";
+import type { AssessmentReference } from "../../generated/api/AssessmentReference";
 import type { CapabilityValidator, FormatValidator, TimerEvaluator } from "../wasm/index";
-import type { CourseRosterClient } from "./enrollment";
 import type {
-  AssignmentEditorDetail,
-  AssignmentCreateInput,
-  AssignmentContentInput,
+  AssessmentEditorDetail,
+  AssessmentCreateInput,
+  AssessmentContentInput,
   InstructorStudentView,
-  StudentAssignmentLandingSummary,
-  StudentAssignmentDetail,
+  StudentAssessmentLandingSummary,
+  StudentAssessmentDetail,
   StudentQuestionAttempt,
   AuthenticatedSession,
   CourseSummary,
@@ -53,41 +49,47 @@ import type { BlueprintCourseClient } from "./blueprint_course";
 import type { CourseInstanceClient } from "./course_instance";
 import type { LiveCourseRosterClient } from "./course_roster";
 import type { LiveInvitationExportClient } from "./invitation_export";
-import type { LiveAssignmentReleaseClient } from "./assignment_release";
-import type { LiveAssignmentAttemptIssuanceClient } from "./assignment_attempt_issuance";
-import type { StudentAssignmentAttemptHistoryClient } from "./assignment_attempt_history";
-import type { StudentAssignmentAttemptNavigationClient } from "./assignment_attempt_navigation";
+import type { LiveAssessmentReleaseClient } from "./assessment_release";
+import type { LiveAssessmentAttemptIssuanceClient } from "./assessment_attempt_issuance";
+import type { StudentAssessmentAttemptHistoryClient } from "./assessment_attempt_history";
+import type { StudentAssessmentAttemptNavigationClient } from "./assessment_attempt_navigation";
 import type { InstructorAccountClient } from "./instructor_account";
-import type { SupportCapabilityClient } from "./support_roster";
 import type { CourseGradebookClient } from "./live_gradebook";
 import type { LiveStudentCourseLandingClient } from "./live_student_course_landing";
 import type { QuestionAvailabilityClient } from "./question_availability";
+import type { QuestionWatchClient } from "./question_watch";
+import type { QuestionStarClient } from "./question_star";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
-    CourseRosterClient,
     BlueprintCourseClient,
     CourseInstanceClient,
     LiveCourseRosterClient,
     LiveInvitationExportClient,
-    LiveAssignmentReleaseClient,
-    LiveAssignmentAttemptIssuanceClient,
-    StudentAssignmentAttemptHistoryClient,
-    StudentAssignmentAttemptNavigationClient,
+    LiveAssessmentReleaseClient,
+    LiveAssessmentAttemptIssuanceClient,
+    StudentAssessmentAttemptHistoryClient,
+    StudentAssessmentAttemptNavigationClient,
     InstructorAccountClient,
-    SupportCapabilityClient,
     CourseGradebookClient,
     LiveStudentCourseLandingClient,
-    QuestionAvailabilityClient {
-  /** Reads only the authenticated Instructor's account-owned display zone. */
-  readonly getInstructorProfile: () => Promise<InstructorProfile>;
-  /** Replaces only the authenticated Instructor's account-owned display zone. */
-  readonly updateInstructorProfile: (
-    input: UpdateInstructorProfileInput,
-  ) => Promise<InstructorProfile>;
-  readonly getInstructorProfileThumbnail: () => Promise<InstructorProfileThumbnail>;
-  readonly replaceInstructorProfileThumbnail: (image: Blob) => Promise<InstructorProfileThumbnail>;
-  readonly fetchInstructorProfileThumbnail: (reference: string) => Promise<Blob>;
+    QuestionAvailabilityClient,
+    QuestionWatchClient,
+    QuestionStarClient {
+  /** Reads only the authenticated Account's role-neutral Profile settings. */
+  readonly getProfile: () => Promise<ProfileSettings>;
+  /** Reads only the authenticated Account's Account Settings preference. */
+  readonly getAccountSettings: () => Promise<ProfileSettings>;
+  /** Replaces only the authenticated Account's exact IANA display zone. */
+  readonly updateAccountSettings: (input: UpdateAccountSettingsInput) => Promise<ProfileSettings>;
+  /** Reads only the authenticated Account's currently selected avatar. */
+  readonly getProfileAvatar: () => Promise<ProfileAvatarView>;
+  /** Selects one validated PLE-provided avatar for the authenticated Account. */
+  readonly selectProvidedProfileAvatar: (input: SelectProvidedProfileAvatarInput) => Promise<void>;
+  /** Replaces the authenticated Instructor or Sysadmin Account's profile image. */
+  readonly replaceProfileAvatarImage: (image: Blob) => Promise<ProfileAvatarView>;
+  /** Fetches the authenticated Account's current protected profile-image rendition. */
+  readonly fetchProfileAvatarImage: (reference: string) => Promise<Blob>;
   readonly listPendingCourseInvitations: (
     cursor?: string,
     pageSize?: number,
@@ -130,80 +132,78 @@ export interface ApiClient
   ) => Promise<CourseAppearanceView>;
   /** Removes only the current Course Banner. */
   readonly removeCourseBanner: (courseId: CourseId) => Promise<CourseAppearanceView>;
-  readonly listAssignments: (
+  readonly listAssessments: (
     courseId: CourseId,
     cursor?: string,
-  ) => Promise<CursorPage<StudentAssignmentLandingSummary>>;
+  ) => Promise<CursorPage<StudentAssessmentLandingSummary>>;
   /** Student-safe detail; Instructor workspace reads require an exact course identity. */
-  readonly getAssignment: (assignmentId: AssignmentId) => Promise<StudentAssignmentDetail>;
+  readonly getAssessment: (assessmentId: AssessmentId) => Promise<StudentAssessmentDetail>;
   /** Current key-free student progress; the server omits withheld score totals. */
-  readonly getAssignmentSummary: (assignmentId: AssignmentId) => Promise<StudentAssignmentProgress>;
-  /** Reads the course-bound Instructor assignment workspace. */
-  readonly getAssignmentWorkspace: (
+  readonly getAssessmentSummary: (assessmentId: AssessmentId) => Promise<StudentAssessmentProgress>;
+  /** Reads the course-bound Instructor assessment workspace. */
+  readonly getAssessmentWorkspace: (
     courseId: CourseId,
-    assignmentId: AssignmentId,
-  ) => Promise<AssignmentEditorDetail>;
-  /** Creates a persisted empty Assignment with server-owned defaults. */
-  readonly createAssignment: (
+    assessmentId: AssessmentId,
+  ) => Promise<AssessmentEditorDetail>;
+  /** Creates a persisted empty Assessment with server-owned defaults. */
+  readonly createAssessment: (
     courseId: CourseId,
-    input: AssignmentCreateInput,
-  ) => Promise<AssignmentEditorDetail>;
+    input: AssessmentCreateInput,
+  ) => Promise<AssessmentEditorDetail>;
   /** Replaces only Questions-owned title and ordered content. */
-  readonly saveAssignmentContent: (
+  readonly saveAssessmentContent: (
     courseId: CourseId,
-    assignmentId: AssignmentId,
-    assignmentReference: AssignmentReference,
-    input: AssignmentContentInput,
-    assignmentEtag: string,
-  ) => Promise<AssignmentEditorDetail>;
+    assessmentId: AssessmentId,
+    assessmentReference: AssessmentReference,
+    input: AssessmentContentInput,
+    assessmentEtag: string,
+  ) => Promise<AssessmentEditorDetail>;
   /** Reads the non-mutating, answer-free Instructor Student view. */
   readonly getInstructorStudentView: (
     courseId: CourseId,
-    assignmentId: AssignmentId,
+    assessmentId: AssessmentId,
   ) => Promise<InstructorStudentView>;
-  readonly listAssignmentAttempts: (
+  readonly listAssessmentAttempts: (
     studentRecordId: StudentRecordId,
     cursor?: string,
-  ) => Promise<CursorPage<AssignmentAttempt>>;
+  ) => Promise<CursorPage<AssessmentAttempt>>;
   /**
-   * Starts or resumes student work within the course route that authorizes the assignment.
+   * Starts or resumes student work within the course route that authorizes the assessment.
    * The browser supplies no student-work authority or Answer Key.
    */
-  readonly startAssignmentAttempt: (
+  readonly startAssessmentAttempt: (
     courseId: CourseId,
-    assignmentId: AssignmentId,
-  ) => Promise<AssignmentAttempt>;
-  readonly getAssignmentAttempt: (
-    assignmentAttemptId: AssignmentAttemptId,
-  ) => Promise<AssignmentAttempt>;
+    assessmentId: AssessmentId,
+  ) => Promise<AssessmentAttempt>;
+  readonly getAssessmentAttempt: (
+    assessmentAttemptId: AssessmentAttemptId,
+  ) => Promise<AssessmentAttempt>;
   readonly listQuestionAttempts: (
-    assignmentAttemptId: AssignmentAttemptId,
+    assessmentAttemptId: AssessmentAttemptId,
     cursor?: string,
   ) => Promise<CursorPage<StudentQuestionAttempt>>;
   readonly getAttempt: (attemptId: QuestionAttemptId) => Promise<StudentQuestionAttempt>;
   /** Returns the regenerated, answer-free Question Presentation; grading stays server-side. */
   readonly getIssuedQuestion: (
     courseId: CourseId,
-    assignmentId: AssignmentId,
+    assessmentId: AssessmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<QuestionPresentation>;
   /** Creates an iMathAS Question Backend launch by same-origin POST, then returns its inert shell route. */
   readonly beginImathasQuestionBackendLaunch: (
     courseId: CourseId,
-    assignmentId: AssignmentId,
+    assessmentId: AssessmentId,
     attemptId: QuestionAttemptId,
   ) => Promise<ImathasQuestionBackendLaunch>;
   /** Instructor command only; current Student Feedback is read through a later summary GET. */
   readonly releaseStudentFeedback: (
     attemptId: QuestionAttemptId,
   ) => Promise<StudentFeedbackReleaseResponse>;
-  readonly getAssignmentActivitySummary: (
+  readonly getAssessmentActivitySummary: (
     studentRecordId: StudentRecordId,
-  ) => Promise<StudentAssignmentProgress>;
+  ) => Promise<StudentAssessmentProgress>;
   /** Same-origin POST that authorizes, audits, and returns one normalized course banner. */
   readonly fetchCourseBanner: (bannerReference: CourseBannerReference) => Promise<Blob>;
-  /** Fetches the fixed 5:2 course-card WebP rendition. */
-  readonly fetchCourseBannerCard: (bannerReference: CourseBannerReference) => Promise<Blob>;
   /** Exact immutable Question Revision asset redirect path; it never issues a capability. */
   readonly assetUrl: (
     questionRevision: QuestionRevisionReference,
@@ -211,7 +211,7 @@ export interface ApiClient
   ) => string;
   readonly validateResponseFormatOnServer: FormatValidator;
   readonly questionAttemptTimingDecisionOnServer: TimerEvaluator;
-  readonly validateAssignmentConfigOnServer: CapabilityValidator;
+  readonly validateAssessmentConfigOnServer: CapabilityValidator;
 }
 
 /** The ordinary deployed browser composes HTTP capabilities without test-double transport. */

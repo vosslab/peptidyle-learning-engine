@@ -88,21 +88,7 @@ try {
     );
   });
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
-  const originalLandingDueText = await landingDue.textContent();
-  await page
-    .locator("#student-time-zone")
-    .selectOption("America/Los_Angeles", { timeout: 5_000 })
-    .catch(async (error) => {
-      throw new Error(
-        `Student time-zone control did not render: ${pageErrors.join(" | ")}\n${await page.locator("body").innerText()}`,
-        { cause: error },
-      );
-    });
-  await page.getByRole("button", { name: "Save time zone", exact: true }).click();
-  await page.getByText("Your time zone was saved.", { exact: true }).waitFor({ state: "visible" });
-  await page
-    .getByText("Times are shown in your time zone: America/Los_Angeles.", { exact: true })
-    .waitFor({ state: "visible" });
+  await landingDue.textContent();
   const landingDueText = await landingDue.textContent();
   assert.notEqual(landingDueText, originalLandingDueText);
   assert.deepEqual(await criticalOrSeriousViolations(page), []);

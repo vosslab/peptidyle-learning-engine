@@ -7,7 +7,7 @@ import { RIBBON_TAB_IDS, type RibbonScope, type RibbonTabId } from "../route_con
 export const RIBBON_SCOPES = [
   "product",
   "courseInstance",
-  "assignmentAttempt",
+  "assessmentAttempt",
 ] as const satisfies ReadonlyArray<RibbonScope>;
 
 /**
@@ -45,28 +45,27 @@ const SCHEMAS: RibbonSchemaTable = Object.freeze({
     instructor: immutableSchema(
       universalSlot("courses"),
       universalSlot("questions"),
-      universalSlot("productAssignments"),
+      universalSlot("productAssessments"),
     ),
     student: immutableSchema(universalSlot("courses")),
     sysadmin: immutableSchema(
       universalSlot("courses"),
       universalSlot("instructorAccounts"),
-      universalSlot("supportRoster"),
     ),
   }),
   courseInstance: Object.freeze({
     instructor: immutableSchema(
-      universalSlot("assignments"),
+      universalSlot("assessments"),
       universalSlot("students"),
       universalSlot("gradebook"),
       universalSlot("teachingOperations"),
       universalSlot("blueprintUpdates"),
       universalSlot("courseSetup"),
     ),
-    student: immutableSchema(universalSlot("studentAssignments")),
+    student: immutableSchema(universalSlot("studentAssessments")),
     sysadmin: immutableSchema(universalSlot("teachingOperations")),
   }),
-  assignmentAttempt: Object.freeze({
+  assessmentAttempt: Object.freeze({
     instructor: immutableSchema(),
     student: immutableSchema(universalSlot("attempt")),
     sysadmin: immutableSchema(),

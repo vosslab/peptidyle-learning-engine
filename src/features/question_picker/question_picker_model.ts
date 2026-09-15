@@ -2,7 +2,8 @@
 
 import { normalizeQuestionIdSyntax } from "../../question_id";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
-import type { BlueprintAssignmentSource } from "../../api/assignment_release";
+import type { BlueprintAssessmentSource } from "../../api/assessment_release";
+import type { QuestionFormat } from "../../../generated/api/QuestionFormat";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   decodeQuestionLibraryBrowsePage,
@@ -16,10 +17,10 @@ import {
 /** The largest selection any current D2 consumer can request. */
 export const MAX_QUESTION_PICKER_SELECTION_CAP = 1024;
 
-/** Stable browser References for one retained Course Instance Assignment. */
-export interface RetainedAssignmentReference {
+/** Stable browser References for one retained Course Instance Assessment. */
+export interface RetainedAssessmentReference {
   readonly course: string;
-  readonly assignment: string;
+  readonly assessment: string;
 }
 
 /**
@@ -30,14 +31,14 @@ export type QuestionPickerSource =
   | { readonly kind: "sharedLibrary"; readonly label: string }
   | { readonly kind: "mine"; readonly label: string }
   | {
-      readonly kind: "retainedAssignment";
+      readonly kind: "retainedAssessment";
       readonly label: string;
-      readonly retainedAssignment: RetainedAssignmentReference;
+      readonly retainedAssessment: RetainedAssessmentReference;
     }
   | {
-      readonly kind: "blueprintCourseAssignment";
+      readonly kind: "blueprintCourseAssessment";
       /** Exact immutable Blueprint Revision provenance for this reusable content. */
-      readonly source: BlueprintAssignmentSource;
+      readonly source: BlueprintAssessmentSource;
       readonly label: string;
     };
 
@@ -49,7 +50,7 @@ export interface QuestionPickerSelectedQuestion {
   readonly row: QuestionLibraryBrowseRow;
 }
 
-/** The one public completion value consumed by Library and assignment parents. */
+/** The one public completion value consumed by Library and assessment parents. */
 export interface QuestionPickerSelection {
   readonly questionIds: ReadonlyArray<string>;
   readonly questions: ReadonlyArray<QuestionPickerSelectedQuestion>;
@@ -239,6 +240,7 @@ function pickerPageOffset(cursor: string | null): number {
 function reusableQuestionLibraryRow(item: {
   readonly summary: {
     readonly questionId: string;
+    readonly questionFormat: QuestionFormat;
     readonly metadata: {
       readonly questionTitle: string;
       readonly questionDescription: string;
@@ -255,6 +257,7 @@ function reusableQuestionLibraryRow(item: {
     displayId: summary.questionId,
     questionTitle: summary.metadata.questionTitle,
     summary: summary.metadata.questionDescription,
+    questionFormat: summary.questionFormat,
     authorNames: summary.authorship.authors.map((author) => author.displayName),
     capabilities: summary.capabilities,
     questionLicense: summary.metadata.questionLicense,
@@ -262,29 +265,29 @@ function reusableQuestionLibraryRow(item: {
   };
 }
 
-function selectedBlueprintAssignment(
-  source: BlueprintAssignmentSource,
+function selectedBlueprintAssessment(
+  source: BlueprintAssessmentSource,
   revision: Awaited<ReturnType<BlueprintCourseClient["getBlueprintRevision"]>>,
 ): Awaited<
   ReturnType<BlueprintCourseClient["getBlueprintRevision"]>
->["modules"][number]["assignments"][number] {
+>["modules"][number]["assessments"][number] {
   if (
     revision.blueprintRevision.reference !== source.blueprint_revision.reference ||
     revision.blueprintRevision.revision !== source.blueprint_revision.revision
   ) {
     throw new Error(
-      "The selected Blueprint Revision did not resolve. Choose an Assignment from the Course's Blueprint Revision.",
+      "The selected Blueprint Revision did not resolve. Choose an Assessment from the Course's Blueprint Revision.",
     );
   }
   for (const module of revision.modules) {
-    const content = module.assignments.find(
-      (assignment) =>
-        assignment.blueprint_assignment_reference === source.blueprint_assignment_reference,
+    const content = module.assessments.find(
+      (assessment) =>
+        assessment.blueprint_assessment_reference === source.blueprint_assessment_reference,
     );
     if (content !== undefined) return content;
   }
   throw new Error(
-    "The selected Blueprint Assignment is not available in this exact Blueprint Revision.",
+    "The selected Blueprint Assessment is not available in this exact Blueprint Revision.",
   );
 }
 
@@ -305,11 +308,11 @@ function contentRows(content: {
   >;
 }): ReadonlyArray<QuestionLibraryBrowseRow> {
   const rows: QuestionLibraryBrowseRow[] = [];
-  for (const assignmentEntry of content.entries) {
-    if (assignmentEntry.kind === "fixed")
-      rows.push(reusableQuestionLibraryRow(assignmentEntry.question.question_library));
+  for (const assessmentEntry of content.entries) {
+    if (assessmentEntry.kind === "fixed")
+      rows.push(reusableQuestionLibraryRow(assessmentEntry.question.question_library));
     else
-      for (const questionPoolItem of assignmentEntry.items)
+      for (const questionPoolItem of assessmentEntry.items)
         rows.push(reusableQuestionLibraryRow(questionPoolItem.question_library));
   }
   return rows;
@@ -326,7 +329,7 @@ function sourceRowsMatchQuery(
   );
 }
 
-/** Connects Blueprint Assignments to the established picker without creating a second row model. */
+/** Connects Blueprint Assessments to the established picker without creating a second row model. */
 export function blueprintCourseQuestionPickerRepository(
   client: BlueprintCourseClient,
 ): QuestionPickerSourceRepository {
@@ -334,13 +337,13 @@ export function blueprintCourseQuestionPickerRepository(
     async search(request: QuestionPickerSearchRequest): Promise<unknown> {
       const offset = pickerPageOffset(request.cursor);
       let rows: ReadonlyArray<QuestionLibraryBrowseRow>;
-      if (request.source.kind === "blueprintCourseAssignment") {
+      if (request.source.kind === "blueprintCourseAssessment") {
         const source = request.source.source;
         const revision = await client.getBlueprintRevision(
           source.blueprint_revision.reference,
           source.blueprint_revision.revision,
         );
-        rows = contentRows(selectedBlueprintAssignment(source, revision).content);
+        rows = contentRows(selectedBlueprintAssessment(source, revision).content);
       } else {
         throw new Error("Choose a Blueprint Course source for this picker composition.");
       }

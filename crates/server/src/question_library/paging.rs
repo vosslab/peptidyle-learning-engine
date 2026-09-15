@@ -120,6 +120,7 @@ mod tests {
                     revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
                 },
                 backend: QuestionBackend::Ple,
+                question_format: question_model::QuestionFormat::PleQuestionJson,
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
@@ -146,9 +147,9 @@ mod tests {
     #[test]
     fn continuation_returns_the_remaining_title_and_id_ordered_results() {
         let entries = [
-            entry("Beta", "000-000N"),
-            entry("Alpha", "000-001P"),
-            entry("Beta", "000-002R"),
+            entry("Beta", "0000-X00N"),
+            entry("Alpha", "0000-X01P"),
+            entry("Beta", "0000-X02R"),
         ];
         let first_query = QuestionSearchRequest {
             page_size: Some(2),
@@ -172,7 +173,7 @@ mod tests {
         let (second, next_cursor) =
             page(&mut entries.iter().collect(), &second_query).expect("continuation succeeds");
         assert_eq!(second.len(), 1);
-        assert_eq!(second[0].summary.question_id.to_string(), "000-002R");
+        assert_eq!(second[0].summary.question_id.to_string(), "0000-X02R");
         assert!(next_cursor.is_none());
     }
 
@@ -180,7 +181,10 @@ mod tests {
     fn continuation_accepts_a_maximum_unicode_question_title() {
         let maximum_title = "🧬".repeat(512);
         validate_question_title(&maximum_title).expect("maximum title is valid");
-        let entries = [entry(&maximum_title, "000-000N"), entry("Zeta", "000-001P")];
+        let entries = [
+            entry(&maximum_title, "0000-X00N"),
+            entry("Zeta", "0000-X01P"),
+        ];
         let first_query = QuestionSearchRequest {
             page_size: Some(1),
             ..QuestionSearchRequest::default()
@@ -189,7 +193,7 @@ mod tests {
         .expect("query normalizes");
         let (first, cursor) =
             page(&mut entries.iter().collect(), &first_query).expect("first page succeeds");
-        assert_eq!(first[0].summary.question_id.to_string(), "000-001P");
+        assert_eq!(first[0].summary.question_id.to_string(), "0000-X01P");
         assert!(
             cursor
                 .as_ref()
@@ -223,7 +227,7 @@ mod tests {
             version: CURSOR_VERSION,
             query_digest: query_digest(&original),
             title: "Gene question".to_string(),
-            question_id: "000-000N".parse().expect("canonical question ID"),
+            question_id: "0000-X00N".parse().expect("canonical question ID"),
         };
         let value = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("cursor serializes"));
 

@@ -3,7 +3,7 @@
 import type { ProductRole } from "../generated/api/ProductRole";
 
 /** Stable presentation scope for a declared route; this is never authorization. */
-export type RibbonScope = "product" | "courseInstance" | "assignmentAttempt";
+export type RibbonScope = "product" | "courseInstance" | "assessmentAttempt";
 
 /** Content geometry selected mechanically from the current route-level overrides. */
 export type ContentLayout = "reading" | "fullWidth";
@@ -12,9 +12,9 @@ export type ContentLayout = "reading" | "fullWidth";
 export const RIBBON_TAB_IDS = [
   "courses",
   "questions",
-  "productAssignments",
-  "assignments",
-  "studentAssignments",
+  "productAssessments",
+  "assessments",
+  "studentAssessments",
   "students",
   "gradebook",
   "teachingOperations",
@@ -22,7 +22,6 @@ export const RIBBON_TAB_IDS = [
   "courseSetup",
   "attempt",
   "instructorAccounts",
-  "supportRoster",
 ] as const;
 
 export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
@@ -30,10 +29,10 @@ export type RibbonTabId = (typeof RIBBON_TAB_IDS)[number];
 export type RibbonTaskGroupId =
   | "instructorCourses"
   | "instructorQuestions"
-  | "instructorAssignments"
-  | "assignment"
+  | "instructorAssessments"
+  | "assessment"
   | "courseSetup"
-  | "assignmentAttempt";
+  | "assessmentAttempt";
 
 /** Route-selected Ribbon state. It describes presentation, not access permission. */
 export interface RouteRibbonContract {
@@ -48,30 +47,33 @@ export interface RouteRibbonContract {
 export interface RouteContract {
   readonly id:
     | "courses"
-    | "courseAssignments"
-    | "assignmentOverview"
-    | "assignmentAttempt"
-    | "assignmentAttemptSummary"
+    | "instructorHome"
+    | "studentHome"
+    | "sysadminHome"
+    | "courseAssessments"
+    | "assessmentOverview"
+    | "assessmentAttempt"
+    | "assessmentAttemptSummary"
     | "library"
     | "questionDetail"
     | "questionDrafts"
     | "questionDraftEditor"
     | "blueprintCourses"
     | "blueprintCourseDetail"
-    | "assignmentCreate"
-    | "assignmentWorkspaceOverview"
-    | "assignmentWorkspaceQuestions"
-    | "assignmentWorkspacePolicies"
-    | "assignmentWorkspaceStudentView"
-    | "assignmentsDueSoon"
+    | "assessmentCreate"
+    | "assessmentWorkspaceOverview"
+    | "assessmentWorkspaceQuestions"
+    | "assessmentWorkspacePolicies"
+    | "assessmentWorkspaceStudentView"
+    | "assessmentsDueSoon"
     | "gradebook"
     | "courseAppearance"
     | "signIn"
-    | "instructorProfile"
+    | "profile"
+    | "accountSettings"
     | "courseRoster"
-    | "assignmentPreview"
+    | "assessmentPreview"
     | "instructorAccounts"
-    | "supportRoster"
     | "pendingCourseInvitations"
     | "studentCourseInvitations"
     | "studentCourseInvitation"
@@ -88,8 +90,18 @@ export const ROUTE_CONTRACT = [
   {
     id: "courses",
     path: "/",
-    surface: "Course list for the signed-in Product Role",
+    surface: "Signed-in Product Role home resolution",
     requiredProductRoles: [],
+    ribbon: {
+      scope: "product",
+      contentLayout: "reading",
+    },
+  },
+  {
+    id: "instructorHome",
+    path: "/instructor",
+    surface: "Instructor Course Instance home dashboard",
+    requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
       tab: "courses",
@@ -98,10 +110,31 @@ export const ROUTE_CONTRACT = [
     },
   },
   {
-    id: "instructorProfile",
+    id: "studentHome",
+    path: "/student",
+    surface: "Student learning home dashboard",
+    requiredProductRoles: ["student"],
+    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+  },
+  {
+    id: "sysadminHome",
+    path: "/sysadmin",
+    surface: "Sysadmin operations home dashboard",
+    requiredProductRoles: ["sysadmin"],
+    ribbon: { scope: "product", tab: "courses", contentLayout: "reading" },
+  },
+  {
+    id: "profile",
     path: "/profile",
-    surface: "Instructor account profile preferences",
-    requiredProductRoles: ["instructor"],
+    surface: "Authenticated Account profile",
+    requiredProductRoles: ["student", "instructor", "sysadmin"],
+    ribbon: { scope: "product", contentLayout: "reading" },
+  },
+  {
+    id: "accountSettings",
+    path: "/account-settings",
+    surface: "Authenticated Account Settings",
+    requiredProductRoles: ["student", "instructor", "sysadmin"],
     ribbon: { scope: "product", contentLayout: "reading" },
   },
   {
@@ -135,9 +168,9 @@ export const ROUTE_CONTRACT = [
   {
     id: "studentCourseLanding",
     path: "/student/courses/:courseRef",
-    surface: "Student answer-free Course Instance and released Assignment landing",
+    surface: "Student answer-free Course Instance and released Assessment landing",
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tab: "studentAssignments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "studentAssessments", contentLayout: "reading" },
   },
   {
     id: "instructorAccounts",
@@ -148,49 +181,42 @@ export const ROUTE_CONTRACT = [
     ribbon: { scope: "product", tab: "instructorAccounts", contentLayout: "reading" },
   },
   {
-    id: "supportRoster",
-    path: "/sysadmin/support-roster",
-    surface: "Sysadmin exact-capability course roster support",
-    requiredProductRoles: ["sysadmin"],
-    ribbon: { scope: "product", tab: "supportRoster", contentLayout: "reading" },
-  },
-  {
-    id: "courseAssignments",
+    id: "courseAssessments",
     path: "/courses/:courseRef",
-    surface: "Course Instance Teaching Team, roster, and Assignment delivery workspace",
+    surface: "Course Instance Teaching Team, roster, and Assessment delivery workspace",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
   },
   {
-    id: "assignmentOverview",
-    path: "/courses/:courseRef/assignments/:assignmentRef",
-    surface: "Student Assignment Access",
+    id: "assessmentOverview",
+    path: "/courses/:courseRef/assessments/:assessmentRef",
+    surface: "Student Assessment Access",
     // ASVS 8.3.1: client admission targets the separately role-gated Student landing route;
     // the server remains the authorization boundary for the exact Student Record.
     requiredProductRoles: ["student"],
-    ribbon: { scope: "courseInstance", tab: "studentAssignments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "studentAssessments", contentLayout: "reading" },
   },
   {
-    id: "assignmentAttempt",
-    path: "/assignment-attempts/:assignmentAttemptRef",
+    id: "assessmentAttempt",
+    path: "/assessment-attempts/:assessmentAttemptRef",
     surface: "One-question-at-a-time attempt loop",
     requiredProductRoles: ["student"],
     ribbon: {
-      scope: "assignmentAttempt",
+      scope: "assessmentAttempt",
       tab: "attempt",
-      taskGroup: "assignmentAttempt",
+      taskGroup: "assessmentAttempt",
       contentLayout: "reading",
     },
   },
   {
-    id: "assignmentAttemptSummary",
-    path: "/assignment-attempts/:assignmentAttemptRef/summary",
-    surface: "Assignment Attempt result and practice re-entry",
+    id: "assessmentAttemptSummary",
+    path: "/assessment-attempts/:assessmentAttemptRef/summary",
+    surface: "Assessment Attempt result and practice re-entry",
     requiredProductRoles: ["student"],
     ribbon: {
-      scope: "assignmentAttempt",
+      scope: "assessmentAttempt",
       tab: "attempt",
-      taskGroup: "assignmentAttempt",
+      taskGroup: "assessmentAttempt",
       contentLayout: "reading",
     },
   },
@@ -267,78 +293,78 @@ export const ROUTE_CONTRACT = [
     },
   },
   {
-    id: "assignmentsDueSoon",
-    path: "/assignments/due-soon",
-    surface: "Instructor cross-Course Assignments Due Soon",
+    id: "assessmentsDueSoon",
+    path: "/assessments/due-soon",
+    surface: "Instructor cross-Course Assessments Due Soon",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
-      tab: "productAssignments",
-      taskGroup: "instructorAssignments",
+      tab: "productAssessments",
+      taskGroup: "instructorAssessments",
       contentLayout: "fullWidth",
     },
   },
   {
-    id: "assignmentCreate",
-    path: "/instructor/courses/:courseRef/assignments/new",
-    surface: "Create persisted Assignment and enter Questions",
+    id: "assessmentCreate",
+    path: "/instructor/courses/:courseRef/assessments/new",
+    surface: "Create persisted Assessment and enter Questions",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
   },
   {
-    id: "assignmentWorkspaceOverview",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef",
-    surface: "Instructor assignment workspace overview",
+    id: "assessmentWorkspaceOverview",
+    path: "/instructor/courses/:courseRef/assessments/:assessmentRef",
+    surface: "Instructor assessment workspace overview",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assignments",
-      taskGroup: "assignment",
+      tab: "assessments",
+      taskGroup: "assessment",
       contentLayout: "fullWidth",
     },
   },
   {
-    id: "assignmentWorkspaceQuestions",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/questions",
-    surface: "Instructor assignment questions workspace",
+    id: "assessmentWorkspaceQuestions",
+    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/questions",
+    surface: "Instructor assessment questions workspace",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assignments",
-      taskGroup: "assignment",
+      tab: "assessments",
+      taskGroup: "assessment",
       contentLayout: "fullWidth",
     },
   },
   {
-    id: "assignmentWorkspacePolicies",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/policies",
-    surface: "Instructor assignment policies workspace",
+    id: "assessmentWorkspacePolicies",
+    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/properties",
+    surface: "Instructor assessment policies workspace",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assignments",
-      taskGroup: "assignment",
+      tab: "assessments",
+      taskGroup: "assessment",
       contentLayout: "fullWidth",
     },
   },
   {
-    id: "assignmentWorkspaceStudentView",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/student-view",
-    surface: "Instructor assignment Student view",
+    id: "assessmentWorkspaceStudentView",
+    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/student-view",
+    surface: "Instructor assessment Student view",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",
-      tab: "assignments",
-      taskGroup: "assignment",
+      tab: "assessments",
+      taskGroup: "assessment",
       contentLayout: "fullWidth",
     },
   },
   {
-    id: "assignmentPreview",
-    path: "/instructor/courses/:courseRef/assignments/:assignmentRef/delivery-check",
-    surface: "Instructor-only assignment delivery check",
+    id: "assessmentPreview",
+    path: "/instructor/courses/:courseRef/assessments/:assessmentRef/delivery-check",
+    surface: "Instructor-only assessment delivery check",
     requiredProductRoles: ["instructor"],
-    ribbon: { scope: "courseInstance", tab: "assignments", contentLayout: "reading" },
+    ribbon: { scope: "courseInstance", tab: "assessments", contentLayout: "reading" },
   },
   {
     id: "gradebook",
@@ -369,6 +395,27 @@ export const ROUTE_CONTRACT = [
 ] as const satisfies ReadonlyArray<RouteContract>;
 
 export type RouteId = (typeof ROUTE_CONTRACT)[number]["id"];
+
+/** One explicit Product Role home route, used by root and Ribbon home resolution. */
+export function productRoleHomeRouteId(productRole: ProductRole): RouteId {
+  switch (productRole) {
+    case "instructor":
+      return "instructorHome";
+    case "student":
+      return "studentHome";
+    case "sysadmin":
+      return "sysadminHome";
+  }
+}
+
+/** Canonical, role-scoped home path. It is a declared route rather than a URL convention. */
+export function productRoleHomePath(productRole: ProductRole): string {
+  const routeId = productRoleHomeRouteId(productRole);
+  const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
+  if (route === undefined)
+    throw new Error(`Product Role home route is missing for ${productRole}.`);
+  return route.path;
+}
 
 function pathMatchesRoutePattern(pathname: string, routePattern: string): boolean {
   if (!pathname.startsWith("/") || pathname.includes("?") || pathname.includes("#")) {

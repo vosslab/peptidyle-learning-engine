@@ -61,7 +61,7 @@ try {
   await page.evaluate(() => window.courseAppearanceM10.resolveScope());
   await page.getByRole("heading", { name: "Course Appearance" }).waitFor({ state: "visible" });
   assert.equal(await surface.getAttribute("aria-busy"), null);
-  await page.getByRole("radio", { name: "Grass" }).waitFor({ state: "visible" });
+  await page.getByRole("radio", { name: "Grassland" }).waitFor({ state: "visible" });
   assert.deepEqual(pageErrors, []);
 } finally {
   await browser.close();

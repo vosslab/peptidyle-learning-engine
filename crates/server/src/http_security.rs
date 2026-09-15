@@ -46,10 +46,14 @@ pub(crate) async fn api_security_headers(request: Request, next: Next) -> Respon
             ),
         );
     }
-    headers.insert(
-        "cross-origin-resource-policy",
-        HeaderValue::from_static("same-origin"),
-    );
+    // The reviewed author-content runtime pair is deliberately public to an
+    // opaque-origin sandbox and owns its narrower `cross-origin` exception.
+    if !headers.contains_key("cross-origin-resource-policy") {
+        headers.insert(
+            "cross-origin-resource-policy",
+            HeaderValue::from_static("same-origin"),
+        );
+    }
     response
 }
 

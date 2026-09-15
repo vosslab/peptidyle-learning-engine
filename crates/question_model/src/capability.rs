@@ -1,7 +1,7 @@
 //! Question Backend capability declarations.
 //!
 //! Every backend states what it can honestly do. The platform uses that
-//! declaration to refuse an assignment configuration *before* publication,
+//! declaration to refuse an assessment configuration *before* publication,
 //! rather than failing in front of a student.
 //!
 //! Design rule from `docs/RUST_STYLE.md` section 9: a capability is a variant
@@ -86,7 +86,7 @@ pub enum Capability {
     ClientRendering,
     /// Grades on the server, where answer keys live.
     ///
-    /// A backend without this one cannot carry a graded assignment.
+    /// A backend without this one cannot carry a graded assessment.
     ServerGrading,
     /// Awards partial credit rather than all or nothing.
     PartialCredit,
@@ -177,7 +177,7 @@ impl QuestionBackendCapabilities {
     /// Which of the required capabilities this backend lacks.
     ///
     /// Returns every missing capability rather than the first, because an
-    /// instructor fixing an assignment wants the whole list, not one error per
+    /// instructor fixing an assessment wants the whole list, not one error per
     /// save.
     pub fn missing_from(&self, required: impl IntoIterator<Item = Capability>) -> Vec<Capability> {
         required

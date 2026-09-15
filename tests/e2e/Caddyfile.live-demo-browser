@@ -37,7 +37,9 @@ https://localhost:8080 {
 		Referrer-Policy "no-referrer"
 		Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
 		Cross-Origin-Opener-Policy "same-origin"
-		Cross-Origin-Resource-Policy "same-origin"
+		# Preserve C901's route-owned cross-origin policy for its two fixed
+		# public runtime assets; all other edge responses retain same-origin.
+		?Cross-Origin-Resource-Policy "same-origin"
 		X-Frame-Options "SAMEORIGIN"
 	}
 

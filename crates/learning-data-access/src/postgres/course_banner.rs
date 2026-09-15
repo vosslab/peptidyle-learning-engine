@@ -134,8 +134,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             banner,
             update,
             source,
-            hero,
-            card,
+            rendition,
         } = request;
         let (kind, text): (&str, Option<&str>) = match &update.alternative_text {
             CourseBannerAlternativeText::Decorative => ("decorative", None),
@@ -151,30 +150,23 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             })
         };
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT source_put_work_id, hero_put_work_id, card_put_work_id FROM ple_api.prepare_course_banner_promotion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)")
+        let row = sqlx::query("SELECT source_put_work_id, banner_put_work_id FROM ple_api.prepare_course_banner_promotion($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)")
             .bind(course.as_uuid()).bind(upload.as_uuid()).bind(banner.as_uuid()).bind(kind).bind(text)
-            .bind(source.object_id.as_uuid()).bind(source.sha256.as_bytes().to_vec()).bind(convert(source.byte_length)?).bind(source.media_type)
-            .bind(hero.object_id.as_uuid()).bind(hero.sha256.as_bytes().to_vec()).bind(convert(hero.byte_length)?).bind(hero.media_type)
-            .bind(card.object_id.as_uuid()).bind(card.sha256.as_bytes().to_vec()).bind(convert(card.byte_length)?).bind(card.media_type)
+            .bind(source.object_id.as_uuid()).bind(source.sha256.as_bytes().to_vec()).bind(convert(source.byte_length)?).bind(source.media_type).bind(i32::try_from(source.width).map_err(|_| StoreError::InvalidRecord("invalid Course Banner width".to_string()))?).bind(i32::try_from(source.height).map_err(|_| StoreError::InvalidRecord("invalid Course Banner height".to_string()))?)
+            .bind(rendition.object_id.as_uuid()).bind(rendition.sha256.as_bytes().to_vec()).bind(convert(rendition.byte_length)?).bind(rendition.media_type).bind(i32::try_from(rendition.width).map_err(|_| StoreError::InvalidRecord("invalid Course Banner width".to_string()))?).bind(i32::try_from(rendition.height).map_err(|_| StoreError::InvalidRecord("invalid Course Banner height".to_string()))?)
             .fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(PreparedCourseBannerPromotion {
             banner,
             source: ObjectAddress::CourseBannerSource { course, banner },
-            hero: ObjectAddress::CourseBannerRendition {
+            rendition: ObjectAddress::CourseBannerRendition {
                 course,
                 banner,
-                rendition: question_model::CourseBannerRendition::Hero,
-            },
-            card: ObjectAddress::CourseBannerRendition {
-                course,
-                banner,
-                rendition: question_model::CourseBannerRendition::Card,
+                rendition: question_model::CourseBannerRendition::Banner,
             },
             source_put_work_id: row.try_get("source_put_work_id").map_err(map_sqlx_error)?,
-            hero_put_work_id: row.try_get("hero_put_work_id").map_err(map_sqlx_error)?,
-            card_put_work_id: row.try_get("card_put_work_id").map_err(map_sqlx_error)?,
+            rendition_put_work_id: row.try_get("banner_put_work_id").map_err(map_sqlx_error)?,
         })
     }
 
@@ -311,7 +303,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
         banner: CourseBannerReference,
     ) -> Result<FinalizedCourseBannerPromotion, StoreError> {
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query("SELECT alternative_kind, alternative_text, retired_course_banner_id, upload_put_work_id, retired_source_put_work_id, retired_hero_put_work_id, retired_card_put_work_id FROM ple_api.finalize_course_banner_promotion($1,$2,$3)")
+        let row = sqlx::query("SELECT alternative_kind, alternative_text, retired_course_banner_id, upload_put_work_id, retired_source_put_work_id, retired_banner_put_work_id FROM ple_api.finalize_course_banner_promotion($1,$2,$3)")
             .bind(course.as_uuid()).bind(upload.as_uuid()).bind(banner.as_uuid()).fetch_optional(&mut *tx).await.map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         let kind: String = row.try_get("alternative_kind").map_err(map_sqlx_error)?;
@@ -343,9 +335,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             Some(_) => Some((
                 row.try_get("retired_source_put_work_id")
                     .map_err(map_sqlx_error)?,
-                row.try_get("retired_hero_put_work_id")
-                    .map_err(map_sqlx_error)?,
-                row.try_get("retired_card_put_work_id")
+                row.try_get("retired_banner_put_work_id")
                     .map_err(map_sqlx_error)?,
             )),
             None => None,
@@ -356,24 +346,18 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             alternative_text,
         };
         let retired = retired_banner.map(|banner| {
-            let (source_put_work_id, hero_put_work_id, card_put_work_id) =
+            let (source_put_work_id, rendition_put_work_id) =
                 retired_work_ids.expect("retired work ids are loaded");
             PreparedCourseBannerRemoval {
                 banner,
                 source: ObjectAddress::CourseBannerSource { course, banner },
-                hero: ObjectAddress::CourseBannerRendition {
+                rendition: ObjectAddress::CourseBannerRendition {
                     course,
                     banner,
-                    rendition: question_model::CourseBannerRendition::Hero,
-                },
-                card: ObjectAddress::CourseBannerRendition {
-                    course,
-                    banner,
-                    rendition: question_model::CourseBannerRendition::Card,
+                    rendition: question_model::CourseBannerRendition::Banner,
                 },
                 source_put_work_id,
-                hero_put_work_id,
-                card_put_work_id,
+                rendition_put_work_id,
             }
         });
         Ok(FinalizedCourseBannerPromotion {
@@ -491,7 +475,7 @@ impl CourseBannerStore for PostgresCourseBannerStore {
     ) -> Result<PreparedCourseBannerRemoval, StoreError> {
         let mut tx = self.begin(token).await?;
         let row =
-            sqlx::query("SELECT course_banner_id, source_put_work_id, hero_put_work_id, card_put_work_id FROM ple_api.prepare_course_banner_removal($1)")
+            sqlx::query("SELECT course_banner_id, source_put_work_id, banner_put_work_id FROM ple_api.prepare_course_banner_removal($1)")
                 .bind(course.as_uuid())
                 .fetch_optional(&mut *tx)
                 .await
@@ -501,25 +485,18 @@ impl CourseBannerStore for PostgresCourseBannerStore {
             row.try_get("course_banner_id").map_err(map_sqlx_error)?,
         );
         let source_put_work_id = row.try_get("source_put_work_id").map_err(map_sqlx_error)?;
-        let hero_put_work_id = row.try_get("hero_put_work_id").map_err(map_sqlx_error)?;
-        let card_put_work_id = row.try_get("card_put_work_id").map_err(map_sqlx_error)?;
+        let rendition_put_work_id = row.try_get("banner_put_work_id").map_err(map_sqlx_error)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(PreparedCourseBannerRemoval {
             banner,
             source: ObjectAddress::CourseBannerSource { course, banner },
-            hero: ObjectAddress::CourseBannerRendition {
+            rendition: ObjectAddress::CourseBannerRendition {
                 course,
                 banner,
-                rendition: question_model::CourseBannerRendition::Hero,
-            },
-            card: ObjectAddress::CourseBannerRendition {
-                course,
-                banner,
-                rendition: question_model::CourseBannerRendition::Card,
+                rendition: question_model::CourseBannerRendition::Banner,
             },
             source_put_work_id,
-            hero_put_work_id,
-            card_put_work_id,
+            rendition_put_work_id,
         })
     }
 }

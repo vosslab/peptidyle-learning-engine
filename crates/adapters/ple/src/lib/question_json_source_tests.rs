@@ -1,8 +1,7 @@
 use objects::{ObjectAddress, ObjectStore, PutObject, memory::MemoryObjectStore};
 use question_model::{
     ObjectId, QuestionId, QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
-    SourceObjectReference, StudentResponse, Timestamp, generation::QuestionSeed,
-    response::ResponseItemReference,
+    SourceObjectReference, StudentResponse, Timestamp, response::ResponseItemReference,
 };
 use uuid::Uuid;
 
@@ -11,7 +10,7 @@ use crate::test_support::ple_question_json_single_choice_bytes;
 
 fn question_revision() -> QuestionRevisionReference {
     QuestionRevisionReference {
-        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
     }
 }
@@ -45,23 +44,19 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
     )
     .await
     .expect("source should resolve");
-    let question_seed = QuestionSeed::new(1);
     let issued = PleQuestionBackend::new()
-        .issue_question_json(&source, question_seed)
+        .issue_question_json(&source)
         .expect("source should issue");
-    let replayed = PleQuestionBackend::new()
-        .issue_question_json(&source, question_seed)
-        .expect("same source and seed should issue");
-    let different_seed = PleQuestionBackend::new()
-        .issue_question_json(&source, QuestionSeed::new(2))
-        .expect("different seed should issue");
 
     assert_eq!(source.question_revision(), &question_revision);
     assert_eq!(
         issued.presentation.variation.question_revision,
         question_revision
     );
-    assert_eq!(issued.presentation.variation.question_seed, question_seed);
+    assert_eq!(
+        issued.presentation.variation.reproduction,
+        question_model::generation::QuestionReproduction::Static
+    );
     assert_eq!(
         issued.reproduction_details.source_object_reference,
         Some(source_object_reference)
@@ -70,8 +65,6 @@ async fn resolved_question_json_issues_and_grades_from_its_exact_immutable_sourc
         issued.reproduction_details.source_object_checksum,
         Some(source_object_checksum)
     );
-    assert_eq!(issued.parameter_hash, replayed.parameter_hash);
-    assert_ne!(issued.parameter_hash, different_seed.parameter_hash);
     let evaluation = PleQuestionBackend::new()
         .grade_question_json(
             &source,

@@ -1,7 +1,7 @@
 // Strict browser decoders for generated Course teaching-operation DTOs.
 
-import { MAX_ASSIGNMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_LIMIT";
-import { MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS";
+import { MAX_ASSESSMENT_ATTEMPT_LIMIT } from "../../../generated/api/MAX_ASSESSMENT_ATTEMPT_LIMIT";
+import { MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS } from "../../../generated/api/MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS";
 import { MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS } from "../../../generated/api/MAX_TEACHING_DISPLAY_LABEL_UNICODE_SCALARS";
 import { MAX_TEACHING_PAGE_SIZE } from "../../../generated/api/MAX_TEACHING_PAGE_SIZE";
 import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
@@ -141,7 +141,7 @@ function limitPatch(
   value: unknown,
   path: string,
   maximum: number,
-): HypotheticalStudentViewScenarioModifiers["adjustment"]["assignment_attempt_time_limit_seconds"] {
+): HypotheticalStudentViewScenarioModifiers["adjustment"]["assessment_attempt_time_limit_seconds"] {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   switch (kind) {
@@ -168,22 +168,22 @@ function accommodationAdjustment(
     "available_at",
     "due_at",
     "closes_at",
-    "assignment_attempt_time_limit_seconds",
+    "assessment_attempt_time_limit_seconds",
     "attempt_limit",
   ]);
   return {
     available_at: timePatch(record.available_at, `${path}.available_at`),
     due_at: timePatch(record.due_at, `${path}.due_at`),
     closes_at: timePatch(record.closes_at, `${path}.closes_at`),
-    assignment_attempt_time_limit_seconds: limitPatch(
-      record.assignment_attempt_time_limit_seconds,
-      `${path}.assignment_attempt_time_limit_seconds`,
-      MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS,
+    assessment_attempt_time_limit_seconds: limitPatch(
+      record.assessment_attempt_time_limit_seconds,
+      `${path}.assessment_attempt_time_limit_seconds`,
+      MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS,
     ),
     attempt_limit: limitPatch(
       record.attempt_limit,
       `${path}.attempt_limit`,
-      MAX_ASSIGNMENT_ATTEMPT_LIMIT,
+      MAX_ASSESSMENT_ATTEMPT_LIMIT,
     ),
   };
 }

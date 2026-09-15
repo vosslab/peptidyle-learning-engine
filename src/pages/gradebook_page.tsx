@@ -29,7 +29,7 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
       fallback={
         <section class="gradebook-empty" aria-label="No active Student Work">
           <h2>No active Students yet</h2>
-          <p>Student Assignment progress will appear here as answer-free course evidence.</p>
+          <p>Student Assessment progress will appear here as answer-free course evidence.</p>
         </section>
       }
     >
@@ -38,7 +38,7 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
           <thead>
             <tr>
               <th scope="col">Roster ID</th>
-              <th scope="col">Assignment</th>
+              <th scope="col">Assessment</th>
               <th scope="col">Progress</th>
               <th scope="col">Score</th>
             </tr>
@@ -48,8 +48,8 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
               {(work) => (
                 <tr>
                   <td>{work.rosterId}</td>
-                  <td>{work.assignmentReference}</td>
-                  <td>{progressLabel(work.assignmentAttemptCompletion)}</td>
+                  <td>{work.assessmentReference}</td>
+                  <td>{progressLabel(work.assessmentAttemptCompletion)}</td>
                   <td>{scoreLabel(work)}</td>
                 </tr>
               )}

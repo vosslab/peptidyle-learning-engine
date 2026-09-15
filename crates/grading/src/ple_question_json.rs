@@ -456,7 +456,7 @@ fn validate_response_for_type(
 }
 
 /// Evaluates one structurally valid PLE response without a generic Question
-/// container or Assignment scoring rule. PLE Question JSON evaluates each
+/// container or Assessment scoring rule. PLE Question JSON evaluates each
 /// valid response all-or-nothing, returning normalized credit of zero or one.
 fn evaluate_response(
     response_format: &QuestionResponseFormat,

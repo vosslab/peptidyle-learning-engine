@@ -32,6 +32,56 @@ data relationships understandable while Types communicate teaching purpose.
 implementation gaps. They must not cause new documentation or UI to reintroduce
 Assignment as the generic object.
 
+### DD-A9-01: Assessment terminology uses a direct preproduction cutover
+
+**Decision.** Before the first production deployment, PLE changes every generic
+`assignment` identifier to Assessment directly: model and schema names, Store
+and server contracts, routes, DTOs, API and Blueprint JSON. Canonical browser
+families are `/assessments/due-soon`,
+`/courses/:courseRef/assessments/:assessmentRef`,
+`/instructor/courses/:courseRef/assessments/new`,
+`/instructor/courses/:courseRef/assessments/:assessmentRef/{questions,properties,student-view,delivery-check}`,
+and `/assessment-attempts/:assessmentAttemptRef`. Canonical API families are
+`/api/assessments/due-soon`, `/api/course-instances/{course}/assessments...`,
+and `/api/assessment-attempts/{assessmentAttempt}...`. Public configuration is
+called Assessment Properties, not policies. Assignment remains only in the
+three Type display names: Regular Assignment, Practice Question Assignment,
+and Bonus Assignment.
+
+**Why.** The product model has one generic activity object. Keeping competing
+generic vocabulary in its public contract would make the object model and
+teaching language ambiguous.
+
+**Consequence.** This is a coordinated preproduction base-schema cutover, not
+a compatibility migration: do not add SQL compatibility views, dual DTOs,
+dual import shapes, dual API shapes, or a mixed-nomenclature reader. Preserve
+existing public `A-` references, UUID values, and the five Assessment Type
+enum values. A failed preproduction rollout rolls back the whole deployment and
+its resettable preproduction database together; it never leaves a partially
+renamed public boundary.
+
+Canonical JSON names are `assessment`, `assessmentReference`,
+`assessmentAttempt`, `assessmentEntry`, `assessmentStatus`, Blueprint
+JSON `assessments`, and `blueprint_assessment_reference`; canonical decoders
+accept only those names. There is no runtime legacy Blueprint import. A one-time,
+offline developer export-transform-import may assist the preproduction
+rebuild, but a fresh installation is canonical from the start.
+
+There is no legacy browser redirect or API compatibility layer. The
+preproduction rebuild uses the canonical Assessment routes directly.
+
+Use ignored `tests/_temp/` checks to prove the coordinated rebuild. Retain a
+permanent test only when it protects an intentionally stable external contract,
+such as the canonical path or a preserved public identity, and it meets every
+criterion in `PYTEST_STYLE.md`; otherwise remove the check at plan closeout. A
+failure of a retained canonical-contract test means the public Assessment
+contract regressed and must be repaired before closure. Caller, API, import,
+inventory, and fresh-install checks remain temporary and are removed at
+closeout; no grep or rename check becomes a permanent test.
+
+**Owner.** `docs/TERMINOLOGY_CONTRACT.md`, `docs/CONTRACTS.md`, and the
+Assessment route/schema contracts.
+
 ### Reusable and delivered course content are different objects
 
 **Decision.** A Blueprint Course contains Blueprint Assessments and no Students
@@ -61,6 +111,42 @@ model.
 
 **Consequence.** New revision, snapshot, receipt, event, or replay types require
 a specific Human Guidance-compatible need. Generic auditability is not enough.
+
+### BiologyProblems.org algorithmic WeBWorK migration is forward-only
+
+**Decision.** Each BiologyProblems.org WeBWorK Problem family records one
+canonical algorithmic author source—an official PG/PGML file or its author
+generator—and exactly one canonical algorithmic PG/PGML file and normal
+Published Question lineage. It replaces generated static variants, including
+the HLA family's 199 static variants. Algorithmic Questions ordinarily stand
+alone, though an Instructor may deliberately group distinct similar algorithms
+in a Question Pool when selection is useful. The currently shipped 119
+static banks remain unmigrated. The manifest's current 13 algorithmic-source
+definitions, including HLA, are migration inputs rather than runtime proof or a
+completed migration.
+
+Only after per-family source acceptance, representative deterministic
+rendering/grading, and the expected-current Blueprint Revision CAS may PLE move
+current catalog placements. A Pool Revision changes only to remove redundant
+generated variants; it retains any intentionally pooled distinct algorithmic
+Questions. PLE then Archives replaced static Question and redundant
+Pool lineages through ordinary availability and removes generated source copies.
+Exact immutable Question/Pool Revisions, Blueprint pins, and Student Work remain
+resolvable. PLE never deletes, repurposes, or raw-SQL-rewrites history.
+
+**Why.** Algorithmic practice needs one reproducible source and ordinary
+publication without changing previously delivered or pinned content. Pool
+selection among distinct Questions and backend-native variation are independent
+forms of variation.
+
+**Consequence.** A content-manifest or Blueprint Revision CAS failure leaves
+the current catalog unchanged. Recovery is forward-only through ordinary
+availability and a later Blueprint Revision. One ignored per-family proof
+records author-source provenance/hash/license, exactly one target PG/PGML file
+and lineage, source acceptance, intentional-Pool preservation, redundant-Pool
+transitions, pin resolution, archival behavior, and CAS stop. It becomes permanent only if
+historic archived-pin resolution satisfies every `PYTEST_STYLE.md` criterion;
+otherwise it is removed at plan closeout. C824-C841 own this work.
 
 ### Course Instances keep their own identity and may become new Blueprints
 
@@ -105,6 +191,29 @@ make staff changes unsafe.
 The server and database rederive the exact Account, Course relationship,
 Student record, and operation predicate.
 
+### Verified Instructor Display Name is a vetting-time endorsement attribute
+
+**Decision.** A bounded, server-controlled Verified Instructor Display Name is
+captured only during real identity vetting and Account creation. It is not
+self-editable, a Profile field, a directory entry, or a general Account
+projection. An active Instructor may receive it only when viewing the vetted
+Instructor Star list for a Published Question or the vetted Instructor Star
+list for a Public or Archived Blueprint Course. Either projection contains no
+email, UUID, Account reference, avatar, Course information, or substitute
+identifier.
+
+**Why.** Human Guidance requires vetted Instructors to see which vetted
+Instructors endorsed a Published Question, but does not authorize an identity
+directory or a mutable public Profile.
+
+**Consequence.** C17/C18 establish the only write path. C370's authorized
+Question projection and C856's authorized Blueprint projection may join that
+controlled attribute only for an active Instructor on their respective
+Published-Question or Public/Archived-Blueprint Star lists. A self-Star or
+count route without exact verified names is interim evidence and cannot close
+C371. Students, anonymous callers, inactive Accounts, Watch surfaces, and every
+other surface receive neither the name nor a substitute identifier.
+
 ### Sysadmin is platform administration, not ambient FERPA access
 
 **Decision.** Sysadmins manage platform configuration and operations but do not
@@ -117,6 +226,89 @@ purposes.
 **Consequence.** A Sysadmin-created Course gains an ordinary Instructor
 relationship for its teaching staff; the Sysadmin does not acquire Course
 membership merely by creating or supporting it.
+
+### Sysadmin sessions require a TOTP-bound second factor
+
+**Decision.** A Sysadmin session requires a time-based one-time-password
+(TOTP) second factor. Human Guidance leaves the authentication mechanism as
+implementation latitude; this decision selects TOTP for the higher-consequence
+Sysadmin session boundary. Student and Instructor authentication remains
+unchanged.
+
+**Why.** Platform administration needs a stronger session ceremony without
+turning the Sysadmin role into academic authority or changing ordinary teaching
+access.
+
+**Consequence.** Primary authentication creates only an opaque pending-MFA
+state. PostgreSQL derives the Account's stored Product Role and atomically
+creates a Sysadmin session only after it requires and consumes one unused,
+short-lived, Account- and browser-bound TOTP attestation. The server enforces
+the 30-second counter, replay protection, and rate limits, and does not log a
+TOTP value or seed. The seed is encrypted at rest under a wrapping key.
+
+The local Live Demo follows the same ceremony. Selecting Morgan Delgado creates
+pending MFA, not a session. Its local controller provisions a genuine
+operating-system-CSPRNG seed and writes only a restricted, ignored, mode-0600
+operator artifact, and logs only that artifact's path. A separate local
+authenticator consumes the artifact; neither the browser nor a fixed shared
+secret receives the seed, and the artifact cannot serve as a browser
+credential. This decision creates no recovery or self-service flow.
+
+The vertical implementation order is primary authentication, pending-MFA
+state, database attestation and one-use session transition, then browser
+completion. A failed later step creates no session and the database transition
+rolls back as one operation; a consumed attestation cannot be reused. The
+boundary applies OWASP ASVS 2.1.1, 2.2.1--2.2.3, 2.3.1 and 2.3.3, 6.1.3,
+6.3.1 and 6.3.4, 6.4.3 and 6.4.4, 6.5.1, 6.5.3, 6.5.5, and 6.5.8,
+7.2.1--7.2.4, 7.4.1 and 7.4.3, and 7.5.1. Browser controls may add to,
+but do not replace, this server and database boundary.
+
+**Owner.** C15 in the active [Human Guidance implementation compliance
+plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+owns the implementation and verification details.
+
+### Account Settings is one self-only time-zone preference
+
+**Decision.** Every signed-in Product Role uses the same self-only
+`/account-settings` surface and `GET` / `PUT /api/account/settings` boundary.
+Both responses and the only accepted update body have the closed shape
+`{ "timeZone": "exact IANA name" }`. The boundary accepts no Account,
+Course, or Product Role selector. PostgreSQL derives the active Account from
+the authenticated session and atomically reads or replaces that Account's
+exact installed IANA name.
+
+**Why.** Account Settings needs one small, understandable preference that does
+not let a caller select another Account or accidentally turn a display choice
+into Course authority. One boundary also removes the current split between
+Student time-zone handling and the Instructor Profile editor.
+
+**Consequence.** A successful update changes date display for the Account and,
+for an Instructor, the wall-clock interpretation of dates entered later. It
+never changes an already stored instant. Profile Settings owns avatar selection
+and Profile-image work. Instructor Profile displays the current Account time
+zone and links to Account Settings; it does not edit the zone itself.
+
+This Account Settings boundary exposes no passkey, email, TOTP, recovery,
+Account-status, or session control. Human Guidance's required Student and
+Instructor passwordless authentication and multiple Student passkeys remain
+owned by Accounts-and-roles milestones, not by Account Settings. The unresolved
+credential-lifecycle choices are only self-service enumeration, revocation,
+re-authentication, identity-proofed recovery, notification, and
+session-termination semantics; a separate decision must define those rules
+before implementation. C15's Sysadmin TOTP session decision remains the
+separate authentication boundary, including its absence of self-service TOTP
+management or recovery.
+
+The owner chain is browser closed-shape decoding, server request validation,
+then one PostgreSQL transaction that derives the active Account and updates its
+preference. A failed validation, authorization, or write rolls the transaction
+back and leaves the prior preference unchanged. The boundary applies OWASP ASVS
+2.1.1, 2.2.1--2.2.3, 4.1.4, 8.1.1--8.1.2, 8.2.1--8.2.3, and 8.3.1; browser
+controls aid usability but do not replace the server and database checks.
+
+**Owner.** C819-C823 in the active [Human Guidance implementation compliance
+plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+own implementation and verification. C821 owns this scope decision.
 
 ### Account state preserves history
 
@@ -138,32 +330,132 @@ lineage with immutable Question Revisions.
 **Why.** Private authoring and public reuse have different access, storage, and
 evidence needs.
 
-**Consequence.** Draft cleanup cannot damage published content. Metadata edits
-that do not change Question source do not create Revisions. A substantive fork
-creates a new Question ID with attribution.
+**Consequence.** Manual C351 Draft deletion and publication remain the only
+approved Draft-removal transitions. Automated abandoned-Draft cleanup is not a
+current feature: Human Guidance permits it but does not set its clock,
+durations, warning, recovery, reset, cancellation, or delivery-failure policy.
+No placeholder warning/recovery table, API, grant, Store, worker, generated
+seam, or test seam may remain before that product design is approved. The
+unresolved question is: **Should PLE automate cleanup of abandoned Draft
+Questions? If yes, what event starts inactivity; how long until warning; how
+long is the recovery period after a successfully delivered warning; which
+save/edit/publication/ownership events reset or cancel it; and what is the
+outcome when warning delivery fails?** Metadata edits that do not change
+Question source do not create Revisions. A substantive fork creates a new
+Question ID with attribution.
+
+### Published Question forks create a new private Draft through one server command
+
+**Decision.** A fork begins from one exact Published Question Revision and creates one distinct,
+private Draft Question owned by the active Instructor who invoked it. The server resolves the
+selected source, obtains the new Question ID from the server-held HMAC allocator, and writes the
+Draft, ownership, exact source Revision, and immutable attribution in one transaction. The client
+submits no new Question ID, source facts, authorship, Draft content, or attribution payload. It
+may carry an opaque idempotency key; that key is bound to the active Instructor and exact source
+Revision so a retry returns the same Draft and a key reuse for another source is refused.
+
+**Why.** A lineage row alone cannot create usable private authoring state, and client-selected
+identity or attribution would make provenance and collision handling untrustworthy.
+
+**Consequence.** `question_lineages.sql` supplies only the immutable Published-Revision source
+read/pin. The later-installed authoring operation owns Draft creation, access, and immutable
+fork-source storage; it cannot be placed in the earlier lineage install phase. The typed Store and
+server command authorize the active Instructor, resolve the source server-side, mint the ID, and
+perform the atomic operation. The Instructor UI exposes that command and opens only the returned
+private Draft. Publication continues through existing Question Publication Validation; a fork
+never enters the Question Library directly. The operation records no generic recovery state or
+compatibility path.
+
+**Owner.** [CONTRACTS.md](CONTRACTS.md)'s Question lineage and revision boundary;
+C319 and C876-C879 implement it in the active
+[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md).
+
+### Bulk metadata editing is an all-or-none current-state command
+
+**Decision.** An active vetted Instructor may update selected Published Questions' global `tags`,
+`subject`, and `topic` together. These are the currently defined shared search metadata fields.
+The command replaces only fields explicitly present in its closed patch; an empty tag list or a
+null subject/topic intentionally clears that field. It never edits source, answer, grading,
+feedback, assets, backend, Question Type, authorship, ownership, availability, or a Question
+Revision.
+
+**Why.** Human Guidance requires practical cleanup of large imports but says metadata belongs to
+the Published Question as a whole, not to an immutable Revision. A whole-batch outcome avoids
+silently half-cleaned library state and avoids disclosing which selected reference was unavailable
+or unauthorized.
+
+**Consequence.** Every selected canonical ID carries its current metadata Edit Number. The server
+normalizes the distinct nonempty set in canonical order, enforces one server-owned bounded maximum,
+locks and validates all targets before writing any, and either commits all replacements with new
+per-Question Edit Numbers or changes none. An actor-bound idempotency key plus canonical request
+digest returns the same ordered result on a true retry and rejects use of that key for a different
+request. Stale selection returns a whole `412`; invalid selection or patch returns `422`; the same
+key with another request returns `409`; inaccessible targets use the normal nonenumerating denial.
+The numeric batch maximum and future addition of another *stored shared search metadata field* are
+operational/schema decisions. A future field must join the same closed patch and CAS contract; no
+arbitrary JSON field patch is permitted.
+
+**Owner.** [CONTRACTS.md](CONTRACTS.md)'s Bulk Published Question metadata boundary;
+C365-C368 and C893 implement it in the active
+[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md).
 
 ### Public Question and Pool IDs are checked human references
 
-**Decision.** The display form is `AAAA-ZBBB`; the compact form is eight
-Crockford Base32 characters. Seven characters are random identity and the
-first character after the hyphen is an HMAC-derived check character.
+**Decision.** Before the first production deployment, PLE uses one direct
+Question-ID cutover. The stored form is eight compact Crockford Base32
+characters, `AAAAZBBB`; the displayed and serialized form is `AAAA-ZBBB`.
+The seven identity characters are every compact character except compact index
+4, which is the middle HMAC check character. The check character is the high
+five bits of byte zero of `HMAC-SHA-256(question_id_secret, identity)` encoded
+in the Crockford alphabet. The exact accepted input aliases, case
+normalization, grouping, and rejection rules remain those in
+[QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md).
 
 **Why.** A short copyable Reference benefits from typo detection without
 becoming sequential or authorization-bearing.
 
-**Consequence.** See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) for generation
-and validation. UUIDs remain internal.
+**Consequence.** The trusted server validates the HMAC before any lookup;
+browser code may normalize and validate syntax but never receives the secret.
+There is no dual parser, legacy-ID reader, data rewrite, or compatibility path.
+A fresh-schema preflight requires zero published Question rows before the
+cutover; a nonzero count stops the work and escalates rather than converting
+stored identities. [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md) owns the exact
+generation and validation contract. UUIDs remain internal.
+
+Pool creation uses this same server-held allocator: a browser never supplies a
+Pool ID, and the typed server command retries only a database uniqueness
+collision with a newly issued canonical ID. Pool schema owns the unique compact
+ID and immutable sequential Revision storage, but it does not become an
+unrouted ID issuer. The create route is the only path that combines the active
+Instructor authorization, allocator, and atomic Pool creation operation.
 
 ### Question Pools are published revisioned content
 
 **Decision.** A Question Pool has a stable public identity and immutable Pool
-Revisions. An Assessment records the exact Pool Revision and selected Question
-evidence used for an Attempt.
+Revisions. Each Pool Revision has a nonempty ordered distinct list of exact
+Published Question Revision references and the creating Instructor's
+interchangeability attestation. An Assessment records the exact Pool Revision
+and selected Question evidence used for an Attempt. Pool membership is backend
+neutral; it never changes a Question backend's own randomization behavior.
 
-**Why.** Reuse and random selection must remain explainable after later edits.
+**Why.** Reuse and random selection must remain explainable after later edits,
+while pinned Question Revisions preserve the content that the Instructor
+reviewed.
 
-**Consequence.** A Pool change never silently rewrites an Assessment or
-existing Student Work.
+**Consequence.** A Pool change appends a Revision under Pool metadata ETag/CAS;
+it never silently rewrites an Assessment or existing Student Work. Pool creation
+is an active-Instructor server command that mints its public ID and creates
+Revision 1 atomically; browser input contains only bounded member references
+and the attestation. Human Guidance does not say whether a selected-count
+belongs to a Pool Revision, an Assessment Pool entry, or an allowed Assessment
+override. No selection-count schema, API, or default is approved until that
+exact product question is answered; then the chosen source and its validation
+must be retained with the exact Pool/Question Revision evidence.
+
+**Owner.** [CONTRACTS.md](CONTRACTS.md)'s Question Pool boundary; C312, C313,
+and C885-C887 implement reusable Pool content, while C904 is the product decision
+that gates selection work in the active
+[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md).
 
 ### Question Backends own Question behavior
 
@@ -192,6 +484,190 @@ extension ecosystem or compatibility framework.
 **Consequence.** Native-format changes do not add version negotiation. New
 behavior requires an explicit product decision and coordinated strict-shape
 change.
+
+### Author JavaScript is an answer-free isolated document
+
+**Decision.** An `AuthorContentPresentation` contains only validated
+author-script source and closed reviewed library IDs. It excludes Answer Key,
+feedback correctness, grading input/output, seed, generated-parameter hash,
+response bindings, session/capability, Account/Course/Attempt metadata, and
+arbitrary URLs. It is not an ordinary `StudentQuestionPresentation` JSON
+payload. A dedicated authenticated `no-store` HTML document route reproduces
+the pinned presentation only after exact Student and position authorization;
+there is no raw-source browser API, save, submit, grading, object-store, or
+general API route.
+
+The route safely encodes source rather than concatenating it, and sends exactly
+`Content-Security-Policy: sandbox allow-scripts; default-src 'none'; base-uri
+'none'; object-src 'none'; connect-src` restricted to the exact C901
+server-selected RDKit WASM path; `img-src 'none'; media-src
+'none'; font-src 'none'; frame-src 'none'; worker-src 'none'; form-action
+'none'; frame-ancestors 'self'; script-src` restricted to C901 server-selected
+reviewed local assets plus a server bootstrap nonce; `Content-Type: text/html;
+charset=utf-8`; `X-Content-Type-Options: nosniff`; `Cache-Control: no-store`;
+and `Referrer-Policy: no-referrer`. No author-declared URL is admitted.
+
+The browser receives only a typed optional frame reference/availability and
+embeds it as `sandbox="allow-scripts" referrerpolicy="no-referrer" allow=""`.
+It never grants same-origin, forms, popups, downloads, modals, top navigation,
+pointer lock, storage access, or permissions. The script receives its own DOM
+and reviewed libraries, without parent initialization. Its only optional
+outbound message is versioned `author-content.resize`, with finite integer
+dimensions clamped to the declared bounds and accepted only when
+`event.source === iframe.contentWindow`; opaque-origin `null` therefore still
+has a source-identity check. The parent sends no messages and accepts no
+answer, URL, HTML, navigation, storage, or API command.
+
+**Why.** Executable author content is inspectable but never secret; it remains
+safe only when it is answer-free and grading-independent. The boundary applies
+ASVS 1.1.2, 1.2.1, 1.2.3, 2.2.1, 2.2.2, 3.2.1, 3.2.2, 3.4.3-3.4.6, 3.5.5, and
+3.6.1 without making the ordinary PLE application context available to it.
+
+**Consequence.** C303 records this architectural handoff but closes no Human
+Guidance occurrence. C857-C860 implement the descriptor, document route,
+frame, and connected proof; C859 owns the five isolation occurrences and C304
+waits for C860. HOTSPOT remains PLE-owned and grading remains server-owned.
+
+### RDKit is a reviewed local runtime asset, not author-selected content
+
+**Decision.** The closed `rdkit` library identifier is the only authority an
+author may select. The server resolves the current official `@rdkit/rdkit`
+release through a reviewed local registry, with its BSD-3-Clause license and
+the documented `RDKit_minimal.js`/`.wasm` `locateFile` pair. Human Guidance's
+latest-dependency rule governs this resolution; neither an author nor a
+Student Work record chooses or preserves a package version.
+
+The tracked manifest records the current reviewed official provenance, npm
+integrity, license checksum, and SHA-256 checksums for exactly the reviewed JS
+and WASM files. The deterministic vendoring/check command resolves the current
+official release, verifies provenance, license, package integrity, paths, and
+bytes, rejects extra runtime files, and writes the generated server registry.
+Production never resolves npm, unpkg, a CDN, or an author URL.
+
+The server exposes only the current generated JS/WASM pair through the
+unversioned derived `GET`/`HEAD` routes
+`/api/author-content-dependencies/rdkit/RDKit_minimal.{js,wasm}`. Responses
+use `application/javascript; charset=utf-8` or `application/wasm`,
+`X-Content-Type-Options: nosniff`, `Cross-Origin-Resource-Policy: cross-origin`,
+and `Cache-Control: no-cache` so a browser revalidates current bytes rather
+than treating an unversioned URL as immutable. The two fixed public files also
+send `Access-Control-Allow-Origin: *`, with no credential grant, because RDKit
+WASM fetches from the opaque sandbox origin. They send no cookie-dependent
+response, redirect, directory listing, caller-selected path, or object-store
+URL. `cross-origin` is intentional because an `allow-scripts` opaque-origin
+frame must load this public pair, while no private content is on the route.
+
+The author document emits the current registry JS SRI hash and exact server
+`locateFile` WASM path. Its CSP has a nonce for server bootstrap/encoded author
+source, that JS hash, the single exact WASM `connect-src` path, and
+`'unsafe-eval'` only because the current official RDKit Emscripten loader
+requires it inside this opaque `sandbox="allow-scripts"` document. It does not
+use `'self'` as a broad script or connect grant, and the main PLE CSP never
+receives that allowance. This narrow WASM exception replaces `connect-src
+'none'`; it does not authorize an application API or an author-chosen endpoint.
+For the closed `libraries: []` branch, the document instead has no runtime
+tags, `connect-src 'none'`, nonce-only `script-src`, and no `'unsafe-eval'`.
+
+**Update workflow.** A review refreshes the current official release, license,
+integrity, and two reviewed file hashes from a clean download, checks browser
+compatibility and the isolated-frame behavior, then regenerates the local
+assets and registry. It directly replaces the pre-production current runtime;
+there is no historical dependency catalog, retirement workflow, per-Attempt
+version/digest binding, or CDN fallback. An unavailable, malformed, or
+mismatched artifact fails closed and leaves author content unavailable.
+
+**Consequence.** The former author-declared `cdnUrl`/`localPath` syntax has
+been removed. It was validation evidence, not an approved dependency inventory
+or local delivery authority. C900-C902 build, serve, and maintain the reviewed
+chain. C858's document route waits for C901's current-runtime handoff, and C903 is the only owner of the three
+external-dependency Human Guidance occurrences.
+
+### Future H5P delivery is a blocked isolated Lumi runtime
+
+**Decision.** H5P is not currently delivered. Its only approved future design is
+a dedicated rootless Node 20 service using GPL-3.0
+[`@lumieducation/h5p-server`](https://github.com/Lumieducation/H5P-Nodejs-library)
+with a small per-launch filesystem adapter; no Hub, editor, or headless
+simulation. Dispatch is blocked by this exact question: **Which H5P content
+type(s) and exact pinned library versions are supported first; for each which
+terminal xAPI event/score semantics are authoritative; are scoreless activities
+non-assessment only?** The [H5P xAPI event documentation](https://h5p.org/documentation/developers/x-api-event)
+and [contract documentation](https://h5p.org/documentation/developers/contracts), plus the
+[Lumi status record](https://github.com/Lumieducation/H5P-Nodejs-library/blob/master/docs/development/status.md),
+are the primary source references.
+
+**Consequence.** C870 removes all dormant H5P placeholder seams now. After a
+product answer only, C863-C869 may dispatch: immutable package/policy binding;
+rootless runtime/container; private tickets/gateway; terminal-xAPI normalizer;
+opaque outcome persistence; cross-origin frame; and connected Podman proof.
+The API alone owns authorization, lifecycle, source SHA256, ticket redemption,
+and atomic immutable results. The runtime has no PG, S3, PLE session, renderer,
+or general API credential; it validates archive structure/paths/symlinks/limits
+and pinned library checksums, extracts only to tmpfs, has no egress/Hub/download,
+and uses a fixed UID, dropped capabilities, no-new-privileges, read-only root,
+and resource limits. It is `h5p.<origin>` behind a gateway with no host port,
+no PLE cookies, a no-store/no-referrer one-use TTL ticket, and an iframe limited
+to `sandbox="allow-scripts allow-same-origin"`. Only bounded opaque state,
+response, and evidence cross the boundary; PLE never parses controls, answers,
+seeds, or xAPI. Static only; Seeded is rejected. Runtime failure fails closed
+with no score or fallback. Record GPL/notices/licenses/hashes and complete the
+pinned Node/npm/H5P supply-chain and security review before release.
+
+### Native PLE JSON attempt reproduction is seed-free
+
+**Decision.** Question-attempt reproduction is explicitly tagged `Static` or
+`Seeded`. Native `pleQuestionJson` is `Static`: an attempt retains its exact
+Question Revision, source binding, presentation descriptor, and response-item
+bindings, but has neither a `QuestionSeed` nor a generated-parameter hash.
+The PLE server may mint a presentation nonce to bind response-item references
+and an authored choice-order policy. That nonce is PLE presentation randomness,
+not a source, author-JavaScript, or Question-generation seed.
+
+**Why.** A static native source needs no invented variation evidence. The
+explicit tag preserves exact explanation for backends that do generate a
+variant without giving the generic Attempt model a misleading seed-shaped
+placeholder.
+
+**Consequence.** Descriptor evidence checksum v2 binds the reproduction tag
+and its applicable facts. A `Static` native descriptor binds the exact source
+and presentation facts, including the presentation nonce where it determines
+response-item or choice order, and rejects a seed or generated-parameter hash.
+A `Seeded` descriptor binds its backend-owned seed and generated-parameter
+hash when that backend uses them. WeBWorK is currently `Seeded`; iMathAS
+retains backend-owned `Seeded` reproduction when its delivered adapter uses a
+seed. H5P has no delivered binding and no retained binding seam: C870 removed
+the placeholder. If a later product decision unlocks H5P, its approved
+implementation must explicitly select `Static` or `Seeded`; it must not infer
+or default a seed.
+
+This is a preproduction direct cutover: model, base-schema, Store/server
+issuance, descriptor validation, and Student Work readers change together, and
+a fresh database is reinitialized. There is no sentinel seed, null-means-two-
+things field, compatibility reader, or compatibility shim. The issuance chain
+first constructs the tagged descriptor, then validates and persists the
+Question Attempt, binding, and response-item evidence in one transaction. A
+later validation or persistence failure rolls back the whole issuance and
+leaves no partial Student Work evidence.
+If this coordinated cutover fails before the first production baseline, rollback
+restores the previous pre-production code and base schema together and
+reinitializes the disposable database; no mixed code/schema deployment is
+valid.
+
+The reviewer may promote one public no-seed contract test only after every
+[PYTEST_STYLE.md](PYTEST_STYLE.md) permanent-test checklist item is yes. It
+protects the deliberate native `Static` boundary from a plausible regression
+while avoiding storage-shape assertions. Otherwise the test remains temporary
+and is removed. Its failure means native issuance again exposes or retains a
+seed/hash, so the tagged descriptor and issuance boundary must be corrected
+before the native no-seed Human Guidance item can close. The vertical database
+matrix always remains temporary: it demonstrates both tags and rejection of a
+native seed/hash, then is removed.
+
+**Owner.** C300 owns the native-delivery correction milestones in the active
+[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+and their verification. A future, product-approved H5P implementation owns a
+new explicit binding design; C306 is not a dormant delivery seam. Human
+Guidance remains the product authority.
 
 ## Blueprint Courses
 
@@ -238,6 +714,31 @@ Assessments require the daughter Course Instructor's review and approval.
 Change Proposals never change daughters directly; accepted changes reach them
 through the normal Blueprint update workflow.
 
+### Blueprint fork updates are explicit, selective, and compare from immutable baselines
+
+**Decision.** A fork records one immutable source origin and a private sync baseline for each
+selectable unit. Status is exactly `up_to_date`, `updates_available`,
+`updates_available_with_conflicts`, `conflicts_require_manual_review`, or `source_unavailable`.
+The source is readable only to the fork owner when it is Public or Archived; if the source becomes
+Private, the fork reports nonenumerating `source_unavailable`.
+
+Selectable units are short name, long name, each whole Blueprint Assessment by stable reference
+(including its settings, Questions, and Pools), and the ordered Assessment list. Fork sync never
+copies or compares ownership, visibility, Stars, Watches, adoption, Course data, or Student data.
+For each unit, a three-way base/source/fork comparison classifies the candidate as `safe`,
+`already_applied`, `conflict`, or `not_applicable`; only `safe` candidates may apply. A
+server-issued candidate identity carries digests. Applying it requires the source and fork Revision,
+metadata ETag, and request-checksum CAS/idempotency checks; one candidate is processed per request,
+no value is overwritten automatically, and only an applied unit advances its sync baseline.
+
+**Why.** A fork must remain independently controlled while newer source work is easy to discover,
+review, and selectively bring forward without a hidden overwrite or source-information leak.
+
+**Consequence.** C880-C884 own the schema, canonical comparison, typed data access, server
+operation, and connected proof in the Human Guidance compliance plan. C413 may provide the
+Instructor UI only after C884. Question-level hunk selection is deliberately unlocked: it is an
+audited N/A design permission, not a blocker for whole-unit selective update.
+
 ### Canonical Blueprint JSON is the comparison and exchange form
 
 **Decision.** Canonical Blueprint JSON contains Blueprint metadata plus ordered
@@ -263,7 +764,14 @@ adopting does not automatically Star or Watch.
 adoption and forking are separate Course-creation decisions.
 
 **Consequence.** Stars and Watches follow the Blueprint lineage across all of
-its Revisions. They are not copied into a fork or daughter Course.
+its Revisions. They are not copied into a fork or daughter Course. C409 owns
+Star/unstar/count and private self Watch/unwatch state plus Revision, publish,
+archive, and restore Watch fan-out; it returns no Starred-by names. C856 alone
+may project exact Verified Instructor Display Names, and only to an active
+vetted Instructor viewing the Star list of a Public or Archived Blueprint.
+That projection excludes email, UUID, Account reference, avatar, Course and
+substitute identifiers, all Watch identities/state, client-side lookup, and
+Profile links.
 
 ## Assessments and Student Work
 
@@ -360,6 +868,126 @@ record.
 
 **Why.** Disabled or speculative controls teach the wrong workflow.
 
+### Account avatars are one role-neutral aggregate
+
+**Decision.** PLE stores the current avatar in one role-neutral
+`account_avatar` aggregate, rather than keeping an Instructor-only projection.
+Its discriminator is generic absence, a closed `ProvidedAvatarId` catalog, or
+a self-owned Profile image. The server derives `/api/profile/avatar*` from the
+signed-in Account; callers do not supply an Account identifier. Students may
+select only a provided avatar and are denied image upload. Instructors and
+Sysadmins may select a provided avatar or add their own Profile image. Image
+delivery is self-only: Human Guidance does not settle a broader Profile-image
+privacy audience.
+
+**Why.** The same selected-or-generic avatar must represent each user
+consistently, while the allowed choice differs by Product Role. A single
+aggregate avoids treating Profile images as an Instructor-only feature and
+keeps the authorization boundary explicit.
+
+**Consequence.** Generalize the existing Profile Thumbnail saga rather than
+adding a parallel media path. Change the owning base-schema modules directly
+because PLE is pre-production. Implement in dependency order: model, schema,
+store, server, then frontend. The shared frontend projection renders the
+generic, provided, or Profile-image result as a consistently cropped rounded
+square. This resolves the avatar and Profile-image bullets in
+[User top bar](HUMAN_GUIDANCE.md#user-top-bar) and the Instructor generic-icon
+bullet in [Instructor interface](HUMAN_GUIDANCE.md#instructor-interface).
+
+**Owner.** The avatar milestones in the active
+[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+own the implementation details. Human Guidance remains the product authority.
+
+### PLE-provided avatars are a versioned first-party catalog
+
+**Decision.** PLE-provided avatars are a versioned, first-party static catalog.
+The canonical, source-controlled `assets/avatar_catalog/` contains a manifest,
+original SVGs, and `PROVENANCE`. A deterministic generator derives the Rust
+registry, TypeScript catalog, and SQL seed from that source. Each catalog entry
+has a stable ASCII ID that is never renamed or reused, and an explicit
+`selectable` flag. A retired entry remains renderable but is not selectable.
+`provided_avatar.is_selectable` is the database selection boundary and accepts
+only `true` entries.
+
+The original art is abstract toy-brick, color, and pattern art. It contains no
+LEGO marks or copied minifigure art and is licensed CC-BY-4.0. The catalog
+accepts only a safe, bounded SVG grammar. The app publishes the SVGs as static,
+same-origin, fingerprinted public assets. It has no catalog-list API; the
+self-choice API exposes only the signed-in Account's selection, and the server
+and database authorize the generated seed.
+
+**Why.** A generated first-party catalog keeps displayed art, selectable IDs,
+and database authorization in one auditable release unit without letting an
+untrusted client choose an object or enumerate other Accounts' choices.
+
+**Consequence.** Deploy and roll back the generated registry, TypeScript
+catalog, SQL seed, and fingerprinted assets together. A fresh-install check
+proves that unit. An unknown stored ID renders the safe generic avatar and
+causes catalog-drift repair; it never becomes selectable. C40 owns the
+provided-avatar catalog and reusable picker contributor. C819 owns role-neutral
+Profile Settings authorization; C820 owns the real `/profile` route and page
+integration. The catalog and picker may be completed before those routes, but
+no C40 Human Guidance bullet closes until C819 and C820 make Student selection
+discoverable in real Profile Settings. Staff cross-Account Profile-image
+delivery remains an explicit Human Guidance product question; the default is
+self-only delivery.
+
+Use temporary generator, schema, fresh-install, and unknown-ID checks while
+building the catalog. Retain a permanent test only if it satisfies every
+`PYTEST_STYLE.md` checklist item and protects the stable public behavior that
+a retired ID renders but cannot be selected. A retained-test failure means the
+catalog's selection or backward-rendering contract regressed; correct the
+generator, seed, or authorization boundary before closing the affected Human
+Guidance item. Otherwise remove the checks at plan closeout.
+
+**Owner.** C40 owns the provided-avatar catalog and reusable picker; C819 owns
+role-neutral Profile Settings authorization; and C820 owns the real `/profile`
+route and page integration. The active [Human Guidance implementation
+compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+owns their implementation and verification. Human Guidance remains the product
+authority.
+
+### Course Banners use one exact-ratio delivery representation
+
+**Decision.** After EXIF orientation, a Course Banner source is valid only
+when it is a complete, positive still PNG, JPEG, or WebP with
+`u64(width) == 5 * u64(height)`; incomplete, trailing, and polyglot inputs are
+rejected. The server and `ple_api` upload-staging boundary both enforce that
+oriented exact 5:1 rule. The existing 8 MiB source-byte and 20-million-pixel
+limits remain. There is no minimum dimension; 1280 by 256 is guidance, not an
+acceptance requirement. The system retains the immutable source and promotes
+one lossless-WebP `Banner` rendition at 1280 by 256, at most 2 MiB: every
+smaller valid source is upscaled and every larger valid source is downscaled
+with aspect-preserving scaling and no crop or pad. Thus a valid 5 by 1 source,
+a smaller valid source, and a 2560 by 512 source are accepted.
+
+**Why.** One exact wide ratio lets the product provide a consistent course
+banner without silently cropping teaching material or imposing a fabricated
+minimum source size.
+
+**Consequence.** `Hero` and `Card` renditions are removed directly from the
+preproduction model, object records, base schema, Store, server, and client.
+Each promotion mints a fresh opaque `CourseBannerReference`; the private
+rendition object identity is deterministically derived from the Course, that
+reference, and the sole `Banner` discriminator. The current banner is delivered
+only through one same-origin route with `no-store`; no caller selects an object
+key or rendition. This is an atomic preproduction cutover. A failed rollout
+restores the whole code and schema change together and rebuilds disposable
+fixtures; it leaves no alias, mixed representation, or compatibility reader.
+C813 owns responsive layout around the one delivered Banner representation.
+
+Temporary checks prove the source-ratio boundary, no-crop/no-pad promotion,
+and all-or-nothing promotion, then are removed. A permanent behavior oracle is
+allowed only if every [PYTEST_STYLE.md](PYTEST_STYLE.md) checklist item is yes
+and its failure blocks release because it signals a ratio, crop, or
+partial-promotion regression. It must not freeze the exact 1280 dimensions,
+source dimensions, private enum shape, saga slots, or filter implementation.
+
+**Owner.** [CONTRACTS.md](CONTRACTS.md) and
+`crates/question_model/src/course_appearance.rs`; the active
+[Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md)
+owns the implementation and verification milestones.
+
 ### High-consequence actions are distinct
 
 **Decision.** Assessment Unrelease, Published Question Archive, and Blueprint
@@ -428,6 +1056,51 @@ background processing because they must complete without a connected browser.
 Bounded asset preparation may use an operation-specific background mechanism.
 A generic worker framework does not authorize grading
 queues, recovery states, audit machinery, or compatibility jobs.
+
+### Retention notification delivery is a separate least-privilege boundary
+
+**Decision.** Retention notices use a provider-neutral delivery boundary that
+is separate from invitations, browser sessions, API serving, object storage,
+and Question renderers. One notification identity is
+`(course_id, action_kind, due_at, recipient_account_id)`, where `action_kind`
+is exactly `warn_inactive` or `notify_archive`; archive and delete never
+notice. Its recipients are
+the deduplicated union of the Course's assigned Instructor and active
+Instructor memberships/accounts. A leaseable receipt records an idempotency
+key, provider acceptance, and delivered outcome. A redacted notice directs the
+recipient to sign in; it excludes Course identifiers and title, raw IDs,
+FERPA data, a capability, and a recovery link.
+
+**Why.** Retention warnings must be repeat-safe and reach current teaching
+staff without turning an email provider, the Live Demo, or a browser-facing
+path into educational-record authority.
+
+**Consequence.** The notifier capability claims one receipt at a time with a
+lease and `SKIP LOCKED`, derives and returns exactly one verified Instructor
+destination rather than offering generic Account lookup, and cannot create a
+second send for the same identity. A receipt starts with `next_attempt_at =
+due_at`. At one evaluated timestamp, a claim requires the action still be due,
+`next_attempt_at` be due, no provider acceptance, and no lease or an expired
+lease; it orders by `(due_at, id)`, increments the attempt count, and advances
+`next_attempt_at` to lease expiry. The durable idempotency key exists before a
+provider call: a crash before it leaves the lease to expire, while a crash
+after it reclaims only after expiry and reuses that key. Provider acceptance is
+terminal for sending; provider callbacks update that same receipt and key to
+delivered. A recorded `FailureRecorded` clears the lease and sets
+`next_attempt_at = failed_at + min(3600 seconds, 60 seconds * 2^(attempt_count
+- 1))`. An action no longer due cannot retry, and an accepted receipt never
+resends. `NotConfigured` records a non-send failure and never reports fake
+success. A late run attempts required earlier notices in due-time order, then
+performs the due transition after successfully recorded failure; it stops only
+the notice lane for an unknown typed Store state and always continues retention
+transitions. Provider credentials are operational configuration; the Live Demo
+remains `NotConfigured` and is not delivery evidence.
+
+One isolated retention process has exactly two independently attested,
+non-inheriting database profiles/pools: C215's retention executor and C848's
+notifier. It has no third database profile and no API, S3/object-store,
+session, or renderer authority. Do not reuse invitation export, Mail.app, or a
+generic outbound-email path.
 
 **Why.** Infrastructure should implement a decided behavior, not create product
 behavior by implication.

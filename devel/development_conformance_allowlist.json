@@ -1,0 +1,25 @@
+{
+  "source_name_exceptions": [
+    {
+      "path": "src/pages/library_page.css.d.ts",
+      "owner_document": "docs/NAMING_CONVENTIONS.md",
+      "owner_section": "## Language matrix",
+      "reason": "TypeScript emits this CSS-module declaration name; it is a compiler-owned boundary."
+    },
+    {
+      "path": "src/ribbon/app_ribbon.css.d.ts",
+      "owner_document": "docs/NAMING_CONVENTIONS.md",
+      "owner_section": "## Language matrix",
+      "reason": "TypeScript emits this CSS-module declaration name; it is a compiler-owned boundary."
+    }
+  ],
+  "scaffolding_exceptions": [
+    {
+      "path": "schemas/base_schema/api_compatibility.sql",
+      "symbol": "ple_schema_state",
+      "owner_document": "docs/CONTRACTS.md",
+      "owner_section": "## Jobs, objects, and database lifecycle",
+      "reason": "The read-only migration-state projection is the bounded application-visible SQLx contract."
+    }
+  ]
+}

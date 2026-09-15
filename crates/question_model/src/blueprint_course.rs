@@ -1,33 +1,35 @@
-//! Browser-safe reusable BlueprintCourse assignments and answer-free views.
+//! Browser-safe reusable BlueprintCourse assessments and answer-free views.
 //!
 //! A reusable content has no course, student, version, or server-private
 //! identity. The Store resolves its public Question IDs to exact publication
 //! pins before persistence. Browser views deliberately keep the same ordered
 //! shape while substituting current answer-free Question Library discovery rows.
 
-use std::collections::BTreeSet;
-use std::num::NonZeroU64;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentActivityRules, AssignmentEntryScoringRule, AssignmentInstructions,
-    AssignmentPointValue, BlueprintCourseReference, LateWorkRule, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    MAX_ASSIGNMENT_QUESTION_POOL_ITEMS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolSelectionRule,
-    QuestionSearchResult, StudentFeedbackReleaseRule,
+    AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
+    AssessmentPointValue, BlueprintCourseReference, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_ORDERED_ENTRIES,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolRevisionReference,
+    QuestionPoolSelectionRule, QuestionSearchResult, StudentFeedbackReleaseRule,
 };
 
 /// Shared instructor-content bound for reusable titles and module labels.
 pub const MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS: usize = 200;
 
 mod blueprint_children;
+/// Canonical reusable Blueprint exchange projection.
+pub mod canonical_exchange;
+/// Three-way comparison for deliberate Blueprint fork synchronization.
+pub mod fork_sync_comparison;
 pub use blueprint_children::{
-    BlueprintAssignmentEditChoice, BlueprintAssignmentReference,
-    BlueprintAssignmentReplacementInput, BlueprintChildIdError,
-    BlueprintCourseAssignmentContentView, BlueprintModuleEditChoice, BlueprintModuleReference,
+    BlueprintAssessmentEditChoice, BlueprintAssessmentReference,
+    BlueprintAssessmentReplacementInput, BlueprintChildIdError,
+    BlueprintCourseAssessmentContentView, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintModuleReplacementInput, BlueprintModuleView, CreateBlueprintCourseInput,
     CreateBlueprintModuleInput, ReplaceBlueprintCourseContentInput,
 };
@@ -56,35 +58,35 @@ pub fn validate_blueprint_course_title(value: &str) -> Result<(), BlueprintCours
         .ok_or(BlueprintCourseTitleError::Invalid)
 }
 
-/// Blueprint Assignment policy defaults copied into a future teaching course.
+/// Blueprint Assessment policy defaults copied into a future teaching course.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintAssignmentDefaults {
-    /// Whole Assignment Attempt time limit, if the reusable content establishes one.
-    pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
-    /// Number of Assignment Attempts, if the reusable content establishes one.
+pub struct BlueprintAssessmentDefaults {
+    /// Whole Assessment Attempt time limit, if the reusable content establishes one.
+    pub assessment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
+    /// Number of Assessment Attempts, if the reusable content establishes one.
     pub attempt_limit: Option<std::num::NonZeroU32>,
-    /// Late-work treatment copied into the future assignment policy.
+    /// Late-work treatment copied into the future assessment policy.
     pub late_work_rule: LateWorkRule,
-    /// Independent Assignment Attempt behavior copied into the future assignment policy.
-    pub activity_rules: AssignmentActivityRules,
-    /// Student-release policy copied into the future assignment policy.
+    /// Independent Assessment Attempt behavior copied into the future assessment policy.
+    pub activity_rules: AssessmentActivityRules,
+    /// Student-release policy copied into the future assessment policy.
     #[serde(rename = "student_feedback_release_rule")]
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
 }
 
-impl BlueprintAssignmentDefaults {
+impl BlueprintAssessmentDefaults {
     /// Validates reusable limits against the ordinary teaching-policy bounds.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         if self
-            .assignment_attempt_time_limit_seconds
-            .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+            .assessment_attempt_time_limit_seconds
+            .is_some_and(|limit| limit.get() > MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS)
         {
-            return Err(BlueprintCourseValidationError::AssignmentAttemptTimeLimitOutOfRange);
+            return Err(BlueprintCourseValidationError::AssessmentAttemptTimeLimitOutOfRange);
         }
         if self
             .attempt_limit
-            .is_some_and(|limit| limit.get() > MAX_ASSIGNMENT_ATTEMPT_LIMIT)
+            .is_some_and(|limit| limit.get() > MAX_ASSESSMENT_ATTEMPT_LIMIT)
         {
             return Err(BlueprintCourseValidationError::AttemptLimitOutOfRange);
         }
@@ -92,34 +94,35 @@ impl BlueprintAssignmentDefaults {
     }
 }
 
-/// One Fixed Question Assignment Entry submitted in authored order.
+/// One Fixed Question Assessment Entry submitted in authored order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusableFixedQuestionInput {
     /// Public Question ID resolved under destination authority.
     pub question_id: QuestionId,
-    /// Points copied into the future Fixed Question Assignment Entry.
-    pub points_possible: AssignmentPointValue,
-    /// Score treatment copied into the future Fixed Question Assignment Entry.
-    pub scoring_rule: AssignmentEntryScoringRule,
-    /// Question Attempt retry bound copied into the future Fixed Question Assignment Entry.
+    /// Points copied into the future Fixed Question Assessment Entry.
+    pub points_possible: AssessmentPointValue,
+    /// Score treatment copied into the future Fixed Question Assessment Entry.
+    pub scoring_rule: AssessmentEntryScoringRule,
+    /// Question Attempt retry bound copied into the future Fixed Question Assessment Entry.
     pub question_attempt_limit: QuestionAttemptLimit,
-    /// Question Attempt timing copied into the future Fixed Question Assignment Entry.
+    /// Question Attempt timing copied into the future Fixed Question Assessment Entry.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
-/// One Question Pool Assignment Entry, including its ordered public Question Pool Item IDs.
+/// One Question Pool Assessment Entry selected by public Pool identity.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolInput {
-    /// Public Question IDs resolved into Question Pool Items under destination authority in this order.
-    pub items: Vec<QuestionId>,
-    /// Number of Question Pool Items selected for each future Assignment Attempt.
-    pub selection_count: u32,
+    /// Public Pool identity. The server resolves the source Revision and mints any destination
+    /// Assessment-owned fork; a Blueprint client supplies no member pins or source Revision.
+    pub question_pool_id: QuestionId,
+    /// Positive number of Pool members selected for each future Assessment Attempt.
+    pub selection_count: NonZeroU32,
     /// Points copied for every selected Question Pool Item.
-    pub points_per_item: AssignmentPointValue,
+    pub points_per_item: AssessmentPointValue,
     /// Scoring rule copied for every selected Question Pool Item.
-    pub scoring_rule: AssignmentEntryScoringRule,
+    pub scoring_rule: AssessmentEntryScoringRule,
     /// Complete reviewed selection behavior.
     pub selection_rule: QuestionPoolSelectionRule,
     /// Uniform Question Attempt retry bound copied for every selected Question Pool Item.
@@ -130,18 +133,6 @@ pub struct ReusablePoolInput {
 
 impl ReusablePoolInput {
     fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        if self.items.is_empty() || self.items.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY
-        {
-            return Err(BlueprintCourseValidationError::InvalidQuestionPoolItems);
-        }
-        if self.selection_count == 0
-            || usize::try_from(self.selection_count).ok() > Some(self.items.len())
-        {
-            return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
-        }
-        if self.items.iter().collect::<BTreeSet<_>>().len() != self.items.len() {
-            return Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem);
-        }
         Ok(())
     }
 }
@@ -149,48 +140,42 @@ impl ReusablePoolInput {
 /// One ordered reusable content entry. Vector order is the only position.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintAssignmentEntryInput {
-    /// One Fixed Question Assignment Entry in content order.
+pub enum BlueprintAssessmentEntryInput {
+    /// One Fixed Question Assessment Entry in content order.
     Fixed(ReusableFixedQuestionInput),
-    /// One Question Pool Assignment Entry in content order.
+    /// One Question Pool Assessment Entry in content order.
     Pool(ReusablePoolInput),
 }
 
-/// Complete submitted Blueprint Assignment meaning.
+/// Complete submitted Blueprint Assessment meaning.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintAssignmentContentInput {
-    /// Instructor-facing title copied into future assignment assignments.
+pub struct BlueprintAssessmentContentInput {
+    /// Instructor-facing title copied into future assessment assessments.
     pub title: String,
-    /// Student-facing instructions copied into future assignment assignments.
-    pub instructions: AssignmentInstructions,
-    /// Fixed Question Assignment Entries and Question Pool Assignment Entries in authored order.
-    pub entries: Vec<BlueprintAssignmentEntryInput>,
-    /// Reusable delivery and Assignment Attempt defaults.
-    pub defaults: BlueprintAssignmentDefaults,
+    /// Student-facing instructions copied into future assessment assessments.
+    pub instructions: AssessmentInstructions,
+    /// Fixed Question Assessment Entries and Question Pool Assessment Entries in authored order.
+    pub entries: Vec<BlueprintAssessmentEntryInput>,
+    /// Reusable delivery and Assessment Attempt defaults.
+    pub defaults: BlueprintAssessmentDefaults,
 }
 
-impl BlueprintAssignmentContentInput {
-    /// Validates bounded ordered entries and their reusable assignment meaning.
+impl BlueprintAssessmentContentInput {
+    /// Validates bounded ordered entries and their reusable assessment meaning.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
         validate_blueprint_course_title(&self.title)
             .map_err(|_| BlueprintCourseValidationError::InvalidContentTitle)?;
-        if self.entries.is_empty() || self.entries.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+        if self.entries.is_empty() || self.entries.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidEntryCount);
         }
         self.defaults.validate()?;
-        let mut total_question_pool_items = 0_usize;
         for entry in &self.entries {
-            if let BlueprintAssignmentEntryInput::Pool(pool) = entry {
+            if let BlueprintAssessmentEntryInput::Pool(pool) = entry {
                 pool.validate()?;
-                total_question_pool_items = total_question_pool_items
-                    .checked_add(pool.items.len())
-                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolItems)?;
             }
         }
-        (total_question_pool_items <= MAX_ASSIGNMENT_QUESTION_POOL_ITEMS)
-            .then_some(())
-            .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolItems)
+        Ok(())
     }
 }
 
@@ -214,28 +199,18 @@ pub struct ReusableQuestionView {
     pub selection_availability: ReusableSelectionAvailability,
 }
 
-/// Current answer-free reusable Question Pool Item in stored Question Pool Item order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct ReusableQuestionPoolItemView {
-    /// Current public Question Library metadata and disclosed evidence.
-    pub question_library: QuestionSearchResult,
-    /// Whether the stored exact member remains selectable for a new copy.
-    pub selection_availability: ReusableSelectionAvailability,
-}
-
 /// Current answer-free Reusable Pool View.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct ReusablePoolView {
-    /// Current Question Pool Items in their retained Question Pool Item order.
-    pub items: Vec<ReusableQuestionPoolItemView>,
-    /// Number of Question Pool Items selected for each future Assignment Attempt.
-    pub selection_count: u32,
+    /// Exact immutable Revision of the reusable Pool source.
+    pub question_pool_revision: QuestionPoolRevisionReference,
+    /// Positive number of Pool members selected for each future Assessment Attempt.
+    pub selection_count: NonZeroU32,
     /// Points copied for every selected Question Pool Item.
-    pub points_per_item: AssignmentPointValue,
+    pub points_per_item: AssessmentPointValue,
     /// Scoring rule copied for every selected Question Pool Item.
-    pub scoring_rule: AssignmentEntryScoringRule,
+    pub scoring_rule: AssessmentEntryScoringRule,
     /// Complete reviewed selection behavior.
     pub selection_rule: QuestionPoolSelectionRule,
     /// Uniform Question Attempt retry bound copied for every selected Question Pool Item.
@@ -247,36 +222,36 @@ pub struct ReusablePoolView {
 /// Current answer-free reusable-content entry. Vector order is its position.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintAssignmentEntryView {
-    /// One Fixed Question Assignment Entry in content order.
+pub enum BlueprintAssessmentEntryView {
+    /// One Fixed Question Assessment Entry in content order.
     Fixed {
         /// Current answer-free Reusable Question View.
         question: Box<ReusableQuestionView>,
-        /// Points copied into the future Fixed Question Assignment Entry.
-        points_possible: AssignmentPointValue,
-        /// Score treatment copied into the future Fixed Question Assignment Entry.
-        scoring_rule: AssignmentEntryScoringRule,
-        /// Question Attempt retry bound copied into the future Fixed Question Assignment Entry.
+        /// Points copied into the future Fixed Question Assessment Entry.
+        points_possible: AssessmentPointValue,
+        /// Score treatment copied into the future Fixed Question Assessment Entry.
+        scoring_rule: AssessmentEntryScoringRule,
+        /// Question Attempt retry bound copied into the future Fixed Question Assessment Entry.
         question_attempt_limit: QuestionAttemptLimit,
-        /// Question Attempt timing copied into the future Fixed Question Assignment Entry.
+        /// Question Attempt timing copied into the future Fixed Question Assessment Entry.
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
-    /// One Question Pool Assignment Entry in content order.
+    /// One Question Pool Assessment Entry in content order.
     Pool(ReusablePoolView),
 }
 
-/// Current answer-free Blueprint Assignment content.
+/// Current answer-free Blueprint Assessment content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintAssignmentContentView {
-    /// Instructor-facing title copied into future assignment assignments.
+pub struct BlueprintAssessmentContentView {
+    /// Instructor-facing title copied into future assessment assessments.
     pub title: String,
-    /// Student-facing instructions copied into future assignment assignments.
-    pub instructions: AssignmentInstructions,
-    /// Fixed Question Assignment Entries and Question Pool Assignment Entries in retained authored order.
-    pub entries: Vec<BlueprintAssignmentEntryView>,
-    /// Reusable delivery and Assignment Attempt defaults.
-    pub defaults: BlueprintAssignmentDefaults,
+    /// Student-facing instructions copied into future assessment assessments.
+    pub instructions: AssessmentInstructions,
+    /// Fixed Question Assessment Entries and Question Pool Assessment Entries in retained authored order.
+    pub entries: Vec<BlueprintAssessmentEntryView>,
+    /// Reusable delivery and Assessment Attempt defaults.
+    pub defaults: BlueprintAssessmentDefaults,
 }
 
 /// Strong revision evidence for one complete BlueprintCourse tree.
@@ -420,24 +395,24 @@ pub enum BlueprintCourseValidationError {
     InvalidEntryCount,
     /// A BlueprintCourse has no usable modules or exceeds its shared bound.
     InvalidModuleCount,
-    /// A module has no usable assignments or exceeds its shared bound.
-    InvalidModuleAssignmentCount,
+    /// A module has no usable assessments or exceeds its shared bound.
+    InvalidModuleAssessmentCount,
     /// A Question Pool Item list has no members or exceeds its shared bound.
     InvalidQuestionPoolItems,
     /// A pool selection count cannot select a meaningful subset of its Question Pool Items.
     InvalidPoolSelectionCount,
     /// A pool repeats a Question Pool Item and therefore changes no selectable meaning.
     DuplicateQuestionPoolItem,
-    /// All Question Pool Items exceed the assignment-level shared bound.
+    /// All Question Pool Items exceed the assessment-level shared bound.
     TooManyQuestionPoolItems,
-    /// A reusable whole Assignment Attempt time limit exceeds the ordinary assignment bound.
-    AssignmentAttemptTimeLimitOutOfRange,
-    /// A reusable attempt limit exceeds the ordinary assignment bound.
+    /// A reusable whole Assessment Attempt time limit exceeds the ordinary assessment bound.
+    AssessmentAttemptTimeLimitOutOfRange,
+    /// A reusable attempt limit exceeds the ordinary assessment bound.
     AttemptLimitOutOfRange,
     /// A replacement submitted the same retained Blueprint Module Reference more than once.
     DuplicateRetainedBlueprintModuleChoice,
-    /// A replacement submitted the same retained Blueprint Assignment Reference more than once.
-    DuplicateRetainedBlueprintAssignmentChoice,
+    /// A replacement submitted the same retained Blueprint Assessment Reference more than once.
+    DuplicateRetainedBlueprintAssessmentChoice,
 }
 
 impl std::fmt::Display for BlueprintCourseValidationError {
@@ -448,8 +423,8 @@ impl std::fmt::Display for BlueprintCourseValidationError {
             Self::InvalidModuleLabel => "BlueprintCourse module label is invalid",
             Self::InvalidEntryCount => "reusable content must contain bounded ordered entries",
             Self::InvalidModuleCount => "BlueprintCourse must contain bounded modules",
-            Self::InvalidModuleAssignmentCount => {
-                "BlueprintCourse module must contain bounded Blueprint Assignments"
+            Self::InvalidModuleAssessmentCount => {
+                "BlueprintCourse module must contain bounded Blueprint Assessments"
             }
             Self::InvalidQuestionPoolItems => {
                 "Question Pool Items must be present and within their bound"
@@ -459,17 +434,17 @@ impl std::fmt::Display for BlueprintCourseValidationError {
             }
             Self::DuplicateQuestionPoolItem => "Question Pool Items must be distinct",
             Self::TooManyQuestionPoolItems => {
-                "Question Pool Items exceed the assignment-level bound"
+                "Question Pool Items exceed the assessment-level bound"
             }
-            Self::AssignmentAttemptTimeLimitOutOfRange => {
+            Self::AssessmentAttemptTimeLimitOutOfRange => {
                 "reusable time limit exceeds the supported range"
             }
             Self::AttemptLimitOutOfRange => "reusable attempt limit exceeds the supported range",
             Self::DuplicateRetainedBlueprintModuleChoice => {
                 "Blueprint Course replacement repeats a retained Blueprint Module Reference"
             }
-            Self::DuplicateRetainedBlueprintAssignmentChoice => {
-                "Blueprint Course replacement repeats a retained Blueprint Assignment Reference"
+            Self::DuplicateRetainedBlueprintAssessmentChoice => {
+                "Blueprint Course replacement repeats a retained Blueprint Assessment Reference"
             }
         })
     }
@@ -483,8 +458,9 @@ mod tests {
     use crate::QuestionLicense;
     use crate::{
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
-        QuestionBackend, QuestionBackendCapabilities, QuestionMetadata, QuestionRevisionNumber,
-        QuestionRevisionReference, QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
+        QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionMetadata,
+        QuestionPoolRevisionNumber, QuestionRevisionNumber, QuestionRevisionReference,
+        QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
     };
     use uuid::Uuid;
 
@@ -492,53 +468,50 @@ mod tests {
         BlueprintModuleReference::from_uuid(Uuid::from_u128(1))
     }
 
-    fn blueprint_assignment_reference() -> BlueprintAssignmentReference {
-        BlueprintAssignmentReference::from_uuid(Uuid::from_u128(2))
+    fn blueprint_assessment_reference() -> BlueprintAssessmentReference {
+        BlueprintAssessmentReference::from_uuid(Uuid::from_u128(2))
     }
 
     fn question_id() -> QuestionId {
-        "7K3-M9QX".parse().expect("valid question ID")
+        "7K3M-X9QX".parse().expect("valid question ID")
     }
 
-    fn defaults() -> BlueprintAssignmentDefaults {
-        BlueprintAssignmentDefaults {
-            assignment_attempt_time_limit_seconds: None,
+    fn defaults() -> BlueprintAssessmentDefaults {
+        BlueprintAssessmentDefaults {
+            assessment_attempt_time_limit_seconds: None,
             attempt_limit: None,
             late_work_rule: LateWorkRule::Accept,
-            activity_rules: AssignmentActivityRules {
-                assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
-                assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,
-                assignment_attempt_continuation_rule:
-                    crate::AssignmentAttemptContinuationRule::Unlimited,
+            activity_rules: AssessmentActivityRules {
+                assessment_completion_rule: crate::AssessmentCompletionRule::AnswerAll,
+                assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
+                assessment_attempt_continuation_rule:
+                    crate::AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: crate::AssignmentQuestionVariationRule::NewVariation,
-                ..AssignmentActivityRules::default()
+                question_variation_rule: crate::AssessmentQuestionVariationRule::NewVariation,
+                ..AssessmentActivityRules::default()
             },
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
         }
     }
 
-    fn input() -> BlueprintAssignmentContentInput {
-        BlueprintAssignmentContentInput {
+    fn input() -> BlueprintAssessmentContentInput {
+        BlueprintAssessmentContentInput {
             title: "Protein structure practice".to_string(),
-            instructions: AssignmentInstructions::try_new("Explain each choice.".to_string())
+            instructions: AssessmentInstructions::try_new("Explain each choice.".to_string())
                 .expect("valid instructions"),
             entries: vec![
-                BlueprintAssignmentEntryInput::Fixed(ReusableFixedQuestionInput {
+                BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
                     question_id: question_id(),
-                    points_possible: AssignmentPointValue::from_whole(3),
-                    scoring_rule: AssignmentEntryScoringRule::Normal,
+                    points_possible: AssessmentPointValue::from_whole(3),
+                    scoring_rule: AssessmentEntryScoringRule::Normal,
                     question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                     question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                 }),
-                BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
-                    items: vec![
-                        question_id(),
-                        "12A-4BCZ".parse().expect("valid question ID"),
-                    ],
-                    selection_count: 1,
-                    points_per_item: AssignmentPointValue::from_whole(2),
-                    scoring_rule: AssignmentEntryScoringRule::Normal,
+                BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
+                    question_pool_id: "12A4-XBCZ".parse().expect("valid Pool ID"),
+                    selection_count: NonZeroU32::new(1).expect("positive count"),
+                    points_per_item: AssessmentPointValue::from_whole(2),
+                    scoring_rule: AssessmentEntryScoringRule::Normal,
                     selection_rule: QuestionPoolSelectionRule {
                         selected_question_order:
                             crate::QuestionPoolSelectedQuestionOrder::RandomOrder,
@@ -560,6 +533,7 @@ mod tests {
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
                 backend: QuestionBackend::Ple,
+                question_format: QuestionFormat::PleQuestionJson,
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
@@ -585,13 +559,13 @@ mod tests {
 
     #[test]
     fn curriculum_references_round_trip_as_compact_wire_values() {
-        let blueprint: BlueprintCourseReference = "BP-42".parse().expect("valid reference");
+        let blueprint: BlueprintCourseReference = "BP7K3M2Q".parse().expect("valid reference");
         assert_eq!(
             serde_json::to_value(blueprint).expect("serializes"),
-            "BP-42"
+            "BP7K3M2Q"
         );
-        assert!("BP-042".parse::<BlueprintCourseReference>().is_err());
-        assert!("AC-43".parse::<BlueprintCourseReference>().is_err());
+        assert!("BP7K3M2I".parse::<BlueprintCourseReference>().is_err());
+        assert!("AC7K3M2Q".parse::<BlueprintCourseReference>().is_err());
     }
 
     #[test]
@@ -600,7 +574,7 @@ mod tests {
         assert!(content.validate().is_ok());
         let wire = serde_json::to_value(&content).expect("content serializes");
         assert_eq!(wire["entries"][0]["kind"], "fixed");
-        assert_eq!(wire["entries"][0]["question_id"], "7K3-M9QX");
+        assert_eq!(wire["entries"][0]["question_id"], "7K3M-X9QX");
         assert_eq!(wire["entries"][0]["points_possible"], "3");
         assert_eq!(wire["entries"][1]["kind"], "pool");
         assert!(wire["entries"][1]["items"].is_array());
@@ -609,35 +583,17 @@ mod tests {
         assert!(wire["defaults"].is_object());
         assert!(wire.get("schedule").is_none());
         assert_eq!(
-            serde_json::from_value::<BlueprintAssignmentContentInput>(wire)
+            serde_json::from_value::<BlueprintAssessmentContentInput>(wire)
                 .expect("content round trips"),
             content
         );
-        let duplicate_pool = BlueprintAssignmentContentInput {
-            entries: vec![BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
-                items: vec![question_id(), question_id()],
-                selection_count: 1,
-                points_per_item: AssignmentPointValue::from_whole(1),
-                scoring_rule: AssignmentEntryScoringRule::Normal,
-                selection_rule: QuestionPoolSelectionRule {
-                    selected_question_order:
-                        crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-                },
-                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            })],
-            ..content
-        };
-        assert_eq!(
-            duplicate_pool.validate(),
-            Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem)
-        );
+        assert!(content.validate().is_ok());
         let blueprint = CreateBlueprintCourseInput {
             short_name: "Biochemistry".to_string(),
             long_name: "Biochemistry Blueprint".to_string(),
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_string(),
-                assignments: vec![input()],
+                assessments: vec![input()],
             }],
         };
         assert!(blueprint.validate().is_ok());
@@ -646,45 +602,46 @@ mod tests {
     #[test]
     fn blueprint_course_view_serializes_answer_free_question_library_rows_and_edit_choices() {
         let view = BlueprintCourseView {
-            reference: "BP-12".parse().expect("valid reference"),
+            reference: "BP7K3M2Q".parse().expect("valid reference"),
             short_name: "Biochemistry".to_string(),
             long_name: "Biochemistry Blueprint".to_string(),
-            availability: crate::BlueprintAvailability::Available,
+            availability: crate::BlueprintAvailability::Public,
             metadata_etag: crate::BlueprintMetadataEtag::from_uuid(uuid::Uuid::from_u128(42)),
             current_revision: crate::BlueprintRevisionReference {
-                reference: "BP-12".parse().expect("valid reference"),
+                reference: "BP7K3M2Q".parse().expect("valid reference"),
                 revision: BlueprintRevision::INITIAL,
             },
             read_access: BlueprintCourseReadAccess::ActiveInstructor,
             modules: vec![BlueprintModuleView {
                 blueprint_module_reference: blueprint_module_reference(),
                 label: "Week 1".to_string(),
-                assignments: vec![BlueprintCourseAssignmentContentView {
-                    blueprint_assignment_reference: blueprint_assignment_reference(),
-                    content: BlueprintAssignmentContentView {
+                assessments: vec![BlueprintCourseAssessmentContentView {
+                    blueprint_assessment_reference: blueprint_assessment_reference(),
+                    content: BlueprintAssessmentContentView {
                         title: "Protein structure practice".to_string(),
-                        instructions: AssignmentInstructions::default(),
+                        instructions: AssessmentInstructions::default(),
                         entries: vec![
-                            BlueprintAssignmentEntryView::Fixed {
+                            BlueprintAssessmentEntryView::Fixed {
                                 question: ReusableQuestionView {
                                     question_library: discovery(),
                                     selection_availability:
                                         ReusableSelectionAvailability::Available,
                                 }
                                 .into(),
-                                points_possible: AssignmentPointValue::from_whole(3),
-                                scoring_rule: AssignmentEntryScoringRule::Normal,
+                                points_possible: AssessmentPointValue::from_whole(3),
+                                scoring_rule: AssessmentEntryScoringRule::Normal,
                                 question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                                 question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                             },
-                            BlueprintAssignmentEntryView::Pool(ReusablePoolView {
-                                items: vec![ReusableQuestionPoolItemView {
-                                    question_library: discovery(),
-                                    selection_availability: ReusableSelectionAvailability::Retained,
-                                }],
-                                selection_count: 1,
-                                points_per_item: AssignmentPointValue::from_whole(2),
-                                scoring_rule: AssignmentEntryScoringRule::Normal,
+                            BlueprintAssessmentEntryView::Pool(ReusablePoolView {
+                                question_pool_revision: QuestionPoolRevisionReference {
+                                    question_pool_id: "12A4-XBCZ".parse().expect("Pool ID"),
+                                    revision_number: QuestionPoolRevisionNumber::new(1)
+                                        .expect("Pool Revision"),
+                                },
+                                selection_count: NonZeroU32::new(1).expect("positive count"),
+                                points_per_item: AssessmentPointValue::from_whole(2),
+                                scoring_rule: AssessmentEntryScoringRule::Normal,
                                 selection_rule: QuestionPoolSelectionRule {
                                     selected_question_order:
                                         crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
@@ -699,36 +656,36 @@ mod tests {
             }],
         };
         let wire = serde_json::to_value(view).expect("safe view serializes");
-        assert_eq!(wire["reference"], "BP-12");
+        assert_eq!(wire["reference"], "BP7K3M2Q");
         assert_eq!(wire["current_revision"]["revision"], "1");
         assert_eq!(
-            wire["modules"][0]["assignments"][0]["content"]["entries"][0]["kind"],
+            wire["modules"][0]["assessments"][0]["content"]["entries"][0]["kind"],
             "fixed"
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/0/question/question_library")
+            wire.pointer("/modules/0/assessments/0/content/entries/0/question/question_library")
                 .is_some()
         );
         assert_eq!(
-            wire.pointer("/modules/0/assignments/0/blueprint_assignment_reference"),
+            wire.pointer("/modules/0/assessments/0/blueprint_assessment_reference"),
             Some(&serde_json::Value::String(
-                blueprint_assignment_reference().to_string(),
+                blueprint_assessment_reference().to_string(),
             ))
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/0/revision")
+            wire.pointer("/modules/0/assessments/0/content/entries/0/revision")
                 .is_none()
         );
         assert_eq!(
-            wire["modules"][0]["assignments"][0]["content"]["entries"][1]["kind"],
+            wire["modules"][0]["assessments"][0]["content"]["entries"][1]["kind"],
             "pool"
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/question_library")
+            wire.pointer("/modules/0/assessments/0/content/entries/1/items/0/question_library")
                 .is_some()
         );
         assert!(
-            wire.pointer("/modules/0/assignments/0/content/entries/1/items/0/revision")
+            wire.pointer("/modules/0/assessments/0/content/entries/1/items/0/revision")
                 .is_none()
         );
     }
@@ -746,32 +703,32 @@ mod blueprint_course_tests {
             long_name: "Biochemistry Blueprint".to_owned(),
             modules: vec![CreateBlueprintModuleInput {
                 label: "Week 1".to_owned(),
-                assignments: vec![BlueprintAssignmentContentInput {
+                assessments: vec![BlueprintAssessmentContentInput {
                     title: "Protein folding".to_owned(),
-                    instructions: AssignmentInstructions::default(),
-                    entries: vec![BlueprintAssignmentEntryInput::Fixed(
+                    instructions: AssessmentInstructions::default(),
+                    entries: vec![BlueprintAssessmentEntryInput::Fixed(
                         ReusableFixedQuestionInput {
-                            question_id: "7K3-M9QX".parse().expect("QuestionId"),
-                            points_possible: AssignmentPointValue::from_whole(1),
-                            scoring_rule: AssignmentEntryScoringRule::Normal,
+                            question_id: "7K3M-X9QX".parse().expect("QuestionId"),
+                            points_possible: AssessmentPointValue::from_whole(1),
+                            scoring_rule: AssessmentEntryScoringRule::Normal,
                             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                         },
                     )],
-                    defaults: BlueprintAssignmentDefaults {
-                        assignment_attempt_time_limit_seconds: None,
+                    defaults: BlueprintAssessmentDefaults {
+                        assessment_attempt_time_limit_seconds: None,
                         attempt_limit: None,
                         late_work_rule: LateWorkRule::Accept,
-                        activity_rules: AssignmentActivityRules {
-                            assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
-                            assignment_attempt_grade_rule:
-                                crate::AssignmentAttemptGradeRule::Highest,
-                            assignment_attempt_continuation_rule:
-                                crate::AssignmentAttemptContinuationRule::Unlimited,
+                        activity_rules: AssessmentActivityRules {
+                            assessment_completion_rule: crate::AssessmentCompletionRule::AnswerAll,
+                            assessment_attempt_grade_rule:
+                                crate::AssessmentAttemptGradeRule::Highest,
+                            assessment_attempt_continuation_rule:
+                                crate::AssessmentAttemptContinuationRule::Unlimited,
                             question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                             question_variation_rule:
-                                crate::AssignmentQuestionVariationRule::NewVariation,
-                            ..AssignmentActivityRules::default()
+                                crate::AssessmentQuestionVariationRule::NewVariation,
+                            ..AssessmentActivityRules::default()
                         },
                         student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
                     },
@@ -791,8 +748,8 @@ mod blueprint_course_tests {
     #[test]
     fn replacement_choices_are_explicit_strict_and_unique() {
         let blueprint_module_reference = BlueprintModuleReference::from_uuid(Uuid::from_u128(1));
-        let blueprint_assignment_reference =
-            BlueprintAssignmentReference::from_uuid(Uuid::from_u128(2));
+        let blueprint_assessment_reference =
+            BlueprintAssessmentReference::from_uuid(Uuid::from_u128(2));
         assert!(
             "00000000000000000000000000000001"
                 .parse::<BlueprintModuleReference>()
@@ -800,33 +757,33 @@ mod blueprint_course_tests {
         );
         assert!(
             "00000000-0000-0000-0000-00000000000A"
-                .parse::<BlueprintAssignmentReference>()
+                .parse::<BlueprintAssessmentReference>()
                 .is_err()
         );
-        let content = BlueprintAssignmentContentInput {
+        let content = BlueprintAssessmentContentInput {
             title: "Protein folding".to_owned(),
-            instructions: AssignmentInstructions::default(),
-            entries: vec![BlueprintAssignmentEntryInput::Fixed(
+            instructions: AssessmentInstructions::default(),
+            entries: vec![BlueprintAssessmentEntryInput::Fixed(
                 ReusableFixedQuestionInput {
-                    question_id: "7K3-M9QX".parse().expect("QuestionId"),
-                    points_possible: AssignmentPointValue::from_whole(1),
-                    scoring_rule: AssignmentEntryScoringRule::Normal,
+                    question_id: "7K3M-X9QX".parse().expect("QuestionId"),
+                    points_possible: AssessmentPointValue::from_whole(1),
+                    scoring_rule: AssessmentEntryScoringRule::Normal,
                     question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                     question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                 },
             )],
-            defaults: BlueprintAssignmentDefaults {
-                assignment_attempt_time_limit_seconds: None,
+            defaults: BlueprintAssessmentDefaults {
+                assessment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
-                activity_rules: AssignmentActivityRules {
-                    assignment_completion_rule: crate::AssignmentCompletionRule::AnswerAll,
-                    assignment_attempt_grade_rule: crate::AssignmentAttemptGradeRule::Highest,
-                    assignment_attempt_continuation_rule:
-                        crate::AssignmentAttemptContinuationRule::Unlimited,
+                activity_rules: AssessmentActivityRules {
+                    assessment_completion_rule: crate::AssessmentCompletionRule::AnswerAll,
+                    assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
+                    assessment_attempt_continuation_rule:
+                        crate::AssessmentAttemptContinuationRule::Unlimited,
                     question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                    question_variation_rule: crate::AssignmentQuestionVariationRule::NewVariation,
-                    ..AssignmentActivityRules::default()
+                    question_variation_rule: crate::AssessmentQuestionVariationRule::NewVariation,
+                    ..AssessmentActivityRules::default()
                 },
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             },
@@ -837,15 +794,15 @@ mod blueprint_course_tests {
                     blueprint_module_reference,
                 },
                 label: "Week 1".to_owned(),
-                assignments: vec![
-                    BlueprintAssignmentReplacementInput {
-                        choice: BlueprintAssignmentEditChoice::Retained {
-                            blueprint_assignment_reference,
+                assessments: vec![
+                    BlueprintAssessmentReplacementInput {
+                        choice: BlueprintAssessmentEditChoice::Retained {
+                            blueprint_assessment_reference,
                         },
                         content: content.clone(),
                     },
-                    BlueprintAssignmentReplacementInput {
-                        choice: BlueprintAssignmentEditChoice::New,
+                    BlueprintAssessmentReplacementInput {
+                        choice: BlueprintAssessmentEditChoice::New,
                         content: content.clone(),
                     },
                 ],
@@ -855,7 +812,7 @@ mod blueprint_course_tests {
         let wire = serde_json::to_value(&replacement).expect("serializes");
         assert_eq!(wire["modules"][0]["choice"]["kind"], "retained");
         assert_eq!(
-            wire["modules"][0]["assignments"][1]["choice"]["kind"],
+            wire["modules"][0]["assessments"][1]["choice"]["kind"],
             "new"
         );
         let mut forged = wire;
@@ -869,9 +826,9 @@ mod blueprint_course_tests {
                         blueprint_module_reference,
                     },
                     label: "Week 1".to_owned(),
-                    assignments: vec![BlueprintAssignmentReplacementInput {
-                        choice: BlueprintAssignmentEditChoice::Retained {
-                            blueprint_assignment_reference,
+                    assessments: vec![BlueprintAssessmentReplacementInput {
+                        choice: BlueprintAssessmentEditChoice::Retained {
+                            blueprint_assessment_reference,
                         },
                         content: content.clone(),
                     }],
@@ -881,8 +838,8 @@ mod blueprint_course_tests {
                         blueprint_module_reference,
                     },
                     label: "Week 2".to_owned(),
-                    assignments: vec![BlueprintAssignmentReplacementInput {
-                        choice: BlueprintAssignmentEditChoice::New,
+                    assessments: vec![BlueprintAssessmentReplacementInput {
+                        choice: BlueprintAssessmentEditChoice::New,
                         content,
                     }],
                 },

@@ -22,7 +22,7 @@ export function decodeImathasQuestionBackendLaunch(
   value: unknown,
   path: string,
   courseId: string,
-  assignmentId: string,
+  assessmentId: string,
   attemptId: string,
 ): ImathasQuestionBackendLaunch {
   const record = decodeRecord(value, path);
@@ -32,7 +32,7 @@ export function decodeImathasQuestionBackendLaunch(
     !isExpectedImathasQuestionBackendLaunchPath(
       launchUrl,
       courseId,
-      assignmentId,
+      assessmentId,
       attemptId,
       "https://ple-invalid.example",
     )

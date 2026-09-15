@@ -8,6 +8,17 @@ export const RIBBON_PLAYWRIGHT_CONTEXT_OPTIONS = {
   reducedMotion: "reduce",
 } satisfies Pick<BrowserContextOptions, "forcedColors" | "reducedMotion">;
 
+/**
+ * The durable desktop shell contract applies to each staff role, not only the
+ * Instructor fixture that exercises the denser task row below.  Sysadmin
+ * route-workflow geometry is proved by the disposable C27 page probe; this
+ * profile retains the role's stable 1280-by-800 Ribbon boundary.
+ */
+export const SYSADMIN_DESKTOP_CONTEXT_OPTIONS = {
+  ...RIBBON_PLAYWRIGHT_CONTEXT_OPTIONS,
+  viewport: { width: 1280, height: 800 },
+} satisfies BrowserContextOptions;
+
 export type RibbonResponsiveProfileId = "instructor_desktop" | "portrait_tablet" | "narrow_phone";
 
 export interface RibbonResponsiveProfile {

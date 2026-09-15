@@ -1,10 +1,94 @@
 //! Reproducible Question Variation recipes and their answer-free presentation.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
-use crate::generation::QuestionSeed;
+const AUTHOR_CONTENT_DIGEST_DOMAIN: &[u8] = b"ple:author-content:v1\0";
+
+use crate::generation::{QuestionReproduction, QuestionSeed};
 use crate::question_content::QuestionContentBlock;
 use crate::{QuestionResponseFormat, QuestionRevisionReference};
+
+/// Closed reviewed runtime libraries available to an isolated author-content
+/// document. This deliberately is not a URL or package reference.
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AuthorContentLibraryId {
+    Rdkit,
+}
+
+/// Immutable answer-free author content retained below the generic browser
+/// presentation boundary.
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct AuthorContentPresentation {
+    source: String,
+    library_ids: Vec<AuthorContentLibraryId>,
+}
+
+impl AuthorContentPresentation {
+    pub const MAX_SOURCE_CHARS: usize = 65_536;
+    pub const MAX_LIBRARY_IDS: usize = 16;
+
+    pub fn new(
+        source: String,
+        library_ids: Vec<AuthorContentLibraryId>,
+    ) -> Result<Self, &'static str> {
+        if source.trim().is_empty() || source.chars().count() > Self::MAX_SOURCE_CHARS {
+            return Err("author content source is invalid");
+        }
+        if library_ids.len() > Self::MAX_LIBRARY_IDS {
+            return Err("author content library IDs are invalid");
+        }
+        if library_ids
+            .iter()
+            .filter(|id| matches!(id, AuthorContentLibraryId::Rdkit))
+            .count()
+            > 1
+        {
+            return Err("author content library IDs are invalid");
+        }
+        let mut library_ids = library_ids;
+        library_ids.sort_by_key(|library_id| match library_id {
+            AuthorContentLibraryId::Rdkit => 0_u8,
+        });
+        Ok(Self {
+            source,
+            library_ids,
+        })
+    }
+
+    pub fn source(&self) -> &str {
+        &self.source
+    }
+    pub fn library_ids(&self) -> &[AuthorContentLibraryId] {
+        &self.library_ids
+    }
+
+    /// Canonical public binding for this otherwise private descriptor. The
+    /// digest carries no source bytes and lets the generic presentation token
+    /// remain browser-reproducible.
+    pub fn digest(&self) -> String {
+        let mut bytes = AUTHOR_CONTENT_DIGEST_DOMAIN.to_vec();
+        let source = self.source.as_bytes();
+        bytes.extend_from_slice(&(source.len() as u32).to_be_bytes());
+        bytes.extend_from_slice(source);
+        bytes.extend_from_slice(&(self.library_ids.len() as u32).to_be_bytes());
+        for library_id in &self.library_ids {
+            bytes.push(match library_id {
+                AuthorContentLibraryId::Rdkit => 0,
+            });
+        }
+        let mut digest = String::with_capacity(64);
+        for byte in Sha256::digest(bytes) {
+            use std::fmt::Write as _;
+            write!(&mut digest, "{byte:02x}").expect("writing to String cannot fail");
+        }
+        digest
+    }
+}
 
 /// Internal presentation policy for native choice Questions.
 ///
@@ -12,6 +96,7 @@ use crate::{QuestionResponseFormat, QuestionRevisionReference};
 /// public response contracts. PLE Question JSON is currently the only source
 /// that selects nonce-randomized choice order; other Question Backends retain
 /// their own presentation behavior.
+#[doc(hidden)]
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum NativeChoiceOrder {
     /// Preserve authored choice order.
@@ -21,35 +106,50 @@ pub enum NativeChoiceOrder {
     NonceRandomized,
 }
 
-/// The reproducible generated state for one exact Question Revision and Question Seed.
+/// The reproducible state for one exact Question Revision.
 ///
-/// The same pair produces the same Question Variation Presentation on every
-/// machine, allowing the render cache to serve a repeat request and grading to
-/// be re-derived years later.
+/// Static sources retain no invented seed. Seeded backends retain their seed
+/// and generated-parameter integrity evidence together.
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionVariation {
     /// Exact immutable Question Revision that produced this presentation.
     pub question_revision: QuestionRevisionReference,
-    /// The Question Seed that produced this variant.
-    #[serde(rename = "question_seed")]
-    pub question_seed: QuestionSeed,
+    /// Explicit static or seeded reproduction facts for this variation.
+    pub reproduction: QuestionReproduction,
 }
 
 impl QuestionVariation {
-    /// Records the two exact facts that reproduce an issued Question Variation.
-    pub fn from_question_revision_and_question_seed(
+    /// Records the exact facts that reproduce an issued Question Variation.
+    pub fn from_question_revision_and_reproduction(
         question_revision: QuestionRevisionReference,
-        question_seed: QuestionSeed,
+        reproduction: QuestionReproduction,
     ) -> Self {
         Self {
             question_revision,
-            question_seed,
+            reproduction,
         }
+    }
+
+    /// Records a seeded generated variation.
+    pub fn from_question_revision_and_question_seed(
+        question_revision: QuestionRevisionReference,
+        question_seed: QuestionSeed,
+        generated_parameter_sha256: String,
+    ) -> Self {
+        Self::from_question_revision_and_reproduction(
+            question_revision,
+            QuestionReproduction::Seeded {
+                question_seed,
+                generated_parameter_sha256,
+            },
+        )
     }
 }
 
-/// One answer-free Question Presentation derived from a Question Variation.
+/// Server-held answer-free Question Presentation derived from a Question Variation.
+#[doc(hidden)]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QuestionVariationPresentation {
@@ -66,25 +166,7 @@ pub struct QuestionVariationPresentation {
     /// Server-only native choice-order policy; never emitted in public contracts.
     #[serde(skip)]
     pub native_choice_order: NativeChoiceOrder,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn reference() -> QuestionRevisionReference {
-        QuestionRevisionReference {
-            question_id: "123-4567".parse().expect("valid Question ID"),
-            revision_number: crate::QuestionRevisionNumber::new(1).expect("positive version"),
-        }
-    }
-
-    #[test]
-    fn variation_retains_its_exact_question_seed() {
-        let variation = QuestionVariation::from_question_revision_and_question_seed(
-            reference(),
-            QuestionSeed::new(5),
-        );
-        assert_eq!(variation.question_seed, QuestionSeed::new(5));
-    }
+    /// Isolated author-content evidence. This never enters `QuestionPresentation`.
+    #[serde(skip)]
+    pub author_content: Option<AuthorContentPresentation>,
 }

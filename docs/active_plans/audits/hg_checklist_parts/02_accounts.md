@@ -57,8 +57,12 @@
   - Evidence (source): `schemas/base_schema/authentication.sql` `ple_private.passkey` non-unique `account_id` foreign key.
 - [ ] An **Instructor** can reset Student login access and send a new signup code when needed.
   - Mismatch: `crates/server/src/course_roster.rs` has invitation claim and revocation routes but no Instructor Student-login reset or code-delivery route.
-- [ ] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-  - Mismatch: the repository has no implemented, auditable collection-minimization and predictable Student-data purge policy.
+- [x] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
+  - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` retains Course-local roster ID and Account link without duplicating Student email.
+  - Evidence (source): `schemas/base_schema/course_operations.sql` `list_course_roster` is direct-Instructor-only, while `export_pending_course_invitations` is the sole pending-delivery email projection.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes Course-scoped identifiable records but preserves the global Account and Course teaching material.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 probe on 2026-09-15: the dedicated executor purged Student record, membership, and roster profile while preserving the Account and Course and recording deletion.
+  - Decision: Existing category and operation boundaries are the simplest HG-consistent implementation; no field-policy engine is needed.
 - [ ] Student Course data falls under FERPA; treat it as radioactive.
   - Mismatch: `crates/server/src/support_capability.rs` `read_roster` and `tests/e2e/e2e_live_demo_support_capability.sh` establish scoped support access for roster data, not repository-wide FERPA handling for Student Course data.
 - [x] Student email addresses are immutable.
@@ -106,10 +110,10 @@
 - [ ] **Sysadmins** have full platform-administration capability but do not automatically have access to FERPA Course records.
   - Mismatch: `crates/server/src/support_capability.rs` `read_roster` supports scoped roster access, but the repository does not demonstrate full platform-administration capability.
 - [x] A Sysadmin may access Course or Student records when needed to resolve a specific support problem.
-  - Evidence (source): `crates/learning-data-access/src/support_capability.rs` `IssueSupportCapabilityInput`.
-  - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `purpose` receipt assertion.
+  - Evidence (source): `crates/learning-data-access/src/support_capability.rs` `IssueSupportRepairCapabilityInput`.
+  - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `prove_issue`.
 - [x] Sysadmin support access should be limited to that support task and recorded for audit.
-  - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_audit.course_roster_support_capability_event`.
+  - Evidence (source): `schemas/base_schema/support_repair_capability.sql` `ple_audit.support_repair_capability_event`.
   - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `prove_issue`.
 - [ ] Sysadmin support does not make the Sysadmin an **Instructor** or Course member.
   - Mismatch: support-capability issuance is separate from Course membership, but the audited source and runtime evidence do not directly prove that issuance cannot create Instructor or Course-member authority.

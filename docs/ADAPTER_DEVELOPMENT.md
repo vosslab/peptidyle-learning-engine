@@ -134,7 +134,6 @@ needed, correlate and verify it with server-held attempt state before it becomes
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | PLE Question JSON | PLE Question JSON compilation, client rendering, and server grading for all eight runtime Question Types                                                                     | The reviewed Chapter 1 MC/MATCH publication path is live; complete visual authoring and all-type integrated acceptance remain open.                                      |
 | QTI Import        | Hostile archive parsing, Canvas 1.2 and Blackboard 2.1 static single-choice profile import, private QTI Import Package Checksum evidence, and PLE Question JSON mapping      | The accepted static-import boundary deliberately supports only those profiles. Accepted items use the PLE Question Backend after conversion.                             |
-| H5P               | Supported H5P Package parsing and current ungraded-practice implementation evidence                                                                                         | Human Guidance requires the supported secondary backend to own runtime, interactions, state, and scoring; the current ungraded slice is a gap, not the target model.      |
 | iMathAS           | Exact immutable Question Source/Revision evidence, `imathas_remote_grading_v1`-pinned iMathAS Render Cache, server-managed iMathAS Question Backend Launch, and iMathAS Result verification | The direct iMathAS Question Backend boundary is implemented. Browser-trusted launch or score flows are refused; live iMathAS Question Backend acceptance is not claimed. |
 | WeBWorK           | Private standalone `/render-api` Question Backend client, exact attempt-bound backend document, generic ordered-pair capture, server-only grading, and private stateless container | WeBWorK owns PG controls and grading semantics. PLE retains the document, response, lifecycle, and outcome without projecting PGML or inferring a Question Type. |
 
@@ -166,6 +165,10 @@ An adapter change is complete only when each applicable layer passes.
 Use the active plan's evidence wording exactly. Implemented source code, recorded fixture coverage,
 and a live accepted integration are different states; do not promote one to another in code comments,
 documentation, or release notes.
+
+H5P is not a current adapter. Its future isolated runtime is blocked on the exact product decision
+in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md#future-h5p-delivery-is-a-blocked-isolated-lumi-runtime);
+do not add source, import, lifecycle, or delivery seams before that decision.
 
 ## Contributor checklist
 

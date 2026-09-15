@@ -1,0 +1,253 @@
+// assessment_workspace_live_page.tsx - one exact-authority loader for workspace child pages.
+
+import { A, useParams } from "@solidjs/router";
+import {
+  createContext,
+  onMount,
+  Show,
+  useContext,
+  createSignal,
+  type Accessor,
+  type JSX,
+} from "solid-js";
+
+import type {
+  LiveAssessmentWorkspaceResponse,
+  SaveBaseAssessmentPolicyInput,
+  SaveLiveAssessmentInput,
+  UnreleasedLiveAssessment,
+} from "../../api/assessment_release";
+import { useApplicationApi } from "../../api/application_api";
+import {
+  parseAssessmentReference,
+  parseCourseInstanceReference,
+  type AssessmentRouteReference,
+  type CourseInstanceRouteReference,
+} from "../../navigation/public_route";
+import "./assessment_workspace_authoring.css";
+import { type AssessmentWorkspaceSection } from "./assessment_workspace_paths";
+import { AssessmentWorkspaceOverviewPage } from "./assessment_workspace_overview_page";
+import { AssessmentWorkspacePoliciesPage } from "./assessment_workspace_policies_page";
+import { AssessmentWorkspaceQuestionsPage } from "./assessment_workspace_questions_page";
+import { AssessmentWorkspaceStudentViewPage } from "./assessment_workspace_student_view_page";
+import "./assessment_workspace.css";
+
+export interface AssessmentWorkspaceContextValue {
+  readonly courseReference: CourseInstanceRouteReference;
+  /** Shared direct resource and exact ETag for every child page. */
+  readonly assessment: Accessor<LiveAssessmentWorkspaceResponse>;
+  readonly assessmentReference: AssessmentRouteReference;
+  readonly save: (input: SaveLiveAssessmentInput) => Promise<LiveAssessmentWorkspaceResponse>;
+  readonly saveBaseAssessmentPolicy: (
+    input: SaveBaseAssessmentPolicyInput,
+  ) => Promise<LiveAssessmentWorkspaceResponse>;
+  readonly release: (etag: string) => Promise<LiveAssessmentWorkspaceResponse>;
+  readonly unrelease: (confirmationTitle: string) => Promise<UnreleasedLiveAssessment>;
+  readonly reloadAssessment: () => Promise<LiveAssessmentWorkspaceResponse>;
+}
+
+const AssessmentWorkspaceContext = createContext<AssessmentWorkspaceContextValue>();
+
+export function useAssessmentWorkspace(): AssessmentWorkspaceContextValue {
+  const value = useContext(AssessmentWorkspaceContext);
+  if (value === undefined) throw new Error("AssessmentWorkspaceLivePage is missing");
+  return value;
+}
+
+type LoadState = "loading" | "unavailable" | "error";
+
+function WorkspaceState(props: {
+  readonly state: LoadState;
+  readonly retry: () => void;
+  readonly registerRetryButton: (element: HTMLButtonElement) => void;
+}): JSX.Element {
+  if (props.state === "loading") {
+    return (
+      <section class="page assessment-workspace-state" data-route-surface="assessmentWorkspaceGate">
+        <p class="eyebrow">Instructor assessment workspace</p>
+        <p class="loading-state" role="status">
+          Loading assessment workspace...
+        </p>
+      </section>
+    );
+  }
+  if (props.state === "error") {
+    return (
+      <section
+        class="page assessment-workspace-state route-error"
+        data-route-surface="assessmentWorkspaceGate"
+        role="alert"
+        aria-labelledby="assessment-workspace-load-error"
+      >
+        <p class="eyebrow">Instructor assessment workspace</p>
+        <h1 id="assessment-workspace-load-error">Assessment workspace could not load</h1>
+        <p>Try loading the current assessment again.</p>
+        <button
+          class="primary-action"
+          type="button"
+          onClick={props.retry}
+          ref={props.registerRetryButton}
+        >
+          Retry loading assessment
+        </button>
+      </section>
+    );
+  }
+  return (
+    <section
+      class="page assessment-workspace-state route-error"
+      data-route-surface="assessmentWorkspaceGate"
+      role="alert"
+    >
+      <p class="eyebrow">Instructor assessment workspace</p>
+      <h1>This assessment workspace is unavailable</h1>
+      <p>The selected assessment could not be found in this course.</p>
+      <A class="primary-link" href="/">
+        Return to courses
+      </A>
+    </section>
+  );
+}
+
+function WorkspaceChild(props: { readonly section: AssessmentWorkspaceSection }): JSX.Element {
+  switch (props.section) {
+    case "overview":
+      return <AssessmentWorkspaceOverviewPage />;
+    case "questions":
+      return <AssessmentWorkspaceQuestionsPage />;
+    case "policies":
+      return <AssessmentWorkspacePoliciesPage />;
+    case "studentView":
+      return <AssessmentWorkspaceStudentViewPage />;
+  }
+}
+
+export interface AssessmentWorkspaceLivePageProps {
+  readonly section: AssessmentWorkspaceSection;
+}
+
+/** Resolves public references, proves the exact course relationship, then loads one workspace detail. */
+function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const params = useParams();
+  const [state, setState] = createSignal<LoadState>("loading");
+  const [workspace, setWorkspace] = createSignal<AssessmentWorkspaceContextValue>();
+  let retryButton: HTMLButtonElement | undefined;
+
+  function registerRetryButton(element: HTMLButtonElement): void {
+    retryButton = element;
+  }
+
+  async function load(): Promise<void> {
+    setState("loading");
+    const courseReference = parseCourseInstanceReference(params["courseRef"] ?? "");
+    const assessmentReference = parseAssessmentReference(params["assessmentRef"] ?? "");
+    if (courseReference === null || assessmentReference === null) {
+      setState("unavailable");
+      return;
+    }
+    try {
+      const assessment = await applicationApi.client.getLiveAssessmentWorkspace(
+        courseReference,
+        assessmentReference,
+      );
+      const [currentAssessment, setCurrentAssessment] = createSignal(assessment);
+      const reloadAssessment = async (): Promise<LiveAssessmentWorkspaceResponse> => {
+        const latest = await applicationApi.client.getLiveAssessmentWorkspace(
+          courseReference,
+          assessmentReference,
+        );
+        setCurrentAssessment(latest);
+        return latest;
+      };
+      const save = async (
+        input: SaveLiveAssessmentInput,
+      ): Promise<LiveAssessmentWorkspaceResponse> => {
+        const saved = await applicationApi.client.saveLiveAssessment(
+          courseReference,
+          assessmentReference,
+          input,
+          currentAssessment().etag,
+        );
+        setCurrentAssessment(saved);
+        return saved;
+      };
+      const saveBaseAssessmentPolicy = async (
+        input: SaveBaseAssessmentPolicyInput,
+      ): Promise<LiveAssessmentWorkspaceResponse> => {
+        const saved = await applicationApi.client.saveBaseAssessmentPolicy(
+          courseReference,
+          assessmentReference,
+          input,
+          currentAssessment().etag,
+        );
+        setCurrentAssessment(saved);
+        return saved;
+      };
+      const release = async (etag: string): Promise<LiveAssessmentWorkspaceResponse> => {
+        const released = await applicationApi.client.releaseLiveAssessment(
+          courseReference,
+          assessmentReference,
+          etag,
+        );
+        setCurrentAssessment(released);
+        return released;
+      };
+      const unrelease = async (confirmationTitle: string): Promise<UnreleasedLiveAssessment> => {
+        const result = await applicationApi.client.unreleaseLiveAssessment(
+          courseReference,
+          assessmentReference,
+          confirmationTitle,
+          currentAssessment().etag,
+        );
+        setCurrentAssessment({ workspace: result.result.assessment, etag: result.etag });
+        return result.result;
+      };
+      setWorkspace({
+        courseReference,
+        assessment: currentAssessment,
+        assessmentReference,
+        release,
+        unrelease,
+        save,
+        saveBaseAssessmentPolicy,
+        reloadAssessment,
+      });
+    } catch (error: unknown) {
+      const failureState: LoadState = error instanceof Error ? "error" : "unavailable";
+      setState(failureState);
+      if (failureState === "error") {
+        requestAnimationFrame(() => retryButton?.focus());
+      }
+    }
+  }
+
+  onMount(() => void load());
+
+  return (
+    <Show
+      when={workspace()}
+      keyed
+      fallback={
+        <WorkspaceState
+          state={state()}
+          retry={() => void load()}
+          registerRetryButton={registerRetryButton}
+        />
+      }
+    >
+      {(loaded) => (
+        <AssessmentWorkspaceContext.Provider value={loaded}>
+          <section class="page assessment-workspace" data-route-surface="assessmentWorkspace">
+            <WorkspaceChild section={props.section} />
+          </section>
+        </AssessmentWorkspaceContext.Provider>
+      )}
+    </Show>
+  );
+}
+
+/** Mounts the direct-resource loader; authorization remains server-owned. */
+export function AssessmentWorkspaceLivePage(props: AssessmentWorkspaceLivePageProps): JSX.Element {
+  return <AssessmentWorkspaceLiveContent {...props} />;
+}

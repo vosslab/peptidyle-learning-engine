@@ -11,9 +11,10 @@ import {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
+import { parseCourseInstanceReference } from "../../navigation/public_route";
 
 function courseRosterPath(course: CourseInstanceReference): string {
-  if (!/^C-[1-9][0-9]{0,9}$/u.test(course) || Number(course.slice(2)) > 2_147_483_647) {
+  if (parseCourseInstanceReference(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/roster`;
@@ -42,7 +43,7 @@ async function rosterJson<T>(
   return decoder(await boundedResponseJson(response, path), "response");
 }
 
-/** Composes this capability separately from the legacy generic Course Roster client. */
+/** Composes only the live Course Roster capability. */
 export function createLiveCourseRosterClient(
   fetchImplementation: ApiFetch,
   basePath: string,

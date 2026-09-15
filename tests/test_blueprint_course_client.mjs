@@ -98,7 +98,7 @@ function blueprint(revision = "3") {
     reference: "BP-7",
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
-    availability: "available",
+    availability: "private",
     metadata_etag: metadataEtag,
     current_revision: { reference: "BP-7", revision },
     read_access: "blueprint_course_owner",
@@ -172,26 +172,47 @@ test("B1 Blueprint Course decoder exposes one current Revision and opaque metada
 
 test("B1 client sends Revision and metadata validators to their separate routes", async () => {
   const requests = [];
-  const metadata = {
+  const renamedMetadata = {
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
-    availability: "archived",
+    availability: "private",
     metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6f",
   };
-  const restoredMetadata = {
-    ...metadata,
-    availability: "available",
+  const publishedMetadata = {
+    ...renamedMetadata,
+    availability: "public",
     metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d70",
+  };
+  const archivedMetadata = {
+    ...publishedMetadata,
+    availability: "archived",
+    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d71",
+  };
+  const restoredMetadata = {
+    ...archivedMetadata,
+    availability: "public",
+    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d72",
+  };
+  const privateMetadata = {
+    ...restoredMetadata,
+    availability: "private",
+    metadata_etag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d73",
   };
   const client = createHttpApiClient({
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
       const path = new URL(request.url).pathname;
-      if (path.endsWith("/metadata")) return noStoreJson(metadata, `"${metadata.metadata_etag}"`);
-      if (path.endsWith("/archive")) return noStoreJson(metadata, `"${metadata.metadata_etag}"`);
+      if (path.endsWith("/metadata"))
+        return noStoreJson(renamedMetadata, `"${renamedMetadata.metadata_etag}"`);
+      if (path.endsWith("/publish"))
+        return noStoreJson(publishedMetadata, `"${publishedMetadata.metadata_etag}"`);
+      if (path.endsWith("/archive"))
+        return noStoreJson(archivedMetadata, `"${archivedMetadata.metadata_etag}"`);
       if (path.endsWith("/restore"))
         return noStoreJson(restoredMetadata, `"${restoredMetadata.metadata_etag}"`);
+      if (path.endsWith("/return-to-private"))
+        return noStoreJson(privateMetadata, `"${privateMetadata.metadata_etag}"`);
       if (path.endsWith("/revisions/3"))
         return noStoreJson({
           blueprintRevision: { reference: "BP-7", revision: "3" },
@@ -218,20 +239,35 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     { short_name: "Biochemistry", long_name: "Biochemistry sequence" },
     `"${metadataEtag}"`,
   );
+  const published = await client.publishBlueprintCourse("BP-7", renamed.metadataEtag);
   const archived = await client.archiveBlueprintCourse(
     "BP-7",
     "Biochemistry sequence",
-    renamed.metadataEtag,
+    published.metadataEtag,
   );
   const restored = await client.restoreBlueprintCourse("BP-7", archived.metadataEtag);
+  const returned = await client.returnBlueprintCourseToPrivate("BP-7", restored.metadataEtag);
   const revision = await client.getBlueprintRevision("BP-7", "3");
   assert.equal(saved.changed, true);
   assert.equal(saved.revisionEtag, '"4"');
-  assert.equal(restored.metadata.availability, "available");
+  assert.equal(returned.metadata.availability, "private");
   assert.equal(revision.blueprintRevision.revision, "3");
   const save = requests.find((request) => request.method === "PUT" && request.url.endsWith("BP-7"));
   assert.equal(save?.headers.get("if-match"), '"3"');
   assert.equal(save?.headers.get("idempotency-key"), "save-7");
+  assert.ok(
+    requests.some(
+      (request) =>
+        request.method === "POST" && request.url.endsWith("/api/course-blueprints/BP-7/publish"),
+    ),
+  );
+  assert.ok(
+    requests.some(
+      (request) =>
+        request.method === "POST" &&
+        request.url.endsWith("/api/course-blueprints/BP-7/return-to-private"),
+    ),
+  );
   await assert.rejects(
     client.saveBlueprintCourse("BP-7", replacementInput(), '"07"', "save-7"),
     ApiProtocolError,
@@ -284,7 +320,7 @@ test("B1 Blueprint aggregates have a dedicated bounded response budget", async (
         }),
       ),
   });
-  await assert.rejects(ordinaryClient.getInstructorProfile(), ApiProtocolError);
+  await assert.rejects(ordinaryClient.getAccountSettings(), ApiProtocolError);
 });
 
 test("B1 Blueprint aggregates reject responses beyond their dedicated budget", async () => {
@@ -304,6 +340,33 @@ test("B1 metadata decoder rejects non-opaque validators", () => {
         long_name: "Long",
         availability: "available",
         metadata_etag: "7",
+      }),
+    DecodeError,
+  );
+});
+
+// Regression: accepting the pre-lifecycle `available` alias would collapse
+// Private and Public product behavior. Failure means restore the generated
+// Private|Public|Archived decoder contract before release.
+test("Blueprint lifecycle metadata accepts only the generated public states", () => {
+  for (const availability of ["private", "public", "archived"]) {
+    assert.equal(
+      decodeBlueprintMetadataState({
+        short_name: "Short",
+        long_name: "Long",
+        availability,
+        metadata_etag: metadataEtag,
+      }).availability,
+      availability,
+    );
+  }
+  assert.throws(
+    () =>
+      decodeBlueprintMetadataState({
+        short_name: "Short",
+        long_name: "Long",
+        availability: "available",
+        metadata_etag: metadataEtag,
       }),
     DecodeError,
   );

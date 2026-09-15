@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+  <g id="indigo-island-background"><rect x="4" y="4" width="120" height="120" rx="28" fill="#EBEBF8"/></g>
+  <g id="indigo-island-sky"><ellipse cx="64" cy="53" rx="33" ry="25" fill="#393B87"/><circle cx="44" cy="43" r="7" fill="#F2B134"/></g>
+  <g id="indigo-island-water"><path d="M22 86c12-10 24 10 42 0s30 10 42 0v17c-12 10-24-10-42 0s-30-10-42 0Z" fill="#227B9A"/></g>
+</svg>

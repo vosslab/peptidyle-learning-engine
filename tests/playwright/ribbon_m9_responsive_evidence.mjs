@@ -5,7 +5,10 @@ import { readFileSync } from "node:fs";
 
 import { chromium } from "playwright";
 
-import { RIBBON_RESPONSIVE_PROFILES } from "./ui_corpus_manifest.ts";
+import {
+  RIBBON_RESPONSIVE_PROFILES,
+  SYSADMIN_DESKTOP_CONTEXT_OPTIONS,
+} from "./ui_corpus_manifest.ts";
 import { bundleRibbonM9ResponsiveHarness } from "../support/ribbon_m9_responsive_loader.ts";
 
 const globalCss = readFileSync(new URL("../../src/style.css", import.meta.url), "utf8");
@@ -159,6 +162,42 @@ async function assertBrandProjection(page, profileId) {
   assert.ok(projection.width > 1, `${profileId}: brand word remains visibly readable`);
 }
 
+/** The staff-role desktop Ribbon stays inside the declared desktop viewport. */
+async function assertSysadminDesktopRibbon(browser) {
+  const context = await browser.newContext(SYSADMIN_DESKTOP_CONTEXT_OPTIONS);
+  try {
+    const page = await context.newPage();
+    const pageErrors = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.setContent(markup);
+    await page.waitForFunction(() => "ribbonM9" in window);
+    await page.evaluate(() => window.ribbonM9.setRoleHome("sysadmin"));
+    await flush(page);
+
+    const evidence = await ribbonEvidence(page, "sysadmin_desktop");
+    assertResponsiveRows(evidence, "sysadmin_desktop", 1280);
+    const topRow = evidence.rowEvidence.find((row) => row.id === "top");
+    assert.ok(topRow, "sysadmin_desktop: Sysadmin Ribbon has a top bar");
+    assert.equal(topRow.overflows, false, "sysadmin_desktop: top bar fits without scrolling");
+    for (const control of topRow.controls) {
+      assert.equal(
+        control.left >= topRow.rowLeft && control.right <= topRow.rowRight,
+        true,
+        `sysadmin_desktop: ${control.label} fits inside the top bar`,
+      );
+    }
+    for (const label of ["Instructor Accounts", "Scoped Support"]) {
+      assert.ok(
+        topRow.controls.some((control) => control.label === label),
+        `sysadmin_desktop: ${label} destination remains visible`,
+      );
+    }
+    assert.deepEqual(pageErrors, [], "sysadmin_desktop: compiled Ribbon causes no browser error");
+  } finally {
+    await context.close();
+  }
+}
+
 function assertResponsiveRows(evidence, profile, expectedWidth) {
   assert.equal(evidence.innerWidth, expectedWidth, `${profile}: true declared CSS viewport width`);
   assert.equal(
@@ -269,12 +308,10 @@ function assertCanonicalDesktopTopBar(evidence) {
       `instructor_desktop: ${control.label} fits fully inside the canonical top bar`,
     );
   }
-  const signOut = topRow.controls.find((control) => control.label === "Sign out");
-  assert.ok(signOut, "instructor_desktop: canonical top bar includes Sign out");
   assert.equal(
-    signOut.right <= topRow.rowRight,
-    true,
-    "instructor_desktop: Sign out remains clear of the top-bar end boundary",
+    topRow.controls.some((control) => control.label === "Sign out"),
+    false,
+    "instructor_desktop: Sign out is not scattered into the main top bar",
   );
 }
 
@@ -429,12 +466,19 @@ async function assertEveryTabReachable(page, profile) {
 }
 
 async function restoreSelectedTabVisibility(page) {
-  const selectedId = await page.evaluate(() => {
-    const selected = document.querySelector(
-      '[data-ribbon-row="top"] .ple-app-ribbon__tabs [aria-current="page"]',
-    );
-    return selected instanceof HTMLElement ? selected.dataset.ribbonControl : undefined;
+  const selectedIds = await page.evaluate(() => {
+    return [
+      ...document.querySelectorAll(
+        '[data-ribbon-row="top"] .ple-app-ribbon__tabs [aria-current="page"]',
+      ),
+    ]
+      .map((selected) =>
+        selected instanceof HTMLElement ? selected.dataset.ribbonControl : undefined,
+      )
+      .filter((selectedId) => selectedId !== undefined);
   });
+  assert.equal(selectedIds.length, 1, "responsive evidence requires exactly one selected top Tab");
+  const [selectedId] = selectedIds;
   assert.ok(selectedId, "responsive evidence requires a selected Tab to restore");
   await page.evaluate((currentSelectedId) => {
     const alternatives = [
@@ -453,6 +497,15 @@ async function restoreSelectedTabVisibility(page) {
     selectedId,
   );
   await flush(page);
+}
+
+async function assertRoleHomeTabRoundTrips(page, profile) {
+  for (const productRole of ["instructor", "student", "sysadmin"]) {
+    await page.evaluate((role) => window.ribbonM9.setRoleHome(role), productRole);
+    await flush(page);
+    await restoreSelectedTabVisibility(page);
+    await assertEveryTabReachable(page, `${profile}:${productRole}-home`);
+  }
 }
 
 async function restoreSelectedTaskVisibility(page) {
@@ -651,10 +704,6 @@ try {
     await page.waitForFunction(() => "ribbonM9" in window);
     await flush(page);
 
-    if (profile.id === "narrow_phone") {
-      await page.evaluate(() => window.ribbonM9.selectTab("teachingOperations"));
-      await flush(page);
-    }
     const baseline = await ribbonEvidence(page, profile.id);
     const declaredWidth = profile.contextOptions.viewport?.width;
     assert.ok(declaredWidth, `${profile.id}: manifest declares a CSS viewport width`);
@@ -668,6 +717,9 @@ try {
     await assertEveryTabReachable(page, profile.id);
     await restoreSelectedTabVisibility(page);
     await restoreSelectedTaskVisibility(page);
+    await assertRoleHomeTabRoundTrips(page, profile.id);
+    await page.evaluate(() => window.ribbonM9.setFixture("courseInstructor"));
+    await flush(page);
 
     await page.evaluate(() => window.ribbonM9.setFixture("longCourse"));
     await flush(page);
@@ -750,6 +802,7 @@ try {
     assert.deepEqual(pageErrors, [], `${profile.id}: compiled Ribbon causes no browser error`);
     await context.close();
   }
+  await assertSysadminDesktopRibbon(browser);
   process.stdout.write("Ribbon responsive evidence: PASS\n");
 } finally {
   await browser.close();

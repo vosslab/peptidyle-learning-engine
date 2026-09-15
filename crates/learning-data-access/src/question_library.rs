@@ -8,8 +8,8 @@
 use async_trait::async_trait;
 use question_model::{
     QuestionAuthorship, QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend,
-    QuestionId, QuestionLicense, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
-    SourceObjectReference, Timestamp,
+    QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionReference, QuestionType,
+    SourceObjectChecksum, SourceObjectReference, Timestamp,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -21,6 +21,9 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_revision: QuestionRevisionReference,
     /// The exact backend that must interpret the immutable source.
     pub backend: QuestionBackend,
+    /// Immutable reviewed source representation. This is browser-safe metadata,
+    /// not a source path or backend-private configuration.
+    pub question_format: QuestionFormat,
     /// Immutable author-declared educational type of this revision.
     pub question_type: QuestionType,
     /// Database-authoritative publication time.

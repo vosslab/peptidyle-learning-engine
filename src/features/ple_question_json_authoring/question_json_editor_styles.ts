@@ -15,7 +15,7 @@ export const PLE_QUESTION_JSON_EDITOR_STYLES = `
 .ple-question-json-authoring__choice-header, .ple-question-json-authoring__row-actions, .ple-question-json-authoring__actions { display:flex; flex-wrap:wrap; gap:.25rem; align-items:center; }
 .ple-question-json-authoring__choice-header { justify-content:space-between; }
 .ple-question-json-authoring__choice-title { margin:0; font-size:1rem; }
-.ple-question-json-authoring__identity { color:var(--ple-muted); font-family:ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap:anywhere; }
+.ple-question-json-authoring__identity { color:var(--ple-muted); font-family:var(--ple-font-mono); overflow-wrap:anywhere; }
 .ple-question-json-authoring__grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.65rem; }
 .ple-question-json-authoring__preview { padding:.85rem 0 0; border:0; border-top:1px solid var(--ple-border); border-radius:0; background:transparent; }
 .ple-question-json-authoring__preview h3, .ple-question-json-authoring__preview h4 { margin-top:0; }

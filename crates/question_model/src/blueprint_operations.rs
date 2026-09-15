@@ -1,16 +1,13 @@
 //! Validated reusable Blueprint Revision Content.
 
-use std::collections::BTreeSet;
-
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    AssignmentEntryScoringRule, AssignmentInstructions, AssignmentPointValue, AssignmentTitle,
-    BlueprintAssignmentDefaults, BlueprintAssignmentReference, BlueprintCourseValidationError,
-    BlueprintModuleReference, MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionRevisionReference, validate_blueprint_course_title,
+    AssessmentEntryScoringRule, AssessmentInstructions, AssessmentPointValue, AssessmentTitle,
+    BlueprintAssessmentDefaults, BlueprintAssessmentReference, BlueprintCourseValidationError,
+    BlueprintModuleReference, MAX_ASSESSMENT_ORDERED_ENTRIES, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionRevisionReference, validate_blueprint_course_title,
 };
 
 mod contracts;
@@ -22,16 +19,16 @@ const DOMAIN: &[u8] = b"ple:blueprint-revision-content\0";
 #[derive(Debug, Clone, PartialEq)]
 /// Validated Blueprint Revision Content stored independently from operation evidence.
 pub enum BlueprintRevisionContent {
-    /// One Blueprint Assignment Content record.
-    Assignment(Box<BlueprintAssignmentContent>),
+    /// One Blueprint Assessment Content record.
+    Assessment(Box<BlueprintAssessmentContent>),
     /// One Blueprint Course Content record.
     Course(BlueprintCourseContent),
 }
 
 impl BlueprintRevisionContent {
-    /// Wraps one validated Blueprint Assignment Content record.
-    pub fn assignment(value: BlueprintAssignmentContent) -> Self {
-        Self::Assignment(Box::new(value))
+    /// Wraps one validated Blueprint Assessment Content record.
+    pub fn assessment(value: BlueprintAssessmentContent) -> Self {
+        Self::Assessment(Box::new(value))
     }
     /// Wraps one validated Blueprint Course Content record.
     pub fn course(value: BlueprintCourseContent) -> Self {
@@ -65,68 +62,54 @@ impl BlueprintRevisionContent {
     }
 }
 
-/// One validated Blueprint Assignment with trusted immutable question pins.
+/// One validated Blueprint Assessment with trusted immutable question pins.
 #[derive(Debug, Clone, PartialEq)]
-pub struct BlueprintAssignmentContent {
-    blueprint_assignment_reference: BlueprintAssignmentReference,
-    title: AssignmentTitle,
-    instructions: AssignmentInstructions,
-    entries: Vec<BlueprintAssignmentEntryContent>,
-    defaults: BlueprintAssignmentDefaults,
+pub struct BlueprintAssessmentContent {
+    blueprint_assessment_reference: BlueprintAssessmentReference,
+    title: AssessmentTitle,
+    instructions: AssessmentInstructions,
+    entries: Vec<BlueprintAssessmentEntryContent>,
+    defaults: BlueprintAssessmentDefaults,
 }
-impl BlueprintAssignmentContent {
-    /// Validates all Blueprint Assignment meaning before constructing a baseline.
+impl BlueprintAssessmentContent {
+    /// Validates all Blueprint Assessment meaning before constructing a baseline.
     pub fn new(
-        blueprint_assignment_reference: BlueprintAssignmentReference,
-        title: AssignmentTitle,
-        instructions: AssignmentInstructions,
-        entries: Vec<BlueprintAssignmentEntryContent>,
-        defaults: BlueprintAssignmentDefaults,
+        blueprint_assessment_reference: BlueprintAssessmentReference,
+        title: AssessmentTitle,
+        instructions: AssessmentInstructions,
+        entries: Vec<BlueprintAssessmentEntryContent>,
+        defaults: BlueprintAssessmentDefaults,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        if entries.is_empty() || entries.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+        if entries.is_empty() || entries.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidEntryCount);
         }
         defaults.validate()?;
-        let total = entries
-            .iter()
-            .filter_map(|entry| match entry {
-                BlueprintAssignmentEntryContent::Pool(pool) => Some(pool.items.len()),
-                _ => None,
-            })
-            .try_fold(0_usize, |total, value| {
-                total
-                    .checked_add(value)
-                    .ok_or(BlueprintCourseValidationError::TooManyQuestionPoolItems)
-            })?;
-        if total > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS {
-            return Err(BlueprintCourseValidationError::TooManyQuestionPoolItems);
-        }
         Ok(Self {
-            blueprint_assignment_reference,
+            blueprint_assessment_reference,
             title,
             instructions,
             entries,
             defaults,
         })
     }
-    /// Returns the stable Blueprint Assignment identity retained across Revisions.
-    pub fn blueprint_assignment_reference(&self) -> BlueprintAssignmentReference {
-        self.blueprint_assignment_reference
+    /// Returns the stable Blueprint Assessment identity retained across Revisions.
+    pub fn blueprint_assessment_reference(&self) -> BlueprintAssessmentReference {
+        self.blueprint_assessment_reference
     }
-    /// Returns the Blueprint Assignment title.
+    /// Returns the Blueprint Assessment title.
     pub fn title(&self) -> &str {
         self.title.as_str()
     }
     /// Returns the student-facing reusable instructions.
-    pub fn instructions(&self) -> &AssignmentInstructions {
+    pub fn instructions(&self) -> &AssessmentInstructions {
         &self.instructions
     }
     /// Returns the validated reusable policy defaults.
-    pub fn defaults(&self) -> &BlueprintAssignmentDefaults {
+    pub fn defaults(&self) -> &BlueprintAssessmentDefaults {
         &self.defaults
     }
     /// Returns fixed questions and pools in meaningful authored order.
-    pub fn entries(&self) -> &[BlueprintAssignmentEntryContent] {
+    pub fn entries(&self) -> &[BlueprintAssessmentEntryContent] {
         &self.entries
     }
 }
@@ -136,24 +119,24 @@ impl BlueprintAssignmentContent {
 pub struct BlueprintCourseModuleContent {
     blueprint_module_reference: BlueprintModuleReference,
     label: String,
-    assignments: Vec<BlueprintAssignmentContent>,
+    assessments: Vec<BlueprintAssessmentContent>,
 }
 impl BlueprintCourseModuleContent {
-    /// Validates a module label and its nonempty ordered assignments.
+    /// Validates a module label and its nonempty ordered assessments.
     pub fn new(
         blueprint_module_reference: BlueprintModuleReference,
         label: String,
-        assignments: Vec<BlueprintAssignmentContent>,
+        assessments: Vec<BlueprintAssessmentContent>,
     ) -> Result<Self, BlueprintCourseValidationError> {
         validate_blueprint_course_title(&label)
             .map_err(|_| BlueprintCourseValidationError::InvalidModuleLabel)?;
-        if assignments.is_empty() || assignments.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
-            return Err(BlueprintCourseValidationError::InvalidModuleAssignmentCount);
+        if assessments.is_empty() || assessments.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
+            return Err(BlueprintCourseValidationError::InvalidModuleAssessmentCount);
         }
         Ok(Self {
             blueprint_module_reference,
             label,
-            assignments,
+            assessments,
         })
     }
     /// Returns the stable Blueprint Module identity retained across Revisions.
@@ -164,9 +147,9 @@ impl BlueprintCourseModuleContent {
     pub fn label(&self) -> &str {
         &self.label
     }
-    /// Returns Blueprint Assignments in meaningful authored order.
-    pub fn assignments(&self) -> &[BlueprintAssignmentContent] {
-        &self.assignments
+    /// Returns Blueprint Assessments in meaningful authored order.
+    pub fn assessments(&self) -> &[BlueprintAssessmentContent] {
+        &self.assessments
     }
 }
 
@@ -180,7 +163,7 @@ impl BlueprintCourseContent {
     pub fn new(
         modules: Vec<BlueprintCourseModuleContent>,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        if modules.is_empty() || modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+        if modules.is_empty() || modules.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
         }
         Ok(Self { modules })
@@ -191,58 +174,49 @@ impl BlueprintCourseContent {
     }
 }
 
-/// One ordered Blueprint Assignment entry containing only trusted exact pins.
+/// One ordered Blueprint Assessment entry containing only trusted exact pins.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum BlueprintAssignmentEntryContent {
+pub enum BlueprintAssessmentEntryContent {
     /// One fixed immutable Question Revision and its scoring rule.
     Fixed {
         /// Exact immutable publication pin authorized for the destination.
         reference: QuestionRevisionReference,
-        /// Exact points copied into the destination assignment.
-        points_possible: AssignmentPointValue,
-        /// Scoring treatment copied into the destination assignment.
-        scoring_rule: AssignmentEntryScoringRule,
-        /// Question Attempt retry bound copied into the destination assignment.
+        /// Exact points copied into the destination assessment.
+        points_possible: AssessmentPointValue,
+        /// Scoring treatment copied into the destination assessment.
+        scoring_rule: AssessmentEntryScoringRule,
+        /// Question Attempt retry bound copied into the destination assessment.
         question_attempt_limit: QuestionAttemptLimit,
-        /// Question Attempt timing copied into the destination assignment.
+        /// Question Attempt timing copied into the destination assessment.
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     },
     /// One validated deterministic item pool.
     Pool(BlueprintQuestionPoolContent),
 }
-/// One validated ordered pool of exact immutable publication pins.
+/// One validated exact immutable Pool Revision selected for future adoption.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlueprintQuestionPoolContent {
-    items: Vec<QuestionRevisionReference>,
-    selection_count: u32,
-    points_per_item: AssignmentPointValue,
-    scoring_rule: AssignmentEntryScoringRule,
+    question_pool_revision: crate::QuestionPoolRevisionReference,
+    selection_count: std::num::NonZeroU32,
+    points_per_item: AssessmentPointValue,
+    scoring_rule: AssessmentEntryScoringRule,
     selection_rule: crate::QuestionPoolSelectionRule,
     question_attempt_limit: QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 impl BlueprintQuestionPoolContent {
-    /// Validates pool cardinality, uniqueness, and selection bounds.
+    /// Validates the exact immutable Pool Revision and entry-owned selection count.
     pub fn new(
-        items: Vec<QuestionRevisionReference>,
-        selection_count: u32,
-        points_per_item: AssignmentPointValue,
-        scoring_rule: AssignmentEntryScoringRule,
+        question_pool_revision: crate::QuestionPoolRevisionReference,
+        selection_count: std::num::NonZeroU32,
+        points_per_item: AssessmentPointValue,
+        scoring_rule: AssessmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
         question_attempt_limit: QuestionAttemptLimit,
         question_attempt_time_limit: QuestionAttemptTimeLimit,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        if items.is_empty() || items.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY {
-            return Err(BlueprintCourseValidationError::InvalidQuestionPoolItems);
-        }
-        if selection_count == 0 || usize::try_from(selection_count).ok() > Some(items.len()) {
-            return Err(BlueprintCourseValidationError::InvalidPoolSelectionCount);
-        }
-        if items.iter().collect::<BTreeSet<_>>().len() != items.len() {
-            return Err(BlueprintCourseValidationError::DuplicateQuestionPoolItem);
-        }
         Ok(Self {
-            items,
+            question_pool_revision,
             selection_count,
             points_per_item,
             scoring_rule,
@@ -251,17 +225,21 @@ impl BlueprintQuestionPoolContent {
             question_attempt_time_limit,
         })
     }
-    /// Returns Question Pool Item pins in meaningful authored order.
-    pub fn items(&self) -> &[QuestionRevisionReference] {
-        &self.items
+    /// Returns the exact immutable Pool Revision.
+    pub fn question_pool_revision(&self) -> &crate::QuestionPoolRevisionReference {
+        &self.question_pool_revision
     }
-    /// Returns the number of Question Pool Items selected for one Assignment Attempt.
-    pub fn selection_count(&self) -> u32 {
+    /// Returns the number of Question Pool Items selected for one Assessment Attempt.
+    pub fn selection_count(&self) -> std::num::NonZeroU32 {
         self.selection_count
     }
     /// Returns the point value assigned to every selected Question.
-    pub fn points_per_item(&self) -> AssignmentPointValue {
+    pub fn points_per_item(&self) -> AssessmentPointValue {
         self.points_per_item
+    }
+    /// Returns the scoring treatment copied to every selected Question.
+    pub fn scoring_rule(&self) -> AssessmentEntryScoringRule {
+        self.scoring_rule
     }
     /// Returns the complete reviewed selection behavior.
     pub fn selection_rule(&self) -> crate::QuestionPoolSelectionRule {
@@ -333,7 +311,7 @@ struct EncodedPayload<'a> {
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum EncodedMeaning<'a> {
-    Assignment { content: EncodedAssignment<'a> },
+    Assessment { content: EncodedAssessment<'a> },
     Course { modules: Vec<EncodedModule<'a>> },
 }
 
@@ -342,17 +320,17 @@ enum EncodedMeaning<'a> {
 struct EncodedModule<'a> {
     blueprint_module_reference: BlueprintModuleReference,
     label: &'a str,
-    assignments: Vec<EncodedAssignment<'a>>,
+    assessments: Vec<EncodedAssessment<'a>>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
-struct EncodedAssignment<'a> {
-    blueprint_assignment_reference: BlueprintAssignmentReference,
+struct EncodedAssessment<'a> {
+    blueprint_assessment_reference: BlueprintAssessmentReference,
     title: &'a str,
-    instructions: &'a AssignmentInstructions,
+    instructions: &'a AssessmentInstructions,
     entries: Vec<EncodedEntry<'a>>,
-    defaults: &'a BlueprintAssignmentDefaults,
+    defaults: &'a BlueprintAssessmentDefaults,
 }
 
 #[derive(Serialize)]
@@ -360,16 +338,16 @@ struct EncodedAssignment<'a> {
 enum EncodedEntry<'a> {
     Fixed {
         reference: &'a QuestionRevisionReference,
-        points_possible: AssignmentPointValue,
-        scoring_rule: AssignmentEntryScoringRule,
+        points_possible: AssessmentPointValue,
+        scoring_rule: AssessmentEntryScoringRule,
         question_attempt_limit: &'a QuestionAttemptLimit,
         question_attempt_time_limit: &'a QuestionAttemptTimeLimit,
     },
     Pool {
-        items: &'a [QuestionRevisionReference],
-        selection_count: u32,
-        points_per_item: AssignmentPointValue,
-        scoring_rule: AssignmentEntryScoringRule,
+        question_pool_revision: &'a crate::QuestionPoolRevisionReference,
+        selection_count: std::num::NonZeroU32,
+        points_per_item: AssessmentPointValue,
+        scoring_rule: AssessmentEntryScoringRule,
         selection_rule: crate::QuestionPoolSelectionRule,
         question_attempt_limit: &'a QuestionAttemptLimit,
         question_attempt_time_limit: &'a QuestionAttemptTimeLimit,
@@ -378,8 +356,8 @@ enum EncodedEntry<'a> {
 
 fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
     let meaning = match payload {
-        BlueprintRevisionContent::Assignment(assignment) => EncodedMeaning::Assignment {
-            content: encode_assignment(assignment),
+        BlueprintRevisionContent::Assessment(assessment) => EncodedMeaning::Assessment {
+            content: encode_assessment(assessment),
         },
         BlueprintRevisionContent::Course(course) => EncodedMeaning::Course {
             modules: course
@@ -388,7 +366,7 @@ fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
                 .map(|module| EncodedModule {
                     blueprint_module_reference: module.blueprint_module_reference(),
                     label: module.label(),
-                    assignments: module.assignments().iter().map(encode_assignment).collect(),
+                    assessments: module.assessments().iter().map(encode_assessment).collect(),
                 })
                 .collect(),
         },
@@ -401,16 +379,16 @@ fn deterministic_encoded_bytes(payload: &BlueprintRevisionContent) -> Vec<u8> {
     bytes
 }
 
-fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignment<'_> {
-    EncodedAssignment {
-        blueprint_assignment_reference: assignment.blueprint_assignment_reference(),
-        title: assignment.title(),
-        instructions: assignment.instructions(),
-        entries: assignment
+fn encode_assessment(assessment: &BlueprintAssessmentContent) -> EncodedAssessment<'_> {
+    EncodedAssessment {
+        blueprint_assessment_reference: assessment.blueprint_assessment_reference(),
+        title: assessment.title(),
+        instructions: assessment.instructions(),
+        entries: assessment
             .entries()
             .iter()
             .map(|entry| match entry {
-                BlueprintAssignmentEntryContent::Fixed {
+                BlueprintAssessmentEntryContent::Fixed {
                     reference,
                     points_possible,
                     scoring_rule,
@@ -423,8 +401,8 @@ fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignme
                     question_attempt_limit,
                     question_attempt_time_limit,
                 },
-                BlueprintAssignmentEntryContent::Pool(pool) => EncodedEntry::Pool {
-                    items: &pool.items,
+                BlueprintAssessmentEntryContent::Pool(pool) => EncodedEntry::Pool {
+                    question_pool_revision: &pool.question_pool_revision,
                     selection_count: pool.selection_count,
                     points_per_item: pool.points_per_item,
                     scoring_rule: pool.scoring_rule,
@@ -434,7 +412,7 @@ fn encode_assignment(assignment: &BlueprintAssignmentContent) -> EncodedAssignme
                 },
             })
             .collect(),
-        defaults: assignment.defaults(),
+        defaults: assessment.defaults(),
     }
 }
 
@@ -443,21 +421,16 @@ mod wire_tests {
     use super::*;
 
     #[test]
-    fn question_pool_keeps_the_exact_question_revision_pin() {
-        let question_id: crate::QuestionId = "7K3-M9QX".parse().expect("Question ID");
-        let pinned = QuestionRevisionReference {
-            question_id: question_id.clone(),
-            revision_number: crate::QuestionRevisionNumber::new(1).expect("revision"),
-        };
-        let newer_revision = QuestionRevisionReference {
-            question_id,
-            revision_number: crate::QuestionRevisionNumber::new(2).expect("revision"),
+    fn question_pool_keeps_the_exact_pool_revision() {
+        let pool_revision = crate::QuestionPoolRevisionReference {
+            question_pool_id: "7K3M-X9QX".parse().expect("Pool ID"),
+            revision_number: crate::QuestionPoolRevisionNumber::new(1).expect("Pool Revision"),
         };
         let pool = BlueprintQuestionPoolContent::new(
-            vec![pinned.clone()],
-            1,
-            AssignmentPointValue::from_whole(1),
-            AssignmentEntryScoringRule::Normal,
+            pool_revision.clone(),
+            std::num::NonZeroU32::new(1).expect("positive count"),
+            AssessmentPointValue::from_whole(1),
+            AssessmentEntryScoringRule::Normal,
             crate::QuestionPoolSelectionRule {
                 selected_question_order:
                     crate::QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
@@ -465,9 +438,8 @@ mod wire_tests {
             QuestionAttemptLimit { max_attempts: None },
             QuestionAttemptTimeLimit::Unlimited,
         )
-        .expect("one exact Question Revision is a valid pool");
+        .expect("one exact Pool Revision is valid");
 
-        assert_eq!(pool.items(), &[pinned]);
-        assert_ne!(pool.items(), &[newer_revision]);
+        assert_eq!(pool.question_pool_revision(), &pool_revision);
     }
 }

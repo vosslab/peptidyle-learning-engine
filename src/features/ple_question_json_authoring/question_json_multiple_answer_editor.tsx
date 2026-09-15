@@ -110,7 +110,7 @@ export function PleQuestionJsonMultipleAnswerEditor(
                       disabled={props.disabled || index() === 0}
                       onClick={() => props.onMoveChoice(choiceId, "earlier")}
                     >
-                      Earlier
+                      Move earlier
                     </button>
                     <button
                       type="button"
@@ -118,7 +118,7 @@ export function PleQuestionJsonMultipleAnswerEditor(
                       disabled={props.disabled || index() === props.response().choices.length - 1}
                       onClick={() => props.onMoveChoice(choiceId, "later")}
                     >
-                      Later
+                      Move later
                     </button>
                     <button
                       type="button"

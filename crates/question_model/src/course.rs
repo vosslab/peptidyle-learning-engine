@@ -1,16 +1,15 @@
-//! Browser-safe course, assignment, and course-access projections.
+//! Browser-safe course, assessment, and course-access projections.
 
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccountTimeZone, AssignmentActivityRules, AssignmentEntryAvailability, AssignmentEntryId,
-    AssignmentEntryScoringRule, AssignmentGrade, AssignmentId, AssignmentInstructions,
-    AssignmentPointValue, AssignmentProgressRecord, AssignmentQuestionVariationRule,
-    AssignmentReference, AssignmentScoringState, AssignmentTitle, CourseId,
+    AccountTimeZone, AssessmentActivityRules, AssessmentEntryAvailability, AssessmentEntryId,
+    AssessmentEntryScoringRule, AssessmentGrade, AssessmentId, AssessmentInstructions,
+    AssessmentPointValue, AssessmentProgressRecord, AssessmentQuestionVariationRule,
+    AssessmentReference, AssessmentScoringState, AssessmentTitle, CourseId,
     CourseInstanceReference, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionBackend, QuestionBackendCapabilities, QuestionId, QuestionPoolItemAvailability,
-    QuestionPoolItemId, QuestionPoolSelectionRule, StudentFeedbackReleaseRule, StudentRecordId,
-    Timestamp,
+    QuestionBackend, QuestionBackendCapabilities, QuestionId, QuestionPoolRevisionReference,
+    QuestionPoolSelectionRule, StudentFeedbackReleaseRule, StudentRecordId, Timestamp,
 };
 
 /// Relationship that may be persisted on one direct course membership.
@@ -21,9 +20,9 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum CourseMembershipRole {
-    /// Works assignments and views only personal educational records.
+    /// Works assessments and views only personal educational records.
     Student,
-    /// Manages this course and its assignments.
+    /// Manages this course and its assessments.
     Instructor,
 }
 
@@ -45,145 +44,127 @@ pub struct CourseSummary {
     pub role: CourseMembershipRole,
 }
 
-/// Browser-safe Assignment Content.
+/// Browser-safe Assessment Content.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FixedQuestionAssignmentEntrySummary {
-    /// Server-minted identity for this editable assignment slot.
-    pub id: AssignmentEntryId,
+pub struct FixedQuestionAssessmentEntrySummary {
+    /// Server-minted identity for this editable assessment slot.
+    pub id: AssessmentEntryId,
     /// Browser-visible Question ID for the stable Published Question lineage.
     pub question_id: QuestionId,
-    /// Safe Question Library label shown while editing this assignment.
+    /// Safe Question Library label shown while editing this assessment.
     pub question_title: String,
-    /// Question Backend selected for this Fixed Question Assignment Entry.
+    /// Question Backend selected for this Fixed Question Assessment Entry.
     pub backend: QuestionBackend,
     /// Capabilities declared for the published question.
     pub capabilities: QuestionBackendCapabilities,
-    /// Current assignment-authored points.
-    pub points_possible: AssignmentPointValue,
-    /// Whether future Assignment Attempts may receive this Assignment Entry.
-    pub availability: AssignmentEntryAvailability,
+    /// Current assessment-authored points.
+    pub points_possible: AssessmentPointValue,
+    /// Whether future Assessment Attempts may receive this Assessment Entry.
+    pub availability: AssessmentEntryAvailability,
     /// Current-only scoring treatment.
-    pub scoring_rule: AssignmentEntryScoringRule,
-    /// Question Attempt retry bound frozen with this Assignment Entry.
+    pub scoring_rule: AssessmentEntryScoringRule,
+    /// Question Attempt retry bound frozen with this Assessment Entry.
     pub question_attempt_limit: QuestionAttemptLimit,
-    /// Question Attempt timing frozen with this Assignment Entry.
+    /// Question Attempt timing frozen with this Assessment Entry.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
 }
 
-/// Browser-safe Question Pool Item in one Question Pool.
+/// Browser-safe Question Pool Assessment Entry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionPoolItemSummary {
-    /// Server-minted identity for this editable Question Pool Item.
-    pub id: QuestionPoolItemId,
-    /// Browser-visible Question ID for the stable Published Question lineage.
-    pub question_id: QuestionId,
-    /// Safe Question Library label shown while editing this assignment.
-    pub question_title: String,
-    /// Question Backend selected for this Question Pool Item.
-    pub backend: QuestionBackend,
-    /// Capabilities declared for the published question.
-    pub capabilities: QuestionBackendCapabilities,
-    /// Whether future Question Pool Selections may select this Question Pool Item.
-    pub availability: QuestionPoolItemAvailability,
-}
-
-/// Browser-safe Question Pool Assignment Entry.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct QuestionPoolAssignmentEntrySummary {
-    /// Stable Assignment Entry identity.
-    pub id: AssignmentEntryId,
-    /// Whether future Assignment Attempts may receive this Assignment Entry.
-    pub availability: AssignmentEntryAvailability,
+pub struct QuestionPoolAssessmentEntrySummary {
+    /// Stable Assessment Entry identity.
+    pub id: AssessmentEntryId,
+    /// Exact current immutable Revision of the Assessment-owned fork Pool.
+    pub question_pool_revision: QuestionPoolRevisionReference,
+    /// Whether future Assessment Attempts may receive this Assessment Entry.
+    pub availability: AssessmentEntryAvailability,
     /// Current-only scoring rule applied to every selected Question Pool Item.
-    pub scoring_rule: AssignmentEntryScoringRule,
-    /// Number of available Question Pool Items selected for each future Assignment Attempt.
-    pub selection_count: u32,
+    pub scoring_rule: AssessmentEntryScoringRule,
+    /// Positive number of Pool members selected for each future Assessment Attempt.
+    pub selection_count: std::num::NonZeroU32,
     /// Uniform current points for each selected Question Pool Item.
-    pub points_per_item: AssignmentPointValue,
+    pub points_per_item: AssessmentPointValue,
     /// Complete reviewed selection behavior.
     pub selection_rule: QuestionPoolSelectionRule,
     /// Uniform Question Attempt retry bound for every Question selected from this pool.
     pub question_attempt_limit: QuestionAttemptLimit,
     /// Uniform Question Attempt timing for every Question selected from this pool.
     pub question_attempt_time_limit: QuestionAttemptTimeLimit,
-    /// Browser-safe current Question Pool Items.
-    pub items: Vec<QuestionPoolItemSummary>,
 }
 
-/// Browser-safe Assignment Entry in authored delivery order.
+/// Browser-safe Assessment Entry in authored delivery order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum AssignmentEntrySummary {
+pub enum AssessmentEntrySummary {
     /// One exact fixed Question.
-    FixedQuestion(FixedQuestionAssignmentEntrySummary),
+    FixedQuestion(FixedQuestionAssessmentEntrySummary),
     /// One deterministic Question Pool.
-    QuestionPool(QuestionPoolAssignmentEntrySummary),
+    QuestionPool(QuestionPoolAssessmentEntrySummary),
 }
 
-/// Browser-safe Assignment Content.
+/// Browser-safe Assessment Content.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentSummary {
-    /// Durable assignment identity.
-    pub id: AssignmentId,
-    /// Stable Assignment Reference used in application navigation.
-    pub reference: AssignmentReference,
-    /// Course that owns this assignment.
+pub struct AssessmentSummary {
+    /// Durable assessment identity.
+    pub id: AssessmentId,
+    /// Stable Assessment Reference used in application navigation.
+    pub reference: AssessmentReference,
+    /// Course that owns this assessment.
     pub course_id: CourseId,
-    /// Human-facing assignment title.
-    pub title: AssignmentTitle,
-    /// Ordered complete Assignment Content Entry.
-    pub entries: Vec<AssignmentEntrySummary>,
-    /// Assignment-owned student-facing disclosure schedule.
+    /// Human-facing assessment title.
+    pub title: AssessmentTitle,
+    /// Ordered complete Assessment Content Entry.
+    pub entries: Vec<AssessmentEntrySummary>,
+    /// Assessment-owned student-facing disclosure schedule.
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
-    /// Nine independent Assignment Activity Rules.
-    pub policies: AssignmentActivityRules,
+    /// Nine independent Assessment Activity Rules.
+    pub policies: AssessmentActivityRules,
 }
 
-/// Exact answer-free Assignment Overview facts shown at the start of an assignment.
+/// Exact answer-free Assessment Overview facts shown at the start of an assessment.
 ///
 /// The ordinary student detail and an Instructor's stable-identity Student
-/// view use distinct response records, but they describe the same Assignment Overview.
-/// Routes build this Assignment Overview once from the authoritative Assignment Content and
+/// view use distinct response records, but they describe the same Assessment Overview.
+/// Routes build this Assessment Overview once from the authoritative Assessment Content and
 /// then use their role-appropriate response constructors.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentOverview {
-    /// Student-facing assignment title.
-    pub title: AssignmentTitle,
+pub struct AssessmentOverview {
+    /// Student-facing assessment title.
+    pub title: AssessmentTitle,
     /// Student-facing instructions.
-    pub instructions: AssignmentInstructions,
-    /// Number of active questions a student receives in one Assignment Attempt.
-    pub questions_per_assignment_attempt: u32,
+    pub instructions: AssessmentInstructions,
+    /// Number of active questions a student receives in one Assessment Attempt.
+    pub questions_per_assessment_attempt: u32,
     /// Student-visible Question Pool Reuse Rule.
     pub question_pool_reuse_rule: crate::QuestionPoolReuseRule,
     /// Student-visible Question Variation Rule.
-    pub question_variation_rule: AssignmentQuestionVariationRule,
+    pub question_variation_rule: AssessmentQuestionVariationRule,
     /// Student-visible disclosure schedule.
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
 }
 
-/// Student-safe Student Assignment Landing Summary.
+/// Student-safe Student Assessment Landing Summary.
 ///
-/// This Student Assignment Landing Summary deliberately omits course identities, Assignment Attempt and
+/// This Student Assessment Landing Summary deliberately omits course identities, Assessment Attempt and
 /// disclosure policy, and other server authority inputs. Student routes use
-/// it instead of [`AssignmentSummary`].
+/// it instead of [`AssessmentSummary`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct StudentAssignmentLandingSummary {
-    /// Durable assignment identity scoped by the authenticated route.
-    pub id: AssignmentId,
-    /// Stable Assignment Reference used in application navigation.
-    pub reference: AssignmentReference,
-    /// Human-facing assignment title.
-    pub title: AssignmentTitle,
+pub struct StudentAssessmentLandingSummary {
+    /// Durable assessment identity scoped by the authenticated route.
+    pub id: AssessmentId,
+    /// Stable Assessment Reference used in application navigation.
+    pub reference: AssessmentReference,
+    /// Human-facing assessment title.
+    pub title: AssessmentTitle,
 }
 
 /// Whether the Student's currently accepted work is late under resolved policy.
@@ -204,16 +185,16 @@ pub enum StudentLateWorkStatus {
 /// individual adjustments. They are not editable base-policy authority.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct StudentAssignmentDelivery {
-    /// Resolved first instant at which the assignment may be opened.
+pub struct StudentAssessmentDelivery {
+    /// Resolved first instant at which the assessment may be opened.
     pub available_at: Option<Timestamp>,
     /// Resolved ordinary due instant.
     pub due_at: Option<Timestamp>,
     /// Resolved hard instant after which new work closes.
     pub closes_at: Option<Timestamp>,
-    /// Resolved whole Assignment Attempt time limit when one applies.
-    pub assignment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
-    /// Resolved maximum number of Assignment Attempts when one applies.
+    /// Resolved whole Assessment Attempt time limit when one applies.
+    pub assessment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
+    /// Resolved maximum number of Assessment Attempts when one applies.
     pub attempt_limit: Option<std::num::NonZeroU32>,
     /// Resolved treatment of work after the ordinary due instant.
     pub late_work_rule: LateWorkRule,
@@ -221,65 +202,65 @@ pub struct StudentAssignmentDelivery {
     pub student_late_work_status: StudentLateWorkStatus,
 }
 
-/// Student-safe detail returned by the dedicated Student Assignment Detail route.
+/// Student-safe detail returned by the dedicated Student Assessment Detail route.
 ///
 /// Paginated Student list rows deliberately omit this potentially large
-/// detail. The server admits this Student Assignment Detail only after the same effective
-/// policy gate used to issue an Assignment Attempt.
+/// detail. The server admits this Student Assessment Detail only after the same effective
+/// policy gate used to issue an Assessment Attempt.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct StudentAssignmentDetail {
-    /// Durable assignment identity scoped by the authenticated route.
-    pub id: AssignmentId,
-    /// Stable Assignment Reference used in application navigation.
-    pub reference: AssignmentReference,
-    /// Human-facing assignment title.
-    pub title: AssignmentTitle,
+pub struct StudentAssessmentDetail {
+    /// Durable assessment identity scoped by the authenticated route.
+    pub id: AssessmentId,
+    /// Stable Assessment Reference used in application navigation.
+    pub reference: AssessmentReference,
+    /// Human-facing assessment title.
+    pub title: AssessmentTitle,
     /// Validated Student-facing plain-text instructions.
-    pub instructions: AssignmentInstructions,
+    pub instructions: AssessmentInstructions,
     /// Authenticated Student's IANA zone for displaying the server-resolved instants.
     pub display_time_zone: AccountTimeZone,
     /// Server-resolved delivery limits for this Student.
-    pub delivery: StudentAssignmentDelivery,
-    /// Ordered complete Assignment Content Entry.
-    pub entries: Vec<AssignmentEntrySummary>,
+    pub delivery: StudentAssessmentDelivery,
+    /// Ordered complete Assessment Content Entry.
+    pub entries: Vec<AssessmentEntrySummary>,
 }
 
-impl From<AssignmentSummary> for StudentAssignmentLandingSummary {
-    fn from(assignment: AssignmentSummary) -> Self {
+impl From<AssessmentSummary> for StudentAssessmentLandingSummary {
+    fn from(assessment: AssessmentSummary) -> Self {
         Self {
-            id: assignment.id,
-            reference: assignment.reference,
-            title: assignment.title,
+            id: assessment.id,
+            reference: assessment.reference,
+            title: assessment.title,
         }
     }
 }
 
-impl StudentAssignmentDetail {
+impl StudentAssessmentDetail {
     /// Adds Student identity, resolved delivery, and the Question Content
     /// Question Content to the shared answer-free landing presentation.
     pub fn from_landing(
-        assignment: AssignmentSummary,
-        landing: AssignmentOverview,
-        delivery: StudentAssignmentDelivery,
+        assessment: AssessmentSummary,
+        landing: AssessmentOverview,
+        delivery: StudentAssessmentDelivery,
         display_time_zone: AccountTimeZone,
     ) -> Self {
         Self {
-            id: assignment.id,
-            reference: assignment.reference,
+            id: assessment.id,
+            reference: assessment.reference,
             title: landing.title,
             instructions: landing.instructions,
             display_time_zone,
             delivery,
-            entries: assignment.entries,
+            entries: assessment.entries,
         }
     }
 }
 
-/// One compact gradebook row for a Student Record and Assignment.
+/// One compact gradebook row for a Student Record and Assessment.
 ///
-/// The row comes only from the course-owned assignment, Student Record,
-/// `AssignmentGrade`, and `AssignmentProgressRecord`. It carries no Assignment Attempt
+/// The row comes only from the course-owned assessment, Student Record,
+/// `AssessmentGrade`, and `AssessmentProgressRecord`. It carries no Assessment Attempt
 /// history, so continued practice cannot make the default gradebook slower.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
@@ -290,86 +271,86 @@ pub struct GradebookSummaryRow {
     pub student_record_id: StudentRecordId,
     /// Human-facing Student name from the protected course roster.
     pub student_name: String,
-    /// Assignment whose grade policy selected the current score.
-    pub assignment_id: AssignmentId,
-    /// Human-facing assignment title from the assignment record.
-    pub assignment_title: AssignmentTitle,
-    /// Transactionally maintained compact Assignment Grade.
-    pub assignment_grade: AssignmentGrade,
-    /// Transactionally maintained compact Assignment Progress Record.
-    pub assignment_progress: AssignmentProgressRecord,
-    /// Current visibility and freshness of assignment scores.
-    pub assignment_scoring_state: AssignmentScoringState,
+    /// Assessment whose grade policy selected the current score.
+    pub assessment_id: AssessmentId,
+    /// Human-facing assessment title from the assessment record.
+    pub assessment_title: AssessmentTitle,
+    /// Transactionally maintained compact Assessment Grade.
+    pub assessment_grade: AssessmentGrade,
+    /// Transactionally maintained compact Assessment Progress Record.
+    pub assessment_progress: AssessmentProgressRecord,
+    /// Current visibility and freshness of assessment scores.
+    pub assessment_scoring_state: AssessmentScoringState,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        AssignmentAttemptContinuationRule, AssignmentAttemptGradeRule, AssignmentCompletionRule,
-        AssignmentQuestionVariationRule,
+        AssessmentAttemptContinuationRule, AssessmentAttemptGradeRule, AssessmentCompletionRule,
+        AssessmentQuestionVariationRule,
     };
     use uuid::Uuid;
 
-    fn assignment_title(value: &str) -> AssignmentTitle {
-        AssignmentTitle::try_new(value.to_string()).expect("valid Assignment Title fixture")
+    fn assessment_title(value: &str) -> AssessmentTitle {
+        AssessmentTitle::try_new(value.to_string()).expect("valid Assessment Title fixture")
     }
 
     #[test]
     fn rust_names_serialize_as_lower_camel_course_contracts() {
-        let assignment = AssignmentSummary {
-            id: AssignmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssignmentReference::new(1).expect("valid reference"),
+        let assessment = AssessmentSummary {
+            id: AssessmentId::from_uuid(Uuid::from_u128(1)),
+            reference: crate::AssessmentReference::new("A7K3M2Q").expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
-            title: assignment_title("Peptide bonds"),
-            entries: vec![AssignmentEntrySummary::FixedQuestion(
-                FixedQuestionAssignmentEntrySummary {
-                    id: crate::AssignmentEntryId::from_uuid(Uuid::from_u128(4)),
-                    question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
+            title: assessment_title("Peptide bonds"),
+            entries: vec![AssessmentEntrySummary::FixedQuestion(
+                FixedQuestionAssessmentEntrySummary {
+                    id: crate::AssessmentEntryId::from_uuid(Uuid::from_u128(4)),
+                    question_id: "7K3M-X9QX".parse().expect("fixture Question ID parses"),
                     question_title: "Peptide bonds".to_string(),
                     backend: crate::QuestionBackend::Ple,
                     capabilities: crate::QuestionBackendCapabilities::none(),
-                    points_possible: crate::AssignmentPointValue::from_whole(1),
-                    availability: crate::AssignmentEntryAvailability::Available,
-                    scoring_rule: crate::AssignmentEntryScoringRule::Normal,
+                    points_possible: crate::AssessmentPointValue::from_whole(1),
+                    availability: crate::AssessmentEntryAvailability::Available,
+                    scoring_rule: crate::AssessmentEntryScoringRule::Normal,
                     question_attempt_limit: crate::QuestionAttemptLimit { max_attempts: None },
                     question_attempt_time_limit: crate::QuestionAttemptTimeLimit::Unlimited,
                 },
             )],
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
-            policies: AssignmentActivityRules {
-                assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
-                assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
-                assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
+            policies: AssessmentActivityRules {
+                assessment_completion_rule: AssessmentCompletionRule::AllCorrect,
+                assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
+                assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
-                ..AssignmentActivityRules::default()
+                question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
+                ..AssessmentActivityRules::default()
             },
         };
 
-        let value = serde_json::to_value(assignment).expect("assignment should serialize");
+        let value = serde_json::to_value(assessment).expect("assessment should serialize");
         assert!(value.get("courseId").is_some());
         assert!(value.get("course_id").is_none());
         let item = &value["entries"][0];
-        assert_eq!(item["questionId"], "7K3-M9QX");
+        assert_eq!(item["questionId"], "7K3M-X9QX");
         assert!(item.get("reference").is_none());
         assert!(value.get("lifecycle").is_none());
         assert!(value.get("instructions").is_none());
 
-        let student = StudentAssignmentLandingSummary::from(AssignmentSummary {
-            id: AssignmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssignmentReference::new(1).expect("valid reference"),
+        let student = StudentAssessmentLandingSummary::from(AssessmentSummary {
+            id: AssessmentId::from_uuid(Uuid::from_u128(1)),
+            reference: crate::AssessmentReference::new("A7K3M2Q").expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
-            title: assignment_title("Peptide bonds"),
+            title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
-            policies: AssignmentActivityRules {
-                assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
-                assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
-                assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
+            policies: AssessmentActivityRules {
+                assessment_completion_rule: AssessmentCompletionRule::AllCorrect,
+                assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
+                assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
-                ..AssignmentActivityRules::default()
+                question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
+                ..AssessmentActivityRules::default()
             },
         });
         let student_value = serde_json::to_value(student).expect("Student serializes");
@@ -379,38 +360,38 @@ mod tests {
 
     #[test]
     fn student_detail_owns_instructions_and_server_resolved_delivery() {
-        let assignment = AssignmentSummary {
-            id: AssignmentId::from_uuid(Uuid::from_u128(1)),
-            reference: crate::AssignmentReference::new(1).expect("valid reference"),
+        let assessment = AssessmentSummary {
+            id: AssessmentId::from_uuid(Uuid::from_u128(1)),
+            reference: crate::AssessmentReference::new("A7K3M2Q").expect("valid reference"),
             course_id: CourseId::from_uuid(Uuid::from_u128(3)),
-            title: assignment_title("Peptide bonds"),
+            title: assessment_title("Peptide bonds"),
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
-            policies: AssignmentActivityRules {
-                assignment_completion_rule: AssignmentCompletionRule::AllCorrect,
-                assignment_attempt_grade_rule: AssignmentAttemptGradeRule::Highest,
-                assignment_attempt_continuation_rule: AssignmentAttemptContinuationRule::Unlimited,
+            policies: AssessmentActivityRules {
+                assessment_completion_rule: AssessmentCompletionRule::AllCorrect,
+                assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
+                assessment_attempt_continuation_rule: AssessmentAttemptContinuationRule::Unlimited,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
-                ..AssignmentActivityRules::default()
+                question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
+                ..AssessmentActivityRules::default()
             },
         };
-        let detail = StudentAssignmentDetail::from_landing(
-            assignment,
-            AssignmentOverview {
-                title: assignment_title("Peptide bonds"),
-                instructions: AssignmentInstructions::try_new("Read the legend.".to_string())
+        let detail = StudentAssessmentDetail::from_landing(
+            assessment,
+            AssessmentOverview {
+                title: assessment_title("Peptide bonds"),
+                instructions: AssessmentInstructions::try_new("Read the legend.".to_string())
                     .expect("valid instructions"),
-                questions_per_assignment_attempt: 0,
+                questions_per_assessment_attempt: 0,
                 question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
-                question_variation_rule: AssignmentQuestionVariationRule::NewVariation,
+                question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             },
-            StudentAssignmentDelivery {
+            StudentAssessmentDelivery {
                 available_at: Some(Timestamp::from_unix_millis(1_000)),
                 due_at: Some(Timestamp::from_unix_millis(2_000)),
                 closes_at: Some(Timestamp::from_unix_millis(3_000)),
-                assignment_attempt_time_limit_seconds: None,
+                assessment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::MarkLate,
                 student_late_work_status: StudentLateWorkStatus::MarkedLate,
@@ -422,7 +403,7 @@ mod tests {
         assert_eq!(value["display_time_zone"], "America/New_York");
         assert_eq!(value["delivery"]["student_late_work_status"], "marked_late");
         assert!(
-            serde_json::from_value::<StudentAssignmentDetail>(serde_json::json!({
+            serde_json::from_value::<StudentAssessmentDetail>(serde_json::json!({
                 "id": detail.id,
                 "reference": detail.reference,
                 "title": detail.title,
@@ -442,29 +423,29 @@ mod tests {
             course_id: CourseId::from_uuid(Uuid::from_u128(2)),
             student_record_id: StudentRecordId::from_uuid(Uuid::from_u128(3)),
             student_name: "Ada Student".to_string(),
-            assignment_id: AssignmentId::from_uuid(Uuid::from_u128(5)),
-            assignment_title: assignment_title("Peptide bonds"),
-            assignment_grade: AssignmentGrade::empty(
+            assessment_id: AssessmentId::from_uuid(Uuid::from_u128(5)),
+            assessment_title: assessment_title("Peptide bonds"),
+            assessment_grade: AssessmentGrade::empty(
                 StudentRecordId::from_uuid(Uuid::from_u128(3)),
-                AssignmentId::from_uuid(Uuid::from_u128(5)),
+                AssessmentId::from_uuid(Uuid::from_u128(5)),
             ),
-            assignment_progress: AssignmentProgressRecord::empty(
+            assessment_progress: AssessmentProgressRecord::empty(
                 StudentRecordId::from_uuid(Uuid::from_u128(3)),
-                AssignmentId::from_uuid(Uuid::from_u128(5)),
+                AssessmentId::from_uuid(Uuid::from_u128(5)),
             ),
-            assignment_scoring_state: crate::AssignmentScoringState::Current,
+            assessment_scoring_state: crate::AssessmentScoringState::Current,
         };
 
         let value = serde_json::to_value(row).expect("gradebook row should serialize");
         assert!(value.get("course_id").is_some());
-        assert!(value.get("assignment_title").is_some());
+        assert!(value.get("assessment_title").is_some());
         assert_eq!(
             value.get("student_name").and_then(|name| name.as_str()),
             Some("Ada Student")
         );
-        assert!(value.get("assignment_grade").is_some());
-        assert!(value.get("assignment_progress").is_some());
-        assert_eq!(value["assignment_scoring_state"], "current");
+        assert!(value.get("assessment_grade").is_some());
+        assert!(value.get("assessment_progress").is_some());
+        assert_eq!(value["assessment_scoring_state"], "current");
         assert!(value.get("best_score").is_none());
     }
 }

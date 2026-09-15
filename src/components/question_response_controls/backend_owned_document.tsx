@@ -2,7 +2,7 @@
 
 import { createSignal, onCleanup, onMount, Show, type JSX } from "solid-js";
 
-import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
+import type { AssessmentAttemptReference } from "../../../generated/api/AssessmentAttemptReference";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { QuestionResponseControlBaseProps } from "./common";
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
@@ -58,7 +58,7 @@ export function isBackendOwnedResponseMessage(
 
 /**
  * Separates an ordinary bridge submission from the one reply requested by the
- * active capture. A capture can advance Assignment Finish only on its exact ID.
+ * active capture. A capture can advance Assessment Finish only on its exact ID.
  */
 export function classifyBackendOwnedResponseMessage(
   value: unknown,
@@ -91,18 +91,18 @@ export function backendOwnedResponseFromPairs(
   return { kind: "backendOwned", payload: bytesToBase64(bytes) };
 }
 
-/** Builds only the document route authorized by the current Assignment Attempt and position. */
+/** Builds only the document route authorized by the current Assessment Attempt and position. */
 export function backendOwnedDocumentPath(
-  assignmentAttempt: AssignmentAttemptReference,
+  assessmentAttempt: AssessmentAttemptReference,
   position: number,
 ): string | null {
-  if (!/^R-[1-9][0-9]{0,9}$/u.test(assignmentAttempt)) return null;
+  if (!/^R-[1-9][0-9]{0,9}$/u.test(assessmentAttempt)) return null;
   if (!Number.isSafeInteger(position) || position < 1 || position > 2_147_483_647) return null;
-  return `/api/assignment-attempts/${encodeURIComponent(assignmentAttempt)}/questions/${position}/document`;
+  return `/api/assessment-attempts/${encodeURIComponent(assessmentAttempt)}/questions/${position}/document`;
 }
 
 export interface BackendOwnedDocumentProps extends QuestionResponseControlBaseProps {
-  readonly assignmentAttempt: AssignmentAttemptReference;
+  readonly assessmentAttempt: AssessmentAttemptReference;
   readonly position: number;
 }
 
@@ -118,7 +118,7 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
   let pendingCapture: Promise<StudentResponse | null> | undefined;
   let resolvePendingCapture: ((response: StudentResponse | null) => void) | undefined;
   let pendingCaptureId: string | undefined;
-  const documentPath = backendOwnedDocumentPath(props.assignmentAttempt, props.position);
+  const documentPath = backendOwnedDocumentPath(props.assessmentAttempt, props.position);
 
   function isFrameMessage(event: MessageEvent<unknown>): boolean {
     return event.origin === window.location.origin && event.source === frame?.contentWindow;

@@ -11,6 +11,21 @@ their earlier owning record is the single inventory entry.
 The authoritative exhaustive record is the
 [generated checklist](../../audits/human_guidance_implementation_checklist.md).
 
+## Evidence updates
+
+- C910 has accepted fresh-PG17 persistence evidence, not closure: an explicit `webworkPgml`
+  Draft/binding retained its format, path, and checksum while author-managed general feedback
+  produced two immutable Published Revisions. The SQL `RETURNING` ambiguity was corrected and
+  independently reviewed; full TypeScript checking passed. Student HTTP feedback projection and
+  release remain unverified because the server build is blocked by the current AWS Smithy
+  dependency incompatibility.
+
+- C839 has accepted temporary canonical-source evidence for 42 PGML sources (41 official
+  biologyproblems-website sources plus HLA). Manifest registration, provenance and checksums,
+  render/lint/whitelist, repeatable/reseeded variation, and representative grading passed. This
+  does not publish them or reconcile the catalog. The redundant static source bulk has been
+  removed, but C840--C841 remain open for ordinary publication and catalog reconciliation.
+
 ## Owning inventory
 
 ### Questions

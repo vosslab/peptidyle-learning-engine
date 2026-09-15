@@ -17,10 +17,27 @@ INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
 
 SET LOCAL ROLE ple_data_owner;
 INSERT INTO ple_data.published_question (question_id, created_at)
-VALUES ('ABCDEF0', clock_timestamp());
+VALUES ('ABCDXEF0', clock_timestamp());
 INSERT INTO ple_data.question_revision (
     question_id, revision_number, backend, question_type, published_at
-) VALUES ('ABCDEF0', 1, 'ple', 'multipleChoice', clock_timestamp());
+) VALUES ('ABCDXEF0', 1, 'ple', 'multipleChoice', clock_timestamp());
+SET LOCAL ROLE ple_private_owner;
+INSERT INTO ple_private.object_record (
+    object_id, object_address, object_storage_area, object_data_class, sha256,
+    size_bytes, media_type, created_at
+) VALUES (
+    '20000000-0000-0000-0000-000000000010',
+    '{"kind":"questionSource","questionRevision":{"questionId":"ABCDXEF0","revisionNumber":1},"object":"20000000-0000-0000-0000-000000000010"}'::jsonb,
+    'private-content', 'question-source', decode(repeat('10', 32), 'hex'), 1,
+    'application/json', clock_timestamp()
+);
+INSERT INTO ple_private.question_revision_source_binding (
+    question_id, revision_number, backend, question_format, source_object_id,
+    source_object_checksum, created_at
+) VALUES (
+    'ABCDXEF0', 1, 'ple', 'pleQuestionJson',
+    '20000000-0000-0000-0000-000000000010', repeat('10', 32), clock_timestamp()
+);
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_data.blueprint_course (
     blueprint_id, reference_number, owner_account_id, short_name, long_name,
@@ -51,12 +68,12 @@ INSERT INTO ple_data.blueprint_revision_event (
 ) VALUES (1, 1, '10000000-0000-0000-0000-000000000001',
     decode(repeat('b', 64), 'hex'), clock_timestamp());
 INSERT INTO ple_data.course_instance (
-    course_id, reference_number, blueprint_course_reference_number,
+    course_id, reference_number, source_kind, blueprint_course_reference_number,
     blueprint_revision_number, assigned_instructor_account_id,
     assigned_instructor_role, course_short_name, course_long_name,
     term_starts_on, term_ends_on, created_at
 ) OVERRIDING SYSTEM VALUE VALUES (
-    '30000000-0000-0000-0000-000000000001', 1, 1, 1,
+    '30000000-0000-0000-0000-000000000001', 1, 'adopted', 1, 1,
     '10000000-0000-0000-0000-000000000001', 'instructor', 'UNR-1',
     'Unrelease acceptance Course', current_date, current_date + 1,
     clock_timestamp()
@@ -120,11 +137,11 @@ INSERT INTO ple_data.assignment_entry (
     availability, scoring_rule, question_id, question_revision_number, points_possible
 ) VALUES
     ('40000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000001',
-     0, 'fixed_question', 'available', 'normal', 'ABCDEF0', 1, 1),
+     0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 1),
     ('40000000-0000-0000-0000-000000000012', '40000000-0000-0000-0000-000000000002',
-     0, 'fixed_question', 'available', 'normal', 'ABCDEF0', 1, 1),
+     0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 1),
     ('40000000-0000-0000-0000-000000000013', '40000000-0000-0000-0000-000000000003',
-     0, 'fixed_question', 'available', 'normal', 'ABCDEF0', 1, 1);
+     0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 1);
 
 -- Start both Attempts through the ordinary restricted path.  The fixture then
 -- adds the lower-level submission/grading receipts needed to exercise the
@@ -136,27 +153,27 @@ SELECT * FROM ple_api.start_assignment_attempt(
     '30000000-0000-0000-0000-000000000002',
     '40000000-0000-0000-0000-000000000001',
     '[]'::jsonb,
-    '[{"issued_question_id":"50000000-0000-0000-0000-000000000011","assignment_entry_id":"40000000-0000-0000-0000-000000000011","issued_position":0,"question_id":"ABCDEF0","revision_number":1,"question_seed":"7"}]'::jsonb
+    '[{"issued_question_id":"50000000-0000-0000-0000-000000000011","assignment_entry_id":"40000000-0000-0000-0000-000000000011","issued_position":0,"question_id":"ABCDXEF0","revision_number":1}]'::jsonb
 );
 SELECT * FROM ple_api.start_assignment_attempt(
     '50000000-0000-0000-0000-000000000002',
     '30000000-0000-0000-0000-000000000002',
     '40000000-0000-0000-0000-000000000002',
     '[]'::jsonb,
-    '[{"issued_question_id":"50000000-0000-0000-0000-000000000012","assignment_entry_id":"40000000-0000-0000-0000-000000000012","issued_position":0,"question_id":"ABCDEF0","revision_number":1,"question_seed":"8"}]'::jsonb
+    '[{"issued_question_id":"50000000-0000-0000-0000-000000000012","assignment_entry_id":"40000000-0000-0000-0000-000000000012","issued_position":0,"question_id":"ABCDXEF0","revision_number":1}]'::jsonb
 );
 RESET ROLE;
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.question_attempt (
-    question_attempt_id, issued_question_id, question_seed, generated_parameter_sha256,
-    issued_at, submitted_at, question_attempt_state, backend_name, backend_version,
+    question_attempt_id, issued_question_id, issued_at, submitted_at,
+    question_attempt_state, backend_name, backend_version,
     grader_name, grader_version, rendered_question_sha256, issued_capability
 ) VALUES
-    ('50000000-0000-0000-0000-000000000021', '50000000-0000-0000-0000-000000000011', 7,
-     repeat('a', 64), transaction_timestamp(), transaction_timestamp(), 'submission_accepted', 'ple', '1',
+    ('50000000-0000-0000-0000-000000000021', '50000000-0000-0000-0000-000000000011',
+     transaction_timestamp(), transaction_timestamp(), 'submission_accepted', 'ple', '1',
      'ple', '1', decode(repeat('b', 64), 'hex'), 'not_applicable'),
-    ('50000000-0000-0000-0000-000000000022', '50000000-0000-0000-0000-000000000012', 8,
-     repeat('c', 64), transaction_timestamp(), transaction_timestamp(), 'submission_accepted', 'ple', '1',
+    ('50000000-0000-0000-0000-000000000022', '50000000-0000-0000-0000-000000000012',
+     transaction_timestamp(), transaction_timestamp(), 'submission_accepted', 'ple', '1',
      'ple', '1', decode(repeat('d', 64), 'hex'), 'not_applicable');
 INSERT INTO ple_private.assignment_attempt_saved_response (question_attempt_id, student_response, saved_at)
 VALUES ('50000000-0000-0000-0000-000000000021', '{}'::jsonb, clock_timestamp()),
@@ -182,10 +199,10 @@ VALUES ('50000000-0000-0000-0000-000000000081', '50000000-0000-0000-0000-0000000
        ('50000000-0000-0000-0000-000000000082', '50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000072', clock_timestamp(), decode(repeat('f', 64), 'hex'));
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.question_statistics_observation_receipt (automated_grading_receipt_id, question_attempt_id, question_id, revision_number, correct, observed_at)
-VALUES ('50000000-0000-0000-0000-000000000081', '50000000-0000-0000-0000-000000000021', 'ABCDEF0', 1, true, clock_timestamp()),
-       ('50000000-0000-0000-0000-000000000082', '50000000-0000-0000-0000-000000000022', 'ABCDEF0', 1, true, clock_timestamp());
+VALUES ('50000000-0000-0000-0000-000000000081', '50000000-0000-0000-0000-000000000021', 'ABCDXEF0', 1, true, clock_timestamp()),
+       ('50000000-0000-0000-0000-000000000082', '50000000-0000-0000-0000-000000000022', 'ABCDXEF0', 1, true, clock_timestamp());
 SET LOCAL ROLE ple_data_owner;
-SELECT ple_data.rebuild_question_revision_statistics('ABCDEF0', 1, clock_timestamp());
+SELECT ple_data.rebuild_question_revision_statistics('ABCDXEF0', 1, clock_timestamp());
 COMMIT;
 
 -- Error cases are real public calls.  Each verifies the rejected transaction
@@ -290,7 +307,7 @@ BEGIN
                      AND assignment_status = 'unreleased'
                      AND assignment_edit_number = 2)
        OR NOT EXISTS (SELECT 1 FROM ple_data.assignment_entry WHERE assignment_id = '40000000-0000-0000-0000-000000000001')
-       OR NOT EXISTS (SELECT 1 FROM ple_data.question_revision WHERE question_id = 'ABCDEF0' AND revision_number = 1) THEN
+       OR NOT EXISTS (SELECT 1 FROM ple_data.question_revision WHERE question_id = 'ABCDXEF0' AND revision_number = 1) THEN
         RAISE EXCEPTION 'Unrelease did not preserve current Assignment or shared Question state';
     END IF;
 END $$;
@@ -309,8 +326,8 @@ END $$;
 SET LOCAL ROLE ple_data_owner;
 DO $$
 BEGIN
-    IF (SELECT accepted_graded_attempt_count FROM ple_data.question_revision_statistics WHERE question_id = 'ABCDEF0' AND revision_number = 1) <> 1
-       OR (SELECT correct_count FROM ple_data.question_revision_statistics WHERE question_id = 'ABCDEF0' AND revision_number = 1) <> 1 THEN
+    IF (SELECT accepted_graded_attempt_count FROM ple_data.question_revision_statistics WHERE question_id = 'ABCDXEF0' AND revision_number = 1) <> 1
+       OR (SELECT correct_count FROM ple_data.question_revision_statistics WHERE question_id = 'ABCDXEF0' AND revision_number = 1) <> 1 THEN
         RAISE EXCEPTION 'Unrelease did not rebuild Question Revision statistics from survivors';
     END IF;
 END $$;

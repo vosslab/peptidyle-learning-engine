@@ -1,17 +1,17 @@
 //! Pure Student Feedback Release evaluation.
 //!
-//! The assignment-policy resolver has already resolved the Student's effective
-//! assignment window and access verdict. This module only
+//! The assessment-policy resolver has already resolved the Student's effective
+//! assessment window and access verdict. This module only
 //! consumes that verdict and an authoritative supplied timestamp. It neither
 //! reconstructs access decisions nor records a Student Feedback Release receipt.
 
 use question_model::{
-    AssignmentScoringState, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
+    AssessmentScoringState, GradingResult, QuestionAnswer, QuestionAnswerExplanation,
     QuestionFeedback, StudentFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
     StudentResponseInspectionFeedback, Timestamp,
 };
 
-use crate::effective_assignment_policy::{AssignmentAccessDecision, EffectiveAssignmentPolicy};
+use crate::effective_assessment_policy::{AssessmentAccessDecision, EffectiveAssessmentPolicy};
 
 /// The seven independently evaluated Student Feedback Release fields.
 ///
@@ -28,15 +28,15 @@ pub struct StudentFeedbackReleaseDecision {
     pub class_statistics: bool,
 }
 
-/// Removes score-dependent feedback fields while an assignment score is not current.
+/// Removes score-dependent feedback fields while an assessment score is not current.
 ///
 /// A recalculating or failed aggregate must not expose an older numeric score or
 /// correctness verdict beside its current status.
 pub fn score_current_student_feedback_release(
     mut decision: StudentFeedbackReleaseDecision,
-    assignment_scoring_state: AssignmentScoringState,
+    assessment_scoring_state: AssessmentScoringState,
 ) -> StudentFeedbackReleaseDecision {
-    if !matches!(assignment_scoring_state, AssignmentScoringState::Current) {
+    if !matches!(assessment_scoring_state, AssessmentScoringState::Current) {
         decision.score = false;
         decision.per_item_correctness = false;
     }
@@ -87,14 +87,14 @@ pub fn project_student_feedback(
 /// Projects permitted correctness and score fields for one Student Response Inspection.
 ///
 /// Inspection can show only the current score and correctness permitted by
-/// assignment disclosure. Question Hint, Question Answer, and Question Answer
+/// assessment disclosure. Question Hint, Question Answer, and Question Answer
 /// Explanation have no representation in this detail capability.
 pub fn project_student_response_inspection_feedback(
     decision: StudentFeedbackReleaseDecision,
-    assignment_scoring_state: AssignmentScoringState,
+    assessment_scoring_state: AssessmentScoringState,
     result: Option<GradingResult>,
 ) -> StudentResponseInspectionFeedback {
-    let decision = score_current_student_feedback_release(decision, assignment_scoring_state);
+    let decision = score_current_student_feedback_release(decision, assessment_scoring_state);
     let mut inspection_feedback = StudentResponseInspectionFeedback::empty();
     if let Some(result) = result {
         if decision.per_item_correctness {
@@ -108,19 +108,19 @@ pub fn project_student_response_inspection_feedback(
     inspection_feedback
 }
 
-/// Evaluates Student Feedback Release from one already-resolved assignment policy verdict.
+/// Evaluates Student Feedback Release from one already-resolved assessment policy verdict.
 ///
-/// A denied assignment-policy verdict produces no Student decision. For allowed verdicts,
+/// A denied assessment-policy verdict produces no Student decision. For allowed verdicts,
 /// every field is evaluated independently using the supplied server timestamp
 /// and the resolved due/close times, if present. A submission timestamp is
 /// evidence that the current Student submitted; it is not read from storage.
 pub fn evaluate_student_feedback_release(
     rule: StudentFeedbackReleaseRule,
-    effective_policy: &AssignmentAccessDecision,
+    effective_policy: &AssessmentAccessDecision,
     now: Timestamp,
     submitted_at: Option<Timestamp>,
 ) -> Option<StudentFeedbackReleaseDecision> {
-    let AssignmentAccessDecision::Allowed { policy, .. } = effective_policy else {
+    let AssessmentAccessDecision::Allowed { policy, .. } = effective_policy else {
         return None;
     };
 
@@ -132,13 +132,13 @@ pub fn evaluate_student_feedback_release(
     ))
 }
 
-/// Evaluates Student Feedback Release from an already-authorized effective assignment policy.
+/// Evaluates Student Feedback Release from an already-authorized effective assessment policy.
 ///
 /// Store receipt projections may retain the resolved policy without its
-/// Assignment Access decision. Callers that still have the decision should prefer
+/// Assessment Access decision. Callers that still have the decision should prefer
 /// [`evaluate_student_feedback_release`]; this helper does not authorize access.
 pub fn evaluate_allowed_student_feedback_release(
-    policy: &EffectiveAssignmentPolicy,
+    policy: &EffectiveAssessmentPolicy,
     rule: StudentFeedbackReleaseRule,
     now: Timestamp,
     submitted_at: Option<Timestamp>,

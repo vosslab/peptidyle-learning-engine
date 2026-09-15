@@ -19,7 +19,7 @@ pub struct ReadyQuestionAssetDelivery {
 }
 
 /// Resolves exactly one ready public asset only after the database has proved
-/// Instructor Question Library or issued Student Assignment Access.
+/// Instructor Question Library or issued Student Assessment Access.
 #[async_trait]
 pub trait QuestionAssetDeliveryStore: Send + Sync {
     async fn resolve_ready_question_asset_delivery(

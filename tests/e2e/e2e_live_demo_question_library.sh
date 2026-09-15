@@ -157,7 +157,7 @@ expected_titles = {
     "Biochemistry Chapter 1: Charged functional groups",
     "Biochemistry Chapter 1: Functional group matching",
 }
-question_id = re.compile(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}")
+question_id = re.compile(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}")
 seen_ids = set()
 ple_item = None
 for item in items:

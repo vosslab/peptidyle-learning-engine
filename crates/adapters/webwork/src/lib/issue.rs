@@ -198,18 +198,21 @@ fn issued(
 ) -> WebworkIssuedAttempt {
     let renderer_version = rendered.renderer_version;
     let grader = grader_version(GRADING_ID, &renderer_version.version);
+    let generated_parameter_sha256 = parameter_hash(question_seed);
     WebworkIssuedAttempt {
         presentation: QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_question_seed(
                 source.question_revision().clone(),
                 question_seed,
+                generated_parameter_sha256.clone(),
             ),
             question_title: "WeBWorK question".to_string(),
             prompt: Vec::new(),
             response: QuestionResponseFormat::BackendOwned {},
             native_choice_order: question_model::NativeChoiceOrder::Fixed,
+            author_content: None,
         },
-        parameter_hash: parameter_hash(question_seed),
+        parameter_hash: generated_parameter_sha256,
         reproduction_details: QuestionAttemptReproductionDetails {
             backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
             renderer_version: Some(renderer_version),

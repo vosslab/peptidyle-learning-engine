@@ -26,8 +26,14 @@ const STANDARD_POOL_MAX_CONNECTIONS: u32 = 8;
 pub enum ProductionLoginProfile {
     /// Browser/API process: course data plus passwordless account sessions.
     Api,
-    /// Assignment Attempt expiry worker: preparation and commit procedures only.
-    AssignmentAttemptExpiryWorker,
+    /// Assessment Attempt expiry worker: preparation and commit procedures only.
+    AssessmentAttemptExpiryWorker,
+    /// Course-retention executor: stored due-action reads and one-way Course
+    /// Student-record archive/delete procedures only.
+    CourseRetentionExecutor,
+    /// Retention notifier: four direct SECURITY DEFINER receipt procedures;
+    /// it has no capability-role membership or raw-table authority.
+    CourseRetentionNotifier,
     /// Dedicated immutable public Question Asset publisher: its exact private
     /// source-to-public rendition claim and activation procedures only.
     PublicAssetPublisher,
@@ -186,6 +192,37 @@ async fn verify_login_authority(
         if !capability_authority_matches(&authority, expected) {
             return Err(sqlx::Error::Protocol(
                 "database capability role violates the process authority contract".to_string(),
+            ));
+        }
+    }
+    let expected_functions = contract.expected_effective_functions();
+    if !expected_functions.is_empty() {
+        let set_role = contract.set_function_inventory_role_sql();
+        if let Some(set_role) = set_role {
+            sqlx::query(set_role).execute(&mut *connection).await?;
+        }
+        let actual_functions = sqlx::query_scalar::<_, String>(
+            "SELECT p.oid::regprocedure::text \
+             FROM pg_catalog.pg_proc AS p \
+             JOIN pg_catalog.pg_namespace AS namespace ON namespace.oid = p.pronamespace \
+             WHERE namespace.nspname LIKE 'ple\\_%' ESCAPE '\\' \
+               AND has_function_privilege(current_user, p.oid, 'EXECUTE') \
+             ORDER BY p.oid::regprocedure::text",
+        )
+        .fetch_all(&mut *connection)
+        .await?;
+        if set_role.is_some() {
+            sqlx::query("RESET ROLE").execute(&mut *connection).await?;
+        }
+        let mut expected_functions = expected_functions
+            .iter()
+            .map(|function| (*function).to_string())
+            .collect::<Vec<_>>();
+        expected_functions.sort_unstable();
+        if actual_functions != expected_functions {
+            return Err(sqlx::Error::Protocol(
+                "database login effective function authority violates the process contract"
+                    .to_string(),
             ));
         }
     }

@@ -72,7 +72,7 @@ export function PleQuestionJsonOrderingEditor(
                         );
                       }}
                     >
-                      Earlier
+                      Move earlier
                     </button>
                     <button
                       type="button"
@@ -83,7 +83,7 @@ export function PleQuestionJsonOrderingEditor(
                         announce(`Moved Ordering Item ${index() + 1} later in the correct order.`);
                       }}
                     >
-                      Later
+                      Move later
                     </button>
                     <button
                       type="button"

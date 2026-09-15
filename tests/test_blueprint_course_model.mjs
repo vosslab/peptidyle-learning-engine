@@ -6,6 +6,7 @@ import {
   appendPickedFixedEntries,
   appendPickedPool,
   blueprintCourseContinuationPresentation,
+  blueprintLifecyclePresentation,
   emptyReusableContent,
   moveReusableEntry,
   validateBlueprintCourseContent,
@@ -30,6 +31,28 @@ test("new Blueprint Assignment working state keeps answer-bearing feedback priva
   });
 });
 
+test("Blueprint lifecycle choices expose only the server-directed state transitions", () => {
+  const privateOwner = blueprintLifecyclePresentation("private", "blueprint_course_owner");
+  assert.equal(privateOwner.canEdit, true);
+  assert.equal(privateOwner.canPublish, true);
+  assert.equal(privateOwner.canArchive, false);
+  assert.equal(privateOwner.canAdopt, false);
+
+  const publicReader = blueprintLifecyclePresentation("public", "active_instructor");
+  assert.equal(publicReader.canAdopt, true);
+  assert.equal(publicReader.canEdit, false);
+  assert.equal(publicReader.canArchive, false);
+
+  const publicOwner = blueprintLifecyclePresentation("public", "blueprint_course_owner");
+  assert.equal(publicOwner.canArchive, true);
+  assert.equal(publicOwner.canReturnToPrivate, true);
+
+  const archivedOwner = blueprintLifecyclePresentation("archived", "blueprint_course_owner");
+  assert.equal(archivedOwner.canRestore, true);
+  assert.equal(archivedOwner.canAdopt, false);
+  assert.equal(archivedOwner.canEdit, false);
+});
+
 test("new Blueprint Assignment working state uses the Assignment delivery defaults", () => {
   const defaults = emptyReusableContent("Quiz").defaults;
 
@@ -39,8 +62,8 @@ test("new Blueprint Assignment working state uses the Assignment delivery defaul
 });
 
 test("reusable entries preserve fixed and Question Pool interleaving", () => {
-  const fixed = appendPickedFixedEntries(emptyReusableContent("Quiz"), selection("AAA-BBBB"));
-  const pooled = appendPickedPool(fixed, selection("CCC-DDDD", "EEE-FFFF"));
+  const fixed = appendPickedFixedEntries(emptyReusableContent("Quiz"), selection("AAAA-ZBBB"));
+  const pooled = appendPickedPool(fixed, selection("CCCD-XDDD", "EEEF-XFFF"));
   const reordered = moveReusableEntry(pooled, 1, -1);
 
   assert.deepEqual(
@@ -51,7 +74,7 @@ test("reusable entries preserve fixed and Question Pool interleaving", () => {
 });
 
 test("Question Pool validation keeps selection count inside the selected Question Pool Item set", () => {
-  const content = appendPickedPool(emptyReusableContent("Quiz"), selection("AAA-BBBB"));
+  const content = appendPickedPool(emptyReusableContent("Quiz"), selection("AAAA-ZBBB"));
   const pool = content.entries[0];
   const invalid =
     pool?.kind === "pool" ? { ...content, entries: [{ ...pool, selection_count: 2 }] } : content;
@@ -86,7 +109,7 @@ test("Blueprint Course creation requires separate short and long lineage names",
   const assignment = {
     ...emptyReusableContent("Ready assignment"),
     entries: [
-      { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },
+      { kind: "fixed", question_id: "AAAA-ZBBB", points_possible: "1", scoring_rule: "normal" },
     ],
   };
   assert.equal(

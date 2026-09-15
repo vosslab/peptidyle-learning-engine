@@ -103,7 +103,7 @@ mod tests {
 
     fn question_revision() -> QuestionRevisionReference {
         QuestionRevisionReference {
-            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
+            question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G')
                 .expect("valid Question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("positive revision"),
         }

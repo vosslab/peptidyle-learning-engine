@@ -1,4 +1,4 @@
-//! Assignment and Question Backend capability validation.
+//! Assessment and Question Backend capability validation.
 
 use std::collections::BTreeSet;
 
@@ -7,16 +7,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentQuestionConfig {
+pub struct AssessmentQuestionConfig {
     pub question: QuestionRevisionReference,
     pub question_backend_capabilities: QuestionBackendCapabilities,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentConfig {
-    pub questions: Vec<AssignmentQuestionConfig>,
-    /// Assignment-owned requirements; Question Source does not derive these.
+pub struct AssessmentConfig {
+    pub questions: Vec<AssessmentQuestionConfig>,
+    /// Assessment-owned requirements; Question Source does not derive these.
     pub required_capabilities: Vec<Capability>,
 }
 
@@ -27,7 +27,7 @@ pub struct Violation {
     pub capability: Capability,
 }
 
-pub fn validate_assignment_config(config: &AssignmentConfig) -> Vec<Violation> {
+pub fn validate_assessment_config(config: &AssessmentConfig) -> Vec<Violation> {
     let required: BTreeSet<_> = config.required_capabilities.iter().copied().collect();
     config
         .questions

@@ -5,9 +5,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::QuestionRevisionReference;
 use crate::course_appearance::CourseTheme;
-use crate::generation::QuestionSeed;
 use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
-use crate::student_work::{AssignmentId, CourseId, QuestionAttemptId, Timestamp};
+use crate::student_work::{AssessmentId, CourseId, QuestionAttemptId, Timestamp};
 
 /// Four-lowercase-hex identifier for one object in one issued presentation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -321,9 +320,14 @@ pub enum QuestionPresentationResponseFormat {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPresentation {
     pub question_revision: QuestionRevisionReference,
-    #[serde(rename = "question_seed")]
-    pub question_seed: QuestionSeed,
+    /// PLE-generated randomness used only to bind presentation-scoped
+    /// response-item references and authored choice order. This is not source
+    /// or author-JavaScript generation input.
     pub presentation_nonce: QuestionPresentationNonce,
+    /// Optional public digest of separately retained isolated author content.
+    /// This is an integrity binding, never author source or a document URL.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub author_content_digest: Option<String>,
     pub question_title: String,
     pub prompt: Vec<QuestionContentBlock>,
     pub response: QuestionPresentationResponseFormat,
@@ -338,28 +342,28 @@ pub struct StudentAttemptDescriptor {
     pub presentation_token: QuestionPresentationToken,
 }
 
-/// Course and Assignment shell needed for authorized Student navigation.
+/// Course and Assessment shell needed for authorized Student navigation.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentAssignmentAttemptScreenScope {
+pub struct StudentAssessmentAttemptScreenScope {
     pub course: CourseId,
-    pub assignment: AssignmentId,
+    pub assessment: AssessmentId,
     pub theme: CourseTheme,
 }
 
-/// Student-visible Assignment Attempt context, without storage or policy internals.
+/// Student-visible Assessment Attempt context, without storage or policy internals.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentAssignmentAttemptScreenAttempt {
+pub struct StudentAssessmentAttemptScreenAttempt {
     pub number: u32,
 }
 
 /// One consolidated active student screen response.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct StudentAssignmentAttemptScreen {
-    pub scope: StudentAssignmentAttemptScreenScope,
-    pub assignment_attempt: StudentAssignmentAttemptScreenAttempt,
+pub struct StudentAssessmentAttemptScreen {
+    pub scope: StudentAssessmentAttemptScreenScope,
+    pub assessment_attempt: StudentAssessmentAttemptScreenAttempt,
     pub attempt: StudentAttemptDescriptor,
     pub presentation: QuestionPresentation,
 }

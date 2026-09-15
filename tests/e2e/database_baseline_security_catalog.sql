@@ -46,12 +46,12 @@ BEGIN
 	END IF;
 	IF to_regprocedure('ple_api.sweep_expired_student_assignment_attempts(integer)') IS NOT NULL
 		OR NOT has_function_privilege(
-			'ple_assignment_attempt_expiry_worker',
+			'ple_assessment_attempt_expiry_worker',
 			'ple_api.prepare_expired_student_assignment_attempt_finalizations(integer)',
 			'EXECUTE'
 		)
 		OR NOT has_function_privilege(
-			'ple_assignment_attempt_expiry_worker',
+			'ple_assessment_attempt_expiry_worker',
 			'ple_api.commit_expired_student_assignment_attempt_finalization(uuid,jsonb)',
 			'EXECUTE'
 		)
@@ -155,16 +155,46 @@ BEGIN
 END
 $$;
 
+-- C24 authorization contract: an active Sysadmin receives the explicit
+-- platform-administration predicate but no Course membership or Course-record
+-- read authority merely by holding that Product Role. The transaction rolls
+-- back its synthetic Account, leaving the canonical baseline unchanged.
+BEGIN;
+SET LOCAL ROLE ple_private_owner;
+INSERT INTO ple_private.account (account_id, product_role, created_at)
+VALUES ('00000000-0000-0000-0000-00000000c240', 'sysadmin', clock_timestamp());
+SET LOCAL ROLE ple_api_owner;
+SELECT pg_catalog.set_config(
+    'ple.session_account_id', '00000000-0000-0000-0000-00000000c240', true
+);
+DO $$
+BEGIN
+    IF NOT ple_api.current_session_account_has_platform_administration()
+       OR NOT ple_api.current_session_account_is_sysadmin() THEN
+        RAISE EXCEPTION 'active Sysadmin lacks platform-administration authority';
+    END IF;
+    IF ple_api.current_session_account_is_course_member(
+        '00000000-0000-0000-0000-00000000c241'::uuid
+    ) OR ple_api.current_session_account_is_course_instructor(
+        '00000000-0000-0000-0000-00000000c241'::uuid
+    ) THEN
+        RAISE EXCEPTION 'Sysadmin Product Role unexpectedly grants Course-record authority';
+    END IF;
+END
+$$;
+ROLLBACK;
+
 -- Bootstrap creates the role graph as the platform administrator. The
 -- restricted migrator receives exactly the four schema owners plus its
--- database-owner and Unrelease capabilities, each as SET-only membership.
+-- database-owner, Unrelease, and Course-retention capabilities, each as
+-- SET-only membership. Neither retention capability is a process login.
 DO $$
 BEGIN
 	IF (
 		SELECT count(*)
 		  FROM pg_catalog.pg_auth_members AS membership
 		 WHERE membership.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = current_user)
-	) <> 6 OR (
+	) <> 9 OR (
 		SELECT count(*)
 		  FROM pg_catalog.pg_auth_members AS membership
 		  JOIN pg_catalog.pg_roles AS granted_role ON granted_role.oid = membership.roleid
@@ -172,6 +202,9 @@ BEGIN
 		   AND granted_role.rolname IN (
 			   'ple_database_owner',
 			   'ple_unrelease_executor',
+			   'ple_course_retention_executor',
+			   'ple_course_retention_notifier',
+			   'ple_course_retention_notification_owner',
 			   'ple_data_owner',
 			   'ple_private_owner',
 			   'ple_audit_owner',
@@ -180,12 +213,90 @@ BEGIN
 		   AND NOT membership.admin_option
 		   AND NOT membership.inherit_option
 		   AND membership.set_option
-	) <> 6
+	) <> 9
 	OR pg_has_role(current_user, 'ple_app', 'MEMBER')
 	OR pg_has_role(current_user, 'ple_auth', 'MEMBER')
 	OR pg_has_role(current_user, 'ple_student', 'MEMBER') THEN
 		RAISE EXCEPTION 'migrator role memberships exceed the SET-only bootstrap boundary';
 	END IF;
+END
+$$;
+
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		  FROM pg_catalog.pg_roles AS role
+		 WHERE role.rolname = 'ple_course_retention_notification_owner'
+		   AND NOT role.rolcanlogin
+		   AND NOT role.rolinherit
+		   AND NOT role.rolsuper
+		   AND NOT role.rolcreatedb
+		   AND NOT role.rolcreaterole
+		   AND NOT role.rolreplication
+		   AND NOT role.rolbypassrls
+		   AND role.rolconnlimit = -1
+	) THEN
+		RAISE EXCEPTION 'Course-retention notification owner is not an ordinary no-login role';
+	END IF;
+	BEGIN
+		EXECUTE 'SET LOCAL ROLE ple_course_retention_notification_owner';
+		RESET ROLE;
+	EXCEPTION WHEN insufficient_privilege THEN
+		RAISE EXCEPTION 'migrator could not assume the Course-retention notification owner';
+	END;
+END
+$$;
+
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		  FROM pg_catalog.pg_roles AS role
+		 WHERE role.rolname = 'ple_course_retention_notifier'
+		   AND NOT role.rolcanlogin
+		   AND NOT role.rolinherit
+		   AND NOT role.rolsuper
+		   AND NOT role.rolcreatedb
+		   AND NOT role.rolcreaterole
+		   AND NOT role.rolreplication
+		   AND NOT role.rolbypassrls
+		   AND role.rolconnlimit = -1
+	) THEN
+		RAISE EXCEPTION 'Course-retention notifier is not an ordinary no-login capability';
+	END IF;
+	BEGIN
+		EXECUTE 'SET LOCAL ROLE ple_course_retention_notifier';
+		RESET ROLE;
+	EXCEPTION WHEN insufficient_privilege THEN
+		RAISE EXCEPTION 'migrator could not assume the Course-retention notifier needed for installation';
+	END;
+END
+$$;
+
+DO $$
+BEGIN
+	IF NOT EXISTS (
+		SELECT 1
+		  FROM pg_catalog.pg_roles AS role
+		 WHERE role.rolname = 'ple_course_retention_executor'
+		   AND NOT role.rolcanlogin
+		   AND NOT role.rolinherit
+		   AND NOT role.rolsuper
+		   AND NOT role.rolcreatedb
+		   AND NOT role.rolcreaterole
+		   AND NOT role.rolreplication
+		   AND NOT role.rolbypassrls
+		   AND role.rolconnlimit = -1
+	) THEN
+		RAISE EXCEPTION 'Course-retention executor is not an ordinary no-login capability';
+	END IF;
+	BEGIN
+		EXECUTE 'SET LOCAL ROLE ple_course_retention_executor';
+		RESET ROLE;
+	EXCEPTION WHEN insufficient_privilege THEN
+		RAISE EXCEPTION 'migrator could not assume the Course-retention capability needed for installation';
+	END;
 END
 $$;
 

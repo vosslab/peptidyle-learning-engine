@@ -24,10 +24,10 @@ interface DeferredContentHarness {
 const PATHS: Readonly<Record<EvidenceCase, string>> = {
   // This is a role-authorized Instructor route; the fixture's session remains
   // Instructor for every routed case in this harness.
-  policies: "/instructor/courses/C-1/assignments/A-1/policies",
-  preview: "/instructor/courses/C-2/assignments/A-2/delivery-check",
-  workspace: "/instructor/courses/C-3/assignments/A-3",
-  roster: "/instructor/courses/C-4/students",
+  policies: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/properties",
+  preview: "/instructor/courses/CI4W8QF9/assessments/A5G7K3M/delivery-check",
+  workspace: "/instructor/courses/CI2N7H5X/assessments/A2N7H5X",
+  roster: "/instructor/courses/CI9P6R4V/students",
 };
 
 /**
@@ -46,10 +46,10 @@ function assertFixturePathsHaveValidScope(): void {
 }
 
 const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
-  policies: "C-1",
-  preview: "C-2",
-  workspace: "C-3",
-  roster: "C-4",
+  policies: "CI7K3M2Q",
+  preview: "CI4W8QF9",
+  workspace: "CI2N7H5X",
+  roster: "CI9P6R4V",
 };
 
 function instructorCourse(reference: string): CourseRouteView {

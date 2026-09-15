@@ -3,7 +3,7 @@
 use std::fmt::Write as _;
 
 use objects::{ObjectStore, ResolvedQuestionSource};
-use question_model::generation::QuestionSeed;
+use question_model::generation::QuestionReproduction;
 use question_model::{
     GradingResult, QuestionAttemptReproductionDetails, QuestionBackendVersion,
     QuestionGraderVersion, QuestionRevisionReference, QuestionVariation,
@@ -75,25 +75,27 @@ impl PleQuestionBackend {
     pub fn issue_question_json(
         &self,
         source: &ResolvedPleQuestionJsonSource,
-        question_seed: QuestionSeed,
     ) -> Result<PleIssuedQuestion, PleQuestionBackendError> {
         let presentation = QuestionVariationPresentation {
-            variation: QuestionVariation::from_question_revision_and_question_seed(
+            variation: QuestionVariation::from_question_revision_and_reproduction(
                 source.question_revision().clone(),
-                question_seed,
+                QuestionReproduction::Static,
             ),
             question_title: source.compiled.presentation().question_title().to_string(),
             prompt: source.compiled.presentation().prompt().to_vec(),
             response: source.compiled.presentation().response().clone(),
             native_choice_order: source.compiled.presentation().native_choice_order(),
+            author_content: source.compiled.author_content().cloned(),
         };
+        // The generic presentation serialization intentionally excludes raw
+        // author source. Its immutable answer-free descriptor is nonetheless
+        // part of the retained rendering integrity record.
         let rendered_question_sha256 = sha256_hex(
-            &serde_json::to_vec(&presentation)
+            &serde_json::to_vec(&(&presentation, source.compiled.author_content()))
                 .map_err(|error| PleQuestionBackendError::Serialization(error.to_string()))?,
         );
         Ok(PleIssuedQuestion {
             presentation,
-            parameter_hash: parameter_hash(question_seed),
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: QuestionBackendVersion {
                     name: ADAPTER_ID.to_string(),
@@ -150,17 +152,6 @@ impl PleQuestionBackend {
             )
             .map_err(PleQuestionBackendError::QuestionSourceDocument)
     }
-}
-
-/// Produces the static PLE parameter record from the exact server-owned seed.
-///
-/// Static sources have no generated variable map, but the attempt must still
-/// bind its reproduction record to the selected Question Seed.
-fn parameter_hash(question_seed: QuestionSeed) -> String {
-    let mut hash = Sha256::new();
-    hash.update(b"peptidyle:ple-question-json:static-parameters:v1");
-    hash.update(question_seed.value().to_be_bytes());
-    sha256_hex(&hash.finalize())
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {

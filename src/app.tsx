@@ -27,22 +27,22 @@ function isPublicAccountRoute(pathname: string): boolean {
 function ribbonLabelsFor(routeData: CourseThemeRouteData | undefined): RibbonContextLabels {
   if (routeData === undefined) return {};
 
-  if (routeData.kind === "assignmentAttempt") {
+  if (routeData.kind === "assessmentAttempt") {
     const { context } = routeData;
     return {
       courseShortName: context.course.shortName,
       courseLongName: context.course.longName,
-      assignmentAttemptTitle: context.assignment.title,
-      assignmentAttemptProgress: `Attempt ${String(context.attemptNumber)}`,
+      assessmentAttemptTitle: context.assessment.title,
+      assessmentAttemptProgress: `Attempt ${String(context.attemptNumber)}`,
     };
   }
-  if (routeData.kind === "assignmentAttemptHistory") {
+  if (routeData.kind === "assessmentAttemptHistory") {
     const { history } = routeData;
     return {
       courseShortName: history.course.shortName,
       courseLongName: history.course.longName,
-      assignmentAttemptTitle: history.assignment.title,
-      assignmentAttemptProgress: `Attempt ${String(history.attemptNumber)}`,
+      assessmentAttemptTitle: history.assessment.title,
+      assessmentAttemptProgress: `Attempt ${String(history.attemptNumber)}`,
     };
   }
   return {
@@ -52,7 +52,7 @@ function ribbonLabelsFor(routeData: CourseThemeRouteData | undefined): RibbonCon
 }
 
 /**
- * Adds the public Assignment context already resolved for the active Attempt
+ * Adds the public Assessment context already resolved for the active Attempt
  * screen. Pending and rejected scopes retain only their URL-declared Attempt
  * reference, so dependent Ribbon controls stay unavailable.
  */
@@ -63,18 +63,18 @@ export function ribbonParamsFor(
 ): RouteParams {
   const params = routeParams(route, pathname);
   if (params === undefined) return undefined;
-  if (routeData?.kind !== "assignmentAttempt" && routeData?.kind !== "assignmentAttemptHistory") {
+  if (routeData?.kind !== "assessmentAttempt" && routeData?.kind !== "assessmentAttemptHistory") {
     return params;
   }
-  if (route.id !== "assignmentAttempt" && route.id !== "assignmentAttemptSummary") return params;
-  const assignmentContext =
-    routeData.kind === "assignmentAttempt"
+  if (route.id !== "assessmentAttempt" && route.id !== "assessmentAttemptSummary") return params;
+  const assessmentContext =
+    routeData.kind === "assessmentAttempt"
       ? routeData.context
-      : { course: routeData.history.course, assignment: routeData.history.assignment };
+      : { course: routeData.history.course, assessment: routeData.history.assessment };
   return Object.freeze({
     ...params,
-    courseRef: assignmentContext.course.reference,
-    assignmentRef: assignmentContext.assignment.reference,
+    courseRef: assessmentContext.course.reference,
+    assessmentRef: assessmentContext.assessment.reference,
   });
 }
 

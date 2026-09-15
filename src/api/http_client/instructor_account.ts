@@ -4,17 +4,20 @@ import type { AccountReference } from "../../../generated/api/AccountReference";
 import type { ApiClient } from "../client";
 import type { InstructorAccountClient } from "../instructor_account";
 import {
+  decodeCompleteInstructorIdentityVettingInput,
   decodeCreateInstructorAccountInput,
   decodeDeactivateInstructorAccountInput,
   decodeInstructorAccount,
   decodeInstructorAccountList,
+  decodeInstructorIdentityVettingReceipt,
+  isCanonicalAccountReference,
 } from "../decoders/instructor_account";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function accountPath(reference: AccountReference): string {
-  if (!/^U-[1-9][0-9]{0,9}$/u.test(reference) || Number(reference.slice(2)) > 2_147_483_647) {
+  if (!isCanonicalAccountReference(reference)) {
     throw new ApiProtocolError("Instructor Account reference must be canonical");
   }
   return `/api/instructor-accounts/${encodeURIComponent(reference)}`;
@@ -55,6 +58,18 @@ export function createInstructorAccountClient(
         basePath,
         "/api/instructor-accounts",
         decodeInstructorAccountList,
+      ),
+    completeInstructorIdentityVetting: (input) =>
+      instructorAccountJson(
+        fetchImplementation,
+        basePath,
+        "/api/instructor-identity-vetting-decisions",
+        decodeInstructorIdentityVettingReceipt,
+        {
+          method: "POST",
+          body: decodeCompleteInstructorIdentityVettingInput(input),
+          status: 201,
+        },
       ),
     createInstructorAccount: (input) =>
       instructorAccountJson(

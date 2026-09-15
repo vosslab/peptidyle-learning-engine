@@ -3,74 +3,82 @@
 import { createComponent, type Component } from "solid-js";
 import type { RouteDefinition } from "@solidjs/router";
 
-import { AssignmentOverviewPage } from "./pages/assignment_overview_page";
+import { AssessmentOverviewPage } from "./pages/assessment_overview_page";
 import { NotFoundPage } from "./pages/contract_pages";
-import { AssignmentAttemptSummaryPage } from "./pages/assignment_attempt_summary_page";
+import { AssessmentAttemptSummaryPage } from "./pages/assessment_attempt_summary_page";
 import { LibraryRoutePage } from "./pages/library_route_page";
 import { QuestionDetailPage } from "./pages/question_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseInstancePage } from "./pages/course_instance_page";
-import { CourseListPage } from "./pages/course_list_page";
+import {
+  InstructorHomePage,
+  RoleHomeResolutionPage,
+  StudentHomePage,
+  SysadminHomePage,
+} from "./pages/role_home_pages";
 import { GradebookPage } from "./pages/gradebook_page";
 import { CourseAppearancePage } from "./pages/course_appearance_page";
 import { withRouteAccessBoundary } from "./route_access_boundary";
 import { ROUTE_CONTRACT, type RouteId } from "./route_contract";
-import { AssignmentAttemptPage } from "./pages/assignment_attempt_page";
+import { AssessmentAttemptPage } from "./pages/assessment_attempt_page";
 import { CourseRosterPage } from "./pages/course_roster_page";
 import { SignInPage } from "./pages/sign_in_page";
-import { InstructorProfilePage } from "./pages/instructor_profile_page";
+import { ProfilePage } from "./pages/profile_page";
+import { AccountSettingsPage } from "./pages/account_settings_page";
 import { AccountPendingInvitationsPage } from "./pages/account_pending_invitations_page";
 import { StudentCourseInvitationPage } from "./pages/student_course_invitation_page";
 import { StudentCourseInvitationsPage } from "./pages/student_course_invitations_page";
 import { StudentCourseLandingPage } from "./pages/student_course_landing_page";
 import { InstructorAccountsPage } from "./pages/instructor_accounts_page";
-import { SupportRosterPage } from "./pages/support_roster_page";
-import { AssignmentPreviewPage } from "./pages/assignment_preview_page";
-import { AssignmentsDueSoonPage } from "./pages/assignments_due_soon_page";
-import { AssignmentWorkspaceCreatePage } from "./pages/assignment_workspace/assignment_workspace_create_page";
+import { AssessmentPreviewPage } from "./pages/assessment_preview_page";
+import { AssessmentsDueSoonPage } from "./pages/assessments_due_soon_page";
+import { AssessmentWorkspaceCreatePage } from "./pages/assessment_workspace/assessment_workspace_create_page";
 import {
   BlueprintCourseDetailLivePage,
   BlueprintCoursesLivePage,
 } from "./pages/blueprint_course_live_pages";
 // prettier-ignore
 import {
-  AssignmentWorkspaceLivePage,
-} from "./pages/assignment_workspace/assignment_workspace_live_page";
+  AssessmentWorkspaceLivePage,
+} from "./pages/assessment_workspace/assessment_workspace_live_page";
 
 export { ROUTE_CONTRACT } from "./route_contract";
 
 const routeComponents: Readonly<Record<RouteId, Component>> = {
-  courses: CourseListPage,
-  instructorProfile: InstructorProfilePage,
+  courses: RoleHomeResolutionPage,
+  instructorHome: InstructorHomePage,
+  studentHome: StudentHomePage,
+  sysadminHome: SysadminHomePage,
+  profile: ProfilePage,
+  accountSettings: AccountSettingsPage,
   signIn: SignInPage,
   pendingCourseInvitations: AccountPendingInvitationsPage,
   studentCourseInvitations: StudentCourseInvitationsPage,
   studentCourseInvitation: StudentCourseInvitationPage,
   studentCourseLanding: StudentCourseLandingPage,
   instructorAccounts: InstructorAccountsPage,
-  supportRoster: SupportRosterPage,
-  courseAssignments: CourseInstancePage,
-  assignmentOverview: AssignmentOverviewPage,
-  assignmentAttempt: AssignmentAttemptPage,
-  assignmentAttemptSummary: AssignmentAttemptSummaryPage,
+  courseAssessments: CourseInstancePage,
+  assessmentOverview: AssessmentOverviewPage,
+  assessmentAttempt: AssessmentAttemptPage,
+  assessmentAttemptSummary: AssessmentAttemptSummaryPage,
   library: LibraryRoutePage,
   questionDetail: QuestionDetailPage,
   questionDrafts: QuestionDraftsPage,
   questionDraftEditor: QuestionDraftEditorPage,
   blueprintCourses: BlueprintCoursesLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
-  assignmentsDueSoon: AssignmentsDueSoonPage,
-  assignmentCreate: AssignmentWorkspaceCreatePage,
-  assignmentWorkspaceOverview: () =>
-    createComponent(AssignmentWorkspaceLivePage, { section: "overview" }),
-  assignmentWorkspaceQuestions: () =>
-    createComponent(AssignmentWorkspaceLivePage, { section: "questions" }),
-  assignmentWorkspacePolicies: () =>
-    createComponent(AssignmentWorkspaceLivePage, { section: "policies" }),
-  assignmentWorkspaceStudentView: () =>
-    createComponent(AssignmentWorkspaceLivePage, { section: "studentView" }),
-  assignmentPreview: AssignmentPreviewPage,
+  assessmentsDueSoon: AssessmentsDueSoonPage,
+  assessmentCreate: AssessmentWorkspaceCreatePage,
+  assessmentWorkspaceOverview: () =>
+    createComponent(AssessmentWorkspaceLivePage, { section: "overview" }),
+  assessmentWorkspaceQuestions: () =>
+    createComponent(AssessmentWorkspaceLivePage, { section: "questions" }),
+  assessmentWorkspacePolicies: () =>
+    createComponent(AssessmentWorkspaceLivePage, { section: "policies" }),
+  assessmentWorkspaceStudentView: () =>
+    createComponent(AssessmentWorkspaceLivePage, { section: "studentView" }),
+  assessmentPreview: AssessmentPreviewPage,
   gradebook: GradebookPage,
   courseAppearance: CourseAppearancePage,
   courseRoster: CourseRosterPage,

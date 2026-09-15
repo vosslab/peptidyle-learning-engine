@@ -205,7 +205,7 @@ mod tests {
     async fn publisher_copies_only_its_claimed_restricted_asset_to_the_fixed_public_address() {
         let objects = MemoryObjectStore::default();
         let question_revision = QuestionRevisionReference {
-            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question ID"),
+            question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision number"),
         };
         let asset_id = QuestionAssetId::from_uuid(Uuid::from_u128(1));

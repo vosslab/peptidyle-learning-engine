@@ -1,0 +1,119 @@
+## TITLE('Chargaff base composition in double-stranded DNA')
+## DESCRIPTION
+## Determine the three unreported DNA-base percentages from one reported percentage using Chargaff's rules.
+## ENDDESCRIPTION
+## KEYWORDS('Chargaff rules','DNA base composition','base pairing')
+## DBsubject('Molecular Biology')
+## DBchapter('DNA structure')
+## DBsection('Base composition')
+## Level(2)
+## Date('2026-09-15')
+## Author('Neil R. Voss')
+## Institution('Roosevelt University')
+## Language(en)
+## SOURCE('Faithful PGML port of biology-problems/problems/molecular_biology-problems/chargaff_dna_percent.py at 8e3560d05a40cbf2981004207ae4ec374b7cfd86 (SHA-256 64b84f1b028014714312d4eb72f96c2b57c43e357638b7be8e69ecd77cafa863); website task invocation has no flags and uses the generator default of five choices.')
+## LICENSE('Educational content CC-BY-4.0; derived source code LGPL-3.0-or-later')
+
+DOCUMENT();
+
+loadMacros(
+  'PGstandard.pl',
+  'PGML.pl',
+  'parserRadioButtons.pl',
+  'PGcourse.pl',
+);
+
+$showPartialCorrectAnswers = 0;
+
+# Preserve the upstream generator's seed-driven choice of a non-25 percentage,
+# reported base, five value-pattern choices, and final choice shuffle.
+my $local_random = new PGrandom($problemSeed);
+my $percent = $local_random->random(0, 1, 1) == 0
+  ? $local_random->random(1, 23, 1)
+  : $local_random->random(27, 49, 1);
+my $off_percent = 50 - $percent;
+
+my @bases = ('A', 'C', 'G', 'T');
+my %base_name = (
+  A => 'adenine',
+  C => 'cytosine',
+  G => 'guanine',
+  T => 'thymine',
+);
+my $reported_index = $local_random->random(0, $#bases, 1);
+$reported_base = splice(@bases, $reported_index, 1);
+$reported_name = $base_name{$reported_base};
+$reported_percent = $percent . '%';
+
+sub values_for_reported_base {
+  my ($base, $given, $other) = @_;
+  return ($other, $other, $given) if $base eq 'A';
+  return ($other, $given, $other) if $base eq 'C';
+  return ($other, $given, $other) if $base eq 'G';
+  return ($given, $other, $other) if $base eq 'T';
+  die "Unexpected DNA base";
+}
+
+sub format_choice {
+  my (@values) = @_;
+  my @parts = ();
+  for my $index (0 .. $#bases) {
+    push @parts, "$base_name{$bases[$index]} ($bases[$index]): $values[$index]%";
+  }
+  return join('; ', @parts);
+}
+
+my @correct_values = values_for_reported_base($reported_base, $percent, $off_percent);
+my @choice_values = (
+  [ $off_percent, $off_percent, $percent ],
+  [ $off_percent, $percent, $off_percent ],
+  [ $percent, $off_percent, $off_percent ],
+);
+my @off_choices = (
+  [ $off_percent, 25, 25 ],
+  [ 25, $off_percent, 25 ],
+  [ 25, 25, $off_percent ],
+);
+
+for (my $last = $#off_choices; $last > 0; $last--) {
+  my $swap = $local_random->random(0, $last, 1);
+  @off_choices[$last, $swap] = @off_choices[$swap, $last];
+}
+push @choice_values, $off_choices[0], $off_choices[1];
+
+$correct_choice = format_choice(@correct_values);
+my @choices = map { format_choice(@{$_}) } @choice_values;
+for (my $last = $#choices; $last > 0; $last--) {
+  my $swap = $local_random->random(0, $last, 1);
+  @choices[$last, $swap] = @choices[$swap, $last];
+}
+
+$answer = RadioButtons(
+  [@choices],
+  $correct_choice,
+  labels        => ['A', 'B', 'C', 'D', 'E'],
+  displayLabels => 1,
+  randomize     => 0,
+  noindex       => 1,
+  separator     => '<div style="margin-bottom: 0.7em;"></div>',
+);
+
+BEGIN_PGML
+
+According to Chargaff's rules for double-stranded DNA, [$reported_percent] of the bases in a DNA
+sample are [$reported_name] ([$reported_base]).
+
+What are the percentages of the other three bases?
+
+[_]{$answer}
+
+END_PGML
+
+BEGIN_PGML_SOLUTION
+
+In double-stranded DNA, adenine equals thymine and cytosine equals guanine. The other three base
+percentages are [$correct_choice].
+
+END_PGML_SOLUTION
+
+ENDDOCUMENT();

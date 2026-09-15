@@ -218,7 +218,7 @@ mod tests {
     fn rendition() -> ReadyQuestionAssetDelivery {
         ReadyQuestionAssetDelivery {
             question_revision: QuestionRevisionReference {
-                question_id: "ABC-DEF1".parse::<QuestionId>().expect("Question ID"),
+                question_id: "ABCD-XEF1".parse::<QuestionId>().expect("Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
             asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
@@ -235,7 +235,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::FOUND);
         assert_eq!(
             response.headers()["location"],
-            "https://assets.example.test/public-assets/questions/ABCDEF1/versions/1/assets/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
+            "https://assets.example.test/public-assets/questions/ABCDXEF1/versions/1/assets/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
         );
         assert_eq!(
             response.headers()["cache-control"],
@@ -263,17 +263,17 @@ mod tests {
             HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes(std::array::from_fn(|index| {
                 index as u8
             })));
-        let reference = verified_question_revision(&issuer, "000-000N", "1")
+        let reference = verified_question_revision(&issuer, "0000-X00N", "1")
             .expect("documented issuer vector and positive revision");
-        assert_eq!(reference.question_id.to_string(), "000-000N");
+        assert_eq!(reference.question_id.to_string(), "0000-X00N");
         assert_eq!(reference.revision_number.get(), 1);
 
         for (question_id, revision_number) in [
-            ("000-000P", "1"),
-            ("000-0000", "1"),
-            ("000-000N", "0"),
-            ("000-000N", "01"),
-            ("000-000N", "+1"),
+            ("0000-X00P", "1"),
+            ("0000-X000", "1"),
+            ("0000-X00N", "0"),
+            ("0000-X00N", "01"),
+            ("0000-X00N", "+1"),
         ] {
             assert!(
                 verified_question_revision(&issuer, question_id, revision_number).is_none(),

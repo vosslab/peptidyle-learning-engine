@@ -54,8 +54,14 @@ impl LoginContract {
     pub(super) fn expected_login(self) -> &'static str {
         match self {
             Self::Production(ProductionLoginProfile::Api) => "ple_api_login",
-            Self::Production(ProductionLoginProfile::AssignmentAttemptExpiryWorker) => {
+            Self::Production(ProductionLoginProfile::AssessmentAttemptExpiryWorker) => {
                 "ple_worker_login"
+            }
+            Self::Production(ProductionLoginProfile::CourseRetentionExecutor) => {
+                "ple_course_retention_login"
+            }
+            Self::Production(ProductionLoginProfile::CourseRetentionNotifier) => {
+                "ple_course_retention_notifier_login"
             }
             Self::Production(ProductionLoginProfile::PublicAssetPublisher) => "ple_publisher_login",
         }
@@ -73,12 +79,19 @@ impl LoginContract {
                     set_option: true,
                 },
             ],
-            Self::Production(ProductionLoginProfile::AssignmentAttemptExpiryWorker) => {
+            Self::Production(ProductionLoginProfile::AssessmentAttemptExpiryWorker) => {
                 &[ExpectedMembership {
-                    role_name: "ple_assignment_attempt_expiry_worker",
+                    role_name: "ple_assessment_attempt_expiry_worker",
                     set_option: true,
                 }]
             }
+            Self::Production(ProductionLoginProfile::CourseRetentionExecutor) => {
+                &[ExpectedMembership {
+                    role_name: "ple_course_retention_executor",
+                    set_option: true,
+                }]
+            }
+            Self::Production(ProductionLoginProfile::CourseRetentionNotifier) => &[],
             Self::Production(ProductionLoginProfile::PublicAssetPublisher) => {
                 &[ExpectedMembership {
                     role_name: "ple_public_asset_publisher",
@@ -90,6 +103,33 @@ impl LoginContract {
 
     pub(super) fn expected_capabilities(self) -> &'static [ExpectedMembership] {
         self.expected_memberships()
+    }
+
+    pub(super) fn expected_effective_functions(self) -> &'static [&'static str] {
+        match self {
+            Self::Production(ProductionLoginProfile::CourseRetentionExecutor) => &[
+                "ple_api.archive_course_student_records(uuid,timestamp with time zone)",
+                "ple_api.delete_course_student_records(uuid,timestamp with time zone)",
+                "ple_api.read_archived_course_student_work_for_retention(uuid)",
+                "ple_data.course_retention_due_actions(timestamp with time zone)",
+            ],
+            Self::Production(ProductionLoginProfile::CourseRetentionNotifier) => &[
+                "ple_api.claim_course_retention_notification(timestamp with time zone,integer)",
+                "ple_api.record_course_retention_notification_provider_acceptance(uuid,uuid,uuid,timestamp with time zone)",
+                "ple_api.record_course_retention_notification_delivered(uuid,uuid,timestamp with time zone)",
+                "ple_api.fail_course_retention_notification_before_acceptance(uuid,uuid,timestamp with time zone,text)",
+            ],
+            _ => &[],
+        }
+    }
+
+    pub(super) fn set_function_inventory_role_sql(self) -> Option<&'static str> {
+        match self {
+            Self::Production(ProductionLoginProfile::CourseRetentionExecutor) => {
+                Some("SET ROLE ple_course_retention_executor")
+            }
+            _ => None,
+        }
     }
 }
 
@@ -118,14 +158,14 @@ mod tests {
     }
 
     #[test]
-    fn assignment_attempt_expiry_worker_login_has_one_exact_capability() {
+    fn assessment_attempt_expiry_worker_login_has_one_exact_capability() {
         let worker =
-            LoginContract::Production(ProductionLoginProfile::AssignmentAttemptExpiryWorker);
+            LoginContract::Production(ProductionLoginProfile::AssessmentAttemptExpiryWorker);
 
         assert_eq!(
             worker.expected_memberships(),
             [ExpectedMembership {
-                role_name: "ple_assignment_attempt_expiry_worker",
+                role_name: "ple_assessment_attempt_expiry_worker",
                 set_option: true,
             }]
         );

@@ -113,9 +113,10 @@ shape changes.
 
 Author JavaScript may render or support interaction in an isolated untrusted
 environment. It receives no random seed, application credentials, privileged
-state, or grading authority. External dependencies and URLs are explicitly
-recorded and reviewable. Approved external dependencies may initially use
-recorded CDN sources and should eventually be PLE-owned and served locally.
+state, or grading authority. Its only dependency declaration is the closed
+`libraries` enum (currently `rdkit`); native source cannot name a dependency
+URL, CDN, local path, package version, or asset digest. A separate
+server-owned reviewed registry selects any runtime assets.
 
 QTI is an import, export, and archival interchange boundary, not PLE's internal
 source or runtime model. Importers translate supported external items into

@@ -114,6 +114,12 @@ def build_parser() -> argparse.ArgumentParser:
 	acceptance = subparsers.add_parser("acceptance", help="run no-skip live browser validation")
 	acceptance.set_defaults(handler=local_stack_control.commands.acceptance)
 
+	authenticator = subparsers.add_parser(
+		"authenticator", help="prepare the separate private local TOTP authenticator import"
+	)
+	add_target_options(authenticator)
+	authenticator.set_defaults(handler=local_stack_control.commands.setup_local_totp_authenticator)
+
 	return parser
 
 

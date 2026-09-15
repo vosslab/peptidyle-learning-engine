@@ -33,7 +33,6 @@ const EXPECTED_DESTINATION_GLYPHS = {
   courseSetup: "gear",
   attempt: "pen-to-square",
   instructorAccounts: "circle-user",
-  supportRoster: "users",
   myBlueprintCourses: "layer-group",
   myActiveCourses: "graduation-cap",
   myInactiveCourses: "box-archive",

@@ -1,17 +1,14 @@
-// scenarios_sysadmin.ts - Sysadmin Courses, Account lifecycle, and scoped support states.
+// scenarios_sysadmin.ts - Sysadmin Courses and Account lifecycle states.
 // Selector contract: role navigation is shared through visible_workflows.ts:80; Sysadmin surfaces
 // are owned by src/pages/course_list_page.tsx:149, src/pages/instructor_accounts_page.tsx:126,
-// and src/pages/support_roster_page.tsx:32.
+// and src/pages/instructor_accounts_page.tsx:126.
 
 import type { Locator, Page } from "playwright";
 
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
 import {
-  COURSE_TITLE,
-  enterInstructor,
   enterSysadmin,
-  openInstructorCourse,
   scrollTop,
 } from "./visible_workflows";
 
@@ -114,120 +111,6 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
   }
 }
 
-function supportCapabilityId(
-  value: unknown,
-  expectedCourseReference: string,
-  expectedSysadminReference: string,
-): string {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("support capability receipt must be an object");
-  }
-  const receipt = value as Record<string, unknown>;
-  const capabilityId = receipt["capabilityId"];
-  const expectedFields = [
-    "capabilityId",
-    "courseReference",
-    "expiresAt",
-    "minimumProjection",
-    "operationKind",
-    "purpose",
-    "revokedAt",
-    "sysadminReference",
-  ];
-  if (
-    Object.keys(receipt).sort().join(",") !== expectedFields.join(",") ||
-    typeof capabilityId !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(capabilityId) ||
-    receipt["courseReference"] !== expectedCourseReference ||
-    receipt["sysadminReference"] !== expectedSysadminReference ||
-    receipt["operationKind"] !== "course_roster_support" ||
-    receipt["minimumProjection"] !== "course_roster" ||
-    receipt["purpose"] !== "Review the screenshot corpus roster projection" ||
-    typeof receipt["expiresAt"] !== "number" ||
-    !Number.isSafeInteger(receipt["expiresAt"]) ||
-    receipt["revokedAt"] !== null
-  ) {
-    throw new Error("support capability receipt does not match the requested scope");
-  }
-  return capabilityId;
-}
-
-async function issueSupportCapability(runtime: ScenarioRuntime): Promise<string> {
-  // Capability issuance has no product UI. The existing same-origin contract prepares the token;
-  // seeded Sysadmin U-5 still consumes it through the visible Scoped Support form below.
-  const setupRecord = runtime.record("sysadmin_support", "support_entry");
-  const setup = await runtime.open(setupRecord);
-  const page = setup.page;
-  try {
-    await enterInstructor(page);
-    await openInstructorCourse(page, COURSE_TITLE);
-    const match = new URL(page.url()).pathname.match(/\/courses\/(C-[1-9][0-9]{0,9})$/u);
-    if (match?.[1] === undefined)
-      throw new Error("Live Demo Course lacks a canonical public reference");
-    const courseReference = match[1];
-    await page.getByRole("link", { name: "Open Students", exact: true }).click();
-    await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
-    await page
-      .getByLabel("Email, roster ID")
-      .fill("screenshot.support@live-demo.invalid,screenshot-support");
-    await page.getByRole("button", { name: "Import roster", exact: true }).click();
-    await page.getByText("screenshot-support", { exact: true }).waitFor();
-    const response = await page.evaluate(
-      async ({ courseReference, sysadminReference }) => {
-        const result = await fetch(
-          `/api/course-instances/${encodeURIComponent(courseReference)}/support-capabilities`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            credentials: "same-origin",
-            cache: "no-store",
-            body: JSON.stringify({
-              sysadminReference,
-              purpose: "Review the screenshot corpus roster projection",
-            }),
-          },
-        );
-        return { ok: result.ok, status: result.status, body: (await result.json()) as unknown };
-      },
-      { courseReference, sysadminReference: SEEDED_SYSADMIN_REFERENCE },
-    );
-    if (!response.ok || response.status !== 201) {
-      throw new Error(`support capability issuance failed with HTTP ${String(response.status)}`);
-    }
-    return supportCapabilityId(response.body, courseReference, SEEDED_SYSADMIN_REFERENCE);
-  } finally {
-    await runtime.close(setup);
-  }
-}
-
-async function sysadminSupport(runtime: ScenarioRuntime): Promise<void> {
-  const scenario = "sysadmin_support";
-  const capabilityId = await issueSupportCapability(runtime);
-  const session = await runtime.open(runtime.record(scenario, "support_entry"));
-  const page = session.page;
-  try {
-    await enterSysadmin(page);
-    await page
-      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
-      .getByRole("link", { name: "Scoped Support", exact: true })
-      .click();
-    await page
-      .getByRole("heading", { name: "Scoped course roster support", exact: true })
-      .waitFor();
-    await captureCheckpoint(runtime, scenario, "support_entry", session);
-    await page.getByLabel("Support capability ID").fill(capabilityId);
-    await page.getByRole("button", { name: "Open scoped roster", exact: true }).click();
-    const roster = page.getByRole("region", { name: "Scoped course roster", exact: true });
-    await roster.getByText("Roster ID: screenshot-support", { exact: true }).waitFor();
-    if ((await page.getByLabel("Support capability ID").inputValue()) !== "") {
-      throw new Error("support capability remained in the visible credential field");
-    }
-    await captureCheckpoint(runtime, scenario, "support_roster", session);
-  } finally {
-    await runtime.close(session);
-  }
-}
-
 export const SYSADMIN_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   { id: "sysadmin_courses", checkpoints: ["course_list"], run: sysadminCourses },
   {
@@ -239,10 +122,5 @@ export const SYSADMIN_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       "account_deactivated",
     ],
     run: sysadminAccounts,
-  },
-  {
-    id: "sysadmin_support",
-    checkpoints: ["support_entry", "support_roster"],
-    run: sysadminSupport,
   },
 ];

@@ -64,7 +64,7 @@ impl VerifiedImathasResult {
     /// The iMathAS Question Backend verifier is the only production constructor. Its
     /// result token has already passed signature, expiry, exact question, and
     /// exact iMathAS-binding checks before this sealed grade exists. The
-    /// caller-owned Assignment submission path records the immutable outcome
+    /// caller-owned Assessment submission path records the immutable outcome
     /// after protocol verification succeeds.
     pub(crate) fn from_result_verification(
         _seal: crate::result_verification::ImathasResultVerificationSeal,

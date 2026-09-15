@@ -20,7 +20,7 @@ convergent database-owned operation: it creates a temporary publication
 context, publishes the eight Pilot Questions through the ordinary publisher,
 then runs `install.sql`. `live_demo.sql` adds ordinary Accounts, an Authoring
 Workspace, saved Blueprint Course Revision, Course, roster claims, and a released
-Assignment with exact Question Revision pins. Repeating `apply` converges on
+Assessment with exact Question Revision pins. Repeating `apply` converges on
 that same database-owned graph.
 
 Direct SQL is used only for state PostgreSQL owns completely. Attempts,

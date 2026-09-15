@@ -1,5 +1,5 @@
 -- Immutable grading evidence.  Every result is rooted at one accepted
--- Submission and retained Attempt evidence; Assignment Revision is not an
+-- Submission and retained Assessment Attempt evidence; Assessment Revision is not an
 -- interpretation source.
 
 SET LOCAL ROLE ple_private_owner;
@@ -24,7 +24,7 @@ CREATE TABLE ple_private.grading_result (
     question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt(question_attempt_id)
         ON DELETE CASCADE,
     -- The Question Backend owns response interpretation.  PLE retains only
-    -- its normalized immutable outcome; point values remain Assignment
+    -- its normalized immutable outcome; point values remain Assessment
     -- configuration and are applied by score readers.
     normalized_credit numeric NOT NULL CHECK (
         normalized_credit >= 0 AND normalized_credit <= 1
@@ -39,8 +39,8 @@ CREATE TABLE ple_private.grading_result (
     UNIQUE (question_submission_grading_id, grading_result_id)
 );
 
--- Applies current Assignment Entry points to retained backend credit.  The
--- stable Entry identifier remains present after a released Assignment save,
+-- Applies current Assessment Entry points to retained backend credit.  The
+-- stable Entry identifier remains present after a released Assessment save,
 -- including when an Entry is retired, so historical Student Work continues
 -- to have a current score without consulting a Question Backend.
 CREATE FUNCTION ple_private.score_recorded_credit(
@@ -147,14 +147,14 @@ CREATE POLICY grading_result_private_owner_access
 
 SET LOCAL ROLE ple_private_owner;
 
--- Completion reads only the Attempt's retained policy and issued scoring
--- facts.  It holds the Assignment Attempt while it decides whether a result
--- completes it; callers already acquire the Assignment root before commit.
-CREATE FUNCTION ple_private.complete_assignment_attempt_after_grading()
+-- Completion reads only the Assessment Attempt's retained policy and issued scoring
+-- facts.  It holds the Assessment Attempt while it decides whether a result
+-- completes it; callers already acquire the Assessment root before commit.
+CREATE FUNCTION ple_private.complete_assessment_attempt_after_grading()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 DECLARE
-    target_attempt ple_private.assignment_attempt%ROWTYPE;
+    target_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
     required_count bigint;
     resolved_count bigint;
     all_correct boolean;
@@ -164,15 +164,15 @@ DECLARE
     complete boolean;
     deadline_finalized boolean;
 BEGIN
-    SELECT assignment_attempt.* INTO target_attempt
+    SELECT assessment_attempt.* INTO target_assessment_attempt
       FROM ple_private.question_attempt AS question_attempt
       JOIN ple_private.issued_question AS issued
         ON issued.issued_question_id = question_attempt.issued_question_id
-      JOIN ple_private.assignment_attempt AS assignment_attempt
-        ON assignment_attempt.assignment_attempt_id = issued.assignment_attempt_id
+      JOIN ple_private.assessment_attempt AS assessment_attempt
+        ON assessment_attempt.assessment_attempt_id = issued.assessment_attempt_id
      WHERE question_attempt.question_attempt_id = NEW.question_attempt_id
-       AND assignment_attempt.completed_at IS NULL
-     FOR UPDATE OF assignment_attempt;
+       AND assessment_attempt.completed_at IS NULL
+     FOR UPDATE OF assessment_attempt;
     IF NOT FOUND THEN
         RETURN NEW;
     END IF;
@@ -194,8 +194,8 @@ BEGIN
         ON question_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.grading_result AS result
         ON result.question_attempt_id = question_attempt.question_attempt_id
-      JOIN ple_data.assignment_entry AS entry
-        ON entry.assignment_entry_id = issued.assignment_entry_id
+      JOIN ple_data.assessment_entry AS entry
+        ON entry.assessment_entry_id = issued.assessment_entry_id
       CROSS JOIN LATERAL ple_private.score_recorded_credit(
           coalesce(result.normalized_credit, 0), issued.scoring_rule,
           CASE entry.entry_kind
@@ -203,38 +203,38 @@ BEGIN
               ELSE entry.points_per_item
           END
       ) AS score
-     WHERE issued.assignment_attempt_id = target_attempt.assignment_attempt_id;
+     WHERE issued.assessment_attempt_id = target_assessment_attempt.assessment_attempt_id;
 
     SELECT EXISTS (
-        SELECT 1 FROM ple_private.assignment_submission AS submission
-         WHERE submission.assignment_attempt_id = target_attempt.assignment_attempt_id
+        SELECT 1 FROM ple_private.assessment_submission AS submission
+         WHERE submission.assessment_attempt_id = target_assessment_attempt.assessment_attempt_id
            AND submission.finalization_kind = 'deadline'
     ) INTO deadline_finalized;
     score := CASE WHEN possible > 0 THEN earned / possible ELSE 0 END;
     complete := required_count > 0 AND resolved_count = required_count AND (
         deadline_finalized OR CASE
-            WHEN target_attempt.assignment_completion_rule = 'answer_all' THEN true
-            WHEN target_attempt.assignment_completion_rule = 'all_correct' THEN all_correct
-            WHEN target_attempt.assignment_completion_rule = 'score_at_least'
-                THEN possible > 0 AND score >= target_attempt.assignment_completion_score_threshold
+            WHEN target_assessment_attempt.assessment_completion_rule = 'answer_all' THEN true
+            WHEN target_assessment_attempt.assessment_completion_rule = 'all_correct' THEN all_correct
+            WHEN target_assessment_attempt.assessment_completion_rule = 'score_at_least'
+                THEN possible > 0 AND score >= target_assessment_attempt.assessment_completion_score_threshold
             ELSE false
         END
     );
     IF complete THEN
-        UPDATE ple_private.assignment_attempt
-           SET completed_at = greatest(target_attempt.started_at, NEW.recorded_at)
-         WHERE assignment_attempt_id = target_attempt.assignment_attempt_id
+        UPDATE ple_private.assessment_attempt
+           SET completed_at = greatest(target_assessment_attempt.started_at, NEW.recorded_at)
+         WHERE assessment_attempt_id = target_assessment_attempt.assessment_attempt_id
            AND completed_at IS NULL;
     END IF;
     RETURN NEW;
 END $$;
-CREATE TRIGGER grading_result_may_complete_assignment_attempt
+CREATE TRIGGER grading_result_may_complete_assessment_attempt
 AFTER INSERT ON ple_private.grading_result
-FOR EACH ROW EXECUTE FUNCTION ple_private.complete_assignment_attempt_after_grading();
+FOR EACH ROW EXECUTE FUNCTION ple_private.complete_assessment_attempt_after_grading();
 
 -- Inserts the immutable evidence for one backend result that was obtained
 -- before the finalization transaction. The caller has already revalidated the
--- saved-response snapshot and locked the Assignment root.
+-- saved-response snapshot and locked the Assessment root.
 CREATE FUNCTION ple_private.record_direct_automated_grading_result(
     p_submission_id uuid,
     p_question_attempt_id uuid,

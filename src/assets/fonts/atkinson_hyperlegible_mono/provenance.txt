@@ -1,0 +1,29 @@
+Atkinson Hyperlegible Mono browser font assets
+
+Source repository:
+https://github.com/googlefonts/atkinson-hyperlegible-next-mono
+
+Pinned source revision:
+154d50362016cc3e873eb21d242cd0772384c8f9
+
+Release identity:
+Version 2.001, first release 20 November 2024.
+
+Publisher and typeface background:
+https://www.brailleinstitute.org/freefont/
+
+Retained files:
+- atkinson_hyperlegible_mono_variable.woff2
+  Source: fonts/webfonts/AtkinsonHyperlegibleMono[wght].woff2
+  SHA-256: 4cf41c5cacdb2e98311929f3a482e95b2299ca34e6f389e8968a9075e355d58a
+- atkinson_hyperlegible_mono_variable_italic.woff2
+  Source: fonts/webfonts/AtkinsonHyperlegibleMono-Italic[wght].woff2
+  SHA-256: 6cc3d58e20a4126f837f96ad2ff750628cae6112b8b915794b5c82712b3c1550
+
+License:
+SIL Open Font License, Version 1.1. The full text is in ofl_1_1.txt.
+
+Build owner:
+pipeline/build.mjs copies these same-origin browser assets into dist/ and checks
+styles/browser_fonts.css for the local normal and italic font references; style.css
+owns the shared monospace token.

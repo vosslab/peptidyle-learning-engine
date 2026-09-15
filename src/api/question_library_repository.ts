@@ -2,10 +2,12 @@
 
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
+import type { QuestionId } from "../../generated/api/QuestionId";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
 import type { ApiClient } from "./client";
+import { normalizeQuestionIdSyntax } from "../question_id";
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRepository,
@@ -40,6 +42,36 @@ const QUESTION_TYPES = [
   "ordering",
   "hotspot",
 ] as const satisfies ReadonlyArray<QuestionType>;
+
+/**
+ * The exact selected Published Question identities a later bulk command may
+ * carry. This is intentionally selection-only: it does not name an operation
+ * or include mutable metadata before those product boundaries exist.
+ */
+export interface QuestionLibraryBulkSelectionRequest {
+  readonly questionIds: ReadonlyArray<QuestionId>;
+}
+
+/**
+ * Closes the browser-side boundary for a nonempty, distinct Question Library
+ * selection. The later bulk-operation client owns the route and command.
+ */
+export function questionLibraryBulkSelectionRequest(
+  questionIds: ReadonlyArray<string>,
+): QuestionLibraryBulkSelectionRequest {
+  if (questionIds.length === 0) {
+    throw new Error("A Question Library bulk operation requires at least one Question ID");
+  }
+  const normalized = questionIds.map((questionId) => normalizeQuestionIdSyntax(questionId));
+  if (normalized.some((questionId) => questionId === null)) {
+    throw new Error("A Question Library bulk operation requires canonical Question IDs");
+  }
+  const canonicalQuestionIds = normalized as Array<QuestionId>;
+  if (new Set(canonicalQuestionIds).size !== canonicalQuestionIds.length) {
+    throw new Error("A Question Library bulk operation cannot select a Question more than once");
+  }
+  return { questionIds: canonicalQuestionIds };
+}
 
 function selectedCapability(value: string | null): Array<Capability> {
   if (value === null) {
@@ -155,6 +187,7 @@ export function createQuestionLibraryRepository(
           displayId: item.summary.questionId,
           questionTitle: item.summary.metadata.questionTitle,
           summary: item.summary.metadata.questionDescription,
+          questionFormat: item.summary.questionFormat,
           authorNames: item.summary.authorship.authors.map((author) => author.displayName),
           capabilities: item.summary.capabilities,
           questionLicense: item.summary.metadata.questionLicense,

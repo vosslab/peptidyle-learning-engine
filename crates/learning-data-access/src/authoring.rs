@@ -6,7 +6,7 @@
 
 use async_trait::async_trait;
 use objects::ObjectRecord;
-use question_model::{DraftQuestionReference, QuestionType, WorkspaceId};
+use question_model::{DraftQuestionReference, QuestionFormat, QuestionType, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreError};
@@ -26,6 +26,9 @@ pub struct AuthoringDraft {
     pub title: String,
     /// Private Instructor-facing discovery description.
     pub description: String,
+    /// Deliberately authored backend-independent feedback for the next
+    /// published Question Revision. It is never source-derived.
+    pub general_feedback: Option<String>,
     /// Current author-declared educational type that publication makes immutable.
     pub question_type: QuestionType,
     /// Exact current private source object evidence.
@@ -48,6 +51,9 @@ pub struct CreateAuthoringDraftInput {
     pub draft_question_uuid: DraftQuestionUuid,
     /// Exact source Object Record written before persistence registration.
     pub source_record: ObjectRecord,
+    /// Trusted authoring or import provenance for the exact source representation.
+    /// This is never inferred from a filename or source bytes.
+    pub question_format: QuestionFormat,
     /// Registered OPL-style PG location for a WeBWorK source. Native PLE
     /// Question JSON carries no WeBWorK routing field.
     pub webwork_pg_path: Option<String>,
@@ -80,17 +86,33 @@ pub struct SaveAuthoringDraftInput {
     pub language: String,
 }
 
-/// Confirms that the initial Draft Question binding can be derived exactly
-/// from the source media type. The database repeats this invariant inside the
-/// creation transaction before it records the mutable Draft state.
+/// One deliberate metadata-only Draft edit. This is separate from Question
+/// source saving so no backend source is parsed, reconstructed, or rewritten.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SaveAuthoringDraftGeneralFeedbackInput {
+    pub reference: DraftQuestionReference,
+    pub expected_edit_number: DraftQuestionEditNumber,
+    pub general_feedback: Option<String>,
+}
+
+/// Confirms that the initial Draft Question binding has an explicit source
+/// format compatible with its media type. The database repeats this invariant
+/// inside the creation transaction before it records the mutable Draft state.
 #[cfg(feature = "postgres")]
 pub(crate) fn validate_initial_draft_source_binding(
     media_type: &str,
+    question_format: QuestionFormat,
     webwork_pg_path: Option<&str>,
 ) -> Result<(), StoreError> {
-    match (media_type, webwork_pg_path) {
-        ("application/vnd.peptidyle.question+json", None) => Ok(()),
-        ("text/x-wework-pg", Some(path)) if valid_webwork_pg_path(path) => Ok(()),
+    match (media_type, question_format, webwork_pg_path) {
+        ("application/vnd.peptidyle.question+json", QuestionFormat::PleQuestionJson, None) => {
+            Ok(())
+        }
+        (
+            "text/x-wework-pg",
+            QuestionFormat::WebworkPg | QuestionFormat::WebworkPgml,
+            Some(path),
+        ) if valid_webwork_pg_path(path) => Ok(()),
         _ => Err(StoreError::InvalidRecord(
             "Draft Question source media type and initial source binding are inconsistent"
                 .to_string(),
@@ -147,6 +169,13 @@ pub trait AuthoringDraftStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         input: SaveAuthoringDraftInput,
     ) -> Result<AuthoringDraft, StoreError>;
+
+    /// Replaces only deliberate general feedback under the ordinary Draft CAS.
+    async fn save_authoring_draft_general_feedback(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: SaveAuthoringDraftGeneralFeedbackInput,
+    ) -> Result<AuthoringDraft, StoreError>;
 }
 
 #[cfg(all(test, feature = "postgres"))]
@@ -156,23 +185,49 @@ mod tests {
     #[test]
     fn initial_draft_source_binding_matches_its_supported_media_type() {
         assert_eq!(
-            validate_initial_draft_source_binding("application/vnd.peptidyle.question+json", None,),
+            validate_initial_draft_source_binding(
+                "application/vnd.peptidyle.question+json",
+                QuestionFormat::PleQuestionJson,
+                None,
+            ),
             Ok(())
         );
         assert_eq!(
-            validate_initial_draft_source_binding("text/x-wework-pg", Some("Library/Algebra.pg")),
-            Ok(())
-        );
-        for (media_type, path) in [
-            (
-                "application/vnd.peptidyle.question+json",
+            validate_initial_draft_source_binding(
+                "text/x-wework-pg",
+                QuestionFormat::WebworkPg,
                 Some("Library/Algebra.pg"),
             ),
-            ("text/x-wework-pg", None),
-            ("text/x-wework-pg", Some("../Algebra.pg")),
-            ("application/json", None),
+            Ok(())
+        );
+        assert_eq!(
+            validate_initial_draft_source_binding(
+                "text/x-wework-pg",
+                QuestionFormat::WebworkPgml,
+                Some("Library/Algebra.pgml"),
+            ),
+            Ok(())
+        );
+        for (media_type, format, path) in [
+            (
+                "application/vnd.peptidyle.question+json",
+                QuestionFormat::PleQuestionJson,
+                Some("Library/Algebra.pg"),
+            ),
+            ("text/x-wework-pg", QuestionFormat::WebworkPg, None),
+            (
+                "text/x-wework-pg",
+                QuestionFormat::WebworkPgml,
+                Some("../Algebra.pgml"),
+            ),
+            (
+                "text/x-wework-pg",
+                QuestionFormat::PleQuestionJson,
+                Some("Library/Algebra.pg"),
+            ),
+            ("application/json", QuestionFormat::PleQuestionJson, None),
         ] {
-            assert!(validate_initial_draft_source_binding(media_type, path).is_err());
+            assert!(validate_initial_draft_source_binding(media_type, format, path).is_err());
         }
     }
 }

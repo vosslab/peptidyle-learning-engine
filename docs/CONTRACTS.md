@@ -22,12 +22,115 @@ institution tenancy boundary. Course, Assessment, Student Work, worker, and
 object operations each authorize their exact parent relationship rather than a
 caller-selected role or scope.
 
-An Account Time Zone is a self-owned exact IANA display preference. The Student
-read and update boundary accepts no Account identity and repeats active Student
-authorization in PostgreSQL. Roster import marks only a newly created Student
-Account for a one-time default; invitation acceptance copies the inviting
-Instructor's zone unless the Student already chose a zone. Existing Accounts
-keep their preference, and changing a zone never moves an absolute deadline.
+### DD-A9-01: direct preproduction Assessment cutover
+
+Before the first production deployment, every generic `assignment` identifier
+changes directly to Assessment in the schema, model, Store/server contracts,
+routes, DTOs, API, and Blueprint JSON. This preserves public `A-` references,
+UUID values, and the five Assessment Type enum values; Assignment remains only
+in the three Type display names. The canonical JSON names are `assessment`,
+`assessmentReference`, `assessmentAttempt`, `assessmentEntry`,
+`assessmentStatus`, `assessments`, and `blueprint_assessment_reference`.
+Canonical decoders accept only those names.
+
+This is one preproduction rebuild, not a compatibility migration. It permits
+no SQL view, alias, dual DTO, dual decoder, dual import, dual API, or
+mixed-nomenclature reader. A fresh installation is canonical; an offline
+developer export-transform-import may assist that resettable rebuild, but
+there is no runtime legacy Blueprint import. A failed rollout restores the
+previous code and matching resettable preproduction database together.
+
+There is no legacy browser redirect or API compatibility layer. The
+preproduction rebuild uses canonical Assessment paths and APIs directly.
+
+Account Settings is a self-owned, all-Product-Role exact IANA display
+preference. `GET` / `PUT /api/account/settings` has the closed
+`{ "timeZone": "exact IANA name" }` shape and accepts no Account, Course, or
+Product Role selector. PostgreSQL derives the active Account from the
+authenticated session and atomically reads or updates that Account's
+preference. Roster import marks only a newly created Student Account for a
+one-time default; invitation acceptance copies the inviting Instructor's zone
+unless the Student already chose a zone. Existing Accounts keep their
+preference. A change updates display and an Instructor's later wall-clock date
+entry interpretation; it never moves an absolute stored deadline.
+
+Profile Settings owns avatar selection and Profile-image work. Instructor
+Profile displays the current Account time zone and links to Account Settings;
+it does not edit the preference. Account Settings exposes no passkey, email,
+TOTP, recovery, Account-status, or session control. Required Student and
+Instructor passwordless authentication and multiple Student passkeys remain
+Accounts-and-roles work. Only self-service enumeration, revocation,
+re-authentication, identity-proofed recovery, notification, and
+session-termination semantics remain unresolved pending a separate decision.
+C15 remains the separate Sysadmin TOTP session contract, with no self-service
+TOTP management or recovery.
+
+## Accounts and profiles
+
+PLE-provided avatars are a versioned first-party static catalog. The canonical
+source-controlled `assets/avatar_catalog/` holds the manifest, original SVGs,
+and `PROVENANCE`; a deterministic generator derives the Rust registry,
+TypeScript catalog, and SQL seed. Catalog IDs are stable ASCII values that are
+never renamed or reused. Each has a `selectable` flag: a retired avatar remains
+renderable but is no longer selectable, and `provided_avatar.is_selectable`
+enforces that boundary.
+
+The catalog admits only a safe, bounded SVG grammar and contains original
+abstract toy-brick, color, and pattern art licensed CC-BY-4.0, with no LEGO
+marks or copied minifigure art. The browser receives static same-origin
+fingerprinted app assets, not a catalog-list API. The self-choice API is
+self-only; the server and database authorize the generated seed. An unknown
+stored ID renders the safe generic avatar and starts catalog-drift repair,
+never a selectable fallback.
+
+The generated registry, TypeScript catalog, SQL seed, and fingerprinted assets
+are one deploy and rollback unit. A fresh install must accept that unit.
+Temporary generator, schema, unknown-ID, and fresh-install checks prove the
+rebuild and are removed at plan closeout unless a check earns permanent status
+under `PYTEST_STYLE.md`. A retained retired-ID renderable/not-selectable test
+protects the durable catalog contract; its failure means repair the generator,
+seed, or authorization boundary before closure.
+
+Staff cross-Account Profile-image delivery is an explicit unresolved product
+question. Self-only delivery is the default. C40 owns the provided-avatar
+catalog and reusable picker contributor. C819 owns role-neutral Profile
+Settings authorization; C820 owns the real `/profile` route and page
+integration. The catalog and picker may be completed before those routes, but
+no C40 Human Guidance bullet closes until C819 and C820 make Student selection
+discoverable in real Profile Settings.
+
+| Boundary | Owner and evidence |
+| --- | --- |
+| First-party provided-avatar catalog | C40, with C819/C820 route dependencies, in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); generated registry, TypeScript catalog, SQL seed, and fresh-install verification |
+
+## Authentication and sessions
+
+Primary authentication creates an opaque pending-MFA state when the
+database-derived Product Role is Sysadmin; it creates no authenticated session.
+PostgreSQL alone derives that role and atomically requires and consumes one
+unused, short-lived, Account- and browser-bound TOTP attestation while creating
+the Sysadmin session. The one-use transition rolls back with session creation:
+a failed transition creates no session, and a consumed attestation cannot be
+used again. Student and Instructor session behavior remains unchanged.
+
+The server validates the 30-second TOTP counter, rejects replay, rate-limits
+attempts, and never logs a TOTP value or seed. The TOTP seed is encrypted at
+rest under a wrapping key. These requirements apply OWASP ASVS 2.1.1,
+2.2.1--2.2.3, 2.3.1 and 2.3.3, 6.1.3, 6.3.1 and 6.3.4, 6.4.3 and 6.4.4,
+6.5.1, 6.5.3, 6.5.5, and 6.5.8, 7.2.1--7.2.4, 7.4.1 and 7.4.3, and
+7.5.1. No recovery or self-service TOTP management contract exists.
+
+The browser receives only the pending-MFA and completion boundary; it never
+receives a seed or a fixed demonstration secret. The local controller may
+provision a genuine operating-system-CSPRNG seed and write a restricted,
+ignored, mode-0600 operator artifact for the Live Demo, logging only its path.
+A separate local authenticator consumes that artifact. It is not a browser
+credential and does not bypass MFA.
+
+| Boundary | Owner and evidence |
+| --- | --- |
+| Sysadmin TOTP session transition | C15 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); future authentication Store, server, and base-schema boundaries |
+| Account Settings time zone | C819-C823 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); closed browser decoder, server validation, and one self-derived PostgreSQL transaction |
 
 ## Reusable content
 
@@ -36,6 +139,9 @@ keep their preference, and changing a zone never moves an absolute deadline.
 | Question lineage and revision  | A Published Question is one stable lineage. A `QuestionRevisionReference` is its Question ID plus immutable positive revision number. Publication creates complete immutable Question Revision facts, including source, provenance, and required metadata. A later publication appends a revision; it does not alter an earlier one.                                                                                                                                                                     | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [question_lineages.sql](../schemas/base_schema/question_lineages.sql) |
 | Question discovery             | A Published Question is discoverable and selectable by vetted Instructors. Archive hides it from ordinary discovery and new selection while authorized exact Revision references continue to resolve. Current implementation may call the discoverable state `Available`; that name is not a separate product object or Revision state. | [question_library.rs](../crates/question_model/src/question_library.rs), [question_lineages.sql](../schemas/base_schema/question_lineages.sql) |
 | Question ID                    | PostgreSQL stores the compact eight-character canonical Crockford Base32 value. Browser-facing display and serialization use `AAAA-ZBBB`; the hyphen is presentation only. Seven identity characters come from a cryptographically secure server source and the middle check character is validated by the server-held HMAC secret. Database uniqueness of the valid full value is the identity boundary.                                                                                                 | [question_library.rs](../crates/question_model/src/question_library.rs), [question_publication.rs](../crates/server/src/question_publication.rs), [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md)                            |
+| Question Pool                  | A reusable Published Pool has one server-minted public ID and immutable sequential Pool Revisions. Each Revision pins a bounded nonempty ordered distinct list of Published Question ID-and-Revision references and retains its Instructor interchangeability attestation; a change appends through Pool metadata ETag/CAS. Pool membership is backend neutral. Selection-count placement is intentionally unresolved: no Pool/Assessment default, override, or selection API exists until the recorded product question decides its source, validation, and evidence rule. | C312, C313, C885-C887, and C904 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md) |
+| Bulk Published Question metadata | An active vetted Instructor may atomically replace only the current shared `tags`, `subject`, and `topic` for a bounded nonempty distinct set of canonical Published Question IDs. Every selected ID supplies its exact metadata Edit Number; stale, invalid, unauthorized, unavailable, duplicate, or oversized selection changes none and produces only a whole outcome. Source, answer, grading, feedback, assets, backend, Question Type, authorship, ownership, availability, and immutable Question Revisions are excluded. | C365-C368 and C893 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md) |
+| BiologyProblems.org algorithmic catalog | Each BiologyProblems.org WeBWorK family records one canonical algorithmic author source (official PG/PGML or generator), produces exactly one canonical algorithmic PG/PGML file and ordinary Published Question lineage, and replaces its generated static variants. Algorithmic Questions ordinarily stand alone, but an Instructor may deliberately Pool distinct similar algorithms when selection is useful; Pool selection and backend-native variation remain independent. Only after per-family source acceptance, representative deterministic render/grade proof, and expected-current Blueprint Revision CAS may current placements change. A successor Pool Revision removes redundant generated variants while intentional distinct-algorithm Pools remain. Replaced static Question lineages, redundant Pool lineages, and generated source copies retire only through this forward path. Exact immutable Question/Pool Revisions, Blueprint pins, and Student Work remain resolvable; no history is deleted, repurposed, or raw-SQL-rewritten. The shipped 119 static banks remain unmigrated; the manifest's 13 algorithmic-source definitions, including HLA, are migration inputs, not runtime proof. | C824-C841 in the active [Human Guidance implementation compliance plan](active_plans/active/human_guidance_implementation_compliance_plan.md); future bundled content manifest, Question publication, Pool, and Blueprint publication boundaries |
 | Blueprint lineage and revision | A Blueprint Course is a stable reusable lineage created Private with Revision 1. A `BlueprintRevisionReference` names one exact immutable Revision; a changed explicit Save based on its current Revision creates the next one, while a canonical no-op returns the current Revision with `changed: false`. Blueprint Assessment provenance retains that exact Revision and the stable Blueprint Assessment reference when Course state derives from reusable content. | [contracts.rs](../crates/question_model/src/blueprint_operations/contracts.rs), [blueprints.sql](../schemas/base_schema/blueprints.sql)                                                                                 |
 
 Blueprint Courses use Private, Public, and Archived lifecycle states. Private is
@@ -90,11 +196,40 @@ Each Issued Question retains its Assessment position, exact
 Question Revision, point and scoring facts, statistics
 eligibility, and pool-selection source. Attempt-position presentation and
 backend-evidence records retain the exact backend and asset bindings used for that
-work, including a seed only for a backend that uses one. Native PLE Question
-JSON is static and receives no random seed. Private normalized response-item bindings map each
-presentation-scoped four-hex reference to the durable authored response-item
-identity, so evidence readers interpret saved work without a mutable source
-lookup. Saved responses are private mutable input while the Attempt is active.
+work. Reproduction is explicitly tagged `Static` or `Seeded`. Native
+`pleQuestionJson` is `Static`: it retains no `QuestionSeed` or
+generated-parameter hash. Its PLE-server-generated presentation nonce binds
+only presentation-scoped response-item references and authored choice ordering;
+it is neither a source nor author-JavaScript seed. `Seeded` backends retain
+their backend-owned seed and generated-parameter hash only when used. The
+descriptor evidence checksum v4 binds the tag and applicable facts: a static
+descriptor rejects a seed/hash, while a seeded descriptor binds them. Current
+delivery maps native PLE JSON to `Static`, WeBWorK to `Seeded`, and iMathAS to
+`Seeded` when its backend session is delivered. H5P has no delivered binding or
+retained binding seam: C870 removed the placeholder. A future product-approved
+H5P implementation must explicitly choose `Static` or `Seeded`; it must not
+infer or default a seed. Private normalized response-item bindings map
+each presentation-scoped four-hex reference to the durable authored
+response-item identity, so evidence readers interpret saved work without a
+mutable source lookup. Saved responses are private mutable input while the
+Attempt is active.
+
+An author may name only a closed server registry library identifier, currently
+`rdkit`; an author never supplies a URL, CDN domain, local path, package
+version, or asset digest. The server resolves the current reviewed RDKit.js
+JS/WASM pair and derives its exact unversioned local runtime paths. The isolated
+document has no general network capability: its only dependency fetch is the
+current registry-selected RDKit WASM path required by the reviewed JS bootstrap.
+Its opaque sandbox CSP permits `'unsafe-eval'` only for that current official
+RDKit loader; this does not broaden the main PLE CSP or add a network source.
+The closed `libraries: []` branch has no runtime tags, `connect-src 'none'`,
+nonce-only `script-src`, and no `'unsafe-eval'`.
+
+The answer-free descriptor retains only source and closed library IDs. It does
+not bind a package version, asset digest, cache key, or historical dependency
+identity into reproduction evidence. C901 supplies the current local runtime;
+C902 refreshes it under the repository's latest-dependency policy. This is
+never authorization for an author-selected version or path.
 At start, a timed Attempt retains one immutable expiry instant: the earlier of
 its retained close instant and start plus retained time limit. The Student's
 whole-Attempt action and server-owned expiry finalization use one ordinary
@@ -117,6 +252,22 @@ percentage calculation. Pilot grade export is CSV or TSV point data.
 | Attempt access, start, resume, and retained evidence | [attempt_evidence.rs](../crates/question_model/src/student_work/attempt_evidence.rs), [assignment_delivery.rs](../crates/server/src/assignment_delivery.rs), [attempts.sql](../schemas/base_schema/attempts.sql), [attempt_access.sql](../schemas/base_schema/attempt_access.sql) |
 | Issued Questions, interaction, and presentation      | [assignment_attempt.rs](../crates/learning-data-access/src/assignment_attempt.rs), [attempt_interaction.sql](../schemas/base_schema/attempt_interaction.sql), [attempt_presentation.sql](../schemas/base_schema/attempt_presentation.sql)                                         |
 | Submission, grading, history, and statistics         | [submission.rs](../crates/server/src/assignment_delivery/submission.rs), [grading.sql](../schemas/base_schema/grading.sql), [attempt_history.sql](../schemas/base_schema/attempt_history.sql), [statistics.sql](../schemas/base_schema/statistics.sql)                            |
+
+The tagged-reproduction cutover changes the preproduction base schema and its
+model, Store/server, and Student Work readers together, then reinitializes a
+fresh database. No seed sentinel, null ambiguity, compatibility reader, or
+compatibility shim is allowed. The server builds the tagged descriptor before
+one database transaction validates and writes the Question Attempt,
+presentation binding, and response-item evidence; any later failure rolls the
+transaction back without partial Student Work. One permanent public native
+no-seed contract test may be promoted only after every
+[PYTEST_STYLE.md](PYTEST_STYLE.md) permanent-test checklist item is yes;
+otherwise it remains temporary and is removed. The vertical database matrix is
+always temporary: it covers tagged acceptance and native seed/hash rejection,
+then is removed. If this coordinated cutover fails before the first production
+baseline, rollback restores the previous pre-production code and base schema
+together and reinitializes the disposable database; no mixed code/schema
+deployment is valid.
 
 Before a new Attempt starts, Assessment access and the Student Course landing
 must apply the same decision. The current Rust-owned
@@ -151,6 +302,43 @@ boundaries.
 
 There is no separate demo schema, demo role, marker, teardown capability, or
 alternate product representation.
+
+### Course Banner source, promotion, and delivery
+
+After EXIF orientation, an accepted Course Banner is a complete, positive still
+PNG, JPEG, or WebP for which `u64(width) == 5 * u64(height)`; incomplete,
+trailing, and polyglot inputs are rejected. The server and `ple_api`
+upload-staging boundary both enforce that oriented exact 5:1 rule. The existing
+8 MiB source-byte limit and 20-million-pixel limit apply. There is no minimum
+source dimension; 1280 by 256 is guidance only. Valid sources therefore
+include 5 by 1, smaller 5:1 sources, and 2560 by 512 sources.
+
+The server retains the immutable source and atomically promotes exactly one
+lossless-WebP semantic `Banner` rendition: 1280 by 256 and at most 2 MiB.
+Every smaller valid source is upscaled and every larger valid source is
+downscaled with aspect-preserving scaling, no crop, and no pad. `Hero` and
+`Card` have no direct preproduction model, object, schema, Store, server, or
+client contract. Each promotion mints a fresh opaque `CourseBannerReference`;
+the private rendition object identity is deterministically derived from the
+Course, that reference, and the sole `Banner` discriminator. The browser
+receives it only through one same-origin delivery route with `no-store`; it
+receives no storage key and cannot select a rendition.
+
+This is a whole preproduction code-and-schema cutover. If it fails, restore the
+previous code and base schema together and rebuild disposable fixtures. No
+alias, compatibility reader, mixed representation, or partial promotion is
+valid. C813 owns layout around the one delivered Banner representation.
+
+Use temporary proof for ratio acceptance, no-crop/no-pad promotion, and
+all-or-nothing promotion, then remove it. A permanent behavior oracle is
+permitted only if every [PYTEST_STYLE.md](PYTEST_STYLE.md) criterion is yes and
+its failure is release-blocking because it detects a ratio, crop, or
+partial-promotion regression. It must not constrain the exact 1280 dimensions,
+source dimensions, private enum shape, saga slots, or filter implementation.
+
+| Boundary | Owner |
+| --- | --- |
+| Course Banner contract | [course_appearance.rs](../crates/question_model/src/course_appearance.rs) and this contract |
 
 ## Explicitly absent contracts
 

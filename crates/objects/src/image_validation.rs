@@ -59,14 +59,33 @@ pub enum StillImageError {
     Animated,
     ZeroDimensions,
     DecodedPixelLimit,
+    /// A Course Banner must retain its whole 5:1 composition; accepting any
+    /// other ratio would require a crop or padding to make its fixed delivery
+    /// rendition.
+    WrongCourseBannerAspectRatio,
     /// A valid container was followed by unowned bytes, so it could be a
     /// polyglot or an ambiguity between parsers.
     Polyglot,
     Malformed,
 }
 
-/// Produces the exact, centered, lossless WebP rendition required by a Course
-/// Banner delivery route.  The source is decoded again at promotion time so a
+/// Verifies the exact 5:1 visual container required for a Course Banner.
+///
+/// Dimensions are measured after EXIF orientation.  This deliberately has no
+/// minimum pixel dimensions: a valid 5:1 source can be scaled up, while a
+/// non-5:1 source is refused rather than silently cropped or padded.
+pub fn verify_course_banner_still_image(
+    bytes: &[u8],
+) -> Result<VerifiedStillImage, StillImageError> {
+    let verified = verify_still_image(bytes)?;
+    if u64::from(verified.width) != 5 * u64::from(verified.height) {
+        return Err(StillImageError::WrongCourseBannerAspectRatio);
+    }
+    Ok(verified)
+}
+
+/// Produces the exact, uncropped, lossless WebP rendition required by a Course
+/// Banner delivery route. The source is decoded again at promotion time so a
 /// staged-object substitution cannot bypass the ingest validation boundary.
 // ASVS 5.2.1: decode and constrain hostile raster bytes before derived output.
 pub fn normalized_course_banner_webp(
@@ -77,10 +96,13 @@ pub fn normalized_course_banner_webp(
     if width == 0 || height == 0 {
         return Err(StillImageError::ZeroDimensions);
     }
-    verify_still_image(bytes)?;
-    // `load_from_memory` discards the decoder's EXIF orientation.  Decode
-    // through its decoder instead so the center crop is centered in the same
-    // visual orientation that `verify_still_image` measured.
+    verify_course_banner_still_image(bytes)?;
+    if u64::from(width) != 5 * u64::from(height) {
+        return Err(StillImageError::WrongCourseBannerAspectRatio);
+    }
+    // `load_from_memory` discards the decoder's EXIF orientation. Decode
+    // through its decoder so the scale uses the same visual orientation that
+    // `verify_still_image` measured.
     let mut decoder = ImageReader::new(Cursor::new(bytes))
         .with_guessed_format()
         .map_err(|_| StillImageError::Malformed)?
@@ -89,8 +111,14 @@ pub fn normalized_course_banner_webp(
     let orientation = decoder.orientation().map_err(malformed)?;
     let mut source = DynamicImage::from_decoder(decoder).map_err(malformed)?;
     source.apply_orientation(orientation);
-    let cropped = source.resize_to_fill(width, height, image::imageops::FilterType::Lanczos3);
-    let rgba = cropped.to_rgba8();
+    // The verified source and output are both 5:1. `resize` is therefore an
+    // aspect-preserving scale to the exact delivery dimensions, retaining both
+    // edge pixels instead of using resize_to_fill's crop behavior.
+    let scaled = source.resize(width, height, image::imageops::FilterType::Lanczos3);
+    if scaled.width() != width || scaled.height() != height {
+        return Err(StillImageError::Malformed);
+    }
+    let rgba = scaled.to_rgba8();
     let mut output = Vec::new();
     WebPEncoder::new_lossless(&mut output)
         .encode(&rgba, width, height, ExtendedColorType::Rgba8)
@@ -108,7 +136,28 @@ pub fn normalized_still_image_webp(
     width: u32,
     height: u32,
 ) -> Result<Vec<u8>, StillImageError> {
-    normalized_course_banner_webp(bytes, width, height)
+    if width == 0 || height == 0 {
+        return Err(StillImageError::ZeroDimensions);
+    }
+    verify_still_image(bytes)?;
+    let mut decoder = ImageReader::new(Cursor::new(bytes))
+        .with_guessed_format()
+        .map_err(|_| StillImageError::Malformed)?
+        .into_decoder()
+        .map_err(malformed)?;
+    let orientation = decoder.orientation().map_err(malformed)?;
+    let mut source = DynamicImage::from_decoder(decoder).map_err(malformed)?;
+    source.apply_orientation(orientation);
+    let cropped = source.resize_to_fill(width, height, image::imageops::FilterType::Lanczos3);
+    let rgba = cropped.to_rgba8();
+    let mut output = Vec::new();
+    WebPEncoder::new_lossless(&mut output)
+        .encode(&rgba, width, height, ExtendedColorType::Rgba8)
+        .map_err(malformed)?;
+    if output.is_empty() || output.len() > MAX_NORMALIZED_STILL_IMAGE_BYTES {
+        return Err(StillImageError::ByteLimit);
+    }
+    Ok(output)
 }
 
 impl StillImageError {
@@ -120,6 +169,9 @@ impl StillImageError {
             Self::Animated => "upload a still image rather than an animation",
             Self::ZeroDimensions => "upload an image with a non-zero width and height",
             Self::DecodedPixelLimit => "upload an image with at most 20 million pixels",
+            Self::WrongCourseBannerAspectRatio => {
+                "upload an image with an exact 5:1 width-to-height ratio"
+            }
             Self::Polyglot | Self::Malformed => "upload a complete, readable image file",
         }
     }
@@ -133,6 +185,9 @@ impl StillImageError {
             Self::Animated => "animated images are not allowed",
             Self::ZeroDimensions => "image dimensions must be non-zero",
             Self::DecodedPixelLimit => "image exceeds the 20 million decoded-pixel limit",
+            Self::WrongCourseBannerAspectRatio => {
+                "Course Banner dimensions must have an exact 5:1 width-to-height ratio"
+            }
             Self::Polyglot => "image has bytes after its declared container",
             Self::Malformed => "image is incomplete or malformed",
         }
@@ -416,6 +471,26 @@ mod tests {
         bytes
     }
 
+    fn banner_png() -> Vec<u8> {
+        let mut image = RgbImage::from_pixel(50, 10, Rgb([12, 34, 56]));
+        // Edge markers make an accidental future resize_to_fill crop visible
+        // in this stable output-contract test.
+        for y in 0..image.height() {
+            image.put_pixel(0, y, Rgb([255, 0, 0]));
+            image.put_pixel(image.width() - 1, y, Rgb([0, 0, 255]));
+        }
+        let mut bytes = Vec::new();
+        PngEncoder::new(&mut bytes)
+            .write_image(
+                image.as_raw(),
+                image.width(),
+                image.height(),
+                ExtendedColorType::Rgb8,
+            )
+            .expect("5:1 PNG fixture encodes");
+        bytes
+    }
+
     fn jpeg() -> Vec<u8> {
         let image = rgb();
         let mut bytes = Vec::new();
@@ -431,38 +506,31 @@ mod tests {
     }
 
     #[test]
-    fn course_banner_normalization_is_exact_lossless_webp() {
-        let result = normalized_course_banner_webp(&png(), 1200, 200)
+    fn course_banner_normalization_retains_both_composition_edges() {
+        let (width, height) = (25, 5);
+        let result = normalized_course_banner_webp(&banner_png(), width, height)
             .expect("verified still image should normalize");
         assert!(!result.is_empty());
         assert!(result.len() <= MAX_COURSE_BANNER_RENDITION_BYTES);
         let verified =
             verify_still_image(&result).expect("WebP rendition must remain a valid still");
         assert_eq!(verified.media_type, StillImageMediaType::WebP);
-        assert_eq!((verified.width, verified.height), (1200, 200));
+        assert_eq!((verified.width, verified.height), (width, height));
+        let rendered = image::load_from_memory(&result)
+            .expect("WebP rendition decodes")
+            .to_rgb8();
+        let left_edge = rendered.get_pixel(0, height / 2);
+        assert!(left_edge[0] > left_edge[1] && left_edge[0] > left_edge[2]);
+        let right_edge = rendered.get_pixel(width - 1, height / 2);
+        assert!(right_edge[2] > right_edge[0] && right_edge[2] > right_edge[1]);
     }
 
     #[test]
-    fn course_banner_normalization_applies_exif_orientation_before_center_crop() {
-        let plain = jpeg();
-        let mut oriented = vec![0xff, 0xd8, 0xff, 0xe1, 0x00, 0x22];
-        oriented.extend_from_slice(
-            b"Exif\0\0MM\0*\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01\0\x06\0\0\0\0\0\0",
+    fn course_banner_verification_refuses_non_five_to_one_input_without_crop() {
+        assert_eq!(
+            verify_course_banner_still_image(&png()),
+            Err(StillImageError::WrongCourseBannerAspectRatio)
         );
-        oriented.extend_from_slice(&plain[2..]);
-
-        let actual = normalized_course_banner_webp(&oriented, 200, 100)
-            .expect("oriented JPEG should normalize");
-        let mut expected_image = image::load_from_memory(&plain).expect("JPEG fixture decodes");
-        expected_image.apply_orientation(Orientation::Rotate90);
-        let expected_image = expected_image
-            .resize_to_fill(200, 100, image::imageops::FilterType::Lanczos3)
-            .to_rgba8();
-        let mut expected = Vec::new();
-        WebPEncoder::new_lossless(&mut expected)
-            .encode(&expected_image, 200, 100, ExtendedColorType::Rgba8)
-            .expect("expected WebP encodes");
-        assert_eq!(actual, expected);
     }
 
     fn webp() -> Vec<u8> {

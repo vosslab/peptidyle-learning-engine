@@ -18,6 +18,7 @@ import local_stack_control.models
 import local_stack_control.process
 import local_stack_control.status
 import local_stack_control.lifecycle
+import local_stack_control.local_totp_authenticator
 
 
 DEFAULT_LIFECYCLE_TIMEOUT_SECONDS = 180.0
@@ -105,6 +106,30 @@ def target_from_args(
 		allow_missing_env,
 	)
 	return target
+
+
+#============================================
+def setup_local_totp_authenticator(
+	args: argparse.Namespace,
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+) -> int:
+	"""Create a private authenticator-import URI and print only its pathname."""
+	del runner
+	env_file = local_stack_control.compose.resolve_path(repo_root, args.env_file)
+	local_stack_control.env_file.require_mutation_env_file(env_file)
+	values = local_stack_control.env_file.env_settings(env_file)
+	artifact_value = values.get("PLE_LOCAL_SYSADMIN_TOTP_AUTHENTICATOR_ARTIFACT", "")
+	if artifact_value == "":
+		raise local_stack_control.models.ControllerError("local TOTP authenticator artifact is unavailable")
+	artifact_path = pathlib.Path(artifact_value)
+	if not artifact_path.is_absolute():
+		raise local_stack_control.models.ControllerError("local TOTP authenticator artifact is invalid")
+	setup_uri_path = local_stack_control.local_totp_authenticator.write_authenticator_setup_uri(
+		artifact_path
+	)
+	print(f"Local authenticator setup URI: {setup_uri_path}")
+	return 0
 
 
 #============================================

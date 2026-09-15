@@ -72,22 +72,22 @@ export type TimerEvaluator = (
 ) => Promise<QuestionAttemptTimingDecision>;
 
 /** Server-snapshotted duration plus elapsed milliseconds from a monotonic clock. */
-export interface AssignmentAttemptRemainingDurationInput {
+export interface AssessmentAttemptRemainingDurationInput {
   readonly initialRemainingMilliseconds: number | null;
   readonly elapsedMilliseconds: number;
 }
 
-export type AssignmentAttemptRemainingDurationEvaluator = (
-  input: AssignmentAttemptRemainingDurationInput,
+export type AssessmentAttemptRemainingDurationEvaluator = (
+  input: AssessmentAttemptRemainingDurationInput,
 ) => Promise<number | null>;
 
-export interface AssignmentQuestionConfig {
+export interface AssessmentQuestionConfig {
   readonly question: QuestionRevisionReference;
   readonly questionBackendCapabilities: QuestionBackendCapabilities;
 }
 
-export interface AssignmentConfig {
-  readonly questions: ReadonlyArray<AssignmentQuestionConfig>;
+export interface AssessmentConfig {
+  readonly questions: ReadonlyArray<AssessmentQuestionConfig>;
   readonly requiredCapabilities: ReadonlyArray<Capability>;
 }
 
@@ -97,7 +97,7 @@ export interface CapabilityViolation {
 }
 
 export type CapabilityValidator = (
-  config: AssignmentConfig,
+  config: AssessmentConfig,
 ) => Promise<ReadonlyArray<CapabilityViolation>>;
 
 /** Key-free browser inputs for deterministic workspace-draft preview. */
@@ -132,7 +132,7 @@ export type PleDraftPreviewer = (request: PleDraftPreviewRequest) => Promise<Ple
 export type PresentationVerification =
   { readonly kind: "match" } | { readonly kind: "mismatch" } | { readonly kind: "unavailable" };
 
-export type PresentationVerifier = (
+export type NativeStaticPresentationVerifier = (
   presentation: QuestionPresentation,
   assets: ReadonlyArray<QuestionAssetRendition>,
   presentationToken: QuestionPresentationToken,
@@ -143,24 +143,24 @@ export interface WasmFacade {
   readonly degradedReason?: string;
   readonly validateResponseFormat: ResponseFormatValidator;
   readonly questionAttemptTimingDecision: TimerEvaluator;
-  readonly assignmentAttemptRemainingMilliseconds: AssignmentAttemptRemainingDurationEvaluator;
-  readonly validateAssignmentConfig: CapabilityValidator;
+  readonly assessmentAttemptRemainingMilliseconds: AssessmentAttemptRemainingDurationEvaluator;
+  readonly validateAssessmentConfig: CapabilityValidator;
   readonly previewPleDraft: PleDraftPreviewer;
-  readonly verifyPresentationDescriptor: PresentationVerifier;
+  readonly verifyNativeStaticPresentationDescriptor: NativeStaticPresentationVerifier;
 }
 
 interface WasmBindgenModule {
   readonly default: (options: { readonly module_or_path: URL }) => Promise<unknown>;
   readonly question_attempt_timing_decision: (evaluationJson: string) => string;
-  readonly assignment_attempt_remaining_milliseconds: (inputJson: string) => string;
-  readonly validate_assignment_config: (configJson: string) => string;
+  readonly assessment_attempt_remaining_milliseconds: (inputJson: string) => string;
+  readonly validate_assessment_config: (configJson: string) => string;
   readonly validate_response_format: (responseFormatJson: string, responseJson: string) => string;
   readonly validate_presentation_response_format: (
     responseFormatJson: string,
     responseJson: string,
   ) => string;
   readonly preview_ple_draft: (draftJson: string) => string;
-  readonly verify_presentation_descriptor: (
+  readonly verify_native_static_presentation_descriptor: (
     presentationJson: string,
     questionAssetRenditionsJson: string,
     presentationToken: string,
@@ -180,12 +180,12 @@ function isWasmBindgenModule(value: unknown): value is WasmBindgenModule {
   return (
     typeof value["default"] === "function" &&
     typeof value["question_attempt_timing_decision"] === "function" &&
-    typeof value["assignment_attempt_remaining_milliseconds"] === "function" &&
-    typeof value["validate_assignment_config"] === "function" &&
+    typeof value["assessment_attempt_remaining_milliseconds"] === "function" &&
+    typeof value["validate_assessment_config"] === "function" &&
     typeof value["validate_response_format"] === "function" &&
     typeof value["validate_presentation_response_format"] === "function" &&
     typeof value["preview_ple_draft"] === "function" &&
-    typeof value["verify_presentation_descriptor"] === "function"
+    typeof value["verify_native_static_presentation_descriptor"] === "function"
   );
 }
 
@@ -275,11 +275,11 @@ function parseQuestionAttemptTimingDecision(json: string): QuestionAttemptTiming
   }
 }
 
-function parseAssignmentAttemptRemainingMilliseconds(json: string): number | null {
+function parseAssessmentAttemptRemainingMilliseconds(json: string): number | null {
   const value: unknown = JSON.parse(json);
   if (value === null) return null;
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)
-    throw new Error("WASM assignment attempt duration must be a nonnegative safe integer");
+    throw new Error("WASM assessment attempt duration must be a nonnegative safe integer");
   return value;
 }
 
@@ -355,29 +355,29 @@ async function initializeWasmFacade(
           loaded.question_attempt_timing_decision(JSON.stringify(evaluation)),
         ),
       );
-    const assignmentAttemptRemainingMilliseconds: AssignmentAttemptRemainingDurationEvaluator = (
+    const assessmentAttemptRemainingMilliseconds: AssessmentAttemptRemainingDurationEvaluator = (
       input,
     ) =>
       Promise.resolve(
-        parseAssignmentAttemptRemainingMilliseconds(
-          loaded.assignment_attempt_remaining_milliseconds(JSON.stringify(input)),
+        parseAssessmentAttemptRemainingMilliseconds(
+          loaded.assessment_attempt_remaining_milliseconds(JSON.stringify(input)),
         ),
       );
-    const validateAssignmentConfig: CapabilityValidator = (config) =>
+    const validateAssessmentConfig: CapabilityValidator = (config) =>
       Promise.resolve(
-        parseCapabilityViolations(loaded.validate_assignment_config(JSON.stringify(config))),
+        parseCapabilityViolations(loaded.validate_assessment_config(JSON.stringify(config))),
       );
     const previewPleDraft: PleDraftPreviewer = (request) =>
       Promise.resolve(
         decodePleDraftPreviewResult(loaded.preview_ple_draft(JSON.stringify(request))),
       );
-    const verifyPresentationDescriptor: PresentationVerifier = (
+    const verifyNativeStaticPresentationDescriptor: NativeStaticPresentationVerifier = (
       presentation,
       assets,
       presentationToken,
     ) =>
       Promise.resolve({
-        kind: loaded.verify_presentation_descriptor(
+        kind: loaded.verify_native_static_presentation_descriptor(
           JSON.stringify(presentation),
           JSON.stringify(assets),
           presentationToken,
@@ -389,10 +389,10 @@ async function initializeWasmFacade(
       mode: "wasm",
       validateResponseFormat,
       questionAttemptTimingDecision,
-      assignmentAttemptRemainingMilliseconds,
-      validateAssignmentConfig,
+      assessmentAttemptRemainingMilliseconds,
+      validateAssessmentConfig,
       previewPleDraft,
-      verifyPresentationDescriptor,
+      verifyNativeStaticPresentationDescriptor,
     };
   } catch (error: unknown) {
     return {
@@ -407,18 +407,18 @@ async function initializeWasmFacade(
         return formatFallback(responseFormat, response);
       },
       questionAttemptTimingDecision: timerFallback,
-      assignmentAttemptRemainingMilliseconds: () =>
+      assessmentAttemptRemainingMilliseconds: () =>
         Promise.reject(
-          new Error("Assignment Attempt countdown requires the browser WebAssembly runtime."),
+          new Error("Assessment Attempt countdown requires the browser WebAssembly runtime."),
         ),
-      validateAssignmentConfig: capabilityFallback,
+      validateAssessmentConfig: capabilityFallback,
       previewPleDraft: (request) =>
         Promise.resolve({
           kind: "unavailable",
           backend: request.questionBackend,
           capability: "offlinePreview",
         }),
-      verifyPresentationDescriptor: () => Promise.resolve({ kind: "unavailable" }),
+      verifyNativeStaticPresentationDescriptor: () => Promise.resolve({ kind: "unavailable" }),
     };
   }
 }

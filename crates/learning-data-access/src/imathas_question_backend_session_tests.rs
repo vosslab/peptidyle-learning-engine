@@ -1,7 +1,7 @@
 use super::*;
 use question_model::generation::QuestionSeed;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
+    AccountId, AssessmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
     ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
     QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum, SourceObjectReference,
     Timestamp,
@@ -14,10 +14,10 @@ fn facts(
     ImathasQuestionBackendSessionRestoreExpectation,
 ) {
     let course = CourseId::from_uuid(Uuid::from_u128(2));
-    let assignment = AssignmentId::from_uuid(Uuid::from_u128(3));
+    let assessment = AssessmentId::from_uuid(Uuid::from_u128(3));
     let attempt = QuestionAttemptId::from_uuid(Uuid::from_u128(4));
     let revision = QuestionRevisionReference {
-        question_id: "123-4567".parse::<QuestionId>().expect("question ID"),
+        question_id: "1234-X567".parse::<QuestionId>().expect("question ID"),
         revision_number: QuestionRevisionNumber::new(1).expect("revision"),
     };
     let imathas_question_backend_binding = ImathasQuestionBackendBinding::new(
@@ -41,7 +41,7 @@ fn facts(
     let expectation = ImathasQuestionBackendSessionRestoreExpectation::new(
         account,
         course,
-        assignment,
+        assessment,
         grading_context.clone(),
         imathas_question_backend_binding.clone(),
         source.clone(),
@@ -52,7 +52,7 @@ fn facts(
     let preparation = ImathasQuestionBackendSessionPreparationContext::new(
         account,
         course,
-        assignment,
+        assessment,
         grading_context,
         imathas_question_backend_binding,
         source,
@@ -95,7 +95,7 @@ fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
     let context = ImathasGradingContext::new(
         QuestionAttemptId::from_uuid(Uuid::from_u128(4)),
         QuestionRevisionReference {
-            question_id: "123-4567".parse::<QuestionId>().expect("question ID"),
+            question_id: "1234-X567".parse::<QuestionId>().expect("question ID"),
             revision_number: QuestionRevisionNumber::new(1).expect("revision"),
         },
         QuestionSeed::new(7),
@@ -106,14 +106,14 @@ fn grading_context_authentication_payload_v1_has_the_locked_row_530_bytes() {
     );
     assert_eq!(
         context.question_revision().question_id.to_string(),
-        "123-4567"
+        "1234-X567"
     );
     assert_eq!(context.question_seed(), QuestionSeed::new(7));
     assert_eq!(
         context.authentication_payload_v1(),
         vec![
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, b'1', b'2', b'3', b'4', b'5', b'6',
-            b'7', 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 7,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, b'1', b'2', b'3', b'4', b'X', b'5',
+            b'6', b'7', 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 7,
         ]
     );
     assert_eq!(format!("{context:?}"), "ImathasGradingContext([redacted])");
@@ -236,7 +236,7 @@ async fn memory_oracle_refuses_every_changed_imathas_question_backend_grading_co
         .expect("create");
 
     let replacement_revision = QuestionRevisionReference {
-        question_id: "123-4568".parse::<QuestionId>().expect("question ID"),
+        question_id: "1234-X568".parse::<QuestionId>().expect("question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("revision"),
     };
     let contexts = [
@@ -366,8 +366,8 @@ fn encrypted_state_aad_uses_the_compact_question_id() {
         cursor += length;
     }
 
-    assert_eq!(fields[5], b"1234567");
-    assert_ne!(fields[5], b"123-4567");
+    assert_eq!(fields[5], b"1234X567");
+    assert_ne!(fields[5], b"1234-X567");
 }
 
 #[test]

@@ -1,0 +1,26 @@
+/* staff_avatar_settings.css - self-owned profile-image presentation for staff Account settings. */
+
+.profile-thumbnail {
+  align-items: center;
+  background: var(--ple-surface-soft);
+  border-radius: var(--ple-radius-inset);
+  display: flex;
+  height: 8rem;
+  justify-content: center;
+  overflow: hidden;
+  width: 8rem;
+}
+
+.profile-thumbnail img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.profile-thumbnail-placeholder {
+  color: var(--ple-muted);
+  display: grid;
+  font-size: 3rem;
+  line-height: 1;
+  place-items: center;
+}

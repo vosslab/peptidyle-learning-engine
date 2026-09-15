@@ -46,10 +46,18 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api
 AS $$ SELECT ple_api.current_session_account_has_active_role('instructor') $$;
 
-CREATE FUNCTION ple_api.current_session_account_is_sysadmin()
+-- ASVS 8.2.1 and 8.3.1: platform administration is an explicit active-role
+-- capability. It deliberately does not consult Course membership, and Course
+-- record predicates below deliberately do not consult this capability.
+CREATE FUNCTION ple_api.current_session_account_has_platform_administration()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api
 AS $$ SELECT ple_api.current_session_account_has_active_role('sysadmin') $$;
+
+CREATE FUNCTION ple_api.current_session_account_is_sysadmin()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api
+AS $$ SELECT ple_api.current_session_account_has_platform_administration() $$;
 
 CREATE FUNCTION ple_api.current_session_account_is_course_instructor(p_course_id uuid)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -140,6 +148,7 @@ $$;
 REVOKE ALL PRIVILEGES ON FUNCTION ple_api.current_session_account_id(),
     ple_api.current_session_account_has_active_role(text),
     ple_api.current_session_account_is_instructor(),
+    ple_api.current_session_account_has_platform_administration(),
     ple_api.current_session_account_is_sysadmin(),
     ple_api.current_session_account_is_course_instructor(uuid),
     ple_api.current_session_account_is_course_member(uuid),
@@ -149,6 +158,7 @@ GRANT USAGE ON SCHEMA ple_api TO ple_app, ple_auth, ple_student, ple_data_owner,
 GRANT EXECUTE ON FUNCTION ple_api.current_session_account_id(),
     ple_api.current_session_account_has_active_role(text),
     ple_api.current_session_account_is_instructor(),
+    ple_api.current_session_account_has_platform_administration(),
     ple_api.current_session_account_is_sysadmin(),
     ple_api.current_session_account_is_course_instructor(uuid),
     ple_api.current_session_account_is_course_member(uuid),

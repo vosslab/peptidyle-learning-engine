@@ -228,16 +228,16 @@ async fn resolve_question(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let question_id = match verified_question_id(&state.question_id_issuer, &question_id) {
-        Some(question_id) => question_id,
-        None => return concealed(),
-    };
-    let entry = match state
-        .store
-        .load_published_question_library_entry(session_hash, &question_id)
-        .await
+    let entry = match load_verified_question_library_entry(
+        &state.store,
+        &state.question_id_issuer,
+        session_hash,
+        &question_id,
+    )
+    .await
     {
-        Ok(entry) => entry,
+        Ok(Some(entry)) => entry,
+        Ok(None) => return concealed(),
         Err(error) => return store_error_response(error),
     };
     let edit_number = entry.availability_edit_number;
@@ -259,16 +259,16 @@ async fn question_details(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let question_id = match verified_question_id(&state.question_id_issuer, &question_id) {
-        Some(question_id) => question_id,
-        None => return concealed(),
-    };
-    let entry = match state
-        .store
-        .load_published_question_library_entry(session_hash, &question_id)
-        .await
+    let entry = match load_verified_question_library_entry(
+        &state.store,
+        &state.question_id_issuer,
+        session_hash,
+        &question_id,
+    )
+    .await
     {
-        Ok(entry) => entry,
+        Ok(Some(entry)) => entry,
+        Ok(None) => return concealed(),
         Err(error) => return store_error_response(error),
     };
     let edit_number = entry.availability_edit_number;
@@ -286,7 +286,7 @@ async fn question_details(
 }
 
 /// Resolves one exact immutable Question Revision. This route deliberately
-/// bypasses ordinary discovery availability so retained Assignment evidence
+/// bypasses ordinary discovery availability so retained Assessment evidence
 /// remains interpretable after the stable lineage is archived.
 async fn question_revision_details(
     State(state): State<QuestionLibraryRouteState>,
@@ -434,9 +434,9 @@ fn details_from_resolved(resolved: ResolvedQuestionLibraryEntry) -> QuestionDeta
         usage: QuestionUseDetails {
             summary: QuestionUseSummary {
                 global_course_count: 0,
-                global_assignment_count: 0,
+                global_assessment_count: 0,
                 own_course_count: 0,
-                own_assignment_count: 0,
+                own_assessment_count: 0,
             },
             own_courses: Vec::new(),
             own_courses_truncated: false,
@@ -455,6 +455,24 @@ fn verified_question_id(
     question_id_issuer
         .validates_question_id(&question_id)
         .then_some(question_id)
+}
+
+/// Resolves only a server-HMAC-validated Question ID through the authorized
+/// Question Library Store. A syntax-valid ID with another validation character
+/// is concealed before any Question lookup can occur.
+async fn load_verified_question_library_entry(
+    store: &impl QuestionLibraryStore,
+    question_id_issuer: &HmacQuestionIdIssuer,
+    session_hash: SessionTokenHash,
+    value: &str,
+) -> Result<Option<PublishedQuestionLibraryEntry>, StoreError> {
+    let Some(question_id) = verified_question_id(question_id_issuer, value) else {
+        return Ok(None);
+    };
+    store
+        .load_published_question_library_entry(session_hash, &question_id)
+        .await
+        .map(Some)
 }
 
 async fn instructor_session_hash(
@@ -556,6 +574,7 @@ fn webwork_question_library_entry(
             question_id: entry.question_revision.question_id.clone(),
             latest_question_revision: entry.question_revision,
             backend: entry.backend,
+            question_format: entry.question_format,
             question_type: entry.question_type,
             capabilities: adapter_webwork::webwork_source_capabilities(QuestionBackend::Webwork)
                 .map_err(|_| ())?,
@@ -614,6 +633,7 @@ async fn resolved_ple_question(
             question_id: entry.question_revision.question_id.clone(),
             latest_question_revision: entry.question_revision,
             backend: entry.backend,
+            question_format: entry.question_format,
             question_type: entry.question_type,
             capabilities: QuestionBackendCapabilities::from_iter([
                 Capability::ClientRendering,
@@ -782,7 +802,7 @@ fn store_error_response(error: StoreError) -> Response {
         }
         StoreError::AlreadyExists
         | StoreError::OwnershipMismatch
-        | StoreError::AssignmentActivity(_)
+        | StoreError::AssessmentActivity(_)
         | StoreError::TimedOut
         | StoreError::LeaseLost
         | StoreError::Unavailable(_) => route_error(
@@ -841,24 +861,94 @@ fn route_error(status: StatusCode, message: &'static str) -> Response {
 #[cfg(test)]
 mod tests {
     use crate::question_publication::QuestionIdSecret;
+    use async_trait::async_trait;
     use axum::http::{HeaderValue, Uri};
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
 
-    #[test]
-    fn exact_question_routes_reject_a_syntax_valid_wrong_hmac_character() {
+    struct LookupCountingStore(AtomicUsize);
+
+    #[async_trait]
+    impl QuestionLibraryStore for LookupCountingStore {
+        async fn list_published_question_library_entries(
+            &self,
+            _: SessionTokenHash,
+        ) -> Result<Vec<PublishedQuestionLibraryEntry>, StoreError> {
+            Err(StoreError::Unavailable(
+                "not used by this contract".to_string(),
+            ))
+        }
+
+        async fn load_published_question_library_entry(
+            &self,
+            _: SessionTokenHash,
+            _: &QuestionId,
+        ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Err(StoreError::Unavailable("lookup must not occur".to_string()))
+        }
+
+        async fn load_published_question_revision_library_entry(
+            &self,
+            _: SessionTokenHash,
+            _: &QuestionRevisionReference,
+        ) -> Result<PublishedQuestionLibraryEntry, StoreError> {
+            Err(StoreError::Unavailable(
+                "not used by this contract".to_string(),
+            ))
+        }
+
+        async fn archive_published_question(
+            &self,
+            _: SessionTokenHash,
+            _: &QuestionId,
+            _: question_model::QuestionAvailabilityEditNumber,
+            _: &str,
+        ) -> Result<learning_data_access::PublishedQuestionAvailability, StoreError> {
+            Err(StoreError::Unavailable(
+                "not used by this contract".to_string(),
+            ))
+        }
+
+        async fn restore_published_question(
+            &self,
+            _: SessionTokenHash,
+            _: &QuestionId,
+            _: question_model::QuestionAvailabilityEditNumber,
+        ) -> Result<learning_data_access::PublishedQuestionAvailability, StoreError> {
+            Err(StoreError::Unavailable(
+                "not used by this contract".to_string(),
+            ))
+        }
+    }
+
+    #[tokio::test]
+    async fn exact_question_routes_reject_a_syntax_valid_wrong_hmac_character_before_lookup() {
         let issuer =
             HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes(std::array::from_fn(|index| {
                 index as u8
             })));
+        let store = LookupCountingStore(AtomicUsize::new(0));
 
         assert_eq!(
-            verified_question_id(&issuer, "000-000N")
+            verified_question_id(&issuer, "0000-M00N")
                 .expect("documented issuer vector")
                 .to_string(),
-            "000-000N"
+            "0000-M00N"
         );
-        assert!(verified_question_id(&issuer, "000-000P").is_none());
+        assert_eq!(
+            load_verified_question_library_entry(
+                &store,
+                &issuer,
+                SessionTokenHash::compute(b"instructor session"),
+                "0000-N00N",
+            )
+            .await
+            .expect("invalid HMAC is concealed before any Store failure"),
+            None
+        );
+        assert_eq!(store.0.load(Ordering::SeqCst), 0);
     }
 
     #[test]

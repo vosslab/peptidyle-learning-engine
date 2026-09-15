@@ -60,14 +60,11 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let rows = sqlx::query(
-            "SELECT roster_id, roster_email, state \
-             FROM ple_api.list_course_roster($1, NULL::uuid)",
-        )
-        .bind(i64::from(course.number()))
-        .fetch_all(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
+        let rows = sqlx::query("SELECT roster_id, state FROM ple_api.list_course_roster($1)")
+            .bind(course.as_string())
+            .fetch_all(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
         let entries = rows
             .iter()
             .map(decode_entry)
@@ -99,10 +96,10 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows = sqlx::query(
-            "SELECT roster_id, roster_email, state \
+            "SELECT roster_id, state \
              FROM ple_api.import_course_roster($1, $2, $3, $4)",
         )
-        .bind(i64::from(course.number()))
+        .bind(course.as_string())
         .bind(normalized_emails)
         .bind(delivery_emails)
         .bind(roster_ids)
@@ -132,7 +129,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
-        .bind(i64::from(course.number()))
+        .bind(course.as_string())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -158,7 +155,7 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .await?;
         sqlx::query("SELECT ple_api.revoke_course_roster_entry($1, $2, $3)")
             .bind(random_uuid()?)
-            .bind(i64::from(course.number()))
+            .bind(course.as_string())
             .bind(&roster_id)
             .execute(&mut *transaction)
             .await
@@ -181,7 +178,6 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<CourseRosterEntry, StoreE
     };
     Ok(CourseRosterEntry {
         roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
-        roster_email: row.try_get("roster_email").map_err(map_sqlx_error)?,
         state,
     })
 }

@@ -1,25 +1,25 @@
 // student_progress.ts - server-derived Student score copy with no policy inference.
 
-import type { StudentAssignmentProgress } from "../generated/api/StudentAssignmentProgress";
+import type { StudentAssessmentProgress } from "../generated/api/StudentAssessmentProgress";
 
 import { formatPercentScore } from "./score_format";
 
-/** Human-readable aggregate progress from the server's key-free Student Assignment Progress. */
-export function studentProgressSummary(progress: StudentAssignmentProgress): string {
-  const grade = progress.student_assignment_grade;
-  const activity = progress.assignment_progress;
-  if (grade.assignment_scoring_state === "recalculating")
+/** Human-readable aggregate progress from the server's key-free Student Assessment Progress. */
+export function studentProgressSummary(progress: StudentAssessmentProgress): string {
+  const grade = progress.student_assessment_grade;
+  const activity = progress.assessment_progress;
+  if (grade.assessment_scoring_state === "recalculating")
     return "Scores are recalculating. Recorded work is safe.";
-  if (grade.assignment_scoring_state === "failed")
+  if (grade.assessment_scoring_state === "failed")
     return "Scores are temporarily unavailable. Recorded work is safe.";
   switch (grade.score_state) {
     case "no_activity":
       return "No score yet. Submit a response to record scored progress.";
     case "withheld":
-      return `Score is currently unavailable. ${activity.completed_assignment_attempt_count} completed ${
-        activity.completed_assignment_attempt_count === 1
-          ? "Assignment Attempt"
-          : "Assignment Attempts"
+      return `Score is currently unavailable. ${activity.completed_assessment_attempt_count} completed ${
+        activity.completed_assessment_attempt_count === 1
+          ? "Assessment Attempt"
+          : "Assessment Attempts"
       } recorded.`;
     case "available": {
       const scores = [

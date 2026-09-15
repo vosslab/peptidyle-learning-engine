@@ -1,16 +1,16 @@
-//! Pure composition of active Student Course Membership, Assignment policy, and Student Feedback disclosure.
+//! Pure composition of active Student Course Membership, Assessment policy, and Student Feedback disclosure.
 //!
 //! The Store owns route References and authorization. It resolves them, discards all
 //! identity-bearing values, owns the resulting `StudentViewScenario`, and passes this
 //! module only the already-resolved Active Student Course Membership and Effective
-//! Assignment Policy facts. Evaluation borrows those facts
-//! and returns an owned, closed Assignment Release Validation.
+//! Assessment Policy facts. Evaluation borrows those facts
+//! and returns an owned, closed Assessment Release Validation.
 
 use question_model::{
     AccountTimeZone, ActiveStudentCourseMembershipDenialReason,
     ActiveStudentCourseMembershipGrantReason, ActiveStudentCourseMembershipOutcome,
-    AssignmentAuthoredContentField, AssignmentPolicySourceKind, CourseTerm,
-    EffectiveAssignmentPolicyView, LocalDateAndTime, PreviewDenialReason, PreviewDisclosureFlags,
+    AssessmentAuthoredContentField, AssessmentPolicySourceKind, CourseTerm,
+    EffectiveAssessmentPolicyView, LocalDateAndTime, PreviewDenialReason, PreviewDisclosureFlags,
     PreviewDisclosureMoment, PreviewDisclosureUnavailableReason, PreviewLateWorkRuleField,
     PreviewLimitField, PreviewResolvedPolicy, PreviewTimeField, StudentFeedbackReleaseRule,
     StudentFeedbackReleaseView, Timestamp,
@@ -18,28 +18,28 @@ use question_model::{
 
 use crate::{
     active_student_course_membership::ActiveStudentCourseMembershipDecision,
-    effective_assignment_policy::{
-        AssignmentAccessDecision, AssignmentPolicySource, EffectiveAssignmentPolicy,
+    effective_assessment_policy::{
+        AssessmentAccessDecision, AssessmentPolicySource, EffectiveAssessmentPolicy,
     },
     student_feedback_release::evaluate_student_feedback_release,
 };
 
-/// Maps an internal Assignment Policy Source to a closed label, discarding its identifier.
-pub fn assignment_policy_source_kind(
-    source: &AssignmentPolicySource,
-) -> AssignmentPolicySourceKind {
+/// Maps an internal Assessment Policy Source to a closed label, discarding its identifier.
+pub fn assessment_policy_source_kind(
+    source: &AssessmentPolicySource,
+) -> AssessmentPolicySourceKind {
     match source {
-        AssignmentPolicySource::Base => AssignmentPolicySourceKind::Base,
-        AssignmentPolicySource::Accommodation(_) => AssignmentPolicySourceKind::Accommodation,
-        AssignmentPolicySource::HypotheticalStudentViewScenario => {
-            AssignmentPolicySourceKind::HypotheticalStudentViewScenario
+        AssessmentPolicySource::Base => AssessmentPolicySourceKind::Base,
+        AssessmentPolicySource::Accommodation(_) => AssessmentPolicySourceKind::Accommodation,
+        AssessmentPolicySource::HypotheticalStudentViewScenario => {
+            AssessmentPolicySourceKind::HypotheticalStudentViewScenario
         }
     }
 }
 
-/// Copies an Effective Assignment Policy into its identity-free preview representation.
+/// Copies an Effective Assessment Policy into its identity-free preview representation.
 pub fn project_preview_policy(
-    policy: &EffectiveAssignmentPolicy,
+    policy: &EffectiveAssessmentPolicy,
     term: &CourseTerm,
     account_time_zone: &AccountTimeZone,
 ) -> Result<PreviewResolvedPolicy, &'static str> {
@@ -48,34 +48,34 @@ pub fn project_preview_policy(
             &policy.available_at,
             term,
             account_time_zone,
-            AssignmentAuthoredContentField::AvailableAt,
+            AssessmentAuthoredContentField::AvailableAt,
         )
         .map_err(|_| "invalid local preview time")?,
         time(
             &policy.due_at,
             term,
             account_time_zone,
-            AssignmentAuthoredContentField::DueAt,
+            AssessmentAuthoredContentField::DueAt,
         )
         .map_err(|_| "invalid local preview time")?,
         time(
             &policy.closes_at,
             term,
             account_time_zone,
-            AssignmentAuthoredContentField::ClosesAt,
+            AssessmentAuthoredContentField::ClosesAt,
         )
         .map_err(|_| "invalid local preview time")?,
-        limit(&policy.assignment_attempt_time_limit_seconds),
+        limit(&policy.assessment_attempt_time_limit_seconds),
         limit(&policy.attempt_limit),
         late(&policy.late_work_rule),
     )
 }
 fn time(
-    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<Option<Timestamp>>,
+    field: &crate::effective_assessment_policy::EffectiveAssessmentPolicyValue<Option<Timestamp>>,
     term: &CourseTerm,
     account_time_zone: &AccountTimeZone,
-    kind: AssignmentAuthoredContentField,
-) -> Result<PreviewTimeField, question_model::AssignmentAuthoredContentLocalError> {
+    kind: AssessmentAuthoredContentField,
+) -> Result<PreviewTimeField, question_model::AssessmentAuthoredContentLocalError> {
     Ok(PreviewTimeField {
         value: field
             .value
@@ -88,61 +88,61 @@ fn time(
                 )
             })
             .transpose()?,
-        source: assignment_policy_source_kind(&field.source),
+        source: assessment_policy_source_kind(&field.source),
     })
 }
 fn limit(
-    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
+    field: &crate::effective_assessment_policy::EffectiveAssessmentPolicyValue<
         Option<std::num::NonZeroU32>,
     >,
 ) -> PreviewLimitField {
     PreviewLimitField {
         value: field.value.map(|v| v.get()),
-        source: assignment_policy_source_kind(&field.source),
+        source: assessment_policy_source_kind(&field.source),
     }
 }
 fn late(
-    field: &crate::effective_assignment_policy::EffectiveAssignmentPolicyValue<
+    field: &crate::effective_assessment_policy::EffectiveAssessmentPolicyValue<
         question_model::LateWorkRule,
     >,
 ) -> PreviewLateWorkRuleField {
     PreviewLateWorkRuleField {
         value: field.value,
-        source: assignment_policy_source_kind(&field.source),
+        source: assessment_policy_source_kind(&field.source),
     }
 }
 /// Projects only the reusable window and limit fields.
 pub fn project_preview_schedule(
-    policy: &EffectiveAssignmentPolicy,
+    policy: &EffectiveAssessmentPolicy,
     term: &CourseTerm,
     account_time_zone: &AccountTimeZone,
-) -> Result<EffectiveAssignmentPolicyView, question_model::AssignmentAuthoredContentLocalError> {
-    Ok(EffectiveAssignmentPolicyView {
+) -> Result<EffectiveAssessmentPolicyView, question_model::AssessmentAuthoredContentLocalError> {
+    Ok(EffectiveAssessmentPolicyView {
         available_at: time(
             &policy.available_at,
             term,
             account_time_zone,
-            AssignmentAuthoredContentField::AvailableAt,
+            AssessmentAuthoredContentField::AvailableAt,
         )?,
         due_at: time(
             &policy.due_at,
             term,
             account_time_zone,
-            AssignmentAuthoredContentField::DueAt,
+            AssessmentAuthoredContentField::DueAt,
         )?,
         closes_at: time(
             &policy.closes_at,
             term,
             account_time_zone,
-            AssignmentAuthoredContentField::ClosesAt,
+            AssessmentAuthoredContentField::ClosesAt,
         )?,
-        assignment_attempt_time_limit_seconds: limit(&policy.assignment_attempt_time_limit_seconds),
+        assessment_attempt_time_limit_seconds: limit(&policy.assessment_attempt_time_limit_seconds),
         attempt_limit: limit(&policy.attempt_limit),
         late_work_rule: late(&policy.late_work_rule),
     })
 }
 
-/// Maps the Active Student Course Membership result to the transport-safe Assignment Access outcome.
+/// Maps the Active Student Course Membership result to the transport-safe Assessment Access outcome.
 pub fn project_active_student_course_membership(
     decision: &ActiveStudentCourseMembershipDecision,
 ) -> ActiveStudentCourseMembershipOutcome {
@@ -162,7 +162,7 @@ pub fn project_active_student_course_membership(
 
 /// Runs Student Feedback Release at the requested preview boundary. Due and Close remain unavailable when absent.
 pub fn project_preview_student_feedback_release(
-    effective: &AssignmentAccessDecision,
+    effective: &AssessmentAccessDecision,
     rule: StudentFeedbackReleaseRule,
     moment: PreviewDisclosureMoment,
     now: Timestamp,
@@ -203,10 +203,10 @@ pub fn project_preview_student_feedback_release(
     }
 }
 
-fn allowed_policy(value: &AssignmentAccessDecision) -> Option<&EffectiveAssignmentPolicy> {
+fn allowed_policy(value: &AssessmentAccessDecision) -> Option<&EffectiveAssessmentPolicy> {
     match value {
-        AssignmentAccessDecision::Allowed { policy, .. } => Some(policy),
-        AssignmentAccessDecision::Denied { .. } => None,
+        AssessmentAccessDecision::Allowed { policy, .. } => Some(policy),
+        AssessmentAccessDecision::Denied { .. } => None,
     }
 }
 
@@ -232,14 +232,14 @@ mod tests {
         ActiveStudentCourseMembershipDenial, ActiveStudentCourseMembershipFacts,
         ActiveStudentMembership, evaluate_active_student_course_membership,
     };
-    use crate::effective_assignment_policy::{
-        AssignmentPolicySource, AssignmentStartDecision, AssignmentStatusGate, AuthorizationGate,
-        EffectiveAssignmentPolicyValue, ResolveEffectivePolicyInput, StudentLateWorkStatus,
+    use crate::effective_assessment_policy::{
+        AssessmentPolicySource, AssessmentStartDecision, AssessmentStatusGate, AuthorizationGate,
+        EffectiveAssessmentPolicyValue, ResolveEffectivePolicyInput, StudentLateWorkStatus,
         resolve_effective_policy,
     };
     use chrono::TimeZone;
     use question_model::{
-        AccountId, AssignmentId, BaseAssignmentPolicy, CourseId, CourseMembershipId, CourseTerm,
+        AccountId, AssessmentId, BaseAssessmentPolicy, CourseId, CourseMembershipId, CourseTerm,
         LateWorkRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, StudentRecordId,
     };
     use std::num::NonZeroU32;
@@ -250,11 +250,11 @@ mod tests {
     }
     fn allowed() -> (
         ActiveStudentCourseMembershipDecision,
-        AssignmentAccessDecision,
+        AssessmentAccessDecision,
     ) {
         let facts = ActiveStudentCourseMembershipFacts {
             course: CourseId::from_uuid(id(2)),
-            assignment: AssignmentId::from_uuid(id(3)),
+            assessment: AssessmentId::from_uuid(id(3)),
             student_account: AccountId::from_uuid(id(4)),
             membership: Some(ActiveStudentMembership {
                 id: CourseMembershipId::from_uuid(id(5)),
@@ -263,16 +263,16 @@ mod tests {
         };
         let active_student_course_membership = evaluate_active_student_course_membership(facts);
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
-            assignment_status: AssignmentStatusGate::Open,
+            assessment_status: AssessmentStatusGate::Open,
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
             now: Timestamp::from_unix_millis(10),
-            prior_assignment_attempt_count: 0,
-            base: BaseAssignmentPolicy {
+            prior_assessment_attempt_count: 0,
+            base: BaseAssessmentPolicy {
                 available_at: None,
                 due_at: Some(Timestamp::from_unix_millis(20)),
                 closes_at: None,
-                assignment_attempt_time_limit_seconds: None,
+                assessment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
             },
@@ -327,7 +327,7 @@ mod tests {
     }
 
     #[test]
-    fn stale_revision_precedes_assignment_access_denial_and_is_closed() {
+    fn stale_revision_precedes_assessment_access_denial_and_is_closed() {
         let (active_student_course_membership, _) = allowed();
         assert_eq!(
             preview_denial_for(&active_student_course_membership, false),
@@ -351,12 +351,12 @@ mod tests {
     fn direct_student_and_hypothetical_scenario_sources_remain_distinct() {
         let student = StudentRecordId::from_uuid(id(9));
         assert_eq!(
-            assignment_policy_source_kind(&AssignmentPolicySource::Accommodation(student)),
-            AssignmentPolicySourceKind::Accommodation
+            assessment_policy_source_kind(&AssessmentPolicySource::Accommodation(student)),
+            AssessmentPolicySourceKind::Accommodation
         );
         assert_eq!(
-            assignment_policy_source_kind(&AssignmentPolicySource::HypotheticalStudentViewScenario),
-            AssignmentPolicySourceKind::HypotheticalStudentViewScenario
+            assessment_policy_source_kind(&AssessmentPolicySource::HypotheticalStudentViewScenario),
+            AssessmentPolicySourceKind::HypotheticalStudentViewScenario
         );
     }
 
@@ -371,30 +371,30 @@ mod tests {
                     .timestamp_millis(),
             )
         };
-        let policy = EffectiveAssignmentPolicy {
-            available_at: EffectiveAssignmentPolicyValue {
+        let policy = EffectiveAssessmentPolicy {
+            available_at: EffectiveAssessmentPolicyValue {
                 value: Some(at(14)),
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
-            due_at: EffectiveAssignmentPolicyValue {
+            due_at: EffectiveAssessmentPolicyValue {
                 value: Some(at(15)),
-                source: AssignmentPolicySource::Accommodation(student),
+                source: AssessmentPolicySource::Accommodation(student),
             },
-            closes_at: EffectiveAssignmentPolicyValue {
+            closes_at: EffectiveAssessmentPolicyValue {
                 value: Some(at(16)),
-                source: AssignmentPolicySource::Accommodation(student),
+                source: AssessmentPolicySource::Accommodation(student),
             },
-            assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue {
+            assessment_attempt_time_limit_seconds: EffectiveAssessmentPolicyValue {
                 value: NonZeroU32::new(1_200),
-                source: AssignmentPolicySource::Accommodation(student),
+                source: AssessmentPolicySource::Accommodation(student),
             },
-            attempt_limit: EffectiveAssignmentPolicyValue {
+            attempt_limit: EffectiveAssessmentPolicyValue {
                 value: NonZeroU32::new(3),
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
-            late_work_rule: EffectiveAssignmentPolicyValue {
+            late_work_rule: EffectiveAssessmentPolicyValue {
                 value: LateWorkRule::Accept,
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
         };
         let term = CourseTerm::from_parts("2026-08-01", "2026-08-31").unwrap();
@@ -416,22 +416,22 @@ mod tests {
         );
         assert_eq!(
             projected.available_at().source,
-            AssignmentPolicySourceKind::Base
+            AssessmentPolicySourceKind::Base
         );
         assert_eq!(
             projected.due_at().source,
-            AssignmentPolicySourceKind::Accommodation
+            AssessmentPolicySourceKind::Accommodation
         );
         assert_eq!(
             projected.closes_at().source,
-            AssignmentPolicySourceKind::Accommodation
+            AssessmentPolicySourceKind::Accommodation
         );
         assert_eq!(
-            projected.assignment_attempt_time_limit_seconds().source,
-            AssignmentPolicySourceKind::Accommodation
+            projected.assessment_attempt_time_limit_seconds().source,
+            AssessmentPolicySourceKind::Accommodation
         );
         assert_eq!(
-            projected.assignment_attempt_time_limit_seconds().value,
+            projected.assessment_attempt_time_limit_seconds().value,
             Some(1_200)
         );
         assert_eq!(projected.attempt_limit().value, Some(3));
@@ -440,8 +440,8 @@ mod tests {
         assert_eq!(schedule.due_at, *projected.due_at());
         assert_eq!(schedule.closes_at, *projected.closes_at());
         assert_eq!(
-            schedule.assignment_attempt_time_limit_seconds,
-            *projected.assignment_attempt_time_limit_seconds()
+            schedule.assessment_attempt_time_limit_seconds,
+            *projected.assessment_attempt_time_limit_seconds()
         );
         assert_eq!(schedule.attempt_limit, *projected.attempt_limit());
         assert_eq!(schedule.late_work_rule, *projected.late_work_rule());
@@ -465,16 +465,16 @@ mod tests {
             ActiveStudentCourseMembershipDenial::StudentNotActiveCourse,
         );
         let effective = resolve_effective_policy(ResolveEffectivePolicyInput {
-            assignment_status: AssignmentStatusGate::Open,
+            assessment_status: AssessmentStatusGate::Open,
             authorization: AuthorizationGate::Authorized,
             active_student_course_membership: active_student_course_membership.clone(),
             now: Timestamp::from_unix_millis(10),
-            prior_assignment_attempt_count: 0,
-            base: BaseAssignmentPolicy {
+            prior_assessment_attempt_count: 0,
+            base: BaseAssessmentPolicy {
                 available_at: None,
                 due_at: None,
                 closes_at: None,
-                assignment_attempt_time_limit_seconds: None,
+                assessment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
             },
@@ -484,7 +484,7 @@ mod tests {
 
         assert!(matches!(
             &effective,
-            AssignmentAccessDecision::Denied { .. }
+            AssessmentAccessDecision::Denied { .. }
         ));
 
         assert_eq!(
@@ -520,35 +520,35 @@ mod tests {
 
     #[test]
     fn disclosure_now_due_close_matches_s4_flags() {
-        let policy = EffectiveAssignmentPolicy {
-            available_at: EffectiveAssignmentPolicyValue {
+        let policy = EffectiveAssessmentPolicy {
+            available_at: EffectiveAssessmentPolicyValue {
                 value: None,
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
-            due_at: EffectiveAssignmentPolicyValue {
+            due_at: EffectiveAssessmentPolicyValue {
                 value: Some(Timestamp::from_unix_millis(20)),
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
-            closes_at: EffectiveAssignmentPolicyValue {
+            closes_at: EffectiveAssessmentPolicyValue {
                 value: Some(Timestamp::from_unix_millis(30)),
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
-            assignment_attempt_time_limit_seconds: EffectiveAssignmentPolicyValue {
+            assessment_attempt_time_limit_seconds: EffectiveAssessmentPolicyValue {
                 value: None,
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
-            attempt_limit: EffectiveAssignmentPolicyValue {
+            attempt_limit: EffectiveAssessmentPolicyValue {
                 value: None,
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
-            late_work_rule: EffectiveAssignmentPolicyValue {
+            late_work_rule: EffectiveAssessmentPolicyValue {
                 value: LateWorkRule::Accept,
-                source: AssignmentPolicySource::Base,
+                source: AssessmentPolicySource::Base,
             },
         };
-        let effective = AssignmentAccessDecision::Allowed {
+        let effective = AssessmentAccessDecision::Allowed {
             policy: Box::new(policy),
-            start_decision: AssignmentStartDecision::MayStart {
+            start_decision: AssessmentStartDecision::MayStart {
                 student_late_work_status: StudentLateWorkStatus::OnTime,
             },
         };

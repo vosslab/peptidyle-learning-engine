@@ -7,8 +7,9 @@ use question_model::capability::{Capability, QuestionBackendCapabilities};
 use question_model::generation::QuestionSeed;
 use question_model::{
     DraftImathasQuestionBackendBinding, ImathasQuestionBackendBinding,
-    QuestionAttemptReproductionDetails, QuestionRendererVersion, QuestionRevisionReference,
-    QuestionVariationPresentation, SourceObjectChecksum, SourceObjectReference, Timestamp,
+    QuestionAttemptReproductionDetails, QuestionRendererVersion, QuestionReproduction,
+    QuestionRevisionReference, QuestionVariationPresentation, SourceObjectChecksum,
+    SourceObjectReference, Timestamp,
 };
 use sha2::{Digest, Sha256};
 
@@ -206,11 +207,13 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
                     question_model::QuestionVariation::from_question_revision_and_question_seed(
                         question_revision.clone(),
                         seed,
+                        parameter_hash(seed),
                     ),
                 question_title: safe.question_title,
                 prompt: safe.prompt,
                 response: question_model::QuestionResponseFormat::ImathasQuestionBackend {},
                 native_choice_order: question_model::NativeChoiceOrder::Fixed,
+                author_content: None,
             },
         };
         validate_cache(&record, question_revision, seed, source)?;
@@ -246,12 +249,24 @@ impl<S: ObjectStore, P: QuestionBackend> ImathasAdapter<S, P> {
         source: &ResolvedImathasQuestionSource,
         cache_hit: bool,
     ) -> Result<ImathasIssuedAttempt, ImathasAdapterError> {
+        let QuestionReproduction::Seeded {
+            question_seed,
+            generated_parameter_sha256,
+        } = &cached.presentation.variation.reproduction
+        else {
+            // iMathAS is renderer-backed: a static reproduction record is never valid here.
+            return Err(ImathasAdapterError::InvalidCache);
+        };
+        let parameter_hash = parameter_hash(*question_seed);
+        if *generated_parameter_sha256 != parameter_hash {
+            return Err(ImathasAdapterError::InvalidCache);
+        }
         let hash = hex(Sha256::digest(
             serde_json::to_vec(&cached).map_err(|_| ImathasAdapterError::InvalidCache)?,
         )
         .as_slice());
         Ok(ImathasIssuedAttempt {
-            parameter_hash: parameter_hash(cached.presentation.variation.question_seed),
+            parameter_hash,
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: backend_version(ADAPTER_ID, ADAPTER_VERSION),
                 renderer_version: Some(QuestionRendererVersion {

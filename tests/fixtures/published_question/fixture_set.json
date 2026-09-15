@@ -4,9 +4,9 @@
   },
   "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
   "questionSummary": {
-    "questionId": "7K3-M9QP",
+    "questionId": "7K3M-X9QP",
     "latestQuestionRevision": {
-      "questionId": "7K3-M9QP",
+      "questionId": "7K3M-X9QP",
       "revisionNumber": 1
     },
     "backend": "ple",
@@ -64,7 +64,7 @@
       {
         "kind": "fixedQuestion",
         "id": "0198e000-0000-7000-8000-000000000017",
-        "questionId": "7K3-M9QP",
+        "questionId": "7K3M-X9QP",
         "questionTitle": "Peptide bond resonance and planarity",
         "backend": "ple",
         "capabilities": [
@@ -318,14 +318,13 @@
       "assignmentContentEntryIndex": 0,
       "issuedPosition": 1,
       "reference": {
-        "questionId": "7K3-M9QP",
+        "questionId": "7K3M-X9QP",
         "revisionNumber": 1
       },
-      "questionSeed": 1001,
+      "sourceSelection": { "kind": "static" },
       "reproductionDetails": {
         "backend": { "name": "ple-question-backend", "version": "1" },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
         "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
@@ -348,14 +347,13 @@
       "assignmentContentEntryIndex": 0,
       "issuedPosition": 1,
       "reference": {
-        "questionId": "7K3-M9QP",
+        "questionId": "7K3M-X9QP",
         "revisionNumber": 1
       },
-      "questionSeed": 1002,
+      "sourceSelection": { "kind": "static" },
       "reproductionDetails": {
         "backend": { "name": "ple-question-backend", "version": "1" },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
         "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
@@ -378,14 +376,13 @@
       "assignmentContentEntryIndex": 0,
       "issuedPosition": 1,
       "reference": {
-        "questionId": "7K3-M9QP",
+        "questionId": "7K3M-X9QP",
         "revisionNumber": 1
       },
-      "questionSeed": 1003,
+      "sourceSelection": { "kind": "static" },
       "reproductionDetails": {
         "backend": { "name": "ple-question-backend", "version": "1" },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
         "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
@@ -408,14 +405,13 @@
       "assignmentContentEntryIndex": 0,
       "issuedPosition": 1,
       "reference": {
-        "questionId": "7K3-M9QP",
+        "questionId": "7K3M-X9QP",
         "revisionNumber": 1
       },
-      "questionSeed": 1004,
+      "sourceSelection": { "kind": "static" },
       "reproductionDetails": {
         "backend": { "name": "ple-question-backend", "version": "1" },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": { "object": "0198e000-0000-7000-8000-000000000015" },
         "sourceObjectChecksum": "4fbc6e9435cac34fa8de49c799dafbf2dae14090878a35dcc0e34e9f1eaecd4e",
         "assetObjects": [
@@ -436,8 +432,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000030",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000040",
-      "question_seed": 1001,
-      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
+      "reproduction": { "kind": "static" },
       "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000001100,
@@ -450,7 +445,6 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": {
           "object": "0198e000-0000-7000-8000-000000000015"
         },
@@ -484,8 +478,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000031",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000041",
-      "question_seed": 1002,
-      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
+      "reproduction": { "kind": "static" },
       "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000002100,
@@ -498,7 +491,6 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": {
           "object": "0198e000-0000-7000-8000-000000000015"
         },
@@ -532,8 +524,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000032",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000042",
-      "question_seed": 1003,
-      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
+      "reproduction": { "kind": "static" },
       "state": "submission_accepted",
       "timing": {
         "issuedAt": 1786000003100,
@@ -546,7 +537,6 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": {
           "object": "0198e000-0000-7000-8000-000000000015"
         },
@@ -580,8 +570,7 @@
     {
       "id": "0198e000-0000-7000-8000-000000000033",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000043",
-      "question_seed": 1004,
-      "parameterHash": "c79812bc9888e63690772bed47c88dc80ba0e3d650fff08b713996afc4e1d617",
+      "reproduction": { "kind": "static" },
       "state": "open",
       "timing": {
         "issuedAt": 1786000004100,
@@ -594,7 +583,6 @@
           "version": "1"
         },
         "rendererVersion": null,
-        "generator": null,
         "sourceObjectReference": {
           "object": "0198e000-0000-7000-8000-000000000015"
         },

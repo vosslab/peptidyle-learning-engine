@@ -1,14 +1,14 @@
 // Declared route parameter extraction and syntax-only Ribbon scope identity.
 
 import {
-  parseAssignmentAttemptReference,
-  parseAssignmentReference,
+  parseAssessmentAttemptReference,
+  parseAssessmentReference,
   parseBlueprintCourseReference,
   parseCourseInstanceReference,
   parseCourseMembershipReference,
   parseDraftQuestionReference,
   parseQuestionRouteReference,
-  type AssignmentAttemptRouteReference,
+  type AssessmentAttemptRouteReference,
   type CourseInstanceRouteReference,
 } from "./public_route";
 import { routeContractForPathname, type RibbonScope, type RouteContract } from "../route_contract";
@@ -17,8 +17,8 @@ export type DeclaredRouteScope = RibbonScope;
 
 export type RouteParamName =
   | "courseRef"
-  | "assignmentRef"
-  | "assignmentAttemptRef"
+  | "assessmentRef"
+  | "assessmentAttemptRef"
   | "membershipRef"
   | "questionRef"
   | "draftQuestionRef"
@@ -37,8 +37,8 @@ export type RouteScopeKey =
       readonly courseReference: CourseInstanceRouteReference;
     }
   | {
-      readonly kind: "assignmentAttempt";
-      readonly assignmentAttemptReference: AssignmentAttemptRouteReference;
+      readonly kind: "assessmentAttempt";
+      readonly assessmentAttemptReference: AssessmentAttemptRouteReference;
     }
   | {
       readonly kind: "invalid";
@@ -49,8 +49,8 @@ type RouteParamParser = (value: string) => string | null;
 
 const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = {
   courseRef: parseCourseInstanceReference,
-  assignmentRef: parseAssignmentReference,
-  assignmentAttemptRef: parseAssignmentAttemptReference,
+  assessmentRef: parseAssessmentReference,
+  assessmentAttemptRef: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
   questionRef: parseQuestionRouteReference,
   draftQuestionRef: parseDraftQuestionReference,
@@ -125,9 +125,9 @@ export function routeScopeKey(pathname: string): RouteScopeKey {
     return { kind: "courseInstance", courseReference: parsedCourseReference };
   }
 
-  const attemptReference = params.assignmentAttemptRef;
+  const attemptReference = params.assessmentAttemptRef;
   const parsedAttemptReference =
-    attemptReference === undefined ? null : parseAssignmentAttemptReference(attemptReference);
+    attemptReference === undefined ? null : parseAssessmentAttemptReference(attemptReference);
   if (parsedAttemptReference === null) return invalidScope(scope);
-  return { kind: "assignmentAttempt", assignmentAttemptReference: parsedAttemptReference };
+  return { kind: "assessmentAttempt", assessmentAttemptReference: parsedAttemptReference };
 }

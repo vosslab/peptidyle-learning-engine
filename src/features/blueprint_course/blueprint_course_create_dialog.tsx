@@ -4,7 +4,7 @@ import { useNavigate } from "@solidjs/router";
 import { Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
-import type { BlueprintAssignmentContentInput } from "../../../generated/api/BlueprintAssignmentContentInput";
+import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import {
@@ -34,8 +34,8 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
   const [shortName, setShortName] = createSignal("Untitled Blueprint");
   const [longName, setLongName] = createSignal("Untitled Blueprint Course");
   const [moduleLabel, setModuleLabel] = createSignal("Module 1");
-  const [content, setContent] = createSignal<BlueprintAssignmentContentInput>(
-    emptyReusableContent("Module 1 assignment"),
+  const [content, setContent] = createSignal<BlueprintAssessmentContentInput>(
+    emptyReusableContent("Module 1 assessment"),
   );
   const [showPicker, setShowPicker] = createSignal(false);
   const [busy, setBusy] = createSignal(false);
@@ -65,7 +65,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
       modules: [
         {
           label: moduleLabel(),
-          assignments: [{ ...content(), title: content().title.trim() || "Module 1 assignment" }],
+          assessments: [{ ...content(), title: content().title.trim() || "Module 1 assessment" }],
         },
       ],
     };
@@ -186,7 +186,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
           />
         </label>
         <label>
-          First assignment title
+          First assessment title
           <input
             value={content().title}
             maxlength="200"

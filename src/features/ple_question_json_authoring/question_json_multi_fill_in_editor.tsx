@@ -84,7 +84,7 @@ export function PleQuestionJsonMultiFillInEditor(
                         announce(`Moved blank ${index() + 1} earlier.`);
                       }}
                     >
-                      Earlier
+                      Move earlier
                     </button>
                     <button
                       type="button"
@@ -95,7 +95,7 @@ export function PleQuestionJsonMultiFillInEditor(
                         announce(`Moved blank ${index() + 1} later.`);
                       }}
                     >
-                      Later
+                      Move later
                     </button>
                     <button
                       type="button"

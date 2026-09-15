@@ -5,9 +5,462 @@
 > intent comes from [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), which supersedes old
 > Assignment, Blueprint, lifecycle, grading, role, retention, and UI models.
 
+## 2026-09-15
+
+### Additions and New Features
+
+- Tightened TypeScript generator output ownership to its current exact header.
+  Retired historical generator headers now remain protected as unowned files
+  rather than being silently replaced; current generated contracts already use
+  the canonical marker.
+
+- Repaired the retained Pool-selection unit fixtures to use canonical 4-4
+  Question IDs. Removed the transient-entropy replay test: it constrained the
+  random-selection implementation rather than a durable product contract.
+  The retained tests protect available pinned-item selection/order and refusal
+  when too few available items remain; C353 reusable Pool provenance remains
+  open.
+
+- Reclassified Pool selection count from an artificial product question to an
+  engineering decision: the existing positive Assessment-entry count belongs to
+  the Assessment-owned Pool fork, while the reusable immutable Pool Revision
+  owns its members. C905-C909 remain open for exact fork provenance,
+  count-bound validation, delivery, and proof; this does not claim those
+  behaviors are implemented.
+
+- Made `cargo tsgen` a source-only `project-tools` binary.  The regular
+  `cargo tools` host retains its runtime commands and dependencies, while the
+  TypeScript contract generator now builds without the database, object-store,
+  server, or AWS dependency graph.  Its optional output-directory argument and
+  generated-contract semantics are unchanged.
+
+- Consolidated Human Guidance's durable algorithmic-Question, Question-Pool,
+  backend-feedback, human-reference-ID, and WeBWorK PG/PGML source-format
+  rules. BiologyProblems.org import and migration requirements apply per
+  relevant family, not to one example. This records requirements and checklist
+  audit scope, not product closure or a completed catalog migration.
+
+- Added Human Guidance requirements for opaque human-facing references: `BP`, `CI`, `A`, and
+  Sysadmin-only `U` prefixes use one common random Crockford Base32 format without a separator;
+  public Question and Question Pool `AAAA-ZBBB` IDs remain separate. This records required
+  behavior only. Current sequential references remain noncompliant pending implementation.
+
+- Simplified Human Guidance compliance coordination. The checklist remains the
+  verbatim, evidence-backed audit record, while the plan and gap map now use
+  short owner and handoff notes instead of dependency-parser, count, and
+  ownership-ledger requirements. Adaptability remains a binding review
+  constraint despite its N/A classification. Student-data minimization now has
+  an active owner applying the simplest category-and-operation boundary review,
+  rather than waiting for an invented field-allowlist decision. The checklist
+  splice operation now replaces one complete manifest part through its next
+  part boundary, preventing repeated splices from duplicating a generated
+  section.
+
+- Corrected C3's dependency-freshness gate to follow the latest-first policy.
+  PyPI requirements now audit as one `>=` floor rather than exact pins, and the
+  snapshot no longer permits an AWS downgrade exception. The recorded current
+  `aws-sdk-s3` 1.147.0 resolution is audited without freezing the dependency.
+  The audit does not duplicate the separate workspace build gate; its upstream
+  Smithy failure remains an open build report rather than an excuse to weaken
+  the latest-first declaration policy.
+
+- Completed C365's atomic Bulk Published Question metadata database boundary.
+  An active vetted Instructor can replace only `tags`, `subject`, and `topic`
+  for a bounded distinct selection carrying every current metadata Edit Number.
+  The security-definer command locks canonical Question-ID order, validates all
+  targets before its first write, advances each metadata Edit Number together,
+  and stores an actor-bound opaque idempotency receipt keyed to a canonical
+  request digest. Stale, invalid, unavailable, unauthorized, duplicate, or
+  oversized requests make no partial change and expose no per-target outcome.
+  The ignored fresh PostgreSQL 17 proof covered unvetted denial, replay,
+  same-key mismatch, stale/unknown/invalid rollback, and final zero-write
+  state; it passed independent review and was removed. C367/C893 own the
+  typed Store and HTTP outcomes.
+
+- Completed C877's atomic Question-fork authoring boundary. An active
+  Instructor can create one distinct private Draft from an exact Available
+  Published Question Revision, with immutable source attribution and an
+  actor-scoped opaque idempotency receipt. Concurrent same-key requests return
+  the same Draft; a reused key for another source is refused. The stored
+  server-allocated compact Question ID is required if that Draft is later
+  published. The ignored PostgreSQL 17/RLS proof covered private ownership,
+  source pinning, actor scope, mismatch refusal, concurrent retry, and
+  fork-versus-archive ordering; it passed independent review and was removed.
+  C878-C879 still own the typed server command and Instructor workflow.
+
+- C331's isolated opaque WeBWorK render/pair/grade proof passed. The adapter
+  boundary is intact, but required WeBWorK feedback is discarded after the
+  renderer score; the Human Guidance bullet remains open pending
+  cross-boundary outcome, persistence, and disclosure work.
+
+- Corrected the earlier C900 entry in this section. Its frozen 2025 RDKit
+  tarball and versioned immutable-route design conflicts with Human Guidance's
+  latest-dependency rule and is historical attempted work, not current intent.
+  The current correction uses `@rdkit/rdkit >=2026.3.6` through the npm lock,
+  one reviewed local JS/WASM pair, unversioned revalidating routes, and no
+  package-version/digest persistence or historical catalog. The current
+  generator check (`node devel/sync_author_content_dependency.mjs --check`),
+  Rust formatting, and diff check passed. A temporary Caddy-routed Chromium
+  probe loaded the exact SRI JS/WASM pair in the opaque sandbox and denied
+  parent, storage, cookie, and private-fetch access; it was removed after use.
+  The server crate's focused test is blocked by an unrelated incompatible AWS
+  Smithy resolution, and the generated checklist currently has an unrelated
+  duplicate-status inconsistency. Independent review accepted the two exact
+  API-origin CloudFront routes: they forward only canonical `Host`, never
+  cookies, query strings, authorization, or other viewer input, while retaining
+  the two-file anonymous CORS/CORP exception. This correction does not claim
+  C901 or C903 complete.
+
+- Corrected the Human Guidance plan and contracts from a code audit.
+  `attempt_presentation.sql` remains the live native and WeBWorK
+  issued-presentation/reproduction boundary and is now explicitly a C500
+  Assessment-rename consumer; C870 removes only dormant H5P seams. The backend
+  contract records H5P as blocked, not supported. The corrected RDKit chain
+  uses a current local runtime only; it has no immutable-identity handoff,
+  version catalog, or retirement workflow. These are scope and dependency
+  corrections, not completed implementation claims.
+
+- The WebWork audit found that the renderer path currently normalizes only
+  `problem_result.score`, while Student history supplies default feedback.
+  C910 is now the atomic contributor for typed, protected, policy-gated opaque
+  backend feedback; C331 and C362 cannot close first. This corrects the
+  dependency graph without inventing native parsing or a feedback completion
+  claim.
+
+- Completed C371's Published Question Star closure. A Star is now a visible
+  favorite/endorsement, and an active vetted Instructor can see its count and
+  the exact vetted display names of its endorsers. The permanent isolated
+  PostgreSQL/server test passed with the closed name-only response and
+  concealment for anonymous, Student, inactive-Instructor, and non-Published
+  requests. A one-time compiled Chromium check confirmed the accessible plain
+  text name list has no profile link, control, or avatar; it was removed after
+  review. C347 may now use C371 as its completed Star prerequisite.
+
+- Historical C900 record, superseded by the latest-first correction above:
+  the former frozen `@rdkit/rdkit@2025.3.4-1.0.0` manifest and versioned
+  runtime catalog were removed because they conflict with Human Guidance.
+  Current C900/C902 use the npm lockfile's reviewed current release and one
+  unversioned local `RDKit_minimal.js`/`.wasm` pair. The generator still
+  rejects tampered, extra, or nonregular runtime files and generated-registry
+  drift; it never permits an npm/CDN/author URL at runtime. The earlier
+  clean-cache/reproducibility matrix remains historical evidence, not a
+  claim that the frozen artifact is current authority.
+
+- Added C414's canonical model-layer Blueprint export projection. It serializes only reusable
+  short/long names, authored module and Blueprint Assessment order, reusable Assessment settings,
+  and exact Published Question Revision pins and published Question Pools. It carries no owner,
+  source or revision identity, visibility, Star/Watch, Course, Student, delivery, or private
+  operational state; relational storage remains primary. C415 still owns import, comparison-store,
+  and exchange workflow behavior. The ignored behavioral fixture proved deterministic bytes,
+  authored order, complete fixed/pool settings, and identity omission, then was removed after
+  independent review. No permanent test was warranted under `docs/PYTEST_STYLE.md`.
+
+- Completed C876's Question-fork source-pin boundary. An active Instructor's
+  server command can resolve only one exact immutable Revision of an Available
+  Published Question; missing, archived, wrong-revision, Student, and
+  unauthenticated requests receive no source fact. This schema phase creates no
+  Draft, attribution, authoring operation, or client-facing identity path. The
+  ignored fresh PostgreSQL 17 proof passed and remains temporary under the
+  plan's test-liability policy.
+
+- Completed C856's Blueprint Star verified-name projection. Only an active
+  vetted Instructor viewing a Public or Archived Blueprint can receive active
+  vetted endorsers' exact immutable display names; the separately closed,
+  no-store response contains no email, UUID, Account/Profile link, avatar,
+  Course, substitute identifier, Star aggregate, or Watch fact. An independent
+  fresh-PostgreSQL multi-identity review passed. Its ignored disposable-stack
+  matrix remains temporary because it does not earn a permanent test.
+
+- Completed C862's remaining lifecycle-consumer cutover. Blueprint Course
+  adoption and reusable-assignment source selection now accept only Public
+  Blueprints; Private courses remain owner-only and Archived courses remain
+  browseable history rather than new selection sources. The TypeScript check,
+  lifecycle-model contract, lint, formatting, and narrow diff checks pass. The
+  existing decoder-client test is blocked before execution by a concurrent
+  missing generated API constant, so it supplies no result for this change.
+
+- Completed C885's trusted Pool schema boundary. Its create and append
+  procedures accept a canonical compact ID only at Revision 1, preserve the
+  database collision authority, and retain each Revision's nonempty ordered
+  distinct exact Published Question Revision pins plus its active Instructor
+  interchangeability attestation. Appends require and replace a metadata ETag
+  atomically; member sets cannot be changed after commit. Membership remains
+  backend-neutral and stores no selected-count setting. There is no
+  `ple_app`/browser mutation grant or public coordinator; C886-C887 own the
+  allocator, route, retry, and workflow. The ignored PostgreSQL 17
+  uniqueness/revision/member-pin/RLS matrix passed and was removed after
+  review. No permanent test was warranted.
+
+- Implemented C342's narrow schema projection for public content references.
+  An active Instructor can receive only canonical `AAAA-ZBBB` Question and
+  Pool references with their current Revision Numbers; it exposes no UUID,
+  Pool contents, selection rule, UI, or lineage detail. The fresh PostgreSQL
+  17 proof passed and was temporary-only. C342 remains dependent on C887's
+  actual Pool-creation closure and this entry does not claim that workflow.
+
+- Completed C343's bounded Question-ID collision retry. New-lineage
+  publication now receives a typed identity-collision result only when the
+  PostgreSQL adapter confirms SQLSTATE `23505` on `published_question_pkey`.
+  It deletes and retries only that unregistered object; every other Store or
+  object outcome retains potentially committed evidence. The permanent tests
+  protect retry cleanup, capped exhaustion, fail-closed cleanup, and ambiguous
+  outcome retention; the ignored one-time probe was removed after review.
+
+- Completed C854's Published Question Star display-name surface. The Question
+  detail page renders only the exact verified Instructor display names in the
+  server's closed Star projection, as plain accessible list text. It performs
+  no identity lookup and introduces no Profile link, avatar, email, UUID,
+  Account reference, Course, substitute identity, or Watch disclosure. An
+  ignored SSR rendered-name/accessibility probe passed and remains temporary;
+  it is not a permanent component snapshot.
+
+- Completed C354's Question Pool public-identity and immutable-revision
+  persistence seam. Pools now retain a server-issued compact Crockford public
+  ID with database collision authority, begin at Revision 1, and append only
+  the expected next immutable Revision under a lineage lock. Direct table
+  mutation remains unavailable to the application role; active Instructor
+  capability is required for the narrow creation and CAS append procedures.
+  A disposable PostgreSQL 17 proof passed shape/collision, authorization,
+  immutability, stale-CAS, and two-session race checks. It remains ignored
+  temporary evidence because its container-backed implementation matrix does
+  not earn a permanent test.
+
+- Completed C853's Question Star verified-name projection. Only an active
+  Instructor viewing a Published Question can receive its active vetted
+  endorsers' exact immutable display names; the closed response has no Account
+  identity, email, avatar, Course, substitute identifier, or Watch state. An
+  ignored fresh-PostgreSQL multi-identity proof passed and remains temporary
+  because its setup-heavy matrix does not earn a permanent test. Invalid,
+  revoked, expired, or deactivated sessions and HMAC-valid non-Published
+  Questions now take the same concealed 404 disclosure path; genuine session
+  storage failures remain unavailable errors.
+
+- Completed C361's WebWork test-liability cleanup. The durable tests retain
+  opaque issued-presentation and grading outcomes, stateless lifecycle
+  rejection, and the boundary that rejects native PLE responses before the
+  renderer. They no longer constrain renderer call counts or call order; the
+  native-response test now fails immediately if the renderer is reached.
+
+- Completed C57's bounded Question Library return path. Opening a Question now
+  retains the active search, selected filters, loaded server-validated browse
+  pages, and Library scroll position for one immediate in-document return;
+  unrelated Library visits still begin with Search. The implementation proof is
+  ignored temporary verification, not a new permanent test.
+
+- Completed C880's Blueprint fork-sync schema foundation. Each C412 fork now
+  receives private, append-only immutable baselines for its short name, long
+  name, every stable-reference whole Blueprint Assessment, and its ordered
+  Assessment list. The schema has no application-facing source read path; it
+  preserves origin-linked source snapshots for the later authorized C881-C884
+  comparison and selected-application chain. A disposable PostgreSQL 17 probe
+  verified source linkage, private nonenumeration, immutability, and append-only
+  unit history; the ignored temporary proof was removed after acceptance.
+
+- Completed C881's canonical Blueprint fork comparator. It classifies only
+  short name, long name, each stable-reference whole Blueprint Assessment, and
+  the ordered Assessment list as safe, already applied, conflict, or not
+  applicable from immutable base/source/fork values. Canonical Assessment
+  equality includes reusable settings, Published Question Revision pins, and
+  Question Pool content; ownership, visibility, Star, Watch, adoption, Course,
+  Student, and other operational state cannot enter the comparison type. The
+  ignored deterministic matrix covered every status, Assessment addition and
+  removal, and exact-once stable ordering, then was removed after independent
+  review. No permanent fixture inventory was warranted.
+
+- Completed C83's one-time Student endpoint authorization discovery. The
+  ignored proof traced 25 endpoints across Student-only, shared-self,
+  authenticated-membership, authenticated-asset, public-renderer-asset, and
+  Student-denied classes through their server-side session and Store/SQL
+  authority boundaries, independently of frontend route admission. It found no
+  server authorization flaw and deliberately creates no permanent
+  endpoint-inventory test.
+
+- Implemented C202's bounded Question-recognition improvement: every existing
+  shared Question-reference control now receives and shows its already-present
+  Question title alongside the canonical copyable reference. The planned
+  disposable-stack browser proof remains pending its suite owner's input, and
+  this contributor does not claim the wider C216 recognition/copy-surface
+  inventory.
+
+- Completed the C6 reusable Blueprint-content schema boundary. The closed
+  content model now carries the bounded immutable facts required by Human
+  Guidance; the service and browser vertical remain pending and are not
+  claimed by this record.
+
+- Completed C17's immutable, auditable Instructor-vetting store foundation.
+  It records the durable vetting decision without claiming the separate C18
+  Account-creation workflow.
+
+- Completed C803's Sysadmin TOTP foundation: encrypted and zeroized
+  database-bound seed handling plus account/browser-bound attestations,
+  replay protection, and rate limiting. Session completion and the remaining
+  C804-C807 ceremony are still pending.
+
+- Completed the C37/C38/C812 Profile-image storage foundation. Role-neutral
+  exact private `ProfileImage` schema, Object Address, and Learning Data
+  Access support replace the legacy thumbnail representation; C39 and the
+  browser-facing Profile work remain pending.
+
+- Completed C815's Course Banner rendition pipeline foundation. It produces
+  one complete, oriented, exact-5:1 no-crop rendition. Focused acceptance
+  passed; the lease-owned end-to-end browser lane remains pending.
+
+- Completed C824's local evidence mapping for 12 candidate parameterized
+  Genetics sources, including hashes, provenance, and license pins. It is a
+  source-selection contributor only; C838-C841 still own publication,
+  equivalence, archive, historical-preservation, and recovery behavior.
+
+- Completed C832/C833/C835's Profile-image catalog foundation: generated
+  original safe SVG assets, catalog schema, and picker contribution. C834,
+  C836, and the browser route work remain pending, so this does not claim
+  selectable Profile-image delivery.
+
+- Completed C338's Question Library bulk-selection request seam. It accepts
+  only a nonempty, duplicate-free list of canonical Published Question IDs and
+  carries no operation, metadata, route, or simulated mutation. C365 owns the
+  real bulk request boundary and C366 its UI. The ignored temporary proof was
+  run with the repository's TypeScript loader and is not a permanent test.
+
+### Decisions and Failures
+
+- Recorded blocked future H5P C863-C869 architecture and C870 immediate dormant
+  placeholder removal. H5P has no delivered runtime until its exact content,
+  library, terminal xAPI, and scoreless-activity question is answered; no
+  compatibility path is authorized. This is planning, not completion.
+
+- Recorded C862's Blueprint lifecycle browser-codec cutover. Generated
+  `BlueprintAvailability` accepts only `Private|Public|Archived`; the decoder,
+  client fixtures, and executable generated consumer reject legacy aliases.
+  C49/C72 hand this bounded client work to C50/C19 without expanding C50's
+  workspace ownership. This is approved planning, not completion.
+
+- Reclassified the optional abandoned-Draft-cleanup sentence as an audited N/A:
+  it supplies no clock or durations. C326/C352/C374/C375 are removed from
+  dispatch; C861 will remove prohibited placeholder cleanup seams while
+  preserving manual Draft deletion and publication. The unanswered cleanup
+  policy question remains explicit. This is approved planning, not completion.
+
+- Recorded the C303/C857-C860 author-JavaScript correction. C303 is now an
+  architectural handoff, while the answer-free descriptor, authenticated
+  no-store isolated document, locked-down frame, and connected proof own the
+  implementation. C859 alone owns the five isolation behaviors; C304 waits for
+  C860. The document permits only reviewed local libraries and a bootstrap
+  nonce, never author URLs or PLE authority. This is approved planning, not
+  completion.
+
+- Recorded the C856 Blueprint Star identity split. C409 owns Star/unstar/count,
+  private self Watch state, and lifecycle Watch fan-out without names; C856 may
+  disclose exact vetted names only to an active vetted Instructor on a
+  Public/Archived Blueprint Star list, never Watch identities/state or other
+  account/Course identifiers. C423 is the final browser closure. This is
+  approved planning, not completion.
+
+- Recorded the C371 Verified Instructor Display Name boundary. The bounded
+  server-controlled name is created only by C17/C18 vetting/Account creation,
+  never self-edited or surfaced through Profile/directory projections. C852-C855
+  carry it through authorized Published-Question Star SQL/LDA/server/frontend
+  delivery; exact names, not a self/count-only route, are required before C371
+  closes. The retained-test candidate is the stable real-session disclosure
+  authorization/privacy outcome. This is approved planning, not completion.
+
+- Recorded the C209 retention-notification delivery boundary. C847-C851 use
+  only `warn_inactive`/`notify_archive` receipts, one verified Instructor
+  destination per claim, terminal provider acceptance, callback updates to the
+  same idempotency key, a disabled recorded-failure adapter, two isolated
+  non-inheriting worker database pools, and due-time-order nonblocking
+  transitions. Invitation export, Mail.app, fake success, and Live Demo
+  delivery evidence are excluded. This is approved implementation planning,
+  not a completion claim.
+
+- Recorded the architect-approved direct preproduction Question-ID cutover.
+  Question storage is compact `AAAAZBBB`; display and serde are `AAAA-ZBBB`;
+  the middle compact character is the HMAC high-five-bit Crockford check over
+  the other seven identity characters. The server validates before lookup, the
+  existing specification owns accepted normalization, and a nonempty published
+  Question table stops the fresh-schema cutover for escalation. C842-C846 now
+  provide its atomic foundation, schema/fixture, browser, sweep, and integrated
+  proof handoffs before C319/C342/C343/C354. No dual parser, legacy rewrite, or
+  compatibility reader is authorized. This is an implementation plan decision,
+  not a completion claim.
+
+- Accepted the C832-C837 Avatar planning boundary: Profile images will use a
+  PLE-provided, first-party generated-SVG catalog with stable selectable and
+  retired IDs, SVG provenance, and a safe grammar. There is no avatar-list
+  API. C40 waits for C819/C820, and cross-Account staff Profile-image delivery
+  remains an explicit product question. This is accepted atomic planning only;
+  it does not claim implementation.
+
+- Corrected the Genetics parameterized-replacement planning boundary from 11
+  to 12 sources. C824 supplies the evidence, and C838-C841 cover 12 new
+  lineages, new Blueprint CAS, per-bank all-199 equivalence, conditional
+  archive, historical preservation, and forward recovery. This is accepted
+  atomic lifecycle planning only; it does not claim implementation.
+
+- Accepted the A9 Human Guidance Milestone G plan and checklist map. Canonical
+  C500-C536 is a 37-row atomic authoritative ledger with 104 owning behaviors,
+  five duplicate pointers, and an acyclic dependency graph; C502 is
+  contributor-only. C525 (cohort/completion) and C536 (export
+  identity/privacy) remain terminal Human-Guidance-unresolved product
+  questions. The plan includes DD-A9-01 and C12's complete Assessment
+  terminology-cutover chain. Its temporary-proof, remove-by-default test
+  policy is accepted. This is planning and audit evidence only; it does not
+  claim product implementation.
+
+- Accepted the A8 Human Guidance Milestone G plan and checklist map. Canonical
+  C400-C425 accounts for 64 owning behaviors through 22 closure and four
+  contributor milestones, with six duplicate pointers and an acyclic
+  dependency graph. Its temporary-proof-first policy and independent planning
+  review are accepted. This is planning and audit evidence only; it does not
+  claim product implementation.
+
+- Recorded DD-A9-01, the durable Assessment terminology decision. Assessment
+  is the only generic object; Assignment remains only one of the three Type
+  display names. Preproduction uses a direct cutover to the exact canonical
+  routes and JSON shape, with no legacy API or runtime-import compatibility.
+  One announced release may provide only a finite, safe browser GET/HEAD
+  redirect before it is removed. This records the approved implementation
+  boundary, not completion of that cutover.
+
+- Recorded the Course Banner rendition decision. A banner is one complete,
+  oriented, exact-5:1, no-crop rendition; 1280 by 256 is guidance and the
+  generated output, not an input minimum. Preproduction uses a direct cutover.
+  This records the approved implementation boundary, not completion of it.
+
+- Recorded the architect-approved `Static`/`Seeded` attempt-reproduction
+  decision. Native `pleQuestionJson` is `Static` and has neither a
+  `QuestionSeed` nor generated-parameter hash; a PLE presentation nonce only
+  binds response-item and authored choice ordering. Descriptor evidence
+  checksum v2 binds the tag and its applicable facts. WeBWorK and seed-using
+  iMathAS delivery remain backend-owned `Seeded` cases; C306 must make an H5P
+  binding choose a tag before H5P delivery. The preproduction cutover replaces
+  the generic seed shape directly, reinitializes a fresh database, and forbids
+  sentinels, null ambiguity, and compatibility shims. One public no-seed
+  contract test is justified; its vertical database proof is temporary and is
+  removed after use. This is a durable design and contract decision, not a
+  claim that the current implementation has completed the cutover.
+
+- Recorded the approved self-only Account Settings boundary. Every signed-in
+  Product Role uses `/account-settings` and `GET` / `PUT /api/account/settings`
+  for the one closed exact-IANA time-zone preference; callers select no Account,
+  Course, or role, and PostgreSQL derives the active Account in the atomic
+  update. The change affects display and later Instructor wall-clock entry, not
+  stored instants. Profile Settings retains avatar work, while Instructor
+  Profile displays and links to the preference. Account Settings does not
+  expose credential controls; the required Student and Instructor passwordless
+  behavior and multiple Student passkeys remain Accounts-and-roles work. Only
+  self-service credential enumeration, revocation, re-authentication,
+  identity-proofed recovery, notification, and session-termination semantics
+  await a separate decision. C15's Sysadmin TOTP session boundary is unchanged.
+
 ## 2026-09-14
 
 ### Additions and New Features
+
+- Added a generated, verbatim Human Guidance implementation checklist and its narrow generator.
+  The baseline accounts for all 761 HG bullets: 244 verified `[x]`, 480 findings `[ ]`, and 37
+  positive-audit `N/A` entries. `[ ]` records an unverified behavior or implementation mismatch;
+  it is not completion. Generator tests remain ignored one-time proof under `tests/_temp`; no
+  permanent test was added.
 
 - Added the planned Gmail API Email Delivery Backend specification. It keeps institutional email
   as the PLE Account identity and a dedicated Gmail account as delivery transport, defines the
@@ -27,6 +480,186 @@
   Questions no longer cause searches to fail above one page. Server and frontend checks passed.
 
 ### Fixes and Maintenance
+
+- Recorded two accepted narrow closures. C203/C817 now verifies the FERPA Student-Work ownership
+  boundary through a permanent real-session BOLA oracle: the owner is allowed and the four
+  cross-Student, nonmember, cross-Course, and Sysadmin cases are denied. C36/C818 now verifies
+  only that Profile opens its small menu and Sign Out is inside it; Profile/account menu contents
+  and the broader no-scattering behavior remain open for C819-C823.
+
+- Completed C301's native external-resource inventory. Native Question JSON now records reviewed
+  absolute HTTPS external URLs in the closed link, image, script, stylesheet, and other categories,
+  rejecting malformed and duplicate URLs. This is source metadata only: it does not claim upload,
+  fetch, execution, CDN approval, or local serving. The temporary parser proof will be removed.
+
+- Accepted the A7 Milestone G planning completion: 78 unchecked records yield 77 owning behaviors
+  plus one A6 C208 duplicate. Canonical C300-C375 contains 76 rows (44 closure and 32 contributor)
+  for 77 closure occurrences, with an 81-node, 100-edge acyclic DAG. Architect gates C303, C355,
+  C359, and C360, the temporary-only 13k fixture, and the test-liability review are accepted.
+  This records planning and audit work only; it does not claim implementation.
+
+- Completed C29's habitat-theme naming verification. Stored theme ID `grass` retains its reviewed
+  palette while every visible registry consumer presents `Grassland`; Forest, Ocean, Desert, and
+  the remaining closed theme labels are likewise biome or habitat names. The density browser
+  evidence could not launch Chromium in this sandbox, so it is not claimed as verification.
+
+- Completed C28's keyboard-reordering audit. Blueprint Assignment, Assignment Workspace, and all
+  native JSON reorderers expose labelled Move earlier/Move later buttons backed by identity-safe
+  reorder models. The temporary seven-surface inventory was removed; this does not choose any
+  drag-and-drop surface, which remains the separate Human Guidance product question.
+
+- Completed C1's source-file split verification. Every tracked authored source passes the
+  exclusive 1000-line limit; `src/style.css` is now 994 lines, and the shared role-color selectors
+  live in the separately loaded and production-copied `src/styles/product_role.css`. The isolated
+  production-style artifact check passed.
+
+- Completed C211's conservative Question-revision boundary. Metadata-only title and description
+  changes stay on the current lineage; unchanged source is rejected before successor writes, while
+  changed source creates exactly one successor under concurrent publication. The PostgreSQL 17
+  metadata/no-op/new-source/race probe is temporary evidence and does not invent behavior for the
+  not-yet-persisted tags, subject, or topic fields.
+
+- Completed C35's shared Profile-control evidence: Student, Instructor, and Sysadmin now have
+  one far-right, accessible, icon-only generic Profile affordance, with the selected-avatar
+  rendering seam retained where applicable. The one-time 1280/320 coarse-pointer and
+  thumbnail-request-isolation probe was removed; this entry does not claim Profile-menu or
+  avatar-persistence behavior.
+
+- Completed C27's staff desktop evidence: the permanent responsive check covers Instructor and
+  Sysadmin 1280-by-800 Ribbon behavior, including visible Sysadmin Instructor Accounts and Scoped
+  Support controls. The one-time real-shell page/keyboard probe was removed. A fresh local rerun
+  could not launch Chromium because the sandbox denied its macOS Mach rendezvous port; that is an
+  environment limitation, not a product failure.
+
+- Completed C2's development-conformance audit. It inventories current tracked and untracked
+  source safely, enforces readable snake_case names, and rejects unsupported placeholder or
+  compatibility scaffolding through exact durable-authority exceptions. The adversarial proof was
+  removed rather than retained as a permanent implementation-coupled test.
+
+- Verified C13's pre-existing Live Demo entry: the visible seeded-role selector creates ordinary
+  sessions while its router deliberately omits email-code delivery. The one-time five-persona
+  runtime proof was removed rather than retained as a permanent URL-specific test. Live Demo email
+  remains a future capability unlocked by "yet"; this did not add product code.
+
+- Recorded the architect-approved Sysadmin TOTP session decision in the durable
+  design, contract, and Live Demo documents. Primary authentication now has a
+  specified pending-MFA-to-session boundary for Sysadmins, while Student and
+  Instructor sessions remain unchanged. The record requires a one-use,
+  Account- and browser-bound, short-lived TOTP attestation; server-side
+  counter/replay/rate protections; encrypted seed storage; and a genuine local
+  operator artifact that is consumed by a separate authenticator and logged by
+  path only, without a browser or fixed-secret bypass. It records C15
+  implementation scope only; no production authentication behavior is claimed.
+
+- Restored the supported default optional-sqlx build by adding the missing `#[cfg(feature =
+"postgres")]` guard to the `course_blueprint_adoption` module declaration in
+  `crates/learning-data-access/src/postgres.rs`. No product behavior or permanent test changed.
+  The default `--lib course_roster` gate passed 2/2, the postgres `--lib connection_contract`
+  gate passed 3/3, and format and clippy passed.
+
+- Completed C3's dated direct-dependency freshness audit across Cargo, Node, and PyPI manifests.
+  The snapshot covers all 43 direct dependencies; only the documented aws-sdk-s3 security-release
+  and TypeScript compatibility exceptions remain, with their narrow blockers recorded.
+
+- Accepted the A6 Milestone G planning completion: 37 unchecked records include two later
+  duplicate pointers and 35 owning behaviors. Sixteen atomic implementation/evidence milestones
+  use the safe C200-C216 range; C205 is the sole product question for the cohort/intersection
+  statistic-release rule. The DAG and temporary-test-first policy received independent review.
+  This records planning and audit work only; it does not claim implementation.
+
+- Accepted the A5 Milestone G planning completion: 26 raw records (25 open and one N/A) yield
+  23 owning product-behavior records with 22 closure milestones. Y10 is the sole product
+  question; two Ribbon details remain HG-unlocked. Atomicity and temporary-test-first gates
+  received independent review. This records planning and audit work only; it does not claim
+  implementation.
+
+- Corrected the A6 Student-data duplicate ownership pointer to its first Accounts-and-roles
+  occurrence. The unverified status and finding remain unchanged.
+
+- Corrected the A3 Product Role identity evidence locator to the shared Ribbon identity plate.
+  Its verified status and behavior claim are unchanged.
+
+- Completed C31's Atkinson Hyperlegible Mono delivery: code and monospace elements use the
+  locally bundled normal and italic family, and the production build copies and verifies its
+  assets. The one-time computed-style proof was removed rather than promoted as a permanent test.
+
+- Corrected four A3 role-color checklist evidence locators after the shared CSS moved to
+  `src/styles/product_role.css`. The verified statuses and product behavior are unchanged.
+
+- Completed C34's role-home route contract: Instructor, Student, and Sysadmin now have explicit
+  home routes, and the selected Courses navigation targets the signed-in role's route. The stable
+  role-route contract test passed. The screenshot manifest deliberately records all three new
+  role-home captures as deferred, so no visual-capture evidence is claimed yet.
+
+- Accepted the A1 Milestone G correction map: 17 owning gaps map exactly once to C1-C12;
+  C4 and C5 are `N/A` audit corrections under the Human Guidance classification rule. The
+  cycle-free dependencies and executable temporary-first gates received independent review.
+  This records planning and audit work only; it does not claim implementation.
+
+- Accepted the A2 Milestone G2 correction map: 20 owning Accounts-and-roles gaps map exactly
+  once to C13-C26. Reviewed owned boundaries span Live Demo authentication, roster identity and
+  access, authentication, account lifecycle and Instructor vetting, Blueprint browse, Course
+  retention, and Sysadmin/support authorization. The reviewed gates are the exact focused
+  `cargo test` boundaries (`learning-data-access` authentication, roster, and connection
+  contracts; `server_core` Instructor-account, Blueprint, roster, worker, and support-capability
+  behavior), the named Live Demo E2E lanes, `npx playwright test
+tests/playwright/e2e/auth_authorization.spec.ts`, and `./launchers/run_fast_checks.sh`.
+  A2-08 remains one genuine product question: Human Guidance requires reluctant collection and
+  deliberate use of Student data but does not choose between per-field/per-purpose allowlisting
+  and qualitative category/operation-boundary enforcement; C22 plans only predictable purge.
+  Proof begins in `tests/_temp/` and is promoted only when it meets `docs/PYTEST_STYLE.md`.
+  This records planning and audit work only; it does not claim implementation.
+
+- Accepted the A3 Milestone G3 correction map: all 36 Interface-shell findings are accounted for.
+  Thirty-four have one closure owner in C27-C43 or C69-C71; the remaining exact drag-and-drop
+  question stays a product decision because Human Guidance does not identify which named
+  reordering surfaces would be faster and more natural with drag-and-drop. The backend-font
+  permission is an audited `N/A`, not a missing implementation requirement. HCI acceptance is
+  grounded in the precision-field-console and role task-model criteria, the role-neutral avatar
+  decision is durable, and proof starts with temporary checks. This records planning and audit
+  work only; it does not claim implementation.
+
+- Accepted the A4 Milestone G4 correction map: all 87 individual Instructor-interface gaps map
+  exactly once, with 22 closure owners and six one-boundary contributors across C44-C68 and
+  C72-C74. There are no product questions. Danger Zone/archive behavior has one owner, and every
+  gate is executable and temporary-test-first. This records planning and audit work only; it does
+  not claim implementation.
+
+- Accepted the A1 Development and Product vocabulary audit baseline. It records current
+  implementation evidence and findings against the verbatim checklist; unresolved `[ ]` entries
+  remain correction work, not a compliance claim.
+
+- Accepted the A2 Accounts and roles audit baseline. It records current implementation evidence
+  and findings against the verbatim checklist; unresolved `[ ]` entries remain correction work,
+  not a compliance claim.
+
+- Accepted the A3 shared interface shell audit baseline. It records current implementation
+  evidence and findings against the verbatim checklist; unresolved `[ ]` entries remain
+  correction work, not a compliance claim.
+
+- Accepted the A4 Instructor interface audit baseline. It records current implementation evidence
+  and findings against the verbatim checklist; unresolved `[ ]` entries remain correction work,
+  not a compliance claim.
+
+- Accepted the A5 Student and Sysadmin interface audit baseline. It records current
+  implementation evidence and findings against the verbatim checklist; unresolved `[ ]` entries
+  remain correction work, not a compliance claim.
+
+- Accepted the A6 Data and history audit baseline. It records current implementation evidence and
+  findings against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
+  compliance claim.
+
+- Accepted the A7 Questions audit baseline. It records current implementation evidence and
+  findings against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
+  compliance claim.
+
+- Accepted the A8 Courses audit baseline. It records current implementation evidence and findings
+  against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
+  compliance claim.
+
+- Accepted the A9 Assessments audit baseline. It records current implementation evidence and
+  findings against the verbatim checklist; unresolved `[ ]` entries remain correction work, not a
+  compliance claim.
 
 - Reconciled the complete `docs/` corpus against Human Guidance as current product authority.
   Current specifications, contracts, guides, and active plans now use the same Assessment,
@@ -355,7 +988,7 @@
   `format: "pleQuestionJson"` identifies the document across Rust compilation, browser authoring,
   QTI mapping, fixtures, and connected authoring scenarios.
 
-### Development Workflow
+### Developer Tests and Notes
 
 - Added `launchers/run_fast_checks.sh` as the exact offline subset of the aggregate gate. It runs
   Rust, TypeScript/Node, and Python validation without starting the disposable live stack; the
@@ -405,6 +1038,16 @@
 
 ### Removals and Deprecations
 
+- Removed the author-supplied `externalDependencies[].{id,cdnUrl,localPath}`
+  native PLE Question JSON shape and its validators. Native author JavaScript
+  may request only the closed `libraries` enum (`rdkit`); a future server-owned
+  reviewed registry, never an author URL or path, selects runtime assets.
+
+- Removed C870's dormant H5P adapter, source/revision bindings, workspace-import value, Question
+  Backend/Format values, and speculative secondary-attempt binding. H5P has no delivered PLE seam
+  until its explicit content/xAPI product decision is answered; PLE, WeBWorK, and iMathAS behavior
+  remains intact.
+
 - Removed the unmounted browser recovery state machine, completion/recovery helpers, prefetch
   binding, and their isolated tests. Removed the dead per-Question submission, status, and prefetch
   browser methods and the nonce-scoped native PLE submission Store, SQL functions, route, generated
@@ -417,6 +1060,21 @@
   repository fixtures change together with their consumers.
 
 ### Decisions and Failures
+
+- Reopened both pre-production direct-design Human Guidance occurrences. The database migration
+  guard is source evidence only; the remaining live alternate-path audit must establish that no
+  obsolete legacy behavior survives. No permanent audit test or framework was added.
+
+- Corrected the Assessment direct-cutover decision to match Human Guidance: remove legacy
+  Assignment routes, APIs, decoders, compatibility tests, and their callers in the same
+  preproduction change. No one-release redirect or 410 compatibility surface is retained.
+
+- Recorded accepted temporary evidence without overstating product closure: C910's fresh-PG17
+  general-feedback revision proof and C839's 42 canonical PGML-source acceptance both passed,
+  while Student HTTP feedback delivery and Genetics catalog reconciliation remain open behind the
+  current AWS Smithy server-build incompatibility and their normal closure work. The user removed
+  the redundant static source bulk; the canonical source layout is now `content/genetics/pg/topicNN/`,
+  which does not itself prove publication or catalog reconciliation.
 
 - A human review found that the initial M2 plan and implementation had converted Student
   connectivity recovery into an unapproved Instructor grading Retry. The reset removes that
@@ -434,518 +1092,3 @@
   walked-journey baselines also retain their own counters because independently consumed process or
   evidence artifacts may outlive the writer; QTI profile/mapping and package/release versions name
   separate external or durable identities unrelated to native PLE Question JSON's unversioned shape.
-
-## 2026-09-12
-
-### Additions and New Features
-
-- Added Base Assignment Policy autosave that persists only valid policy values,
-  labels saving, invalid, rejected, failed, and conflicted drafts, and keeps
-  Check release and Release unavailable until the visible policy state is saved.
-
-- Completed the WeBWorK opaque backend-owned lifecycle. PLE now delivers an exact authorized
-  backend document, bridges generic ordered form pairs, persists the bounded opaque response, and
-  sends it to the WeBWorK adapter for grading. The adapter owns WeBWorK response validation and
-  renderer interaction; PLE does not interpret PG controls.
-
-- Added the WeBWorK document and two-prefix asset routes, the generic embedded-document baseline,
-  and the reviewed `ple_embed` renderer format. Generated renderer assets remain usable through
-  PLE while WeBWorK and Question-authored CSS retain document presentation ownership.
-
-- Replaced the accumulated development migration history with a modular,
-  PostgreSQL-native canonical base under `schemas/base_schema/`. Its short
-  `install.sql` manifest installs the current domain modules directly; the empty
-  `schemas/migrations/` directory is reserved for bounded forward-only SQLx
-  changes after the first human-approved production deployment.
-
-- The explicit installation-data command provisions the complete known-good
-  Live Demo by default as ordinary product data on the canonical schema. Its
-  `--without-live-demo` choice leaves the same schema with no Demo product-data
-  roots or persona surface.
-
-### Behavior or Interface Changes
-
-- The Assignment Question Editor now protects structural Question changes with
-  Save, Discard, and Stay navigation choices.
-
-- Course Appearance theme updates preserve the complete Course Appearance,
-  including its current Course Banner.
-
-- Assignment Overview, Questions, and Policies are now backed Ribbon
-  destinations; the regenerated destination ledger records their availability.
-
-- Question Type is immutable author-declared educational metadata on each Published Question
-  Revision. PLE uses it for search, filtering, and labels; it never infers it from a backend
-  document, control, or response shape.
-
-- The Live Demo publishes four WeBWorK Questions alongside native PLE Questions. Its automatic
-  sample activity selects PLE-native Questions by model semantics, while connected WeBWorK
-  behavior uses the ordinary backend-owned lifecycle.
-
-- The current product model retains immutable Question Revisions and
-  save-created Blueprint Revisions. Complete valid Blueprint creation atomically
-  produces an Available lineage and Revision 1. A changed explicit Save creates
-  the next Revision; a canonical no-op returns the current Revision with
-  `changed: false`; there is no persisted Blueprint Draft or separate Blueprint
-  publish action. Course and Assignment configuration remain current state, and
-  Assignment Attempts and Issued Questions retain the exact evidence needed to
-  interpret Student Work after released Assignment edits.
-
-- Blueprint Module and Assignment References are durable course-wide identity
-  across Revisions: a move preserves its reference while delete-and-recreate
-  allocates a new one. New Course Instances pin only the advertised current
-  Blueprint Revision; existing Instances retain their exact historical pins.
-  Blueprint short name, long name, and availability share one opaque metadata
-  ETag and never create a Revision.
-
-- Blueprint Save uses one unversioned canonical pre-production content encoding,
-  checksum, and exact aggregate comparison. The Store-backed Live Demo seed
-  creates Revision 1 through the ordinary lifecycle, and the Blueprint editor
-  protects dirty local work during initial-creation Close and Escape,
-  navigation, Back, reload, and window close.
-
-- Published Question and Blueprint availability now belongs to their stable
-  lineages. Archive removes ordinary selection while existing exact Revision
-  references remain resolvable; restore is an ordinary availability transition.
-
-- Assignment Unrelease is an authorized, ETag- and title-confirmed transaction
-  that deletes only the Assignment's Student Work closure, rebuilds surviving
-  statistics, and records a redacted aggregate audit event.
-
-- Question IDs are stored as compact valid seven-character Crockford Base32
-  values; `AAA-BBBB` is their presentation form. Pilot Questions use ordinary
-  generated IDs, and `PNE-*` is no longer a product identifier namespace.
-
-### Fixes and Maintenance
-
-- Repaired a renderer-token reflection regression at the WeBWorK HTTP-adapter boundary. Exact
-  renderer JWT values are rejected before an embed document can be returned or persisted.
-
-- Repaired the PostgreSQL/Rust Blueprint revision-number agreement and the
-  forced-RLS Course read required by the security-definer Assignment lifecycle.
-  Assignment create, save, inline save, and release now share the intended
-  current Instructor authorization boundary without broadening application-role
-  write access.
-
-- Course Invitation acceptance now grants its no-login API owner update access
-  only to the immutable invitation identity needed for `FOR UPDATE` locking.
-  Concurrent claims both converge on one Student Membership and one acceptance
-  event; the application role retains no direct Invitation update privilege.
-
-- Simplified database lifecycle handling to one baseline-presence and release-
-  identity handshake under the existing advisory lock. SQLx owns dirty-row,
-  checksum, and unknown-version enforcement; the application and migrator verify
-  the same restricted schema-state projection. The former catalog classifier,
-  legacy-ledger scan, and exact-ledger-shape machinery were removed.
-
-- The existing `pre-production` release identity is now the complete baseline
-  editing switch: initialization installs or verifies the canonical base and
-  forward migration commands remain unavailable. The base transaction also
-  rejects unrelated persistent relations or custom schemas, so an accidental
-  install into a populated database rolls back without leaving PLE structure.
-
-- Course Banner and Profile media Store acceptance now uses the application
-  login for runtime operations and the migrator only for owned fixture setup and
-  catalog inspection. Their PostgreSQL functions and Rust return types agree on
-  exact work identities, and cleanup receipts report retained versus absent
-  objects without manufacturing generic cleanup jobs.
-
-- Consolidated the two libpq child-environment builders into one private,
-  redacted implementation shared by baseline and installation-data commands.
-
-- Removed retired Course Schedule, Assignment, Question Change Proposal, and
-  Course Retention Revision scaffolding from the baseline, application contracts,
-  fixtures, and tests. Retired migration-history and compatibility tests yielded
-  to focused lifecycle, authorization, evidence-integrity, and product behavior
-  coverage.
-
-### Removals and Deprecations
-
-- Removed speculative Grade Settings and Teaching Operations routes, pages,
-  browser/API code, generated DTOs, and unsupported model code. Their direct
-  URLs now use ordinary not-found. Separate pending Account Invitations and
-  shared enrollment domain concepts remain supported.
-
-- Removed the WeBWorK HTML projection/replay layer, replay persistence, renderer cache plumbing,
-  and projection-era browser tests. The compact permanent suite now protects the opaque boundary
-  rather than a catalog of PG interaction shapes.
-
-- Applied the permanent-test checklist to the completed database reset and removed
-  checks that froze retired command names, generated SQL inventories, exact
-  tool paths or network constants, Pilot-content counts, SQLx internals, or mocked
-  lifecycle choreography. Durable schema compatibility, authorization, redaction,
-  evidence integrity, provisioning, and Unrelease contracts remain covered at
-  their lowest meaningful layer.
-
-- Removed unused Live Demo bootstrap request builders and the unowned iMathAS
-  PostgreSQL test target. Their only consumers were tests of dormant
-  scaffolding, not supported product or acceptance paths.
-
-### Decisions and Failures
-
-- Added a concise execution goal beside the Phase 1 Instructor safety and
-  truthful UI plan. The goal keeps Human Guidance and the Terminology Contract
-  authoritative and leaves the plan as the primary source for scope and
-  implementation detail.
-
-- M2 selected C2, the same-origin iframe with its document CSP, and E1, stateless one-grade-request
-  submission. The temporary behavior corpus and a failed privileged SQL oracle were demoted: they
-  duplicated stable M11/M12 evidence without a product-facing recovery action.
-
-- The renderer fork remains limited to demonstrated embed-document and asset requirements, keeping
-  future upstream WeBWorK updates practical to integrate.
-
-- Retained the 64 KiB raw UTF-8 bound for the canonical browser-captured backend-owned response
-  payload. It is separate from the 256 KiB PG/PGML source and 1 MiB renderer document/envelope
-  limits; the shared boundary can be deliberately revised if real supported response data reaches it.
-
-- Rotated the September 10 and September 9 day blocks into
-  `docs/CHANGELOG-2026-09g.md` after the active changelog exceeded its 800-line
-  threshold. The active file retains the two most recent day blocks.
-
-- Added the active production release-readiness phase plan. It groups the nine
-  remaining readiness items into four ordered implementation phases with
-  milestones inside each phase, keeps the opaque WeBWorK implementation as its
-  own active lane, and brings only its Fall teaching walkthrough into the
-  release-readiness sequence. The plan centers PLE backend and browser behavior,
-  uses valid-change autosave for simple Assignment policies, and excludes
-  provider-specific deployment implementation.
-
-- Before the first approved production deployment, structural changes belong in
-  their owning base-schema module. The production-release decision freezes that
-  source and starts forward-only SQLx migrations; it is the only remaining human
-  release decision for this reset.
-
-- Live Demo SQL owns only state wholly owned by PostgreSQL. Ordinary publishing,
-  object storage, presentation, submission, and grading paths own their
-  cross-system effects. The resulting demo data follows ordinary product
-  lifecycle and retention rules.
-
-### Developer Tests and Notes
-
-- WP-G1 passed 88 server tests, 88 learning-data-access unit tests, strict all-target/all-feature
-  Clippy, and the canonical fresh PostgreSQL 17 baseline. The connected listener oracle used the
-  native worker Service Identity, ignored a WeBWorK notification, and accepted the matching
-  native notification. With Tokio time paused, two trivial ready Jobs committed back-to-back with
-  zero elapsed task time, proving removal of the former deliberate three-second floor. Fake Store
-  tests also prove evaluation-failure and `LeaseLost` continuation, immediate idle shutdown,
-  prompt commit draining, and bounded recovery from a hung Store call.
-
-- The corrected WP-F4 oracle proves Student and Course isolation, read-only Instructor status,
-  terminal-failure refusal, absence of public and private grading-mutation functions, and unchanged
-  `md5(student_response::text)`. Worker lifecycle evidence separately proves automatic
-  unfinished-Job requeue, stale-token refusal, and terminal results.
-
-- WP-E0 exact-boundary domain tests, focused Rust and PostgreSQL compile/lint gates, and the
-  canonical fresh PostgreSQL 17 database baseline passed. The connected access oracle verifies
-  the full restricted Student projection, completed-Attempt counting, effective Student IANA
-  time zone, and close/available/limit/late precedence.
-
-- WP-E1 generated 332 browser contract types and passed the strict TypeScript no-emit check,
-  12 focused Node decoder/HTTP tests, Rust contract and server checks, warning-denying Clippy,
-  the 407-test `./check_codebase.sh` front door, and the canonical fresh PostgreSQL 17 baseline.
-  The connected oracle proves scheduled visibility, access/landing decision agreement, and
-  cross-Student accommodation isolation.
-
-- WP-E2 passed 17 focused Node tests, including server-side rendering of one instant in two
-  Student zones and exact public-reason copy, plus the 408-test `./check_codebase.sh` front door.
-  The headless Chromium gate proved identical due copy on landing and pre-start pages, placed the
-  time-limit explanation before Start in document order, and reported no serious or critical
-  axe accessibility violations on either surface.
-
-- WP-E4 passed the Student-only Rust route test, warning-denying Rust checks, three focused Node
-  profile/model tests, and headless Chromium save/re-render evidence with no serious or critical
-  axe violations. The canonical fresh PostgreSQL 17 baseline passed with a connected oracle for
-  the inviting-Instructor default, existing-Account preservation, Student self-update, and
-  Instructor refusal. One initial aggregate run exposed a fixed test-only session-token collision;
-  distinct fixture tokens resolved it before the passing clean rerun.
-
-- Connected Assignment browser and service evidence, the Course Appearance
-  browser scenario, focused Rust/Node/type/ledger gates, `./check_codebase.sh`,
-  and the final `./launchers/all_test.sh` aggregate passed for Phase 1. The
-  aggregate covered generated TypeScript contracts, Rust checks and tests,
-  Python tests, disposable PostgreSQL baseline and installation-data paths, and
-  Course Appearance PostgreSQL/MinIO acceptance.
-
-- M11 boundary checks and accepted M12 connected curl/browser evidence cover render, capture,
-  Save, Finish, assets, styling, document headers, grading, PostgreSQL persistence, and the Student
-  history outcome. The final reviewed renderer OCI is
-  `296f4f4bba83563aec7092c7e89de128bac810a62e0f3215df784874490e4df3`.
-
-- Final permanent-suite pruning retained only stable opaque lifecycle, bounded wire,
-  credential-boundary, browser capture, and Question Type separation contracts; speculative
-  capability/state inventories and implementation-sequencing checks were removed.
-
-- The post-pruning `source source_me.sh && ./launchers/all_test.sh` rerun exited 0: Rust checks,
-  404 Node tests, 6,066
-  pytest tests, disposable PostgreSQL baseline, ordinary installation-data provision/opt-out, and
-  Course Appearance PostgreSQL-plus-MinIO acceptance all passed, ending `PASS: complete live
-acceptance is green.`
-
-- The final six-perspective audit found no comment blocker and identified
-  lifecycle, installation-data, race-determinism, duplicated libpq parsing,
-  documentation, and dead-scaffolding defects. Each accepted finding was fixed
-  in its owning code or canonical document; no parallel audit-report layer was
-  retained.
-
-- Final PostgreSQL 17 baseline acceptance passed contaminated-database refusal,
-  fresh installation, no-op
-  replay, restricted application-role verification, catalog authorization,
-  authoring source binding, populated Unrelease closure, and its deterministic
-  Assignment-lock race. The focused installation-data lane passed default
-  provisioning, replay convergence, and a separate fresh `--without-live-demo`
-  absence/non-enumeration proof.
-
-- Connected database, installation-data replay and opt-out, service, and
-  Playwright evidence passed the Blueprint Revision lifecycle: atomic Revision 1
-  creation, changed and no-op Save, stale-write rejection, archive/restore,
-  stable child identity, current-head Course Instance pinning, dirty-work
-  protection, and retained historical provenance. Backup restore followed by
-  ordinary migrate and application-role verification passed. The complete gate
-  regenerated 330 Rust-owned browser types and passed strict Rust checks, 406
-  Node tests, 6,044 Python tests, the canonical PostgreSQL baseline,
-  installation-data provision/replay/opt-out, and the PostgreSQL-MinIO coherence
-  oracle.
-
-- A forced fresh Graphify extraction removed the old migration forest from the
-  architecture view. The semantic closeout checks found zero nodes from
-  `schemas/migrations/`, `public._sqlx_migrations`, retired
-  Assignment/Course Schedule/Proposal/Retention Revision families, Blueprint
-  collaboration scaffolding, or `PNE-*` identifiers.
-
-## 2026-09-11
-
-### Additions and New Features
-
-- Completed M10 Assignments Due Soon. The current Instructor's Product-scope Assignments page
-  lists only Assignments from Courses they currently teach, in due-instant order, with Course
-  identity, Assignment status, Account-zone deadline, public Course and Assignment links, an
-  explicit empty state, and local retry recovery. The service remains the exact small
-  Instructor-only projection; it carries no Student, Attempt, response, grading, or answer data.
-
-### Behavior or Interface Changes
-
-- The authenticated top bar now presents Product Role once in its boxed plate. Instructor Profile
-  is the far-right accessible icon-only rounded-square control after Sign Out; it shows the generic
-  user glyph until the existing self-only uploaded thumbnail is available. Browser written UI now
-  uses locally bundled Atkinson Hyperlegible Next normal and italic variable fonts, while explicit
-  monospace and backend, native-renderer, and export typography remain intentional exceptions.
-
-- Course Instances now have required, independently entered short and long names at the root
-  schema, model, and API boundary. The short name supplies the constrained persistent Ribbon scope;
-  the long name supplies breadcrumbs, headings, and descriptive rows. There is no derived value,
-  fallback, or compatibility alias, and Blueprint naming semantics are unchanged.
-
-- Implemented M7/WP-ACC2 Student Assignment Start and history UI. The Start page now presents the
-  server-authorized Assignment title, questions, points possible, and time limit before its single
-  primary Start action, with prior Attempt links following that action. The retained summary route
-  reads direct `R-n`
-  history, presents only server-disclosed scores, responses, and teaching fields, and uses the
-  authorized Course and Assignment public references for its return path, Ribbon, and theme.
-
-- Implemented M7/WP-ACC1 readable selected-history responses. A Student whose
-  `submitted_response` timing is released now receives only readable content
-  from the exact pinned issued presentation for that owned completed Attempt.
-  Reproduction, source, checksum, or asset unavailability omits that response
-  while retaining the Attempt spine and independently released current grades.
-  Raw private answer and feedback content, canonical response IDs, and source
-  locators remain below the server boundary; independently authorized safe
-  response and teaching projections cross only through their disclosure gates.
-  Completed owned response images use the existing ready-asset authorization path
-  with active membership.
-
-- Implemented M7/WP-ACC1 native PLE selected-history teaching content. Independently released
-  feedback and correct-answer fields now derive from one exact authorized source read without
-  regrading; selected-choice feedback can appear without an outcome, while outcome feedback uses
-  only recorded correctness. Unavailable PLE explanations and all WeBWorK teaching content remain
-  absent, as do individual fields whose pinned source, response, or recorded result is unavailable.
-
-- Completed M11 inline Assignment title and due-date editing. The Course Assignment list now edits
-  a released Assignment's title and raw local due value in place with the current Assignment Edit
-  Number, current-state save semantics, and no revision or undo entry. New Attempts retain their
-  started title and due instant, including a real null no-deadline value; legacy Attempts retain
-  their exact released revision fallback. Final aggregate acceptance passed Rust, 423 Node tests,
-  6,320 pytest tests, the 96-migration PostgreSQL/MinIO/Profile service lanes, and cleanup.
-  Disposable browser acceptance proved raw milliseconds, title-only precision, null deadline
-  clearing, the new-date 11:59 PM default, keyboard cancellation and focus return, busy state,
-  retained-draft 503 retry, and 412 refresh/retry with no unexpected HTTP or page errors.
-
-### Fixes and Maintenance
-
-- Removed the superseded Live Demo foundation audit after its RLS and default-deny conclusions were
-  confirmed in the active database-reset plan and canonical authorities. The historical report
-  linked a retired migration acceptance test and no longer served as durable guidance.
-
-- Archived the superseded terminology reconciliation plan, its draft successor, and its concern
-  note after the accepted database-baseline plan consolidated their decisions.
-
-- The dedicated `database-migrator` image now contains the Debian 13 PostgreSQL 17 client needed
-  to execute the canonical base-schema manifest. API, Live Demo, and production targets still
-  inherit the client-free non-root runtime base. A built migrator reported `psql 17.11`; the
-  runtime-base target confirmed that `psql` is absent and UID 10001 remains active. A full
-  production-target rebuild was skipped after its cold Rust compilation exceeded this focused
-  container gate; its direct runtime-base inheritance was verified instead.
-
-- The final scoped top-bar audit removed the obsolete `RibbonIcon` compatibility re-export, updated
-  its design specimen from retired Account context to Profile, documented the replacement-event
-  race guard, and kept the separate Course-name contract classified under Interface Cleanup M2.
-
-- Final M9 visual review repaired the Course action's insufficient contrast and the 393 px Student
-  Ribbon clipping that hid the final character of the Course short name. Recapture and independent
-  review accepted both repairs; the 49-path semantic/privacy replay remains the evidence boundary.
-
-- Repaired the M7 Student Course landing score disclosure found by the M9 privacy gate: the
-  previously unconditional `pointsEarned`/`pointsPossible` projection now emits an all-or-none
-  score only when trusted PostgreSQL `feedback_score` permits it and the complete unique immutable
-  grading lineage is present. Strict Rust, TypeScript, and UI contracts keep the projection
-  coherent. Focused inline fixture-policy acceptance passed in session 15668; the owner declined a
-  speculative full timing-permutation matrix. M9 evidence is recorded below; Course retention is
-  deferred as a separate capability.
-
-- Reconciled the active Interface Cleanup tracker with accepted M7, account-zone, Profile,
-  thumbnail, M9 evidence, and M10 receipts. M19 is owner-deferred and routed as Course Retention
-  rather than represented by a misleading interface-only Course status.
-
-- Applied the scoped documentation and comment-audit corrections: durable documentation now states
-  current-state Assignment editing accurately, architecture inventories the Profile, selected
-  history, and Due Soon boundaries, and public Profile Rust items document their self-only and
-  concrete-store responsibilities.
-
-- Completed a fresh scoped six-pass maintenance audit. Its accepted repairs remove two redundant
-  M11 source-label assertions, correct evidence status and module inventories and the Due Soon
-  exact-key record, and clarify Profile Thumbnail Store rustdoc and migration comment tags.
-- Synchronized shared style guides, tests, and repository support files from the starter template.
-
-- The six-pass scoped audit checkpoint found stale M9 and M19 documentation, a dead legacy
-  preview-plane client surface, and one timer-generation comment; Test and Style passes found no
-  issue. This documentation records the evidence and scope dispositions. Product cleanup remains
-  subject to its separate current-source review.
-
-### Removals and Deprecations
-
-- Removed the unbacked generic browser Course-create client surface; the supported Course Instance
-  creation path remains the only browser contract.
-
-- Removed the dead generic Assignment Attempt Summary transport and its decoder-only surface while
-  preserving the live `/assignment-attempts/R-n/summary` browser presentation route and its pinned
-  history endpoint. The separately found duplicate local date-time parser name is deferred by
-  owner direction.
-
-### Decisions and Failures
-
-- The human owner directed that investigation, review, and disposition materials remain temporary
-  working evidence outside the repository. Accepted conclusions are folded into the active plan,
-  canonical documentation, code, behavior-focused tests, and final changelog evidence only after
-  checking whether an artifact duplicates or supersedes existing evidence.
-
-- The approved fresh-installation target builds DDL-only structure, then its production-installation
-  orchestrator defaults to the complete known-good Live Demo with an explicit opt-out. One
-  data-only manifest may create all wholly PostgreSQL-owned teaching state after the Pilot
-  compiler/object publisher establishes exact Question Revisions; existing owner paths create only
-  genuine cross-system effects. The private bootstrap/local persona selector is absent before a
-  public gateway. This records an accepted boundary, not completed provisioning implementation.
-
-- The completed Blueprint-surface review clarified that `blueprint_collaborator_event` is
-  revision-keyed schema scaffolding, not a live vertical capability. It leaves the new baseline;
-  the owner Draft lifecycle remains, and a future collaboration feature requires a bounded
-  Draft-keyed Store, Server, authorization, browser, and publication-transition design.
-
-- The human owner approved the Database Baseline and Revision Model Reset plan and delegated
-  implementation. Before the first production deployment, its canonical base schema and required
-  reference seed data remain directly editable; later structural changes will use forward SQLx
-  migrations.
-
-- The Course-name replacement is an owner-directed pre-production baseline correction: it changes
-  the disposable root schema directly rather than retaining a compatibility path. Full fresh and
-  no-op migration plus aggregate gates passed. Blueprint short/long names remain a future mutable
-  Blueprint-metadata decision and do not change current Blueprint Revision content or checksums.
-
-- The mutation-heavy clear/zone-switch browser harness was denied as optional and outside M10
-  acceptance. The accepted replacement is materially safer read-only replay against the existing
-  fixture; Profile zone changes remain M17 evidence.
-
-- M9/WP-EVI1 and WP-EVI2 are accepted. Session 9103 found no serious or critical axe issue on all
-  four changed Student surfaces. The canonical replacement publication contains exactly 49 paths
-  and receipt manifest digest
-  `34692bd7355560ed67b57bd41259fc3dccd88373ced50f1de2ad9e7b8eb773dc`.
-  Semantic and privacy `--verify` replay passed all 49 while preserving the published files;
-  independent image review accepted all 18 Student and all 31 Instructor/shared captures after
-  rereviewing the two corrected images. Five replay-only byte differences are informational
-  human-review evidence, not a pixel gate.
-
-- WP-EVI3 keeps axe in the explicit connected Playwright evidence lane rather than
-  `check_codebase.sh`: it needs a live browser and service, and a fast-lane failure has no useful
-  recovery action. M19 is owner-deferred. Existing Course Retention Plan Revision, typed job/lease,
-  and retention-event scaffolding are preparation only; no executable atomic Course-wide
-  FERPA-stripping transition or Course-bound receipt that attests that transition exists. The
-  existing `course_retention_event` is indirect preparation, not attestation that stripping
-  occurred. Active and Inactive destinations remain honestly Unavailable until a separate Course
-  Retention capability supplies that boundary.
-
-### Developer Tests and Notes
-
-- `node --import tsx devel/generate_ribbon_destination_ledger.mjs --check` passed with `Ribbon
-destination ledger generated section is current.`
-
-- Final aggregate receipt: `./launchers/all_test.sh` exited 0 with 432 Node checks, 6,456 pytest
-  checks, Rust/Wasm, fresh/no-op PostgreSQL authority and persistence, MinIO, Course Appearance,
-  and Profile Thumbnail. Disposable cleanup completed; no containers or pods remained. An initial
-  source-file line-limit failure was repaired by the dedicated font stylesheet; `src/style.css`
-  finished at 999 lines.
-
-- Focused TypeScript, lint, 22 Ribbon tests, and build passed. One-time connected Instructor proof
-  covered Sign out then the icon-only Profile control, generic fallback, `POST` 200, visible
-  success, same-document avatar replacement without reload, navigation persistence, and local
-  Atkinson normal/italic WOFF2 delivery. Corrected rendered runtime-injected monospace proof passed.
-
-- Published 49 screenshot paths and passed semantic/privacy `--verify`; five byte differences were
-  retained only for human review. Independent visual acceptance passed.
-
-- Final connected-browser receipt: on 2026-09-11, the owner ran
-  `./devel/run_playwright_tests.sh` against a fresh disposable HTTPS stack; it exited 0. All four
-  Playwright scenarios passed: authentication and authorization, Instructor authoring, Course
-  Appearance propagation, and learner native-PLE recovery. The maintained Assignment release,
-  WeBWorK render, Instructor Accounts, support capability, invitation export, and Course-seed
-  journeys also passed.
-
-- M10 acceptance combines the accepted WP-DUE1 PostgreSQL 17 fresh/no-op migration and revocation
-  receipt with a final read-only browser run at `https://localhost:55104` that exited 0. It proved
-  the current Instructor-only view, Account-zone rendering, status/order, links, and one expected
-  intercepted `503` retry with no unexpected HTTP, page, or console errors. Independent visual
-  review passed the current populated, error, and recovered captures. A same-build empty capture
-  is historical evidence only. The six scoped Plan, Tests, Style, Documentation, Legacy, and
-  Comment audit reports were reviewed; their accepted fixes are recorded above.
-
-- Accepted M10/WP-DUE1's narrow cross-course Due Soon read path. The authenticated Instructor-only
-  `GET /api/assignments/due-soon` response is exactly `{ items, nextCursor: null, displayTimeZone
-}`; each item contains only Course reference/long name, Assignment reference/title/status, and
-  `dueAtMillis`. The implementation uses an owner-selected rolling next-seven-days window for
-  unreleased and released Assignments. It is not a new product-policy or human-guidance decision.
-  The Store independently applies the existing active-Instructor membership predicate, so revoked
-  membership removes Course rows, and returns no Student, response, Attempt, grading, or answer
-  data. The reviewed PostgreSQL 17 acceptance run passed fresh and no-op migration application,
-  the full catalog through migration `2026091028`, the Due Soon window/status/revocation oracle,
-  restricted-login probes, persistence probes, and disposable cleanup
-  (`/private/tmp/ple-interface-cleanup.QVsF3M/m10-due1-postgres-repaired.log`). Offline
-  `./check_rust.sh` and `./check_codebase.sh` also passed, including 433 Node tests. The initial
-  forced-RLS fixture failure was repaired using the existing authorized writer and remains only a
-  diagnostic history. This WP-DUE1 receipt did not itself claim M9 evidence close-out or a current
-  full `all_test.sh` run.
-
-- M7 acceptance evidence: session 40212 `./launchers/all_test.sh` exited 0 with Rust, 431 Node,
-  6,321 pytest, 99 fresh/no-op migrations, PostgreSQL, MinIO, Profile, Course Appearance, and
-  cleanup lanes passing (`/private/tmp/ple-interface-cleanup.QVsF3M/m7-final-all-test.log`). The
-  prior failed backend and stale-seed receipts remain historical diagnostics, not current status.
-  Canonical HTTP (session 30817), answer-only and All/Never disclosure policy, and UI (session 11049) browser lanes passed at `https://localhost:55230`; `m7-ui-accepted.log` records UI
-  automation passing all profiles, axe 0, focus, 503 retry, and resume. Canonical stop session
-  48488 exited 0 (`m7-accepted-stop.log`). The native PLE source
-  mapping now transports `question_attempt_id`, `source_object_id`, and `question_seed` as text,
-  and seed consumers read semantic access facts rather than exact obsolete response shapes.
-
-- M7 is accepted. Independent canonical visual review passed all eight actual captures, including
-  the fresh 390 px Start state with no header overlap. Shared Start/history CSS is owned by the
-  browser entry and compact breadcrumbs remain intact. M9 remains separate: this receipt does not
-  claim its final six-pass audit or full screenshot corpus. The stale M10/Profile keyboard-order
-  harness belongs to M9 evidence and M17 Profile follow-through, not M10 Due Soon scope. Next
-  dependency-ordered product milestone: M10 Assignments Due Soon, then M19 Active and Inactive
-  Courses.

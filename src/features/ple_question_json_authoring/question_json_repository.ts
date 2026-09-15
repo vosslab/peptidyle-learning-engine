@@ -33,6 +33,8 @@ export interface PleQuestionJsonRepository {
     draftQuestion: DraftQuestionReference,
     request: { readonly authorship: QuestionAuthorship },
   ): Promise<QuestionSummary>;
+  /** A separately saved Draft metadata field advances the same server edit number. */
+  synchronizeRevision(draftQuestion: DraftQuestionReference, revision: string): void;
 }
 
 /** A stale save keeps the caller's private source available for a deliberate merge or reload. */
@@ -107,5 +109,9 @@ export function createPleQuestionJsonRepository(
     return await client.publish(draftQuestion, request, revision);
   }
 
-  return { load, save, reload, publish };
+  function synchronizeRevision(draftQuestion: DraftQuestionReference, revision: string): void {
+    revisions.set(draftQuestion, revision);
+  }
+
+  return { load, save, reload, publish, synchronizeRevision };
 }

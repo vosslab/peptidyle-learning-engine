@@ -1,14 +1,14 @@
-//! Derived within-Assignment-Attempt completion.
+//! Derived within-Assessment-Attempt completion.
 //!
 //! Completion derives from current required-question states, never a
 //! stored boolean. A stored flag could disagree with the attempts that
 //! produced it; deriving the value keeps those states inseparable.
 
-use question_model::{AssignmentAttemptCompletion, AssignmentCompletionRule};
+use question_model::{AssessmentAttemptCompletion, AssessmentCompletionRule};
 
-use crate::assignment_activity::{AssignmentActivityError, validate_fraction};
+use crate::assessment_activity::{AssessmentActivityError, validate_fraction};
 
-/// Current state of one required question within an Assignment Attempt.
+/// Current state of one required question within an Assessment Attempt.
 ///
 /// This derives from its attempts, not another persisted completion
 /// flag. The current response may change while retries remain available.
@@ -24,45 +24,45 @@ pub struct RequiredQuestionState {
     pub points_possible: f64,
 }
 
-/// Derives within-Assignment-Attempt completion from current required-question states.
+/// Derives within-Assessment-Attempt completion from current required-question states.
 ///
-/// An empty Assignment Attempt is always in progress. Threshold completion requires every
-/// question to have an answer before its score can complete the Assignment Attempt.
+/// An empty Assessment Attempt is always in progress. Threshold completion requires every
+/// question to have an answer before its score can complete the Assessment Attempt.
 ///
 /// # Errors
 ///
-/// Returns [`AssignmentActivityError`] when a threshold or normalized result cannot
+/// Returns [`AssessmentActivityError`] when a threshold or normalized result cannot
 /// represent a finite bounded score.
-pub fn derive_within_assignment_attempt_completion(
+pub fn derive_within_assessment_attempt_completion(
     questions: &[RequiredQuestionState],
-    rule: AssignmentCompletionRule,
-) -> Result<AssignmentAttemptCompletion, AssignmentActivityError> {
+    rule: AssessmentCompletionRule,
+) -> Result<AssessmentAttemptCompletion, AssessmentActivityError> {
     if questions.is_empty() {
-        return Ok(AssignmentAttemptCompletion::InProgress);
+        return Ok(AssessmentAttemptCompletion::InProgress);
     }
 
     let all_answered = questions.iter().all(|question| question.answered);
     let complete = match rule {
-        AssignmentCompletionRule::AnswerAll => all_answered,
-        AssignmentCompletionRule::AllCorrect => {
+        AssessmentCompletionRule::AnswerAll => all_answered,
+        AssessmentCompletionRule::AllCorrect => {
             all_answered && questions.iter().all(|question| question.correct)
         }
-        AssignmentCompletionRule::ScoreAtLeast { fraction } => {
+        AssessmentCompletionRule::ScoreAtLeast { fraction } => {
             validate_fraction(fraction)
-                .map_err(|_| AssignmentActivityError::InvalidCompletionThreshold { fraction })?;
+                .map_err(|_| AssessmentActivityError::InvalidCompletionThreshold { fraction })?;
             all_answered && score_fraction(questions)? >= fraction
         }
     };
 
     Ok(if complete {
-        AssignmentAttemptCompletion::Completed
+        AssessmentAttemptCompletion::Completed
     } else {
-        AssignmentAttemptCompletion::InProgress
+        AssessmentAttemptCompletion::InProgress
     })
 }
 
 /// Computes the current score fraction across required questions.
-fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, AssignmentActivityError> {
+fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, AssessmentActivityError> {
     let mut earned = 0.0;
     let mut possible = 0.0;
 
@@ -74,7 +74,7 @@ fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, Assignment
             || !credit.is_finite()
             || !(-1_000.0..=1_000.0).contains(&credit)
         {
-            return Err(AssignmentActivityError::InvalidQuestionPoints);
+            return Err(AssessmentActivityError::InvalidQuestionPoints);
         }
         earned += question.points_earned;
         possible += question.points_possible;
@@ -84,7 +84,7 @@ fn score_fraction(questions: &[RequiredQuestionState]) -> Result<f64, Assignment
     if fraction.is_finite() && (-1_000.0..=1_000.0).contains(&fraction) {
         Ok(fraction)
     } else {
-        Err(AssignmentActivityError::InvalidQuestionPoints)
+        Err(AssessmentActivityError::InvalidQuestionPoints)
     }
 }
 
@@ -102,10 +102,10 @@ mod tests {
     }
 
     #[test]
-    fn empty_assignment_attempt_is_not_complete() {
+    fn empty_assessment_attempt_is_not_complete() {
         assert_eq!(
-            derive_within_assignment_attempt_completion(&[], AssignmentCompletionRule::AnswerAll),
-            Ok(AssignmentAttemptCompletion::InProgress)
+            derive_within_assessment_attempt_completion(&[], AssessmentCompletionRule::AnswerAll),
+            Ok(AssessmentAttemptCompletion::InProgress)
         );
     }
 
@@ -113,11 +113,11 @@ mod tests {
     fn answer_all_requires_each_required_question() {
         let states = [question(true, false, 0.0), question(false, false, 0.0)];
         assert_eq!(
-            derive_within_assignment_attempt_completion(
+            derive_within_assessment_attempt_completion(
                 &states,
-                AssignmentCompletionRule::AnswerAll
+                AssessmentCompletionRule::AnswerAll
             ),
-            Ok(AssignmentAttemptCompletion::InProgress)
+            Ok(AssessmentAttemptCompletion::InProgress)
         );
     }
 
@@ -125,11 +125,11 @@ mod tests {
     fn all_correct_is_derived_from_every_required_question() {
         let states = [question(true, true, 1.0), question(true, false, 0.0)];
         assert_eq!(
-            derive_within_assignment_attempt_completion(
+            derive_within_assessment_attempt_completion(
                 &states,
-                AssignmentCompletionRule::AllCorrect
+                AssessmentCompletionRule::AllCorrect
             ),
-            Ok(AssignmentAttemptCompletion::InProgress)
+            Ok(AssessmentAttemptCompletion::InProgress)
         );
     }
 
@@ -137,11 +137,11 @@ mod tests {
     fn score_threshold_requires_answers_before_points_can_complete() {
         let states = [question(true, true, 1.0), question(false, false, 1.0)];
         assert_eq!(
-            derive_within_assignment_attempt_completion(
+            derive_within_assessment_attempt_completion(
                 &states,
-                AssignmentCompletionRule::ScoreAtLeast { fraction: 0.5 }
+                AssessmentCompletionRule::ScoreAtLeast { fraction: 0.5 }
             ),
-            Ok(AssignmentAttemptCompletion::InProgress)
+            Ok(AssessmentAttemptCompletion::InProgress)
         );
     }
 
@@ -149,11 +149,11 @@ mod tests {
     fn score_threshold_completes_at_its_inclusive_boundary() {
         let states = [question(true, true, 1.0), question(true, false, 0.0)];
         assert_eq!(
-            derive_within_assignment_attempt_completion(
+            derive_within_assessment_attempt_completion(
                 &states,
-                AssignmentCompletionRule::ScoreAtLeast { fraction: 0.5 }
+                AssessmentCompletionRule::ScoreAtLeast { fraction: 0.5 }
             ),
-            Ok(AssignmentAttemptCompletion::Completed)
+            Ok(AssessmentAttemptCompletion::Completed)
         );
     }
 
@@ -161,11 +161,11 @@ mod tests {
     fn invalid_threshold_is_an_explicit_error() {
         let states = [question(true, true, 1.0)];
         assert_eq!(
-            derive_within_assignment_attempt_completion(
+            derive_within_assessment_attempt_completion(
                 &states,
-                AssignmentCompletionRule::ScoreAtLeast { fraction: 1.1 }
+                AssessmentCompletionRule::ScoreAtLeast { fraction: 1.1 }
             ),
-            Err(AssignmentActivityError::InvalidCompletionThreshold { fraction: 1.1 })
+            Err(AssessmentActivityError::InvalidCompletionThreshold { fraction: 1.1 })
         );
     }
 }

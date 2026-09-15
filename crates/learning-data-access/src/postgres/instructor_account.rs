@@ -6,9 +6,10 @@ use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountList,
-    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary, SessionTokenHash,
-    StoreError,
+    CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
+    DeactivateInstructorAccountInput, InstructorAccountList, InstructorAccountState,
+    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionReference,
+    ProvidedAvatarId, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for the deliberate Sysadmin-only Instructor Accounts surface.
@@ -52,16 +53,38 @@ impl PostgresInstructorAccountStore {
 
 #[async_trait]
 impl InstructorAccountStore for PostgresInstructorAccountStore {
+    async fn complete_instructor_identity_vetting(
+        &self,
+        token: SessionTokenHash,
+        input: CompleteInstructorIdentityVettingInput,
+    ) -> Result<InstructorIdentityVettingDecisionReference, StoreError> {
+        input.validate()?;
+        let mut tx = self.begin(token).await?;
+        // ASVS 8.2.1 and 8.3.1: PostgreSQL derives the active Sysadmin from
+        // the installed session; this adapter supplies no actor or role field.
+        let decision_id: uuid::Uuid =
+            sqlx::query_scalar("SELECT ple_api.complete_instructor_identity_vetting($1, $2)")
+                .bind(input.normalized_email)
+                .bind(input.verified_instructor_display_name)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(map_sqlx_error)?;
+        tx.commit().await.map_err(map_sqlx_error)?;
+        Ok(InstructorIdentityVettingDecisionReference::from_uuid(
+            decision_id,
+        ))
+    }
+
     async fn list_instructor_accounts(
         &self,
         token: SessionTokenHash,
     ) -> Result<InstructorAccountList, StoreError> {
         let mut tx = self.begin(token).await?;
         let rows = sqlx::query(
-            "SELECT reference_number, state, \
+            "SELECT public_reference, state, provided_avatar_id, \
              (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
              AS last_successful_sign_in_millis \
-             FROM ple_api.list_instructor_accounts()",
+             FROM ple_api.list_instructor_account_avatar_summaries()",
         )
         .fetch_all(&mut *tx)
         .await
@@ -99,17 +122,18 @@ impl InstructorAccountStore for PostgresInstructorAccountStore {
     ) -> Result<InstructorAccountSummary, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query(
-            "SELECT reference_number, state, \
-             (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
-             AS last_successful_sign_in_millis \
-             FROM ple_api.create_instructor_account($1)",
+        let public_reference = sqlx::query_scalar(
+            "SELECT public_reference \
+             FROM ple_api.create_instructor_account($1, $2)",
         )
         .bind(input.normalized_email)
+        .bind(input.vetting_decision_reference.as_uuid())
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let record = decode_summary(&row)?;
+        let record = summary_for_reference(&mut tx, public_reference)
+            .await?
+            .ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }
@@ -143,34 +167,49 @@ impl PostgresInstructorAccountStore {
         reason: Option<String>,
     ) -> Result<InstructorAccountSummary, StoreError> {
         let mut tx = self.begin(token).await?;
-        let row = sqlx::query(
-            "SELECT reference_number, state, \
-             (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
-             AS last_successful_sign_in_millis \
+        let public_reference = sqlx::query_scalar(
+            "SELECT public_reference \
              FROM ple_api.change_instructor_account_state($1, $2, $3)",
         )
-        .bind(i64::from(reference.number()))
+        .bind(reference.as_string())
         .bind(state)
         .bind(reason)
         .fetch_optional(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let record = row
-            .as_ref()
-            .map(decode_summary)
-            .transpose()?
+        let public_reference = public_reference.ok_or(StoreError::NotFound)?;
+        let record = summary_for_reference(&mut tx, public_reference)
+            .await?
             .ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
     }
 }
 
+async fn summary_for_reference(
+    tx: &mut Transaction<'_, Postgres>,
+    public_reference: String,
+) -> Result<Option<InstructorAccountSummary>, StoreError> {
+    let row = sqlx::query(
+        "SELECT public_reference, state, provided_avatar_id, \
+         (extract(epoch FROM last_successful_sign_in) * 1000)::bigint \
+         AS last_successful_sign_in_millis \
+         FROM ple_api.list_instructor_account_avatar_summaries() \
+         WHERE public_reference = $1",
+    )
+    .bind(public_reference)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    row.as_ref().map(decode_summary).transpose()
+}
+
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummary, StoreError> {
-    let reference_number: i64 = row.try_get("reference_number").map_err(map_sqlx_error)?;
-    let reference = u64::try_from(reference_number)
-        .ok()
-        .and_then(AccountReference::new)
-        .ok_or_else(|| invalid("Account Reference"))?;
+    let reference = AccountReference::new(
+        row.try_get::<String, _>("public_reference")
+            .map_err(map_sqlx_error)?,
+    )
+    .map_err(|_| invalid("Account Reference"))?;
     let state = match row
         .try_get::<String, _>("state")
         .map_err(map_sqlx_error)?
@@ -185,10 +224,16 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<InstructorAccountSummar
         .try_get::<Option<i64>, _>("last_successful_sign_in_millis")
         .map_err(map_sqlx_error)?
         .map(Timestamp::from_unix_millis);
+    let provided_avatar_id = row
+        .try_get::<Option<String>, _>("provided_avatar_id")
+        .map_err(map_sqlx_error)?
+        .map(ProvidedAvatarId::parse)
+        .transpose()?;
     Ok(InstructorAccountSummary {
         reference,
         state,
         last_successful_sign_in,
+        provided_avatar_id,
     })
 }
 

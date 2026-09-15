@@ -51,6 +51,10 @@ export interface BlueprintCourseClient {
     names: RenameBlueprintCourseInput,
     etag: BlueprintMetadataEtag,
   ) => Promise<BlueprintMetadataTransition>;
+  readonly publishBlueprintCourse: (
+    reference: BlueprintCourseReference,
+    etag: BlueprintMetadataEtag,
+  ) => Promise<BlueprintMetadataTransition>;
   readonly getBlueprintRevision: (
     reference: BlueprintCourseReference,
     revision: string,
@@ -61,6 +65,10 @@ export interface BlueprintCourseClient {
     etag: BlueprintMetadataEtag,
   ) => Promise<BlueprintMetadataTransition>;
   readonly restoreBlueprintCourse: (
+    reference: BlueprintCourseReference,
+    etag: BlueprintMetadataEtag,
+  ) => Promise<BlueprintMetadataTransition>;
+  readonly returnBlueprintCourseToPrivate: (
     reference: BlueprintCourseReference,
     etag: BlueprintMetadataEtag,
   ) => Promise<BlueprintMetadataTransition>;

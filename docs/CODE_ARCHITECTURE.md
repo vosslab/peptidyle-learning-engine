@@ -19,7 +19,7 @@ migrated.
 | [crates/learning-data-access/](../crates/learning-data-access/) | Store contracts, PostgreSQL transactions, and row-security context |
 | [crates/server/](../crates/server/) | HTTP routes, authenticated composition, authorization, and server-only dependencies |
 | [crates/grading/](../crates/grading/) | Native answer-bearing grading code; never a browser dependency |
-| [crates/adapters/](../crates/adapters/) | Native, WeBWorK, iMathAS, QTI, and H5P boundaries behind Question Backend operations |
+| [crates/adapters/](../crates/adapters/) | Native, WeBWorK, iMathAS, and QTI boundaries behind Question Backend operations |
 | [crates/objects/](../crates/objects/) | Typed object identity, integrity, validation, and storage backends |
 | [crates/browser-api-contract/](../crates/browser-api-contract/) | Rust declarations used to generate browser-facing TypeScript contracts |
 | [src/](../src/) | SolidJS shell, strict decoders, role-specific pages, and answer-safe interaction |

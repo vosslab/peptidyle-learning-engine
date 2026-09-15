@@ -19,11 +19,11 @@ export class ApiProtocolError extends Error {
   }
 }
 
-/** A current Assignment mutation cannot proceed in its present lifecycle or edit state. */
-export class AssignmentConflictError extends ApiRequestError {
+/** A current Assessment mutation cannot proceed in its present lifecycle or edit state. */
+export class AssessmentConflictError extends ApiRequestError {
   public constructor(status: 409 | 412 | 428, path: string) {
     super(status, path);
-    this.name = "AssignmentConflictError";
+    this.name = "AssessmentConflictError";
   }
 }
 

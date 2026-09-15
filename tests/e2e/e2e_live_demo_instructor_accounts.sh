@@ -142,6 +142,55 @@ if value.get("state") != expected_state or value.get("lastSuccessfulSignIn") is 
 ' "$1" "$2" "$3"
 }
 
+assert_vetting_receipt() {
+	python3 -c '
+import json, re, sys
+receipt=json.loads(sys.argv[1])
+if not isinstance(receipt, dict) or set(receipt) != {"vettingDecisionReference"}:
+    raise SystemExit("Instructor identity vetting receipt is not closed")
+reference=receipt["vettingDecisionReference"]
+if not isinstance(reference, str) or not re.fullmatch(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", reference
+):
+    raise SystemExit("Instructor identity vetting receipt is not an opaque UUID")
+print(reference)
+' "$1"
+}
+
+instructor_account_count_for_email() {
+	local email="$1" postgres
+	postgres="$(service_id postgres)"
+	podman exec "$postgres" sh -lc \
+		'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh \
+		"SELECT count(*) FROM ple_private.account_authentication_email AS email
+          JOIN ple_private.account AS account ON account.account_id = email.account_id
+         WHERE email.normalized_email = '$email' AND account.product_role = 'instructor'"
+}
+
+assert_no_instructor_account_for_email() {
+	if [ "$(instructor_account_count_for_email "$1")" != "0" ]; then
+		echo "Rejected vetting did not prevent Instructor capability creation" >&2
+		exit 1
+	fi
+}
+
+assert_creation_audit_link() {
+	local email="$1" decision="$2" postgres output
+	postgres="$(service_id postgres)"
+	output="$(podman exec "$postgres" sh -lc \
+		'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh \
+		"SELECT CASE WHEN count(*) = 1 THEN 'instructor_creation_vetting_audit_link' END
+           FROM ple_audit.instructor_account_creation_event AS event
+           JOIN ple_private.account_authentication_email AS email
+             ON email.account_id = event.created_instructor_account_id
+          WHERE email.normalized_email = '$email'
+            AND event.vetting_decision_id = '$decision'::uuid")"
+	if [ "$(printf '%s\n' "$output" | sed -n '/^instructor_creation_vetting_audit_link$/p')" != "instructor_creation_vetting_audit_link" ]; then
+		echo "Instructor Account creation did not retain its completed vetting audit link" >&2
+		exit 1
+	fi
+}
+
 assert_catalog_least_privilege() {
 	local postgres sql output
 	postgres="$(service_id postgres)"
@@ -161,8 +210,73 @@ SELECT 'instructor_account_catalog_authority';"
 	fi
 }
 
+instructor_preservation_snapshot() {
+	local reference="$1" reference_number postgres sql
+	if [[ ! "$reference" =~ ^U-([1-9][0-9]{0,9})$ ]]; then
+		echo "Instructor preservation evidence received an invalid reference" >&2
+		exit 1
+	fi
+	reference_number="${reference#U-}"
+	postgres="$(service_id postgres)"
+	sql="WITH instructor AS (
+    SELECT account_id FROM ple_private.account
+     WHERE reference_number = $reference_number AND product_role = 'instructor'
+), snapshot AS (
+    SELECT
+        (SELECT count(*) FROM ple_private.authoring_workspace AS workspace
+          JOIN instructor ON instructor.account_id = workspace.owner_account_id) AS authored_workspaces,
+        (SELECT count(*) FROM ple_data.blueprint_course AS blueprint
+          JOIN instructor ON instructor.account_id = blueprint.owner_account_id) AS authored_blueprints,
+        (SELECT count(*) FROM ple_data.question_ownership_event AS ownership
+          JOIN instructor ON instructor.account_id = ownership.owner_account_id) AS authored_questions,
+        (SELECT count(*) FROM ple_data.course_instance AS course
+          JOIN instructor ON instructor.account_id = course.assigned_instructor_account_id) AS assigned_courses,
+        (SELECT count(*) FROM ple_data.course_membership AS membership
+          JOIN instructor ON instructor.account_id = membership.account_id
+         WHERE membership.role = 'instructor') AS instructor_memberships,
+        (SELECT count(*) FROM ple_audit.course_instance_creation_event AS event
+          JOIN instructor ON instructor.account_id IN (
+              event.assigned_instructor_account_id, event.created_by_account_id
+          )) AS course_creation_history,
+        (SELECT count(*) FROM ple_audit.course_roster_event AS event
+          JOIN instructor ON instructor.account_id = event.acting_account_id) AS roster_history,
+        (SELECT count(*) FROM ple_private.account_state_event AS event
+          JOIN instructor ON instructor.account_id = event.account_id) AS state_events
+)
+SELECT json_build_object(
+    'authoredWorkspaces', authored_workspaces,
+    'authoredBlueprints', authored_blueprints,
+    'authoredQuestions', authored_questions,
+    'assignedCourses', assigned_courses,
+    'instructorMemberships', instructor_memberships,
+    'courseCreationHistory', course_creation_history,
+    'rosterHistory', roster_history,
+    'stateEvents', state_events
+) FROM snapshot;"
+	podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql"
+}
+
+assert_deactivation_preserves_records() {
+	python3 -c '
+import json, sys
+before, after = (json.loads(value) for value in sys.argv[1:])
+required = (
+    "authoredWorkspaces", "authoredBlueprints", "authoredQuestions",
+    "assignedCourses", "instructorMemberships", "courseCreationHistory", "rosterHistory",
+)
+if set(before) != set(after) or set(before) != set(required) | {"stateEvents"}:
+    raise SystemExit("Instructor preservation snapshot shape changed")
+if any(not isinstance(before[key], int) or before[key] < 1 for key in required):
+    raise SystemExit("Live Demo lacks the authored, Course, and historical records required for preservation evidence")
+if any(after[key] != before[key] for key in required):
+    raise SystemExit("Instructor deactivation deleted authored content, a Course relationship, or historical records")
+if not isinstance(before["stateEvents"], int) or after["stateEvents"] != before["stateEvents"] + 1:
+    raise SystemExit("Instructor deactivation did not append exactly one Account state history record")
+' "$1" "$2"
+}
+
 prove_service() {
-	local sysadmin_cookie instructor_cookie student_cookie listed existing_reference created created_reference deactivated reactivated
+	local sysadmin_cookie instructor_cookie student_cookie listed existing_reference created created_reference deactivated reactivated preservation_before preservation_after missing_email invalid_email mismatched_email approved_email mismatched_decision approved_decision repeated_decision vetting
 	sysadmin_cookie="$(persona_cookie morganSysadmin)"
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -173,6 +287,11 @@ prove_service() {
 	assert_concealed "$(request '/api/instructor-accounts/U-0/deactivate' "$sysadmin_cookie" POST '{"reason":"bounded"}')"
 	assert_concealed "$(request '/api/instructor-accounts/not-a-reference/reactivate' "$sysadmin_cookie" POST '{}')"
 	assert_concealed "$(request '/api/instructor-accounts/U-2147483647/reactivate' "$sysadmin_cookie" POST '{}')"
+	assert_concealed "$(request '/api/instructor-identity-vetting-decisions' "$student_cookie" POST '{"normalizedEmail":"student-cannot-vet@example.invalid","verifiedInstructorDisplayName":"Student Cannot Vet"}')"
+	# C10: platform account administration is Sysadmin-only. These are durable
+	# authorization boundaries, not a proxy for the internal approval workflow.
+	assert_concealed "$(request '/api/instructor-identity-vetting-decisions' "$instructor_cookie" POST '{"normalizedEmail":"instructor-cannot-vet@example.invalid","verifiedInstructorDisplayName":"Instructor Cannot Vet"}')"
+	assert_concealed "$(request '/api/instructor-accounts' "$instructor_cookie" POST '{"normalizedEmail":"instructor-cannot-create@example.invalid","vettingDecisionReference":"00000000-0000-4000-8000-000000000001"}')"
 
 	listed="$(request '/api/instructor-accounts' "$sysadmin_cookie")"
 	if [ "$(response_status "$listed")" != "200" ]; then
@@ -182,13 +301,62 @@ prove_service() {
 	assert_list "$(response_body "$listed")"
 	existing_reference="$(active_signed_in_instructor_reference "$(response_body "$listed")")"
 
-	created="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"m16-live-demo-${RANDOM}${RANDOM}@example.invalid\"}")"
+	# Permanent C18 authorization contract: a rejected request must leave no
+	# Instructor capability behind. If this fails, repair the creation
+	# validation/transaction boundary; do not loosen these denial assertions.
+	missing_email="m18-missing-${RANDOM}${RANDOM}@example.invalid"
+	if [ "$(response_status "$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$missing_email\"}")")" != "422" ]; then
+		echo "Instructor creation without completed vetting was not denied" >&2
+		exit 1
+	fi
+	assert_no_instructor_account_for_email "$missing_email"
+
+	invalid_email="m18-invalid-${RANDOM}${RANDOM}@example.invalid"
+	if [ "$(response_status "$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$invalid_email\",\"vettingDecisionReference\":\"00000000-0000-4000-8000-000000000001\"}")")" != "422" ]; then
+		echo "Instructor creation with an invalid vetting decision was not denied" >&2
+		exit 1
+	fi
+	assert_no_instructor_account_for_email "$invalid_email"
+
+	mismatched_email="m18-mismatch-${RANDOM}${RANDOM}@example.invalid"
+	vetting="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"m18-vetted-${RANDOM}${RANDOM}@example.invalid\",\"verifiedInstructorDisplayName\":\"M18 Vetted Instructor\"}")"
+	if [ "$(response_status "$vetting")" != "201" ]; then
+		echo "Active Sysadmin could not record completed Instructor identity vetting" >&2
+		exit 1
+	fi
+	mismatched_decision="$(assert_vetting_receipt "$(response_body "$vetting")")"
+	if [ "$(response_status "$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$mismatched_email\",\"vettingDecisionReference\":\"$mismatched_decision\"}")")" != "422" ]; then
+		echo "Instructor creation with a mismatched vetting decision was not denied" >&2
+		exit 1
+	fi
+	assert_no_instructor_account_for_email "$mismatched_email"
+
+	approved_email="m18-approved-${RANDOM}${RANDOM}@example.invalid"
+	vetting="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$approved_email\",\"verifiedInstructorDisplayName\":\"M18 Approved Instructor\"}")"
+	if [ "$(response_status "$vetting")" != "201" ]; then
+		echo "Active Sysadmin could not record completed Instructor identity vetting" >&2
+		exit 1
+	fi
+	approved_decision="$(assert_vetting_receipt "$(response_body "$vetting")")"
+	vetting="$(request '/api/instructor-identity-vetting-decisions' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$approved_email\",\"verifiedInstructorDisplayName\":\"M18 Approved Instructor\"}")"
+	if [ "$(response_status "$vetting")" != "201" ]; then
+		echo "Repeated completed Instructor identity vetting was not idempotent" >&2
+		exit 1
+	fi
+	repeated_decision="$(assert_vetting_receipt "$(response_body "$vetting")")"
+	if [ "$approved_decision" != "$repeated_decision" ]; then
+		echo "Completed Instructor identity vetting did not retain one immutable decision" >&2
+		exit 1
+	fi
+
+	created="$(request '/api/instructor-accounts' "$sysadmin_cookie" POST "{\"normalizedEmail\":\"$approved_email\",\"vettingDecisionReference\":\"$approved_decision\"}")"
 	if [ "$(response_status "$created")" != "201" ]; then
-		echo "Active Sysadmin could not create an Instructor Account" >&2
+		echo "Active Sysadmin could not create an Instructor Account from completed vetting" >&2
 		exit 1
 	fi
 	created_reference="$(python3 -c 'import json, sys; print(json.loads(sys.argv[1])["reference"])' "$(response_body "$created")")"
 	assert_summary "$(response_body "$created")" "$created_reference" active
+	assert_creation_audit_link "$approved_email" "$approved_decision"
 
 	deactivated="$(request "/api/instructor-accounts/$created_reference/deactivate" "$sysadmin_cookie" POST '{"reason":"Live demo access review"}')"
 	if [ "$(response_status "$deactivated")" != "200" ]; then
@@ -206,6 +374,7 @@ prove_service() {
 	# The current seeded configuration has no deactivated Sysadmin persona.  Do
 	# not mutate private state merely to fabricate one; deactivated-Sysadmin
 	# concealment is therefore structurally unobservable in this disposable run.
+	preservation_before="$(instructor_preservation_snapshot "$existing_reference")"
 	deactivated="$(request "/api/instructor-accounts/$existing_reference/deactivate" "$sysadmin_cookie" POST '{"reason":"Live demo session revocation check"}')"
 	if [ "$(response_status "$deactivated")" != "200" ]; then
 		echo "Instructor session revocation setup failed" >&2
@@ -217,11 +386,16 @@ prove_service() {
 		request "/api/instructor-accounts/$existing_reference/reactivate" "$sysadmin_cookie" POST '{}' >/dev/null || true
 		exit 1
 	fi
+	if ! preservation_after="$(instructor_preservation_snapshot "$existing_reference")"; then
+		request "/api/instructor-accounts/$existing_reference/reactivate" "$sysadmin_cookie" POST '{}' >/dev/null || true
+		exit 1
+	fi
 	reactivated="$(request "/api/instructor-accounts/$existing_reference/reactivate" "$sysadmin_cookie" POST '{}')"
 	if [ "$(response_status "$reactivated")" != "200" ]; then
 		echo "Instructor session revocation cleanup failed" >&2
 		exit 1
 	fi
+	assert_deactivation_preserves_records "$preservation_before" "$preservation_after"
 	assert_catalog_least_privilege
 	echo "Instructor Account authority: Sysadmin lifecycle, concealment, and session revocation complete"
 }

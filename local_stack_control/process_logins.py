@@ -14,13 +14,32 @@ import local_stack_control.process
 API_LOGIN = "ple_api_login"
 API_ROLES = ("ple_app", "ple_auth")
 WORKER_LOGIN = "ple_worker_login"
-WORKER_ROLES = ("ple_assignment_attempt_expiry_worker",)
+WORKER_ROLES = ("ple_assessment_attempt_expiry_worker",)
 PUBLISHER_LOGIN = "ple_publisher_login"
 PUBLISHER_ROLES = ("ple_public_asset_publisher",)
+COURSE_RETENTION_LOGIN = "ple_course_retention_login"
+COURSE_RETENTION_ROLES = ("ple_course_retention_executor",)
+COURSE_RETENTION_NOTIFIER_LOGIN = "ple_course_retention_notifier_login"
+COURSE_RETENTION_NOTIFIER_ROLES: tuple[str, ...] = ()
+COURSE_RETENTION_NOTIFIER_FUNCTIONS = (
+	"ple_api.claim_course_retention_notification(timestamp with time zone, integer)",
+	"ple_api.record_course_retention_notification_provider_acceptance("
+	"uuid, uuid, uuid, timestamp with time zone)",
+	"ple_api.record_course_retention_notification_delivered("
+	"uuid, uuid, timestamp with time zone)",
+	"ple_api.fail_course_retention_notification_before_acceptance("
+	"uuid, uuid, timestamp with time zone, text)",
+)
 LOGIN_PROFILES = (
 	(API_LOGIN, API_ROLES, "PLE_API_DATABASE_URL"),
 	(WORKER_LOGIN, WORKER_ROLES, "PLE_WORKER_DATABASE_URL"),
 	(PUBLISHER_LOGIN, PUBLISHER_ROLES, "PLE_PUBLISHER_DATABASE_URL"),
+	(COURSE_RETENTION_LOGIN, COURSE_RETENTION_ROLES, "PLE_COURSE_RETENTION_DATABASE_URL"),
+	(
+		COURSE_RETENTION_NOTIFIER_LOGIN,
+		COURSE_RETENTION_NOTIFIER_ROLES,
+		"PLE_COURSE_RETENTION_NOTIFIER_DATABASE_URL",
+	),
 )
 
 
@@ -88,6 +107,14 @@ def login_sql(login: str, roles: tuple[str, ...], password: str) -> str:
 		f"GRANT {role} TO {login} WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n"
 		for role in roles
 	)
+	function_grants = "".join(
+		f"GRANT EXECUTE ON FUNCTION {function} TO {login};\n"
+		for function in direct_functions(login)
+	)
+	schema_grants = "".join(
+		f"GRANT USAGE ON SCHEMA {schema} TO {login};\n"
+		for schema in direct_schemas(login)
+	)
 	sql = f"""DO $$
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{login}') THEN
@@ -122,8 +149,43 @@ REVOKE ALL PRIVILEGES ON SCHEMA public FROM {login};
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM {login};
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM {login};
 REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM {login};
+DO $$
+DECLARE selected_schema record;
+BEGIN
+	-- A pre-existing service login may have been provisioned by an older
+	-- controller.  Remove every direct PLE ACL before its one SET-only
+	-- capability membership is reconciled; inherited authority is separately
+	-- removed above.  ASVS 8.2.1 and 13.2.2.
+	FOR selected_schema IN
+		SELECT namespace.nspname
+		  FROM pg_catalog.pg_namespace AS namespace
+		 WHERE namespace.nspname LIKE 'ple\\_%' ESCAPE '\\'
+	LOOP
+		EXECUTE format('REVOKE ALL PRIVILEGES ON SCHEMA %I FROM {login}', selected_schema.nspname);
+		EXECUTE format('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA %I FROM {login}', selected_schema.nspname);
+		EXECUTE format('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA %I FROM {login}', selected_schema.nspname);
+		EXECUTE format('REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA %I FROM {login}', selected_schema.nspname);
+	END LOOP;
+END
+$$;
 """
-	return sql + grants
+	return sql + grants + schema_grants + function_grants
+
+
+#============================================
+def direct_functions(login: str) -> tuple[str, ...]:
+	"""Return the exact direct-function authority for a closed login profile."""
+	if login == COURSE_RETENTION_NOTIFIER_LOGIN:
+		return COURSE_RETENTION_NOTIFIER_FUNCTIONS
+	return ()
+
+
+#============================================
+def direct_schemas(login: str) -> tuple[str, ...]:
+	"""Return schema USAGE needed solely to invoke a closed direct procedure set."""
+	if login == COURSE_RETENTION_NOTIFIER_LOGIN:
+		return ("ple_api",)
+	return ()
 
 
 #============================================

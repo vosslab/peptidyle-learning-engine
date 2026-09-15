@@ -125,18 +125,20 @@ mapping or control-specific compatibility layer. See
 
 ## Other backends
 
-iMathAS and H5P are supported secondary Question Backends and use the same
-common boundary. Any
-backend-specific session, signature, callback, or token remains server-only,
-scoped to the exact Student, Course, Attempt, Question Revision, and backend
-operation. It does not create a parallel PLE Account, Assessment, Attempt, or
-grading model.
-
-H5P owns its runtime, interactions, state, and scoring; iMathAS owns its
-rendering and evaluation. A current implementation that exposes only ungraded
-H5P practice or lacks connected iMathAS acceptance is incomplete relative to
-that product target, not a different backend model. No backend is presented as
+iMathAS is a possible secondary Question Backend and, if delivered, uses this
+same common boundary. Any backend-specific session, signature, callback, or
+token remains server-only, scoped to the exact Student, Course, Attempt,
+Question Revision, and backend operation. It does not create a parallel PLE
+Account, Assessment, Attempt, or grading model. No backend is presented as
 available until its real composition and connected acceptance are complete.
+
+H5P is not a current PLE Question Backend. Its placeholder schema, adapter,
+DTO, API, and workspace seams were removed. Future H5P delivery is blocked
+until Human Guidance's recorded product question fixes the first supported
+content type and exact pinned library versions, authoritative terminal xAPI
+event/score semantics, and whether scoreless activities are non-assessment
+only. A later approved H5P backend must satisfy this document's ownership and
+evidence rules; it does not inherit a dormant implementation claim.
 
 ## Retained evidence
 

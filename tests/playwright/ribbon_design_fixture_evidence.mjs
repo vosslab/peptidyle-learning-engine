@@ -195,10 +195,18 @@ async function inspect(page, profile) {
       ),
       topologyRowsValid: ribbons.every((ribbon) => {
         const frames = [...ribbon.querySelectorAll(":scope > [data-ribbon-row-frame]")];
+        const profileEndcaps = [...ribbon.children].filter((child) =>
+          child.matches(':has(> button[aria-label="Profile"][aria-haspopup="menu"])'),
+        );
         const expectedFrames =
           ribbon.getAttribute("data-ribbon-task-row") === "reserved" ? ["top", "tasks"] : ["top"];
         return (
-          [...ribbon.children].every((child) => child.matches("[data-ribbon-row-frame]")) &&
+          [...ribbon.children].every(
+            (child) =>
+              child.matches("[data-ribbon-row-frame]") ||
+              child.matches(':has(> button[aria-label="Profile"][aria-haspopup="menu"])'),
+          ) &&
+          profileEndcaps.length === 1 &&
           frames.map((frame) => frame.getAttribute("data-ribbon-row-frame")).join(" ") ===
             expectedFrames.join(" ") &&
           frames.every((frame, index) => {
@@ -364,8 +372,8 @@ try {
     desktop.topologyRowsValid,
     true,
     [
-      "every real Ribbon has only its approved top frame and optional task frame, each with one",
-      "matching labelled scrollport and two inert cues; the shell owns Breadcrumb outside the Ribbon",
+      "every real Ribbon has its approved top/task frames and Profile menu trigger; each frame has",
+      "one matching labelled scrollport and two inert cues; the shell owns Breadcrumb outside it",
     ].join(" "),
   );
   assert.equal(desktop.rowGeometry, true, "each declared Ribbon row has measurable geometry");
@@ -468,23 +476,14 @@ try {
   const tabletSignOutControls = tablet.renderedControls.filter(
     (control) => control.id === "signOut",
   );
-  assert.ok(tabletSignOutControls.length > 0, "tablet renders the real Context Sign out control");
-  assert.equal(
-    tabletSignOutControls.every(
-      (control) =>
-        control.iconCount === 1 &&
-        control.href === `${RIBBON_ICON_ASSET_PATH}#right-from-bracket` &&
-        control.text === "Sign out" &&
-        control.labelVisible &&
-        control.ariaLabel === "Sign out" &&
-        control.title === "Sign out",
-    ),
-    true,
-    "tablet keeps every actual Sign out label, exact name, tooltip, and conventional glyph visible",
+  assert.deepEqual(
+    tabletSignOutControls,
+    [],
+    "the static Ribbon laboratory has no standalone Context Sign out control; the Profile menu owns it",
   );
   assert.equal(
     tablet.renderedControls
-      .filter((control) => control.id !== "signOut" && control.iconCount > 0)
+      .filter((control) => control.iconCount > 0)
       .every((control) => control.iconCount === 1 && control.labelVisible),
     true,
     "tablet retains ordinary icon-bearing controls as labelled paired controls",
@@ -524,21 +523,14 @@ try {
     "phone keeps every selected Task present and reachable in its scroll content",
   );
   const phoneSignOut = phone.renderedControls.find((control) => control.id === "signOut");
-  assert.deepEqual(
-    {
-      ariaLabel: phoneSignOut?.ariaLabel,
-      title: phoneSignOut?.title,
-      visible: phoneSignOut?.labelVisible,
-    },
-    { ariaLabel: "Sign out", title: "Sign out", visible: true },
-    [
-      "narrow-phone Sign out retains its exact name, tooltip, conventional glyph,",
-      "and visible text in the horizontally scrollable top bar",
-    ].join(" "),
+  assert.equal(
+    phoneSignOut,
+    undefined,
+    "narrow-phone laboratory likewise keeps Sign out inside the interactive Profile menu",
   );
   assert.equal(
     phone.renderedControls
-      .filter((control) => control.iconCount > 0 && control.id !== "signOut")
+      .filter((control) => control.iconCount > 0)
       .every((control) => control.labelVisible),
     true,
     "narrow phone does not hide labels for ordinary icon-bearing destinations",

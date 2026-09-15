@@ -344,6 +344,14 @@ assert_appearance "$(body "$reloaded")" "$target_theme"
 
 student_write="$(request "$path" "$student_cookie" PUT "$(theme_payload ocean)")"
 assert_no_store "$student_write" 404
+# This is the durable C32 authorization boundary: a Student can bypass every
+# browser affordance and call the binary Course Banner staging route directly.
+# The handler authorizes before it reads the body. This route outcome protects
+# that server boundary; the PostgreSQL Course Banner saga independently
+# protects exact Instructor Course Membership in the Store. Failure repairs the
+# server role gate before release.
+student_banner_upload="$(request "$path/banner-uploads" "$student_cookie" POST '{}')"
+assert_no_store "$student_banner_upload" 404
 unknown_theme="$(request "$path" "$instructor_cookie" PUT "$(theme_payload unreviewed)")"
 assert_no_store "$unknown_theme" 422
 after_refusal="$(request "$path" "$instructor_cookie")"

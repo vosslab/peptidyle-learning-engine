@@ -125,7 +125,7 @@ export function CourseRosterPage(): JSX.Element {
       <h1>Students</h1>
       <p class="page-lede">
         Import reviewed Student Authentication Email and course roster ID pairs. An import creates a
-        pending Course Invitation; it does not create Assignment or Student-work records.
+        pending Course Invitation; it does not create Assessment or Student-work records.
       </p>
       <Show when={message()}>
         {(text) => (
@@ -201,7 +201,6 @@ export function CourseRosterPage(): JSX.Element {
                 <table class="roster-table">
                   <thead>
                     <tr>
-                      <th scope="col">Course roster email</th>
                       <th scope="col">Roster ID</th>
                       <th scope="col">State</th>
                       <th scope="col">Action</th>
@@ -211,7 +210,6 @@ export function CourseRosterPage(): JSX.Element {
                     <For each={entries()}>
                       {(entry) => (
                         <tr>
-                          <td>{entry.rosterEmail}</td>
                           <td>
                             <code>{entry.rosterId}</code>
                           </td>

@@ -18,11 +18,12 @@ use axum::{
         header::{CONTENT_TYPE, COOKIE, ETAG, IF_MATCH},
     },
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{get, post, put},
 };
 use learning_data_access::{
     AuthoringDraft, AuthoringDraftStore, CreateAuthoringDraftInput, DraftQuestionEditNumber,
-    DraftQuestionUuid, SaveAuthoringDraftInput, SessionTokenHash, StoreError,
+    DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
+    SessionTokenHash, StoreError,
     postgres::{
         PostgresAuthoringDraftStore, PostgresDraftQuestionSourceBindingStore, PostgresSessionStore,
     },
@@ -30,7 +31,7 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, PutObject, s3::S3ObjectStore};
 use question_model::{
     DraftQuestionReference, ObjectId, QuestionAuthor, QuestionAuthorDisplayName,
-    QuestionAuthorship, QuestionId, QuestionLicense, QuestionRevisionNumber,
+    QuestionAuthorship, QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionNumber,
     QuestionRevisionReason, QuestionRevisionReference, QuestionType, Timestamp,
 };
 use serde::{Deserialize, Serialize};
@@ -71,6 +72,10 @@ pub fn authoring_router(
             get(load_source).put(save_source),
         )
         .route(
+            "/api/authoring/drafts/{reference}/metadata",
+            get(load_general_feedback).put(save_general_feedback),
+        )
+        .route(
             "/api/authoring/drafts/{reference}/publish",
             post(publish_draft),
         )
@@ -106,6 +111,12 @@ struct DraftListResponse {
 struct CreatedDraftResponse {
     draft_question: DraftQuestionReference,
     edit_number: u64,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct DraftGeneralFeedbackRequest {
+    general_feedback: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -203,6 +214,7 @@ async fn create_draft(
             CreateAuthoringDraftInput {
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
                 source_record,
+                question_format: QuestionFormat::PleQuestionJson,
                 webwork_pg_path: None,
                 question_type: source.question_type,
                 title: source.title,
@@ -343,6 +355,83 @@ async fn save_source(
         Err(StoreError::LifecycleConflict) => {
             private_error(StatusCode::CONFLICT, "Draft Question lifecycle conflict")
         }
+        Err(error) => private_store_error(error),
+    }
+}
+
+async fn load_general_feedback(
+    State(state): State<AuthoringRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Response {
+    let reference = match parse_reference(&reference) {
+        Ok(reference) => reference,
+        Err(response) => return *response,
+    };
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .drafts
+        .load_authoring_draft(session_hash, reference)
+        .await
+    {
+        Ok(draft) => match etag(draft.edit_number) {
+            Ok(etag) => {
+                let mut response = crate::auth::no_store(
+                    Json(DraftGeneralFeedbackRequest {
+                        general_feedback: draft.general_feedback,
+                    })
+                    .into_response(),
+                );
+                response.headers_mut().insert(ETAG, etag);
+                response
+            }
+            Err(()) => private_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Authoring draft is unavailable",
+            ),
+        },
+        Err(error) => private_store_error(error),
+    }
+}
+
+async fn save_general_feedback(
+    State(state): State<AuthoringRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+    Json(request): Json<DraftGeneralFeedbackRequest>,
+) -> Response {
+    let reference = match parse_reference(&reference) {
+        Ok(reference) => reference,
+        Err(response) => return *response,
+    };
+    let expected_edit_number = match expected_edit_number(&headers) {
+        Ok(number) => number,
+        Err(response) => return *response,
+    };
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .drafts
+        .save_authoring_draft_general_feedback(
+            session_hash,
+            SaveAuthoringDraftGeneralFeedbackInput {
+                reference,
+                expected_edit_number,
+                general_feedback: request.general_feedback,
+            },
+        )
+        .await
+    {
+        Ok(draft) => edit_number_response(draft.edit_number),
+        Err(StoreError::Conflict | StoreError::RetryableTransaction) => private_error(
+            StatusCode::PRECONDITION_FAILED,
+            "Draft Question changed before this save",
+        ),
         Err(error) => private_store_error(error),
     }
 }
@@ -742,7 +831,7 @@ fn private_store_error(error: StoreError) -> Response {
         }
         StoreError::LeaseLost
         | StoreError::Unavailable(_)
-        | StoreError::AssignmentActivity(_)
+        | StoreError::AssessmentActivity(_)
         | StoreError::TimedOut => {
             private_error(StatusCode::SERVICE_UNAVAILABLE, "Authoring is unavailable")
         }
@@ -825,6 +914,6 @@ mod tests {
             })
         );
         assert!(existing_parent_question_revision(&issuer, question_id.to_string(), 0).is_err());
-        assert!(existing_parent_question_revision(&issuer, "000-0000".to_string(), 1).is_err());
+        assert!(existing_parent_question_revision(&issuer, "0000-X000".to_string(), 1).is_err());
     }
 }

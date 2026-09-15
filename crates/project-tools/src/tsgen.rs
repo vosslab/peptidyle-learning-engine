@@ -12,7 +12,7 @@ use anyhow::{Context, Result, bail};
 use syn::{Fields, Item, Type};
 
 use model::{Generated, doc_lines, generate_enum, generate_struct};
-use output::{prepare_out_dir, render};
+use output::{has_dedicated_question_id_syntax_header, prepare_out_dir, render};
 use source::{OriginGenerated, collect_contract_sources, declaration_names, is_exported};
 
 mod model;
@@ -30,6 +30,7 @@ pub fn run(contract_roots: &[&Path], out_dir: &Path) -> Result<usize> {
     }
     let generated = generate_declarations(contract_roots)?;
     let generated_declaration_names = declaration_names(&generated)?;
+    ensure_no_dedicated_output_collision(out_dir, &generated)?;
     prepare_out_dir(out_dir)?;
     for declaration in &generated {
         let path = out_dir.join(format!("{}.ts", declaration.generated.name));
@@ -40,6 +41,30 @@ pub fn run(contract_roots: &[&Path], out_dir: &Path) -> Result<usize> {
         .with_context(|| format!("writing {}", path.display()))?;
     }
     Ok(generated.len())
+}
+
+/// Refuse a declaration that would overwrite the sibling Question-ID syntax
+/// generator.  This runs before cleanup so the other generator's output and
+/// the current tsgen output remain intact on a collision.
+fn ensure_no_dedicated_output_collision(
+    out_dir: &Path,
+    generated: &[OriginGenerated],
+) -> Result<()> {
+    for declaration in generated {
+        let path = out_dir.join(format!("{}.ts", declaration.generated.name));
+        if !path.is_file() {
+            continue;
+        }
+        let source = fs::read_to_string(&path)
+            .with_context(|| format!("checking generated marker in {}", path.display()))?;
+        if has_dedicated_question_id_syntax_header(&source) {
+            bail!(
+                "refusing to overwrite dedicated Question-ID syntax contract: {}",
+                path.display()
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Parses generated declarations before any output directory is changed.

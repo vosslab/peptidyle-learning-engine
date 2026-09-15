@@ -1,4 +1,8 @@
-//! Direct-Instructor issuance and revocation of one closed support capability.
+//! Direct-Instructor issuance and revocation of closed support capabilities.
+//!
+//! Repair capability issuance records a narrow, time-bounded request.  It has
+//! no generic resource-reading or repair route: C26 consumes it only beside a
+//! resource-owning operation.
 
 use crate::auth::{AuthError, resolve_session};
 use axum::{
@@ -9,7 +13,7 @@ use axum::{
     routing::{get, post},
 };
 use learning_data_access::{
-    IssueSupportCapabilityInput, SessionTokenHash, StoreError, SupportCapabilityStore,
+    IssueSupportRepairCapabilityInput, SessionTokenHash, StoreError, SupportRepairCapabilityStore,
     postgres::{PostgresSessionStore, PostgresSupportCapabilityStore},
 };
 use question_model::{CourseInstanceReference, ProductRole};
@@ -27,27 +31,31 @@ pub fn support_capability_router(
     support: PostgresSupportCapabilityStore,
 ) -> Router {
     Router::new()
+        .route("/api/support-repair-capabilities", post(issue_repair))
         .route(
-            "/api/course-instances/{reference}/support-capabilities",
-            post(issue),
+            "/api/support-repair-capabilities/{capability_id}/revoke",
+            post(revoke_repair),
         )
         .route(
-            "/api/course-instances/{reference}/support-capabilities/{capability_id}/revoke",
-            post(revoke),
-        )
-        .route(
-            "/api/support-capabilities/{capability_id}/course-roster",
-            get(read_roster),
+            "/api/support-repair-capabilities/{capability_id}/course-instances/{reference}/roster/{roster_id}",
+            get(read_repair_roster_entry),
         )
         .with_state(RouteState { sessions, support })
 }
 
-async fn read_roster(
+/// C26 exposes one named Student record only after the resource-owning Store
+/// atomically consumes an active repair capability.  It is intentionally not a
+/// Course roster list or a generic resource reader.
+async fn read_repair_roster_entry(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(capability_id): Path<String>,
+    Path((capability_id, reference, roster_id)): Path<(String, String, String)>,
 ) -> Response {
     let capability_id = match Uuid::parse_str(&capability_id) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let course = match CourseInstanceReference::from_str(&reference) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -57,22 +65,40 @@ async fn read_roster(
     };
     match state
         .support
-        .read_course_roster_support(token, capability_id)
+        .read_course_roster_entry_repair_support(token, capability_id, course, roster_id)
         .await
     {
-        Ok(entries) if entries.is_empty() => concealed(),
-        Ok(entries) => crate::auth::no_store(Json(entries).into_response()),
+        Ok(Some(entry)) => crate::auth::no_store(Json(entry).into_response()),
+        Ok(None) => concealed(),
         Err(error) => store_error_response(error),
     }
 }
 
-async fn issue(
+async fn issue_repair(
     State(state): State<RouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
-    Json(input): Json<IssueSupportCapabilityInput>,
+    Json(input): Json<IssueSupportRepairCapabilityInput>,
 ) -> Response {
-    let course = match CourseInstanceReference::from_str(&reference) {
+    let token = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .support
+        .issue_support_repair_capability(token, input)
+        .await
+    {
+        Ok(receipt) => crate::auth::no_store((StatusCode::CREATED, Json(receipt)).into_response()),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn revoke_repair(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(capability_id): Path<String>,
+) -> Response {
+    let capability_id = match Uuid::parse_str(&capability_id) {
         Ok(value) => value,
         Err(_) => return concealed(),
     };
@@ -82,10 +108,10 @@ async fn issue(
     };
     match state
         .support
-        .issue_course_roster_support(token, course, input)
+        .revoke_support_repair_capability(token, capability_id)
         .await
     {
-        Ok(receipt) => crate::auth::no_store((StatusCode::CREATED, Json(receipt)).into_response()),
+        Ok(receipt) => crate::auth::no_store(Json(receipt).into_response()),
         Err(error) => store_error_response(error),
     }
 }
@@ -107,33 +133,6 @@ async fn sysadmin_session_hash(
             StatusCode::SERVICE_UNAVAILABLE,
             "Support capability authentication unavailable",
         ))),
-    }
-}
-
-async fn revoke(
-    State(state): State<RouteState>,
-    headers: HeaderMap,
-    Path((reference, capability_id)): Path<(String, String)>,
-) -> Response {
-    let course = match CourseInstanceReference::from_str(&reference) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let capability_id = match Uuid::parse_str(&capability_id) {
-        Ok(value) => value,
-        Err(_) => return concealed(),
-    };
-    let token = match instructor_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .support
-        .revoke_course_roster_support(token, course, capability_id)
-        .await
-    {
-        Ok(receipt) => crate::auth::no_store(Json(receipt).into_response()),
-        Err(error) => store_error_response(error),
     }
 }
 
@@ -184,7 +183,7 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::AlreadyExists => {
             route_error(StatusCode::CONFLICT, "Support capability conflict")
         }
-        StoreError::AssignmentActivity(_)
+        StoreError::AssessmentActivity(_)
         | StoreError::TimedOut
         | StoreError::LeaseLost
         | StoreError::Unavailable(_) => route_error(

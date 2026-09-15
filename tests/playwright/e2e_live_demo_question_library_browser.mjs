@@ -31,7 +31,7 @@ try {
     elements.map((element) => element.textContent ?? ""),
   );
   if (
-    visibleQuestionIds.some((text) => !/[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}/.test(text))
+    visibleQuestionIds.some((text) => !/[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}/.test(text))
   ) {
     throw new Error("Question Library did not display canonical deployment-issued Question IDs");
   }
@@ -47,7 +47,7 @@ try {
   if (
     selectedTitle === null ||
     selectedPath === null ||
-    !/^\/library\/[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/.test(selectedPath)
+    !/^\/library\/[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(selectedPath)
   ) {
     throw new Error("Question Library did not expose a canonical exact Question Revision route");
   }

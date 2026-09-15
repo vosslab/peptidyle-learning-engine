@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAvailability, BlueprintCourseReadAccess, BlueprintCourseReference,
     BlueprintMetadataEtag, BlueprintMetadataState, BlueprintRevision, BlueprintRevisionReference,
-    CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId, QuestionRevisionNumber,
+    CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId,
+    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionRevisionNumber,
     QuestionRevisionReference, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
     RequestChecksum, SaveBlueprintCourseReceipt, Timestamp,
 };
@@ -89,7 +90,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .begin_authenticated_application_transaction(session)
             .await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_course($1)")
-            .bind(reference_number(reference)?)
+            .bind(reference.as_string())
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -111,7 +112,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .begin_authenticated_application_transaction(session)
             .await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_revision($1, $2)")
-            .bind(reference_number(reference.reference)?)
+            .bind(reference.reference.as_string())
             .bind(revision_number(reference.revision)?)
             .fetch_optional(&mut *transaction)
             .await
@@ -143,10 +144,13 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             .await?;
         let actor = current_actor(&mut transaction).await?;
         let pins = resolve_current_question_pins(&mut transaction, requested).await?;
-        let content = StoredBlueprintCourseContent::from_create(input, &pins)?;
+        let requested_pools = StoredBlueprintCourseContent::requested_pool_ids_from_create(&input);
+        let pool_revisions =
+            resolve_current_root_pool_revisions(&mut transaction, requested_pools).await?;
+        let content = StoredBlueprintCourseContent::from_create(input, &pins, &pool_revisions)?;
         let encoded = encode_content(&content)?;
         let row = sqlx::query(
-            "SELECT reference_number, blueprint_revision_number, metadata_etag, \
+            "SELECT public_reference, blueprint_revision_number, metadata_etag, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.create_blueprint_course($1, $2, $3, $4, $5, $6)",
         )
@@ -159,7 +163,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
-        let blueprint = reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?;
+        let blueprint = reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?;
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
                 reference: blueprint,
@@ -194,14 +198,18 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             load_revision_content(&mut transaction, reference_value, expected_revision).await?;
         let requested = StoredBlueprintCourseContent::requested_question_ids_from_replace(&input);
         let pins = resolve_revision_question_pins(&mut transaction, requested, &prior).await?;
-        let content = StoredBlueprintCourseContent::from_replace(input, &prior, &pins)?;
+        let requested_pools = StoredBlueprintCourseContent::requested_pool_ids_from_replace(&input);
+        let pool_revisions =
+            resolve_current_root_pool_revisions(&mut transaction, requested_pools).await?;
+        let content =
+            StoredBlueprintCourseContent::from_replace(input, &prior, &pins, &pool_revisions)?;
         let encoded = encode_content(&content)?;
         let row = sqlx::query(
             "SELECT resulting_blueprint_revision_number, changed, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
              FROM ple_api.save_blueprint_course($1, $2, $3, $4, $5)",
         )
-        .bind(reference_number(reference_value)?)
+        .bind(reference_value.as_string())
         .bind(revision_number(expected_revision)?)
         .bind(request_checksum.into_bytes().to_vec())
         .bind(encoded)
@@ -244,7 +252,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             "SELECT short_name, long_name, availability, metadata_etag \
              FROM ple_api.rename_blueprint_course($1, $2, $3, $4)",
         )
-        .bind(reference_number(reference_value)?)
+        .bind(reference_value.as_string())
         .bind(expected_metadata_etag.into_uuid())
         .bind(input.short_name)
         .bind(input.long_name)
@@ -273,6 +281,22 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .await
     }
 
+    async fn publish_blueprint(
+        &self,
+        session: SessionTokenHash,
+        reference_value: BlueprintCourseReference,
+        expected_metadata_etag: BlueprintMetadataEtag,
+    ) -> Result<BlueprintMetadataState, StoreError> {
+        self.set_availability(
+            session,
+            reference_value,
+            expected_metadata_etag,
+            "public",
+            None,
+        )
+        .await
+    }
+
     async fn restore_blueprint(
         &self,
         session: SessionTokenHash,
@@ -283,7 +307,23 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             session,
             reference_value,
             expected_metadata_etag,
-            "available",
+            "public",
+            None,
+        )
+        .await
+    }
+
+    async fn return_blueprint_to_private(
+        &self,
+        session: SessionTokenHash,
+        reference_value: BlueprintCourseReference,
+        expected_metadata_etag: BlueprintMetadataEtag,
+    ) -> Result<BlueprintMetadataState, StoreError> {
+        self.set_availability(
+            session,
+            reference_value,
+            expected_metadata_etag,
+            "private",
             None,
         )
         .await
@@ -299,6 +339,8 @@ impl PostgresBlueprintCourseStore {
         availability: &'static str,
         archive_confirmation_title: Option<&str>,
     ) -> Result<BlueprintMetadataState, StoreError> {
+        // ASVS 2.3.1, 2.3.3: the authenticated database transition is the
+        // only lifecycle authority; callers can request only typed methods.
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
             .await?;
@@ -306,7 +348,7 @@ impl PostgresBlueprintCourseStore {
             "SELECT short_name, long_name, availability, metadata_etag \
              FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
         )
-        .bind(reference_number(reference_value)?)
+        .bind(reference_value.as_string())
         .bind(expected_metadata_etag.into_uuid())
         .bind(availability)
         .bind(archive_confirmation_title)
@@ -325,7 +367,7 @@ async fn load_revision_content(
     revision_value: BlueprintRevision,
 ) -> Result<StoredBlueprintCourseContent, StoreError> {
     let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_revision($1, $2)")
-        .bind(reference_number(reference_value)?)
+        .bind(reference_value.as_string())
         .bind(revision_number(revision_value)?)
         .fetch_optional(&mut **transaction)
         .await
@@ -399,6 +441,41 @@ async fn resolve_current_question_pins(
         ));
     }
     Ok(pins)
+}
+
+async fn resolve_current_root_pool_revisions(
+    transaction: &mut Transaction<'_, Postgres>,
+    requested: Vec<QuestionId>,
+) -> Result<BTreeMap<QuestionId, QuestionPoolRevisionReference>, StoreError> {
+    let mut resolved = BTreeMap::new();
+    for question_pool_id in requested.into_iter().collect::<BTreeSet<_>>() {
+        let row = sqlx::query(
+            "SELECT question_pool_id, current_revision_number \
+                 FROM ple_api.resolve_current_root_question_pool($1)",
+        )
+        .bind(question_pool_id.to_string())
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let _: uuid::Uuid = row.try_get("question_pool_id").map_err(map_sqlx_error)?;
+        let revision_number = QuestionPoolRevisionNumber::new(
+            u64::try_from(
+                row.try_get::<i64, _>("current_revision_number")
+                    .map_err(map_sqlx_error)?,
+            )
+            .map_err(|_| invalid("Question Pool Revision"))?,
+        )
+        .map_err(|_| invalid("Question Pool Revision"))?;
+        resolved.insert(
+            question_pool_id.clone(),
+            QuestionPoolRevisionReference {
+                question_pool_id,
+                revision_number,
+            },
+        );
+    }
+    Ok(resolved)
 }
 
 /// A Save keeps an exact pin owned by its expected Revision after the Question
@@ -475,20 +552,18 @@ fn retained_question_pins(
     content: &StoredBlueprintCourseContent,
 ) -> Result<BTreeMap<QuestionId, QuestionRevisionReference>, StoreError> {
     let mut pins = BTreeMap::new();
-    for assignment in content
+    for assessment in content
         .modules
         .iter()
-        .flat_map(|module| &module.assignments)
+        .flat_map(|module| &module.assessments)
     {
-        for entry in &assignment.content.entries {
+        for entry in &assessment.content.entries {
             let references: Box<dyn Iterator<Item = &QuestionRevisionReference> + '_> = match entry
             {
-                crate::StoredBlueprintAssignmentEntry::Fixed {
+                crate::StoredBlueprintAssessmentEntry::Fixed {
                     question_revision, ..
                 } => Box::new(std::iter::once(question_revision)),
-                crate::StoredBlueprintAssignmentEntry::Pool {
-                    question_revisions, ..
-                } => Box::new(question_revisions.iter()),
+                crate::StoredBlueprintAssessmentEntry::Pool { .. } => Box::new(std::iter::empty()),
             };
             for reference in references {
                 match pins.entry(reference.question_id.clone()) {
@@ -519,7 +594,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourseSu
                 .map_err(map_sqlx_error)?,
         )
         .map_err(|_| invalid("Blueprint enrollment count"))?,
-        reference: reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
+        reference: reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,
@@ -541,7 +616,7 @@ fn decode_course(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourse, S
             .map_err(map_sqlx_error)?,
     )?;
     Ok(StoredBlueprintCourse {
-        reference: reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
+        reference: reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,
@@ -624,17 +699,17 @@ fn read_access(is_owner: bool) -> BlueprintCourseReadAccess {
 
 fn availability_value(value: String) -> Result<BlueprintAvailability, StoreError> {
     match value.as_str() {
-        "available" => Ok(BlueprintAvailability::Available),
+        "private" => Ok(BlueprintAvailability::Private),
+        "public" => Ok(BlueprintAvailability::Public),
         "archived" => Ok(BlueprintAvailability::Archived),
         _ => Err(invalid("Blueprint availability")),
     }
 }
 
-fn reference(value: i64) -> Result<BlueprintCourseReference, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(BlueprintCourseReference::new)
-        .ok_or_else(|| invalid("Blueprint Course Reference"))
+fn reference(value: String) -> Result<BlueprintCourseReference, StoreError> {
+    value
+        .parse()
+        .map_err(|_| invalid("Blueprint Course Reference"))
 }
 fn revision(value: i64) -> Result<BlueprintRevision, StoreError> {
     u64::try_from(value)
@@ -644,9 +719,6 @@ fn revision(value: i64) -> Result<BlueprintRevision, StoreError> {
 }
 fn metadata_etag(value: uuid::Uuid) -> BlueprintMetadataEtag {
     BlueprintMetadataEtag::from_uuid(value)
-}
-fn reference_number(value: BlueprintCourseReference) -> Result<i64, StoreError> {
-    Ok(i64::from(value.number()))
 }
 fn revision_number(value: BlueprintRevision) -> Result<i64, StoreError> {
     i64::try_from(value.value()).map_err(|_| invalid("Blueprint Revision"))
@@ -675,13 +747,13 @@ mod tests {
     #[test]
     fn postgres_blueprint_json_uses_compact_question_ids() {
         let mut value = json!({
-            "questionId": "ABC-DEFG",
-            "nested": [{"question_id": "234-5678"}],
+            "questionId": "ABCD-XEFG",
+            "nested": [{"question_id": "2345-X678"}],
         });
 
         compact_question_ids(&mut value).expect("valid Question IDs");
 
-        assert_eq!(value["questionId"], "ABCDEFG");
-        assert_eq!(value["nested"][0]["question_id"], "2345678");
+        assert_eq!(value["questionId"], "ABCDXEFG");
+        assert_eq!(value["nested"][0]["question_id"], "2345X678");
     }
 }

@@ -8,9 +8,9 @@ use hmac::{Hmac, KeyInit, Mac};
 use learning_data_access::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionUuid,
     ExistingQuestionRevisionPublicationError, ExistingQuestionRevisionPublicationInput,
-    ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationInput,
-    NewQuestionLineagePublicationStore, SessionTokenHash, StoreError,
-    validate_workspace_question_source_object_record,
+    ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationError,
+    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore, SessionTokenHash,
+    StoreError, validate_workspace_question_source_object_record,
 };
 use objects::{ObjectAddress, ObjectStore, ObjectStoreError, PutObject};
 use question_model::{
@@ -90,10 +90,11 @@ impl HmacQuestionIdIssuer {
 
 impl QuestionIdIssuer for HmacQuestionIdIssuer {
     fn issue_question_id(&self) -> Result<QuestionId, QuestionIdIssuanceError> {
-        let mut random = [0_u8; 4];
+        let mut random = [0_u8; 5];
         // ASVS 11.4.1 and 11.5.1: the documented HMAC-SHA-256 construction
         // uses vetted RustCrypto primitives. The public identifier is not a
-        // credential, but its six-character candidate still uses the OS CSPRNG.
+        // credential, but its seven-character candidate still uses the OS
+        // CSPRNG. Five random bytes supply the 35 bits consumed below.
         getrandom::fill(&mut random).map_err(|_| QuestionIdIssuanceError)?;
         Ok(question_id_from_random_bytes(random, &self.secret))
     }
@@ -275,19 +276,21 @@ where
                 .await
             {
                 Ok(reference) => return Ok(reference),
-                // The PostgreSQL adapter returns AlreadyExists here only for
-                // the published_question primary key.  That conclusive
+                // The PostgreSQL adapter returns IdentityCollision here only
+                // for the published_question primary key. That conclusive
                 // rollback leaves this request's just-written target
                 // unregistered, so delete that exact target before retrying.
                 // Any other store outcome is ambiguous and retains its object.
-                Err(StoreError::AlreadyExists) => {
+                Err(NewQuestionLineagePublicationError::IdentityCollision) => {
                     self.object_store
                         .delete(&target_object_address)
                         .await
                         .map_err(QuestionPublicationError::ObjectStore)?;
                     continue;
                 }
-                Err(error) => return Err(QuestionPublicationError::Store(error)),
+                Err(NewQuestionLineagePublicationError::Store(error)) => {
+                    return Err(QuestionPublicationError::Store(error));
+                }
             }
         }
         Err(QuestionPublicationError::IdentityCollisions)
@@ -414,16 +417,32 @@ fn successor_revision(
     })
 }
 
-fn question_id_from_random_bytes(random: [u8; 4], secret: &QuestionIdSecret) -> QuestionId {
-    let value = u32::from_be_bytes(random) >> 2;
+fn question_id_from_random_bytes(random: [u8; 5], secret: &QuestionIdSecret) -> QuestionId {
+    // Retain exactly 35 uniformly random bits: one Crockford Base32 symbol
+    // for each of the seven identity positions. The shared QuestionId model
+    // inserts the HMAC character at compact index four.
+    let value = u64::from_be_bytes([
+        0, 0, 0, random[0], random[1], random[2], random[3], random[4],
+    ]) >> 5;
     let identifier: String = (0..QUESTION_ID_IDENTIFIER_LENGTH)
         .map(|position| {
             let shift = (QUESTION_ID_IDENTIFIER_LENGTH - position - 1) * 5;
             QUESTION_ID_ALPHABET[((value >> shift) & 0x1f) as usize] as char
         })
         .collect();
+    format_question_id(&identifier, secret)
+}
+
+/// Formats one canonical seven-character Question identity with its server-held
+/// validation character.
+///
+/// Random candidate allocation stays in [`question_id_from_random_bytes`].
+/// The shared model places the resulting HMAC character at compact index four,
+/// yielding the public `AAAA-ZBBB` form without exposing the secret to a
+/// browser or persistence boundary.
+fn format_question_id(identifier: &str, secret: &QuestionIdSecret) -> QuestionId {
     let validation = question_id_validation_character(identifier.as_bytes(), secret);
-    QuestionId::from_canonical_parts(&identifier, validation)
+    QuestionId::from_canonical_parts(identifier, validation)
         .expect("generated Question ID components use the canonical alphabet")
 }
 

@@ -4,19 +4,19 @@ use async_trait::async_trait;
 use question_model::CourseInstanceReference;
 use serde::Serialize;
 
-use crate::{LiveAssignmentAttemptScore, SessionTokenHash, StoreError};
+use crate::{LiveAssessmentAttemptScore, SessionTokenHash, StoreError};
 
 /// One Course-local answer-free progress row for an active Student.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseGradebookStudentWork {
     pub roster_id: String,
-    pub assignment_reference: question_model::AssignmentReference,
-    pub assignment_attempt_completion: Option<question_model::AssignmentAttemptCompletion>,
+    pub assessment_reference: question_model::AssessmentReference,
+    pub assessment_attempt_completion: Option<question_model::AssessmentAttemptCompletion>,
     /// Derived only from server time and durable submission evidence.
     pub expired_submitting: bool,
     /// Missing only until background submission records immutable outcomes.
-    pub score: Option<LiveAssignmentAttemptScore>,
+    pub score: Option<LiveAssessmentAttemptScore>,
 }
 
 /// The current Course Instructor's answer-free Gradebook evidence projection.

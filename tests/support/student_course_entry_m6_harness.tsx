@@ -19,12 +19,12 @@ import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 type StudentCourseEntryCase = "zero" | "one" | "choose" | "many" | "landing";
 
 const COURSE_ONE: LiveStudentCourseLandingSummary = {
-  reference: "C-1",
+  reference: "CI7K3M2Q",
   shortName: "BCHM 301",
   longName: "Biochemistry 301: Proteins and Peptides",
 };
 const COURSE_TWO: LiveStudentCourseLandingSummary = {
-  reference: "C-2",
+  reference: "CI4W8QF9",
   shortName: "BIOL 302",
   longName: "Molecular Genetics: Gene Regulation",
 };
@@ -41,7 +41,7 @@ const ASSIGNMENT_DECISION = {
   publicReason: null,
 } as const;
 const ASSIGNMENT: LiveStudentAssignmentLandingSummary = {
-  reference: "A-1",
+  reference: "A9D2RX5",
   title: "Protein structure practice",
   decision: ASSIGNMENT_DECISION,
   assignmentAttemptNumber: null,
@@ -93,13 +93,15 @@ export function mountStudentCourseEntryM6Harness(
   const history = createMemoryHistory();
   history.set({
     value:
-      caseName === "landing" ? "/student/courses/C-1" : caseName === "choose" ? "/?choose=1" : "/",
+      caseName === "landing"
+        ? "/student/courses/CI7K3M2Q"
+        : caseName === "choose"
+          ? "/?choose=1"
+          : "/",
   });
   const courses = coursesFor(caseName);
-  let studentTimeZone: string = ASSIGNMENT_DECISION.displayTimeZone;
   const currentDecision = (): StudentAssignmentDecisionSummary => ({
     ...ASSIGNMENT_DECISION,
-    displayTimeZone: studentTimeZone,
   });
   const currentAssignment = (): LiveStudentAssignmentLandingSummary => ({
     ...ASSIGNMENT,
@@ -110,11 +112,6 @@ export function mountStudentCourseEntryM6Harness(
       listLiveStudentCourses: () => Promise.resolve(courses),
       listLiveStudentAssignments: () =>
         Promise.resolve(caseName === "landing" ? [currentAssignment()] : []),
-      getStudentTimeZoneProfile: () => Promise.resolve({ timeZone: studentTimeZone }),
-      updateStudentTimeZone: (input: { readonly timeZone: string }) => {
-        studentTimeZone = input.timeZone;
-        return Promise.resolve(input);
-      },
       getLiveAssignmentAccess: () =>
         Promise.resolve({
           decision: currentDecision(),

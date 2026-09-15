@@ -31,6 +31,7 @@ import { PleQuestionJsonPreview } from "./question_json_preview";
 import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
 import { PleQuestionJsonStaleConflictError } from "./question_json_repository";
+import { PleQuestionGeneralFeedbackConflictError } from "./question_general_feedback_client";
 import type { PleQuestionJsonDocument, PleQuestionJsonOrderingItem } from "./question_json_source";
 import type { PleQuestionJsonInstructorAnswerCheck } from "./question_json_preview";
 
@@ -151,6 +152,16 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const [publishedSummary, setPublishedSummary] = createSignal<QuestionSummary>();
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
+  const [generalFeedback, setGeneralFeedback] = createSignal<string | null>(
+    props.initialGeneralFeedback.generalFeedback,
+  );
+  const [savedGeneralFeedback, setSavedGeneralFeedback] = createSignal<string | null>(
+    props.initialGeneralFeedback.generalFeedback,
+  );
+  const [generalFeedbackRevision, setGeneralFeedbackRevision] = createSignal(
+    props.initialGeneralFeedback.revision,
+  );
+  const [generalFeedbackSaving, setGeneralFeedbackSaving] = createSignal(false);
   let heading: HTMLHeadingElement | null = null;
   let authorshipInput: HTMLTextAreaElement | undefined;
   let headingFocusDelivered = false;
@@ -204,6 +215,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     return (
       current.kind === "reloading" ||
       current.kind === "publishing" ||
+      generalFeedbackSaving() ||
       (current.kind === "ready" && current.status === "saving")
     );
   };
@@ -213,7 +225,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const canSave = (): boolean => {
     const current = state();
     return (
-      current.kind === "ready" && current.status === "dirty" && numericLiteralError() === undefined
+      current.kind === "ready" &&
+      current.status === "dirty" &&
+      numericLiteralError() === undefined &&
+      !hasUnsavedGeneralFeedback()
     );
   };
   const isSaved = (): boolean => {
@@ -222,14 +237,24 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       ((current.kind === "ready" && current.status === "clean") ||
         current.kind === "publishReview" ||
         current.kind === "publishing") &&
-      numericLiteralError() === undefined
+      numericLiteralError() === undefined &&
+      !hasUnsavedGeneralFeedback()
     );
+  };
+  const hasUnsavedGeneralFeedback = (): boolean => generalFeedback() !== savedGeneralFeedback();
+  const sourceHasUnsavedChanges = (): boolean => {
+    const current = state();
+    return current.kind === "ready" && current.status === "dirty";
+  };
+  const canEditGeneralFeedback = (): boolean => {
+    const current = state();
+    return current.kind === "ready" && current.status === "clean" && !isLocked();
   };
 
   createEffect(() => {
     props.onDraftDisplayStateChange?.({
       revision: latestRevision(),
-      dirty: hasLocalDraftChanges(state()),
+      dirty: hasLocalDraftChanges(state()) || hasUnsavedGeneralFeedback(),
     });
   });
 
@@ -292,6 +317,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     try {
       const result = await props.repository.save(props.draftQuestion, current);
       setLatestRevision(result.revision);
+      setGeneralFeedbackRevision(result.revision);
       transition({ kind: "saveSucceeded" });
       setStatus("Private draft saved. It is not published.");
     } catch (error: unknown) {
@@ -313,8 +339,14 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     transition({ kind: "reloadStarted" });
     setStatus("Loading the newest private draft...");
     try {
-      const newest = await props.repository.reload(props.draftQuestion);
+      const [newest, newestGeneralFeedback] = await Promise.all([
+        props.repository.reload(props.draftQuestion),
+        props.generalFeedbackClient.load(props.draftQuestion),
+      ]);
       setLatestRevision(newest.revision);
+      setGeneralFeedback(newestGeneralFeedback.generalFeedback);
+      setSavedGeneralFeedback(newestGeneralFeedback.generalFeedback);
+      setGeneralFeedbackRevision(newestGeneralFeedback.revision);
       setReview(null);
       setShowInstructorCheck(false);
       transition({ kind: "reloadSucceeded", source: newest.source });
@@ -333,6 +365,40 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   function dismissError(): void {
     setStatus(null);
     transition({ kind: "dismissError" });
+  }
+
+  async function saveGeneralFeedback(): Promise<void> {
+    if (isLocked() || sourceHasUnsavedChanges() || !hasUnsavedGeneralFeedback()) {
+      return;
+    }
+    setGeneralFeedbackSaving(true);
+    setStatus("Saving general feedback...");
+    try {
+      const result = await props.generalFeedbackClient.save(
+        props.draftQuestion,
+        generalFeedback(),
+        generalFeedbackRevision(),
+      );
+      setSavedGeneralFeedback(generalFeedback());
+      setGeneralFeedbackRevision(result.revision);
+      setLatestRevision(result.revision);
+      props.repository.synchronizeRevision(props.draftQuestion, result.revision);
+      setStatus("General feedback saved. It remains separate from backend interaction feedback.");
+    } catch (error: unknown) {
+      if (error instanceof PleQuestionGeneralFeedbackConflictError) {
+        const localSource = source();
+        if (localSource !== null) {
+          setShowInstructorCheck(false);
+          setState({ kind: "conflict", localSource });
+          setSource(localSource);
+        }
+        setStatus("A newer draft exists. Reload it before saving general feedback.");
+      } else {
+        setStatus(authorSafeMessage(error, "General feedback could not be saved."));
+      }
+    } finally {
+      setGeneralFeedbackSaving(false);
+    }
   }
 
   function inspectInstructorAnswer(): void {
@@ -519,6 +585,41 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                   )
                 }
               />
+              <fieldset>
+                <legend>General Feedback</legend>
+                <p class="ple-question-json-authoring__help">
+                  PLE-managed general feedback is separate from this Question's source and from
+                  transient feedback generated by a Question Backend during an interaction.
+                </p>
+                <label class="ple-question-json-authoring__field">
+                  <span>General Feedback (optional)</span>
+                  <textarea
+                    value={generalFeedback() ?? ""}
+                    disabled={!canEditGeneralFeedback()}
+                    aria-describedby="ple-question-json-general-feedback-help"
+                    onInput={(event) =>
+                      setGeneralFeedback(
+                        event.currentTarget.value.trim() === "" ? null : event.currentTarget.value,
+                      )
+                    }
+                  />
+                  <span
+                    id="ple-question-json-general-feedback-help"
+                    class="ple-question-json-authoring__help"
+                  >
+                    Save the Question source first when it has local edits. This text is not backend
+                    source or captured backend feedback.
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  class="quiet-action"
+                  disabled={!canEditGeneralFeedback() || !hasUnsavedGeneralFeedback()}
+                  onClick={() => void saveGeneralFeedback()}
+                >
+                  {generalFeedbackSaving() ? "Saving general feedback..." : "Save general feedback"}
+                </button>
+              </fieldset>
               <PleQuestionJsonMetadataFields
                 questionDescription={currentSource().questionDescription}
                 tags={currentSource().tags}
@@ -594,7 +695,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                         <strong>Question:</strong> {activeReview().questionTitle}
                       </p>
                       <p>
-                        This publication creates a new Question ID. Existing assignments keep their
+                        This publication creates a new Question ID. Existing assessments keep their
                         assigned questions until an instructor deliberately replaces an item.
                       </p>
                       <h3>Changed sections</h3>

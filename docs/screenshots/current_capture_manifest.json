@@ -717,6 +717,21 @@
         ]
       },
       {
+        "routeId": "instructorHome",
+        "status": "deferred",
+        "reason": "The new explicit Instructor home requires a fresh Live Demo capture before visual evidence is claimed."
+      },
+      {
+        "routeId": "studentHome",
+        "status": "deferred",
+        "reason": "The new explicit Student home requires a fresh Live Demo capture before visual evidence is claimed."
+      },
+      {
+        "routeId": "sysadminHome",
+        "status": "deferred",
+        "reason": "The new explicit Sysadmin home requires a fresh Live Demo capture before visual evidence is claimed."
+      },
+      {
         "routeId": "instructorProfile",
         "status": "captured",
         "captureIds": ["instructor_profile_default_laptop"]

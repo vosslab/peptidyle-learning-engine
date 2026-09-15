@@ -77,17 +77,17 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_audit_owner;
-GRANT REFERENCES ON TABLE ple_private.assignment_attempt,
+GRANT REFERENCES ON TABLE ple_private.assessment_attempt,
     ple_private.issued_question TO ple_audit_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_audit_owner;
 
-CREATE TABLE ple_audit.forced_question_correction_attempt_target (
+CREATE TABLE ple_audit.forced_question_correction_assessment_attempt_target (
     correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction(correction_id),
-    assignment_attempt_id uuid NOT NULL
-        REFERENCES ple_private.assignment_attempt(assignment_attempt_id) ON DELETE CASCADE,
-    PRIMARY KEY (correction_id, assignment_attempt_id)
+    assessment_attempt_id uuid NOT NULL
+        REFERENCES ple_private.assessment_attempt(assessment_attempt_id) ON DELETE CASCADE,
+    PRIMARY KEY (correction_id, assessment_attempt_id)
 );
 CREATE TABLE ple_audit.forced_question_correction_issued_question_target (
     correction_id uuid NOT NULL REFERENCES ple_data.forced_question_correction(correction_id),
@@ -101,7 +101,7 @@ SET search_path = pg_catalog, ple_audit AS $$
 BEGIN
     IF TG_OP = 'DELETE'
        AND TG_TABLE_NAME IN (
-           'forced_question_correction_attempt_target',
+           'forced_question_correction_assessment_attempt_target',
            'forced_question_correction_issued_question_target'
        ) THEN
         -- FK actions run under the referenced-table owner.  The ordinary
@@ -117,23 +117,23 @@ BEGIN
 END
 $$;
 
-CREATE TRIGGER forced_question_correction_attempt_target_is_immutable
-BEFORE UPDATE OR DELETE ON ple_audit.forced_question_correction_attempt_target
+CREATE TRIGGER forced_question_correction_assessment_attempt_target_is_immutable
+BEFORE UPDATE OR DELETE ON ple_audit.forced_question_correction_assessment_attempt_target
 FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_forced_question_correction_target_change();
 CREATE TRIGGER forced_question_correction_issued_question_target_is_immutable
 BEFORE UPDATE OR DELETE ON ple_audit.forced_question_correction_issued_question_target
 FOR EACH ROW EXECUTE FUNCTION ple_audit.reject_forced_question_correction_target_change();
-ALTER TABLE ple_audit.forced_question_correction_attempt_target ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_audit.forced_question_correction_attempt_target FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_assessment_attempt_target ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_audit.forced_question_correction_assessment_attempt_target FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_audit.forced_question_correction_issued_question_target ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_audit.forced_question_correction_issued_question_target FORCE ROW LEVEL SECURITY;
-CREATE POLICY correction_attempt_target_audit_owner_access
-    ON ple_audit.forced_question_correction_attempt_target
+CREATE POLICY correction_assessment_attempt_target_audit_owner_access
+    ON ple_audit.forced_question_correction_assessment_attempt_target
     FOR ALL TO ple_audit_owner USING (true) WITH CHECK (true);
 CREATE POLICY correction_issued_question_target_audit_owner_access
     ON ple_audit.forced_question_correction_issued_question_target
     FOR ALL TO ple_audit_owner USING (true) WITH CHECK (true);
-REVOKE ALL ON TABLE ple_audit.forced_question_correction_attempt_target,
+REVOKE ALL ON TABLE ple_audit.forced_question_correction_assessment_attempt_target,
     ple_audit.forced_question_correction_issued_question_target FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_audit.reject_forced_question_correction_target_change() FROM PUBLIC;
 RESET ROLE;

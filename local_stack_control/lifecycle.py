@@ -13,6 +13,7 @@ import local_stack_control.env_file
 import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_validation
 import local_stack_control.lifecycle_wait
+import local_stack_control.local_totp_authenticator
 import local_stack_control.lifecycle_diagnostics
 import local_stack_control.lifecycle_commands
 import local_stack_control.lifecycle_database
@@ -118,6 +119,7 @@ def bootstrap_default_state(
 	question_path = secret_directory / "question_id_secret"
 	local_stack_control.local_environment.bootstrap_secret32_file(invitation_path)
 	local_stack_control.local_environment.bootstrap_secret32_file(question_path)
+	local_stack_control.local_totp_authenticator.bootstrap_local_totp_material(secret_directory)
 
 
 #============================================
@@ -135,6 +137,15 @@ def configure_default_environment(
 		"MINIO_ROOT_PASSWORD": os.urandom(24).hex(),
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE": str(secret_directory / "invitation_token_secret"),
 		"PLE_QUESTION_ID_SECRET_HOST_FILE": str(secret_directory / "question_id_secret"),
+		"PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE": str(
+			secret_directory / local_stack_control.local_totp_authenticator.MORGAN_TOTP_SEED_FILE
+		),
+		"PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_HOST_FILE": str(
+			secret_directory / local_stack_control.local_totp_authenticator.MORGAN_TOTP_SEED_KEY_FILE
+		),
+		"PLE_LOCAL_SYSADMIN_TOTP_AUTHENTICATOR_ARTIFACT": str(
+			secret_directory / local_stack_control.local_totp_authenticator.MORGAN_TOTP_ARTIFACT_FILE
+		),
 		"PLE_WEBWORK_RENDERER_VERSION_FILE": str(secret_directory / "question-renderer-version"),
 		"PLE_PUBLIC_ASSET_BASE_URL": "http://127.0.0.1:9000/public-assets",
 		"PLE_GATEWAY_HOST_PORT": "8080",
@@ -245,6 +256,9 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 		"POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DB", "MINIO_ROOT_USER",
 		"MINIO_ROOT_PASSWORD",
 		"PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE",
+		"PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE",
+		"PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_HOST_FILE",
+		"PLE_LOCAL_SYSADMIN_TOTP_AUTHENTICATOR_ARTIFACT",
 		"PLE_WEBWORK_RENDERER_ID", "PLE_WEBWORK_PROBLEM_JWT_SECRET",
 		"PLE_WEBWORK_SESSION_JWT_SECRET",
 		"PLE_WEBWORK_RENDERER_VERSION_FILE",
@@ -264,6 +278,11 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	for name in ("PLE_INVITATION_TOKEN_SECRET_HOST_FILE", "PLE_QUESTION_ID_SECRET_HOST_FILE"):
 		path = absolute_value_path(target.repo_root, values[name])
 		local_stack_control.local_environment.read_secret32_file(path)
+	local_stack_control.local_totp_authenticator.require_local_totp_material(
+		absolute_value_path(target.repo_root, values["PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE"]),
+		absolute_value_path(target.repo_root, values["PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_HOST_FILE"]),
+		absolute_value_path(target.repo_root, values["PLE_LOCAL_SYSADMIN_TOTP_AUTHENTICATOR_ARTIFACT"]),
+	)
 	return values
 
 
@@ -391,6 +410,8 @@ def start_lifecycle(
 		provision_ready_installation_data(
 			target, runner, without_live_demo=options.without_live_demo
 		)
+	if retains_live_demo_persona_configuration(target, options):
+		provision_local_sysadmin_totp(target, runner)
 	if local_stack_control.lifecycle_profiles.is_default_target(selected):
 		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:
@@ -778,6 +799,27 @@ def provision_ready_installation_data(
 		selected.env_file
 	)
 	require_command(result, "Installation content provisioning", private_values)
+
+
+#============================================
+def provision_local_sysadmin_totp(
+	target: LifecycleTarget,
+	runner: local_stack_control.process.CommandRunner,
+) -> None:
+	"""Run the non-listening Morgan seed wrapper after Account installation."""
+	selected = target_of(target)
+	result = runner.run(
+		local_stack_control.compose.compose_argv(
+			selected,
+			["run", "--rm", "--no-deps", "api", "--provision-local-sysadmin-totp"],
+		),
+		child_environment(selected),
+		selected.repo_root,
+	)
+	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(
+		selected.env_file
+	)
+	require_command(result, "Local Sysadmin TOTP provisioning", private_values)
 
 
 #============================================

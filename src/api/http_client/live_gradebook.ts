@@ -7,9 +7,10 @@ import { decodeCourseGradebook } from "../decoders/live_gradebook";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
+import { parseCourseInstanceReference } from "../../navigation/public_route";
 
 function gradebookPath(course: CourseInstanceReference): string {
-  if (!/^C-[1-9][0-9]{0,9}$/u.test(course) || Number(course.slice(2)) > 2_147_483_647) {
+  if (parseCourseInstanceReference(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
   return `/api/course-instances/${encodeURIComponent(course)}/gradebook`;

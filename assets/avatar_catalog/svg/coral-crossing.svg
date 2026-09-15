@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+  <g id="coral-crossing-background"><rect x="4" y="4" width="120" height="120" rx="28" fill="#FFF0E8"/></g>
+  <g id="coral-crossing-bands"><path d="M20 38h88v18H20zM55 20h18v88H55z" fill="#D95D39"/><path d="m25 101 78-74" stroke="#165B74" stroke-width="11" stroke-linecap="round"/></g>
+  <g id="coral-crossing-squares"><rect x="23" y="23" width="14" height="14" rx="3" fill="#F2B134"/><rect x="91" y="91" width="14" height="14" rx="3" fill="#F2B134"/></g>
+</svg>

@@ -40,7 +40,7 @@ try {
     })
     .getByRole("link", { name: "Open question" })
     .click();
-  await page.waitForURL(/\/library\/[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u);
+  await page.waitForURL(/\/library\/[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/u);
   await page.getByRole("heading", { name: questionTitle }).waitFor();
 } finally {
   await context.close();

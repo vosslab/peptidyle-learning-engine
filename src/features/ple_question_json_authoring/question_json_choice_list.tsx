@@ -83,7 +83,7 @@ export function PleQuestionJsonChoiceList(props: PleQuestionJsonChoiceListProps)
                         disabled={props.disabled || index() === 0}
                         onClick={() => props.onMoveChoice(choice.id, "up")}
                       >
-                        Move up
+                        Move earlier
                       </button>
                       <button
                         type="button"
@@ -91,7 +91,7 @@ export function PleQuestionJsonChoiceList(props: PleQuestionJsonChoiceListProps)
                         disabled={props.disabled || index() === props.choices.length - 1}
                         onClick={() => props.onMoveChoice(choice.id, "down")}
                       >
-                        Move down
+                        Move later
                       </button>
                       <button
                         type="button"

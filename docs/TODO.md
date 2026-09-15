@@ -12,10 +12,12 @@ are in [ROADMAP.md](ROADMAP.md).
       as the complete challenge, Store, Server, operator credential, abuse-control,
       session, browser, and connected-delivery capability specified in
       [GMAIL_EMAIL_DELIVERY_BACKEND.md](GMAIL_EMAIL_DELIVERY_BACKEND.md).
-- [ ] Audit and map the 11 existing parameterized WeBWorK sources in the
-      Biology Problems Website Genetics downloads to the bundled Genetics
-      content. Where coverage is the same, replace static wrapper variants
-      through ordinary Question publication.
+- [ ] Replace each BiologyProblems.org WeBWorK static expansion with its one
+      canonical algorithmic PG/PGML source and one Published Question lineage. Verify
+      provenance, parameter behavior, and representative rendering/grading; retire
+      redundant generated-variant Pool members when present while retaining intentionally pooled
+      distinct algorithmic Questions; preserve historical pins while retiring replaced
+      static Questions, redundant Pools, and source copies.
 - [ ] Build public Blueprint Course search as one bounded projection, Store,
       Server, authorization, and browser workflow capability.
 - [ ] Build My Questions, Starred, and Watched as bounded

@@ -12,8 +12,8 @@ use crate::{
     DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
     DraftQuestionSourceBindingStore, DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
     ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
-    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore, SessionTokenHash,
-    StoreError,
+    NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
+    NewQuestionLineagePublicationStore, SessionTokenHash, StoreError,
 };
 use question_model::WorkspaceId;
 
@@ -177,19 +177,21 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         &self,
         session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<question_model::QuestionRevisionReference, StoreError> {
-        input.validate()?;
+    ) -> Result<question_model::QuestionRevisionReference, NewQuestionLineagePublicationError> {
+        input
+            .validate()
+            .map_err(NewQuestionLineagePublicationError::Store)?;
         let question_revision = input.question_revision();
         let object_record = &input.question_source_object_record;
         let object_address = serde_json::to_value(&object_record.address).map_err(|_| {
-            StoreError::InvalidRecord(
+            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
                 "Question Publication Object Address cannot be encoded".to_string(),
-            )
+            ))
         })?;
         let size_bytes = i64::try_from(object_record.size_bytes).map_err(|_| {
-            StoreError::InvalidRecord(
+            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
                 "Question Publication source size exceeds PostgreSQL bigint".to_string(),
-            )
+            ))
         })?;
         let question_authorship: Vec<&str> = input
             .question_authorship
@@ -198,12 +200,16 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
             .map(|author| author.display_name.as_str())
             .collect();
         let question_authorship = serde_json::to_value(question_authorship).map_err(|_| {
-            StoreError::InvalidRecord("Question Authorship cannot be encoded".to_string())
+            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
+                "Question Authorship cannot be encoded".to_string(),
+            ))
         })?;
-        let question_license = wire_string(&input.question_license, "Question License")?;
+        let question_license = wire_string(&input.question_license, "Question License")
+            .map_err(NewQuestionLineagePublicationError::Store)?;
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
+            .await
+            .map_err(NewQuestionLineagePublicationError::Store)?;
         // ASVS 1.2.4, 2.2.2, 2.3.1, 2.3.3, 5.3.2, 8.2.1-8.2.3,
         // and 8.3.1: all values are parameters. The database rechecks current
         // Instructor/workspace authority, locks the exact Draft Question Edit
@@ -237,7 +243,11 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         .execute(&mut *transaction)
         .await
         .map_err(map_new_question_lineage_publication_error)?;
-        transaction.commit().await.map_err(map_sqlx_error)?;
+        transaction
+            .commit()
+            .await
+            .map_err(map_sqlx_error)
+            .map_err(NewQuestionLineagePublicationError::Store)?;
         Ok(question_revision)
     }
 }
@@ -352,7 +362,9 @@ fn map_existing_question_revision_publication_error(
     ExistingQuestionRevisionPublicationError::Store(map_sqlx_error(error))
 }
 
-fn map_new_question_lineage_publication_error(error: sqlx::Error) -> StoreError {
+fn map_new_question_lineage_publication_error(
+    error: sqlx::Error,
+) -> NewQuestionLineagePublicationError {
     if let sqlx::Error::Database(database_error) = &error
         && database_error.code().as_deref() == Some("23505")
     {
@@ -360,16 +372,16 @@ fn map_new_question_lineage_publication_error(error: sqlx::Error) -> StoreError 
             database_error.code().as_deref(),
             database_error.constraint(),
         ) {
-            StoreError::AlreadyExists
+            NewQuestionLineagePublicationError::IdentityCollision
         } else {
             // Do not expose a PostgreSQL constraint name beyond this adapter.
             // A different uniqueness violation is not an ID-allocation race.
-            StoreError::InvalidRecord(
+            NewQuestionLineagePublicationError::Store(StoreError::InvalidRecord(
                 "Question Publication violates a database uniqueness invariant".to_string(),
-            )
+            ))
         };
     }
-    map_sqlx_error(error)
+    NewQuestionLineagePublicationError::Store(map_sqlx_error(error))
 }
 
 fn is_published_question_identity_collision(code: Option<&str>, constraint: Option<&str>) -> bool {
@@ -416,9 +428,9 @@ mod tests {
 
     #[test]
     fn new_lineage_publication_binds_the_compact_database_question_id() {
-        let question_id = question_model::QuestionId::from_str("ABC-DEFG")
+        let question_id = question_model::QuestionId::from_str("ABCD-XEFG")
             .expect("display Question ID is accepted at the model boundary");
 
-        assert_eq!(question_id_for_persistence(&question_id), "ABCDEFG");
+        assert_eq!(question_id_for_persistence(&question_id), "ABCDXEFG");
     }
 }

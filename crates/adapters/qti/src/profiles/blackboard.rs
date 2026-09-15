@@ -84,7 +84,7 @@ impl BlackboardQtiPackage {
 }
 
 /// Parses one bounded Blackboard Original QTI 2.1 pool without treating its
-/// test metadata as PLE assignment policy.
+/// test metadata as PLE assessment policy.
 pub fn import_blackboard_qti21(
     bytes: &[u8],
     limits: QtiImportLimits,

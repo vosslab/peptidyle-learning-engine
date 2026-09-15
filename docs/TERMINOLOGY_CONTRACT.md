@@ -15,6 +15,32 @@ and another document disagree. Product terms use Title Case as shown below.
 - Do not create product terms from job, event, receipt, snapshot, recovery, or
   compatibility mechanisms unless Human Guidance requires the concept.
 
+### Assessment terminology cutover
+
+Before production, generic implementation vocabulary changes directly from
+`assignment` to Assessment in models, schema, routes, DTOs, API, and Blueprint
+JSON. Canonical browser families are `/assessments/due-soon`,
+`/courses/:courseRef/assessments/:assessmentRef`,
+`/instructor/courses/:courseRef/assessments/new`,
+`/instructor/courses/:courseRef/assessments/:assessmentRef/{questions,properties,student-view,delivery-check}`,
+and `/assessment-attempts/:assessmentAttemptRef`. Canonical API families are
+`/api/assessments/due-soon`, `/api/course-instances/{course}/assessments...`,
+and `/api/assessment-attempts/{assessmentAttempt}...`. Public configuration is
+**Assessment Properties**, not policies. Do not add SQL views, dual decoders,
+dual DTOs, dual imports, or dual APIs for the old generic term.
+
+This cutover preserves public `A-` references, UUID values, and the five
+**Assessment Type** enum values. Canonical JSON uses `assessment`,
+`assessmentReference`, `assessmentAttempt`, `assessmentEntry`,
+`assessmentStatus`, Blueprint JSON `assessments`, and
+`blueprint_assessment_reference`; canonical decoders accept only those names.
+There is no runtime legacy Blueprint import. A one-time offline developer
+export-transform-import may help a preproduction rebuild; a fresh installation
+is canonical.
+
+There is no legacy browser redirect or API compatibility layer. The
+preproduction rebuild uses canonical Assessment paths and APIs directly.
+
 ## Accounts and roles
 
 **Account** is one global PLE login identity. It has exactly one immutable

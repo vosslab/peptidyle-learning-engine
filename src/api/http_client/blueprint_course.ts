@@ -266,6 +266,22 @@ export function createBlueprintCourseClient(
       );
       return metadataTransition(result.body, result.response, path);
     },
+    publishBlueprintCourse: async (reference, etag): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(reference)}/publish`;
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintMetadataState,
+        {
+          method: "POST",
+          etag,
+          parseEtag: parseMetadataEtag,
+          expectedStatus: 200,
+        },
+      );
+      return metadataTransition(result.body, result.response, path);
+    },
     getBlueprintRevision: async (reference, revision): Promise<BlueprintRevisionView> => {
       const path = `${blueprintPath(reference)}/revisions/${encodeURIComponent(decodeBlueprintRevision(revision, "revision"))}`;
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintRevisionView))
@@ -294,6 +310,25 @@ export function createBlueprintCourseClient(
     },
     restoreBlueprintCourse: async (reference, etag): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(reference)}/restore`;
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintMetadataState,
+        {
+          method: "POST",
+          etag,
+          parseEtag: parseMetadataEtag,
+          expectedStatus: 200,
+        },
+      );
+      return metadataTransition(result.body, result.response, path);
+    },
+    returnBlueprintCourseToPrivate: async (
+      reference,
+      etag,
+    ): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(reference)}/return-to-private`;
       const result = await blueprintJson(
         fetchImplementation,
         basePath,

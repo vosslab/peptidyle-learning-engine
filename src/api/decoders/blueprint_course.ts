@@ -1,9 +1,9 @@
 // Strict browser decoding and local command validation for reusable Blueprint Courses.
 
-import { MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY";
-import { MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS";
-import { MAX_ASSIGNMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSIGNMENT_ORDERED_ENTRIES";
-import { MAX_ASSIGNMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSIGNMENT_QUESTION_POOL_ITEMS";
+import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
+import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
+import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
+import { MAX_ASSESSMENT_QUESTION_POOL_ITEMS } from "../../../generated/api/MAX_ASSESSMENT_QUESTION_POOL_ITEMS";
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
@@ -29,13 +29,13 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { decodeStudentFeedbackReleaseRule } from "./assignment_policy";
+import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionSearchResult } from "./question_library";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
 import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
+import { normalizeQuestionIdSyntax } from "../../question_id";
 
 const MAX_PAGE_SIZE = 100;
-const QUESTION_ID = /^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
@@ -52,8 +52,8 @@ function text(value: unknown, path: string): string {
 
 function blueprintReference(value: unknown, path: string): BlueprintCourseReference {
   const decoded = decodeString(value, path);
-  if (!/^BP-[1-9][0-9]{0,9}$/u.test(decoded) || Number(decoded.slice(3)) > 2_147_483_647) {
-    throw new DecodeError(path, "a canonical Blueprint Course public reference");
+  if (!/^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u.test(decoded)) {
+    throw new DecodeError(path, "a canonical opaque Blueprint Course reference");
   }
   return decoded;
 }
@@ -68,8 +68,10 @@ function revision(value: unknown, path: string): string {
 
 function questionId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
-  if (!QUESTION_ID.test(decoded)) throw new DecodeError(path, "a canonical public Question ID");
-  return decoded;
+  const canonicalQuestionId = normalizeQuestionIdSyntax(decoded);
+  if (canonicalQuestionId === null || canonicalQuestionId !== decoded)
+    throw new DecodeError(path, "a canonical public Question ID");
+  return canonicalQuestionId;
 }
 
 function pointValue(value: unknown, path: string): string {
@@ -80,7 +82,7 @@ function pointValue(value: unknown, path: string): string {
   return decoded;
 }
 
-function assignmentCompletionRule(value: unknown, path: string): unknown {
+function assessmentCompletionRule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   if (kind === "answerAll" || kind === "allCorrect") {
@@ -94,10 +96,10 @@ function assignmentCompletionRule(value: unknown, path: string): unknown {
       throw new DecodeError(`${path}.fraction`, "a fraction from 0 through 1");
     return { kind, fraction };
   }
-  throw new DecodeError(`${path}.kind`, "a known Assignment Completion Rule");
+  throw new DecodeError(`${path}.kind`, "a known Assessment Completion Rule");
 }
 
-function assignmentAttemptContinuationRule(value: unknown, path: string): unknown {
+function assessmentAttemptContinuationRule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   const kind = decodeString(field(record, "kind", path), `${path}.kind`);
   if (kind === "unlimited" || kind === "closed") {
@@ -105,25 +107,25 @@ function assignmentAttemptContinuationRule(value: unknown, path: string): unknow
     return { kind };
   }
   if (kind === "capped") {
-    requireOnlyFields(record, path, ["kind", "maxAdditionalAssignmentAttempts"]);
-    const maxAdditionalAssignmentAttempts = decodeSafeInteger(
-      field(record, "maxAdditionalAssignmentAttempts", path),
-      `${path}.maxAdditionalAssignmentAttempts`,
+    requireOnlyFields(record, path, ["kind", "maxAdditionalAssessmentAttempts"]);
+    const maxAdditionalAssessmentAttempts = decodeSafeInteger(
+      field(record, "maxAdditionalAssessmentAttempts", path),
+      `${path}.maxAdditionalAssessmentAttempts`,
     );
-    if (maxAdditionalAssignmentAttempts < 0)
+    if (maxAdditionalAssessmentAttempts < 0)
       throw new DecodeError(
-        `${path}.maxAdditionalAssignmentAttempts`,
+        `${path}.maxAdditionalAssessmentAttempts`,
         "a nonnegative safe integer",
       );
-    return { kind, maxAdditionalAssignmentAttempts };
+    return { kind, maxAdditionalAssessmentAttempts };
   }
-  throw new DecodeError(`${path}.kind`, "a known Assignment Attempt Continuation Rule");
+  throw new DecodeError(`${path}.kind`, "a known Assessment Attempt Continuation Rule");
 }
 
 function defaults(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
-    "assignment_attempt_time_limit_seconds",
+    "assessment_attempt_time_limit_seconds",
     "attempt_limit",
     "late_work_rule",
     "activity_rules",
@@ -131,20 +133,20 @@ function defaults(value: unknown, path: string): unknown {
   ]);
   const policies = decodeRecord(field(record, "activity_rules", path), `${path}.activity_rules`);
   requireOnlyFields(policies, `${path}.activity_rules`, [
-    "assignmentCompletionRule",
-    "assignmentAttemptGradeRule",
-    "assignmentAttemptContinuationRule",
+    "assessmentCompletionRule",
+    "assessmentAttemptGradeRule",
+    "assessmentAttemptContinuationRule",
     "questionPoolReuseRule",
     "questionVariationRule",
-    "assignmentAttemptResumeRule",
-    "assignmentQuestionDisplayRule",
-    "assignmentNavigationRule",
-    "assignmentQuestionOrderRule",
+    "assessmentAttemptResumeRule",
+    "assessmentQuestionDisplayRule",
+    "assessmentNavigationRule",
+    "assessmentQuestionOrderRule",
   ]);
   return {
-    assignment_attempt_time_limit_seconds: decodeNullable(
-      field(record, "assignment_attempt_time_limit_seconds", path),
-      `${path}.assignment_attempt_time_limit_seconds`,
+    assessment_attempt_time_limit_seconds: decodeNullable(
+      field(record, "assessment_attempt_time_limit_seconds", path),
+      `${path}.assessment_attempt_time_limit_seconds`,
       decodePositiveInteger,
     ),
     attempt_limit: decodeNullable(
@@ -158,18 +160,18 @@ function defaults(value: unknown, path: string): unknown {
       ["accept", "mark_late", "reject"],
     ),
     activity_rules: {
-      assignmentCompletionRule: assignmentCompletionRule(
-        field(policies, "assignmentCompletionRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assignmentCompletionRule`,
+      assessmentCompletionRule: assessmentCompletionRule(
+        field(policies, "assessmentCompletionRule", `${path}.activity_rules`),
+        `${path}.activity_rules.assessmentCompletionRule`,
       ),
-      assignmentAttemptGradeRule: decodeStringEnum(
-        field(policies, "assignmentAttemptGradeRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assignmentAttemptGradeRule`,
+      assessmentAttemptGradeRule: decodeStringEnum(
+        field(policies, "assessmentAttemptGradeRule", `${path}.activity_rules`),
+        `${path}.activity_rules.assessmentAttemptGradeRule`,
         ["first", "latest", "highest", "instructorSelected"],
       ),
-      assignmentAttemptContinuationRule: assignmentAttemptContinuationRule(
-        field(policies, "assignmentAttemptContinuationRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assignmentAttemptContinuationRule`,
+      assessmentAttemptContinuationRule: assessmentAttemptContinuationRule(
+        field(policies, "assessmentAttemptContinuationRule", `${path}.activity_rules`),
+        `${path}.activity_rules.assessmentAttemptContinuationRule`,
       ),
       questionPoolReuseRule: decodeStringEnum(
         field(policies, "questionPoolReuseRule", `${path}.activity_rules`),
@@ -181,24 +183,24 @@ function defaults(value: unknown, path: string): unknown {
         `${path}.activity_rules.questionVariationRule`,
         ["reuseVariation", "newVariation"],
       ),
-      assignmentAttemptResumeRule: decodeStringEnum(
-        field(policies, "assignmentAttemptResumeRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assignmentAttemptResumeRule`,
+      assessmentAttemptResumeRule: decodeStringEnum(
+        field(policies, "assessmentAttemptResumeRule", `${path}.activity_rules`),
+        `${path}.activity_rules.assessmentAttemptResumeRule`,
         ["resumable", "singleSession"],
       ),
-      assignmentQuestionDisplayRule: decodeStringEnum(
-        field(policies, "assignmentQuestionDisplayRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assignmentQuestionDisplayRule`,
+      assessmentQuestionDisplayRule: decodeStringEnum(
+        field(policies, "assessmentQuestionDisplayRule", `${path}.activity_rules`),
+        `${path}.activity_rules.assessmentQuestionDisplayRule`,
         ["allQuestions", "oneQuestionAtATime"],
       ),
-      assignmentNavigationRule: decodeStringEnum(
-        field(policies, "assignmentNavigationRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assignmentNavigationRule`,
+      assessmentNavigationRule: decodeStringEnum(
+        field(policies, "assessmentNavigationRule", `${path}.activity_rules`),
+        `${path}.activity_rules.assessmentNavigationRule`,
         ["freeNavigation", "forwardOnly"],
       ),
-      assignmentQuestionOrderRule: decodeStringEnum(
-        field(policies, "assignmentQuestionOrderRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assignmentQuestionOrderRule`,
+      assessmentQuestionOrderRule: decodeStringEnum(
+        field(policies, "assessmentQuestionOrderRule", `${path}.activity_rules`),
+        `${path}.activity_rules.assessmentQuestionOrderRule`,
         ["authoredOrder", "shuffled"],
       ),
     },
@@ -209,7 +211,7 @@ function defaults(value: unknown, path: string): unknown {
   };
 }
 
-function assignmentEntry(
+function assessmentEntry(
   value: unknown,
   path: string,
 ): { kind: "fixed" | "pool"; questionPoolItems: string[] } {
@@ -257,7 +259,7 @@ function assignmentEntry(
   const questionPoolItems = decodeBoundedArray(
     field(record, "items", path),
     `${path}.items`,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
     questionId,
   );
   const selectionCount = decodePositiveInteger(
@@ -299,27 +301,27 @@ function selectionRule(value: unknown, path: string): void {
   );
 }
 
-function assignmentContent(value: unknown, path: string): unknown {
+function assessmentContent(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["title", "instructions", "entries", "defaults"]);
   const instructions = decodeString(field(record, "instructions", path), `${path}.instructions`);
-  if (Array.from(instructions).length > MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS)
+  if (Array.from(instructions).length > MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS)
     throw new DecodeError(`${path}.instructions`, "instructions within the shared bound");
   const entries = decodeBoundedArray(
     field(record, "entries", path),
     `${path}.entries`,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    assignmentEntry,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
+    assessmentEntry,
   );
   if (entries.length === 0) throw new DecodeError(`${path}.entries`, "at least one ordered entry");
   const questionPoolItemCount = entries.reduce(
     (total, entry) => total + entry.questionPoolItems.length,
     0,
   );
-  if (questionPoolItemCount > MAX_ASSIGNMENT_QUESTION_POOL_ITEMS)
+  if (questionPoolItemCount > MAX_ASSESSMENT_QUESTION_POOL_ITEMS)
     throw new DecodeError(
       `${path}.entries`,
-      "Question Pool Items within the Assignment total bound",
+      "Question Pool Items within the Assessment total bound",
     );
   defaults(field(record, "defaults", path), `${path}.defaults`);
   return value;
@@ -327,15 +329,15 @@ function assignmentContent(value: unknown, path: string): unknown {
 
 function createModule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["label", "assignments"]);
-  const assignments = decodeBoundedArray(
-    field(record, "assignments", path),
-    `${path}.assignments`,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES,
-    assignmentContent,
+  requireOnlyFields(record, path, ["label", "assessments"]);
+  const assessments = decodeBoundedArray(
+    field(record, "assessments", path),
+    `${path}.assessments`,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
+    assessmentContent,
   );
-  if (assignments.length === 0)
-    throw new DecodeError(`${path}.assignments`, "at least one content");
+  if (assessments.length === 0)
+    throw new DecodeError(`${path}.assessments`, "at least one content");
   text(field(record, "label", path), `${path}.label`);
   return value;
 }
@@ -349,7 +351,7 @@ export function decodeCreateBlueprintCourseInput(
   const modules = decodeBoundedArray(
     field(record, "modules", path),
     `${path}.modules`,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
     createModule,
   );
   if (modules.length === 0) throw new DecodeError(`${path}.modules`, "at least one ordered module");
@@ -369,27 +371,27 @@ function replacementChoice(value: unknown, path: string, referenceField: string)
 
 function replacementModule(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["choice", "label", "assignments"]);
+  requireOnlyFields(record, path, ["choice", "label", "assessments"]);
   replacementChoice(field(record, "choice", path), `${path}.choice`, "blueprint_module_reference");
   text(field(record, "label", path), `${path}.label`);
-  const assignments = decodeBoundedArray(
-    field(record, "assignments", path),
-    `${path}.assignments`,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES,
+  const assessments = decodeBoundedArray(
+    field(record, "assessments", path),
+    `${path}.assessments`,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
     (contentValue, contentPath) => {
       const content = decodeRecord(contentValue, contentPath);
       requireOnlyFields(content, contentPath, ["choice", "content"]);
       replacementChoice(
         field(content, "choice", contentPath),
         `${contentPath}.choice`,
-        "blueprint_assignment_reference",
+        "blueprint_assessment_reference",
       );
-      assignmentContent(field(content, "content", contentPath), `${contentPath}.content`);
+      assessmentContent(field(content, "content", contentPath), `${contentPath}.content`);
       return contentValue;
     },
   );
-  if (assignments.length === 0)
-    throw new DecodeError(`${path}.assignments`, "at least one content");
+  if (assessments.length === 0)
+    throw new DecodeError(`${path}.assessments`, "at least one content");
   return value;
 }
 
@@ -402,7 +404,7 @@ export function decodeReplaceBlueprintCourseContentInput(
   const modules = decodeBoundedArray(
     field(record, "modules", path),
     `${path}.modules`,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
     replacementModule,
   );
   if (modules.length === 0) throw new DecodeError(`${path}.modules`, "at least one ordered module");
@@ -429,7 +431,7 @@ function contentView(value: unknown, path: string): void {
   decodeBoundedArray(
     field(record, "entries", path),
     `${path}.entries`,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
     (entryValue, entryPath) => {
       const entry = decodeRecord(entryValue, entryPath);
       const kind = decodeStringEnum(field(entry, "kind", entryPath), `${entryPath}.kind`, [
@@ -470,7 +472,7 @@ function contentView(value: unknown, path: string): void {
         decodeBoundedArray(
           field(entry, "items", entryPath),
           `${entryPath}.items`,
-          MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
+          MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
           questionView,
         );
         decodeQuestionAttemptLimit(
@@ -490,7 +492,10 @@ function contentView(value: unknown, path: string): void {
 }
 
 function availability(value: unknown, path: string): BlueprintAvailability {
-  return decodeStringEnum(value, path, ["available", "archived"]);
+  // Blueprint Availability is a closed, generated browser contract. Do not
+  // accept the obsolete `available` spelling: Private and Public have distinct
+  // visibility and adoption behavior.
+  return decodeStringEnum(value, path, ["private", "public", "archived"]);
 }
 
 function metadataEtag(value: unknown, path: string): string {
@@ -554,25 +559,25 @@ function modules(value: unknown, path: string): Array<BlueprintModuleView> {
   const decoded = decodeBoundedArray(
     value,
     path,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
     (moduleValue, modulePath) => {
       const module = decodeRecord(moduleValue, modulePath);
-      requireOnlyFields(module, modulePath, ["blueprint_module_reference", "label", "assignments"]);
+      requireOnlyFields(module, modulePath, ["blueprint_module_reference", "label", "assessments"]);
       decodeNonemptyString(
         field(module, "blueprint_module_reference", modulePath),
         `${modulePath}.blueprint_module_reference`,
       );
       text(field(module, "label", modulePath), `${modulePath}.label`);
       decodeBoundedArray(
-        field(module, "assignments", modulePath),
-        `${modulePath}.assignments`,
-        MAX_ASSIGNMENT_ORDERED_ENTRIES,
+        field(module, "assessments", modulePath),
+        `${modulePath}.assessments`,
+        MAX_ASSESSMENT_ORDERED_ENTRIES,
         (contentValue, contentPath) => {
           const content = decodeRecord(contentValue, contentPath);
-          requireOnlyFields(content, contentPath, ["blueprint_assignment_reference", "content"]);
+          requireOnlyFields(content, contentPath, ["blueprint_assessment_reference", "content"]);
           decodeNonemptyString(
-            field(content, "blueprint_assignment_reference", contentPath),
-            `${contentPath}.blueprint_assignment_reference`,
+            field(content, "blueprint_assessment_reference", contentPath),
+            `${contentPath}.blueprint_assessment_reference`,
           );
           contentView(field(content, "content", contentPath), `${contentPath}.content`);
           return contentValue;

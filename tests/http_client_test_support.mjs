@@ -24,7 +24,6 @@ export function createRecordingFetch(respond) {
 export function issuedQuestionWireFixture(attempt, questionSummary, questionRevision) {
   return {
     questionRevision,
-    question_seed: attempt.question_seed,
     presentationNonce: attempt.id.replaceAll("-", "").slice(-32),
     questionTitle: questionSummary.metadata.questionTitle,
     prompt: [

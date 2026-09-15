@@ -47,7 +47,7 @@ try {
   await page.getByRole("button", { name: "Use selected Questions" }).click();
   await page.getByText("1 fixed Question selected in order.").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "Create Blueprint Course" }).click();
-  await page.waitForURL(/\/blueprint-courses\/BP-[1-9][0-9]*$/u);
+  await page.waitForURL(/\/blueprint-courses\/BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u);
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
@@ -62,11 +62,11 @@ try {
   await page.getByRole("button", { name: "Create Course Instance" }).click();
   await page.getByRole("heading", { name: courseLongName }).waitFor();
   await page.getByRole("link", { name: "Open Course Instance" }).first().click();
-  await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
+  await page.waitForURL(/\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u);
   await page.getByRole("link", { name: "Open Students" }).click();
-  await page.waitForURL(/\/instructor\/courses\/C-[1-9][0-9]*\/students$/u);
+  await page.waitForURL(/\/instructor\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}\/students$/u);
   await page.getByRole("heading", { name: "Students" }).waitFor();
-  await page.getByLabel("Email, roster ID").fill("mary.okafor@live-demo.invalid,m9-browser-seeded");
+  await page.getByLabel("Email, roster ID").fill("mary.okafor@biology.roosevelt.edu,m9-browser-seeded");
   await page.getByRole("button", { name: "Import roster" }).click();
   await page.getByText("Roster import recorded.").waitFor();
   await page.getByText("Invitation pending").waitFor();

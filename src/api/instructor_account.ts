@@ -9,6 +9,8 @@ export interface InstructorAccountSummary {
   readonly reference: AccountReference;
   readonly state: InstructorAccountState;
   readonly lastSuccessfulSignIn: number | null;
+  /** Static cross-account projection only; null also conceals private Profile images. */
+  readonly providedAvatarId: string | null;
 }
 
 /** Sysadmin-owned display context for the closed Instructor Account list. */
@@ -17,9 +19,21 @@ export interface InstructorAccountList {
   readonly displayTimeZone: string;
 }
 
+/** Sysadmin-only fact recorded before a separate Instructor Account creation. */
+export interface CompleteInstructorIdentityVettingInput {
+  readonly normalizedEmail: string;
+  readonly verifiedInstructorDisplayName: string;
+}
+
+/** Opaque receipt; it is never an Account identity or browser projection. */
+export interface InstructorIdentityVettingReceipt {
+  readonly vettingDecisionReference: string;
+}
+
 /** Create input is sent once and is never reflected by any browser-safe DTO. */
 export interface CreateInstructorAccountInput {
   readonly normalizedEmail: string;
+  readonly vettingDecisionReference: string;
 }
 
 export interface DeactivateInstructorAccountInput {
@@ -29,6 +43,9 @@ export interface DeactivateInstructorAccountInput {
 /** Same-origin, Sysadmin-only Instructor Account lifecycle boundary. */
 export interface InstructorAccountClient {
   readonly listInstructorAccounts: () => Promise<InstructorAccountList>;
+  readonly completeInstructorIdentityVetting: (
+    input: CompleteInstructorIdentityVettingInput,
+  ) => Promise<InstructorIdentityVettingReceipt>;
   readonly createInstructorAccount: (
     input: CreateInstructorAccountInput,
   ) => Promise<InstructorAccountSummary>;

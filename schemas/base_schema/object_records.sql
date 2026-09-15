@@ -11,7 +11,7 @@ CREATE TABLE ple_private.object_record (
         ('public-assets', 'private-content', 'student-records', 'temp-processing')),
     object_data_class text NOT NULL CHECK (object_data_class IN
         ('authoring-content', 'question-source', 'question-asset', 'question-render',
-         'course-appearance', 'profile-thumbnail', 'student-record',
+         'course-appearance', 'profile-image', 'student-record',
          'temporary-processing')),
     sha256 bytea NOT NULL CHECK (octet_length(sha256) = 32),
     size_bytes bigint NOT NULL CHECK (size_bytes >= 0),
@@ -140,7 +140,7 @@ BEGIN
         SELECT (SELECT count(*) FROM ple_data.question_asset_delivery WHERE delivery_id = target_delivery_id)
              + (SELECT count(*) FROM ple_data.course_banner_delivery WHERE delivery_id = target_delivery_id)
              + (SELECT count(*) FROM ple_data.course_object_delivery WHERE delivery_id = target_delivery_id)
-             + (SELECT count(*) FROM ple_data.profile_thumbnail_delivery WHERE delivery_id = target_delivery_id)
+             + (SELECT count(*) FROM ple_data.profile_image_delivery WHERE delivery_id = target_delivery_id)
           INTO owner_count;
         IF owner_count <> 1 THEN
             RAISE EXCEPTION USING ERRCODE = '23514',

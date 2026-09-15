@@ -347,6 +347,7 @@ async fn matching_or_new_draft(
             CreateAuthoringDraftInput {
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
                 source_record,
+                question_format: question_format(question.backend),
                 webwork_pg_path: question.webwork_pg_path.clone(),
                 question_type: question_type(question.question_type),
                 title: question.question_title.clone(),

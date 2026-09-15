@@ -7,7 +7,7 @@ use learning_data_access::postgres::{
 };
 use learning_data_access::{
     AccountTimeZoneStore, CourseRosterImportEntry, CourseRosterImportInput, CourseRosterStore,
-    SessionTokenHash, StoreError,
+    SessionTokenHash,
 };
 use question_model::{AccountTimeZone, CourseInstanceReference};
 use sqlx::Row;
@@ -126,11 +126,11 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     .expect("Blueprint Revision Event");
     sqlx::query(
         "INSERT INTO ple_data.course_instance \
-         (course_id, reference_number, blueprint_course_reference_number, \
+         (course_id, reference_number, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
           course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
          OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, $2, 1, $3, 'instructor', 'ZONE', \
+         VALUES ($1, $2, 'adopted', $2, 1, $3, 'instructor', 'ZONE', \
                  'Student Time Zone Course', current_date, current_date + 1, clock_timestamp())",
     )
     .bind(id(COURSE))
@@ -267,21 +267,21 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
 
     let time_zones = PostgresAccountTimeZoneStore::new(application);
     let saved = time_zones
-        .update_authenticated_student_time_zone(
+        .update_authenticated_account_time_zone(
             token(0xf3),
             AccountTimeZone::parse("America/Los_Angeles").expect("valid Student zone"),
         )
         .await
-        .expect("Student-owned time-zone update");
+        .expect("Account-owned time-zone update");
     assert_eq!(saved.as_str(), "America/Los_Angeles");
     assert_eq!(
         time_zones
-            .update_authenticated_student_time_zone(
+            .update_authenticated_account_time_zone(
                 token(0xf1),
                 AccountTimeZone::parse("UTC").expect("valid Instructor-requested zone"),
             )
             .await,
-        Err(StoreError::Forbidden),
-        "an Instructor session cannot set a Student time zone"
+        Ok(AccountTimeZone::parse("UTC").expect("valid Instructor Account zone")),
+        "each active authenticated Account writes only its own display preference"
     );
 }

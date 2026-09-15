@@ -11,15 +11,15 @@ import { courseThemeTokens } from "../features/course_appearance/course_theme_re
 import { courseInstanceRouteReference } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 
-type AvailableBlueprintCourse = BlueprintCourseSummaryView;
+type AdoptableBlueprintCourse = BlueprintCourseSummaryView;
 
-function isAvailableBlueprintCourse(
+function isAdoptableBlueprintCourse(
   blueprint: BlueprintCourseSummaryView,
-): blueprint is AvailableBlueprintCourse {
-  return blueprint.availability === "available";
+): blueprint is AdoptableBlueprintCourse {
+  return blueprint.availability === "public";
 }
 
-function blueprintSourceValue(blueprint: AvailableBlueprintCourse): string {
+function blueprintSourceValue(blueprint: AdoptableBlueprintCourse): string {
   const revision = blueprint.current_revision;
   return `${revision.reference}:${revision.revision}`;
 }
@@ -52,7 +52,7 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
 }
 
 function BlueprintSourceSelect(props: {
-  readonly blueprints: ReadonlyArray<AvailableBlueprintCourse>;
+  readonly blueprints: ReadonlyArray<AdoptableBlueprintCourse>;
   readonly value: string;
   readonly onChange: (value: string) => void;
 }): JSX.Element {
@@ -79,7 +79,7 @@ function BlueprintSourceSelect(props: {
   );
 }
 
-/** Course Instance list and Instructor self-assignment creation task. */
+/** Course Instance list and Instructor self-assessment creation task. */
 function TeachingCourseListPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const [searchParams] = useSearchParams();
@@ -103,7 +103,7 @@ function TeachingCourseListPage(): JSX.Element {
   const source = (): string => {
     const choice = sourceChoice();
     if (choice !== undefined) return choice;
-    const selected = availableBlueprints().find(
+    const selected = adoptableBlueprints().find(
       (blueprint) => blueprint.reference === searchParams.blueprint,
     );
     return selected === undefined ? "" : blueprintSourceValue(selected);
@@ -123,14 +123,14 @@ function TeachingCourseListPage(): JSX.Element {
       return true;
     });
   });
-  const availableBlueprints = createMemo(() =>
-    (blueprints()?.items ?? []).filter(isAvailableBlueprintCourse),
+  const adoptableBlueprints = createMemo(() =>
+    (blueprints()?.items ?? []).filter(isAdoptableBlueprintCourse),
   );
 
   async function createCourseInstance(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (isCreating()) return;
-    const selected = availableBlueprints().find(
+    const selected = adoptableBlueprints().find(
       (blueprint) => blueprintSourceValue(blueprint) === source(),
     );
     if (selected === undefined) {
@@ -185,8 +185,8 @@ function TeachingCourseListPage(): JSX.Element {
       <p class="eyebrow">Teaching</p>
       <h1>{isInstructor() ? "Course Instances you teach" : "Your Course Instances"}</h1>
       <p class="page-lede">
-        Adopt a Blueprint Course to create your Course Instance with all its assignments. Review
-        dates and settings before releasing assignments to students.
+        Adopt a Blueprint Course to create your Course Instance with all its assessments. Review
+        dates and settings before releasing assessments to students.
       </p>
       <Show when={isInstructor()}>
         <form
@@ -198,7 +198,7 @@ function TeachingCourseListPage(): JSX.Element {
         >
           <h2>Create Course Instance</h2>
           <Show
-            when={availableBlueprints().length > 0}
+            when={adoptableBlueprints().length > 0}
             fallback={
               <p class="empty-state">
                 Create a Blueprint Course before creating a Course Instance.
@@ -206,7 +206,7 @@ function TeachingCourseListPage(): JSX.Element {
             }
           >
             <BlueprintSourceSelect
-              blueprints={availableBlueprints()}
+              blueprints={adoptableBlueprints()}
               value={source()}
               onChange={setSource}
             />

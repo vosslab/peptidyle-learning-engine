@@ -8,15 +8,16 @@ use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
 use question_model::{
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY, QuestionLicense,
+    MAX_ASSESSMENT_ORDERED_ENTRIES, MAX_ASSESSMENT_QUESTION_POOL_ITEMS,
+    MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, QuestionFormat, QuestionLicense,
 };
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
+pub(crate) mod parameterized_publication;
 pub(crate) mod publication;
 
-const USAGE: &str = "usage: PLE_CURRICULUM_CONTENT_ROOT=<content-root> cargo tools curriculum-content <validate|publish> <manifest>";
+const USAGE: &str = "usage: PLE_CURRICULUM_CONTENT_ROOT=<content-root> cargo tools curriculum-content <validate|publish|publish-parameterized> <manifest>";
 const CONTENT_ROOT_ENV: &str = "PLE_CURRICULUM_CONTENT_ROOT";
 const MAX_WEBWORK_PG_SOURCE_BYTES: usize = 262_144;
 
@@ -25,7 +26,36 @@ const MAX_WEBWORK_PG_SOURCE_BYTES: usize = 262_144;
 pub(crate) struct Manifest {
     version: u32,
     course: Course,
+    #[serde(default)]
+    parameterized_sources: Vec<ParameterizedSource>,
     topics: Vec<Topic>,
+}
+
+/// Pinned canonical algorithmic input for one ordinary Question publication.
+///
+/// A source carries all Question metadata itself.  In particular, it does not
+/// identify a static bank, Pool, or generated variant: one canonical PG/PGML
+/// document creates one ordinary immutable Question lineage.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ParameterizedSource {
+    pub(crate) source_id: String,
+    pub(crate) topic_slug: String,
+    pub(crate) question_title: String,
+    pub(crate) question_description: String,
+    pub(crate) question_type: CurriculumQuestionType,
+    pub(crate) source_format: WebworkSourceFormat,
+    /// C840-only catalog replacement target. It is absent for a source that
+    /// has not passed per-family acceptance and never supplies source metadata.
+    #[serde(default)]
+    pub(crate) replaces_static_bank_slug: Option<String>,
+    pub(crate) pg_source: PathBuf,
+    pub(crate) pg_sha256: String,
+    pub(crate) webwork_pg_path: String,
+    pub(crate) canonical_author_source_url: String,
+    pub(crate) canonical_author_source_sha256: String,
+    pub(crate) content_license: String,
+    pub(crate) source_code_license: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -84,6 +114,15 @@ pub(crate) enum CurriculumQuestionType {
     Matching,
 }
 
+/// Explicit canonical WeBWorK source representation.  It selects durable
+/// revision metadata; it never changes the WeBWorK backend or parses source.
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum WebworkSourceFormat {
+    Pg,
+    Pgml,
+}
+
 fn one() -> u32 {
     1
 }
@@ -118,6 +157,7 @@ pub(crate) fn run(args: &[String]) -> Result<()> {
             Ok(())
         }
         "publish" => publication::publish(manifest),
+        "publish-parameterized" => parameterized_publication::publish(manifest),
         _ => bail!("{USAGE}"),
     }
 }
@@ -192,9 +232,19 @@ fn validate(manifest: &Manifest, root: &Path) -> Result<()> {
     let mut row_ids = BTreeSet::new();
     let mut pg_checksum_rows = BTreeMap::new();
     let mut pg_path_rows = BTreeMap::new();
+    let accepted_replacements = manifest
+        .parameterized_sources
+        .iter()
+        .filter_map(|source| {
+            source
+                .replaces_static_bank_slug
+                .as_ref()
+                .map(|bank| (&source.topic_slug, bank))
+        })
+        .collect::<BTreeSet<_>>();
     ensure!(
-        manifest.topics.len() <= MAX_ASSIGNMENT_ORDERED_ENTRIES,
-        "curriculum Blueprint has too many ordered topic Assignments"
+        manifest.topics.len() <= MAX_ASSESSMENT_ORDERED_ENTRIES,
+        "curriculum Blueprint has too many ordered topic Assessments"
     );
     for topic in &manifest.topics {
         ensure!(
@@ -209,20 +259,22 @@ fn validate(manifest: &Manifest, root: &Path) -> Result<()> {
             !topic.instructions.trim().is_empty(),
             "curriculum topic instructions are invalid"
         );
-        question_model::AssignmentTitle::try_new(topic.title.clone())
-            .map_err(|_| anyhow::anyhow!("curriculum Assignment title is invalid"))?;
-        question_model::AssignmentInstructions::try_new(topic.instructions.clone())
-            .map_err(|_| anyhow::anyhow!("curriculum Assignment instructions are invalid"))?;
+        question_model::AssessmentTitle::try_new(topic.title.clone())
+            .map_err(|_| anyhow::anyhow!("curriculum Assessment title is invalid"))?;
+        question_model::AssessmentInstructions::try_new(topic.instructions.clone())
+            .map_err(|_| anyhow::anyhow!("curriculum Assessment instructions are invalid"))?;
         ensure!(
             !topic.banks.is_empty(),
             "curriculum topics must contain source banks"
         );
         ensure!(
-            topic.banks.len() <= MAX_ASSIGNMENT_ORDERED_ENTRIES,
-            "curriculum Assignment has too many ordered Pool entries"
+            topic.banks.len() <= MAX_ASSESSMENT_ORDERED_ENTRIES,
+            "curriculum Assessment has too many ordered Pool entries"
         );
         let mut total_pool_items = 0_usize;
         for bank in &topic.banks {
+            let has_accepted_replacement =
+                accepted_replacements.contains(&(&topic.slug, &bank.slug));
             ensure!(
                 bank_slugs.insert((&topic.slug, &bank.slug)),
                 "curriculum bank slugs must be unique within a topic"
@@ -236,19 +288,21 @@ fn validate(manifest: &Manifest, root: &Path) -> Result<()> {
                 "curriculum banks must contain source rows"
             );
             ensure!(
-                bank.rows.len() <= MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
+                bank.rows.len() <= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
                 "curriculum Pool has too many items"
             );
             total_pool_items = total_pool_items
                 .checked_add(bank.rows.len())
-                .context("curriculum Assignment Pool item count overflowed")?;
+                .context("curriculum Assessment Pool item count overflowed")?;
             validate_pool_bounds(topic.banks.len(), bank.rows.len(), total_pool_items)?;
             ensure!(
                 bank.selection_count > 0
                     && usize::try_from(bank.selection_count).ok() <= Some(bank.rows.len()),
                 "curriculum bank selection count is invalid"
             );
-            verify_file_checksum(root, &bank.source, &bank.source_sha256, "bank source")?;
+            if !has_accepted_replacement {
+                verify_file_checksum(root, &bank.source, &bank.source_sha256, "bank source")?;
+            }
             let mut bank_row_ids = BTreeSet::new();
             for row in &bank.rows {
                 ensure!(
@@ -279,25 +333,28 @@ fn validate(manifest: &Manifest, root: &Path) -> Result<()> {
                     "curriculum WeBWorK PG path is invalid"
                 );
                 let key = format!("{}/{}/{}", topic.slug, bank.slug, row.row_id);
-                ensure!(
-                    pg_checksum_rows
-                        .insert(row.pg_sha256.as_str(), key.clone())
-                        .is_none(),
-                    "curriculum PG checksum maps to more than one source row: {}",
-                    row.pg_sha256
-                );
-                ensure!(
-                    pg_path_rows
-                        .insert(row.webwork_pg_path.as_str(), key)
-                        .is_none(),
-                    "curriculum WeBWorK PG path maps to more than one source row: {}",
-                    row.webwork_pg_path
-                );
-                let pg = verify_file_checksum(root, &row.pg_source, &row.pg_sha256, "PG source")?;
-                ensure!(
-                    pg <= MAX_WEBWORK_PG_SOURCE_BYTES,
-                    "curriculum PG source exceeds the supported WeBWorK bound"
-                );
+                if !has_accepted_replacement {
+                    ensure!(
+                        pg_checksum_rows
+                            .insert(row.pg_sha256.as_str(), key.clone())
+                            .is_none(),
+                        "curriculum PG checksum maps to more than one source row: {}",
+                        row.pg_sha256
+                    );
+                    ensure!(
+                        pg_path_rows
+                            .insert(row.webwork_pg_path.as_str(), key)
+                            .is_none(),
+                        "curriculum WeBWorK PG path maps to more than one source row: {}",
+                        row.webwork_pg_path
+                    );
+                    let pg =
+                        verify_file_checksum(root, &row.pg_source, &row.pg_sha256, "PG source")?;
+                    ensure!(
+                        pg <= MAX_WEBWORK_PG_SOURCE_BYTES,
+                        "curriculum PG source exceeds the supported WeBWorK bound"
+                    );
+                }
             }
         }
     }
@@ -305,7 +362,171 @@ fn validate(manifest: &Manifest, root: &Path) -> Result<()> {
         !manifest.topics.is_empty(),
         "curriculum manifest must contain topics"
     );
+    validate_parameterized_sources(
+        &manifest.parameterized_sources,
+        root,
+        &topic_slugs,
+        &bank_slugs,
+        &pg_path_rows,
+    )?;
     Ok(())
+}
+
+fn validate_parameterized_sources(
+    sources: &[ParameterizedSource],
+    root: &Path,
+    topic_slugs: &BTreeSet<&String>,
+    bank_slugs: &BTreeSet<(&String, &String)>,
+    static_paths: &BTreeMap<&str, String>,
+) -> Result<()> {
+    let mut source_ids = BTreeSet::new();
+    let mut replacement_banks = BTreeSet::new();
+    let mut source_paths = BTreeSet::new();
+    let mut parameterized_paths = BTreeSet::new();
+    for source in sources {
+        for value in [
+            &source.source_id,
+            &source.topic_slug,
+            &source.question_title,
+            &source.question_description,
+            &source.webwork_pg_path,
+            &source.canonical_author_source_url,
+            &source.canonical_author_source_sha256,
+            &source.content_license,
+            &source.source_code_license,
+        ] {
+            ensure!(
+                !value.trim().is_empty() && value == value.trim(),
+                "parameterized Genetics metadata must be trimmed and nonempty"
+            );
+        }
+        ensure!(
+            source_ids.insert(&source.source_id),
+            "parameterized Genetics source IDs must be unique"
+        );
+        ensure!(
+            source_paths.insert(&source.pg_source),
+            "parameterized Genetics source paths must be unique"
+        );
+        ensure!(
+            topic_slugs.contains(&&source.topic_slug),
+            "parameterized Genetics source must identify an existing Topic"
+        );
+        if let Some(bank_slug) = &source.replaces_static_bank_slug {
+            ensure!(
+                !bank_slug.trim().is_empty() && bank_slug == bank_slug.trim(),
+                "parameterized Genetics replacement bank slug is invalid"
+            );
+            ensure!(
+                bank_slugs.contains(&(&source.topic_slug, bank_slug)),
+                "parameterized Genetics replacement bank does not exist in its Topic"
+            );
+            ensure!(
+                replacement_banks.insert((&source.topic_slug, bank_slug)),
+                "parameterized Genetics replacement bank has more than one canonical source"
+            );
+        }
+        question_model::validate_question_title(&source.question_title)
+            .map_err(|_| anyhow::anyhow!("parameterized Genetics Question title is invalid"))?;
+        question_model::validate_question_description(&source.question_description).map_err(
+            |_| anyhow::anyhow!("parameterized Genetics Question description is invalid"),
+        )?;
+        ensure!(
+            source.pg_source.starts_with("pg/topic")
+                && valid_pg_path(&source.webwork_pg_path)
+                && source.webwork_pg_path.starts_with("genetics/topic"),
+            "canonical Genetics source must be locally bundled under its topic path"
+        );
+        ensure!(
+            source_format_paths_match(
+                source.source_format,
+                &source.pg_source,
+                &source.webwork_pg_path
+            ),
+            "parameterized Genetics source format must match both declared source paths"
+        );
+        ensure!(
+            parameterized_paths.insert(&source.webwork_pg_path)
+                && !static_paths.contains_key(source.webwork_pg_path.as_str()),
+            "parameterized Genetics PG paths must be unique and distinct from static paths"
+        );
+        ensure!(
+            source.content_license == "CC-BY-4.0"
+                && source.source_code_license == "LGPL-3.0-or-later",
+            "parameterized Genetics license pin is unsupported"
+        );
+        ensure!(
+            valid_pinned_vosslab_github_blob_url(&source.canonical_author_source_url),
+            "parameterized Genetics canonical author-source URL is not an immutable vosslab GitHub blob pin"
+        );
+        ensure!(
+            is_lower_hex(&source.canonical_author_source_sha256),
+            "parameterized Genetics canonical author-source checksum is invalid"
+        );
+        let bytes = std::fs::read(contained_file(root, &source.pg_source)?).with_context(|| {
+            format!(
+                "reading parameterized PG source {}",
+                source.pg_source.display()
+            )
+        })?;
+        ensure!(
+            bytes.len() <= MAX_WEBWORK_PG_SOURCE_BYTES
+                && sha256_hex(&bytes) == source.pg_sha256
+                && is_lower_hex(&source.pg_sha256),
+            "parameterized Genetics PG source pin is invalid"
+        );
+        std::str::from_utf8(&bytes).context("parameterized Genetics PG source is not UTF-8")?;
+    }
+    Ok(())
+}
+
+fn source_format_paths_match(
+    source_format: WebworkSourceFormat,
+    local_path: &Path,
+    webwork_path: &str,
+) -> bool {
+    let suffix = match source_format {
+        WebworkSourceFormat::Pg => ".pg",
+        WebworkSourceFormat::Pgml => ".pgml",
+    };
+    local_path.to_string_lossy().ends_with(suffix) && webwork_path.ends_with(suffix)
+}
+
+pub(crate) const fn webwork_question_format(source_format: WebworkSourceFormat) -> QuestionFormat {
+    match source_format {
+        WebworkSourceFormat::Pg => QuestionFormat::WebworkPg,
+        WebworkSourceFormat::Pgml => QuestionFormat::WebworkPgml,
+    }
+}
+
+fn valid_pinned_vosslab_github_blob_url(value: &str) -> bool {
+    let Some(path) = value.strip_prefix("https://github.com/vosslab/") else {
+        return false;
+    };
+    let Some((repository, remainder)) = path.split_once("/blob/") else {
+        return false;
+    };
+    let Some((revision, source_path)) = remainder.split_once('/') else {
+        return false;
+    };
+    !repository.is_empty()
+        && !repository.contains('/')
+        && is_lower_hex_40(revision)
+        && valid_repository_path(source_path)
+}
+
+fn is_lower_hex_40(value: &str) -> bool {
+    value.len() == 40
+        && value.bytes().all(|byte| {
+            byte.is_ascii_digit() || (byte.is_ascii_lowercase() && byte.is_ascii_hexdigit())
+        })
+}
+
+fn valid_repository_path(value: &str) -> bool {
+    !value.contains(['?', '#', '\\', '\0'])
+        && value
+            .split('/')
+            .all(|part| !part.is_empty() && !matches!(part, "." | ".."))
 }
 
 pub(crate) fn read_pg_source(root: &Path, row: &Row) -> Result<Vec<u8>> {
@@ -316,6 +537,27 @@ pub(crate) fn read_pg_source(root: &Path, row: &Row) -> Result<Vec<u8>> {
         sha256_hex(&bytes) == row.pg_sha256,
         "PG source checksum changed for {}",
         row.row_id
+    );
+    Ok(bytes)
+}
+
+/// Reads one C824-pinned parameterized source after the complete manifest has
+/// already established its provenance, license, path, and SHA-256 pin.
+pub(crate) fn read_parameterized_pg_source(
+    root: &Path,
+    source: &ParameterizedSource,
+) -> Result<Vec<u8>> {
+    let path = contained_file(root, &source.pg_source)?;
+    let bytes = std::fs::read(&path).with_context(|| {
+        format!(
+            "reading parameterized PG source {}",
+            source.pg_source.display()
+        )
+    })?;
+    ensure!(
+        sha256_hex(&bytes) == source.pg_sha256,
+        "parameterized PG source checksum changed for {}",
+        source.source_id
     );
     Ok(bytes)
 }
@@ -385,16 +627,16 @@ fn validate_pool_bounds(
     total_pool_items: usize,
 ) -> Result<()> {
     ensure!(
-        entry_count <= MAX_ASSIGNMENT_ORDERED_ENTRIES,
-        "curriculum Assignment has too many ordered Pool entries"
+        entry_count <= MAX_ASSESSMENT_ORDERED_ENTRIES,
+        "curriculum Assessment has too many ordered Pool entries"
     );
     ensure!(
-        pool_items <= MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
+        pool_items <= MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
         "curriculum Pool has too many items"
     );
     ensure!(
-        total_pool_items <= MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-        "curriculum Assignment has too many Pool items"
+        total_pool_items <= MAX_ASSESSMENT_QUESTION_POOL_ITEMS,
+        "curriculum Assessment has too many Pool items"
     );
     Ok(())
 }
@@ -467,15 +709,15 @@ mod tests {
     #[test]
     fn pool_bounds_are_rejected_before_publication() {
         assert!(validate_pool_bounds(1, 1, 1).is_ok());
-        assert!(validate_pool_bounds(MAX_ASSIGNMENT_ORDERED_ENTRIES + 1, 1, 1).is_err());
+        assert!(validate_pool_bounds(MAX_ASSESSMENT_ORDERED_ENTRIES + 1, 1, 1).is_err());
         assert!(
             validate_pool_bounds(
                 1,
-                MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY + 1,
-                MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY + 1
+                MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY + 1,
+                MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY + 1
             )
             .is_err()
         );
-        assert!(validate_pool_bounds(2, 1, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS + 1).is_err());
+        assert!(validate_pool_bounds(2, 1, MAX_ASSESSMENT_QUESTION_POOL_ITEMS + 1).is_err());
     }
 }

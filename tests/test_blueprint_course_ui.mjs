@@ -45,7 +45,7 @@ test("complete Blueprint Course meaning invokes its one live create capability",
     blueprint({
       ...content,
       entries: [
-        { kind: "fixed", question_id: "AAA-BBBB", points_possible: "1", scoring_rule: "normal" },
+        { kind: "fixed", question_id: "AAAA-ZBBB", points_possible: "1", scoring_rule: "normal" },
       ],
     }),
     "create-ready",

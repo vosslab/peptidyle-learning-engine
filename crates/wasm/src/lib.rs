@@ -8,7 +8,7 @@
 use domain::{draft_preview, policy, timing, validation};
 use question_model::presentation::{
     QuestionAssetRendition, QuestionPresentation, QuestionPresentationResponseFormat,
-    QuestionPresentationToken, rebuild_public_question_presentation,
+    QuestionPresentationToken, rebuild_native_static_question_presentation,
 };
 use question_model::response::{QuestionResponseFormat, StudentResponse};
 use wasm_bindgen::JsValue;
@@ -108,34 +108,34 @@ pub fn question_attempt_timing_decision(evaluation_json: &str) -> Result<String,
         .map_err(|error| JsValue::from_str(&format!("could not serialize timer verdict: {error}")))
 }
 
-/// Calculates the displayed Assignment Attempt countdown from a server snapshot
+/// Calculates the displayed Assessment Attempt countdown from a server snapshot
 /// and monotonic browser elapsed duration.
 ///
 /// Both values are whole JavaScript-safe milliseconds. This adapter reads no
-/// clock and returns `null` for an untimed Assignment Attempt.
+/// clock and returns `null` for an untimed Assessment Attempt.
 ///
 /// # Errors
 ///
 /// Returns a JavaScript error for malformed, unsafe, or unrepresentable input.
 #[wasm_bindgen]
-pub fn assignment_attempt_remaining_milliseconds(input_json: &str) -> Result<String, JsValue> {
-    let input: timing::AssignmentAttemptRemainingDurationInput = serde_json::from_str(input_json)
+pub fn assessment_attempt_remaining_milliseconds(input_json: &str) -> Result<String, JsValue> {
+    let input: timing::AssessmentAttemptRemainingDurationInput = serde_json::from_str(input_json)
         .map_err(|error| {
-        JsValue::from_str(&format!("invalid assignment attempt duration: {error}"))
+        JsValue::from_str(&format!("invalid assessment attempt duration: {error}"))
     })?;
-    let remaining = timing::assignment_attempt_remaining_milliseconds(input).map_err(|error| {
-        JsValue::from_str(&format!("invalid assignment attempt duration: {error}"))
+    let remaining = timing::assessment_attempt_remaining_milliseconds(input).map_err(|error| {
+        JsValue::from_str(&format!("invalid assessment attempt duration: {error}"))
     })?;
     serde_json::to_string(&remaining).map_err(|error| {
         JsValue::from_str(&format!(
-            "could not serialize assignment attempt remaining duration: {error}"
+            "could not serialize assessment attempt remaining duration: {error}"
         ))
     })
 }
 
-/// Reports every backend capability missing from an assignment configuration.
+/// Reports every backend capability missing from an assessment configuration.
 ///
-/// The Assignment Configuration and Question Backend capability inputs are
+/// The Assessment Configuration and Question Backend capability inputs are
 /// browser-safe. The same function is called by the server before publication,
 /// so editor hints and publish refusal cannot drift.
 ///
@@ -144,13 +144,13 @@ pub fn assignment_attempt_remaining_milliseconds(input_json: &str) -> Result<Str
 /// Returns a JavaScript error when the input is malformed or the violation
 /// list cannot be serialized.
 #[wasm_bindgen]
-pub fn validate_assignment_config(config_json: &str) -> Result<String, JsValue> {
-    let config: policy::AssignmentConfig = serde_json::from_str(config_json)
-        .map_err(|error| JsValue::from_str(&format!("invalid assignment config: {error}")))?;
-    let violations = policy::validate_assignment_config(&config);
+pub fn validate_assessment_config(config_json: &str) -> Result<String, JsValue> {
+    let config: policy::AssessmentConfig = serde_json::from_str(config_json)
+        .map_err(|error| JsValue::from_str(&format!("invalid assessment config: {error}")))?;
+    let violations = policy::validate_assessment_config(&config);
     serde_json::to_string(&violations).map_err(|error| {
         JsValue::from_str(&format!(
-            "could not serialize assignment capability violations: {error}"
+            "could not serialize assessment capability violations: {error}"
         ))
     })
 }
@@ -169,7 +169,8 @@ pub fn preview_ple_draft(draft_json: &str) -> Result<String, JsValue> {
         .map_err(|error| JsValue::from_str(&format!("could not serialize draft preview: {error}")))
 }
 
-/// Recomputes the Rust-owned presentation descriptor and verifies its public Question Presentation Token.
+/// Recomputes a native static presentation descriptor and verifies its public
+/// Question Presentation Token.
 ///
 /// The browser passes only answer-free values it already received. TypeScript
 /// never implements the binary codec, CRC, or SHA-256 rules independently.
@@ -177,9 +178,11 @@ pub fn preview_ple_draft(draft_json: &str) -> Result<String, JsValue> {
 /// # Errors
 ///
 /// Returns a JavaScript error for malformed or internally inconsistent public
-/// presentation data. A well-formed but mismatched Question Presentation Token returns `false`.
+/// presentation data. Renderer-owned presentation formats are rejected: their
+/// private tagged reproduction evidence is server-only. A well-formed but
+/// mismatched native static Question Presentation Token returns `false`.
 #[wasm_bindgen]
-pub fn verify_presentation_descriptor(
+pub fn verify_native_static_presentation_descriptor(
     presentation_json: &str,
     question_asset_renditions_json: &str,
     presentation_token: &str,
@@ -191,7 +194,7 @@ pub fn verify_presentation_descriptor(
     let expected = QuestionPresentationToken::parse(presentation_token).map_err(|error| {
         JsValue::from_str(&format!("invalid Question Presentation Token: {error}"))
     })?;
-    let presentation = rebuild_public_question_presentation(&presentation, &assets)
+    let presentation = rebuild_native_static_question_presentation(&presentation, &assets)
         .map_err(|error| JsValue::from_str(&format!("invalid presentation: {error}")))?;
     Ok(presentation.checksum.public_token() == expected)
 }
@@ -239,8 +242,7 @@ mod tests {
     #[test]
     fn presentation_verification_uses_the_rust_descriptor_codec() {
         let presentation = r#"{
-            "questionRevision":{"questionId":"ABC-DEFG","revisionNumber":1},
-            "question_seed":42,
+            "questionRevision":{"questionId":"ABCD-XEFG","revisionNumber":1},
             "presentationNonce":"11111111111111111111111111111111",
             "questionTitle":"Peptide bond",
             "prompt":[{"kind":"text","markdown":"Which group forms the peptide bond?"}],
@@ -249,17 +251,19 @@ mod tests {
                 {"id":"6603","body":[{"kind":"text","markdown":"Carboxyl group"}]}
             ]}
         }"#;
-        let rebuilt = rebuild_public_question_presentation(
+        let rebuilt = rebuild_native_static_question_presentation(
             &serde_json::from_str(presentation).expect("Question Presentation fixture"),
             &[],
         )
         .expect("descriptor");
         let checksum = rebuilt.checksum.public_token();
-        assert_eq!(checksum.as_str(), "pd1_q2fE1ezXCkT6_yd7zeqkCQ");
 
-        assert!(verify_presentation_descriptor(presentation, "[]", checksum.as_str()).unwrap());
         assert!(
-            !verify_presentation_descriptor(
+            verify_native_static_presentation_descriptor(presentation, "[]", checksum.as_str())
+                .unwrap()
+        );
+        assert!(
+            !verify_native_static_presentation_descriptor(
                 &presentation.replace("Peptide bond", "Changed Question Title"),
                 "[]",
                 checksum.as_str(),

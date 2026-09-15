@@ -114,6 +114,10 @@ pub struct StudentFeedback {
     /// Released feedback for an incorrect automatically graded response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub incorrect_feedback: Option<Vec<QuestionContentBlock>>,
+    /// Deliberately authored PLE-managed feedback on the exact Question
+    /// Revision. This is distinct from transient backend interaction feedback.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub general_feedback: Option<Vec<QuestionContentBlock>>,
     /// Server-sanitized display-ready accepted response, never an Answer Key.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub question_answer: Option<Vec<QuestionContentBlock>>,
@@ -133,6 +137,7 @@ impl StudentFeedback {
             choice_feedback: None,
             correct_feedback: None,
             incorrect_feedback: None,
+            general_feedback: None,
             question_answer: None,
             question_answer_explanation: None,
         }

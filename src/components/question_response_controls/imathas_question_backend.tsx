@@ -95,14 +95,14 @@ export function isImathasQuestionBackendReadyMessage(
 export function isSafeImathasQuestionBackendLaunchPath(
   launchUrl: string,
   courseId: string,
-  assignmentId: string,
+  assessmentId: string,
   attemptId: string,
   origin: string,
 ): boolean {
   return isExpectedImathasQuestionBackendLaunchPath(
     launchUrl,
     courseId,
-    assignmentId,
+    assessmentId,
     attemptId,
     origin,
   );
@@ -195,7 +195,7 @@ export function ImathasQuestionBackendResponse(
         !isSafeImathasQuestionBackendLaunchPath(
           launchResult.launchUrl,
           studentWorkRoute.courseId,
-          studentWorkRoute.assignmentId,
+          studentWorkRoute.assessmentId,
           props.attemptId,
           window.location.origin,
         )
@@ -311,7 +311,7 @@ export function ImathasQuestionBackendResponse(
           Submit answer
         </button>
         <button class="quiet-action" type="button" onClick={props.onEscape}>
-          Return to assignment <span aria-hidden="true">(Esc)</span>
+          Return to assessment <span aria-hidden="true">(Esc)</span>
         </button>
       </div>
     </section>

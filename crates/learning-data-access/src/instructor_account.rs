@@ -3,8 +3,9 @@
 use async_trait::async_trait;
 use question_model::{AccountReference, AccountTimeZone, Timestamp};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{ProvidedAvatarId, SessionTokenHash, StoreError};
 
 /// The current lifecycle state of an Instructor Account.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -29,6 +30,9 @@ pub struct InstructorAccountSummary {
     pub state: InstructorAccountState,
     /// Most recent successful credential verification/session creation, if any.
     pub last_successful_sign_in: Option<Timestamp>,
+    /// Cross-account projection permits only a static provided-avatar ID.
+    /// Generic and private Profile-image choices both remain absent here.
+    pub provided_avatar_id: Option<ProvidedAvatarId>,
 }
 
 /// Closed Instructor Account rows with the authenticated Sysadmin's display context.
@@ -47,6 +51,62 @@ pub struct InstructorAccountList {
 pub struct CreateInstructorAccountInput {
     /// Normalized Instructor Authentication Email; never returned by this Store.
     pub normalized_email: String,
+    /// Immutable completed identity check for this exact normalized email.
+    ///
+    /// The Store derives the approving Sysadmin from the authenticated session;
+    /// this opaque reference only binds that completed decision to the candidate.
+    pub vetting_decision_reference: InstructorIdentityVettingDecisionReference,
+}
+
+/// Opaque durable reference to an immutable completed Instructor identity check.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct InstructorIdentityVettingDecisionReference(Uuid);
+
+impl InstructorIdentityVettingDecisionReference {
+    /// Reconstitutes the private audit identity returned by the trusted Store.
+    pub fn from_uuid(value: Uuid) -> Self {
+        Self(value)
+    }
+
+    /// Returns the opaque audit identity for a later trusted Store operation.
+    pub fn as_uuid(self) -> Uuid {
+        self.0
+    }
+}
+
+/// Candidate identity supplied only to record completed human vetting.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CompleteInstructorIdentityVettingInput {
+    /// Exact normalized private Authentication Email for the vetted candidate.
+    pub normalized_email: String,
+    /// The Sysadmin-verified, immutable display identity for a later narrow
+    /// Instructor-only endorsement projection.  It is not an Account or
+    /// Profile field and is never returned by this vetting boundary.
+    pub verified_instructor_display_name: String,
+}
+
+impl CompleteInstructorIdentityVettingInput {
+    /// Accepts only the canonical lookup form; the Store never accepts an actor or role.
+    pub fn validate(&self) -> Result<(), StoreError> {
+        let email = &self.normalized_email;
+        if !(3..=320).contains(&email.len()) || email != &email.trim().to_lowercase() {
+            return Err(StoreError::InvalidRecord(
+                "Instructor identity vetting email is invalid".to_string(),
+            ));
+        }
+        let display_name = &self.verified_instructor_display_name;
+        if display_name != display_name.trim()
+            || !(1..=200).contains(&display_name.chars().count())
+            || display_name.chars().any(char::is_control)
+        {
+            return Err(StoreError::InvalidRecord(
+                "Verified Instructor display name is invalid".to_string(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl CreateInstructorAccountInput {
@@ -86,6 +146,16 @@ impl DeactivateInstructorAccountInput {
 /// Sysadmin-only Store boundary for Instructor Accounts.
 #[async_trait]
 pub trait InstructorAccountStore: Send + Sync {
+    /// Records one immutable completed identity-vetting fact for a candidate.
+    ///
+    /// The authenticated Sysadmin is derived from `session_token_hash`; callers
+    /// cannot provide an approving Account or Product Role.
+    async fn complete_instructor_identity_vetting(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: CompleteInstructorIdentityVettingInput,
+    ) -> Result<InstructorIdentityVettingDecisionReference, StoreError>;
+
     /// Lists browser-safe rows with only the authenticated Sysadmin's display zone.
     async fn list_instructor_accounts(
         &self,

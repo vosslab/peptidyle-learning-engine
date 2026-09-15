@@ -48,7 +48,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Before production, edit the main database design directly as the design changes.
 - After production, update existing databases without rebuilding them from scratch.
 - PLE is pre-production with no users or durable production data. Improve the design directly.
-- Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](NAMING_CONVENTIONS.md) for details.
+- Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
 - Adaptability should be a focus so the software can evolve as requirements and insights change.
 - Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
 - If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
@@ -62,7 +62,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
 - All Podman content on the Mac-Studio-36G machine belongs to this project.
 - Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.
-- The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
+- The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
 - PLE should use one global installation with no institution boundaries.
 - Project images and simulated live-stack data are disposable acceptance infrastructure.
 - `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
@@ -428,6 +428,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - FERPA-sensitive Student data should not become ordinary logs, analytics, URLs, or long-lived browser storage.
 - Opaque IDs remain FERPA-sensitive when they link a Student to Course activity.
 
+### Human-facing reference IDs
+
+- Human-facing reference IDs should be short, opaque, easy to communicate, and should not reveal creation order, counts, database keys, ownership, or other object metadata.
+- Blueprint Course IDs use `BP`, Course Instance IDs use `CI`, Assessment IDs use `A`, and Account IDs use `U`, followed directly by a common cryptographically random Crockford Base32 reference format.
+- ID generation enforces uniqueness and retries random collisions.
+- Give an internal object a human-facing reference ID when a useful workflow needs to display, search, communicate, or support it.
+- Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
+- Published Questions and published Question Pools retain their existing public `AAAA-ZBBB` IDs.
+
 ### Student and FERPA data
 
 - **Student** course data falls under FERPA; treat it as radioactive.
@@ -574,6 +583,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Each Question Backend adapter retains its backend-specific interaction knowledge.
 - PLE-native Questions use the PLE Question Backend.
 - WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
+- Question Backend feedback is transient unless the backend provides a robust way for PLE to preserve it.
+- PLE does not extract or reconstruct transient feedback from Question Backend source or output.
+- Questions may have PLE-managed general feedback that remains separate from backend-generated interaction feedback.
 - H5P owns its runtime, interactions, state, and scoring.
 - iMathAS owns its rendering and evaluation.
 - Question Backends may support more complex interactions without requiring PLE to implement those interactions.
@@ -583,14 +595,20 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   state.
 - Assessment scores are calculated from stored credit fractions and current Question point values.
 - Changing Question point values recalculates scores without another Question Backend interaction.
-- When parameterized WeBWorK source exists, prefer it to importing static variants.
+- Preserve the distinction between WeBWorK PG and PGML source. A Question should be identified as PGML only when its source is fully PGML-compliant; otherwise identify it as PG.
+- BiologyProblems.org imports should preserve whether the canonical algorithmic source is PG or PGML rather than treating both formats generically as PG/PGML.
+- When parameterized WeBWorK PG or PGML source exists, prefer it to importing static variants.
+- Preserve backend-native algorithmic variation rather than expanding one algorithmic Question into static variants.
+- One algorithmic Question remains one Published Question regardless of how many variants its Question Backend can generate.
+- Use a Question Pool with algorithmic Questions only when the Instructor wants selection among distinct Questions, not to represent variants of one algorithmic Question.
+- BiologyProblems.org WeBWorK problems should be imported from their canonical algorithmic PG or PGML source rather than from generated static variants.
+- Multiple static BiologyProblems.org questions generated from one algorithmic source represent one Published Question, not separate Published Questions or a Question Pool.
 
 ### Question Pools
 
 - A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
-- Question Pools are primarily designed for static Question variations.
 - Pool contents should represent reasonably interchangeable assessments of the intended learning.
-- Question Backend Questions may also be included in Question Pools.
+- Question Pools may contain Questions from any Question Backend.
 - Each member of a Question Pool is a **Published Question**.
 - Question Pools are always published and have no draft or unpublished state.
 - A Question Pool is an independently reusable Question Library object.

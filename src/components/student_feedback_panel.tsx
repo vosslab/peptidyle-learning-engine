@@ -12,7 +12,7 @@ import {
 
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentFeedback } from "../../generated/api/StudentFeedback";
-import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
+import type { AssessmentScoringState } from "../../generated/api/AssessmentScoringState";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import { formatPointScore, formatScoreValue } from "../score_format";
 
@@ -27,12 +27,12 @@ export type StudentFeedbackPresentation =
   | {
       readonly kind: "awaiting";
       readonly feedback: null;
-      readonly assignmentScoringState: AssignmentScoringState;
+      readonly assessmentScoringState: AssessmentScoringState;
     }
   | {
       readonly kind: "released";
       readonly feedback: StudentFeedback;
-      readonly assignmentScoringState: AssignmentScoringState;
+      readonly assessmentScoringState: AssessmentScoringState;
     };
 
 export interface StudentFeedbackPanelProps {
@@ -54,7 +54,7 @@ function assertNever(value: never): never {
 }
 
 function outcomeHeading(disclosure: StudentFeedbackPresentation): string {
-  if (disclosure.kind === "awaiting" || disclosure.assignmentScoringState !== "current") {
+  if (disclosure.kind === "awaiting" || disclosure.assessmentScoringState !== "current") {
     return "Response recorded";
   }
   if (disclosure.feedback.correctness === true) {
@@ -68,10 +68,10 @@ function outcomeHeading(disclosure: StudentFeedbackPresentation): string {
 
 /** Exposed for focused behavior tests and so the neutral copy stays consistent with the heading. */
 export function studentFeedbackAnnouncement(disclosure: StudentFeedbackPresentation): string {
-  if (disclosure.assignmentScoringState === "recalculating") {
+  if (disclosure.assessmentScoringState === "recalculating") {
     return "Your response was recorded. Your score is being updated.";
   }
-  if (disclosure.assignmentScoringState === "failed") {
+  if (disclosure.assessmentScoringState === "failed") {
     return "Your response was recorded. Your score is waiting for instructor review.";
   }
   if (disclosure.kind === "awaiting") {
@@ -281,6 +281,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
                   hasBlocks(released().choiceFeedback) ||
                   hasBlocks(released().correctFeedback) ||
                   hasBlocks(released().incorrectFeedback) ||
+                  hasBlocks(released().generalFeedback) ||
                   hasBlocks(released().questionAnswer) ||
                   hasBlocks(released().questionAnswerExplanation)
                 }
@@ -317,6 +318,14 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
                 assetUrl={props.assetUrl}
               />
             </Show>
+            <Show when={hasBlocks(released().generalFeedback)}>
+              <StudentFeedbackSection
+                title="General Feedback"
+                blocks={released().generalFeedback ?? []}
+                questionRevision={props.questionRevision}
+                assetUrl={props.assetUrl}
+              />
+            </Show>
             <Show when={hasBlocks(released().questionAnswer)}>
               <StudentFeedbackSection
                 title="Question Answer"
@@ -339,7 +348,7 @@ export function StudentFeedbackPanel(props: StudentFeedbackPanelProps): JSX.Elem
       <Show
         when={
           props.disclosure.kind === "released" &&
-          props.disclosure.assignmentScoringState !== "current"
+          props.disclosure.assessmentScoringState !== "current"
         }
       >
         <p class="student-feedback-panel__empty">{studentFeedbackAnnouncement(props.disclosure)}</p>

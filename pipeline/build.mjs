@@ -44,18 +44,38 @@ const wasmWebDir = path.join(repoRoot, "dist_wasm", "web");
 const STATIC_STYLESHEETS = [
   "styles/browser_fonts.css",
   "style.css",
+  "styles/product_role.css",
   "styles/accessibility.css",
   "styles/ple_embed.css",
 ];
 const PUBLIC_BROWSER_FILES = ["ple_bridge.js"];
 const BROWSER_FONT_STYLESHEET = "styles/browser_fonts.css";
 const RIBBON_ICON_SPRITE = "assets/ribbon-icons.svg";
-const BROWSER_FONT_ASSET_DIR = "assets/fonts/atkinson_hyperlegible_next";
-const REQUIRED_BROWSER_FONT_ASSETS = [
-  "atkinson_hyperlegible_next_variable.woff2",
-  "atkinson_hyperlegible_next_variable_italic.woff2",
-  "ofl_1_1.txt",
-  "provenance.txt",
+const AVATAR_CATALOG_MANIFEST = "assets/avatar_catalog/manifest.json";
+const AVATAR_CATALOG_SOURCE_DIRECTORY = "assets/avatar_catalog";
+const AVATAR_CATALOG_DIST_DIRECTORY = "assets/avatar_catalog";
+const SAFE_AVATAR_CATALOG_FILE = /^svg\/[a-z][a-z0-9]*(?:-[a-z0-9]+)*\.svg$/u;
+const BROWSER_FONT_BUNDLES = [
+  {
+    family: "Atkinson Hyperlegible Next",
+    assetDir: "assets/fonts/atkinson_hyperlegible_next",
+    assets: [
+      "atkinson_hyperlegible_next_variable.woff2",
+      "atkinson_hyperlegible_next_variable_italic.woff2",
+      "ofl_1_1.txt",
+      "provenance.txt",
+    ],
+  },
+  {
+    family: "Atkinson Hyperlegible Mono",
+    assetDir: "assets/fonts/atkinson_hyperlegible_mono",
+    assets: [
+      "atkinson_hyperlegible_mono_variable.woff2",
+      "atkinson_hyperlegible_mono_variable_italic.woff2",
+      "ofl_1_1.txt",
+      "provenance.txt",
+    ],
+  },
 ];
 
 //============================================
@@ -200,17 +220,65 @@ function copyRibbonIconSprite() {
  * @returns {void}
  */
 function copyBrowserFontAssets() {
-  const sourceDir = path.join(srcDir, BROWSER_FONT_ASSET_DIR);
-  const targetDir = path.join(distDir, BROWSER_FONT_ASSET_DIR);
-  for (const asset of REQUIRED_BROWSER_FONT_ASSETS) {
-    const sourcePath = path.join(sourceDir, asset);
-    if (!fs.existsSync(sourcePath)) {
-      throw new Error(
-        `browser font asset missing at ${sourcePath}; restore the locally bundled Atkinson Hyperlegible Next distribution`,
-      );
+  for (const bundle of BROWSER_FONT_BUNDLES) {
+    const sourceDir = path.join(srcDir, bundle.assetDir);
+    const targetDir = path.join(distDir, bundle.assetDir);
+    for (const asset of bundle.assets) {
+      const sourcePath = path.join(sourceDir, asset);
+      if (!fs.existsSync(sourcePath)) {
+        throw new Error(
+          `browser font asset missing at ${sourcePath}; restore the locally bundled ${bundle.family} distribution`,
+        );
+      }
+      fs.mkdirSync(targetDir, { recursive: true });
+      fs.copyFileSync(sourcePath, path.join(targetDir, asset));
     }
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.copyFileSync(sourcePath, path.join(targetDir, asset));
+  }
+}
+
+//============================================
+
+/** Reads only the manifest-declared, static provided-avatar SVG paths. */
+function avatarCatalogFiles() {
+  const manifestPath = path.join(repoRoot, AVATAR_CATALOG_MANIFEST);
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (!Array.isArray(manifest.avatars) || manifest.avatars.length === 0) {
+    throw new Error("provided-avatar manifest must declare at least one avatar");
+  }
+  const files = manifest.avatars.map((avatar) => avatar.file);
+  if (
+    files.some((file) => typeof file !== "string" || !SAFE_AVATAR_CATALOG_FILE.test(file)) ||
+    new Set(files).size !== files.length
+  ) {
+    throw new Error("provided-avatar manifest must declare unique safe SVG file paths");
+  }
+  return files;
+}
+
+//============================================
+
+/** Copies each closed-catalog SVG to the same absolute path emitted by its registry. */
+function copyAvatarCatalogAssets() {
+  for (const file of avatarCatalogFiles()) {
+    const sourcePath = path.join(repoRoot, AVATAR_CATALOG_SOURCE_DIRECTORY, file);
+    const targetPath = path.join(distDir, AVATAR_CATALOG_DIST_DIRECTORY, file);
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`provided-avatar source asset is missing at ${sourcePath}`);
+    }
+    fs.mkdirSync(path.dirname(targetPath), { recursive: true });
+    fs.copyFileSync(sourcePath, targetPath);
+  }
+}
+
+//============================================
+
+/** Fails if a generated avatar URL has no exact production asset. */
+function checkAvatarCatalogDelivery() {
+  for (const file of avatarCatalogFiles()) {
+    const deliveredPath = path.join(distDir, AVATAR_CATALOG_DIST_DIRECTORY, file);
+    if (!fs.existsSync(deliveredPath)) {
+      throw new Error(`build finished but provided-avatar asset ${deliveredPath} is missing`);
+    }
   }
 }
 
@@ -231,23 +299,29 @@ function checkBrowserFontDelivery() {
   if (fontFaceBlocks.some((block) => /https?:\/\//i.test(block))) {
     throw new Error("browser font stylesheet must not refer to remote font assets");
   }
-  for (const [style, asset] of [
-    ["normal", REQUIRED_BROWSER_FONT_ASSETS[0]],
-    ["italic", REQUIRED_BROWSER_FONT_ASSETS[1]],
-  ]) {
-    const fontFace = fontFaceBlocks.find((block) =>
-      new RegExp(`font-style\\s*:\\s*${style}\\s*;`).test(block),
-    );
-    if (!fontFace) {
-      throw new Error(`browser font stylesheet must define a local ${style} @font-face rule`);
-    }
-    if (!fontFace.includes(`/${BROWSER_FONT_ASSET_DIR}/${asset}`)) {
-      throw new Error(
-        `browser ${style} @font-face rule does not refer to local font asset ${asset}`,
+  for (const bundle of BROWSER_FONT_BUNDLES) {
+    for (const [style, asset] of [
+      ["normal", bundle.assets[0]],
+      ["italic", bundle.assets[1]],
+    ]) {
+      const fontFace = fontFaceBlocks.find(
+        (block) =>
+          block.includes(`font-family: "${bundle.family}"`) &&
+          new RegExp(`font-style\\s*:\\s*${style}\\s*;`).test(block),
       );
-    }
-    if (!fs.existsSync(path.join(distDir, BROWSER_FONT_ASSET_DIR, asset))) {
-      throw new Error(`build finished but dist/${BROWSER_FONT_ASSET_DIR}/${asset} is missing`);
+      if (!fontFace) {
+        throw new Error(
+          `browser font stylesheet must define a local ${bundle.family} ${style} @font-face rule`,
+        );
+      }
+      if (!fontFace.includes(`/${bundle.assetDir}/${asset}`)) {
+        throw new Error(
+          `browser ${bundle.family} ${style} @font-face rule does not refer to local font asset ${asset}`,
+        );
+      }
+      if (!fs.existsSync(path.join(distDir, bundle.assetDir, asset))) {
+        throw new Error(`build finished but dist/${bundle.assetDir}/${asset} is missing`);
+      }
     }
   }
 }
@@ -304,7 +378,9 @@ async function main() {
   copyPublicBrowserFiles();
   copyRibbonIconSprite();
   copyBrowserFontAssets();
+  copyAvatarCatalogAssets();
   checkBrowserFontDelivery();
+  checkAvatarCatalogDelivery();
 
   copyWasmBridge();
 
@@ -315,7 +391,10 @@ async function main() {
     ...STATIC_STYLESHEETS,
     ...PUBLIC_BROWSER_FILES,
     RIBBON_ICON_SPRITE,
-    ...REQUIRED_BROWSER_FONT_ASSETS.map((asset) => path.join(BROWSER_FONT_ASSET_DIR, asset)),
+    ...avatarCatalogFiles().map((file) => path.join(AVATAR_CATALOG_DIST_DIRECTORY, file)),
+    ...BROWSER_FONT_BUNDLES.flatMap((bundle) =>
+      bundle.assets.map((asset) => path.join(bundle.assetDir, asset)),
+    ),
   ]) {
     if (!fs.existsSync(path.join(distDir, required))) {
       throw new Error(`build finished but dist/${required} is missing`);

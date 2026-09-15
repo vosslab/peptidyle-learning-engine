@@ -64,7 +64,7 @@ impl InvitationExportStore for PostgresInvitationExportStore {
         let course_name = sqlx::query_scalar::<_, String>(
             "SELECT course_name FROM ple_api.load_invitation_export_course($1)",
         )
-        .bind(i64::from(course.number()))
+        .bind(course.as_string())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -72,7 +72,7 @@ impl InvitationExportStore for PostgresInvitationExportStore {
             "SELECT roster_email, roster_id \
              FROM ple_api.export_pending_course_invitations($1)",
         )
-        .bind(i64::from(course.number()))
+        .bind(course.as_string())
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;

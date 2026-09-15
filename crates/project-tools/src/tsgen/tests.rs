@@ -2,8 +2,7 @@ use std::fs;
 
 use super::model::{Generated, generate_enum, generate_struct};
 use super::output::{
-    GENERATED_HEADER, LEGACY_PROJECT_TOOLS_GENERATED_HEADER, LEGACY_XTASK_GENERATED_HEADER,
-    prepare_out_dir, render,
+    GENERATED_HEADER, QUESTION_ID_SYNTAX_CONTRACT_HEADER, prepare_out_dir, render,
 };
 use super::{generate_declarations, run};
 
@@ -48,26 +47,18 @@ fn output_cleanup_removes_stale_owned_types_but_refuses_authored_types() {
     prepare_out_dir(out_dir.path()).expect("owned stale output should be removable");
     assert!(!stale.exists());
     assert!(notes.exists());
-    let legacy_project_tools = out_dir.path().join("LegacyProjectTools.ts");
-    fs::write(
-        &legacy_project_tools,
-        format!(
-            "{LEGACY_PROJECT_TOOLS_GENERATED_HEADER}\nexport type LegacyProjectTools = string;\n"
-        ),
-    )
-    .expect("legacy generated type should be written");
-    prepare_out_dir(out_dir.path()).expect("exact legacy output should be migrated");
-    assert!(!legacy_project_tools.exists());
-    assert!(notes.exists());
-    let legacy_xtask = out_dir.path().join("LegacyXtask.ts");
-    fs::write(
-        &legacy_xtask,
-        format!("{LEGACY_XTASK_GENERATED_HEADER}\nexport type LegacyXtask = string;\n"),
-    )
-    .expect("legacy xtask generated type should be written");
-    prepare_out_dir(out_dir.path()).expect("exact xtask output should be migrated");
-    assert!(!legacy_xtask.exists());
-    assert!(notes.exists());
+    let question_id_contract = out_dir.path().join("QuestionIdSyntaxContract.ts");
+    let question_id_contract_content = format!(
+        "{QUESTION_ID_SYNTAX_CONTRACT_HEADER}\nexport const QUESTION_ID_COMPACT_LENGTH = 8;\n"
+    );
+    fs::write(&question_id_contract, &question_id_contract_content)
+        .expect("dedicated Question-ID contract should be written");
+    prepare_out_dir(out_dir.path()).expect("sibling generated contract should be preserved");
+    assert_eq!(
+        fs::read_to_string(&question_id_contract)
+            .expect("dedicated Question-ID contract should remain readable"),
+        question_id_contract_content
+    );
     let stale_content = format!("{GENERATED_HEADER}\nexport type Stale = string;\n");
     fs::write(&stale, &stale_content).expect("owned stale output should be restored");
     let authored = out_dir.path().join("Authored.ts");
@@ -135,6 +126,38 @@ fn duplicate_public_names_fail_before_owned_cleanup() {
         fs::read_to_string(&stale).expect("stale output should remain readable"),
         stale_content
     );
+}
+
+#[test]
+fn dedicated_question_id_contract_collision_fails_before_cleanup() {
+    let source_dir = TestDirectory::new("question-id-contract-collision-source");
+    let out_dir = TestDirectory::new("question-id-contract-collision-output");
+    fs::create_dir_all(source_dir.path()).expect("source directory should be created");
+    fs::create_dir_all(out_dir.path()).expect("output directory should be created");
+    fs::write(
+        source_dir.path().join("question_id_contract.rs"),
+        "#[derive(Serialize)]\npub struct QuestionIdSyntaxContract { pub value: String }\n",
+    )
+    .expect("contract source should be written");
+    let dedicated = out_dir.path().join("QuestionIdSyntaxContract.ts");
+    let dedicated_content = format!(
+        "{QUESTION_ID_SYNTAX_CONTRACT_HEADER}\nexport const QUESTION_ID_COMPACT_LENGTH = 8;\n"
+    );
+    fs::write(&dedicated, &dedicated_content).expect("dedicated contract should be written");
+    let stale = out_dir.path().join("Stale.ts");
+    let stale_content = format!("{GENERATED_HEADER}\nexport type Stale = string;\n");
+    fs::write(&stale, &stale_content).expect("tsgen stale output should be written");
+
+    let error = run(&[source_dir.path()], out_dir.path())
+        .expect_err("dedicated output collision must fail before cleanup");
+
+    assert!(
+        error
+            .to_string()
+            .contains("dedicated Question-ID syntax contract")
+    );
+    assert_eq!(fs::read_to_string(&dedicated).unwrap(), dedicated_content);
+    assert_eq!(fs::read_to_string(&stale).unwrap(), stale_content);
 }
 
 #[test]
@@ -281,12 +304,12 @@ fn public_u32_constants_become_safe_typescript_constants() {
     let source_dir = temporary_output_dir("u32-constant-source");
     let out_dir = temporary_output_dir("u32-constant-output");
     fs::create_dir_all(&source_dir).expect("temporary source directory should be created");
-    fs::write(source_dir.join("timing.rs"), "/// A browser-safe whole Assignment Attempt time limit.\npub const DEFAULT_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 900;\n").expect("temporary source should be written");
+    fs::write(source_dir.join("timing.rs"), "/// A browser-safe whole Assessment Attempt time limit.\npub const DEFAULT_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 900;\n").expect("temporary source should be written");
     run(&[source_dir.as_path()], &out_dir).expect("u32 constant should generate");
     assert!(
-        fs::read_to_string(out_dir.join("DEFAULT_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS.ts"))
+        fs::read_to_string(out_dir.join("DEFAULT_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS.ts"))
             .expect("generated constant should be readable")
-            .contains("export const DEFAULT_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS = 900 as const;")
+            .contains("export const DEFAULT_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS = 900 as const;")
     );
     fs::remove_dir_all(source_dir).expect("temporary source should be removed");
     fs::remove_dir_all(out_dir).expect("temporary output should be removed");

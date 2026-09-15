@@ -116,8 +116,9 @@ test("every reviewed theme resolves to complete, contrast-safe course tokens", (
   }
 });
 
-test("Grass uses the Roosevelt-inspired anchors and accessible derived actions", () => {
+test("Grassland uses the Roosevelt-inspired anchors and accessible derived actions", () => {
   const grass = courseThemeTokens("grass");
+  assert.equal(grass.name, "Grassland");
   assert.deepEqual(grass.anchors, {
     canvas: "#bddeb1",
     secondary: "#73c167",

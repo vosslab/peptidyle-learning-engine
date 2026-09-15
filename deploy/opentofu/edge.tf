@@ -166,6 +166,31 @@ resource "aws_cloudfront_distribution" "main" {
     cache_policy_id            = data.aws_cloudfront_cache_policy.caching_optimized.id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.browser.id
   }
+  # These are the only two public runtime files. Keep them on the API origin
+  # rather than widening the S3/static behavior, preserve no-cache from the
+  # server, and attach the narrowly required anonymous CORS/CORP policy.
+  ordered_cache_behavior {
+    path_pattern               = "/api/author-content-dependencies/rdkit/RDKit_minimal.js"
+    target_origin_id           = "api"
+    viewer_protocol_policy     = "https-only"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id   = aws_cloudfront_origin_request_policy.author_content_runtime.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.author_content_runtime.id
+  }
+  ordered_cache_behavior {
+    path_pattern               = "/api/author-content-dependencies/rdkit/RDKit_minimal.wasm"
+    target_origin_id           = "api"
+    viewer_protocol_policy     = "https-only"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id   = aws_cloudfront_origin_request_policy.author_content_runtime.id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.author_content_runtime.id
+  }
   # CloudFront's `/api/*` pattern does not match `/api` itself. Keep that
   # exact API root on the dynamic origin and API policy as well, rather than
   # letting it fall through to the static public-assets origin.
@@ -223,6 +248,25 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
   name = "Managed-AllViewer"
 }
 
+# Preserve the canonical viewer Host required by the API's production host
+# boundary without forwarding cookies, query strings, authorization, or any
+# other viewer input to these two anonymous public-runtime requests.
+resource "aws_cloudfront_origin_request_policy" "author_content_runtime" {
+  name = "${local.name}-author-content-runtime-host-only"
+  cookies_config {
+    cookie_behavior = "none"
+  }
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = ["Host"]
+    }
+  }
+  query_strings_config {
+    query_string_behavior = "none"
+  }
+}
+
 resource "aws_cloudfront_response_headers_policy" "browser" {
   name = "${local.name}-browser-security"
   security_headers_config {
@@ -257,6 +301,40 @@ resource "aws_cloudfront_response_headers_policy" "browser" {
     items {
       header   = "Cross-Origin-Resource-Policy"
       value    = "same-origin"
+      override = true
+    }
+  }
+}
+
+# The opaque author-content frame is a different browser origin. This policy
+# applies only to C901's two fixed reviewed runtime paths; it neither forwards
+# credentials nor grants CORS to API, static, or user-controlled paths.
+resource "aws_cloudfront_response_headers_policy" "author_content_runtime" {
+  name = "${local.name}-author-content-runtime"
+  cors_config {
+    access_control_allow_credentials = false
+    access_control_allow_headers {
+      items = ["*"]
+    }
+    access_control_allow_methods {
+      items = ["GET", "HEAD"]
+    }
+    access_control_allow_origins {
+      items = ["*"]
+    }
+    origin_override = true
+  }
+  security_headers_config {
+    content_type_options { override = true }
+    referrer_policy {
+      referrer_policy = "no-referrer"
+      override        = true
+    }
+  }
+  custom_headers_config {
+    items {
+      header   = "Cross-Origin-Resource-Policy"
+      value    = "cross-origin"
       override = true
     }
   }

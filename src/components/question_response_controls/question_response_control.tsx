@@ -34,7 +34,7 @@ export {
 } from "./imathas_question_backend";
 export { handleQuestionResponseControlKeyDown } from "./keyboard";
 
-/** Standalone multiple-choice entry point retained for the reference Assignment Attempt screen. */
+/** Standalone multiple-choice entry point retained for the reference Assessment Attempt screen. */
 export function MultipleChoiceResponse(
   props: import("./common").MultipleChoiceResponseProps,
 ): JSX.Element {
@@ -151,14 +151,14 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
         />
       );
     case "backendOwned":
-      return props.assignmentAttempt === undefined || props.position === undefined ? (
+      return props.assessmentAttempt === undefined || props.position === undefined ? (
         <p class="inline-error" role="alert">
           This Question document is not available right now.
         </p>
       ) : (
         <BackendOwnedDocument
           {...props}
-          assignmentAttempt={props.assignmentAttempt}
+          assessmentAttempt={props.assessmentAttempt}
           position={props.position}
         />
       );

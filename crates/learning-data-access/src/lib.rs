@@ -3,93 +3,122 @@
 //! Product adapters are added only with an exact account, course-membership,
 //! Student-ownership, workspace, observer-grant, or worker-lease contract.
 
-use domain::assignment_activity::AssignmentActivityError;
+use domain::assessment_activity::AssessmentActivityError;
 
+mod account_avatar;
 mod account_time_zone;
-mod assignment_attempt;
-mod assignment_delivery;
-mod assignment_release;
+mod assessment_attempt;
+mod assessment_delivery;
+mod assessment_pool_fork;
+mod assessment_release;
 mod attempt_expiry;
 mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
 mod blueprint_course;
+mod blueprint_lineage;
+mod blueprint_stewardship;
 mod course_banner;
 mod course_instance;
 mod course_roster;
 mod course_theme;
 mod imathas_question_backend_session;
 mod instructor_account;
-mod instructor_profile;
 mod invitation_export;
 mod live_gradebook;
 mod live_student_course_landing;
 mod object_record;
 mod pagination;
 pub mod postgres;
-mod profile_thumbnail;
 mod public_asset_publication;
 mod question_asset_delivery;
+mod question_bulk_metadata;
+mod question_fork;
 mod question_library;
+mod question_pool_creation;
 mod question_source;
+mod question_star;
+mod question_watch;
+mod question_watch_notification;
 mod random_uuid;
+mod retention;
+mod retention_notification;
 pub mod session;
 #[path = "contracts/store_error.rs"]
 mod store_error;
 mod support_capability;
 
+pub use account_avatar::{
+    AccountAvatar, AccountAvatarStore, AccountProfileImageDeleteWork, FinalizedAccountProfileImage,
+    PreparedAccountProfileImage, ProfileImageReference, ProvidedAvatarId,
+    SelectableProvidedAvatarId,
+};
 pub use account_time_zone::AccountTimeZoneStore;
-pub use assignment_attempt::{
-    AssignmentAttemptStart, AssignmentAttemptStartResult, AssignmentAttemptStore,
+pub use assessment_attempt::{
+    AssessmentAttemptStart, AssessmentAttemptStartResult, AssessmentAttemptStore,
     PreparedIssuedQuestion, PreparedQuestionPoolSelection,
 };
-pub use assignment_delivery::{
-    IssuedQuestionPresentation, LiveAssignmentAccess, LiveAssignmentAttempt,
-    LiveAssignmentAttemptScore, LiveAssignmentDeliveryStore, LiveAssignmentPreviousAttempt,
-    LiveAssignmentPreviousAttemptState, NativeAssignmentIssuanceBatch, NativePleIssuanceSource,
-    NativePresentationInput, NativeWebworkIssuanceSource, ReadyQuestionAssetRendition,
-    StudentAssignmentAttemptBackendDocument, StudentAssignmentAttemptBackendDocumentResume,
-    StudentAssignmentAttemptContext, StudentAssignmentAttemptFinalization,
-    StudentAssignmentAttemptFinalizationBackend, StudentAssignmentAttemptFinalizationEvaluation,
-    StudentAssignmentAttemptFinalizationKind, StudentAssignmentAttemptFinalizationPreparation,
-    StudentAssignmentAttemptFinalizationPreparationOutcome,
-    StudentAssignmentAttemptFinalizationSource, StudentAssignmentAttemptHistory,
-    StudentAssignmentAttemptHistoryAssignment, StudentAssignmentAttemptHistoryCourse,
-    StudentAssignmentAttemptHistoryEvidence, StudentAssignmentAttemptHistoryQuestion,
-    StudentAssignmentAttemptHistoryResponseSource, StudentAssignmentAttemptPresentationEvidence,
-    StudentAssignmentAttemptPresentationSource, StudentAssignmentAttemptSavedResponse,
+pub use assessment_delivery::{
+    IssuedQuestionPresentation, LiveAssessmentAccess, LiveAssessmentAttempt,
+    LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, LiveAssessmentPreviousAttempt,
+    LiveAssessmentPreviousAttemptState, NativeAssessmentIssuanceBatch, NativePleIssuanceSource,
+    NativePresentationInput, NativeWebworkIssuanceSource, QuestionIssuanceReproductionInput,
+    ReadyQuestionAssetRendition, StudentAssessmentAttemptBackendDocument,
+    StudentAssessmentAttemptBackendDocumentResume, StudentAssessmentAttemptContext,
+    StudentAssessmentAttemptFinalization, StudentAssessmentAttemptFinalizationBackend,
+    StudentAssessmentAttemptFinalizationEvaluation, StudentAssessmentAttemptFinalizationKind,
+    StudentAssessmentAttemptFinalizationPreparation,
+    StudentAssessmentAttemptFinalizationPreparationOutcome,
+    StudentAssessmentAttemptFinalizationSource, StudentAssessmentAttemptHistory,
+    StudentAssessmentAttemptHistoryAssessment, StudentAssessmentAttemptHistoryCourse,
+    StudentAssessmentAttemptHistoryEvidence, StudentAssessmentAttemptHistoryQuestion,
+    StudentAssessmentAttemptHistoryResponseSource, StudentAssessmentAttemptPresentationEvidence,
+    StudentAssessmentAttemptPresentationSource, StudentAssessmentAttemptSavedResponse,
 };
-pub use assignment_release::{
-    AssignmentPreview, AssignmentQuestionPickerEntry, AssignmentReleaseIssue,
-    AssignmentReleaseValidation, AssignmentUnreleaseImpact, AuthoredAssignmentQuestion,
-    CourseAssignmentSourceChoice, CourseAssignmentSummary, CreateLiveAssignmentInput,
-    DueSoonAssignmentSummary, DueSoonAssignments, LiveAssignmentStore, LiveAssignmentWorkspace,
-    SaveBaseAssignmentPolicyInput, SaveLiveAssignmentInlineInput, SaveLiveAssignmentInput,
-    UnreleasedLiveAssignment,
+pub use assessment_pool_fork::{
+    AppendAssessmentPoolForkRevisionInput, AppendedAssessmentPoolForkRevision,
+    AssessmentPoolForkStore, ImportAssessmentPoolForkInput, ImportedAssessmentPoolFork,
+};
+pub use assessment_release::{
+    AssessmentPreview, AssessmentQuestionPickerEntry, AssessmentReleaseIssue,
+    AssessmentReleaseValidation, AssessmentUnreleaseImpact, AuthoredAssessmentQuestion,
+    CourseAssessmentSourceChoice, CourseAssessmentSummary, CreateLiveAssessmentInput,
+    DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore, LiveAssessmentWorkspace,
+    SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
+    UnreleasedLiveAssessment,
 };
 pub use attempt_expiry::{
-    AssignmentAttemptExpirySweepStore, ExpiredAssignmentAttemptFinalizationPreparation,
+    AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation,
 };
 pub use authentication_ceremony::{
     AuthenticatedAccount, AuthenticationCeremonyLifetime, AuthenticationCeremonyStore,
     AuthenticationSecretHash, EmailAuthenticationChallenge, EmailAuthenticationChallengeId,
     EmailAuthenticationPurpose, MAX_AUTHENTICATION_CEREMONY_SECONDS, Passkey, PasskeyCeremonyId,
-    PasskeyId,
+    PasskeyId, PendingSysadminTotpAttestation, SysadminTotpAttestationId, SysadminTotpCounter,
+    SysadminTotpSeed, SysadminTotpStore, SysadminTotpVerificationReservation,
 };
 pub use authentication_email::{
     AuthenticationEmail, AuthenticationEmailError, EmailDomain, MAX_AUTHENTICATION_EMAIL_BYTES,
 };
 pub use authoring::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
-    SaveAuthoringDraftInput,
+    SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
 };
 pub use blueprint_course::{
-    BlueprintCourseStore, StoredBlueprintAssignment, StoredBlueprintAssignmentContent,
-    StoredBlueprintAssignmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
+    BlueprintCourseStore, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
+    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
     StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintRevision,
 };
-pub use browser_api_contract::student_assignment_decision::{
-    AssignmentStartDecision, StudentAssignmentDecisionSummary,
+pub use blueprint_lineage::{
+    BlueprintForkSource, BlueprintLineageStore, ForkBlueprintCourseReceipt,
+};
+pub use blueprint_stewardship::{
+    BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchEvent,
+    BlueprintCourseWatchEventKind, BlueprintCourseWatchProjection, BlueprintStewardshipState,
+    BlueprintStewardshipStore,
+};
+pub use browser_api_contract::student_assessment_decision::{
+    AssessmentStartDecision, StudentAssessmentDecisionSummary,
 };
 pub use course_banner::{
     ClaimedCourseBannerUpload, CourseBannerDeleteWork, CourseBannerObjectMetadata,
@@ -98,8 +127,8 @@ pub use course_banner::{
     StageCourseBannerUpload, StagedCourseBannerUpload,
 };
 pub use course_instance::{
-    CourseCreationInstructor, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
-    CreateCourseInstanceInput, CreatedCourseInstance,
+    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceStore,
+    CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput, CreatedCourseInstance,
 };
 pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
@@ -126,11 +155,9 @@ pub(crate) use imathas_question_backend_session::{
     ImathasQuestionBackendSessionStorageParts, ImathasQuestionBackendStateCipherStorageParts,
 };
 pub use instructor_account::{
-    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountList,
-    InstructorAccountState, InstructorAccountStore, InstructorAccountSummary,
-};
-pub use instructor_profile::{
-    InstructorProfile, InstructorProfileStore, UpdateInstructorProfileInput,
+    CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
+    DeactivateInstructorAccountInput, InstructorAccountList, InstructorAccountState,
+    InstructorAccountStore, InstructorAccountSummary, InstructorIdentityVettingDecisionReference,
 };
 pub use invitation_export::{
     InvitationExportStore, InvitationMailerExport, InvitationMailerRecipient,
@@ -138,27 +165,47 @@ pub use invitation_export::{
 };
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
 pub use live_student_course_landing::{
-    LiveStudentAssignmentLandingSummary, LiveStudentCourseInvitationSummary,
+    LiveStudentAssessmentLandingSummary, LiveStudentCourseInvitationSummary,
     LiveStudentCourseLandingStore, LiveStudentCourseLandingSummary,
 };
 pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
-pub use profile_thumbnail::{
-    FinalizedProfileThumbnail, PreparedProfileThumbnail, ProfileThumbnailDeleteWork,
-    ProfileThumbnailStore,
-};
 pub use public_asset_publication::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
 pub use question_asset_delivery::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery};
+pub use question_bulk_metadata::{
+    BulkPublishedQuestionMetadataError, BulkPublishedQuestionMetadataInput,
+    BulkPublishedQuestionMetadataPatch, BulkPublishedQuestionMetadataResult,
+    BulkPublishedQuestionMetadataSelection, BulkPublishedQuestionMetadataStore,
+    MAX_BULK_QUESTION_METADATA_ITEMS,
+};
+pub use question_fork::{
+    ForkPublishedQuestionError, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
+    QuestionForkStore,
+};
 pub use question_library::{
     PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
+};
+pub use question_pool_creation::{
+    CreateQuestionPoolError, CreateQuestionPoolInput, CreatedQuestionPool,
+    QuestionPoolCreationStore,
 };
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
     DraftQuestionSourceBindingStore, DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
     ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
-    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
+    NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
+    NewQuestionLineagePublicationStore,
+};
+pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
+pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};
+pub use question_watch_notification::QuestionWatchNotificationStore;
+pub use retention::{CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore};
+pub use retention_notification::{
+    ClaimedCourseRetentionNotification, CourseRetentionNotificationAction,
+    CourseRetentionNotificationFailure, CourseRetentionNotificationStore,
+    VerifiedCourseRetentionNotificationDestination,
 };
 pub use session::{
     SessionId, SessionLifetime, SessionRecord, SessionStore, SessionTokenHash,
@@ -166,6 +213,6 @@ pub use session::{
 };
 pub use store_error::StoreError;
 pub use support_capability::{
-    IssueSupportCapabilityInput, SupportCapabilityReceipt, SupportCapabilityStore,
-    SupportMinimumProjection, SupportOperationKind,
+    IssueSupportRepairCapabilityInput, SupportRepairCapabilityReceipt,
+    SupportRepairCapabilityStore, SupportRepairCapabilityUseReceipt, SupportRepairResourceClass,
 };

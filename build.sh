@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
-# Full local build entry point. It builds Rust, WASM, generated TypeScript
-# definitions, fixtures, and the browser client in dependency order. The client
-# needs the generated types and WASM bridge. Correctness gates live in
-# ./check_codebase.sh; the per-stage timings below are diagnostic only.
-#
+# Full local build entry point: Rust, WASM, generated TypeScript, fixtures, and
+# browser client in dependency order. Correctness gates live in ./check_codebase.sh.
+# Per-stage timings below are diagnostic only.
 # Flags: --release (optimized) or --debug (default).
 #
 
@@ -73,13 +71,16 @@ else
 	wasm_profile_flag="--debug"
 fi
 
+run_stage avatar_catalog bash -lc 'source source_me.sh && python3 devel/generate_avatar_catalog.py --check'
+run_stage question_id_contract bash -lc 'source source_me.sh && python3 devel/generate_question_id_contract.py --check'
+
 # shellcheck disable=SC2086
 run_stage rust cargo build --workspace $cargo_profile_flag
 
 # shellcheck disable=SC2086
 run_stage wasm ./pipeline/build_wasm.sh $wasm_profile_flag
 
-run_stage tsgen cargo tools tsgen
+run_stage tsgen cargo tsgen
 run_stage fixtures cargo tools fixtures --check
 run_stage client node pipeline/build.mjs --skip-wasm
 

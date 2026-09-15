@@ -13,6 +13,13 @@ The authoritative exhaustive record is the
 
 ## Owning inventory
 
+## Evidence updates
+
+- Human-reference source review accepted typed `BP`, `CI`, `A`, and `U` parsing and browser/server
+  read/use boundaries; `U` use is limited to authenticated Account-management paths in the reviewed
+  code. This is not creation, randomness, collision-retry, or full authorization evidence, so the
+  Human Guidance reference-ID behaviors remain open.
+
 ### Accounts and roles -- Account rules
 
 - Email is not configured for the Live Demo yet; use the visible seeded-role entry for demo access.

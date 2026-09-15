@@ -321,6 +321,34 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 		"Student Assignment Access PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "course_instance_postgres",
+			"empty_course_has_no_initial_content_and_current_instructors_are_peers",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		authoring_environment,
+		workspace,
+		"Course lifecycle PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
+	_require_command(
+		runner,
+		[
+			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
+			"-p", "learning-data-access", "--features", "postgres",
+			"--test", "course_instance_postgres",
+			"course_creation_rejects_a_term_after_its_active_lifetime",
+			"--", "--ignored", "--exact", "--test-threads=1",
+		],
+		application_environment,
+		workspace,
+		"Course Active-lifetime PostgreSQL acceptance",
+		private_values + (admin_password, migrator_password, service_urls[0]),
+	)
 	verification_environment = dict(application_environment)
 	tool_argv = [
 		"cargo", "run", "--manifest-path", str(repository_root / "Cargo.toml"), "--quiet",

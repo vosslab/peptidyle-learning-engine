@@ -14,3 +14,25 @@
   margin: var(--ple-space-1) 0 0;
   color: var(--ple-muted);
 }
+
+.question-watch-control {
+  margin-block: var(--ple-space-3);
+}
+
+.question-star-control {
+  margin-block: var(--ple-space-3);
+}
+
+.question-star-control p {
+  margin-block: var(--ple-space-2);
+}
+
+.question-star-control h2 {
+  margin-block: var(--ple-space-2) var(--ple-space-1);
+  font-size: 1rem;
+}
+
+.question-star-control ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}

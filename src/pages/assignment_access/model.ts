@@ -1,4 +1,4 @@
-// model.ts - typed, browser-safe state helpers for assignment access modifiers.
+// model.ts - typed, browser-safe state helpers for assessment access modifiers.
 
 import type { HypotheticalStudentViewScenarioModifiers } from "../../../generated/api/HypotheticalStudentViewScenarioModifiers";
 import type { TeachingTimeFieldPatch } from "../../../generated/api/TeachingTimeFieldPatch";
@@ -10,7 +10,7 @@ export interface ModifierPatchDraft {
   readonly availableAt: { readonly kind: PatchKind; readonly value: string };
   readonly dueAt: { readonly kind: PatchKind; readonly value: string };
   readonly closesAt: { readonly kind: PatchKind; readonly value: string };
-  readonly assignmentAttemptTimeLimitSeconds: { readonly kind: PatchKind; readonly value: string };
+  readonly assessmentAttemptTimeLimitSeconds: { readonly kind: PatchKind; readonly value: string };
   readonly attemptLimit: { readonly kind: PatchKind; readonly value: string };
 }
 
@@ -19,7 +19,7 @@ export function emptyPatchDraft(): ModifierPatchDraft {
     availableAt: { kind: "inherit", value: "" },
     dueAt: { kind: "inherit", value: "" },
     closesAt: { kind: "inherit", value: "" },
-    assignmentAttemptTimeLimitSeconds: { kind: "inherit", value: "" },
+    assessmentAttemptTimeLimitSeconds: { kind: "inherit", value: "" },
     attemptLimit: { kind: "inherit", value: "" },
   };
 }
@@ -46,7 +46,7 @@ function timePatch(field: ModifierPatchDraft["availableAt"]): TeachingTimeFieldP
 }
 
 function limitPatch(
-  field: ModifierPatchDraft["assignmentAttemptTimeLimitSeconds"],
+  field: ModifierPatchDraft["assessmentAttemptTimeLimitSeconds"],
   label: string,
 ): { kind: "inherit" } | { kind: "set"; value: number } | { kind: "unrestricted" } {
   if (field.kind === "inherit") return { kind: "inherit" };
@@ -64,9 +64,9 @@ export function policyRequest(
       available_at: timePatch(draft.availableAt),
       due_at: timePatch(draft.dueAt),
       closes_at: timePatch(draft.closesAt),
-      assignment_attempt_time_limit_seconds: limitPatch(
-        draft.assignmentAttemptTimeLimitSeconds,
-        "Whole Assignment Attempt seconds",
+      assessment_attempt_time_limit_seconds: limitPatch(
+        draft.assessmentAttemptTimeLimitSeconds,
+        "Whole Assessment Attempt seconds",
       ),
       attempt_limit: limitPatch(draft.attemptLimit, "Attempt limit"),
     },

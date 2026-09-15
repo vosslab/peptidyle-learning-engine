@@ -2,13 +2,53 @@
 
 /* Atkinson Hyperlegible Next is bundled with the browser application. Its
  * distinctive letterforms make ordinary interface text easier to distinguish;
- * code and alignment-specific views keep their explicit monospace rules. */
+ * code and alignment-specific views use the bundled Mono family. */
 @font-face {
   font-family: "Atkinson Hyperlegible Next";
   font-style: normal;
   font-weight: 200 800;
   font-display: swap;
   src: url("/assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable.woff2")
+    format("woff2");
+}
+
+:root {
+  --ple-font-mono:
+    "Atkinson Hyperlegible Mono",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+}
+
+/* Source, keys, and aligned identifiers need a true fixed-width face. */
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--ple-font-mono);
+}
+
+/* Mono is a separate family, retained locally so code and aligned identifiers
+ * remain legible without a third-party font request. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable_italic.woff2")
     format("woff2");
 }
 

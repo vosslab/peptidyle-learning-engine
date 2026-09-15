@@ -19,6 +19,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeBlueprintCourseReference, decodeBlueprintRevision } from "./blueprint_course";
+import { isCanonicalAccountReference } from "./instructor_account";
 import { decodeCourseTerm } from "./course_term";
 import {
   decodeCourseInstanceReference,
@@ -29,7 +30,7 @@ import {
 
 function accountReference(value: unknown, path: string): AccountReference {
   const decoded = decodeString(value, path);
-  if (!/^U-[1-9][0-9]{0,9}$/u.test(decoded) || Number(decoded.slice(2)) > 2_147_483_647) {
+  if (!isCanonicalAccountReference(decoded)) {
     throw new DecodeError(path, "a canonical Account public reference");
   }
   return decoded;

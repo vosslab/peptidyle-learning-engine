@@ -28,7 +28,15 @@ fn timestamp() -> Timestamp {
 }
 
 fn source_record(workspace: WorkspaceId, media_type: &str) -> ObjectRecord {
-    let id = ObjectId::from_uuid(Uuid::from_u128(0xa711));
+    source_record_with_id(workspace, media_type, 0xa711)
+}
+
+fn source_record_with_id(
+    workspace: WorkspaceId,
+    media_type: &str,
+    object_id: u128,
+) -> ObjectRecord {
+    let id = ObjectId::from_uuid(Uuid::from_u128(object_id));
     ObjectRecord {
         id,
         storage_area: ObjectStorageArea::PrivateContent,
@@ -106,6 +114,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
                 CreateAuthoringDraftInput {
                     draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(0xa704)),
                     source_record: source_record(workspace, media_type),
+                    question_format: QuestionFormat::WebworkPg,
                     webwork_pg_path: webwork_pg_path.map(str::to_owned),
                     question_type: QuestionType::MultipleChoice,
                     title: "Rejected source tuple".to_owned(),
@@ -128,6 +137,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
             CreateAuthoringDraftInput {
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(0xa705)),
                 source_record: source_record.clone(),
+                question_format: QuestionFormat::WebworkPg,
                 webwork_pg_path: Some("Library/Genetics/linked_traits.pg".to_owned()),
                 question_type: QuestionType::MultipleChoice,
                 title: "Connected WeBWorK Draft".to_owned(),
@@ -163,6 +173,48 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
             Some("Library/Genetics/linked_traits.pg".to_owned()),
         )
     );
+
+    // PGML is trusted explicit import/authoring provenance, never a filename
+    // inference. The same WebWork backend stores its exact immutable format.
+    let pgml_source_record = source_record_with_id(workspace, "text/x-wework-pg", 0xa712);
+    let pgml_draft = drafts
+        .create_authoring_draft(
+            session,
+            workspace,
+            CreateAuthoringDraftInput {
+                draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(0xa706)),
+                source_record: pgml_source_record,
+                question_format: QuestionFormat::WebworkPgml,
+                webwork_pg_path: Some("Library/Genetics/reviewed.pgml".to_owned()),
+                question_type: QuestionType::MultipleChoice,
+                title: "Connected reviewed PGML Draft".to_owned(),
+                description: "A store-level explicit PGML provenance oracle.".to_owned(),
+                language: "en".to_owned(),
+            },
+        )
+        .await
+        .expect("reviewed PGML Draft Question creation");
+    let mut pgml_catalog_transaction = admin
+        .begin()
+        .await
+        .expect("PGML catalog assertion transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *pgml_catalog_transaction)
+        .await
+        .expect("PGML private catalog assertion role");
+    let pgml_format: String = sqlx::query_scalar(
+        "SELECT question_format FROM ple_private.draft_question_source_binding \
+         WHERE draft_question_uuid = $1",
+    )
+    .bind(pgml_draft.draft_question_uuid.as_uuid())
+    .fetch_one(&mut *pgml_catalog_transaction)
+    .await
+    .expect("reviewed PGML source format");
+    pgml_catalog_transaction
+        .commit()
+        .await
+        .expect("PGML catalog assertion commit");
+    assert_eq!(pgml_format, "webworkPgml");
 
     let confirmation = DraftQuestionSourceBindingInput {
         draft_question_uuid: draft.draft_question_uuid,

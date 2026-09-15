@@ -236,12 +236,7 @@ fn prepared_fixture() -> (CourseId, CourseBannerReference, PreparedFixtureObject
         ObjectAddress::CourseBannerRendition {
             course,
             banner,
-            rendition: CourseBannerRendition::Hero,
-        },
-        ObjectAddress::CourseBannerRendition {
-            course,
-            banner,
-            rendition: CourseBannerRendition::Card,
+            rendition: CourseBannerRendition::Banner,
         },
     ];
     let values = addresses
@@ -257,6 +252,8 @@ fn prepared_fixture() -> (CourseId, CourseBannerReference, PreparedFixtureObject
                 } else {
                     "image/webp".to_string()
                 },
+                if index == 0 { 50 } else { 1280 },
+                if index == 0 { 10 } else { 256 },
             );
             (address, bytes, metadata)
         })
@@ -329,12 +326,12 @@ async fn prepared_banner_writes_complete_only_after_each_exact_put() {
         .await
         .is_ok()
     );
-    assert_eq!(store.completed.lock().unwrap().len(), 3);
+    assert_eq!(store.completed.lock().unwrap().len(), 2);
 }
 
 #[tokio::test]
 async fn prepared_banner_put_failure_never_completes_later_objects() {
-    for failure in 1..=3 {
+    for failure in 1..=2 {
         let (course, banner, values) = prepared_fixture();
         let store = CompletionStore::default();
         let objects = FaultObjectStore {
@@ -394,7 +391,7 @@ async fn staged_put_failure_repairs_without_finalizing() {
     let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(82));
     let address = ObjectAddress::CourseBannerUpload { course, upload };
     let bytes = b"stage".to_vec();
-    let metadata = banner_metadata(&address, &bytes, "image/png".to_string());
+    let metadata = banner_metadata(&address, &bytes, "image/png".to_string(), 50, 10);
     let store = CompletionStore::default();
     let objects = FaultObjectStore {
         fail_put: Some(1),
@@ -426,7 +423,7 @@ async fn staged_finalize_failure_deletes_and_repairs() {
     let upload = CourseBannerUploadReference::from_uuid(Uuid::from_u128(84));
     let address = ObjectAddress::CourseBannerUpload { course, upload };
     let bytes = b"stage".to_vec();
-    let metadata = banner_metadata(&address, &bytes, "image/png".to_string());
+    let metadata = banner_metadata(&address, &bytes, "image/png".to_string(), 50, 10);
     let store = CompletionStore {
         fail_stage_finalize: true,
         ..Default::default()

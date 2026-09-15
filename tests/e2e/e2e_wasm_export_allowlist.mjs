@@ -25,7 +25,7 @@ const expectedExports = [
   { name: "validate_assignment_config", kind: "function" },
   { name: "validate_presentation_response_format", kind: "function" },
   { name: "validate_response_format", kind: "function" },
-  { name: "verify_presentation_descriptor", kind: "function" },
+  { name: "verify_native_static_presentation_descriptor", kind: "function" },
 ];
 
 const repoRoot = process.cwd();

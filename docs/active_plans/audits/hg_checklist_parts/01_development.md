@@ -46,7 +46,7 @@ PLE product or code behavior.
 - N/A Prefer durable long-term fixes when the additional cost is justified.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Prefer adaptable boundaries and simple domain concepts over speculative edge-case machinery.
-  - Reason: agent instruction, not implemented PLE product behavior.
+  - Reason: not separately testable or individually closable product behavior; it remains a binding review constraint on implementation choices.
 - N/A Add product states, workflows, background processing, and recovery mechanisms only for a
   demonstrated product or Question Backend need.
   - Reason: agent instruction, not implemented PLE product behavior.
@@ -60,8 +60,9 @@ PLE product or code behavior.
   - Evidence (source): `src/styles/product_role.css` `.ple-app-ribbon__product-role[data-product-role]` owns the extracted shared role-color selectors; `src/index.html` `styles/product_role.css` loads that focused stylesheet after `style.css`.
   - Evidence (source): `pipeline/build.mjs` `STATIC_STYLESHEETS` copies and fingerprints `styles/product_role.css` into the production build.
   - Evidence (test): `tests/e2e/e2e_ribbon_production_styles.mjs` `production CSS includes the Ribbon root rule` rebuilds and inspects the emitted production CSS.
-- [x] PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior.
+- [ ] PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` rejects migration while the base release is pre-production and requires direct base-schema correction.
+  - Mismatch: this database-only guard does not prove that every live alternate reader, writer, route, parser, DTO, client, fallback, alias, or migration path has been removed. The obsolete Assessment route layer and tsgen retired-header migration are gone, but live CI/A/U/BP client guards and receipt formats remain under audit. One Unrelease mutation path was found; no duplicate-current-path claim is made.
 - [x] Use SQL directly to create the initial PostgreSQL database.
   - Evidence (source): `schemas/base_schema/install.sql` ordered `psql` installation manifest creates the base database schema.
 - [x] Before production, edit the main database design directly as the design changes.
@@ -69,8 +70,9 @@ PLE product or code behavior.
 - [x] After production, update existing databases without rebuilding them from scratch.
   - Evidence (source): `local_stack_control/lifecycle_migrations.py` `database_operation_for` selects `migrate` after initial installation.
 
-- [x] PLE is pre-production with no users or durable production data. Improve the design directly.
+- [ ] PLE is pre-production with no users or durable production data. Improve the design directly.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` makes direct base-schema correction the pre-production path.
+  - Mismatch: this database-only guard does not prove that every live alternate reader, writer, route, parser, DTO, client, fallback, alias, or migration path has been removed. The obsolete Assessment route layer and tsgen retired-header migration are gone, but live CI/A/U/BP client guards and receipt formats remain under audit. One Unrelease mutation path was found; no duplicate-current-path claim is made.
 - [x] Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
   - Evidence (source): `devel/development_conformance_audit.py` `current_source_paths` inventories tracked and untracked current-worktree source files without opening deleted paths; `source_name_violations` enforces readable snake_case names.
   - Evidence (source): `devel/development_conformance_audit.py` `load_allowlist` permits only exact documented external-name exceptions owned by approved authority sections.
@@ -79,9 +81,9 @@ PLE product or code behavior.
   - Reason: future development-direction guidance; it makes no current PLE product behavior claim.
 - [x] Cargo, Node, and PyPI dependencies should use the latest versions to include security fixes.
   - Evidence (source): `devel/dependency_freshness_audit.py` `check_cargo`, `check_node`, and `check_pypi` fail closed unless every direct manifest dependency matches the dated primary-registry snapshot.
-  - Evidence (source): `devel/dependency_freshness_snapshot.json` `"snapshot_date": "2026-09-14"` records all 43 direct dependencies and permits only the reviewed `aws-sdk-s3` security-release and `typescript` compatibility exceptions.
+  - Evidence (source): `devel/dependency_freshness_snapshot.json` `"snapshot_date": "2026-09-14"` records every direct dependency. `cargo_exceptions` is empty; the only range exception is TypeScript's documented upstream compatibility cap.
   - Evidence (test): `tests/test_crate_boundaries.py` `test_registry_dependencies_use_open_latest_first_requirements` retains Cargo's open latest-first manifest contract.
-  - Decision: `devel/dependency_freshness_audit.py --check` passed on 2026-09-14. The snapshot is valid for 30 days; `aws-sdk-s3` remains at compatible security release 1.146.1 because 1.147.0 conflicts with current aws-config, and TypeScript remains at 6.0.3 because typescript-eslint excludes 7.0.2.
+  - Decision: PyPI declarations use one `>=` floor each, and `aws-sdk-s3` resolves the recorded current 1.147.0 release; no frozen AWS release is permitted. This declaration-and-resolution audit does not duplicate the separate workspace build gate, whose upstream Smithy failure remains an open build report. TypeScript retains its documented temporary upstream compatibility cap.
 - N/A If an interface is measured as too slow, consider moving the slow code to Rust/WebAssembly.
   - Reason: conditional future implementation option; it makes no current PLE product behavior claim.
 - [x] Do not create or leave placeholder database tables, states, APIs, workers, or compatibility scaffolding before the feature has an approved product design.

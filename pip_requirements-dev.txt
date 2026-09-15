@@ -1,14 +1,14 @@
 # === UNIVERSAL DEVELOPMENT DEPENDENCIES === [PROPAGATED - LOCAL EDITS OVERWRITTEN]
-bandit  # security linting for Python code
-graphifyy[ollama,sql,terraform]  # mapping with Ollama support plus SQL and Terraform parsing
-packaging  # version parsing/comparison helpers used by tooling/tests
-pyflakes  # static analysis lint checks
-pytest  # automated test runner
-rich  # formatted terminal output in developer tools
-tree-sitter  # Rust parsing for the Graphify cfg(test) prune step
-tree-sitter-rust  # Rust grammar for the Graphify cfg(test) prune step
+bandit>=1.9.4  # security linting for Python code
+graphifyy[ollama,sql,terraform]>=0.9.61  # mapping with Ollama support plus SQL and Terraform parsing
+packaging>=26.3  # version parsing/comparison helpers used by tooling/tests
+pyflakes>=3.4.0  # static analysis lint checks
+pytest>=9.1.1  # automated test runner
+rich>=15.0.0  # formatted terminal output in developer tools
+tree-sitter>=0.26.0  # Rust parsing for the Graphify cfg(test) prune step
+tree-sitter-rust>=0.24.2  # Rust grammar for the Graphify cfg(test) prune step
 
 # === LOCAL DEVELOPMENT DEPENDENCIES === [ADD REPOSITORY-SPECIFIC DEPENDENCIES HERE]
 
 # Development dependencies
-lxml  # XML parsing for Graphify SVG and documentation utilities
+lxml>=6.1.3  # XML parsing for Graphify SVG and documentation utilities

@@ -6,15 +6,83 @@
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU32;
 
-use crate::{AssignmentAttemptId, AssignmentId, CourseId, StudentRecordId, WorkspaceId};
+use crate::{AssessmentAttemptId, AssessmentId, CourseId, StudentRecordId, WorkspaceId};
 
 /// Largest route number that remains compact and lossless in every product layer.
 pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar.
 pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
-    "C", "A", "R", "W", "D", "G", "U", "M", "CI", "QC", "QS", "BP",
+    "R", "W", "D", "G", "U", "M", "I", "QC", "QS", "BP", "CI", "A",
 ];
+
+/// The alphabet used for short human reference identities.  It deliberately
+/// excludes the visually ambiguous Crockford letters I, L, O, and U.
+const CROCKFORD_BASE32: &str = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+macro_rules! impl_human_reference {
+    ($name:ident, $prefix:literal, $description:literal) => {
+        impl $name {
+            /// Builds a validated opaque reference returned by the data boundary.
+            pub fn new(value: impl AsRef<str>) -> Result<Self, &'static str> {
+                value.as_ref().parse()
+            }
+
+            /// The exact opaque string to bind at the public data boundary.
+            pub fn as_string(&self) -> String {
+                self.to_string()
+            }
+        }
+
+        impl std::fmt::Display for $name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let bytes = self.0.to_be_bytes();
+                let first = bytes
+                    .iter()
+                    .position(|byte| *byte != 0)
+                    .unwrap_or(bytes.len());
+                let value = std::str::from_utf8(&bytes[first..]).map_err(|_| std::fmt::Error)?;
+                f.write_str(value)
+            }
+        }
+
+        impl std::str::FromStr for $name {
+            type Err = &'static str;
+            fn from_str(value: &str) -> Result<Self, Self::Err> {
+                const PREFIX: &str = $prefix;
+                let Some(suffix) = value.strip_prefix(PREFIX) else {
+                    return Err(concat!($description, " has an invalid prefix"));
+                };
+                if suffix.len() != 6
+                    || !suffix
+                        .bytes()
+                        .all(|byte| CROCKFORD_BASE32.as_bytes().contains(&byte))
+                {
+                    return Err(concat!(
+                        $description,
+                        " must use six Crockford Base32 characters"
+                    ));
+                }
+                let packed = value
+                    .bytes()
+                    .fold(0u64, |packed, byte| (packed << 8) | u64::from(byte));
+                Ok(Self(packed))
+            }
+        }
+
+        impl TryFrom<String> for $name {
+            type Error = &'static str;
+            fn try_from(value: String) -> Result<Self, Self::Error> {
+                value.parse()
+            }
+        }
+        impl From<$name> for String {
+            fn from(value: $name) -> Self {
+                value.to_string()
+            }
+        }
+    };
+}
 
 macro_rules! impl_reference {
     ($name:ident, $prefix:literal, $description:literal) => {
@@ -77,13 +145,13 @@ macro_rules! impl_reference {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct CourseInstanceReference(NonZeroU32);
+pub struct CourseInstanceReference(u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AssignmentReference(NonZeroU32);
+pub struct AssessmentReference(u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AssignmentAttemptReference(NonZeroU32);
+pub struct AssessmentAttemptReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AuthoringWorkspaceReference(NonZeroU32);
@@ -94,7 +162,7 @@ pub struct DraftQuestionReference(NonZeroU32);
 /// An authorized Account Reference for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct AccountReference(NonZeroU32);
+pub struct AccountReference(u64);
 /// An authorized Course Membership Reference for one course-membership episode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -106,14 +174,14 @@ pub struct CourseInvitationReference(NonZeroU32);
 /// An authorized Blueprint Course Reference for one reusable Blueprint Course.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintCourseReference(NonZeroU32);
+pub struct BlueprintCourseReference(u64);
 
-impl_reference!(CourseInstanceReference, "C", "Course Instance reference");
-impl_reference!(AssignmentReference, "A", "assignment reference");
+impl_human_reference!(CourseInstanceReference, "CI", "Course Instance reference");
+impl_human_reference!(AssessmentReference, "A", "Assessment reference");
 impl_reference!(
-    AssignmentAttemptReference,
+    AssessmentAttemptReference,
     "R",
-    "Assignment Attempt reference"
+    "Assessment Attempt reference"
 );
 impl_reference!(
     AuthoringWorkspaceReference,
@@ -121,7 +189,7 @@ impl_reference!(
     "Authoring Workspace reference"
 );
 impl_reference!(DraftQuestionReference, "D", "Draft Question reference");
-impl_reference!(AccountReference, "U", "account reference");
+impl_human_reference!(AccountReference, "U", "Account reference");
 impl_reference!(
     CourseMembershipReference,
     "M",
@@ -129,10 +197,10 @@ impl_reference!(
 );
 impl_reference!(
     CourseInvitationReference,
-    "CI",
+    "I",
     "Course Invitation reference"
 );
-impl_reference!(BlueprintCourseReference, "BP", "Blueprint Course reference");
+impl_human_reference!(BlueprintCourseReference, "BP", "Blueprint Course reference");
 
 /// One authorized navigation target. IDs remain transport details after Store authorization.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -145,15 +213,15 @@ pub enum NavigationResolution {
     Course {
         course_id: CourseId,
     },
-    Assignment {
+    Assessment {
         course_id: CourseId,
-        assignment_id: AssignmentId,
+        assessment_id: AssessmentId,
     },
-    AssignmentAttempt {
+    AssessmentAttempt {
         course_id: CourseId,
-        assignment_id: AssignmentId,
+        assessment_id: AssessmentId,
         student_record_id: StudentRecordId,
-        assignment_attempt_id: AssignmentAttemptId,
+        assessment_attempt_id: AssessmentAttemptId,
     },
     Workspace {
         workspace_id: WorkspaceId,
@@ -165,6 +233,30 @@ mod tests {
     use super::*;
     #[test]
     fn references_use_exact_full_string_wire_values() {
+        macro_rules! assert_human_reference_wire {
+            ($reference:ty, $valid:literal, $wrong_prefix:literal) => {{
+                let reference: $reference = $valid.parse().expect("valid opaque reference");
+                assert_eq!(reference.to_string(), $valid);
+                assert_eq!(
+                    serde_json::to_value(reference.clone()).expect("serializes"),
+                    $valid
+                );
+                assert_eq!(
+                    serde_json::from_value::<$reference>(serde_json::json!($valid))
+                        .expect("parses"),
+                    reference
+                );
+                for invalid in [
+                    $wrong_prefix,
+                    concat!($valid, "0"),
+                    "CI00000I",
+                    "CI00000O",
+                    "CI00000U",
+                ] {
+                    assert!(invalid.parse::<$reference>().is_err(), "{invalid}");
+                }
+            }};
+        }
         macro_rules! assert_reference_wire {
             ($reference:ty, $valid:literal, $wrong_prefix:literal, $zero:literal, $leading_zero:literal, $overflow:literal) => {{
                 let reference: $reference = $valid.parse().expect("valid reference");
@@ -186,24 +278,10 @@ mod tests {
                 }
             }};
         }
+        assert_human_reference_wire!(CourseInstanceReference, "CI7K3M2Q", "C7K3M2Q");
+        assert_human_reference_wire!(AssessmentReference, "A7K3M2Q", "CI7K3M2Q");
         assert_reference_wire!(
-            CourseInstanceReference,
-            "C-123",
-            "A-123",
-            "C-0",
-            "C-01",
-            "C-2147483648"
-        );
-        assert_reference_wire!(
-            AssignmentReference,
-            "A-124",
-            "C-124",
-            "A-0",
-            "A-01",
-            "A-2147483648"
-        );
-        assert_reference_wire!(
-            AssignmentAttemptReference,
+            AssessmentAttemptReference,
             "R-125",
             "C-125",
             "R-0",
@@ -218,14 +296,7 @@ mod tests {
             "W-01",
             "W-2147483648"
         );
-        assert_reference_wire!(
-            AccountReference,
-            "U-128",
-            "C-128",
-            "U-0",
-            "U-01",
-            "U-2147483648"
-        );
+        assert_human_reference_wire!(AccountReference, "U7K3M2Q", "A7K3M2Q");
         assert_reference_wire!(
             CourseMembershipReference,
             "M-129",
@@ -236,20 +307,13 @@ mod tests {
         );
         assert_reference_wire!(
             CourseInvitationReference,
-            "CI-130",
+            "I-130",
             "C-130",
             "CI-0",
             "CI-01",
             "CI-2147483648"
         );
-        assert_reference_wire!(
-            BlueprintCourseReference,
-            "BP-133",
-            "C-133",
-            "BP-0",
-            "BP-01",
-            "BP-2147483648"
-        );
+        assert_human_reference_wire!(BlueprintCourseReference, "BP7K3M2Q", "A7K3M2Q");
         assert!(!RESERVED_REFERENCE_PREFIXES.contains(&"AC"));
     }
 }

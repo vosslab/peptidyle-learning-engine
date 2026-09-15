@@ -110,6 +110,7 @@ impl DraftQuestionSourceBindingInput {
             (self.question_backend, self.question_format),
             (QuestionBackend::Ple, QuestionFormat::PleQuestionJson)
                 | (QuestionBackend::Webwork, QuestionFormat::WebworkPg)
+                | (QuestionBackend::Webwork, QuestionFormat::WebworkPgml)
                 | (QuestionBackend::Imathas, QuestionFormat::Imathas)
         );
         if !format_matches_backend {
@@ -224,11 +225,30 @@ impl NewQuestionLineagePublicationInput {
 pub trait NewQuestionLineagePublicationStore: Send + Sync {
     /// Atomically records one complete new Published Question aggregate after
     /// the exact source bytes have been copied to immutable object storage.
+    ///
+    /// [`NewQuestionLineagePublicationError::IdentityCollision`] is reserved
+    /// for the `published_question` primary-key collision of a freshly minted
+    /// Question ID. Every other persistence failure remains a [`StoreError`],
+    /// so publication never retries or compensates an ambiguous outcome.
     async fn publish_new_question_lineage(
         &self,
         session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionReference, StoreError>;
+    ) -> Result<QuestionRevisionReference, NewQuestionLineagePublicationError>;
+}
+
+/// Result of registering one first Question Revision after its immutable
+/// source object has been written.
+///
+/// The separate collision variant makes the only conclusive identity race
+/// explicit at the persistence boundary. It prevents a coordinator from
+/// treating a generic database uniqueness error as safe to delete and retry.
+#[derive(Debug, Clone, PartialEq)]
+pub enum NewQuestionLineagePublicationError {
+    /// The newly minted Question ID already names a Published Question.
+    IdentityCollision,
+    /// Any non-identity persistence failure is ambiguous to object storage.
+    Store(StoreError),
 }
 
 /// Complete server-validated input for publishing one new immutable Question
@@ -373,6 +393,12 @@ mod tests {
             wrong_format.validate(),
             Err(StoreError::InvalidRecord(_))
         ));
+
+        let mut reviewed_pgml = input();
+        reviewed_pgml.question_backend = QuestionBackend::Webwork;
+        reviewed_pgml.question_format = QuestionFormat::WebworkPgml;
+        reviewed_pgml.webwork_pg_path = Some("genetics/reviewed.pgml".to_owned());
+        assert_eq!(reviewed_pgml.validate(), Ok(()));
     }
 
     #[test]
@@ -393,7 +419,7 @@ mod tests {
 
     fn publication_input() -> NewQuestionLineagePublicationInput {
         let question_id =
-            QuestionId::from_canonical_parts("ABCDEF", 'G').expect("canonical Question ID");
+            QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("canonical Question ID");
         let question_revision = QuestionRevisionReference {
             question_id: question_id.clone(),
             revision_number: QuestionRevisionNumber::new(1)
@@ -456,7 +482,7 @@ mod tests {
     #[test]
     fn same_lineage_publication_requires_the_immediate_successor_object() {
         let question_id =
-            QuestionId::from_canonical_parts("ABCDEF", 'G').expect("canonical Question ID");
+            QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("canonical Question ID");
         let parent_question_revision = QuestionRevisionReference {
             question_id,
             revision_number: QuestionRevisionNumber::new(1)
@@ -486,7 +512,7 @@ mod tests {
                 size_bytes: 24,
                 media_type: "application/json".to_string(),
                 question_revision: Some(QuestionRevisionReference {
-                    question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
+                    question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G')
                         .expect("canonical Question ID"),
                     revision_number: QuestionRevisionNumber::new(2)
                         .expect("positive Question Revision Number"),

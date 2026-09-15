@@ -112,7 +112,7 @@ export interface QuestionVariationPresentation {
 export interface QuestionRendererProps {
   readonly presentation: QuestionVariationPresentation;
   readonly assetUrl: AssetUrlResolver;
-  /** Re-fetches only this question resource; the surrounding Assignment Attempt shell remains intact. */
+  /** Re-fetches only this question resource; the surrounding Assessment Attempt shell remains intact. */
   readonly onRetry?: () => void;
 }
 
@@ -443,7 +443,7 @@ export function QuestionRenderer(props: QuestionRendererProps): JSX.Element {
         const message =
           error instanceof QuestionContentError
             ? error.message
-            : "This question could not be shown. It may need an authoring or accessibility correction; your Assignment Attempt and timer are still available.";
+            : "This question could not be shown. It may need an authoring or accessibility correction; your Assessment Attempt and timer are still available.";
         return <RendererFailure reset={reset} onRetry={props.onRetry} message={message} />;
       }}
     >

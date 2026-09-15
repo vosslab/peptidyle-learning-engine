@@ -1,10 +1,10 @@
 // Browser contract for the current Student Course Landing projection.
 
-import type { AssignmentReference } from "../../generated/api/AssignmentReference";
-import type { AssignmentAttemptCompletion } from "../../generated/api/AssignmentAttemptCompletion";
+import type { AssessmentReference } from "../../generated/api/AssessmentReference";
+import type { AssessmentAttemptCompletion } from "../../generated/api/AssessmentAttemptCompletion";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
-import type { LiveAssignmentAttemptScore } from "./assignment_attempt_issuance";
-import type { StudentAssignmentDecisionSummary } from "../../generated/api/StudentAssignmentDecisionSummary";
+import type { LiveAssessmentAttemptScore } from "./assessment_attempt_issuance";
+import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 
 /** One current Student-visible Course Instance, without membership or progress details. */
 export interface LiveStudentCourseLandingSummary {
@@ -20,39 +20,26 @@ export interface LiveStudentCourseInvitationSummary {
   readonly longName: string;
 }
 
-/** The authenticated Student's Account-owned display preference. */
-export interface StudentTimeZoneProfile {
-  readonly timeZone: string;
-}
-
-export interface UpdateStudentTimeZoneInput {
-  readonly timeZone: string;
-}
-
-/** One current Student-visible Assignment with self-only, answer-free progress. */
-export interface LiveStudentAssignmentLandingSummary {
-  readonly reference: AssignmentReference;
+/** One current Student-visible Assessment with self-only, answer-free progress. */
+export interface LiveStudentAssessmentLandingSummary {
+  readonly reference: AssessmentReference;
   readonly title: string;
-  readonly decision: StudentAssignmentDecisionSummary;
-  readonly assignmentAttemptNumber: number | null;
-  readonly assignmentAttemptCompletion: AssignmentAttemptCompletion | null;
+  readonly decision: StudentAssessmentDecisionSummary;
+  readonly assessmentAttemptNumber: number | null;
+  readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
   readonly gradedQuestionCount: number;
   readonly questionCount: number;
-  /** Omitted unless the pinned Assignment disclosure releases the current score. */
-  readonly score?: LiveAssignmentAttemptScore;
+  /** Omitted unless the pinned Assessment disclosure releases the current score. */
+  readonly score?: LiveAssessmentAttemptScore;
 }
 
-/** Same-origin current-Student Course and Assignment landing capability. */
+/** Same-origin current-Student Course and Assessment landing capability. */
 export interface LiveStudentCourseLandingClient {
-  readonly getStudentTimeZoneProfile: () => Promise<StudentTimeZoneProfile>;
-  readonly updateStudentTimeZone: (
-    input: UpdateStudentTimeZoneInput,
-  ) => Promise<StudentTimeZoneProfile>;
   readonly listPendingLiveStudentCourseInvitations: () => Promise<
     ReadonlyArray<LiveStudentCourseInvitationSummary>
   >;
   readonly listLiveStudentCourses: () => Promise<ReadonlyArray<LiveStudentCourseLandingSummary>>;
-  readonly listLiveStudentAssignments: (
+  readonly listLiveStudentAssessments: (
     course: CourseInstanceReference,
-  ) => Promise<ReadonlyArray<LiveStudentAssignmentLandingSummary>>;
+  ) => Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>>;
 }

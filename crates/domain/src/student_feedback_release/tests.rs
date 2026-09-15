@@ -2,7 +2,7 @@ use std::num::NonZeroU32;
 
 use question_model::QuestionContentBlock;
 use question_model::{
-    AssignmentScoringState, GradingResult, LateWorkRule, QuestionAnswer, QuestionAnswerExplanation,
+    AssessmentScoringState, GradingResult, LateWorkRule, QuestionAnswer, QuestionAnswerExplanation,
     QuestionFeedback, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming, Timestamp,
 };
 
@@ -10,9 +10,9 @@ use super::{
     StudentFeedbackReleaseDecision, evaluate_student_feedback_release, project_student_feedback,
     project_student_response_inspection_feedback, score_current_student_feedback_release,
 };
-use crate::effective_assignment_policy::{
-    AssignmentAccessDecision, AssignmentPolicySource, AssignmentStartDecision,
-    EffectiveAssignmentPolicy, EffectiveAssignmentPolicyValue, StudentLateWorkStatus,
+use crate::effective_assessment_policy::{
+    AssessmentAccessDecision, AssessmentPolicySource, AssessmentStartDecision,
+    EffectiveAssessmentPolicy, EffectiveAssessmentPolicyValue, StudentLateWorkStatus,
 };
 
 fn stamp(value: i64) -> Timestamp {
@@ -31,26 +31,26 @@ fn rule() -> StudentFeedbackReleaseRule {
     }
 }
 
-fn allowed(due_at: Option<Timestamp>, closes_at: Option<Timestamp>) -> AssignmentAccessDecision {
-    AssignmentAccessDecision::Allowed {
-        policy: Box::new(EffectiveAssignmentPolicy {
+fn allowed(due_at: Option<Timestamp>, closes_at: Option<Timestamp>) -> AssessmentAccessDecision {
+    AssessmentAccessDecision::Allowed {
+        policy: Box::new(EffectiveAssessmentPolicy {
             available_at: resolved(None),
             due_at: resolved(due_at),
             closes_at: resolved(closes_at),
-            assignment_attempt_time_limit_seconds: resolved(None::<NonZeroU32>),
+            assessment_attempt_time_limit_seconds: resolved(None::<NonZeroU32>),
             attempt_limit: resolved(None::<NonZeroU32>),
             late_work_rule: resolved(LateWorkRule::Accept),
         }),
-        start_decision: AssignmentStartDecision::MayStart {
+        start_decision: AssessmentStartDecision::MayStart {
             student_late_work_status: StudentLateWorkStatus::OnTime,
         },
     }
 }
 
-fn resolved<T>(value: T) -> EffectiveAssignmentPolicyValue<T> {
-    EffectiveAssignmentPolicyValue {
+fn resolved<T>(value: T) -> EffectiveAssessmentPolicyValue<T> {
+    EffectiveAssessmentPolicyValue {
         value,
-        source: AssignmentPolicySource::Base,
+        source: AssessmentPolicySource::Base,
     }
 }
 
@@ -162,10 +162,10 @@ fn never_stays_hidden_after_every_other_release() {
 
 #[test]
 fn denied_s3_verdict_has_no_student_feedback_release_decision() {
-    let denied = AssignmentAccessDecision::Denied {
-        gate: crate::effective_assignment_policy::PolicyGate::Authorization,
-        reason: crate::effective_assignment_policy::GateDenial::Authorization(
-            crate::effective_assignment_policy::AuthorizationDenial::ActionNotPermitted,
+    let denied = AssessmentAccessDecision::Denied {
+        gate: crate::effective_assessment_policy::PolicyGate::Authorization,
+        reason: crate::effective_assessment_policy::GateDenial::Authorization(
+            crate::effective_assessment_policy::AuthorizationDenial::ActionNotPermitted,
         ),
     };
 
@@ -315,13 +315,13 @@ fn student_response_inspection_projects_only_permitted_correctness_and_score() {
         class_statistics: false,
     };
     for status in [
-        AssignmentScoringState::Current,
-        AssignmentScoringState::Recalculating,
-        AssignmentScoringState::Failed,
+        AssessmentScoringState::Current,
+        AssessmentScoringState::Recalculating,
+        AssessmentScoringState::Failed,
     ] {
         let disclosed =
             project_student_response_inspection_feedback(decision, status, Some(result()));
-        if status == AssignmentScoringState::Current {
+        if status == AssessmentScoringState::Current {
             assert_eq!(disclosed.correctness, Some(true));
             assert_eq!(disclosed.points_earned, Some(2.0));
         } else {
@@ -344,7 +344,7 @@ fn stale_scoring_removes_both_score_and_correctness_permissions() {
         class_statistics: false,
     };
     let stale =
-        score_current_student_feedback_release(decision, AssignmentScoringState::Recalculating);
+        score_current_student_feedback_release(decision, AssessmentScoringState::Recalculating);
     assert!(!stale.score);
     assert!(!stale.per_item_correctness);
 }

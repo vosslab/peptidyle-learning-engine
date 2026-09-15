@@ -5,15 +5,15 @@ import { createContext, useContext } from "solid-js";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { CourseAppearanceView } from "../../../generated/api/CourseAppearanceView";
 import type { CourseRouteView } from "../../api/contracts";
-import type { StudentAssignmentAttemptContext } from "../../api/assignment_attempt_navigation";
-import type { StudentAssignmentAttemptHistory } from "../../api/assignment_attempt_history";
+import type { StudentAssessmentAttemptContext } from "../../api/assessment_attempt_navigation";
+import type { StudentAssessmentAttemptHistory } from "../../api/assessment_attempt_history";
 
 export type CourseThemeRouteData =
   | { readonly kind: "course"; readonly course: CourseRouteView }
-  | { readonly kind: "assignmentAttempt"; readonly context: StudentAssignmentAttemptContext }
+  | { readonly kind: "assessmentAttempt"; readonly context: StudentAssessmentAttemptContext }
   | {
-      readonly kind: "assignmentAttemptHistory";
-      readonly history: StudentAssignmentAttemptHistory;
+      readonly kind: "assessmentAttemptHistory";
+      readonly history: StudentAssessmentAttemptHistory;
     };
 
 /** A temporary rendered appearance; `undefined` releases the local preview. */
@@ -26,10 +26,10 @@ export function courseRouteView(data: CourseThemeRouteData): CourseRouteView {
   switch (data.kind) {
     case "course":
       return data.course;
-    case "assignmentAttempt":
-      throw new Error("Assignment Attempt context has no UUID-backed Course Route View");
-    case "assignmentAttemptHistory":
-      throw new Error("Assignment Attempt history has no UUID-backed Course Route View");
+    case "assessmentAttempt":
+      throw new Error("Assessment Attempt context has no UUID-backed Course Route View");
+    case "assessmentAttemptHistory":
+      throw new Error("Assessment Attempt history has no UUID-backed Course Route View");
   }
 }
 

@@ -25,6 +25,30 @@ import {
 type SaveState = "ready" | "saving" | "error" | "saved";
 type AlternativeTextChoice = "decorative" | "informative";
 
+// HG requires one small, centered 5:1 Course banner.  This follows the Course
+// entry presentation while the server rendition migration remains separate.
+const COURSE_BANNER_5_TO_1_STYLES = `
+.course-appearance-banner-preview-group {
+  max-inline-size: 64rem;
+}
+
+.course-appearance-banner-presentation {
+  box-sizing: border-box;
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 5 / 1;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control, 0.25rem);
+}
+
+.course-appearance-banner-presentation .course-appearance-banner-image {
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  border-radius: 0;
+}
+`;
+
 function ThemePalettePreview(props: { readonly theme: CourseTheme }): JSX.Element {
   const option = COURSE_THEME_OPTIONS.find((candidate) => candidate.id === props.theme);
   return (
@@ -144,17 +168,18 @@ function AppearanceThemeEditor(props: {
 function BannerImage(props: {
   readonly url: string;
   readonly alternativeText: CourseBannerAlternativeText;
-  readonly rendition: "hero" | "card";
 }): JSX.Element {
   const alternativeText = props.alternativeText;
   const decorative = alternativeText.kind === "decorative";
   return (
-    <img
-      class={`course-appearance-banner-image course-appearance-banner-${props.rendition}`}
-      src={props.url}
-      alt={decorative ? "" : alternativeText.text}
-      aria-hidden={decorative || undefined}
-    />
+    <div class="course-appearance-banner-presentation">
+      <img
+        class="course-appearance-banner-image"
+        src={props.url}
+        alt={decorative ? "" : alternativeText.text}
+        aria-hidden={decorative || undefined}
+      />
+    </div>
   );
 }
 
@@ -167,10 +192,8 @@ function AppearanceBannerEditor(props: {
   const replaceCourseAppearance = useReplaceCourseAppearance();
   const [file, setFile] = createSignal<File>();
   const [localUrl, setLocalUrl] = createSignal<string>();
-  const [heroUrl, setHeroUrl] = createSignal<string>();
-  const [cardUrl, setCardUrl] = createSignal<string>();
-  let savedHeroUrl: string | undefined;
-  let savedCardUrl: string | undefined;
+  const [bannerUrl, setBannerUrl] = createSignal<string>();
+  let savedBannerUrl: string | undefined;
   let fileInput: HTMLInputElement | undefined;
   const [alternativeTextChoice, setAlternativeTextChoice] =
     createSignal<AlternativeTextChoice>("decorative");
@@ -194,12 +217,9 @@ function AppearanceBannerEditor(props: {
     setLocalUrl(undefined);
   };
   const clearSavedPreviews = (): void => {
-    revoke(savedHeroUrl);
-    revoke(savedCardUrl);
-    savedHeroUrl = undefined;
-    savedCardUrl = undefined;
-    setHeroUrl(undefined);
-    setCardUrl(undefined);
+    revoke(savedBannerUrl);
+    savedBannerUrl = undefined;
+    setBannerUrl(undefined);
   };
 
   // Each saved reference owns its preview URLs; release old URLs and ignore late prior fetches.
@@ -208,16 +228,12 @@ function AppearanceBannerEditor(props: {
     clearSavedPreviews();
     if (reference === undefined) return;
     let active = true;
-    void Promise.all([
-      applicationApi.client.fetchCourseBanner(reference),
-      applicationApi.client.fetchCourseBannerCard(reference),
-    ])
-      .then(([hero, card]) => {
+    void applicationApi.client
+      .fetchCourseBanner(reference)
+      .then((banner) => {
         if (!active) return;
-        savedHeroUrl = URL.createObjectURL(hero);
-        savedCardUrl = URL.createObjectURL(card);
-        setHeroUrl(savedHeroUrl);
-        setCardUrl(savedCardUrl);
+        savedBannerUrl = URL.createObjectURL(banner);
+        setBannerUrl(savedBannerUrl);
       })
       .catch(() => {
         if (active) setMessage("The saved banner previews could not load.");
@@ -286,7 +302,8 @@ function AppearanceBannerEditor(props: {
         <fieldset class="course-appearance-fieldset" disabled={saving()}>
           <legend id="course-banner-heading">Banner</legend>
           <p class="course-appearance-help">
-            Upload a PNG, JPEG, or WebP image. It is not uploaded until you save.
+            Upload a 5:1 PNG, JPEG, or WebP image. 1280 by 256 pixels is recommended; larger 5:1
+            images are supported. It is not uploaded until you save.
           </p>
           <label class="course-appearance-file-label">
             Banner image
@@ -305,18 +322,8 @@ function AppearanceBannerEditor(props: {
               <div class="course-appearance-banner-preview-group" data-course-banner-local-preview>
                 <p>Before saving</p>
                 <p>Course entry</p>
-                <BannerImage
-                  url={url()}
-                  alternativeText={selectedAlternativeText()}
-                  rendition="hero"
-                />
+                <BannerImage url={url()} alternativeText={selectedAlternativeText()} />
                 <p class="course-appearance-banner-course-name">Course: {props.courseLongName}</p>
-                <p>Course card</p>
-                <BannerImage
-                  url={url()}
-                  alternativeText={selectedAlternativeText()}
-                  rendition="card"
-                />
               </div>
             )}
           </Show>
@@ -360,26 +367,10 @@ function AppearanceBannerEditor(props: {
             <div class="course-appearance-banner-preview-group" data-course-banner-saved-preview>
               <p>Saved banner</p>
               <p>Course entry</p>
-              <Show when={heroUrl()}>
-                {(url) => (
-                  <BannerImage
-                    url={url()}
-                    alternativeText={banner().alternativeText}
-                    rendition="hero"
-                  />
-                )}
+              <Show when={bannerUrl()}>
+                {(url) => <BannerImage url={url()} alternativeText={banner().alternativeText} />}
               </Show>
               <p class="course-appearance-banner-course-name">Course: {props.courseLongName}</p>
-              <p>Course card</p>
-              <Show when={cardUrl()}>
-                {(url) => (
-                  <BannerImage
-                    url={url()}
-                    alternativeText={banner().alternativeText}
-                    rendition="card"
-                  />
-                )}
-              </Show>
             </div>
           )}
         </Show>
@@ -472,6 +463,7 @@ export function CourseAppearancePage(): JSX.Element {
         return (
           <section class="page course-appearance" data-route-surface="courseAppearance">
             <style>{COURSE_APPEARANCE_STYLES}</style>
+            <style>{COURSE_BANNER_5_TO_1_STYLES}</style>
             <header>
               <h1>Course Appearance</h1>
               <p>Choose the palette and banner used throughout this Course Instance.</p>

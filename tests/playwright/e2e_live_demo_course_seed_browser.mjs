@@ -49,10 +49,9 @@ async function openAssignment(page) {
   await card.getByRole("link", { name: "Open Assignment", exact: true }).click();
 }
 
-async function expectRosterRow(page, rosterId, email) {
+async function expectRosterRow(page, rosterId) {
   const row = page.getByRole("row").filter({ has: page.getByText(rosterId, { exact: true }) });
   await expect(row).toHaveCount(1);
-  await expect(row.getByText(email, { exact: true })).toBeVisible();
   await expect(row.getByText("Active Student", { exact: true })).toBeVisible();
 }
 
@@ -107,9 +106,9 @@ async function verifyElena(page) {
   await expect(
     page.getByRole("heading", { level: 1, name: "Students", exact: true }),
   ).toBeVisible();
-  await expectRosterRow(page, "BIO301-MARY", "mary.okafor@live-demo.invalid");
-  await expectRosterRow(page, "BIO301-JACK", "jack.nguyen@live-demo.invalid");
-  await expectRosterRow(page, "BIO301-AVERY", "avery.thompson@live-demo.invalid");
+  await expectRosterRow(page, "BIO301-MARY");
+  await expectRosterRow(page, "BIO301-JACK");
+  await expectRosterRow(page, "BIO301-AVERY");
 
   await page.getByRole("link", { name: "Gradebook", exact: true }).click();
   await expect(page.locator('[data-route-surface="gradebook"]')).toBeVisible();

@@ -104,7 +104,7 @@ export async function chooseSeededIdentityAtSignIn(page: Page, name: RegExp): Pr
   await page
     .getByRole("button", { name: new RegExp(`Assume the role of .*${name.source}`, "i") })
     .click();
-  await expect(page.getByRole("button", { name: "Sign out", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Profile", exact: true })).toBeVisible();
 }
 
 export function courseChoice(page: Page, title: string): Locator {
@@ -208,7 +208,8 @@ export async function restoreViewportOrigin(page: Page): Promise<void> {
 }
 
 export async function signOutVisible(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Sign out" }).click();
+  await page.getByRole("button", { name: "Profile", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Sign out", exact: true }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Explore Peptidyle Learning Engine", exact: true }),
   ).toBeVisible();

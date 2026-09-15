@@ -2,14 +2,14 @@
 
 use anyhow::{Context, Result, ensure};
 use learning_data_access::{
-    BlueprintCourseStore, SessionTokenHash, StoredBlueprintAssignmentEntry,
+    BlueprintCourseStore, SessionTokenHash, StoredBlueprintAssessmentEntry,
     StoredBlueprintCourseContent,
     postgres::{PostgresBlueprintCourseStore, lazy_pool},
 };
 use question_model::{
-    AssignmentActivityRules, AssignmentEntryScoringRule, AssignmentInstructions,
-    AssignmentPointValue, BlueprintAssignmentContentInput, BlueprintAssignmentDefaults,
-    BlueprintAssignmentEntryInput, BlueprintAvailability, BlueprintRevision,
+    AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
+    AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
+    BlueprintAssessmentEntryInput, BlueprintAvailability, BlueprintRevision,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionRevisionReference, RequestChecksum,
     ReusableFixedQuestionInput,
@@ -17,7 +17,7 @@ use question_model::{
 
 use crate::{
     installation_data::{
-        LIVE_DEMO_ASSIGNMENT_TITLE, LIVE_DEMO_COURSE_LONG_NAME, LIVE_DEMO_COURSE_SHORT_NAME,
+        LIVE_DEMO_ASSESSMENT_TITLE, LIVE_DEMO_COURSE_LONG_NAME, LIVE_DEMO_COURSE_SHORT_NAME,
     },
     pilot_content,
 };
@@ -33,7 +33,7 @@ const LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM: RequestChecksum = RequestChecksum::f
 /// Store-generated references consumed by the dependent Live Demo SQL graph.
 pub(crate) struct LiveDemoBlueprintManifestReferences {
     pub(crate) blueprint_reference: String,
-    pub(crate) assignment_reference: String,
+    pub(crate) assessment_reference: String,
 }
 
 /// Creates, or replays, the immutable Revision 1 used by the Live Demo.
@@ -71,8 +71,8 @@ pub(crate) fn create_live_demo_blueprint(
             .await
             .context("reloading the ordinary Live Demo Blueprint Course")?;
         ensure!(
-            blueprint.availability == BlueprintAvailability::Available,
-            "Live Demo Blueprint Revision 1 is not Available"
+            blueprint.availability == BlueprintAvailability::Private,
+            "new Live Demo Blueprint Revision 1 is not Private"
         );
         ensure!(
             blueprint.current_revision == BlueprintRevision::INITIAL,
@@ -83,22 +83,22 @@ pub(crate) fn create_live_demo_blueprint(
                 && blueprint.long_name == LIVE_DEMO_COURSE_LONG_NAME,
             "Live Demo Blueprint lineage names differ from the fixed course names"
         );
-        let assignment_reference = validate_loaded_content(&blueprint.content, &input, &questions)?;
+        let assessment_reference = validate_loaded_content(&blueprint.content, &input, &questions)?;
         Ok(LiveDemoBlueprintManifestReferences {
-            blueprint_reference: receipt.blueprint_revision.reference.number().to_string(),
-            assignment_reference: assignment_reference.to_string(),
+            blueprint_reference: receipt.blueprint_revision.reference.to_string(),
+            assessment_reference: assessment_reference.to_string(),
         })
     })
 }
 
 /// Compares every authored field after a create receipt replay. The Store owns
-/// the module and Assignment UUIDs, so this deliberately ignores only those
+/// the module and Assessment UUIDs, so this deliberately ignores only those
 /// two generated identities while rejecting all other semantic drift.
 fn validate_loaded_content(
     content: &StoredBlueprintCourseContent,
     expected: &CreateBlueprintCourseInput,
     questions: &[QuestionRevisionReference],
-) -> Result<question_model::BlueprintAssignmentReference> {
+) -> Result<question_model::BlueprintAssessmentReference> {
     ensure!(
         content.modules.len() == 1 && expected.modules.len() == 1,
         "Live Demo Blueprint must contain exactly one Module"
@@ -107,39 +107,39 @@ fn validate_loaded_content(
     let expected_module = &expected.modules[0];
     ensure!(
         actual_module.label == expected_module.label
-            && actual_module.assignments.len() == 1
-            && expected_module.assignments.len() == 1,
+            && actual_module.assessments.len() == 1
+            && expected_module.assessments.len() == 1,
         "Live Demo Blueprint Module content differs from the fixed definition"
     );
-    let actual_assignment = &actual_module.assignments[0];
-    let expected_assignment = &expected_module.assignments[0];
+    let actual_assessment = &actual_module.assessments[0];
+    let expected_assessment = &expected_module.assessments[0];
     ensure!(
-        actual_assignment.content.title == expected_assignment.title
-            && actual_assignment.content.instructions == expected_assignment.instructions
-            && actual_assignment.content.defaults == expected_assignment.defaults,
-        "Live Demo Blueprint Assignment content differs from the fixed definition"
+        actual_assessment.content.title == expected_assessment.title
+            && actual_assessment.content.instructions == expected_assessment.instructions
+            && actual_assessment.content.defaults == expected_assessment.defaults,
+        "Live Demo Blueprint Assessment content differs from the fixed definition"
     );
     ensure!(
-        actual_assignment.content.entries.len() == expected_assignment.entries.len()
-            && actual_assignment.content.entries.len() == questions.len(),
+        actual_assessment.content.entries.len() == expected_assessment.entries.len()
+            && actual_assessment.content.entries.len() == questions.len(),
         "Live Demo Blueprint Question entries differ from the fixed definition"
     );
-    for ((actual, expected), question) in actual_assignment
+    for ((actual, expected), question) in actual_assessment
         .content
         .entries
         .iter()
-        .zip(&expected_assignment.entries)
+        .zip(&expected_assessment.entries)
         .zip(questions)
     {
         let (
-            StoredBlueprintAssignmentEntry::Fixed {
+            StoredBlueprintAssessmentEntry::Fixed {
                 question_revision,
                 points_possible: actual_points,
                 scoring_rule: actual_scoring,
                 question_attempt_limit: actual_attempt_limit,
                 question_attempt_time_limit: actual_time_limit,
             },
-            BlueprintAssignmentEntryInput::Fixed(expected_fixed),
+            BlueprintAssessmentEntryInput::Fixed(expected_fixed),
         ) = (actual, expected)
         else {
             anyhow::bail!("Live Demo Blueprint entries must remain fixed Questions");
@@ -156,7 +156,7 @@ fn validate_loaded_content(
             "Live Demo Blueprint Question policy differs from the fixed definition"
         );
     }
-    Ok(actual_assignment.blueprint_assignment_reference)
+    Ok(actual_assessment.blueprint_assessment_reference)
 }
 
 fn live_demo_blueprint_input(
@@ -171,29 +171,29 @@ fn live_demo_blueprint_input(
         long_name: LIVE_DEMO_COURSE_LONG_NAME.to_owned(),
         modules: vec![CreateBlueprintModuleInput {
             label: LIVE_DEMO_BLUEPRINT_MODULE_LABEL.to_owned(),
-            assignments: vec![BlueprintAssignmentContentInput {
-                title: LIVE_DEMO_ASSIGNMENT_TITLE.to_owned(),
-                instructions: AssignmentInstructions::try_new(
+            assessments: vec![BlueprintAssessmentContentInput {
+                title: LIVE_DEMO_ASSESSMENT_TITLE.to_owned(),
+                instructions: AssessmentInstructions::try_new(
                     LIVE_DEMO_BLUEPRINT_INSTRUCTIONS.to_owned(),
                 )
                 .expect("the fixed Live Demo instructions are valid"),
                 entries: questions
                     .into_iter()
                     .map(|question| {
-                        BlueprintAssignmentEntryInput::Fixed(ReusableFixedQuestionInput {
+                        BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
                             question_id: question.question_id,
-                            points_possible: AssignmentPointValue::from_whole(1),
-                            scoring_rule: AssignmentEntryScoringRule::Normal,
+                            points_possible: AssessmentPointValue::from_whole(1),
+                            scoring_rule: AssessmentEntryScoringRule::Normal,
                             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
                             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
                         })
                     })
                     .collect(),
-                defaults: BlueprintAssignmentDefaults {
-                    assignment_attempt_time_limit_seconds: None,
+                defaults: BlueprintAssessmentDefaults {
+                    assessment_attempt_time_limit_seconds: None,
                     attempt_limit: None,
                     late_work_rule: LateWorkRule::Accept,
-                    activity_rules: AssignmentActivityRules::default(),
+                    activity_rules: AssessmentActivityRules::default(),
                     student_feedback_release_rule: Default::default(),
                 },
             }],
@@ -209,9 +209,9 @@ fn live_demo_blueprint_input(
 mod tests {
     use super::*;
     use learning_data_access::{
-        StoredBlueprintAssignment, StoredBlueprintAssignmentContent, StoredBlueprintModule,
+        StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintModule,
     };
-    use question_model::{BlueprintAssignmentReference, BlueprintModuleReference};
+    use question_model::{BlueprintAssessmentReference, BlueprintModuleReference};
     use uuid::Uuid;
 
     fn question(number: u8) -> QuestionRevisionReference {
@@ -225,11 +225,11 @@ mod tests {
     }
 
     #[test]
-    fn live_demo_input_contains_one_assignment_with_four_fixed_questions() {
+    fn live_demo_input_contains_one_assessment_with_four_fixed_questions() {
         let input = live_demo_blueprint_input((1..=4).map(question).collect()).unwrap();
         assert_eq!(input.modules.len(), 1);
-        assert_eq!(input.modules[0].assignments.len(), 1);
-        assert_eq!(input.modules[0].assignments[0].entries.len(), 4);
+        assert_eq!(input.modules[0].assessments.len(), 1);
+        assert_eq!(input.modules[0].assessments[0].entries.len(), 4);
         assert_eq!(input.modules[0].label, LIVE_DEMO_BLUEPRINT_MODULE_LABEL);
     }
 
@@ -242,25 +242,25 @@ mod tests {
         input: &CreateBlueprintCourseInput,
         questions: &[QuestionRevisionReference],
     ) -> StoredBlueprintCourseContent {
-        let assignment = &input.modules[0].assignments[0];
+        let assessment = &input.modules[0].assessments[0];
         StoredBlueprintCourseContent {
             modules: vec![StoredBlueprintModule {
                 blueprint_module_reference: BlueprintModuleReference::from_uuid(Uuid::from_u128(1)),
                 label: input.modules[0].label.clone(),
-                assignments: vec![StoredBlueprintAssignment {
-                    blueprint_assignment_reference: BlueprintAssignmentReference::from_uuid(
+                assessments: vec![StoredBlueprintAssessment {
+                    blueprint_assessment_reference: BlueprintAssessmentReference::from_uuid(
                         Uuid::from_u128(2),
                     ),
-                    content: StoredBlueprintAssignmentContent {
-                        title: assignment.title.clone(),
-                        instructions: assignment.instructions.clone(),
-                        entries: assignment
+                    content: StoredBlueprintAssessmentContent {
+                        title: assessment.title.clone(),
+                        instructions: assessment.instructions.clone(),
+                        entries: assessment
                             .entries
                             .iter()
                             .zip(questions)
                             .map(|(entry, question)| match entry {
-                                BlueprintAssignmentEntryInput::Fixed(fixed) => {
-                                    StoredBlueprintAssignmentEntry::Fixed {
+                                BlueprintAssessmentEntryInput::Fixed(fixed) => {
+                                    StoredBlueprintAssessmentEntry::Fixed {
                                         question_revision: question.clone(),
                                         points_possible: fixed.points_possible,
                                         scoring_rule: fixed.scoring_rule,
@@ -269,12 +269,12 @@ mod tests {
                                             .question_attempt_time_limit,
                                     }
                                 }
-                                BlueprintAssignmentEntryInput::Pool(_) => {
+                                BlueprintAssessmentEntryInput::Pool(_) => {
                                     panic!("fixed Live Demo input does not contain Question Pools")
                                 }
                             })
                             .collect(),
-                        defaults: assignment.defaults.clone(),
+                        defaults: assessment.defaults.clone(),
                     },
                 }],
             }],
@@ -287,9 +287,9 @@ mod tests {
         let input = live_demo_blueprint_input(questions.clone()).unwrap();
         let content = stored_content(&input, &questions);
 
-        let assignment = validate_loaded_content(&content, &input, &questions).unwrap();
+        let assessment = validate_loaded_content(&content, &input, &questions).unwrap();
 
-        assert_eq!(assignment.as_uuid(), Uuid::from_u128(2));
+        assert_eq!(assessment.as_uuid(), Uuid::from_u128(2));
     }
 
     #[test]
@@ -297,7 +297,7 @@ mod tests {
         let questions = (1..=4).map(question).collect::<Vec<_>>();
         let input = live_demo_blueprint_input(questions.clone()).unwrap();
         let mut content = stored_content(&input, &questions);
-        content.modules[0].assignments[0].content.title = "Changed title".to_owned();
+        content.modules[0].assessments[0].content.title = "Changed title".to_owned();
 
         assert!(validate_loaded_content(&content, &input, &questions).is_err());
     }

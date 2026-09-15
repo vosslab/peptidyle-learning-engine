@@ -94,7 +94,7 @@
   - Mismatch: C870 removed every current H5P source, import, adapter, and runtime seam; H5P is not a delivered backend.
   - Question: Which H5P content type(s) and exact pinned library versions are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
 - [x] The initial primary Question Backends are PLE-native JSON and WeBWorK.
-  - Evidence (source): `schemas/base_schema/attempt_presentation.sql` `backend IN ('ple', 'webwork')` is the delivered presentation boundary.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_presentation.sql` `backend IN ('ple', 'webwork')` is the delivered presentation boundary.
 - [ ] iMathAS and H5P are supported secondary Question Backends.
   - Mismatch: iMathAS has a launch boundary, while C870 leaves no current H5P source, import, or delivered backend seam.
   - Question: Which H5P content type(s) and exact pinned library versions are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
@@ -118,7 +118,16 @@
 - [x] PLE-native Questions use the PLE Question Backend.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
 - [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
-  - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state, but the HTTP renderer extracts only score and discards renderer feedback; finalization stores only credit and default history feedback. A connected render/outcome/persistence/disclosure path is still required.
+  - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state. Connected live-ownership proof remains required; PLE is not required to capture historic renderer feedback.
+- [ ] Question Backend feedback is transient unless the backend provides a robust way for PLE to preserve it.
+  - Evidence (runtime): the C910 fresh-PG17 procedure persisted only author-managed general feedback while retaining the same opaque `webworkPgml` source binding through two immutable Published Revisions. It did not capture renderer feedback.
+  - Mismatch: authorized Student HTTP delivery remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility.
+- [ ] PLE does not extract or reconstruct transient feedback from Question Backend source or output.
+  - Evidence (runtime): the C910 procedure changed only author-managed general feedback and retained the PGML binding path and checksum unchanged; it did not extract feedback from source or output.
+  - Mismatch: a connected authorized-delivery boundary proof remains unavailable while the server build is blocked by the current AWS Smithy dependency incompatibility.
+- [ ] Questions may have PLE-managed general feedback that remains separate from backend-generated interaction feedback.
+  - Evidence (runtime): `schemas/base_schema/question_authoring_operations.sql` stores `general_feedback` on immutable Question Revisions separately from the opaque source binding. The accepted fresh-PG17 procedure created an explicit PGML Draft/binding, saved feedback, published Revision 1, then saved feedback only and published Revision 2; old and new feedback read back immutably with the same format, path, and checksum.
+  - Mismatch: the authorized Student HTTP projection/release behavior remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility.
 - [ ] H5P owns its runtime, interactions, state, and scoring.
   - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
   - Question: Which H5P content type(s) and exact pinned library versions are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
@@ -137,25 +146,37 @@
   - Mismatch: needs test or runtime scoring evidence.
 - [ ] Changing Question point values recalculates scores without another Question Backend interaction.
   - Mismatch: needs test or runtime rescoring evidence.
-- [ ] When parameterized WeBWorK source exists, prefer it to importing static variants.
+- [ ] Preserve the distinction between WeBWorK PG and PGML source. A Question should be identified as PGML only when its source is fully PGML-compliant; otherwise identify it as PG.
+  - Evidence (runtime): the accepted canonical-source inventory records 42 parameterized BiologyProblems.org sources with explicit `pgml` format and matching `.pgml` paths; C910 also proved an explicit `webworkPgml` Draft binding persists across immutable feedback-only publication.
+  - Mismatch: the remaining bundled static families have not completed canonical import, publication, and catalog migration, so the product-wide classification is unverified.
+- [ ] BiologyProblems.org imports should preserve whether the canonical algorithmic source is PG or PGML rather than treating both formats generically as PG/PGML.
+  - Evidence (source): `content/genetics/manifest.yaml` now registers 42 accepted canonical parameterized sources with explicit PGML paths and format metadata.
+  - Mismatch: the current static-bank import/catalog migration remains incomplete, so this end-to-end import behavior is unverified.
+- [ ] When parameterized WeBWorK PG or PGML source exists, prefer it to importing static variants.
   - Mismatch: no selection policy enforcement or test was found.
-- [ ] The WeBWorK problems in biologyproblems.org are all algorithmic and should not be part of a pool.
-  - Mismatch: `content/genetics` still contains static WeBWorK expansions and the current Pool model has no BiologyProblems.org source-family exclusion.
-- [ ] For biologyproblems.org, a single WeBWorK PG/PGML problem file replaces the 199 individual static QTI questions.
-  - Mismatch: `content/genetics/pg/genetics/topic03/002-hla-genotype-2-markers-black/` contains 199 static PG wrappers, and `content/genetics/manifest.yaml` maps every one as a separate static row rather than one canonical algorithmic source.
+- [ ] Preserve backend-native algorithmic variation rather than expanding one algorithmic Question into static variants.
+  - Mismatch: `content/genetics` still contains generated static WeBWorK expansions; C824--C841 own the forward replacement.
+- [ ] One algorithmic Question remains one Published Question regardless of how many variants its Question Backend can generate.
+  - Mismatch: no completed per-family publication and catalog transition proves this lineage boundary.
+- [ ] Use a Question Pool with algorithmic Questions only when the Instructor wants selection among distinct Questions, not to represent variants of one algorithmic Question.
+  - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor workflow proves the distinct-Question purpose and preserves independent backend variation.
+- [ ] BiologyProblems.org WeBWorK problems should be imported from their canonical algorithmic PG or PGML source rather than from generated static variants.
+  - Evidence (runtime): C839 accepted 42 canonical PGML sources (41 official biologyproblems-website sources plus HLA) with provenance, format/path, representative render/lint, and deterministic grading evidence.
+  - Mismatch: redundant static source files were removed, but ordinary publication and catalog reconciliation remain unverified; C840--C841 own that work.
+- [ ] Multiple static BiologyProblems.org questions generated from one algorithmic source represent one Published Question, not separate Published Questions or a Question Pool.
+  - Evidence (runtime): C839's 42-source acceptance establishes candidate canonical sources, not a Published-Question lineage.
+  - Mismatch: source removal does not prove a per-family Published-Question lineage or catalog migration; C840--C841 remain open.
 
 ### Question Pools
 
 - [ ] A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
   - Mismatch: current pools are Assignment entries, not independent published Question Library objects.
-- [ ] Question Pools are primarily designed for static Question variations.
-  - Mismatch: no pool-purpose model or validation was found.
 - [ ] Pool contents should represent reasonably interchangeable assessments of the intended learning.
   - Mismatch: no interchangeability validation was found.
-- [ ] Question Backend Questions may also be included in Question Pools, except BiologyProblems.org WeBWorK Questions.
-  - Mismatch: `crates/question_model/src/assignment.rs` `QuestionPoolAssignmentEntry` accepts every backend without the required BiologyProblems.org WeBWorK exclusion.
+- [ ] Question Pools may contain Questions from any Question Backend.
+  - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor Pool workflow proves this behavior.
 - [x] Each member of a Question Pool is a **Published Question**.
-  - Evidence (source): `crates/question_model/src/assignment.rs` `QuestionPoolItem` stores a Question revision reference.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
 - [ ] Question Pools are always published and have no draft or unpublished state.
   - Mismatch: current Question Pools are editable Assignment content rather than published library lineages.
 - [ ] A Question Pool is an independently reusable Question Library object.
@@ -171,13 +192,13 @@
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
 - [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
-  - Evidence (source): `src/pages/assignment_pool_editor.tsx` `AssignmentPoolEditor` edits item IDs and selection count.
+  - Evidence (source): `src/pages/assessment_pool_editor.tsx` `AssessmentPoolEditor` edits item IDs and selection count.
 - [x] PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` performs server-owned selection.
 - [x] Question Pool selection and backend-native randomization are separate forms of variation.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `QuestionPoolSelectionEntropy` is separate from Question backend state.
 - [x] Returning to an Attempt preserves the Question Pool selections already made.
-  - Evidence (source): `crates/learning-data-access/src/postgres/assignment_delivery_start.rs` `read_reusable_question_pool_selection` reads durable selections.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_reusable_question_pool_selection` reads durable selections.
   - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks exact retained selections.
 - [ ] Starting a new Attempt makes fresh selections from its Question Pools.
   - Mismatch: `crates/learning-data-access/src/postgres/assignment_delivery_start.rs` `current_attempt_start_from_rows` calls `reusable_pool_selection` when the persisted `question_pool_reuse_rule` is `reuse_selection`; `schemas/base_schema/attempt_access.sql` `read_reusable_question_pool_selection` returns the latest prior selection for the same Student and Assignment. `schemas/base_schema/attempts.sql` `question_pool_reuse_rule` permits that mode, so a new Attempt can reuse rather than freshly select its pool membership.
@@ -185,7 +206,7 @@
   - Evidence (source): `crates/question_model/src/student_work.rs` `QuestionPoolSelection` retains issued Question revision references.
   - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the issued revision link.
 - [x] Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
-  - Evidence (source): `schemas/base_schema/attempt_history.sql` issued Question history retains `question_id` and `revision_number`.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `read_student_assessment_attempt_history_response_sources` retains `question_id` and `revision_number`.
   - Evidence (test): `crates/question_model/src/student_work.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
 
 ### Question Library

@@ -16,7 +16,8 @@ import { useApplicationApi } from "./api/application_api";
 import { useSessionBootstrap } from "./auth/session_context";
 import type { CourseThemeRouteData } from "./features/course_appearance/course_theme_context";
 import { CourseThemeVariables } from "./features/course_appearance/course_theme_variables";
-import { RibbonProfileAvatar } from "./features/instructor_profile/ribbon_profile_avatar";
+import { AvatarVisual } from "./features/profile_avatar/provided_avatar_picker";
+import { RibbonAccountAvatar } from "./features/profile_avatar/ribbon_account_avatar";
 import { AppRibbon } from "./ribbon/app_ribbon";
 import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contract";
 import { RouteScopeProvider, useRouteScopeData } from "./ribbon/route_scope_context";
@@ -82,7 +83,7 @@ function ContentError(props: ContentErrorProps): JSX.Element {
       <p class="eyebrow">This page needs another try</p>
       <h1>The learning space is still available</h1>
       <p>
-        The current page could not load. Your navigation and active Assignment Attempt remain
+        The current page could not load. Your navigation and active Assessment Attempt remain
         available.
       </p>
       <div class="action-row">
@@ -209,7 +210,14 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
               <div on:ple-ribbon-action={handleRibbonAction}>
                 <AppRibbon
                   model={model()}
-                  renderProfileAvatar={() => <RibbonProfileAvatar client={applicationApi.client} />}
+                  renderProfileAvatar={(): JSX.Element => (
+                    <RibbonAccountAvatar
+                      client={applicationApi.client}
+                      renderProvidedAvatar={(providedAvatarId) => (
+                        <AvatarVisual avatarId={providedAvatarId} decorative size={24} />
+                      )}
+                    />
+                  )}
                 />
               </div>
             )}

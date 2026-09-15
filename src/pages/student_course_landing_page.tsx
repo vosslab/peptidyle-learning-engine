@@ -1,54 +1,43 @@
-// Student-owned answer-free course and available assignment landing.
+// Student-owned answer-free course and available assessment landing.
 
 import { A, useParams } from "@solidjs/router";
-import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
+import { createMemo, createResource, For, Show, type JSX } from "solid-js";
 
 import type {
-  LiveStudentAssignmentLandingSummary,
+  LiveStudentAssessmentLandingSummary,
   LiveStudentCourseLandingSummary,
 } from "../api/live_student_course_landing";
 import { useApplicationApi } from "../api/application_api";
-import { StudentAssignmentDecisionDetails } from "../components/student_assignment_presentation";
+import { StudentAssessmentDecisionDetails } from "../components/student_assessment_presentation";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
-import { applyStudentDisplayTimeZone } from "./student_time_zone_model";
 
-function availableTimeZones(current: string): readonly string[] {
-  const intl = Intl as typeof Intl & {
-    readonly supportedValuesOf?: (key: "timeZone") => readonly string[];
-  };
-  const supported = intl.supportedValuesOf?.("timeZone") ?? [];
-  return [...new Set([...supported, "UTC", current])].sort((left, right) =>
-    left.localeCompare(right),
-  );
-}
-
-function progressLabel(assignment: LiveStudentAssignmentLandingSummary): string {
-  if (assignment.assignmentAttemptCompletion === "completed") return "Completed and scored";
-  if (assignment.assignmentAttemptCompletion === "inProgress") return "In progress";
+function progressLabel(assessment: LiveStudentAssessmentLandingSummary): string {
+  if (assessment.assessmentAttemptCompletion === "completed") return "Completed and scored";
+  if (assessment.assessmentAttemptCompletion === "inProgress") return "In progress";
   return "Not started";
 }
 
-function AssignmentCard(props: {
+function AssessmentCard(props: {
   readonly course: LiveStudentCourseLandingSummary;
-  readonly assignment: LiveStudentAssignmentLandingSummary;
+  readonly assessment: LiveStudentAssessmentLandingSummary;
 }): JSX.Element {
   return (
-    <article class="course-card student-assignment-card">
-      <h2>{props.assignment.title}</h2>
-      <p class="student-assignment-card__progress">
-        <strong>{progressLabel(props.assignment)}</strong>
+    <article class="course-card student-assessment-card">
+      <h2>{props.assessment.title}</h2>
+      <p class="student-assessment-card__progress">
+        <strong>{progressLabel(props.assessment)}</strong>
       </p>
-      <Show when={props.assignment.assignmentAttemptCompletion !== null}>
-        <p class="student-assignment-card__grade">
-          {props.assignment.gradedQuestionCount} of {props.assignment.questionCount} questions
+      <Show when={props.assessment.assessmentAttemptCompletion !== null}>
+        <p class="student-assessment-card__grade">
+          {props.assessment.gradedQuestionCount} of {props.assessment.questionCount} questions
           graded
-          <Show when={props.assignment.score}>
+          <Show when={props.assessment.score}>
             {(score) => (
               <>
                 {" · "}
-                {props.assignment.assignmentAttemptCompletion === "completed"
+                {props.assessment.assessmentAttemptCompletion === "completed"
                   ? "Score"
                   : "Score so far"}{" "}
                 {formatPointScore(score().pointsEarned, score().pointsPossible)}
@@ -57,15 +46,15 @@ function AssignmentCard(props: {
           </Show>
         </p>
       </Show>
-      <section class="student-assignment-card__decision" aria-label="Assignment access and timing">
+      <section class="student-assessment-card__decision" aria-label="Assessment access and timing">
         <h3>Before you start</h3>
-        <StudentAssignmentDecisionDetails decision={props.assignment.decision} />
+        <StudentAssessmentDecisionDetails decision={props.assessment.decision} />
       </section>
       <A
         class="primary-link"
-        href={`/courses/${props.course.reference}/assignments/${props.assignment.reference}`}
+        href={`/courses/${props.course.reference}/assessments/${props.assessment.reference}`}
       >
-        Open Assignment
+        Open Assessment
       </A>
     </article>
   );
@@ -88,44 +77,15 @@ export function StudentCourseLandingPage(): JSX.Element {
     return courses()?.find((candidate) => candidate.reference === reference);
   });
   // ASVS V2.2.2/2.3.1: the server projects Student membership; this view makes no access decision.
-  async function loadAssignments(
+  async function loadAssessments(
     current: LiveStudentCourseLandingSummary,
-  ): Promise<ReadonlyArray<LiveStudentAssignmentLandingSummary>> {
-    return applicationApi.client.listLiveStudentAssignments(current.reference);
+  ): Promise<ReadonlyArray<LiveStudentAssessmentLandingSummary>> {
+    return applicationApi.client.listLiveStudentAssessments(current.reference);
   }
-  const [assignments, { mutate: mutateAssignments }] = createResource(course, loadAssignments);
-  const [timeZoneProfile, { mutate: mutateTimeZoneProfile }] = createResource(course, async () =>
-    applicationApi.client.getStudentTimeZoneProfile(),
-  );
-  const [timeZoneDraft, setTimeZoneDraft] = createSignal<string>();
-  const [timeZoneSaving, setTimeZoneSaving] = createSignal(false);
-  const [timeZoneMessage, setTimeZoneMessage] = createSignal("");
-  const selectedTimeZone = (): string => timeZoneDraft() ?? timeZoneProfile()?.timeZone ?? "UTC";
-
-  async function saveTimeZone(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    if (timeZoneSaving()) return;
-    setTimeZoneSaving(true);
-    setTimeZoneMessage("");
-    try {
-      const saved = await applicationApi.client.updateStudentTimeZone({
-        timeZone: selectedTimeZone(),
-      });
-      mutateTimeZoneProfile(saved);
-      setTimeZoneDraft(saved.timeZone);
-      mutateAssignments((current) =>
-        current === undefined ? current : applyStudentDisplayTimeZone(current, saved.timeZone),
-      );
-      setTimeZoneMessage("Your time zone was saved.");
-    } catch (_error: unknown) {
-      setTimeZoneMessage("Your time zone could not be saved. Try again.");
-    } finally {
-      setTimeZoneSaving(false);
-    }
-  }
+  const [assessments] = createResource(course, loadAssessments);
   function unavailable(): boolean {
     return (
-      courseReference() === null || courses.error !== undefined || assignments.error !== undefined
+      courseReference() === null || courses.error !== undefined || assessments.error !== undefined
     );
   }
 
@@ -159,61 +119,17 @@ export function StudentCourseLandingPage(): JSX.Element {
             <A class="quiet-link" href="/?choose=1">
               Your courses
             </A>
-            <section class="student-time-zone-control" aria-labelledby="student-time-zone-heading">
-              <div>
-                <h2 id="student-time-zone-heading">Your time zone</h2>
-                <p>
-                  This changes how dates and times are shown. It does not change Assignment
-                  deadlines.
-                </p>
-              </div>
-              <Show when={timeZoneProfile.loading}>
-                <p class="calm-status" role="status">
-                  Loading your time zone...
-                </p>
-              </Show>
-              <Show when={timeZoneProfile.error !== undefined}>
-                <p role="alert">Your time zone is unavailable. Refresh to try again.</p>
-              </Show>
-              <Show when={timeZoneProfile()}>
-                <form aria-busy={timeZoneSaving()} onSubmit={(event) => void saveTimeZone(event)}>
-                  <label for="student-time-zone">
-                    Time zone
-                    <select
-                      id="student-time-zone"
-                      value={selectedTimeZone()}
-                      disabled={timeZoneSaving()}
-                      onInput={(event) => setTimeZoneDraft(event.currentTarget.value)}
-                    >
-                      <For each={availableTimeZones(selectedTimeZone())}>
-                        {(timeZone) => <option value={timeZone}>{timeZone}</option>}
-                      </For>
-                    </select>
-                  </label>
-                  <button class="primary-action" type="submit" disabled={timeZoneSaving()}>
-                    {timeZoneSaving() ? "Saving..." : "Save time zone"}
-                  </button>
-                </form>
-              </Show>
-              <Show when={timeZoneMessage()}>
-                {(message) => (
-                  <p role="status" aria-live="polite">
-                    {message()}
-                  </p>
-                )}
-              </Show>
-            </section>
-            <h2>Assignments</h2>
-            <Show when={assignments.loading}>
-              <p class="loading-state">Loading assignments...</p>
+            <h2>Assessments</h2>
+            <Show when={assessments.loading}>
+              <p class="loading-state">Loading assessments...</p>
             </Show>
-            <Show when={!assignments.loading && (assignments()?.length ?? 0) === 0}>
-              <p class="empty-state">No assignments are available right now.</p>
+            <Show when={!assessments.loading && (assessments()?.length ?? 0) === 0}>
+              <p class="empty-state">No assessments are available right now.</p>
             </Show>
-            <Show when={(assignments()?.length ?? 0) > 0}>
+            <Show when={(assessments()?.length ?? 0) > 0}>
               <div class="card-grid">
-                <For each={assignments()}>
-                  {(assignment) => <AssignmentCard course={current()} assignment={assignment} />}
+                <For each={assessments()}>
+                  {(assessment) => <AssessmentCard course={current()} assessment={assessment} />}
                 </For>
               </div>
             </Show>

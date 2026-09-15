@@ -26,14 +26,13 @@ function email(value: unknown, path: string): string {
 
 function entry(value: unknown, path: string): CourseRosterEntry {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["rosterId", "rosterEmail", "state"]);
+  requireOnlyFields(record, path, ["rosterId", "state"]);
   const state = decodeString(field(record, "state", path), `${path}.state`);
   if (state !== "invitationPending" && state !== "activeStudent") {
     throw new DecodeError(`${path}.state`, "a current Course Roster state");
   }
   return {
     rosterId: rosterId(field(record, "rosterId", path), `${path}.rosterId`),
-    rosterEmail: email(field(record, "rosterEmail", path), `${path}.rosterEmail`),
     state,
   };
 }

@@ -16,7 +16,7 @@ import { routeScopeKey, type RouteScopeKey } from "../navigation/route_params";
 
 export type RouteScopeQueries = Pick<
   ApplicationApi<OrdinaryBrowserApiClient>["queries"],
-  "resolveCourse" | "courseScope" | "assignmentAttemptScope" | "assignmentAttemptHistory"
+  "resolveCourse" | "courseScope" | "assessmentAttemptScope" | "assessmentAttemptHistory"
 >;
 
 type ScopeDataEntry =
@@ -31,18 +31,18 @@ function pathnameAccessor(pathname: Accessor<string> | string): Accessor<string>
   return typeof pathname === "function" ? pathname : (): string => pathname;
 }
 
-function isAssignmentAttemptSummary(pathname: string): boolean {
-  return routeContractForPathname(pathname)?.id === "assignmentAttemptSummary";
+function isAssessmentAttemptSummary(pathname: string): boolean {
+  return routeContractForPathname(pathname)?.id === "assessmentAttemptSummary";
 }
 
 function scopeCacheKey(scope: RouteScopeKey, pathname: string): string | undefined {
   switch (scope.kind) {
     case "courseInstance":
       return `course:${scope.courseReference}`;
-    case "assignmentAttempt":
+    case "assessmentAttempt":
       return (
-        `${isAssignmentAttemptSummary(pathname) ? "attempt-summary" : "attempt-screen"}:` +
-        scope.assignmentAttemptReference
+        `${isAssessmentAttemptSummary(pathname) ? "attempt-summary" : "attempt-screen"}:` +
+        scope.assessmentAttemptReference
       );
     case "product":
     case "invalid":
@@ -69,9 +69,9 @@ function withCourseAppearance(
   switch (data.kind) {
     case "course":
       return { ...data, course: { ...data.course, appearance } };
-    case "assignmentAttempt":
+    case "assessmentAttempt":
       return data;
-    case "assignmentAttemptHistory":
+    case "assessmentAttemptHistory":
       return data;
   }
 }
@@ -89,9 +89,9 @@ export function createRouteScopeController(
   const [cacheVersion, setCacheVersion] = createSignal(0);
   const entries = new Map<string, ScopeDataEntry>();
   const courseIdentities = new Map<string, ReturnType<RouteScopeQueries["resolveCourse"]>>();
-  const assignmentAttemptScopes = new Map<
+  const assessmentAttemptScopes = new Map<
     string,
-    ReturnType<RouteScopeQueries["assignmentAttemptScope"]>
+    ReturnType<RouteScopeQueries["assessmentAttemptScope"]>
   >();
 
   const resolveCourse = (
@@ -104,13 +104,13 @@ export function createRouteScopeController(
     return request;
   };
 
-  const assignmentAttemptScope = (
-    reference: Parameters<RouteScopeQueries["assignmentAttemptScope"]>[0],
-  ): ReturnType<RouteScopeQueries["assignmentAttemptScope"]> => {
-    const cached = assignmentAttemptScopes.get(reference);
+  const assessmentAttemptScope = (
+    reference: Parameters<RouteScopeQueries["assessmentAttemptScope"]>[0],
+  ): ReturnType<RouteScopeQueries["assessmentAttemptScope"]> => {
+    const cached = assessmentAttemptScopes.get(reference);
     if (cached !== undefined) return cached;
-    const request = queries.assignmentAttemptScope(reference);
-    assignmentAttemptScopes.set(reference, request);
+    const request = queries.assessmentAttemptScope(reference);
+    assessmentAttemptScopes.set(reference, request);
     return request;
   };
 
@@ -124,16 +124,16 @@ export function createRouteScopeController(
           .then((resolved) => queries.courseScope(resolved.courseId))
           .then((course) => ({ kind: "course", course }));
         break;
-      case "assignmentAttempt":
-        if (!isAssignmentAttemptSummary(pathnameForScope)) {
-          request = assignmentAttemptScope(scope.assignmentAttemptReference).then(
-            (context) => ({ kind: "assignmentAttempt", context }) as const,
+      case "assessmentAttempt":
+        if (!isAssessmentAttemptSummary(pathnameForScope)) {
+          request = assessmentAttemptScope(scope.assessmentAttemptReference).then(
+            (context) => ({ kind: "assessmentAttempt", context }) as const,
           );
           break;
         }
         request = queries
-          .assignmentAttemptHistory(scope.assignmentAttemptReference)
-          .then((history) => ({ kind: "assignmentAttemptHistory", history }) as const);
+          .assessmentAttemptHistory(scope.assessmentAttemptReference)
+          .then((history) => ({ kind: "assessmentAttemptHistory", history }) as const);
         break;
       case "product":
       case "invalid":
@@ -190,9 +190,9 @@ export function createRouteScopeController(
       case "courseInstance":
         courseIdentities.delete(scope.courseReference);
         break;
-      case "assignmentAttempt":
-        if (!isAssignmentAttemptSummary(pathnameForScope)) {
-          assignmentAttemptScopes.delete(scope.assignmentAttemptReference);
+      case "assessmentAttempt":
+        if (!isAssessmentAttemptSummary(pathnameForScope)) {
+          assessmentAttemptScopes.delete(scope.assessmentAttemptReference);
         }
         break;
       case "product":
@@ -212,7 +212,7 @@ export function createRouteScopeController(
     for (const [key, entry] of entries) {
       if (
         entry.state !== "resolved" ||
-        entry.data.kind === "assignmentAttempt" ||
+        entry.data.kind === "assessmentAttempt" ||
         courseRouteView(entry.data).summary.id !== courseId
       )
         continue;

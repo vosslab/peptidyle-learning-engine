@@ -83,7 +83,7 @@ impl QuestionBackend for RecordedImathasQuestionBackend {
                 verdict.grading_context = learning_data_access::ImathasGradingContext::new(
                     verdict.grading_context.question_attempt(),
                     QuestionRevisionReference {
-                        question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
+                        question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H')
                             .expect("Question ID"),
                         revision_number: verdict
                             .grading_context
@@ -169,7 +169,7 @@ fn question_backend() -> RecordedImathasQuestionBackend {
 
 fn question() -> QuestionRevisionReference {
     QuestionRevisionReference {
-        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
     }
 }
@@ -294,7 +294,7 @@ async fn wrong_locator_binding_and_outage_refuse_without_fabricating_incorrectne
     assert_eq!(
         verify_binding(
             &QuestionRevisionReference {
-                question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
+                question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H').expect("Question ID"),
                 revision_number: question.revision_number,
             },
             &changed_source,
@@ -441,7 +441,7 @@ fn grading_context_dimensions_change_hmac_and_imathas_launch_binding_checksum() 
         learning_data_access::ImathasGradingContext::new(
             baseline.question_attempt(),
             QuestionRevisionReference {
-                question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').unwrap(),
+                question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H').unwrap(),
                 revision_number: baseline.question_revision().revision_number,
             },
             baseline.question_seed(),

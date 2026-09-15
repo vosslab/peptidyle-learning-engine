@@ -4,19 +4,19 @@ import { A, useParams } from "@solidjs/router";
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
-import type { CourseAssignmentSummary, LiveAssignmentStatus } from "../api/assignment_release";
-import { LiveAssignmentWorkspaceConflictError } from "../api/http_client/assignment_release";
+import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
+import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 import {
   canonicalLocalDateAndTime,
   dueDateDraft,
   dueTimeDraft,
   localDueDateAndTime,
-} from "./assignment_workspace/assignment_workspace_policy_model";
+} from "./assessment_workspace/assessment_workspace_policy_model";
 
 import "./course_instance_page.css";
 
-function assignmentStatusLabel(status: LiveAssignmentStatus): string {
+function assessmentStatusLabel(status: LiveAssessmentStatus): string {
   switch (status) {
     case "unreleased":
       return "Unreleased";
@@ -29,35 +29,35 @@ function assignmentStatusLabel(status: LiveAssignmentStatus): string {
   }
 }
 
-function assignmentQuestionsPath(courseReference: string, assignmentReference: string): string {
-  return `/instructor/courses/${courseReference}/assignments/${assignmentReference}/questions`;
+function assessmentQuestionsPath(courseReference: string, assessmentReference: string): string {
+  return `/instructor/courses/${courseReference}/assessments/${assessmentReference}/questions`;
 }
 
-function AssignmentRow(props: {
+function AssessmentRow(props: {
   readonly courseReference: string;
-  readonly assignment: CourseAssignmentSummary;
+  readonly assessment: CourseAssessmentSummary;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
-  const [assignment, setAssignment] = createSignal(props.assignment);
+  const [assessment, setAssessment] = createSignal(props.assessment);
   const [state, setState] = createSignal<"idle" | "editing" | "saving" | "failed" | "read-only">(
     "idle",
   );
-  const [title, setTitle] = createSignal(assignment().title);
-  const [dueDate, setDueDate] = createSignal(dueDateDraft(assignment().dueAt));
-  const [dueTime, setDueTime] = createSignal(dueTimeDraft(assignment().dueAt));
+  const [title, setTitle] = createSignal(assessment().title);
+  const [dueDate, setDueDate] = createSignal(dueDateDraft(assessment().dueAt));
+  const [dueTime, setDueTime] = createSignal(dueTimeDraft(assessment().dueAt));
   const [message, setMessage] = createSignal("");
   const [needsRefresh, setNeedsRefresh] = createSignal(false);
   let titleInput: HTMLInputElement | undefined;
   let editButton: HTMLButtonElement | undefined;
-  let assignmentQuestionsLink: HTMLAnchorElement | undefined;
+  let assessmentQuestionsLink: HTMLAnchorElement | undefined;
   let readOnlyNotice: HTMLParagraphElement | undefined;
 
   function mayEdit(): boolean {
-    return assignment().status === "unreleased" || assignment().status === "released";
+    return assessment().status === "unreleased" || assessment().status === "released";
   }
 
   function beginEditing(): void {
-    const current = assignment();
+    const current = assessment();
     setTitle(current.title);
     setDueDate(dueDateDraft(current.dueAt));
     setDueTime(dueTimeDraft(current.dueAt));
@@ -68,25 +68,25 @@ function AssignmentRow(props: {
   }
 
   function cancelEditing(): void {
-    const current = assignment();
+    const current = assessment();
     setTitle(current.title);
     setDueDate(dueDateDraft(current.dueAt));
     setDueTime(dueTimeDraft(current.dueAt));
     setMessage("");
     setNeedsRefresh(false);
     setState("idle");
-    queueMicrotask(focusAssignmentAction);
+    queueMicrotask(focusAssessmentAction);
   }
 
-  function focusAssignmentAction(): void {
-    const focusTarget = mayEdit() ? editButton : assignmentQuestionsLink;
+  function focusAssessmentAction(): void {
+    const focusTarget = mayEdit() ? editButton : assessmentQuestionsLink;
     focusTarget?.focus();
   }
 
   function closeReadOnlyEditor(): void {
     setMessage("");
     setState("idle");
-    queueMicrotask(focusAssignmentAction);
+    queueMicrotask(focusAssessmentAction);
   }
 
   function typedDueDateAndTime(): string {
@@ -105,72 +105,72 @@ function AssignmentRow(props: {
     setState("saving");
     setMessage("");
     try {
-      const saved = await applicationApi.client.saveLiveAssignmentInline(
+      const saved = await applicationApi.client.saveLiveAssessmentInline(
         props.courseReference,
-        assignment().reference,
+        assessment().reference,
         { title: title(), dueAt },
-        assignment().editNumber,
+        assessment().editNumber,
       );
-      setAssignment(saved);
+      setAssessment(saved);
       setState("idle");
-      setMessage("Assignment title and due date saved.");
+      setMessage("Assessment title and due date saved.");
       queueMicrotask(() => editButton?.focus());
     } catch (error: unknown) {
       setState("failed");
-      setNeedsRefresh(error instanceof LiveAssignmentWorkspaceConflictError);
+      setNeedsRefresh(error instanceof LiveAssessmentWorkspaceConflictError);
       setMessage(
-        error instanceof LiveAssignmentWorkspaceConflictError
-          ? "This Assignment changed elsewhere. Load the current Assignment, then review it before retrying. Your typed values remain here."
-          : "The Assignment was not saved. Check the title and local due date and time, then try again. Your typed values remain here.",
+        error instanceof LiveAssessmentWorkspaceConflictError
+          ? "This Assessment changed elsewhere. Load the current Assessment, then review it before retrying. Your typed values remain here."
+          : "The Assessment was not saved. Check the title and local due date and time, then try again. Your typed values remain here.",
       );
     }
   }
 
-  async function refreshCurrentAssignment(): Promise<void> {
+  async function refreshCurrentAssessment(): Promise<void> {
     setState("saving");
     setMessage("");
     try {
       const latest = (
-        await applicationApi.client.listCourseAssignments(props.courseReference)
-      ).find((candidate) => candidate.reference === assignment().reference);
-      if (latest === undefined) throw new Error("Current Assignment was not returned");
-      setAssignment(latest);
+        await applicationApi.client.listCourseAssessments(props.courseReference)
+      ).find((candidate) => candidate.reference === assessment().reference);
+      if (latest === undefined) throw new Error("Current Assessment was not returned");
+      setAssessment(latest);
       setNeedsRefresh(false);
       if (!mayEdit()) {
         setState("read-only");
         setMessage(
-          `This Assignment is ${assignmentStatusLabel(latest.status)} and cannot save title and due date edits. Your typed values remain available until you close this editor.`,
+          `This Assessment is ${assessmentStatusLabel(latest.status)} and cannot save title and due date edits. Your typed values remain available until you close this editor.`,
         );
         queueMicrotask(() => readOnlyNotice?.focus());
         return;
       }
       setState("failed");
-      setMessage("Latest Assignment loaded. Review it, then save your typed values again.");
+      setMessage("Latest Assessment loaded. Review it, then save your typed values again.");
     } catch {
       setState("failed");
       setMessage(
-        "The current Assignment could not load. Your typed values remain here. Try again.",
+        "The current Assessment could not load. Your typed values remain here. Try again.",
       );
     }
   }
 
   return (
-    <article class="instructor-list__row instructor-list__row--assignment">
+    <article class="instructor-list__row instructor-list__row--assessment">
       <div class="instructor-list__identity">
-        <p class="instructor-list__kind">{assignmentStatusLabel(assignment().status)} Assignment</p>
-        <h3>{assignment().title}</h3>
-        <p class="instructor-list__metadata">Assignment {assignment().reference}</p>
+        <p class="instructor-list__kind">{assessmentStatusLabel(assessment().status)} Assessment</p>
+        <h3>{assessment().title}</h3>
+        <p class="instructor-list__metadata">Assessment {assessment().reference}</p>
         <p class="instructor-list__metadata">
-          Due: {assignment().dueAt ?? "No due date"} ({assignment().displayTimeZone})
+          Due: {assessment().dueAt ?? "No due date"} ({assessment().displayTimeZone})
         </p>
       </div>
       <div class="instructor-list__actions">
         <A
-          ref={(element) => (assignmentQuestionsLink = element)}
+          ref={(element) => (assessmentQuestionsLink = element)}
           class="primary-link"
-          href={assignmentQuestionsPath(props.courseReference, assignment().reference)}
+          href={assessmentQuestionsPath(props.courseReference, assessment().reference)}
         >
-          Edit Assignment
+          Edit Assessment
         </A>
         <Show when={mayEdit() && state() === "idle"}>
           <button
@@ -186,14 +186,14 @@ function AssignmentRow(props: {
       </div>
       <Show when={state() !== "idle" && state() !== "read-only"}>
         <form
-          class="assignment-inline-editor"
-          aria-label={`Edit ${assignment().title}`}
+          class="assessment-inline-editor"
+          aria-label={`Edit ${assessment().title}`}
           aria-busy={state() === "saving"}
           onSubmit={(event) => void save(event)}
         >
           <fieldset disabled={state() === "saving"}>
-            <div class="assignment-inline-editor__fields">
-              <label class="assignment-inline-editor__field">
+            <div class="assessment-inline-editor__fields">
+              <label class="assessment-inline-editor__field">
                 Title
                 <input
                   ref={(element) => (titleInput = element)}
@@ -203,19 +203,19 @@ function AssignmentRow(props: {
                 />
               </label>
               <div
-                class="assignment-inline-editor__schedule"
+                class="assessment-inline-editor__schedule"
                 role="group"
                 aria-label="Due date and time"
               >
-                <label class="assignment-inline-editor__field">
-                  Due date ({assignment().displayTimeZone})
+                <label class="assessment-inline-editor__field">
+                  Due date ({assessment().displayTimeZone})
                   <input
                     type="date"
                     value={dueDate()}
                     onInput={(event) => setDueDate(event.currentTarget.value)}
                   />
                 </label>
-                <label class="assignment-inline-editor__field">
+                <label class="assessment-inline-editor__field">
                   Due time
                   <input
                     type="time"
@@ -226,7 +226,7 @@ function AssignmentRow(props: {
                 </label>
               </div>
             </div>
-            <div class="assignment-inline-editor__actions">
+            <div class="assessment-inline-editor__actions">
               <button class="primary-action" type="submit">
                 {state() === "saving" ? "Saving title and due date..." : "Save title and due date"}
               </button>
@@ -237,9 +237,9 @@ function AssignmentRow(props: {
                 <button
                   class="quiet-action"
                   type="button"
-                  onClick={() => void refreshCurrentAssignment()}
+                  onClick={() => void refreshCurrentAssessment()}
                 >
-                  Load current Assignment
+                  Load current Assessment
                 </button>
               </Show>
             </div>
@@ -247,7 +247,7 @@ function AssignmentRow(props: {
           <Show when={message()}>
             {(value) => (
               <p
-                class="assignment-inline-editor__message"
+                class="assessment-inline-editor__message"
                 role={state() === "failed" ? "alert" : "status"}
               >
                 {value()}
@@ -258,19 +258,19 @@ function AssignmentRow(props: {
       </Show>
       <Show when={state() === "read-only"}>
         <section
-          class="assignment-inline-editor"
-          aria-label={`Editing unavailable for ${assignment().title}`}
+          class="assessment-inline-editor"
+          aria-label={`Editing unavailable for ${assessment().title}`}
         >
           <p
             ref={(element) => (readOnlyNotice = element)}
-            class="assignment-inline-editor__message"
+            class="assessment-inline-editor__message"
             role="alert"
             tabindex="-1"
           >
             {message()}
           </p>
-          <p class="assignment-inline-editor__message">Unsaved title: {title()}</p>
-          <p class="assignment-inline-editor__message">
+          <p class="assessment-inline-editor__message">Unsaved title: {title()}</p>
+          <p class="assessment-inline-editor__message">
             Unsaved due date and time: {typedDueDateAndTime()}
           </p>
           <button class="quiet-action" type="button" onClick={closeReadOnlyEditor}>
@@ -280,7 +280,7 @@ function AssignmentRow(props: {
       </Show>
       <Show when={state() === "idle" && message()}>
         {(value) => (
-          <p class="assignment-inline-editor__message" role="status">
+          <p class="assessment-inline-editor__message" role="status">
             {value()}
           </p>
         )}
@@ -289,7 +289,7 @@ function AssignmentRow(props: {
   );
 }
 
-/** Instructor Course Instance workspace for Teaching Team, roster, and Assignment delivery. */
+/** Instructor Course Instance workspace for Teaching Team, roster, and Assessment delivery. */
 export function CourseInstancePage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
@@ -299,8 +299,8 @@ export function CourseInstancePage(): JSX.Element {
   const [course] = createResource(courseReference, async (reference) =>
     applicationApi.client.getCourseInstance(reference),
   );
-  const [assignments] = createResource(courseReference, async (reference) =>
-    applicationApi.client.listCourseAssignments(reference),
+  const [assessments] = createResource(courseReference, async (reference) =>
+    applicationApi.client.listCourseAssessments(reference),
   );
 
   return (
@@ -344,30 +344,30 @@ export function CourseInstancePage(): JSX.Element {
                 {view().activeInstructorCount === 1 ? " is" : "s are"} currently recorded.
               </p>
             </section>
-            <section aria-labelledby="course-assignments-heading">
-              <h2 id="course-assignments-heading">Assignments</h2>
-              <Show when={assignments.loading}>
-                <p class="loading-state">Loading Assignments...</p>
+            <section aria-labelledby="course-assessments-heading">
+              <h2 id="course-assessments-heading">Assessments</h2>
+              <Show when={assessments.loading}>
+                <p class="loading-state">Loading Assessments...</p>
               </Show>
-              <Show when={assignments.error !== undefined}>
+              <Show when={assessments.error !== undefined}>
                 <p class="route-error" role="alert">
-                  Assignments could not be loaded.
+                  Assessments could not be loaded.
                 </p>
               </Show>
               <Show
-                when={(assignments()?.length ?? 0) > 0}
+                when={(assessments()?.length ?? 0) > 0}
                 fallback={
-                  <Show when={!assignments.loading && assignments.error === undefined}>
-                    <p class="empty-state">No Assignments have been created for this course.</p>
+                  <Show when={!assessments.loading && assessments.error === undefined}>
+                    <p class="empty-state">No Assessments have been created for this course.</p>
                   </Show>
                 }
               >
-                <div class="instructor-list" aria-label="Assignments">
-                  <For each={assignments()}>
-                    {(assignment) => (
-                      <AssignmentRow
+                <div class="instructor-list" aria-label="Assessments">
+                  <For each={assessments()}>
+                    {(assessment) => (
+                      <AssessmentRow
                         courseReference={view().course.reference}
-                        assignment={assignment}
+                        assessment={assessment}
                       />
                     )}
                   </For>
@@ -386,9 +386,9 @@ export function CourseInstancePage(): JSX.Element {
               </A>
               <A
                 class="quiet-link"
-                href={`/instructor/courses/${view().course.reference}/assignments/new`}
+                href={`/instructor/courses/${view().course.reference}/assessments/new`}
               >
-                Create Assignment
+                Create Assessment
               </A>
               <A
                 class="quiet-link"

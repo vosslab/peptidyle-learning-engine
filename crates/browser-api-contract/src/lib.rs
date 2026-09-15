@@ -7,6 +7,6 @@
 //! free, and fallible-behavior-free; Axum, persistence, application state, and
 //! project tooling stay outside this product boundary.
 
-pub mod assignment_delivery;
+pub mod assessment_delivery;
 pub mod blueprint_course;
-pub mod student_assignment_decision;
+pub mod student_assessment_decision;

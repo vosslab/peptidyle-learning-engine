@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+  <g id="fern-facet-background"><rect x="4" y="4" width="120" height="120" rx="28" fill="#E9F6E9"/></g>
+  <g id="fern-facet-planes"><polygon points="64,18 108,47 86,105 42,105 20,47" fill="#36784A"/><polygon points="64,18 64,65 20,47" fill="#77A85D"/><polygon points="64,65 108,47 86,105" fill="#165B4E"/><polygon points="64,65 86,105 42,105" fill="#A8C95C"/></g>
+</svg>

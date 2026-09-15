@@ -2,6 +2,7 @@
 
 use sha2::{Digest, Sha256};
 
+use crate::QuestionReproduction;
 use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
 
 use super::builder::{
@@ -12,9 +13,9 @@ use super::model::{
     QuestionPresentationResponseFormat, QuestionPresentationToken,
 };
 
-/// Closed descriptor version stored with every v1 attempt.
-pub const CURRENT_DESCRIPTOR_VERSION: u8 = 1;
-const PRESENTATION_DOMAIN: &[u8] = b"ple:presentation:v1\0";
+/// Closed descriptor version stored with every v3 attempt.
+pub const CURRENT_DESCRIPTOR_VERSION: u8 = 3;
+const PRESENTATION_DOMAIN: &[u8] = b"ple:presentation:v3\0";
 const HOTSPOT_COORDINATE_MAXIMUM: u32 = 10_000;
 
 /// Full SHA-256 binding retained by server persistence.
@@ -96,8 +97,9 @@ pub fn descriptor_bytes(
             .revision_number
             .get(),
     );
-    encoder.u64(presentation.presentation.question_seed.value());
+    encoder.reproduction(&presentation.reproduction)?;
     encoder.raw(&presentation.presentation.presentation_nonce.as_bytes());
+    encoder.author_content_digest(presentation.presentation.author_content_digest.as_deref())?;
     encoder.string(&presentation.presentation.question_title)?;
     encoder.content_blocks(&presentation.presentation.prompt)?;
     encoder.question_response_format(&presentation.presentation.response, presentation)?;
@@ -249,6 +251,22 @@ impl Encoder {
         }
     }
 
+    fn author_content_digest(&mut self, value: Option<&str>) -> Result<(), PresentationBuildError> {
+        match value {
+            None => self.u8(0),
+            Some(value) => {
+                let digest = QuestionPresentationChecksum::parse_hex(value).map_err(|_| {
+                    PresentationBuildError::DescriptorEncoding(
+                        "author content digest is not SHA-256",
+                    )
+                })?;
+                self.u8(1);
+                self.raw(&digest.as_bytes());
+            }
+        }
+        Ok(())
+    }
+
     fn checksum(&mut self, value: &str) -> Result<(), PresentationBuildError> {
         if value.len() != 64 {
             return Err(PresentationBuildError::DescriptorEncoding(
@@ -265,6 +283,21 @@ impl Encoder {
             })?;
         }
         self.raw(&bytes);
+        Ok(())
+    }
+
+    fn reproduction(&mut self, value: &QuestionReproduction) -> Result<(), PresentationBuildError> {
+        match value {
+            QuestionReproduction::Static => self.u8(0),
+            QuestionReproduction::Seeded {
+                question_seed,
+                generated_parameter_sha256,
+            } => {
+                self.u8(1);
+                self.u64(question_seed.value());
+                self.checksum(generated_parameter_sha256)?;
+            }
+        }
         Ok(())
     }
 

@@ -33,11 +33,21 @@ pub const MAX_QUESTION_SEARCH_OWN_COURSE_USAGES: usize = 100;
 /// Crockford Base32 alphabet used by the one human-facing Question ID.
 pub const QUESTION_ID_ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-/// Number of random identity characters before the validation character.
-pub const QUESTION_ID_IDENTIFIER_LENGTH: usize = 6;
+/// Uppercase transcription aliases accepted before alphabet validation.
+pub const QUESTION_ID_NORMALIZATION_ALIASES: &[(char, char)] =
+    &[('O', '0'), ('I', '1'), ('L', '1')];
+
+/// Number of random identity characters around the middle validation character.
+pub const QUESTION_ID_IDENTIFIER_LENGTH: usize = 7;
 
 /// Total compact Question ID length, including its validation character.
-pub const QUESTION_ID_COMPACT_LENGTH: usize = 7;
+pub const QUESTION_ID_COMPACT_LENGTH: usize = 8;
+
+/// Zero-based compact position of the server-validated HMAC character.
+pub const QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX: usize = 4;
+
+/// Zero-based display position where the presentation-only hyphen is inserted.
+pub const QUESTION_ID_DISPLAY_HYPHEN_INDEX: usize = 4;
 
 /// Product limit kept independent of the larger encoded namespace.
 pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
@@ -46,16 +56,16 @@ pub const MAX_QUESTION_ID_COUNT: u64 = 100_000_000;
 /// lineage. [`QuestionRevisionReference`] pairs it with a positive revision
 /// number to identify one immutable Question Revision.
 ///
-/// The canonical display is `AAA-BBBB`. Parsing accepts unhyphenated and
+/// The canonical display is `AAAA-ZBBB`. Parsing accepts unhyphenated and
 /// lowercase Crockford input plus the documented `O` to `0` and `I`/`L` to
 /// `1` transcription aliases. This type validates syntax only; the server-held
-/// HMAC secret validates the final character before resolution.
+/// HMAC secret validates the middle character before resolution.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct QuestionId(String);
 
 impl QuestionId {
-    /// Canonical seven-character storage value without the display hyphen.
+    /// Canonical eight-character storage value without the display hyphen.
     ///
     /// This is the spelling for database, object-address, and deterministic
     /// machine boundaries. Browser-facing serialization and [`Display`] use
@@ -64,18 +74,26 @@ impl QuestionId {
         &self.0
     }
 
-    /// Returns the six-character identity without allocating.
-    pub fn identifier_compact(&self) -> &str {
-        &self.0[..QUESTION_ID_IDENTIFIER_LENGTH]
+    /// Returns the seven-character identity in compact display order.
+    pub fn identifier_compact(&self) -> String {
+        format!(
+            "{}{}",
+            &self.0[..QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX],
+            &self.0[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX + 1..]
+        )
     }
 
     /// Canonical validation character.
     pub fn validation_character(&self) -> char {
-        self.0.as_bytes()[QUESTION_ID_IDENTIFIER_LENGTH] as char
+        self.0.as_bytes()[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX] as char
     }
 
     /// Builds a canonical ID from server-generated canonical components.
-    pub fn from_canonical_parts(identifier: &str, validation: char) -> Result<Self, &'static str> {
+    pub fn from_canonical_parts(
+        identifier: impl AsRef<str>,
+        validation: char,
+    ) -> Result<Self, &'static str> {
+        let identifier = identifier.as_ref();
         if identifier.len() != QUESTION_ID_IDENTIFIER_LENGTH
             || !identifier
                 .bytes()
@@ -85,13 +103,22 @@ impl QuestionId {
         {
             return Err("question ID components are not canonical Crockford Base32");
         }
-        Ok(Self(format!("{identifier}{validation}")))
+        Ok(Self(format!(
+            "{}{validation}{}",
+            &identifier[..QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX],
+            &identifier[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX..]
+        )))
     }
 }
 
 impl std::fmt::Display for QuestionId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(formatter, "{}-{}", &self.0[..3], &self.0[3..])
+        write!(
+            formatter,
+            "{}-{}",
+            &self.0[..QUESTION_ID_DISPLAY_HYPHEN_INDEX],
+            &self.0[QUESTION_ID_DISPLAY_HYPHEN_INDEX..]
+        )
     }
 }
 
@@ -101,34 +128,46 @@ impl std::str::FromStr for QuestionId {
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let trimmed = value.trim();
         if trimmed.contains('-')
-            && (trimmed.chars().count() != 8
-                || trimmed.chars().nth(3) != Some('-')
+            && (trimmed.len() != QUESTION_ID_COMPACT_LENGTH + 1
+                || trimmed.as_bytes()[QUESTION_ID_DISPLAY_HYPHEN_INDEX] != b'-'
                 || trimmed
                     .chars()
                     .filter(|character| *character == '-')
                     .count()
                     != 1)
         {
-            return Err("question ID hyphen must use the canonical 3-4 grouping");
+            return Err("question ID hyphen must use the canonical 4-4 grouping");
         }
         let normalized: String = trimmed
             .chars()
             .filter(|character| *character != '-')
-            .map(|character| match character.to_ascii_uppercase() {
-                'O' => '0',
-                'I' | 'L' => '1',
-                other => other,
-            })
+            .map(normalize_question_id_character)
             .collect();
         if normalized.len() != QUESTION_ID_COMPACT_LENGTH
             || !normalized
                 .bytes()
                 .all(|character| QUESTION_ID_ALPHABET.contains(&character))
         {
-            return Err("question ID must contain seven Crockford Base32 characters");
+            return Err("question ID must contain eight Crockford Base32 characters");
         }
-        Self::from_canonical_parts(&normalized[..6], normalized.as_bytes()[6] as char)
+        let identifier = format!(
+            "{}{}",
+            &normalized[..QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX],
+            &normalized[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX + 1..]
+        );
+        Self::from_canonical_parts(
+            &identifier,
+            normalized.as_bytes()[QUESTION_ID_CHECK_CHARACTER_COMPACT_INDEX] as char,
+        )
     }
+}
+
+fn normalize_question_id_character(character: char) -> char {
+    let uppercase = character.to_ascii_uppercase();
+    QUESTION_ID_NORMALIZATION_ALIASES
+        .iter()
+        .find_map(|(alias, normalized)| (*alias == uppercase).then_some(*normalized))
+        .unwrap_or(uppercase)
 }
 
 impl TryFrom<String> for QuestionId {
@@ -289,8 +328,27 @@ pub enum QuestionBackend {
     Imathas,
 }
 
+/// Which layer owns a Question Backend's interaction semantics.
+///
+/// This is deliberately a model-only policy seam, not a browser wire shape or
+/// a generic response model. It gives the common backend interface one
+/// explicit boundary: PLE implements its own native interaction, while an
+/// external backend keeps rendering, response interpretation, grading,
+/// feedback, and backend state inside its adapter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuestionBackendInteractionPolicy {
+    /// PLE is the Question Backend and owns the native interaction.
+    PleOwned,
+    /// The selected adapter owns its opaque interaction semantics.
+    BackendOwned,
+}
+
 impl QuestionBackend {
     /// Every browser-safe Question Backend supported by this release.
+    ///
+    /// This is the common adapter vocabulary. It identifies the adapter that
+    /// owns backend-specific behavior; it does not make PLE interpret that
+    /// behavior.
     pub const ALL: [Self; 3] = [Self::Ple, Self::Webwork, Self::Imathas];
 
     /// Canonical public wire value for this closed backend vocabulary.
@@ -299,6 +357,48 @@ impl QuestionBackend {
             Self::Ple => "ple",
             Self::Webwork => "webwork",
             Self::Imathas => "imathas",
+        }
+    }
+
+    /// Returns the ownership boundary for the selected backend's interaction.
+    ///
+    /// A caller may use this to select the common lifecycle path, but must not
+    /// infer or parse an external backend's controls, response shape, or
+    /// state.
+    pub const fn interaction_policy(self) -> QuestionBackendInteractionPolicy {
+        match self {
+            Self::Ple => QuestionBackendInteractionPolicy::PleOwned,
+            Self::Webwork | Self::Imathas => QuestionBackendInteractionPolicy::BackendOwned,
+        }
+    }
+}
+
+/// The stable browser-safe surface shared by every Question Backend adapter.
+///
+/// This is deliberately a data contract, not an adapter trait. Every adapter
+/// identifies itself through the closed [`QuestionBackend`] vocabulary and
+/// declares only the capabilities it supports. Rendering, interaction,
+/// response interpretation, grading, feedback, runtime state, and scoring
+/// remain adapter-owned and therefore have no field in this shared surface.
+///
+/// `QuestionBackendInterface` may travel to the browser as part of Question
+/// Library metadata. It contains no source path, package identifier, control
+/// vocabulary, response shape, answer key, lifecycle state, or runtime data.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionBackendInterface {
+    /// The adapter identity, without backend-private configuration.
+    pub backend: QuestionBackend,
+    /// Capabilities declared by the adapter that owns its internal details.
+    pub capabilities: QuestionBackendCapabilities,
+}
+
+impl QuestionBackendInterface {
+    /// Creates the complete common surface for one adapter declaration.
+    pub fn new(backend: QuestionBackend, capabilities: QuestionBackendCapabilities) -> Self {
+        Self {
+            backend,
+            capabilities,
         }
     }
 }
@@ -314,6 +414,9 @@ pub struct QuestionSummary {
     pub latest_question_revision: QuestionRevisionReference,
     /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
+    /// Immutable reviewed source representation, for Instructor identification
+    /// only. It never exposes a source path or backend-private configuration.
+    pub question_format: crate::QuestionFormat,
     /// Immutable author-declared educational Question Type copied to this Published Question
     /// Revision at publication time. It is never inferred from backend controls.
     pub question_type: QuestionType,
@@ -332,6 +435,14 @@ pub struct QuestionSummary {
 }
 
 impl QuestionSummary {
+    /// Returns the exact browser-safe common backend surface for this Question.
+    ///
+    /// This projection intentionally leaves all backend-specific runtime and
+    /// interaction details with the adapter.
+    pub fn backend_interface(&self) -> QuestionBackendInterface {
+        QuestionBackendInterface::new(self.backend, self.capabilities.clone())
+    }
+
     /// Free-form tags for filtering without loading the question payload.
     pub fn tags(&self) -> &[Tag] {
         &self.metadata.tags
@@ -379,14 +490,14 @@ pub struct QuestionSearchResult {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionUseSummary {
-    /// Installation-wide number of distinct courses with an assignment use.
+    /// Installation-wide number of distinct courses with an assessment use.
     pub global_course_count: u64,
-    /// Installation-wide number of assignment uses.
-    pub global_assignment_count: u64,
+    /// Installation-wide number of assessment uses.
+    pub global_assessment_count: u64,
     /// Current Account's distinct courses that use this publication.
     pub own_course_count: u64,
-    /// Current Account's assignment uses across their visible courses.
-    pub own_assignment_count: u64,
+    /// Current Account's assessment uses across their visible courses.
+    pub own_assessment_count: u64,
 }
 
 /// One current Account-visible course using an exact publication.
@@ -397,8 +508,8 @@ pub struct CourseQuestionUse {
     pub course: CourseInstanceReference,
     /// Current course title visible to the requesting instructor.
     pub title: String,
-    /// Number of current assignment uses in this course.
-    pub assignment_count: u64,
+    /// Number of current assessment uses in this course.
+    pub assessment_count: u64,
 }
 
 /// Bounded Question Use Details View for a requesting instructor.
@@ -467,63 +578,48 @@ mod tests {
     use crate::Capability;
 
     #[test]
-    fn question_ids_normalize_forgiving_input_without_accepting_other_characters() {
-        let canonical: QuestionId = "7K3-M9QX".parse().expect("canonical ID parses");
-        assert_eq!(canonical.to_string(), "7K3-M9QX");
-        assert_eq!(canonical.as_compact_str(), "7K3M9QX");
-        assert_eq!(canonical.identifier_compact(), "7K3M9Q");
+    fn question_id_normalization_and_wire_display_follow_the_stable_contract() {
+        let canonical: QuestionId = "7K3M-X9QX".parse().expect("canonical ID parses");
+        assert_eq!(canonical.to_string(), "7K3M-X9QX");
+        assert_eq!(canonical.as_compact_str(), "7K3MX9QX");
+        assert_eq!(canonical.identifier_compact(), "7K3M9QX");
         assert_eq!(canonical.validation_character(), 'X');
         assert_eq!(
-            "7k3m9qx".parse::<QuestionId>().expect("lowercase parses"),
+            "7k3mx9qx".parse::<QuestionId>().expect("lowercase parses"),
             canonical
         );
         assert_eq!(
-            "o11-1lix"
+            "o11l-i11x"
                 .parse::<QuestionId>()
                 .expect("aliases parse")
                 .to_string(),
-            "011-111X"
+            "0111-111X"
         );
-        for invalid in ["7K3-M9Q", "7K3-M9QXX", "7K3-M9QU", "7K3 M9QX"] {
+        for invalid in ["7K3M-X9Q", "7K3M-X9QXX", "7K3M-X9QU", "7K3M X9QX"] {
             assert!(invalid.parse::<QuestionId>().is_err(), "{invalid}");
         }
-    }
-
-    #[test]
-    fn question_id_wire_uses_the_canonical_display_form() {
-        let identifier: QuestionId = "7k3m9qx".parse().expect("ID parses");
         assert_eq!(
-            serde_json::to_value(&identifier).expect("ID serializes"),
-            serde_json::json!("7K3-M9QX")
+            serde_json::to_value(&canonical).expect("ID serializes"),
+            serde_json::json!("7K3M-X9QX")
         );
         assert_eq!(
-            serde_json::from_value::<QuestionId>(serde_json::json!("7k3-m9qx"))
+            serde_json::from_value::<QuestionId>(serde_json::json!("7k3m-x9qx"))
                 .expect("wire aliases normalize"),
-            identifier
+            canonical
         );
-    }
-
-    #[test]
-    fn human_question_references_are_unambiguous_and_version_free() {
-        let question_id: QuestionId = "7k3m9qx".parse().expect("Question ID parses");
-        assert_eq!(question_id.to_string(), "7K3-M9QX");
-
-        for invalid in ["P-123456", "P-12-v3", "7K3-M9Q", "7K3-M9QU"] {
-            assert!(invalid.parse::<QuestionId>().is_err(), "{invalid}");
-        }
     }
 
     #[test]
     fn question_id_text_recognizes_one_human_question_id_without_a_revision() {
         let exact = QuestionSearchRequest {
-            text: Some(" 7k3-m9qx ".to_string()),
+            text: Some(" 7k3m-x9qx ".to_string()),
             ..QuestionSearchRequest::default()
         }
         .normalized()
         .expect("search text normalizes")
         .exact_question_id()
         .expect("Question ID is recognized");
-        assert_eq!(exact.to_string(), "7K3-M9QX");
+        assert_eq!(exact.to_string(), "7K3M-X9QX");
 
         let old_versioned = QuestionSearchRequest {
             text: Some("P-70-v1".to_string()),
@@ -598,12 +694,13 @@ mod tests {
     fn question_library_detail_wire_shape_has_no_source_or_grading_fields() {
         let detail = QuestionDetails {
             summary: QuestionSummary {
-                question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
+                question_id: "7K3M-X9QX".parse().expect("fixture Question ID parses"),
                 latest_question_revision: QuestionRevisionReference {
-                    question_id: "7K3-M9QX".parse().expect("fixture Question ID parses"),
+                    question_id: "7K3M-X9QX".parse().expect("fixture Question ID parses"),
                     revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
                 },
                 backend: QuestionBackend::Ple,
+                question_format: crate::QuestionFormat::PleQuestionJson,
                 question_type: QuestionType::MultipleChoice,
                 capabilities: QuestionBackendCapabilities::none(),
                 metadata: QuestionMetadata {
@@ -630,9 +727,9 @@ mod tests {
             usage: QuestionUseDetails {
                 summary: QuestionUseSummary {
                     global_course_count: 0,
-                    global_assignment_count: 0,
+                    global_assessment_count: 0,
                     own_course_count: 0,
-                    own_assignment_count: 0,
+                    own_assessment_count: 0,
                 },
                 own_courses: Vec::new(),
                 own_courses_truncated: false,

@@ -23,18 +23,18 @@ function content() {
     entries: [
       {
         kind: "fixed",
-        question: { question_library: questionLibraryEntry("7K3-M9QP", "First fixed") },
+        question: { question_library: questionLibraryEntry("7K3M-X9QP", "First fixed") },
       },
       {
         kind: "pool",
         items: [
-          { question_library: questionLibraryEntry("2R5-X7YA", "Pool first") },
-          { question_library: questionLibraryEntry("3S8-B4DZ", "Pool second") },
+          { question_library: questionLibraryEntry("2R5X-Z7YA", "Pool first") },
+          { question_library: questionLibraryEntry("3S8B-Z4DZ", "Pool second") },
         ],
       },
       {
         kind: "fixed",
-        question: { question_library: questionLibraryEntry("4T9-C5EW", "Final fixed") },
+        question: { question_library: questionLibraryEntry("4T9C-Z5EW", "Final fixed") },
       },
     ],
   };
@@ -88,7 +88,7 @@ test("Blueprint Assignment picker preserves Fixed Question and Question Pool Ass
 
   assert.deepEqual(
     result.items.map((row) => row.displayId),
-    ["7K3-M9QP", "2R5-X7YA", "3S8-B4DZ", "4T9-C5EW"],
+    ["7K3M-X9QP", "2R5X-Z7YA", "3S8B-Z4DZ", "4T9C-Z5EW"],
   );
   assert.deepEqual(resolved, [{ reference: "BP-7", revisionNumber: "2" }]);
 });

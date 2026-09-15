@@ -11,20 +11,40 @@
 - [x] Opaque IDs remain FERPA-sensitive when they link a Student to Course activity.
   - Evidence (source): `schemas/base_schema/authorization.sql` `current_session_account_owns_student_record` authorizes a Student record only through its Course and active membership.
 
+### Human-facing reference IDs
+
+- [ ] Human-facing reference IDs should be short, opaque, easy to communicate, and should not reveal creation order, counts, database keys, ownership, or other object metadata.
+  - Evidence (source): `crates/question_model/src/public_route.rs` defines opaque typed read/use formats and `src/navigation/public_route.ts` accepts only their typed forms at browser route boundaries.
+  - Mismatch: no connected creation/allocation proof establishes cryptographically random, nonsequential references across all required objects.
+- [ ] Blueprint Course IDs use `BP`, Course Instance IDs use `CI`, Assessment IDs use `A`, and Account IDs use `U`, followed directly by a common cryptographically random Crockford Base32 reference format.
+  - Evidence (source): `crates/question_model/src/public_route.rs` and generated/browser route contracts read and use the `BP`, `CI`, `A`, and `U` typed formats; authenticated server paths parse those formats before Store authorization.
+  - Mismatch: creation and allocation boundaries have not received connected proof of the common cryptographically random format.
+- [ ] ID generation enforces uniqueness and retries random collisions.
+  - Mismatch: no connected common human-reference allocator/retry collision proof exists.
+- [ ] Give an internal object a human-facing reference ID when a useful workflow needs to display, search, communicate, or support it.
+  - Mismatch: Current private route-token inventory needs a workflow-by-workflow audit before a reference is exposed or retained as human-facing.
+- [ ] Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
+  - Evidence (source): accepted source review found `U` parsing/use limited to authenticated Account-management paths; no Student or Instructor projection was identified in that review.
+  - Mismatch: full cross-route authorization and creation-boundary proof remains outstanding.
+- [ ] Published Questions and published Question Pools retain their existing public `AAAA-ZBBB` IDs.
+  - Mismatch: Published Question IDs use `AAAA-ZBBB`, but published Question Pool identities are not complete.
+
 ### Student and FERPA data
 
 - [x] **Student** course data falls under FERPA; treat it as radioactive.
   - Evidence (source): `schemas/base_schema/course_membership.sql` `student_record` is protected by RLS and has no PUBLIC privilege.
-- [ ] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-  - Mismatch: The schema controls access but has no Student-data purge policy or processing implementation.
+- [x] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
   - Owner: `docs/active_plans/audits/hg_checklist_parts/02_accounts.md`
+  - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
 - [x] FERPA access should be scoped through exact Course membership and **Student** ownership.
   - Evidence (source): `schemas/base_schema/authorization.sql` `current_session_account_owns_student_record` requires the exact Course, Student Record, authenticated Student Account, and active Student membership before Student Work access is allowed.
-  - Evidence (test): `crates/learning-data-access/tests/assignment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` uses a real `ple_auth` to `ple_app` session to allow the owner and deny a same-Course other Student, nonmember, same Account with another Course record, and ordinary Sysadmin.
+  - Evidence (test): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` uses a real `ple_auth` to `ple_app` session to allow the owner and deny a same-Course other Student, nonmember, same Account with another Course record, and ordinary Sysadmin.
   - Decision: This permanent behavior-level BOLA/FERPA oracle protects a stable high-impact outcome. If its baseline gate fails, this record returns to `[ ]` while the session installation, exact-membership predicate, or ownership boundary is repaired and the same gate rerun.
 - [x] **Sysadmins** receive only the FERPA access required for a specific administrative task.
-  - Evidence (source): `crates/server/src/support_capability.rs` `support_capability_router` exposes scoped, revocable course-roster support capabilities.
-  - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `Support capability authority` exercises exact-course roster issuance, concealment, and revocation.
+  - Evidence (source): `crates/server/src/support_capability.rs` `support_capability_router` exposes only a scoped, revocable exact-record repair reader; it has no whole-Course roster route.
+  - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `prove_issue` exercises named-record repair issuance, concealment, use, and revocation.
 - [x] Student Accounts persist independently of Course data and Course retention.
   - Evidence (source): `schemas/base_schema/accounts.sql` `account` is separate from course-scoped `student_record`.
 - [ ] Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
@@ -34,7 +54,7 @@
 - [ ] **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
   - Mismatch: The Attempt table links a Student record and Assessment, but the implementation does not establish `Student Work` as the collective product term for all such records.
 - [x] Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
-  - Evidence (source): `schemas/base_schema/attempt_history.sql` `read_student_assignment_attempt_history` joins Attempt, issued question, response, submission, grading, and receipt evidence.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `read_student_assessment_attempt_history` joins Attempt, issued question, response, submission, grading, and receipt evidence.
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `first_score` verifies retained response finalization and resulting score evidence.
 - [ ] Student Work is an umbrella term; the underlying records retain their own identities and purposes.
   - Mismatch: Distinct Attempt, issued-Question, and Question-Pool-selection records show separate identities, but no implemented collective `Student Work` term establishes the required umbrella relationship.
@@ -102,31 +122,31 @@
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_private.publish_question_revision` locks the Draft and immediate parent before it creates a successor; its `PQR01` source-checksum comparison rejects an unchanged `question_revision_source_binding` before any successor facts are written.
   - Decision: A fresh one-time PostgreSQL 17 probe verified title and description metadata changes make no Revision, an unchanged source is rejected without a partial write, a changed source creates the next Revision, and two serialized sessions admit only one successor. Tags, subject, and topic have no persisted metadata fields yet; the probe asserts that present absence rather than inventing a field-level behavior. The probe is temporary and will be removed, not cited as permanent evidence.
 - [x] Assessments, Course Instances, and Draft Questions use current state.
-  - Evidence (source): `schemas/base_schema/assignments.sql` `ple_data.save_assignment` updates the current `ple_data.assignment` row and advances its `assignment_edit_number`.
+  - Evidence (source): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` updates current Assessment state and advances its `assessment_edit_number`.
   - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_api.update_course_theme` updates the current `ple_data.course_instance` row.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_private.save_authoring_draft` updates the current `ple_private.draft_question`, metadata, and source-binding rows.
 - [ ] Published Questions, Question Pools, and Blueprint Courses have immutable revisions.
   - Mismatch: Published Question and Blueprint revision storage exists, but Question Pools are current Assignment configuration and have no immutable Question Pool Revision.
 - [x] Mutable working state uses a monotonic sequential Edit Number when needed for concurrency.
-  - Evidence (source): `schemas/base_schema/assignments.sql` `save_assignment_inline` requires and advances `edit_number`.
+  - Evidence (source): `schemas/base_schema/assessment_operations.sql` `save_assessment_inline` requires and advances `assessment_edit_number`.
 - [x] An Edit Number is only a counter and does not identify a stored historical object.
-  - Evidence (source): `schemas/base_schema/assignments.sql` `edit_number` is a current-state concurrency field rather than a revision foreign key.
+  - Evidence (source): `schemas/base_schema/assessment_operations.sql` `assessment_edit_number` is a current-state concurrency field rather than a revision foreign key.
 - [ ] Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for each object.
   - Mismatch: Question and Blueprint revisions have positive sequential numbers, but Question Pools have no Revision Number.
 - [ ] A Revision Number identifies a specific immutable Revision stored by PLE.
   - Mismatch: Question and Blueprint Revision Numbers identify immutable rows, but the absent Question Pool Revision leaves this general Revision Number behavior incomplete.
 - [x] Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
-  - Evidence (source): `schemas/base_schema/attempts.sql` `issued_question` records Attempt identity with `question_id` and `revision_number`.
+  - Evidence (source): `schemas/base_schema/assessment_attempts.sql` `issued_question` records Attempt identity with `question_id` and `revision_number`.
 - [x] Student Work records the Student's responses and the grading outcome returned by the Question Backend.
-  - Evidence (source): `schemas/base_schema/attempt_history.sql` `read_student_assignment_attempt_history` returns retained responses and grading results.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `read_student_assessment_attempt_history` returns retained responses and grading results.
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `first_score` verifies the finalization grading outcome.
 - [ ] Student Work records the Question Pool Revision and selected Published Question Revision for each response.
   - Mismatch: `question_pool_selected_item` retains the selected Published Question revision but no immutable Question Pool Revision identity.
 - [x] Changes to Question point values recalculate scores from the stored grading outcome without changing the outcome.
-  - Evidence (source): `schemas/base_schema/attempt_history.sql` `score_recorded_credit` calculates current points from retained `normalized_credit`.
+  - Evidence (source): `schemas/base_schema/grading.sql` `score_recorded_credit` calculates current points from retained `normalized_credit`.
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `replay_score` changes points and verifies retained credit is replayed.
 - [x] Changes to Assessment settings do not change the recorded history of completed Assessment Attempts.
-  - Evidence (source): `schemas/base_schema/attempt_history.sql` `read_student_assignment_attempt_history` deliberately interprets retained Attempt evidence rather than current Assignment content.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `read_student_assessment_attempt_history` deliberately interprets retained Attempt evidence rather than current Assessment content.
 - [x] Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `source_object_checksum` binds immutable Question-source contents to SHA-256 object records.
   - Evidence (source): `schemas/base_schema/question_assets.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
@@ -134,20 +154,20 @@
 ### Dates and time zones
 
 - [x] Assessment deadlines are stored as instants.
-  - Evidence (source): `schemas/base_schema/assignments.sql` `assignment.due_at` is `timestamptz`.
+  - Evidence (source): `schemas/base_schema/assessments.sql` `assessment.due_at` is `timestamptz`.
 - [x] Instructor dates and times use the Instructor's IANA time zone.
   - Evidence (source): `schemas/base_schema/accounts.sql` `account_time_zone_is_exact_iana` validates Instructor account zones against `pg_timezone_names`.
 - [x] The Instructor's time zone is used to interpret dates and times the Instructor enters.
-  - Evidence (source): `crates/learning-data-access/src/postgres/assignment_release.rs` `resolve_in_account_time_zone` resolves entered release times with the account zone.
+  - Evidence (source): `crates/learning-data-access/src/postgres/assessment_release.rs` `resolve_in_account_time_zone` resolves entered release times with the account zone.
 - [x] Changing an Instructor's time zone changes how existing deadlines are displayed without changing the deadlines.
-  - Evidence (source): `crates/learning-data-access/src/postgres/assignment_release.rs` `LocalDateAndTime::from_activity_timestamp_in_account_time_zone` derives display values from stored timestamps and account zone.
+  - Evidence (source): `crates/learning-data-access/src/postgres/assessment_release.rs` `LocalDateAndTime::from_activity_timestamp_in_account_time_zone` derives display values from stored timestamps and account zone.
 - [x] Assessment deadlines are stored as absolute UTC instants.
-  - Evidence (source): `schemas/base_schema/assignments.sql` `assignment.due_at` uses PostgreSQL `timestamptz`.
+  - Evidence (source): `schemas/base_schema/assessments.sql` `assessment.due_at` uses PostgreSQL `timestamptz`.
 - [x] Students have their own IANA time zone for displaying dates and times.
   - Evidence (source): `schemas/base_schema/accounts.sql` `account_time_zone_is_exact_iana` validates each Account's exact IANA time-zone preference.
 - [x] A Student's time zone defaults to the Instructor's time zone during the invite phase.
   - Evidence (source): `schemas/base_schema/accounts.sql` `apply_student_invitation_time_zone_default` copies the Instructor preference while pending.
 - [x] Changing a Student's time zone changes how existing deadlines are displayed without changing the deadlines.
-  - Evidence (source): `schemas/base_schema/attempt_access.sql` `read_student_assignment_access` returns stored deadlines and separately reads `display_time_zone`.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_student_assessment_access` returns stored deadlines and separately reads `display_time_zone`.
 - [x] Changing a display time zone changes how a deadline is shown, not the deadline itself.
-  - Evidence (source): `schemas/base_schema/attempt_access.sql` `read_student_assignment_attempt_context` returns `display_time_zone` separately from `expires_at_millis`.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_student_assessment_attempt_context` returns `display_time_zone` separately from `expires_at_millis`.

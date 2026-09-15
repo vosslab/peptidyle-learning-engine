@@ -1,12 +1,12 @@
 //! PostgreSQL adapter for the focused Course Gradebook read boundary.
 
 use async_trait::async_trait;
-use question_model::{AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference};
+use question_model::{AssessmentAttemptCompletion, AssessmentReference, CourseInstanceReference};
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork, LiveAssignmentAttemptScore,
+    CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork, LiveAssessmentAttemptScore,
     SessionTokenHash, StoreError,
 };
 
@@ -57,24 +57,22 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
     ) -> Result<CourseGradebook, StoreError> {
         let mut transaction = self.begin(token).await?;
         let rows = sqlx::query(
-            "SELECT course_reference_number, roster_id, assignment_reference_number, \
-             assignment_attempt_completion, expired_submitting, \
+            "SELECT course_public_reference, roster_id, assessment_reference_number, \
+             assessment_attempt_completion, expired_submitting, \
              points_earned, points_possible \
              FROM ple_api.read_course_gradebook($1)",
         )
-        .bind(i64::from(course.number()))
+        .bind(course.as_string())
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         let Some(first) = rows.first() else {
             return Err(StoreError::NotFound);
         };
-        let returned_course = reference(
+        let returned_course = course_reference(
             first
-                .try_get("course_reference_number")
+                .try_get("course_public_reference")
                 .map_err(map_sqlx_error)?,
-            "Course Reference",
-            CourseInstanceReference::new,
         )?;
         if returned_course != course {
             return Err(StoreError::InvalidRecord(
@@ -99,21 +97,19 @@ fn decode_row(
     let Some(roster_id) = row.try_get("roster_id").map_err(map_sqlx_error)? else {
         return Ok(None);
     };
-    let assignment_reference = reference(
-        row.try_get("assignment_reference_number")
+    let assessment_reference = assessment_reference(
+        row.try_get("assessment_reference_number")
             .map_err(map_sqlx_error)?,
-        "Assignment Reference",
-        AssignmentReference::new,
     )?;
-    let assignment_attempt_completion = match row
-        .try_get::<Option<String>, _>("assignment_attempt_completion")
+    let assessment_attempt_completion = match row
+        .try_get::<Option<String>, _>("assessment_attempt_completion")
         .map_err(map_sqlx_error)?
         .as_deref()
     {
         None => None,
-        Some("in_progress") => Some(AssignmentAttemptCompletion::InProgress),
-        Some("completed") => Some(AssignmentAttemptCompletion::Completed),
-        Some(_) => return Err(invalid("Assignment Attempt Completion")),
+        Some("in_progress") => Some(AssessmentAttemptCompletion::InProgress),
+        Some("completed") => Some(AssessmentAttemptCompletion::Completed),
+        Some(_) => return Err(invalid("Assessment Attempt Completion")),
     };
     let expired_submitting: bool = row.try_get("expired_submitting").map_err(map_sqlx_error)?;
     let score = match (
@@ -122,7 +118,7 @@ fn decode_row(
         row.try_get::<Option<f64>, _>("points_possible")
             .map_err(map_sqlx_error)?,
     ) {
-        (Some(points_earned), Some(points_possible)) => Some(LiveAssignmentAttemptScore {
+        (Some(points_earned), Some(points_possible)) => Some(LiveAssessmentAttemptScore {
             points_earned: finite_nonnegative(points_earned, "points earned")?,
             points_possible: finite_nonnegative(points_possible, "points possible")?,
         }),
@@ -132,31 +128,28 @@ fn decode_row(
     if score
         .as_ref()
         .is_some_and(|value| value.points_earned > value.points_possible)
-        || (assignment_attempt_completion.is_none() && score.is_some())
+        || (assessment_attempt_completion.is_none() && score.is_some())
         || (expired_submitting
-            && (assignment_attempt_completion != Some(AssignmentAttemptCompletion::InProgress)
+            && (assessment_attempt_completion != Some(AssessmentAttemptCompletion::InProgress)
                 || score.is_some()))
     {
         return Err(invalid("Gradebook point ordering"));
     }
     Ok(Some(CourseGradebookStudentWork {
         roster_id,
-        assignment_reference,
-        assignment_attempt_completion,
+        assessment_reference,
+        assessment_attempt_completion,
         expired_submitting,
         score,
     }))
 }
 
-fn reference<T>(
-    value: i64,
-    label: &str,
-    build: impl FnOnce(u64) -> Option<T>,
-) -> Result<T, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(build)
-        .ok_or_else(|| invalid(label))
+fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
+    CourseInstanceReference::new(value).map_err(|_| invalid("Course Reference"))
+}
+
+fn assessment_reference(value: String) -> Result<AssessmentReference, StoreError> {
+    AssessmentReference::new(value).map_err(|_| invalid("Assessment Reference"))
 }
 
 fn finite_nonnegative(value: f64, label: &str) -> Result<f64, StoreError> {

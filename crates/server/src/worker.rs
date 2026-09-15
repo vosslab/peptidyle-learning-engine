@@ -1,4 +1,4 @@
-//! Narrow deadline worker for authoritative Assignment Attempt expiry.
+//! Narrow deadline worker for authoritative Assessment Attempt expiry.
 //!
 //! This process serves readiness and finalizes abandoned expired Attempts. It
 //! does not own a native or WeBWorK grading queue: ordinary submissions grade
@@ -11,23 +11,71 @@ use tokio::io::AsyncWriteExt;
 
 use adapter_webwork::{HttpWebworkRenderer, WebworkAdapter};
 use learning_data_access::{
-    AssignmentAttemptExpirySweepStore, ExpiredAssignmentAttemptFinalizationPreparation, StoreError,
-    StudentAssignmentAttemptFinalizationEvaluation,
+    AssessmentAttemptExpirySweepStore, ExpiredAssessmentAttemptFinalizationPreparation,
+    QuestionWatchNotificationStore, StoreError, StudentAssessmentAttemptFinalizationEvaluation,
+    StudentAssessmentAttemptFinalizationPreparation,
 };
 use objects::s3::S3ObjectStore;
 
-use crate::assignment_delivery::direct_finalization;
+use crate::assessment_delivery::direct_finalization;
+
+/// Composes two closed worker capabilities without granting either raw tables.
+pub struct WorkerStores<E, W> {
+    pub expiry: E,
+    pub watches: W,
+}
+
+#[async_trait::async_trait]
+impl<E: AssessmentAttemptExpirySweepStore + Send + Sync, W: Send + Sync>
+    AssessmentAttemptExpirySweepStore for WorkerStores<E, W>
+{
+    async fn prepare_expired_assessment_attempt_finalizations(
+        &self,
+        limit: u32,
+    ) -> Result<Vec<ExpiredAssessmentAttemptFinalizationPreparation>, StoreError> {
+        self.expiry
+            .prepare_expired_assessment_attempt_finalizations(limit)
+            .await
+    }
+    async fn commit_expired_assessment_attempt_finalization(
+        &self,
+        id: uuid::Uuid,
+        preparation: StudentAssessmentAttemptFinalizationPreparation,
+        evaluations: Vec<StudentAssessmentAttemptFinalizationEvaluation>,
+    ) -> Result<(), StoreError> {
+        self.expiry
+            .commit_expired_assessment_attempt_finalization(id, preparation, evaluations)
+            .await
+    }
+}
+
+#[async_trait::async_trait]
+impl<E: Send + Sync, W: QuestionWatchNotificationStore> QuestionWatchNotificationStore
+    for WorkerStores<E, W>
+{
+    async fn materialize_question_watch_notifications(
+        &self,
+        limit: u16,
+    ) -> Result<u32, StoreError> {
+        self.watches
+            .materialize_question_watch_notifications(limit)
+            .await
+    }
+}
 
 const WORKER_READINESS_BIND_ADDRESS: &str = "0.0.0.0:3001";
 const ATTEMPT_EXPIRY_SWEEP_LIMIT: u32 = 100;
+const QUESTION_WATCH_NOTIFICATION_LIMIT: u16 = 100;
 // The Student-visible expiry window is intentionally about a minute. This
 // also bounds retries of an unavailable backend without per-Attempt state.
 const ATTEMPT_EXPIRY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// Sweep expired Assignment Attempts while serving the private readiness socket.
+/// Sweep expired Assessment Attempts while serving the private readiness socket.
 // ASVS 2.3.1 and 2.3.3: expiry follows the same server-owned submission order
 // and PostgreSQL atomically rechecks the captured snapshot before committing it.
-pub async fn run_until_shutdown<S: AssignmentAttemptExpirySweepStore>(
+pub async fn run_until_shutdown<
+    S: AssessmentAttemptExpirySweepStore + QuestionWatchNotificationStore,
+>(
     store: S,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
@@ -49,25 +97,31 @@ pub async fn run_until_shutdown<S: AssignmentAttemptExpirySweepStore>(
     }
 }
 
-async fn run_attempt_expiry_sweep<S: AssignmentAttemptExpirySweepStore>(
+async fn run_attempt_expiry_sweep<
+    S: AssessmentAttemptExpirySweepStore + QuestionWatchNotificationStore,
+>(
     store: S,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
 ) -> Result<()> {
     loop {
         run_attempt_expiry_sweep_iteration(&store, &objects, webwork.as_ref()).await?;
+        store
+            .materialize_question_watch_notifications(QUESTION_WATCH_NOTIFICATION_LIMIT)
+            .await
+            .map_err(store_unavailable)?;
         tokio::time::sleep(ATTEMPT_EXPIRY_SWEEP_INTERVAL).await;
     }
 }
 
 /// Runs one bounded expiry auto-submission batch.
-async fn run_attempt_expiry_sweep_iteration<S: AssignmentAttemptExpirySweepStore>(
+async fn run_attempt_expiry_sweep_iteration<S: AssessmentAttemptExpirySweepStore>(
     store: &S,
     objects: &S3ObjectStore,
     webwork: &WebworkAdapter<HttpWebworkRenderer>,
 ) -> Result<()> {
     let preparations = store
-        .prepare_expired_assignment_attempt_finalizations(ATTEMPT_EXPIRY_SWEEP_LIMIT)
+        .prepare_expired_assessment_attempt_finalizations(ATTEMPT_EXPIRY_SWEEP_LIMIT)
         .await
         .map_err(store_unavailable)?;
     for expired in preparations {
@@ -84,35 +138,35 @@ async fn run_attempt_expiry_sweep_iteration<S: AssignmentAttemptExpirySweepStore
 
 /// Finalizes one prepared Attempt without allowing its failure to starve the
 /// other candidates already selected for this bounded pass.
-async fn finalize_prepared_expired_attempt<S: AssignmentAttemptExpirySweepStore>(
+async fn finalize_prepared_expired_attempt<S: AssessmentAttemptExpirySweepStore>(
     store: &S,
-    expired: ExpiredAssignmentAttemptFinalizationPreparation,
-    evaluations: Result<Vec<StudentAssignmentAttemptFinalizationEvaluation>, StoreError>,
+    expired: ExpiredAssessmentAttemptFinalizationPreparation,
+    evaluations: Result<Vec<StudentAssessmentAttemptFinalizationEvaluation>, StoreError>,
 ) {
-    let assignment_attempt_id = expired.assignment_attempt_id;
+    let assessment_attempt_id = expired.assessment_attempt_id;
     let evaluations = match evaluations {
         Ok(evaluations) => evaluations,
         Err(error) => {
-            log_expiry_error(assignment_attempt_id, "evaluation", &error);
+            log_expiry_error(assessment_attempt_id, "evaluation", &error);
             return;
         }
     };
     if let Err(error) = store
-        .commit_expired_assignment_attempt_finalization(
-            assignment_attempt_id,
+        .commit_expired_assessment_attempt_finalization(
+            assessment_attempt_id,
             expired.preparation,
             evaluations,
         )
         .await
     {
-        log_expiry_error(assignment_attempt_id, "commit", &error);
+        log_expiry_error(assessment_attempt_id, "commit", &error);
     }
 }
 
-fn log_expiry_error(assignment_attempt_id: uuid::Uuid, stage: &'static str, error: &StoreError) {
+fn log_expiry_error(assessment_attempt_id: uuid::Uuid, stage: &'static str, error: &StoreError) {
     tracing::warn!(
         event = "attempt_expiry_finalization_failed",
-        assignment_attempt_id = %assignment_attempt_id,
+        assessment_attempt_id = %assessment_attempt_id,
         stage,
         error = %error,
     );

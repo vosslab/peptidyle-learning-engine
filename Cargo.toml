@@ -9,7 +9,6 @@ members = [
     "crates/adapters/ple",
     "crates/adapters/webwork",
     "crates/adapters/qti",
-    "crates/adapters/h5p",
     "crates/adapters/imathas",
     "crates/export",
     "crates/wasm",
@@ -65,6 +64,7 @@ serde = { version = "*", features = ["derive"] }
 serde_json = "*"
 serde_yaml_ng = "*"
 sha2 = "*"
+sha1 = "*"
 tokio = { version = "*", features = ["full", "test-util"] }
 tower = { version = "*", features = ["util"] }
 url = "*"
@@ -96,6 +96,7 @@ uuid = { version = "*", default-features = false, features = ["serde", "std", "v
 chrono = { version = "*", default-features = false, features = ["serde", "std"] }
 chrono-tz = { version = "*", default-features = false }
 chacha20poly1305 = "*"
+zeroize = { version = "*", features = ["derive"] }
 csv = "*"
 
 # Product PostgreSQL access belongs to `crates/learning-data-access`, which owns

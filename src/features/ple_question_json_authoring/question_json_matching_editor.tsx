@@ -71,7 +71,7 @@ export function PleQuestionJsonMatchingEditor(
                     disabled={props.disabled || index === 0}
                     onClick={() => props.onMoveItem("prompts", item().id, "earlier")}
                   >
-                    Earlier
+                    Move earlier
                   </button>
                   <button
                     type="button"
@@ -79,7 +79,7 @@ export function PleQuestionJsonMatchingEditor(
                     disabled={props.disabled || index === props.prompts.length - 1}
                     onClick={() => props.onMoveItem("prompts", item().id, "later")}
                   >
-                    Later
+                    Move later
                   </button>
                   <button
                     type="button"
@@ -116,7 +116,7 @@ export function PleQuestionJsonMatchingEditor(
                     disabled={props.disabled || index === 0}
                     onClick={() => props.onMoveItem("choices", item().id, "earlier")}
                   >
-                    Earlier
+                    Move earlier
                   </button>
                   <button
                     type="button"
@@ -124,7 +124,7 @@ export function PleQuestionJsonMatchingEditor(
                     disabled={props.disabled || index === props.choices.length - 1}
                     onClick={() => props.onMoveItem("choices", item().id, "later")}
                   >
-                    Later
+                    Move later
                   </button>
                 </div>
               </div>

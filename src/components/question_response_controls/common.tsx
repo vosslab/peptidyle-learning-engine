@@ -3,9 +3,9 @@
 import { createContext, createSignal, onCleanup, useContext, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../../generated/api/QuestionContentBlock";
-import type { AssignmentId } from "../../../generated/api/AssignmentId";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
 import type { CourseId } from "../../../generated/api/CourseId";
-import type { AssignmentAttemptReference } from "../../../generated/api/AssignmentAttemptReference";
+import type { AssessmentAttemptReference } from "../../../generated/api/AssessmentAttemptReference";
 import type { QuestionResponseFormat } from "../../../generated/api/QuestionResponseFormat";
 import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
@@ -66,7 +66,7 @@ type QuestionResponseControlPhase =
 
 export interface StudentWorkRouteScope {
   readonly courseId: CourseId;
-  readonly assignmentId: AssignmentId;
+  readonly assessmentId: AssessmentId;
 }
 
 export interface QuestionResponseControlBaseProps {
@@ -93,12 +93,12 @@ export interface QuestionResponseControlBaseProps {
   readonly studentWorkRoute?: StudentWorkRouteScope;
   readonly beginImathasQuestionBackendLaunch?: () => Promise<ImathasQuestionBackendLaunch>;
   /** Current authorized lifecycle reference for a backend-owned document route. */
-  readonly assignmentAttempt?: AssignmentAttemptReference;
+  readonly assessmentAttempt?: AssessmentAttemptReference;
   /** Current 1-based position for a backend-owned document route. */
   readonly position?: number;
   /**
    * The active backend document registers its one generic form capture with
-   * Assignment Attempt delivery so Finish can save that same opaque response.
+   * Assessment Attempt delivery so Finish can save that same opaque response.
    */
   readonly registerBackendOwnedCapture?: (capture: () => Promise<boolean>) => () => void;
 }
@@ -460,7 +460,7 @@ export function Actions(props: {
         </button>
       )}
       <button class="quiet-action" type="button" onClick={props.onEscape}>
-        Return to assignment <span aria-hidden="true">(Esc)</span>
+        Return to assessment <span aria-hidden="true">(Esc)</span>
       </button>
     </div>
   );

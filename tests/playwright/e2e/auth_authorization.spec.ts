@@ -18,12 +18,6 @@ import {
   writeOriginReceipt,
 } from "./real_stack_ui";
 
-async function expectEmptyCourses(page: Page, heading: string, message: string): Promise<void> {
-  await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
-  await expect(page.getByRole("article")).toHaveCount(0);
-  await expect(page.getByText(message, { exact: true })).toBeVisible();
-}
-
 async function expectUsedCourse(page: Page, heading: string, openLinkName: string): Promise<void> {
   await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
   const course = page.getByRole("article").filter({
@@ -76,7 +70,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
     const morgan = await morganContext.newPage();
 
     await test.step("A public no-record course path remains outside a signed-out session", async () => {
-      await publicPage.goto("/courses/C-1");
+      await publicPage.goto("/courses/CI7K3M2Q");
       await expect(
         publicPage.getByRole("heading", {
           level: 1,
@@ -98,13 +92,32 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
       await enterThenReenterUsedCourse(mary, /Mary Okafor/u);
     });
 
-    await test.step("Morgan enters the seeded Sysadmin session without ambient Course access", async () => {
-      await chooseSeededIdentity(morgan, /Morgan Delgado/u);
-      await expectEmptyCourses(
-        morgan,
-        "Your Course Instances",
-        "Course access begins when you hold an active Course Membership.",
+    await test.step("Morgan's primary selection remains pending and cannot create a Sysadmin session", async () => {
+      await morgan.goto("/sign-in");
+      await morgan.getByRole("button", { name: /Assume the role of .*Morgan Delgado/u }).click();
+      await expect(
+        morgan.getByRole("heading", {
+          level: 3,
+          name: "Verify Morgan Delgado's administrator access",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        morgan.getByText("This step does not create a session until the code is accepted.", {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(morgan.context().cookies()).resolves.not.toEqual(
+        expect.arrayContaining([expect.objectContaining({ name: "__Host-ple_session" })]),
       );
+      await morgan.goto("/courses/CI7K3M2Q");
+      await expect(
+        morgan.getByRole("heading", {
+          level: 1,
+          name: "Your session needs to be renewed",
+          exact: true,
+        }),
+      ).toBeVisible();
     });
 
     await test.step("Mary receives Product Role denial before a Question Library read", async () => {

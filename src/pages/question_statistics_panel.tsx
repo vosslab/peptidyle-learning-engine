@@ -47,7 +47,7 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
       <p class="question-statistics-introduction">
         This exact published question appears in{" "}
         {formatCount(summary().globalCourseCount, "course")} and{" "}
-        {formatCount(summary().globalAssignmentCount, "assignment")} across the Question Library.
+        {formatCount(summary().globalAssessmentCount, "assessment")} across the Question Library.
         Course names below are limited to courses you can open.
       </p>
       <dl class="question-usage-counts">
@@ -56,15 +56,15 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
           <dd>{formatCount(summary().ownCourseCount, "course")}</dd>
         </div>
         <div>
-          <dt>Your assignments</dt>
-          <dd>{formatCount(summary().ownAssignmentCount, "assignment")}</dd>
+          <dt>Your assessments</dt>
+          <dd>{formatCount(summary().ownAssessmentCount, "assessment")}</dd>
         </div>
       </dl>
       <Show
         when={props.usage.ownCourses.length > 0}
         fallback={
           <p class="question-usage-next-step">
-            <A href="/">Open your courses</A> to add this question to a future assignment.
+            <A href="/">Open your courses</A> to add this question to a future assessment.
           </p>
         }
       >
@@ -76,7 +76,7 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
                 <A href={`/courses/${courseInstanceRouteReference(course.course)}`}>
                   {course.title}
                 </A>
-                <span>{`${wholeNumber.format(course.assignmentCount)} assignment${course.assignmentCount === 1 ? "" : "s"}`}</span>
+                <span>{`${wholeNumber.format(course.assessmentCount)} assessment${course.assessmentCount === 1 ? "" : "s"}`}</span>
               </li>
             )}
           </For>
@@ -89,7 +89,7 @@ export function QuestionUsePanel(props: QuestionUsePanelProps): JSX.Element {
         </p>
       </Show>
       <p class="question-usage-next-step">
-        Review these course uses before replacing the question. A future assignment can use a
+        Review these course uses before replacing the question. A future assessment can use a
         replacement; issued student work remains unchanged.
       </p>
     </section>

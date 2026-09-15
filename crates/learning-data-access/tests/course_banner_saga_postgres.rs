@@ -3,7 +3,7 @@
 //! Real PostgreSQL plus MinIO acceptance for the Course Banner saga.
 
 use image::codecs::webp::WebPEncoder;
-use image::{ExtendedColorType, GenericImageView, ImageEncoder, RgbaImage};
+use image::{ExtendedColorType, ImageEncoder, RgbaImage};
 use learning_data_access::postgres::{PostgresCourseBannerStore, lazy_pool};
 use learning_data_access::{
     CourseBannerObjectMetadata, CourseBannerStore, PrepareCourseBannerPromotion, SessionTokenHash,
@@ -14,7 +14,8 @@ use objects::s3::{BucketNames, S3ObjectStore};
 use objects::{ObjectAddress, ObjectStore, PutObject, Sha256Checksum};
 use question_model::{
     CourseBannerAlternativeText, CourseBannerInformativeText, CourseBannerReference,
-    CourseBannerUpdate, CourseBannerUploadReference, CourseId, ObjectId, Timestamp,
+    CourseBannerRendition, CourseBannerUpdate, CourseBannerUploadReference, CourseId, ObjectId,
+    Timestamp,
 };
 use sqlx::postgres::PgConnection;
 use sqlx::{Connection, Row};
@@ -35,12 +36,20 @@ fn token(value: u8) -> SessionTokenHash {
 fn timestamp() -> Timestamp {
     Timestamp::from_unix_millis(1_800_000_000_000)
 }
-fn metadata(object_id: ObjectId, bytes: &[u8], media_type: &str) -> CourseBannerObjectMetadata {
+fn metadata(
+    object_id: ObjectId,
+    bytes: &[u8],
+    media_type: &str,
+    width: u32,
+    height: u32,
+) -> CourseBannerObjectMetadata {
     CourseBannerObjectMetadata {
         object_id,
         sha256: Sha256Checksum::compute(bytes),
         byte_length: bytes.len() as u64,
         media_type: media_type.to_owned(),
+        width,
+        height,
     }
 }
 
@@ -113,7 +122,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query("INSERT INTO ple_data.blueprint_revision_event (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) VALUES (1,1,$1,decode(repeat('cd',32),'hex'),clock_timestamp())")
         .bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("revision event");
     for (course, assigned) in [(COURSE, INSTRUCTOR), (FOREIGN_COURSE, FOREIGN)] {
-        sqlx::query("INSERT INTO ple_data.course_instance (course_id, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) VALUES ($1,1,1,$2,'Banner','Banner course',current_date,current_date + 1,clock_timestamp())")
+        sqlx::query("INSERT INTO ple_data.course_instance (course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) VALUES ($1,'adopted',1,1,$2,'Banner','Banner course',current_date,current_date + 1,clock_timestamp())")
             .bind(id(course)).bind(id(assigned)).execute(&mut *transaction).await.expect("course");
     }
     sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")
@@ -155,6 +164,10 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     let course = CourseId::from_uuid(id(COURSE));
     let foreign_course = CourseId::from_uuid(id(FOREIGN_COURSE));
+    // Geometry belongs to the Course Banner production contract.  This saga
+    // needs valid metadata to exercise persistence, not a second frozen copy
+    // of a chosen pixel size or a resize policy.
+    let (banner_width, banner_height) = CourseBannerRendition::Banner.dimensions();
     let upload = CourseBannerUploadReference::from_uuid(id(0xcf01));
     let upload_bytes = b"source-banner";
     let upload_object = ObjectId::from_uuid(id(0xd001));
@@ -164,9 +177,15 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             StageCourseBannerUpload {
                 course,
                 upload,
-                metadata: metadata(upload_object, upload_bytes, "image/png"),
-                width: 1200,
-                height: 200,
+                metadata: metadata(
+                    upload_object,
+                    upload_bytes,
+                    "image/png",
+                    banner_width,
+                    banner_height,
+                ),
+                width: banner_width,
+                height: banner_height,
                 expires_at_unix_millis: 1_900_000_000_000,
             },
         )
@@ -179,7 +198,13 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                 StageCourseBannerUpload {
                     course,
                     upload: CourseBannerUploadReference::from_uuid(id(0xcf04)),
-                    metadata: metadata(ObjectId::from_uuid(id(0xd004)), upload_bytes, "image/png"),
+                    metadata: metadata(
+                        ObjectId::from_uuid(id(0xd004)),
+                        upload_bytes,
+                        "image/png",
+                        banner_width,
+                        banner_height
+                    ),
                     width: 1,
                     height: 1,
                     expires_at_unix_millis: 1_900_000_000_000
@@ -206,7 +231,13 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                 StageCourseBannerUpload {
                     course,
                     upload: CourseBannerUploadReference::from_uuid(id(0xcf02)),
-                    metadata: metadata(ObjectId::from_uuid(id(0xd002)), upload_bytes, "image/png"),
+                    metadata: metadata(
+                        ObjectId::from_uuid(id(0xd002)),
+                        upload_bytes,
+                        "image/png",
+                        banner_width,
+                        banner_height
+                    ),
                     width: 1,
                     height: 1,
                     expires_at_unix_millis: 1_900_000_000_000
@@ -223,7 +254,13 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                 StageCourseBannerUpload {
                     course,
                     upload: CourseBannerUploadReference::from_uuid(id(0xcf03)),
-                    metadata: metadata(ObjectId::from_uuid(id(0xd003)), upload_bytes, "image/png"),
+                    metadata: metadata(
+                        ObjectId::from_uuid(id(0xd003)),
+                        upload_bytes,
+                        "image/png",
+                        banner_width,
+                        banner_height
+                    ),
                     width: 1,
                     height: 1,
                     expires_at_unix_millis: 1_900_000_000_000
@@ -265,11 +302,10 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
 
     let banner = CourseBannerReference::from_uuid(id(0xcf10));
     let source = b"source-banner".to_vec();
-    let hero = webp(1200, 200, 7);
-    let card = webp(1000, 400, 8);
+    let rendition = webp(banner_width, banner_height, 7);
+    let rendition_checksum = Sha256Checksum::compute(&rendition);
     let source_id = ObjectId::from_uuid(id(0xd010));
-    let hero_id = ObjectId::from_uuid(id(0xd011));
-    let card_id = ObjectId::from_uuid(id(0xd012));
+    let rendition_id = ObjectId::from_uuid(id(0xd011));
     let prepared = store
         .prepare_course_banner_promotion(
             token(1),
@@ -286,9 +322,14 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                         .expect("text"),
                     },
                 },
-                source: metadata(source_id, &source, "image/png"),
-                hero: metadata(hero_id, &hero, "image/webp"),
-                card: metadata(card_id, &card, "image/webp"),
+                source: metadata(source_id, &source, "image/png", banner_width, banner_height),
+                rendition: metadata(
+                    rendition_id,
+                    &rendition,
+                    "image/webp",
+                    banner_width,
+                    banner_height,
+                ),
             },
         )
         .await
@@ -313,16 +354,17 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .is_err(),
         "incomplete promotion never advances pointer"
     );
-    put(&object_store, prepared.hero.clone(), hero, "image/webp").await;
-    put(&object_store, prepared.card.clone(), card, "image/webp").await;
+    put(
+        &object_store,
+        prepared.rendition.clone(),
+        rendition,
+        "image/webp",
+    )
+    .await;
     store
-        .complete_prepared_course_banner_object(token(1), course, banner, hero_id)
+        .complete_prepared_course_banner_object(token(1), course, banner, rendition_id)
         .await
-        .expect("hero completion");
-    store
-        .complete_prepared_course_banner_object(token(1), course, banner, card_id)
-        .await
-        .expect("card completion");
+        .expect("banner rendition completion");
     let finalized = store
         .finalize_course_banner_promotion(token(1), course, upload, banner)
         .await
@@ -345,19 +387,6 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             .is_none(),
         "foreign Account cannot distinguish a current banner from no banner"
     );
-    for (address, dimensions) in [(prepared.hero, (1200, 200)), (prepared.card, (1000, 400))] {
-        let stored = object_store
-            .get(&address)
-            .await
-            .expect("stored WebP rendition");
-        let decoded = image::load_from_memory(&stored.bytes).expect("stored WebP decodes");
-        assert_eq!(
-            decoded.dimensions(),
-            dimensions,
-            "fixed rendition dimensions"
-        );
-        assert_eq!(stored.record.media_type, "image/webp");
-    }
     assert!(
         store
             .read_staged_course_banner_upload(token(1), course, upload)
@@ -376,9 +405,15 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             StageCourseBannerUpload {
                 course,
                 upload: replacement_upload,
-                metadata: metadata(replacement_upload_id, upload_bytes, "image/png"),
-                width: 1200,
-                height: 200,
+                metadata: metadata(
+                    replacement_upload_id,
+                    upload_bytes,
+                    "image/png",
+                    banner_width,
+                    banner_height,
+                ),
+                width: banner_width,
+                height: banner_height,
                 expires_at_unix_millis: 1_900_000_000_000,
             },
         )
@@ -397,11 +432,9 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .expect("complete replacement upload");
     let replacement_banner = CourseBannerReference::from_uuid(id(0xcf21));
     let replacement_source_id = ObjectId::from_uuid(id(0xd021));
-    let replacement_hero_id = ObjectId::from_uuid(id(0xd022));
-    let replacement_card_id = ObjectId::from_uuid(id(0xd023));
+    let replacement_rendition_id = ObjectId::from_uuid(id(0xd022));
     let replacement_source = upload_bytes.to_vec();
-    let replacement_hero = webp(1200, 200, 21);
-    let replacement_card = webp(1000, 400, 22);
+    let replacement_rendition = webp(banner_width, banner_height, 21);
     let replacement_prepared = store
         .prepare_course_banner_promotion(
             token(1),
@@ -413,9 +446,20 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
                     upload: replacement_upload,
                     alternative_text: CourseBannerAlternativeText::Decorative,
                 },
-                source: metadata(replacement_source_id, &replacement_source, "image/png"),
-                hero: metadata(replacement_hero_id, &replacement_hero, "image/webp"),
-                card: metadata(replacement_card_id, &replacement_card, "image/webp"),
+                source: metadata(
+                    replacement_source_id,
+                    &replacement_source,
+                    "image/png",
+                    banner_width,
+                    banner_height,
+                ),
+                rendition: metadata(
+                    replacement_rendition_id,
+                    &replacement_rendition,
+                    "image/webp",
+                    banner_width,
+                    banner_height,
+                ),
             },
         )
         .await
@@ -459,15 +503,8 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
     );
     put(
         &object_store,
-        replacement_prepared.hero.clone(),
-        replacement_hero,
-        "image/webp",
-    )
-    .await;
-    put(
-        &object_store,
-        replacement_prepared.card.clone(),
-        replacement_card,
+        replacement_prepared.rendition.clone(),
+        replacement_rendition,
         "image/webp",
     )
     .await;
@@ -476,19 +513,10 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
             token(1),
             course,
             replacement_banner,
-            replacement_hero_id,
+            replacement_rendition_id,
         )
         .await
-        .expect("complete replacement hero");
-    store
-        .complete_prepared_course_banner_object(
-            token(1),
-            course,
-            replacement_banner,
-            replacement_card_id,
-        )
-        .await
-        .expect("complete replacement card");
+        .expect("complete replacement banner rendition");
     let replacement = store
         .finalize_course_banner_promotion(token(1), course, replacement_upload, replacement_banner)
         .await
@@ -506,19 +534,19 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         .retired
         .expect("replacement returns retired first banner");
     let verified_delete = store
-        .prepare_course_banner_object_deletion(token(1), retired.hero_put_work_id)
+        .prepare_course_banner_object_deletion(token(1), retired.rendition_put_work_id)
         .await
-        .expect("durable pre-delete work for retired hero");
+        .expect("durable pre-delete work for retired banner rendition");
     store
         .require_course_banner_deletion_repair(token(1), verified_delete)
         .await
-        .expect("uncertain retired hero delete");
+        .expect("uncertain retired banner rendition delete");
     store
         .record_course_banner_cleanup_check(
             token(1),
             verified_delete,
             true,
-            Some(Sha256Checksum::compute(&webp(1200, 200, 7))),
+            Some(rendition_checksum),
         )
         .await
         .expect("verified cleanup observation");
@@ -569,7 +597,7 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         "removing a banner never changes the independent Theme"
     );
     let delete = store
-        .prepare_course_banner_object_deletion(token(1), removal.hero_put_work_id)
+        .prepare_course_banner_object_deletion(token(1), removal.rendition_put_work_id)
         .await
         .expect("pre-delete work");
     set_inspection_role(&mut inspection, "ple_private_owner").await;
@@ -585,21 +613,21 @@ async fn course_banner_saga_is_durable_authorized_and_cross_store() {
         "actual object delete follows durable pre-delete work"
     );
     object_store
-        .delete(&removal.hero)
+        .delete(&removal.rendition)
         .await
-        .expect("confirmed real hero delete");
+        .expect("confirmed real banner rendition delete");
     store
         .complete_course_banner_object_deletion(token(1), delete)
         .await
         .expect("record confirmed delete");
     let missing_delete = store
-        .prepare_course_banner_object_deletion(token(1), removal.card_put_work_id)
+        .prepare_course_banner_object_deletion(token(1), removal.source_put_work_id)
         .await
-        .expect("durable pre-delete card work");
+        .expect("durable pre-delete source work");
     object_store
-        .delete(&removal.card)
+        .delete(&removal.source)
         .await
-        .expect("real card delete before missing check");
+        .expect("real source delete before missing check");
     store
         .require_course_banner_deletion_repair(token(1), missing_delete)
         .await

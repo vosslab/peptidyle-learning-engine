@@ -19,7 +19,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail, ensure};
 use wasm_bindgen_cli_support::Bindgen;
 
-use crate::{curriculum_content, database, fixtures, installation_data, pilot_content, tsgen};
+use project_tools::tsgen;
+
+use crate::{curriculum_content, database, fixtures, installation_data, pilot_content};
 
 /// Rust roots that own generated browser contract declarations, relative to the repo root.
 const DEFAULT_CONTRACT_ROOTS: [&str; 2] = [

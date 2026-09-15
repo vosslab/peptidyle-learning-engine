@@ -43,7 +43,7 @@ export interface AppRibbonProps {
   readonly routingInFlight?: Accessor<boolean>;
   /** User motion preference injected by the future shell; absent means ordinary motion. */
   readonly reducedMotion?: Accessor<boolean>;
-  /** Optional shell-owned Instructor avatar presentation inside the Profile link. */
+  /** Optional selected-avatar presentation; the shared control falls back to the generic user glyph. */
   readonly renderProfileAvatar?: () => JSX.Element;
 }
 
@@ -239,6 +239,9 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   let observationVersion = 0;
   let taskObservationVersion = 0;
   let disposed = false;
+  const [profileMenuOpen, setProfileMenuOpen] = createSignal(false);
+  let profileTrigger: HTMLButtonElement | undefined;
+  let profileMenu: HTMLDivElement | undefined;
   const visibleTabs = (): ReadonlyArray<RibbonControlModel & { href: string }> =>
     props.model.tabs.filter(visibleControl);
   const selectedTab = createMemo(() => visibleTabs().find((control) => control.selected));
@@ -248,6 +251,80 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
       .filter(visibleControl)
       .find((control) => control.selected),
   );
+  const profileLink = createMemo(() =>
+    props.model.context.accountControls.find(visibleAccountControl),
+  );
+
+  function menuItems(): ReadonlyArray<HTMLElement> {
+    return [...(profileMenu?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+  }
+
+  function openProfileMenu(focus: "first" | "last" | "none" = "first"): void {
+    setProfileMenuOpen(true);
+    if (focus === "none") return;
+    queueMicrotask(() => {
+      const items = menuItems();
+      (focus === "first" ? items[0] : items[items.length - 1])?.focus();
+    });
+  }
+
+  function closeProfileMenu(restoreFocus = false): void {
+    setProfileMenuOpen(false);
+    if (restoreFocus) queueMicrotask(() => profileTrigger?.focus());
+  }
+
+  function handleProfileTriggerKeyDown(event: KeyboardEvent): void {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      openProfileMenu("first");
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      openProfileMenu("last");
+    } else if (event.key === "Escape" && profileMenuOpen()) {
+      event.preventDefault();
+      closeProfileMenu();
+    }
+  }
+
+  function handleProfileMenuKeyDown(event: KeyboardEvent): void {
+    const items = menuItems();
+    const currentIndex = items.findIndex((item) => item === document.activeElement);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeProfileMenu(true);
+      return;
+    }
+    if (
+      event.key === "ArrowDown" ||
+      event.key === "ArrowUp" ||
+      event.key === "Home" ||
+      event.key === "End"
+    ) {
+      event.preventDefault();
+      if (items.length === 0) return;
+      const nextIndex =
+        event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? items.length - 1
+            : event.key === "ArrowDown"
+              ? (currentIndex + 1 + items.length) % items.length
+              : (currentIndex - 1 + items.length) % items.length;
+      items[nextIndex]?.focus();
+    }
+  }
+
+  createEffect(() => {
+    if (!profileMenuOpen()) return;
+    const closeOnOutsidePointer = (event: PointerEvent): void => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (profileTrigger?.contains(target) || profileMenu?.contains(target)) return;
+      closeProfileMenu();
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    onCleanup(() => document.removeEventListener("pointerdown", closeOnOutsidePointer));
+  });
 
   function cueSafeViewport(
     scrollport: HTMLElement | undefined,
@@ -368,10 +445,10 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
             <Show when={props.model.context.scopeLabel}>
               {(label) => <span class="ple-app-ribbon__course-scope-label">{label()}</span>}
             </Show>
-            <Show when={props.model.context.assignmentLabel}>
+            <Show when={props.model.context.assessmentLabel}>
               {(label) => <span>{label()}</span>}
             </Show>
-            <Show when={props.model.context.assignmentAttemptProgress}>
+            <Show when={props.model.context.assessmentAttemptProgress}>
               {(label) => <span>{label()}</span>}
             </Show>
           </div>
@@ -380,38 +457,79 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               {(control) => <RibbonLink control={control} pendingNavigation={pendingNavigation} />}
             </For>
           </nav>
-          <button
-            class="ple-app-ribbon__sign-out"
-            type="button"
-            aria-label={props.model.context.signOutAction.label}
-            title={props.model.context.signOutAction.label}
-            data-ribbon-action={props.model.context.signOutAction.id}
-            data-ribbon-icon-only-safe="true"
-            onClick={(event) => emitRibbonAction(event, props.model.context.signOutAction)}
-          >
-            <RibbonIcon glyph={ribbonGlyphForContext("signOut")} />
-            <span class="ple-app-ribbon__control-label">
-              {props.model.context.signOutAction.label}
-            </span>
-          </button>
-          <For each={props.model.context.accountControls.filter(visibleAccountControl)}>
-            {(control) => (
-              <a
-                class="ple-app-ribbon__profile"
-                href={control.href}
-                aria-label={control.label}
-                title={control.label}
-                data-ribbon-context-control={control.id}
-              >
-                {props.renderProfileAvatar?.() ?? (
-                  <RibbonIcon glyph={ribbonGlyphForContext(control.glyph)} />
-                )}
-              </a>
-            )}
-          </For>
         </section>
         <RibbonOverflowCues state={topOverflow} />
       </section>
+      <span class="ple-app-ribbon__profile-endcap">
+        <button
+          class="ple-app-ribbon__profile"
+          type="button"
+          aria-label="Profile"
+          title="Profile"
+          aria-haspopup="menu"
+          aria-expanded={profileMenuOpen() ? "true" : "false"}
+          aria-controls="ple-profile-menu"
+          data-ribbon-context-control="profile"
+          data-ribbon-profile-avatar={
+            props.renderProfileAvatar === undefined ? "generic" : "selected"
+          }
+          ref={(element): void => {
+            profileTrigger = element;
+          }}
+          onClick={() => (profileMenuOpen() ? closeProfileMenu() : openProfileMenu("none"))}
+          onKeyDown={handleProfileTriggerKeyDown}
+        >
+          {props.renderProfileAvatar?.() ?? <RibbonIcon glyph={ribbonGlyphForContext("profile")} />}
+        </button>
+        <Show when={profileMenuOpen()}>
+          <div
+            id="ple-profile-menu"
+            class="ple-app-ribbon__profile-menu"
+            role="menu"
+            aria-label="Profile menu"
+            ref={(element): void => {
+              profileMenu = element;
+            }}
+            onKeyDown={handleProfileMenuKeyDown}
+          >
+            <Show when={profileLink()}>
+              {(control) => (
+                <>
+                  <a
+                    class="ple-app-ribbon__profile-menu-item"
+                    role="menuitem"
+                    href={control().href}
+                    onClick={() => closeProfileMenu()}
+                  >
+                    {control().label}
+                  </a>
+                  <a
+                    class="ple-app-ribbon__profile-menu-item"
+                    role="menuitem"
+                    href="/account-settings"
+                    onClick={() => closeProfileMenu()}
+                  >
+                    Account settings
+                  </a>
+                </>
+              )}
+            </Show>
+            <button
+              class="ple-app-ribbon__profile-menu-item"
+              type="button"
+              role="menuitem"
+              data-ribbon-action={props.model.context.signOutAction.id}
+              onClick={(event) => {
+                emitRibbonAction(event, props.model.context.signOutAction);
+                closeProfileMenu();
+              }}
+            >
+              <RibbonIcon glyph={ribbonGlyphForContext("signOut")} />
+              {props.model.context.signOutAction.label}
+            </button>
+          </div>
+        </Show>
+      </span>
       {/* taskAreasFor derives task areas from route topology, not admission state;
           server authorization remains the trusted layer (ASVS 8.3.1). */}
       <Show when={hasReservedTaskRow()}>

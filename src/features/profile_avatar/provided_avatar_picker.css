@@ -1,0 +1,87 @@
+/* provided_avatar_picker.css - catalog-driven, keyboard-native avatar choice grid. */
+
+.provided-avatar-visual {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.provided-avatar-visual img {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.provided-avatar-visual-missing {
+  background: var(--ple-surface-soft);
+  border-radius: var(--ple-radius-inset);
+  color: var(--ple-muted);
+}
+
+.provided-avatar-picker {
+  border: 0;
+  margin: 0;
+  max-inline-size: 52rem;
+  padding: 0;
+}
+
+.provided-avatar-picker-introduction {
+  color: var(--ple-muted);
+  margin-block: 0.35rem 0.85rem;
+  max-inline-size: 42rem;
+}
+
+.provided-avatar-picker-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.provided-avatar-picker-tile {
+  align-items: center;
+  background: var(--ple-surface-soft);
+  border: 2px solid transparent;
+  border-radius: var(--ple-radius-inset);
+  cursor: pointer;
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+  min-block-size: 10.5rem;
+  padding: 0.75rem;
+  text-align: center;
+}
+
+.provided-avatar-picker-tile:hover {
+  background: var(--ple-surface);
+}
+
+.provided-avatar-picker-tile-selected {
+  border-color: var(--ple-accent);
+}
+
+.provided-avatar-picker-tile input {
+  block-size: 1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  inline-size: 1px;
+  margin: -1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+}
+
+.provided-avatar-picker-tile:has(input:focus-visible) {
+  outline: 3px solid var(--ple-accent-strong);
+  outline-offset: 3px;
+}
+
+.provided-avatar-picker-name {
+  font-weight: 700;
+}
+
+.provided-avatar-picker-description {
+  color: var(--ple-muted);
+  font-size: 0.875rem;
+  line-height: 1.25;
+}

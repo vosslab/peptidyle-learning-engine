@@ -3,33 +3,33 @@
 import { query } from "@solidjs/router";
 import { createContext, useContext, type JSX } from "solid-js";
 
-import type { AssignmentId } from "../../generated/api/AssignmentId";
+import type { AssessmentId } from "../../generated/api/AssessmentId";
 import type { CourseId } from "../../generated/api/CourseId";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionSearchPage } from "../../generated/api/QuestionSearchPage";
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { StudentAssignmentProgress } from "../../generated/api/StudentAssignmentProgress";
+import type { StudentAssessmentProgress } from "../../generated/api/StudentAssessmentProgress";
 import type { ApiClient, OrdinaryBrowserApiClient } from "./client";
 import type {
-  StudentAssignmentLandingSummary,
-  StudentAssignmentDetail,
+  StudentAssessmentLandingSummary,
+  StudentAssessmentDetail,
   CourseRouteView,
   CourseSummary,
   CursorPage,
 } from "./contracts";
 import {
-  resolveAssignmentAttemptIdentity,
+  resolveAssessmentAttemptIdentity,
   resolveCourseIdentity,
-  type ResolvedAssignmentAttemptIdentity,
+  type ResolvedAssessmentAttemptIdentity,
   type ResolvedCourseIdentity,
 } from "../navigation/resolved_route";
 import type {
-  AssignmentAttemptRouteReference,
+  AssessmentAttemptRouteReference,
   CourseInstanceRouteReference,
 } from "../navigation/public_route";
-import type { StudentAssignmentAttemptContext } from "./assignment_attempt_navigation";
-import type { StudentAssignmentAttemptHistory } from "./assignment_attempt_history";
+import type { StudentAssessmentAttemptContext } from "./assessment_attempt_navigation";
+import type { StudentAssessmentAttemptHistory } from "./assessment_attempt_history";
 
 interface QueryFunction<Arguments extends ReadonlyArray<unknown>, Result> {
   (...arguments_: Arguments): Promise<Result>;
@@ -43,25 +43,25 @@ export interface ApplicationApi<Client extends ApiClient = ApiClient> {
     readonly courses: QueryFunction<[], CursorPage<CourseSummary>>;
     readonly questionSearch: QueryFunction<[QuestionSearchRequest], QuestionSearchPage>;
     readonly questionDetails: QueryFunction<[QuestionId], QuestionDetails>;
-    readonly assignments: QueryFunction<[CourseId], CursorPage<StudentAssignmentLandingSummary>>;
-    readonly assignment: QueryFunction<[AssignmentId], StudentAssignmentDetail>;
-    readonly assignmentSummary: QueryFunction<[AssignmentId], StudentAssignmentProgress>;
+    readonly assessments: QueryFunction<[CourseId], CursorPage<StudentAssessmentLandingSummary>>;
+    readonly assessment: QueryFunction<[AssessmentId], StudentAssessmentDetail>;
+    readonly assessmentSummary: QueryFunction<[AssessmentId], StudentAssessmentProgress>;
     readonly courseScope: QueryFunction<[CourseId], CourseRouteView>;
-    readonly assignmentAttemptHistory: QueryFunction<
-      [AssignmentAttemptRouteReference],
-      StudentAssignmentAttemptHistory
+    readonly assessmentAttemptHistory: QueryFunction<
+      [AssessmentAttemptRouteReference],
+      StudentAssessmentAttemptHistory
     >;
     /** Live Student Attempt presentation scope keyed directly by R-n. */
-    readonly assignmentAttemptScope: QueryFunction<
-      [AssignmentAttemptRouteReference],
-      StudentAssignmentAttemptContext
+    readonly assessmentAttemptScope: QueryFunction<
+      [AssessmentAttemptRouteReference],
+      StudentAssessmentAttemptContext
     >;
     /** Public-reference keyed scope identity; not an authorization result. */
     readonly resolveCourse: QueryFunction<[CourseInstanceRouteReference], ResolvedCourseIdentity>;
     /** Public-reference keyed attempt scope identity; not an authorization result. */
-    readonly resolveAssignmentAttempt: QueryFunction<
-      [AssignmentAttemptRouteReference],
-      ResolvedAssignmentAttemptIdentity
+    readonly resolveAssessmentAttempt: QueryFunction<
+      [AssessmentAttemptRouteReference],
+      ResolvedAssessmentAttemptIdentity
     >;
   };
 }
@@ -82,17 +82,17 @@ export function createApplicationApi<Client extends ApiClient>(
         (questionId: QuestionId) => client.getQuestionDetails(questionId),
         "question-details",
       ),
-      assignments: query(
-        (courseId: CourseId) => client.listAssignments(courseId),
-        "course-assignments",
+      assessments: query(
+        (courseId: CourseId) => client.listAssessments(courseId),
+        "course-assessments",
       ),
-      assignment: query(
-        (assignmentId: AssignmentId) => client.getAssignment(assignmentId),
-        "assignment-overview",
+      assessment: query(
+        (assessmentId: AssessmentId) => client.getAssessment(assessmentId),
+        "assessment-overview",
       ),
-      assignmentSummary: query(
-        (assignmentId: AssignmentId) => client.getAssignmentSummary(assignmentId),
-        "assignment-summary",
+      assessmentSummary: query(
+        (assessmentId: AssessmentId) => client.getAssessmentSummary(assessmentId),
+        "assessment-summary",
       ),
       courseScope: query(async (courseId: CourseId) => {
         const [summary, appearance] = await Promise.all([
@@ -104,24 +104,24 @@ export function createApplicationApi<Client extends ApiClient>(
         }
         return { summary, appearance };
       }, "course-scope"),
-      assignmentAttemptHistory: query(
-        (reference: AssignmentAttemptRouteReference) =>
-          client.getStudentAssignmentAttemptHistory(reference),
-        "assignment-attempt-history",
+      assessmentAttemptHistory: query(
+        (reference: AssessmentAttemptRouteReference) =>
+          client.getStudentAssessmentAttemptHistory(reference),
+        "assessment-attempt-history",
       ),
-      assignmentAttemptScope: query(
-        (reference: AssignmentAttemptRouteReference) =>
-          client.getStudentAssignmentAttemptContext(reference),
-        "assignment-attempt-scope",
+      assessmentAttemptScope: query(
+        (reference: AssessmentAttemptRouteReference) =>
+          client.getStudentAssessmentAttemptContext(reference),
+        "assessment-attempt-scope",
       ),
       resolveCourse: query(
         (reference: CourseInstanceRouteReference) => resolveCourseIdentity(client, reference),
         "resolve-course",
       ),
-      resolveAssignmentAttempt: query(
-        (reference: AssignmentAttemptRouteReference) =>
-          resolveAssignmentAttemptIdentity(client, reference),
-        "resolve-assignment-attempt",
+      resolveAssessmentAttempt: query(
+        (reference: AssessmentAttemptRouteReference) =>
+          resolveAssessmentAttemptIdentity(client, reference),
+        "resolve-assessment-attempt",
       ),
     },
   };

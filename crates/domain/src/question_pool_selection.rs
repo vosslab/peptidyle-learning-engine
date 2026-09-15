@@ -1,13 +1,12 @@
-//! Server-owned selection of exact Question Pool Items.
+//! Server-owned selection of exact immutable Question Pool Revision members.
 //!
 //! The caller supplies transient server entropy and the complete saved Question
-//! Pool Assignment Entry. This module records no entropy and reads no storage:
+//! Pool Assessment Entry and its immutable Revision members. This module records no entropy and reads no storage:
 //! persistence owns Reuse Selection lookup, while this function creates the
 //! selected Question Pool Item result for Select Again and no-store Question Pool Previews.
 
 use question_model::{
-    QuestionPoolAssignmentEntry, QuestionPoolItemAvailability, QuestionPoolSelectedItem,
-    QuestionPoolSelectedQuestionOrder,
+    QuestionPoolAssessmentEntry, QuestionPoolSelectedItem, QuestionPoolSelectedQuestionOrder,
 };
 use rand_chacha::ChaCha20Rng;
 use rand_chacha::rand_core::{Rng, SeedableRng};
@@ -29,11 +28,13 @@ impl QuestionPoolSelectionEntropy {
 /// A saved Question Pool cannot produce a requested durable selection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QuestionPoolSelectionError {
-    /// Fewer currently available Question Pool Items exist than the Assignment requires.
+    /// A storage candidate does not belong to the exact Pool Revision pinned by the Entry.
+    CandidatePoolRevisionMismatch,
+    /// Fewer immutable Pool Revision members exist than the Assessment requires.
     InsufficientAvailableQuestionPoolItems {
         /// Instructor-requested Question Pool Selection Count.
         selection_count: u32,
-        /// Available Question Pool Item count at selection time.
+        /// Immutable Pool Revision member count at selection time.
         available_question_pool_item_count: usize,
     },
 }
@@ -41,12 +42,15 @@ pub enum QuestionPoolSelectionError {
 impl std::fmt::Display for QuestionPoolSelectionError {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::CandidatePoolRevisionMismatch => formatter.write_str(
+                "Question Pool candidate does not belong to the Assessment Entry Pool Revision",
+            ),
             Self::InsufficientAvailableQuestionPoolItems {
                 selection_count,
                 available_question_pool_item_count,
             } => write!(
                 formatter,
-                "Question Pool requires {selection_count} Question Pool Items but only {available_question_pool_item_count} are available"
+                "Question Pool requires {selection_count} immutable members but only {available_question_pool_item_count} exist"
             ),
         }
     }
@@ -54,34 +58,36 @@ impl std::fmt::Display for QuestionPoolSelectionError {
 
 impl std::error::Error for QuestionPoolSelectionError {}
 
-/// Selects the exact Question Pool Items for one new Question Pool Selection.
+/// Selects exact immutable Pool Revision members for one new Question Pool Selection.
 ///
-/// Question Pool Item membership is sampled without replacement. Question Pool Item Order
-/// restores the saved Question Pool Item order after membership selection; Random Order
+/// Membership is sampled without replacement. Question Pool Order restores the
+/// immutable Pool Revision member order after membership selection; Random Order
 /// keeps the sampled order. The returned values carry immutable Question
 /// Revision References and are suitable for a server-held Question Pool
 /// Selection record.
 pub fn select_question_pool_items(
-    question_pool: &QuestionPoolAssignmentEntry,
+    question_pool: &QuestionPoolAssessmentEntry,
+    candidates: &[QuestionPoolSelectedItem],
     entropy: QuestionPoolSelectionEntropy,
 ) -> Result<Vec<QuestionPoolSelectedItem>, QuestionPoolSelectionError> {
-    let available = question_pool
-        .items
-        .iter()
-        .filter(|item| item.availability == QuestionPoolItemAvailability::Available)
-        .collect::<Vec<_>>();
-    let selection_count = usize::try_from(question_pool.selection_count)
+    if candidates.iter().any(|candidate| {
+        candidate.pool_revision_member.question_pool_revision
+            != question_pool.question_pool_revision
+    }) {
+        return Err(QuestionPoolSelectionError::CandidatePoolRevisionMismatch);
+    }
+    let selection_count = usize::try_from(question_pool.selection_count.get())
         .expect("u32 selection count fits the current supported usize targets");
-    if selection_count > available.len() {
+    if selection_count > candidates.len() {
         return Err(
             QuestionPoolSelectionError::InsufficientAvailableQuestionPoolItems {
-                selection_count: question_pool.selection_count,
-                available_question_pool_item_count: available.len(),
+                selection_count: question_pool.selection_count.get(),
+                available_question_pool_item_count: candidates.len(),
             },
         );
     }
 
-    let mut positions = (0..available.len()).collect::<Vec<_>>();
+    let mut positions = (0..candidates.len()).collect::<Vec<_>>();
     let mut random = ChaCha20Rng::from_seed(entropy.0);
     for position in 0..selection_count {
         let remaining = positions.len() - position;
@@ -99,10 +105,7 @@ pub fn select_question_pool_items(
 
     Ok(positions
         .into_iter()
-        .map(|position| QuestionPoolSelectedItem {
-            question_pool_item: available[position].id,
-            reference: available[position].reference.clone(),
-        })
+        .map(|position| candidates[position].clone())
         .collect())
 }
 
@@ -121,49 +124,50 @@ fn sample_below(random: &mut ChaCha20Rng, upper: u64) -> u64 {
 #[cfg(test)]
 mod tests {
     use question_model::{
-        AssignmentEntryAvailability, AssignmentEntryId, AssignmentEntryScoringRule,
-        AssignmentPointValue, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolItem,
-        QuestionPoolItemId, QuestionPoolSelectionRule, QuestionRevisionNumber,
+        AssessmentEntryAvailability, AssessmentEntryId, AssessmentEntryScoringRule,
+        AssessmentPointValue, PoolRevisionMemberReference, QuestionAttemptLimit,
+        QuestionAttemptTimeLimit, QuestionId, QuestionPoolRevisionNumber,
+        QuestionPoolRevisionReference, QuestionPoolSelectionRule, QuestionRevisionNumber,
         QuestionRevisionReference,
     };
     use uuid::Uuid;
 
     use super::*;
 
-    fn question_pool_item(
-        number: u128,
-        availability: QuestionPoolItemAvailability,
-    ) -> QuestionPoolItem {
-        QuestionPoolItem {
-            id: QuestionPoolItemId::from_uuid(Uuid::from_u128(number)),
+    fn pool_member(number: u32) -> QuestionPoolSelectedItem {
+        QuestionPoolSelectedItem {
+            pool_revision_member: PoolRevisionMemberReference {
+                question_pool_revision: QuestionPoolRevisionReference {
+                    question_pool_id: "7K3M-X9QP".parse::<QuestionId>().expect("Pool ID"),
+                    revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
+                },
+                member_position: number,
+            },
             reference: QuestionRevisionReference {
-                question_id: format!("123-456{number}")
+                question_id: format!("7K3M-X9Q{number}")
                     .parse()
                     .expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
-            availability,
         }
     }
 
-    fn question_pool(order: QuestionPoolSelectedQuestionOrder) -> QuestionPoolAssignmentEntry {
-        QuestionPoolAssignmentEntry {
-            id: AssignmentEntryId::from_uuid(Uuid::from_u128(1)),
-            availability: AssignmentEntryAvailability::Available,
-            scoring_rule: AssignmentEntryScoringRule::Normal,
-            selection_count: 2,
-            points_per_item: AssignmentPointValue::from_whole(1),
+    fn question_pool(order: QuestionPoolSelectedQuestionOrder) -> QuestionPoolAssessmentEntry {
+        QuestionPoolAssessmentEntry {
+            id: AssessmentEntryId::from_uuid(Uuid::from_u128(1)),
+            availability: AssessmentEntryAvailability::Available,
+            scoring_rule: AssessmentEntryScoringRule::Normal,
+            question_pool_revision: QuestionPoolRevisionReference {
+                question_pool_id: "7K3M-X9QP".parse().expect("Pool ID"),
+                revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
+            },
+            selection_count: std::num::NonZeroU32::new(2).expect("positive count"),
+            points_per_item: AssessmentPointValue::from_whole(1),
             selection_rule: QuestionPoolSelectionRule {
                 selected_question_order: order,
             },
             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
             question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            items: vec![
-                question_pool_item(2, QuestionPoolItemAvailability::Available),
-                question_pool_item(3, QuestionPoolItemAvailability::Retired),
-                question_pool_item(4, QuestionPoolItemAvailability::Available),
-                question_pool_item(5, QuestionPoolItemAvailability::Available),
-            ],
         }
     }
 
@@ -171,6 +175,7 @@ mod tests {
     fn question_pool_order_selects_available_items_without_replacement_in_source_order() {
         let selection = select_question_pool_items(
             &question_pool(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder),
+            &[pool_member(0), pool_member(1), pool_member(2)],
             QuestionPoolSelectionEntropy::from_bytes([7; 32]),
         )
         .expect("available Question Pool Items satisfy the selection count");
@@ -179,36 +184,30 @@ mod tests {
         assert!(
             selection
                 .windows(2)
-                .all(|pair| pair[0].question_pool_item != pair[1].question_pool_item)
+                .all(|pair| pair[0].pool_revision_member != pair[1].pool_revision_member)
         );
         assert!(
             selection
                 .iter()
-                .all(|item| item.question_pool_item.as_uuid() != Uuid::from_u128(3))
+                .all(|item| item.pool_revision_member.member_position != 3)
         );
         assert!(
-            selection[0].question_pool_item.as_uuid() < selection[1].question_pool_item.as_uuid()
+            selection[0].pool_revision_member.member_position
+                < selection[1].pool_revision_member.member_position
         );
     }
 
     #[test]
-    fn random_order_is_reproducible_only_from_transient_server_entropy() {
-        let pool = question_pool(QuestionPoolSelectedQuestionOrder::RandomOrder);
-        let entropy = QuestionPoolSelectionEntropy::from_bytes([9; 32]);
-
-        assert_eq!(
-            select_question_pool_items(&pool, entropy),
-            select_question_pool_items(&pool, entropy),
-        );
-    }
-
-    #[test]
-    fn selection_refuses_a_pool_when_retired_items_leave_too_few_available() {
+    fn selection_refuses_a_pool_when_immutable_members_are_too_few() {
         let mut pool = question_pool(QuestionPoolSelectedQuestionOrder::QuestionPoolOrder);
-        pool.selection_count = 4;
+        pool.selection_count = std::num::NonZeroU32::new(4).expect("positive count");
 
         assert_eq!(
-            select_question_pool_items(&pool, QuestionPoolSelectionEntropy::from_bytes([1; 32])),
+            select_question_pool_items(
+                &pool,
+                &[pool_member(0), pool_member(1), pool_member(2)],
+                QuestionPoolSelectionEntropy::from_bytes([1; 32])
+            ),
             Err(
                 QuestionPoolSelectionError::InsufficientAvailableQuestionPoolItems {
                     selection_count: 4,

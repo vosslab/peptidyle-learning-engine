@@ -24,8 +24,8 @@ test("assignment Questions payload uses Question IDs as its only question identi
 });
 
 test("Question ID paste supports instructor punctuation and rejects duplicate choices", () => {
-  assert.deepEqual(parseExactQuestionIds("7k3-m9qp"), ["7K3-M9QP"]);
-  assert.throws(() => parseExactQuestionIds("7K3-M9QP, 7K3-M9QP"), /once/u);
+  assert.deepEqual(parseExactQuestionIds("7k3m-x9qp"), ["7K3M-X9QP"]);
+  assert.throws(() => parseExactQuestionIds("7K3M-X9QP, 7K3M-X9QP"), /once/u);
 });
 
 test("assignment Question labels use the exact public Question ID", () => {
@@ -37,7 +37,7 @@ test("assignment Question labels use the exact public Question ID", () => {
 test("ordinary editing preserves a fixed question while changing shared entry order", () => {
   const first = publishedQuestionFixture.assignment.entries[0];
   assert.ok(first);
-  const second = { ...first, id: "item-2", questionId: "7K4-M9QP" };
+  const second = { ...first, id: "item-2", questionId: "7K4M-X9QP" };
   const moved = moveAssignmentEntry(
     {
       ...createMasteryAssignmentEditorState("course-1"),
@@ -67,8 +67,8 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
       {
         kind: "questionPool",
         items: [
-          { questionId: "7K4-M9QP", questionTitle: "Item one", backend: "ple" },
-          { questionId: "7K5-M9QP", questionTitle: "Item two", backend: "ple" },
+          { questionId: "7K4M-X9QP", questionTitle: "Item one", backend: "ple" },
+          { questionId: "7K5M-X9QP", questionTitle: "Item two", backend: "ple" },
         ],
         availability: "available",
         scoringRule: "normal",
@@ -87,7 +87,7 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
   );
   assert.deepEqual(body.entries[1], {
     kind: "questionPool",
-    questionIds: ["7K4-M9QP", "7K5-M9QP"],
+    questionIds: ["7K4M-X9QP", "7K5M-X9QP"],
     availability: "available",
     scoringRule: "normal",
     selectionCount: 1,
@@ -103,7 +103,7 @@ test("Question Pool editor encodes public Item Question IDs in Item order", () =
 test("pool validation keeps an actionable correction path", () => {
   const invalid = {
     kind: "questionPool",
-    items: [{ questionId: "7K4-M9QP", questionTitle: "Item", backend: "ple" }],
+    items: [{ questionId: "7K4M-X9QP", questionTitle: "Item", backend: "ple" }],
     availability: "available",
     selectionCount: 2,
     pointsPerItem: "1",
@@ -116,7 +116,7 @@ test("pool validation keeps an actionable correction path", () => {
 });
 
 test("pool authoring reports shared cardinality recovery paths before save", () => {
-  const item = { questionId: "7K4-M9QP", questionTitle: "Item", backend: "ple" };
+  const item = { questionId: "7K4M-X9QP", questionTitle: "Item", backend: "ple" };
   const overfullPool = {
     kind: "questionPool",
     items: Array.from({ length: 1025 }, (_value, index) => ({
@@ -181,7 +181,7 @@ test("shared picker caps each assignment destination before the dialog opens", (
       { ...fixed, kind: "fixedQuestion" },
       {
         kind: "questionPool",
-        items: [{ questionId: "7K4-M9QP", questionTitle: "Item", backend: "ple" }],
+        items: [{ questionId: "7K4M-X9QP", questionTitle: "Item", backend: "ple" }],
         availability: "available",
         selectionCount: 1,
         pointsPerItem: "1",

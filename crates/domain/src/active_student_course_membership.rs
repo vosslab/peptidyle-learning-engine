@@ -1,14 +1,14 @@
-//! Pure active-membership gate for Student Assignment Access.
+//! Pure active-membership gate for Student Assessment Access.
 
-use question_model::{AccountId, AssignmentId, CourseId, CourseMembershipId, StudentRecordId};
+use question_model::{AccountId, AssessmentId, CourseId, CourseMembershipId, StudentRecordId};
 
-/// Why the active-membership prerequisite for Assignment Access is absent.
+/// Why the active-membership prerequisite for Assessment Access is absent.
 /// Reasons are internal and never a Student DTO.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActiveStudentCourseMembershipDenial {
     CourseNotFound,
-    AssignmentNotFound,
-    AssignmentOutsideCourse,
+    AssessmentNotFound,
+    AssessmentOutsideCourse,
     StudentNotActiveCourse,
 }
 
@@ -17,7 +17,7 @@ pub enum ActiveStudentCourseMembershipDenial {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveStudentCourseMembershipGrant {
     course: CourseId,
-    assignment: AssignmentId,
+    assessment: AssessmentId,
     student_account: AccountId,
     student_record: StudentRecordId,
     membership: CourseMembershipId,
@@ -27,8 +27,8 @@ impl ActiveStudentCourseMembershipGrant {
     pub fn course(&self) -> CourseId {
         self.course
     }
-    pub fn assignment(&self) -> AssignmentId {
-        self.assignment
+    pub fn assessment(&self) -> AssessmentId {
+        self.assessment
     }
     pub fn student_account(&self) -> AccountId {
         self.student_account
@@ -54,12 +54,12 @@ pub enum ActiveStudentCourseMembershipDecision {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HypotheticalStudentViewScenarioAdmissionFacts {
     course: CourseId,
-    assignment: AssignmentId,
+    assessment: AssessmentId,
 }
 
 impl HypotheticalStudentViewScenarioAdmissionFacts {
-    pub fn new(course: CourseId, assignment: AssignmentId) -> Self {
-        Self { course, assignment }
+    pub fn new(course: CourseId, assessment: AssessmentId) -> Self {
+        Self { course, assessment }
     }
 }
 
@@ -68,23 +68,23 @@ impl HypotheticalStudentViewScenarioAdmissionFacts {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HypotheticalStudentViewScenarioAdmission {
     course: CourseId,
-    assignment: AssignmentId,
+    assessment: AssessmentId,
 }
 
 impl HypotheticalStudentViewScenarioAdmission {
     pub fn course(&self) -> CourseId {
         self.course
     }
-    pub fn assignment(&self) -> AssignmentId {
-        self.assignment
+    pub fn assessment(&self) -> AssessmentId {
+        self.assessment
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HypotheticalStudentViewScenarioAdmissionDenial {
     CourseNotFound,
-    AssignmentNotFound,
-    AssignmentOutsideCourse,
+    AssessmentNotFound,
+    AssessmentOutsideCourse,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,7 +97,7 @@ pub enum HypotheticalStudentViewScenarioAdmissionDecision {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveStudentCourseMembershipFacts {
     pub course: CourseId,
-    pub assignment: AssignmentId,
+    pub assessment: AssessmentId,
     pub student_account: AccountId,
     pub membership: Option<ActiveStudentMembership>,
 }
@@ -108,9 +108,9 @@ pub struct ActiveStudentMembership {
     pub student_record: StudentRecordId,
 }
 
-/// Evaluates the active-membership prerequisite for Assignment Access.
+/// Evaluates the active-membership prerequisite for Assessment Access.
 ///
-/// Effective Assignment Policy applies lifecycle, schedule, late-work, and
+/// Effective Assessment Policy applies lifecycle, schedule, late-work, and
 /// action rules after this gate succeeds.
 pub fn evaluate_active_student_course_membership(
     facts: ActiveStudentCourseMembershipFacts,
@@ -122,14 +122,14 @@ pub fn evaluate_active_student_course_membership(
     };
     ActiveStudentCourseMembershipDecision::Granted(ActiveStudentCourseMembershipGrant {
         course: facts.course,
-        assignment: facts.assignment,
+        assessment: facts.assessment,
         student_account: facts.student_account,
         student_record: membership.student_record,
         membership: membership.id,
     })
 }
 
-/// Mints scenario admission after Store-owned course and Assignment scope resolution.
+/// Mints scenario admission after Store-owned course and Assessment scope resolution.
 ///
 /// The admission carries neither a Student identity nor a Student authority token.
 pub fn admit_hypothetical_student_view_scenario(
@@ -138,7 +138,7 @@ pub fn admit_hypothetical_student_view_scenario(
     HypotheticalStudentViewScenarioAdmissionDecision::Granted(
         HypotheticalStudentViewScenarioAdmission {
             course: facts.course,
-            assignment: facts.assignment,
+            assessment: facts.assessment,
         },
     )
 }
@@ -154,11 +154,11 @@ mod tests {
     }
 
     #[test]
-    fn active_student_membership_grants_direct_assignment_access() {
+    fn active_student_membership_grants_direct_assessment_access() {
         let decision =
             evaluate_active_student_course_membership(ActiveStudentCourseMembershipFacts {
                 course: CourseId::from_uuid(id(2)),
-                assignment: AssignmentId::from_uuid(id(3)),
+                assessment: AssessmentId::from_uuid(id(3)),
                 student_account: AccountId::from_uuid(id(4)),
                 membership: Some(ActiveStudentMembership {
                     id: CourseMembershipId::from_uuid(id(5)),
@@ -176,7 +176,7 @@ mod tests {
         let decision =
             evaluate_active_student_course_membership(ActiveStudentCourseMembershipFacts {
                 course: CourseId::from_uuid(id(2)),
-                assignment: AssignmentId::from_uuid(id(3)),
+                assessment: AssessmentId::from_uuid(id(3)),
                 student_account: AccountId::from_uuid(id(4)),
                 membership: Some(ActiveStudentMembership {
                     id: CourseMembershipId::from_uuid(id(5)),
@@ -184,7 +184,7 @@ mod tests {
                 }),
             });
         let ActiveStudentCourseMembershipDecision::Granted(grant) = decision else {
-            panic!("active membership should grant assignment authority");
+            panic!("active membership should grant assessment authority");
         };
         assert_eq!(grant.membership(), CourseMembershipId::from_uuid(id(5)));
     }
@@ -194,7 +194,7 @@ mod tests {
         let decision = admit_hypothetical_student_view_scenario(
             HypotheticalStudentViewScenarioAdmissionFacts::new(
                 CourseId::from_uuid(id(2)),
-                AssignmentId::from_uuid(id(3)),
+                AssessmentId::from_uuid(id(3)),
             ),
         );
         assert!(matches!(

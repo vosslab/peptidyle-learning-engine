@@ -21,15 +21,25 @@ const COURSE_ENTRY_IDENTITY_STYLES = `
   max-width: 32ch;
 }
 
-.course-entry-banner {
+.course-entry-banner-frame {
+  box-sizing: border-box;
   display: block;
-  inline-size: min(100%, 75rem);
-  block-size: clamp(120px, calc(100cqi / 6), 200px);
+  inline-size: min(100%, 64rem);
   margin-inline: auto;
-  aspect-ratio: 6 / 1;
+  overflow: hidden;
+  /* HG requires one 5:1 banner, not a page hero. */
+  aspect-ratio: 5 / 1;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-inset, 0.5rem);
-  object-fit: cover;
+}
+
+.course-entry-banner {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  /* The delivery remains complete; the frame never crops authored artwork. */
+  object-fit: contain;
+  object-position: center;
 }
 `;
 
@@ -51,17 +61,19 @@ export function CourseEntryIdentity(): JSX.Element {
             <style>{COURSE_ENTRY_IDENTITY_STYLES}</style>
             <p class="eyebrow">Course home</p>
             <Show when={banner() !== null && deliveryUrl() !== undefined}>
-              <img
-                class="course-entry-banner"
-                src={deliveryUrl()}
-                alt={
-                  banner() === null
-                    ? ""
-                    : courseBannerImageAlternativeText(banner()!.alternativeText)
-                }
-                width="1200"
-                height="200"
-              />
+              <div class="course-entry-banner-frame">
+                <img
+                  class="course-entry-banner"
+                  src={deliveryUrl()}
+                  alt={
+                    banner() === null
+                      ? ""
+                      : courseBannerImageAlternativeText(banner()!.alternativeText)
+                  }
+                  width="1280"
+                  height="256"
+                />
+              </div>
             </Show>
             <h1>{course.summary.longName}</h1>
           </header>

@@ -25,13 +25,13 @@ const ALL_CATALOG_CONTROLS: ReadonlyArray<RibbonCatalogControl<RibbonDestination
 ];
 
 const CANONICAL_FIXTURE_PARAMS = {
-  courseRef: "C-1",
-  assignmentRef: "A-1",
-  assignmentAttemptRef: "R-1",
+  courseRef: "CI7K3M2Q",
+  assessmentRef: "A9D2RX5",
+  assessmentAttemptRef: "R-1",
   membershipRef: "M-1",
-  questionRef: "7K3-M9QP",
+  questionRef: "7K3M-X9QP",
   draftQuestionRef: "D-1",
-  blueprintCourseRef: "BP-1",
+  blueprintCourseRef: "BP7K3M2Q",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {
@@ -41,18 +41,18 @@ function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogCo
 }
 
 /**
- * `backToAssignments` needs a source course reference that an attempt-only
+ * `backToAssessments` needs a source course reference that an attempt-only
  * fixture does not own. Future entries have no backing route. Every other
  * catalog route must build here, so catalog drift fails at fixture creation.
  */
 function isDocumentedUnavailableFixtureControl(
   catalog: RibbonCatalogControl<RibbonDestinationId>,
 ): boolean {
-  return catalog.destination.kind !== "route" || catalog.id === "backToAssignments";
+  return catalog.destination.kind !== "route" || catalog.id === "backToAssessments";
 }
 
 function fixtureHrefFor(catalog: RibbonCatalogControl<RibbonDestinationId>): string | undefined {
-  if (catalog.destination.kind !== "route" || catalog.id === "backToAssignments") {
+  if (catalog.destination.kind !== "route" || catalog.id === "backToAssessments") {
     return undefined;
   }
 
@@ -156,7 +156,7 @@ export const M6_RIBBON_FIXTURES = {
   productInstructor: model(
     "product",
     "instructor",
-    [control("courses"), control("questions", { selected: true }), control("productAssignments")],
+    [control("courses"), control("questions", { selected: true }), control("productAssessments")],
     [
       area("instructorQuestions", "Questions", [
         control("myQuestions"),
@@ -181,7 +181,7 @@ export const M6_RIBBON_FIXTURES = {
   courseStudent: model(
     "courseInstance",
     "student",
-    [control("studentAssignments", { selected: true })],
+    [control("studentAssessments", { selected: true })],
     [],
     "reading",
     { scopeLabel: COURSE_SHORT_NAME, signOutAction: SIGN_OUT },
@@ -190,7 +190,7 @@ export const M6_RIBBON_FIXTURES = {
     "courseInstance",
     "instructor",
     [
-      control("assignments", { selected: true }),
+      control("assessments", { selected: true }),
       control("students"),
       control("gradebook"),
       control("teachingOperations"),
@@ -198,17 +198,17 @@ export const M6_RIBBON_FIXTURES = {
       control("courseSetup"),
     ],
     [
-      area("assignment", "Assignment", [
-        control("assignmentOverview", { selected: true }),
-        control("assignmentQuestions"),
-        control("assignmentPolicies"),
-        control("assignmentStudentView"),
+      area("assessment", "Assessment", [
+        control("assessmentOverview", { selected: true }),
+        control("assessmentQuestions"),
+        control("assessmentPolicies"),
+        control("assessmentStudentView"),
       ]),
     ],
     "fullWidth",
     {
       scopeLabel: COURSE_SHORT_NAME,
-      assignmentLabel: "Problem Set 7",
+      assessmentTitle: "Problem Set 7",
       signOutAction: SIGN_OUT,
     },
   ),
@@ -224,31 +224,31 @@ export const M6_RIBBON_FIXTURES = {
     },
   ),
   attemptStudent: model(
-    "assignmentAttempt",
+    "assessmentAttempt",
     "student",
     [control("attempt", { selected: true })],
-    [area("assignmentAttempt", "Assignment attempt", [control("backToAssignments")])],
+    [area("assessmentAttempt", "Assessment attempt", [control("backToAssessments")])],
     "reading",
     {
-      assignmentLabel: "Problem Set 7",
-      assignmentAttemptProgress: "Question 999 of 999",
+      assessmentAttemptTitle: "Problem Set 7",
+      assessmentAttemptProgress: "Question 999 of 999",
       signOutAction: SIGN_OUT,
     },
   ),
-  attemptInstructor: model("assignmentAttempt", "instructor", [], [], "reading", {
+  attemptInstructor: model("assessmentAttempt", "instructor", [], [], "reading", {
     signOutAction: SIGN_OUT,
   }),
-  attemptSysadmin: model("assignmentAttempt", "sysadmin", [], [], "reading", {
+  attemptSysadmin: model("assessmentAttempt", "sysadmin", [], [], "reading", {
     signOutAction: SIGN_OUT,
   }),
   longCourse: model(
     "courseInstance",
     "instructor",
-    [control("assignments", { selected: true }), control("students"), control("gradebook")],
+    [control("assessments", { selected: true }), control("students"), control("gradebook")],
     [
-      area("assignment", "Assignment", [
-        control("assignmentOverview"),
-        control("assignmentQuestions", { selected: true }),
+      area("assessment", "Assessment", [
+        control("assessmentOverview"),
+        control("assessmentQuestions", { selected: true }),
       ]),
     ],
     "fullWidth",
@@ -256,14 +256,14 @@ export const M6_RIBBON_FIXTURES = {
       scopeLabel:
         "Molecular Biology of the Cell: Evidence, Explanation, and Experimental Design " +
         "Across a Very Long Course Instance Title",
-      assignmentLabel: "A deliberately long assignment label for a dense professional workspace",
+      assessmentTitle: "A deliberately long assessment label for a dense professional workspace",
       signOutAction: SIGN_OUT,
     },
   ),
   loadingCourse: model(
     "courseInstance",
     "student",
-    [control("studentAssignments", { selected: true })],
+    [control("studentAssessments", { selected: true })],
     [],
     "reading",
     {
@@ -274,7 +274,7 @@ export const M6_RIBBON_FIXTURES = {
   errorCourse: model(
     "courseInstance",
     "student",
-    [control("studentAssignments", { selected: true })],
+    [control("studentAssessments", { selected: true })],
     [],
     "reading",
     {

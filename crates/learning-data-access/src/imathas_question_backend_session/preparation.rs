@@ -1,6 +1,6 @@
 use super::*;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    AccountId, AssessmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
     SourceObjectReference, Timestamp,
 };
 
@@ -8,7 +8,7 @@ use question_model::{
 pub struct ImathasQuestionBackendSessionPreparationContext {
     account: AccountId,
     course: CourseId,
-    assignment: AssignmentId,
+    assessment: AssessmentId,
     grading_context: ImathasGradingContext,
     imathas_question_backend_binding: ImathasQuestionBackendBinding,
     source_object: SourceObjectReference,
@@ -38,7 +38,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
     pub fn new(
         account: AccountId,
         course: CourseId,
-        assignment: AssignmentId,
+        assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
@@ -57,7 +57,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
         Ok(Self {
             account,
             course,
-            assignment,
+            assessment,
             grading_context,
             imathas_question_backend_binding,
             source_object,
@@ -91,7 +91,7 @@ impl ImathasQuestionBackendSessionPreparationContext {
         ImathasQuestionBackendSessionCreate::new(
             self.account,
             self.course,
-            self.assignment,
+            self.assessment,
             self.grading_context,
             self.imathas_question_backend_binding,
             self.source_object,

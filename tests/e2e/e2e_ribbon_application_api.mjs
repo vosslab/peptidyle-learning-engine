@@ -57,8 +57,8 @@ const resolvingClient = createHttpApiClient({
   fetch(input) {
     const pathname = typeof input === "string" ? input : new URL(input.url).pathname;
     const responseByPath = {
-      "/api/navigation/C-1": { kind: "course", courseId: identity.courseOne },
-      "/api/navigation/C-2": { kind: "course", courseId: identity.courseTwo },
+      "/api/navigation/CI7K3M2Q": { kind: "course", courseId: identity.courseOne },
+      "/api/navigation/CI4W8QF9": { kind: "course", courseId: identity.courseTwo },
       "/api/navigation/R-1": {
         kind: "assignmentAttempt",
         courseId: identity.courseOne,
@@ -66,7 +66,7 @@ const resolvingClient = createHttpApiClient({
         studentRecordId: identity.student,
         assignmentAttemptId: identity.attempt,
       },
-      "/api/navigation/C-9": {
+      "/api/navigation/CI9P6R4V": {
         kind: "assignment",
         courseId: identity.courseOne,
         assignmentId: identity.assignment,
@@ -88,8 +88,8 @@ const resolvingClient = createHttpApiClient({
   },
 });
 const resolutionApi = createApplicationApi(resolvingClient);
-const courseOne = courseInstanceRouteReference("C-1");
-const courseTwo = courseInstanceRouteReference("C-2");
+const courseOne = courseInstanceRouteReference("CI7K3M2Q");
+const courseTwo = courseInstanceRouteReference("CI4W8QF9");
 const attemptOne = assignmentAttemptRouteReference("R-1");
 const attemptTwo = assignmentAttemptRouteReference("R-2");
 
@@ -113,7 +113,7 @@ assert.notEqual(
   resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptOne),
   resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptTwo),
 );
-assert.match(resolutionApi.queries.resolveCourse.keyFor(courseOne), /C-1/u);
+assert.match(resolutionApi.queries.resolveCourse.keyFor(courseOne), /CI7K3M2Q/u);
 assert.match(resolutionApi.queries.resolveAssignmentAttempt.keyFor(attemptOne), /R-1/u);
 
 assert.deepEqual(await resolutionApi.queries.resolveCourse(courseOne), {
@@ -128,12 +128,15 @@ await resolutionApi.queries.resolveCourse(courseOne);
 assert.deepEqual(await resolutionApi.queries.resolveCourse(courseTwo), {
   courseId: identity.courseTwo,
 });
-await assert.rejects(resolutionApi.queries.resolveCourse("C-01"), {
+await assert.rejects(resolutionApi.queries.resolveCourse("CI7K3M2"), {
   message: "Course reference is invalid",
 });
-await assert.rejects(resolutionApi.queries.resolveCourse(courseInstanceRouteReference("C-9")), {
-  message: "Course Instance reference resolved to another resource",
-});
+await assert.rejects(
+  resolutionApi.queries.resolveCourse(courseInstanceRouteReference("CI9P6R4V")),
+  {
+    message: "Course Instance reference resolved to another resource",
+  },
+);
 await assert.rejects(resolutionApi.queries.resolveAssignmentAttempt("R-01"), {
   message: "Assignment Attempt reference is invalid",
 });

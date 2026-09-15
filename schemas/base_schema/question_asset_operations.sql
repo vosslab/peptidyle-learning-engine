@@ -77,7 +77,7 @@ BEGIN
        AND candidate.worker_kind = 'public_asset_publisher'
        AND candidate.question_id = registry.question_id
        AND candidate.revision_number = registry.revision_number
-       AND candidate.attempt_count < candidate.max_attempts
+       AND candidate.assessment_attempt_count < candidate.max_assessment_attempts
        AND ((candidate.state = 'ready' AND candidate.available_at <= claimed_at)
          OR (candidate.state = 'leased' AND candidate.lease_expires_at <= claimed_at))
      ORDER BY candidate.available_at, candidate.job_id
@@ -91,14 +91,14 @@ BEGIN
     UPDATE ple_private.job
        SET state = 'leased', lease_token = p_lease_token,
            lease_expires_at = p_lease_expires_at,
-           attempt_count = publication_job.attempt_count + 1
+           assessment_attempt_count = publication_job.assessment_attempt_count + 1
      WHERE job_id = publication_job.job_id
        AND job_kind = 'publish_public_assets'
        AND job_target_kind = 'public_asset_publication'
        AND worker_kind = 'public_asset_publisher'
        AND question_id = publication.question_id
        AND revision_number = publication.revision_number
-       AND attempt_count = publication_job.attempt_count
+       AND assessment_attempt_count = publication_job.assessment_attempt_count
        AND ((state = 'ready' AND available_at <= claimed_at)
          OR (state = 'leased' AND lease_expires_at <= claimed_at));
     IF NOT FOUND THEN
@@ -280,8 +280,8 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             OR EXISTS (
                 SELECT 1
                   FROM ple_private.issued_question AS issued
-                  JOIN ple_private.assignment_attempt AS attempt
-                    ON attempt.assignment_attempt_id = issued.assignment_attempt_id
+                  JOIN ple_private.assessment_attempt AS assessment_attempt
+                    ON assessment_attempt.assessment_attempt_id = issued.assessment_attempt_id
                   JOIN ple_private.question_attempt AS question_attempt
                     ON question_attempt.issued_question_id = issued.issued_question_id
                   JOIN ple_private.question_attempt_presentation_asset_rendition AS presented_asset
@@ -292,12 +292,12 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
                     ON presented_assets.question_attempt_id = presented_asset.question_attempt_id
                   JOIN ple_private.question_attempt_presentation_binding AS presentation
                     ON presentation.question_attempt_id = presented_asset.question_attempt_id
-                  JOIN ple_data.assignment AS assignment
-                    ON assignment.assignment_id = attempt.assignment_id
+                  JOIN ple_data.assessment AS assessment
+                    ON assessment.assessment_id = assessment_attempt.assessment_id
                  WHERE issued.question_id = publication.question_id
                    AND issued.revision_number = publication.revision_number
                    AND ple_api.current_session_account_owns_student_record(
-                       assignment.course_id, attempt.student_record_id)
+                       assessment.course_id, assessment_attempt.student_record_id)
             )
        )
 $$;

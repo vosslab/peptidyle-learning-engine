@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+  <g id="teal-trail-background"><rect x="4" y="4" width="120" height="120" rx="28" fill="#FFF0E8"/></g>
+  <g id="teal-trail-dots"><circle cx="35" cy="38" r="15" fill="#EF8B6F"/><circle cx="93" cy="90" r="15" fill="#EF8B6F"/></g>
+  <g id="teal-trail-path"><path d="M28 94c6-49 30-55 51-34 14 14 20 8 24-10" fill="none" stroke="#177B77" stroke-width="13" stroke-linecap="round"/></g>
+</svg>

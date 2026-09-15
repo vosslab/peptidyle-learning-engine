@@ -17,7 +17,7 @@ pub struct QuestionPresentationBinding {
 }
 
 impl QuestionPresentationBinding {
-    /// Binds the exact nonce and full checksum computed by the v1 codec.
+    /// Binds the exact nonce and full checksum computed by the v2 codec.
     pub fn new(nonce: QuestionPresentationNonce, checksum: QuestionPresentationChecksum) -> Self {
         Self { nonce, checksum }
     }

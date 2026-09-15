@@ -1,6 +1,6 @@
 use super::*;
 use question_model::{
-    AccountId, AssignmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
+    AccountId, AssessmentId, CourseId, ImathasQuestionBackendBinding, SourceObjectChecksum,
     SourceObjectReference, Timestamp,
 };
 
@@ -10,7 +10,7 @@ pub struct ImathasQuestionBackendSession {
     pub(crate) reference: ImathasQuestionBackendSessionReference,
     pub(crate) account: AccountId,
     pub(crate) course: CourseId,
-    pub(crate) assignment: AssignmentId,
+    pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
@@ -43,7 +43,7 @@ impl ImathasQuestionBackendSession {
             reference: self.reference,
             account: self.account,
             course: self.course,
-            assignment: self.assignment,
+            assessment: self.assessment,
             grading_context: self.grading_context.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
@@ -71,7 +71,7 @@ impl ImathasQuestionBackendSession {
         reference: ImathasQuestionBackendSessionReference,
         account: AccountId,
         course: CourseId,
-        assignment: AssignmentId,
+        assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
@@ -92,7 +92,7 @@ impl ImathasQuestionBackendSession {
             reference,
             account,
             course,
-            assignment,
+            assessment,
             grading_context,
             imathas_question_backend_binding,
             source_object,
@@ -114,7 +114,7 @@ impl ImathasQuestionBackendSession {
             parts.reference,
             parts.account,
             parts.course,
-            parts.assignment,
+            parts.assessment,
             parts.grading_context,
             parts.imathas_question_backend_binding,
             parts.source_object,
@@ -136,7 +136,7 @@ impl std::fmt::Debug for ImathasQuestionBackendSession {
             .field("reference", &self.reference)
             .field("account", &self.account)
             .field("course", &self.course)
-            .field("assignment", &self.assignment)
+            .field("assessment", &self.assessment)
             .field("grading_context", &self.grading_context)
             .field("imathas_question_backend_binding", &"[redacted]")
             .field("source_object", &self.source_object)
@@ -155,7 +155,7 @@ impl std::fmt::Debug for ImathasQuestionBackendSession {
 pub struct ImathasQuestionBackendSessionRestoreExpectation {
     pub(crate) account: AccountId,
     pub(crate) course: CourseId,
-    pub(crate) assignment: AssignmentId,
+    pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
@@ -169,7 +169,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
     pub fn new(
         account: AccountId,
         course: CourseId,
-        assignment: AssignmentId,
+        assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
@@ -180,7 +180,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
         Self {
             account,
             course,
-            assignment,
+            assessment,
             grading_context,
             imathas_question_backend_binding,
             source_object,
@@ -193,7 +193,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
     pub(crate) fn matches(&self, session: &ImathasQuestionBackendSession) -> bool {
         self.account == session.account
             && self.course == session.course
-            && self.assignment == session.assignment
+            && self.assessment == session.assessment
             && self.grading_context == session.grading_context
             && self.imathas_question_backend_binding == session.imathas_question_backend_binding
             && self.source_object == session.source_object
@@ -207,7 +207,7 @@ impl ImathasQuestionBackendSessionRestoreExpectation {
         ImathasQuestionBackendSessionRestoreParts {
             account: self.account,
             course: self.course,
-            assignment: self.assignment,
+            assessment: self.assessment,
             grading_context: self.grading_context.clone(),
             imathas_question_backend_binding: self.imathas_question_backend_binding.clone(),
             source_object: self.source_object.clone(),
@@ -263,7 +263,7 @@ impl std::fmt::Debug for ImathasQuestionBackendSessionRestoreExpectation {
 pub struct ImathasQuestionBackendSessionCreate {
     pub(crate) account: AccountId,
     pub(crate) course: CourseId,
-    pub(crate) assignment: AssignmentId,
+    pub(crate) assessment: AssessmentId,
     pub(crate) grading_context: ImathasGradingContext,
     pub(crate) imathas_question_backend_binding: ImathasQuestionBackendBinding,
     pub(crate) source_object: SourceObjectReference,
@@ -282,7 +282,7 @@ impl ImathasQuestionBackendSessionCreate {
     pub(super) fn new(
         account: AccountId,
         course: CourseId,
-        assignment: AssignmentId,
+        assessment: AssessmentId,
         grading_context: ImathasGradingContext,
         imathas_question_backend_binding: ImathasQuestionBackendBinding,
         source_object: SourceObjectReference,
@@ -303,7 +303,7 @@ impl ImathasQuestionBackendSessionCreate {
         Ok(Self {
             account,
             course,
-            assignment,
+            assessment,
             grading_context,
             imathas_question_backend_binding,
             source_object,
@@ -329,7 +329,7 @@ impl ImathasQuestionBackendSessionCreate {
             reference,
             account: self.account,
             course: self.course,
-            assignment: self.assignment,
+            assessment: self.assessment,
             grading_context: self.grading_context,
             imathas_question_backend_binding: self.imathas_question_backend_binding,
             source_object: self.source_object,

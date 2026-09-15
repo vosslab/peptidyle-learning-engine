@@ -1,28 +1,23 @@
-//! Student Course and released Assignment landing routes.
+//! Student Course and released Assessment landing routes.
 
 use std::{str::FromStr, sync::Arc};
 
 use axum::{
     Json, Router,
-    body::to_bytes,
-    extract::Request,
     extract::{Path, State},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
     routing::get,
 };
-use browser_api_contract::student_assignment_decision::StudentAssignmentDecisionSummary;
+use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use learning_data_access::{
-    AccountTimeZoneStore, LiveStudentCourseLandingStore, SessionTokenHash, StoreError,
-    postgres::{
-        PostgresAccountTimeZoneStore, PostgresLiveStudentCourseLandingStore, PostgresSessionStore,
-    },
+    LiveStudentCourseLandingStore, SessionTokenHash, StoreError,
+    postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
-    AccountTimeZone, AssignmentAttemptCompletion, AssignmentReference, CourseInstanceReference,
-    ProductRole,
+    AssessmentAttemptCompletion, AssessmentReference, CourseInstanceReference, ProductRole,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -30,16 +25,12 @@ use crate::auth::{AuthError, resolve_session};
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     landing: PostgresLiveStudentCourseLandingStore,
-    time_zones: PostgresAccountTimeZoneStore,
 }
 
-const MAX_STUDENT_TIME_ZONE_UPDATE_BYTES: usize = 256;
-
-/// Registers Student-only Course and released Assignment landing routes.
+/// Registers Student-only Course and released Assessment landing routes.
 pub fn live_student_course_landing_router(
     sessions: Arc<PostgresSessionStore>,
     landing: PostgresLiveStudentCourseLandingStore,
-    time_zones: PostgresAccountTimeZoneStore,
 ) -> Router {
     Router::new()
         .route("/api/student/course-instances", get(list_courses))
@@ -48,30 +39,10 @@ pub fn live_student_course_landing_router(
             get(list_pending_invitations),
         )
         .route(
-            "/api/student/profile/time-zone",
-            get(read_student_time_zone).put(update_student_time_zone),
+            "/api/course-instances/{course}/assessment-landing",
+            get(list_assessments),
         )
-        .route(
-            "/api/course-instances/{course}/assignment-landing",
-            get(list_assignments),
-        )
-        .with_state(RouteState {
-            sessions,
-            landing,
-            time_zones,
-        })
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct StudentTimeZoneProfile {
-    time_zone: AccountTimeZone,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct UpdateStudentTimeZoneInput {
-    time_zone: AccountTimeZone,
+        .with_state(RouteState { sessions, landing })
 }
 
 #[derive(Serialize)]
@@ -101,80 +72,22 @@ struct CourseInvitationSummary {
 }
 
 #[derive(Serialize)]
-struct AssignmentListResponse {
-    assignments: Vec<AssignmentSummary>,
+struct AssessmentListResponse {
+    assessments: Vec<AssessmentSummary>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct AssignmentSummary {
-    reference: AssignmentReference,
+struct AssessmentSummary {
+    reference: AssessmentReference,
     title: String,
-    decision: StudentAssignmentDecisionSummary,
-    assignment_attempt_number: Option<u32>,
-    assignment_attempt_completion: Option<AssignmentAttemptCompletion>,
+    decision: StudentAssessmentDecisionSummary,
+    assessment_attempt_number: Option<u32>,
+    assessment_attempt_completion: Option<AssessmentAttemptCompletion>,
     graded_question_count: u32,
     question_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    score: Option<learning_data_access::LiveAssignmentAttemptScore>,
-}
-
-async fn read_student_time_zone(State(state): State<RouteState>, headers: HeaderMap) -> Response {
-    let session_hash = match student_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .time_zones
-        .authenticated_student_time_zone(session_hash)
-        .await
-    {
-        Ok(time_zone) => {
-            crate::auth::no_store(Json(StudentTimeZoneProfile { time_zone }).into_response())
-        }
-        Err(error) => student_time_zone_error_response(error),
-    }
-}
-
-async fn update_student_time_zone(State(state): State<RouteState>, request: Request) -> Response {
-    let session_hash = match student_session_hash(&state, request.headers()).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    // ASVS 4.1.1 and 5.1.1: authorize before reading one bounded, closed JSON body.
-    if !has_content_type(request.headers(), "application/json") {
-        return route_error(
-            StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            "Student time zone is invalid",
-        );
-    }
-    let input = match to_bytes(request.into_body(), MAX_STUDENT_TIME_ZONE_UPDATE_BYTES).await {
-        Ok(bytes) => match serde_json::from_slice::<UpdateStudentTimeZoneInput>(&bytes) {
-            Ok(input) => input,
-            Err(_) => {
-                return route_error(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    "Student time zone is invalid",
-                );
-            }
-        },
-        Err(_) => {
-            return route_error(
-                StatusCode::PAYLOAD_TOO_LARGE,
-                "Student time zone is too large",
-            );
-        }
-    };
-    match state
-        .time_zones
-        .update_authenticated_student_time_zone(session_hash, input.time_zone)
-        .await
-    {
-        Ok(time_zone) => {
-            crate::auth::no_store(Json(StudentTimeZoneProfile { time_zone }).into_response())
-        }
-        Err(error) => student_time_zone_error_response(error),
-    }
+    score: Option<learning_data_access::LiveAssessmentAttemptScore>,
 }
 
 async fn list_courses(State(state): State<RouteState>, headers: HeaderMap) -> Response {
@@ -230,7 +143,7 @@ async fn list_pending_invitations(State(state): State<RouteState>, headers: Head
     }
 }
 
-async fn list_assignments(
+async fn list_assessments(
     State(state): State<RouteState>,
     headers: HeaderMap,
     Path(course): Path<String>,
@@ -248,22 +161,22 @@ async fn list_assignments(
     // Student-visible values without Accommodation identity.
     match state
         .landing
-        .list_released_live_student_assignments(session_hash, course)
+        .list_released_live_student_assessments(session_hash, course)
         .await
     {
-        Ok(assignments) => crate::auth::no_store(
-            Json(AssignmentListResponse {
-                assignments: assignments
+        Ok(assessments) => crate::auth::no_store(
+            Json(AssessmentListResponse {
+                assessments: assessments
                     .into_iter()
-                    .map(|assignment| AssignmentSummary {
-                        reference: assignment.assignment,
-                        title: assignment.title,
-                        decision: assignment.decision,
-                        assignment_attempt_number: assignment.assignment_attempt_number,
-                        assignment_attempt_completion: assignment.assignment_attempt_completion,
-                        graded_question_count: assignment.graded_question_count,
-                        question_count: assignment.question_count,
-                        score: assignment.score,
+                    .map(|assessment| AssessmentSummary {
+                        reference: assessment.assessment,
+                        title: assessment.title,
+                        decision: assessment.decision,
+                        assessment_attempt_number: assessment.assessment_attempt_number,
+                        assessment_attempt_completion: assessment.assessment_attempt_completion,
+                        graded_question_count: assessment.graded_question_count,
+                        question_count: assessment.question_count,
+                        score: assessment.score,
                     })
                     .collect(),
             })
@@ -298,18 +211,6 @@ fn student_profile_role_is_allowed(role: ProductRole) -> bool {
     role == ProductRole::Student
 }
 
-fn has_content_type(headers: &HeaderMap, expected: &str) -> bool {
-    headers
-        .get("content-type")
-        .and_then(|value| value.to_str().ok())
-        .is_some_and(|value| {
-            value
-                .split(';')
-                .next()
-                .is_some_and(|media_type| media_type.trim().eq_ignore_ascii_case(expected))
-        })
-}
-
 fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
     let values = headers
         .get_all(COOKIE)
@@ -337,35 +238,12 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::AlreadyExists => {
             route_error(StatusCode::CONFLICT, "Student Course landing conflict")
         }
-        StoreError::AssignmentActivity(_)
+        StoreError::AssessmentActivity(_)
         | StoreError::TimedOut
         | StoreError::LeaseLost
         | StoreError::Unavailable(_) => route_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "Student Course landing unavailable",
-        ),
-    }
-}
-
-fn student_time_zone_error_response(error: StoreError) -> Response {
-    match error {
-        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
-        StoreError::InvalidRecord(_) => route_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Student time zone is invalid",
-        ),
-        StoreError::Conflict | StoreError::RetryableTransaction | StoreError::LifecycleConflict => {
-            route_error(StatusCode::CONFLICT, "Student time zone changed")
-        }
-        StoreError::AlreadyExists => {
-            route_error(StatusCode::CONFLICT, "Student time zone conflict")
-        }
-        StoreError::AssignmentActivity(_)
-        | StoreError::TimedOut
-        | StoreError::LeaseLost
-        | StoreError::Unavailable(_) => route_error(
-            StatusCode::SERVICE_UNAVAILABLE,
-            "Student time zone unavailable",
         ),
     }
 }
@@ -385,7 +263,7 @@ mod tests {
     use super::student_profile_role_is_allowed;
 
     #[test]
-    fn student_time_zone_route_admits_only_the_student_product_role() {
+    fn student_course_landing_admits_only_the_student_product_role() {
         assert!(student_profile_role_is_allowed(ProductRole::Student));
         assert!(!student_profile_role_is_allowed(ProductRole::Instructor));
         assert!(!student_profile_role_is_allowed(ProductRole::Sysadmin));

@@ -5,7 +5,7 @@ import { projectStudentResponse } from "../src/features/question_attempt/student
 
 const presentation = {
   questionRevision: {
-    questionId: "ABC-1234",
+    questionId: "ABC1-X234",
     revisionNumber: 1,
   },
   question_seed: 2,

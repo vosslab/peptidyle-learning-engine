@@ -68,6 +68,9 @@ run_check database_baseline bash tests/e2e/e2e_database_baseline.sh
 # PostgreSQL current-pointer state and MinIO object cleanup agree across the durable boundary.
 run_check course_appearance bash tests/e2e/e2e_course_appearance.sh
 
+# An isolated real HTTP flow protects the closed active-Instructor Star-name disclosure.
+run_check question_star_name_privacy bash tests/e2e/e2e_question_star_name_privacy.sh
+
 echo
 echo "Summary: $passed passed, $failed failed."
 if [ "$failed" -gt 0 ]; then

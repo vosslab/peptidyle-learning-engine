@@ -1,6 +1,6 @@
 #![cfg(feature = "postgres")]
 
-//! Connected two-connection proofs for direct Assignment Attempt finalization.
+//! Connected two-connection proofs for direct Assessment Attempt finalization.
 
 use std::time::Duration;
 
@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 const STUDENT_ACCOUNT: &str = "00000000-0000-0000-0000-00000000eb05";
 const STUDENT_RECORD: &str = "00000000-0000-0000-0000-00000000eb06";
-const BASE_ASSIGNMENT: &str = "00000000-0000-0000-0000-00000000ed01";
+const BASE_ASSESSMENT: &str = "00000000-0000-0000-0000-00000000ed01";
 const BASE_ENTRY: &str = "00000000-0000-0000-0000-00000000ed02";
 
 async fn migration_pool() -> PgPool {
@@ -36,7 +36,7 @@ async fn set_student(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<(
 
 async fn make_attempt(
     pool: &PgPool,
-    assignment_id: Uuid,
+    assessment_id: Uuid,
     entry_id: Uuid,
     attempt_id: Uuid,
     issued_id: Uuid,
@@ -48,69 +48,69 @@ async fn make_attempt(
         .await
         .expect("data fixture role");
     sqlx::query(
-        "INSERT INTO ple_data.assignment (assignment_id, course_id, \
+        "INSERT INTO ple_data.assessment (assessment_id, course_id, \
          source_blueprint_course_reference_number, source_blueprint_revision_number, \
-         source_blueprint_assignment_reference, created_at, updated_at, assignment_title, \
-         assignment_instructions, available_at, due_at, closes_at, \
-         assignment_attempt_time_limit_seconds, attempt_limit, late_work_rule, \
-         assignment_completion_rule, assignment_attempt_grade_rule, \
-         assignment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, \
-         assignment_attempt_resume_rule, assignment_question_display_rule, \
-         assignment_navigation_rule, assignment_question_order_rule, feedback_score, \
+         source_blueprint_assessment_reference, created_at, updated_at, assessment_title, \
+         assessment_instructions, available_at, due_at, closes_at, \
+         assessment_attempt_time_limit_seconds, attempt_limit, late_work_rule, \
+         assessment_completion_rule, assessment_attempt_grade_rule, \
+         assessment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, \
+         assessment_attempt_resume_rule, assessment_question_display_rule, \
+         assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
          feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \
          feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
-         assignment_status) \
+         assessment_status) \
          SELECT $1, course_id, source_blueprint_course_reference_number, \
-                source_blueprint_revision_number, source_blueprint_assignment_reference, \
-                clock_timestamp(), clock_timestamp(), assignment_title, assignment_instructions, \
+                source_blueprint_revision_number, source_blueprint_assessment_reference, \
+                clock_timestamp(), clock_timestamp(), assessment_title, assessment_instructions, \
                 clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour', \
                 clock_timestamp() + interval '2 hours', 60, 1, late_work_rule, \
-                assignment_completion_rule, assignment_attempt_grade_rule, \
-                assignment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, \
-                assignment_attempt_resume_rule, assignment_question_display_rule, \
-                assignment_navigation_rule, assignment_question_order_rule, feedback_score, \
+                assessment_completion_rule, assessment_attempt_grade_rule, \
+                assessment_attempt_continuation_rule, question_pool_reuse_rule, question_variation_rule, \
+                assessment_attempt_resume_rule, assessment_question_display_rule, \
+                assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
                 feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \
                 feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
-                assignment_status FROM ple_data.assignment WHERE assignment_id = $2",
-    ).bind(assignment_id).bind(Uuid::parse_str(BASE_ASSIGNMENT).unwrap())
-        .execute(&mut *tx).await.expect("cloned Assignment");
+                assessment_status FROM ple_data.assessment WHERE assessment_id = $2",
+    ).bind(assessment_id).bind(Uuid::parse_str(BASE_ASSESSMENT).unwrap())
+        .execute(&mut *tx).await.expect("cloned Assessment");
     sqlx::query(
-        "INSERT INTO ple_data.assignment_entry (assignment_entry_id, assignment_id, authored_position, \
+        "INSERT INTO ple_data.assessment_entry (assessment_entry_id, assessment_id, authored_position, \
          entry_kind, availability, scoring_rule, question_id, question_revision_number, points_possible) \
          SELECT $1, $2, authored_position, entry_kind, availability, scoring_rule, question_id, \
-                question_revision_number, points_possible FROM ple_data.assignment_entry \
-          WHERE assignment_entry_id = $3",
-    ).bind(entry_id).bind(assignment_id).bind(Uuid::parse_str(BASE_ENTRY).unwrap())
+                question_revision_number, points_possible FROM ple_data.assessment_entry \
+          WHERE assessment_entry_id = $3",
+    ).bind(entry_id).bind(assessment_id).bind(Uuid::parse_str(BASE_ENTRY).unwrap())
         .execute(&mut *tx).await.expect("cloned Entry");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
         .expect("private fixture role");
     sqlx::query(
-        "INSERT INTO ple_private.student_assignment_accommodation (accommodation_id, student_record_id, \
-         assignment_id, available_at, due_at, closes_at, assignment_attempt_time_limit_seconds, \
+        "INSERT INTO ple_private.student_assessment_accommodation (accommodation_id, student_record_id, \
+         assessment_id, available_at, due_at, closes_at, assessment_attempt_time_limit_seconds, \
          attempt_limit, created_at) VALUES ($1, $2, $3, clock_timestamp() - interval '1 hour', \
          clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', 60, 1, clock_timestamp())",
-    ).bind(Uuid::from_u128(assignment_id.as_u128() + 0x100)).bind(Uuid::parse_str(STUDENT_RECORD).unwrap()).bind(assignment_id)
+    ).bind(Uuid::from_u128(assessment_id.as_u128() + 0x100)).bind(Uuid::parse_str(STUDENT_RECORD).unwrap()).bind(assessment_id)
         .execute(&mut *tx).await.expect("Student accommodation");
     set_student(&mut tx).await.expect("Student API session");
     let started_attempt_id: Uuid = sqlx::query_scalar(
-        "SELECT assignment_attempt_id FROM ple_api.start_assignment_attempt(\
+        "SELECT assessment_attempt_id FROM ple_api.start_assessment_attempt(\
          $1, $2, $3, '[]'::jsonb, jsonb_build_array(jsonb_build_object(\
-         'issued_question_id', $4, 'assignment_entry_id', $5, 'issued_position', 0, \
-         'question_id', 'BCDEFG0', 'revision_number', 1, 'question_seed', '501')))",
+         'issued_question_id', $4, 'assessment_entry_id', $5, 'issued_position', 0, \
+         'question_id', 'BCDEXFG0', 'revision_number', 1)))",
     )
     .bind(attempt_id)
     .bind(Uuid::parse_str(STUDENT_RECORD).unwrap())
-    .bind(assignment_id)
+    .bind(assessment_id)
     .bind(issued_id)
     .bind(entry_id)
     .fetch_one(&mut *tx)
     .await
     .expect("start Attempt");
     let reference: i64 = sqlx::query_scalar(
-        "SELECT assignment_attempt_reference_number \
-         FROM ple_api.read_started_student_assignment_attempt($1)",
+        "SELECT assessment_attempt_reference_number \
+         FROM ple_api.read_started_student_assessment_attempt($1)",
     )
     .bind(started_attempt_id)
     .fetch_one(&mut *tx)
@@ -121,14 +121,19 @@ async fn make_attempt(
         .await
         .expect("question fixture role");
     sqlx::query(
-        "INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, question_seed, \
-         generated_parameter_sha256, issued_at, question_attempt_state, backend_name, backend_version, \
+        "INSERT INTO ple_private.question_attempt (question_attempt_id, issued_question_id, \
+         issued_at, question_attempt_state, backend_name, backend_version, \
          grader_name, grader_version, rendered_question_sha256, issued_capability) \
-         VALUES ($1, $2, 501, repeat('51', 32), clock_timestamp(), 'open', \
+         VALUES ($1, $2, clock_timestamp(), 'open', \
          'ple', '1', 'ple', '1', decode(repeat('51', 32), 'hex'), 'not_applicable')",
-    ).bind(question_attempt_id).bind(issued_id).execute(&mut *tx).await.expect("Question Attempt");
+    )
+    .bind(question_attempt_id)
+    .bind(issued_id)
+    .execute(&mut *tx)
+    .await
+    .expect("Question Attempt");
     set_student(&mut tx).await.expect("Student save session");
-    let initial_state: String = sqlx::query_scalar("SELECT response_state FROM ple_api.save_student_assignment_attempt_response($1, 1, '{\"kind\":\"shortText\",\"text\":\"saved\"}'::jsonb)")
+    let initial_state: String = sqlx::query_scalar("SELECT response_state FROM ple_api.save_student_assessment_attempt_response($1, 1, '{\"kind\":\"shortText\",\"text\":\"saved\"}'::jsonb)")
         .bind(reference).fetch_one(&mut *tx).await.expect("initial saved response");
     assert_eq!(
         initial_state, "saved",
@@ -199,19 +204,19 @@ async fn arm_short_expiry(pool: &PgPool, attempt_id: Uuid) {
         .execute(&mut *tx)
         .await
         .expect("expiry seam role");
-    sqlx::query("ALTER TABLE ple_private.assignment_attempt DISABLE TRIGGER assignment_attempt_retains_evidence")
+    sqlx::query("ALTER TABLE ple_private.assessment_attempt DISABLE TRIGGER assessment_attempt_retains_evidence")
         .execute(&mut *tx)
         .await
         .expect("disable immutable Attempt trigger for expiry seam");
     sqlx::query(
-        "UPDATE ple_private.assignment_attempt SET expires_at = clock_timestamp() + interval '2 seconds' \
-         WHERE assignment_attempt_id = $1",
+        "UPDATE ple_private.assessment_attempt SET expires_at = clock_timestamp() + interval '2 seconds' \
+         WHERE assessment_attempt_id = $1",
     )
     .bind(attempt_id)
     .execute(&mut *tx)
     .await
     .expect("persisted short expiry");
-    sqlx::query("ALTER TABLE ple_private.assignment_attempt ENABLE TRIGGER assignment_attempt_retains_evidence")
+    sqlx::query("ALTER TABLE ple_private.assessment_attempt ENABLE TRIGGER assessment_attempt_retains_evidence")
         .execute(&mut *tx)
         .await
         .expect("restore immutable Attempt trigger");
@@ -224,8 +229,8 @@ async fn wait_until_expired(
 ) {
     for _ in 0..1_000 {
         let expired: bool = sqlx::query_scalar(
-            "SELECT clock_timestamp() >= expires_at FROM ple_private.assignment_attempt \
-             WHERE assignment_attempt_id = $1",
+            "SELECT clock_timestamp() >= expires_at FROM ple_private.assessment_attempt \
+             WHERE assessment_attempt_id = $1",
         )
         .bind(attempt_id)
         .fetch_one(&mut **observer)
@@ -236,20 +241,20 @@ async fn wait_until_expired(
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
-    panic!("server clock did not reach the armed Assignment Attempt expiry");
+    panic!("server clock did not reach the armed Assessment Attempt expiry");
 }
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
 async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
     let pool = migration_pool().await;
-    let late_assignment = Uuid::from_u128(0xf5100000000000000000000000000001);
-    let commit_assignment = Uuid::from_u128(0xf5100000000000000000000000002);
+    let late_assessment = Uuid::from_u128(0xf5100000000000000000000000000001);
+    let commit_assessment = Uuid::from_u128(0xf5100000000000000000000000002);
     let late_attempt = Uuid::from_u128(0xf5200000000000000000000000000001);
     let commit_attempt = Uuid::from_u128(0xf5200000000000000000000000000002);
     let late_reference = make_attempt(
         &pool,
-        late_assignment,
+        late_assessment,
         Uuid::from_u128(0xf5300000000000000000000000000001),
         late_attempt,
         Uuid::from_u128(0xf5400000000000000000000000000001),
@@ -258,7 +263,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
     .await;
     let commit_reference = make_attempt(
         &pool,
-        commit_assignment,
+        commit_assessment,
         Uuid::from_u128(0xf5300000000000000000000000000002),
         commit_attempt,
         Uuid::from_u128(0xf5400000000000000000000000000002),
@@ -295,7 +300,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
     );
     let mut save = tokio::spawn(async move {
         let mut tx = save_tx;
-        let state: String = sqlx::query_scalar("SELECT response_state FROM ple_api.save_student_assignment_attempt_response($1, 1, '{\"kind\":\"shortText\",\"text\":\"late\"}'::jsonb)")
+        let state: String = sqlx::query_scalar("SELECT response_state FROM ple_api.save_student_assessment_attempt_response($1, 1, '{\"kind\":\"shortText\",\"text\":\"late\"}'::jsonb)")
             .bind(late_reference)
             .fetch_one(&mut *tx)
             .await
@@ -338,15 +343,15 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
         .execute(&mut *root_lock)
         .await
         .expect("root lock role");
-    sqlx::query("SELECT ple_private.lock_assignment_for_student_work($1)")
-        .bind(commit_assignment)
+    sqlx::query("SELECT ple_private.lock_assessment_for_student_work($1)")
+        .bind(commit_assessment)
         .execute(&mut *root_lock)
         .await
-        .expect("Assignment root lock");
+        .expect("Assessment root lock");
     let mut commit = tokio::spawn(async move {
         let mut tx = commit_tx;
         let result = sqlx::query(
-            "SELECT * FROM ple_api.commit_student_assignment_attempt_finalization(\
+            "SELECT * FROM ple_api.commit_student_assessment_attempt_finalization(\
              $1, 'student', (\
                  SELECT jsonb_agg(jsonb_build_object(\
                      'question_attempt_id', prepared.question_attempt_id, \
@@ -354,7 +359,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
                      'student_response', prepared.student_response, \
                      'normalized_credit', 1\
                  ) ORDER BY prepared.question_attempt_id) \
-                   FROM ple_api.prepare_student_assignment_attempt_finalization($1) AS prepared \
+                   FROM ple_api.prepare_student_assessment_attempt_finalization($1) AS prepared \
                   WHERE prepared.preparation_state = 'ready'\
              ))",
         )
@@ -389,7 +394,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
     root_lock
         .commit()
         .await
-        .expect("release Assignment root lock");
+        .expect("release Assessment root lock");
     assert_eq!(
         commit
             .await
@@ -404,7 +409,7 @@ async fn late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks() {
         .await
         .expect("evidence role");
     let evidence: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM ple_private.assignment_submission WHERE assignment_attempt_id = $1",
+        "SELECT count(*) FROM ple_private.assessment_submission WHERE assessment_attempt_id = $1",
     )
     .bind(commit_attempt)
     .fetch_one(&mut *evidence_tx)

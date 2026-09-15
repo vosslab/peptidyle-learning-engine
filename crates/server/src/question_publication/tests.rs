@@ -7,7 +7,8 @@ use async_trait::async_trait;
 use learning_data_access::{
     DraftQuestionPublicationSourceStore, ExistingQuestionRevisionPublicationError,
     ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
-    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
+    NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
+    NewQuestionLineagePublicationStore,
 };
 use objects::{
     ObjectRecord, ObjectStore, ObjectStoreError, PutObject, Sha256Checksum, SignedUrl, StoredObject,
@@ -27,7 +28,7 @@ struct RecordingPublicationStore {
 struct ScriptedPublicationStore {
     source_record: ObjectRecord,
     publications: Arc<Mutex<Vec<NewQuestionLineagePublicationInput>>>,
-    outcomes: Arc<Mutex<VecDeque<Result<(), StoreError>>>>,
+    outcomes: Arc<Mutex<VecDeque<Result<(), NewQuestionLineagePublicationError>>>>,
 }
 
 #[derive(Clone)]
@@ -72,7 +73,7 @@ impl NewQuestionLineagePublicationStore for RecordingPublicationStore {
         &self,
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionReference, StoreError> {
+    ) -> Result<QuestionRevisionReference, NewQuestionLineagePublicationError> {
         let result = input.question_revision();
         self.publications
             .lock()
@@ -101,7 +102,7 @@ impl NewQuestionLineagePublicationStore for ScriptedPublicationStore {
         &self,
         _session_token_hash: SessionTokenHash,
         input: NewQuestionLineagePublicationInput,
-    ) -> Result<QuestionRevisionReference, StoreError> {
+    ) -> Result<QuestionRevisionReference, NewQuestionLineagePublicationError> {
         let result = input.question_revision();
         self.publications
             .lock()
@@ -220,7 +221,7 @@ fn fixed_question_id(identifier: &str) -> QuestionId {
 
 fn scripted_store(
     source_record: ObjectRecord,
-    outcomes: impl IntoIterator<Item = Result<(), StoreError>>,
+    outcomes: impl IntoIterator<Item = Result<(), NewQuestionLineagePublicationError>>,
 ) -> (
     ScriptedPublicationStore,
     Arc<Mutex<Vec<NewQuestionLineagePublicationInput>>>,
@@ -272,7 +273,7 @@ fn existing_command(workspace: WorkspaceId) -> ExistingQuestionRevisionPublicati
             .expect("positive Draft Question Edit Number"),
         workspace,
         parent_question_revision: QuestionRevisionReference {
-            question_id: fixed_question_id("000000"),
+            question_id: fixed_question_id("0000000"),
             revision_number: QuestionRevisionNumber::new(1)
                 .expect("positive Question Revision Number"),
         },
@@ -367,12 +368,17 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
 fn question_id_uses_the_documented_hmac_sha256_validation_character() {
     let secret = QuestionIdSecret::from_bytes(std::array::from_fn(|index| index as u8));
     let issuer = HmacQuestionIdIssuer::new(secret.clone());
-    let issued = question_id_from_random_bytes([0; 4], &secret);
+    let issued = question_id_from_random_bytes([0; 5], &secret);
 
-    assert_eq!(issued.to_string(), "000-000N");
+    assert_eq!(issued.to_string(), "0000-Q000");
     assert!(issuer.validates_question_id(&issued));
-    assert!(issuer.validates_question_id(&"000000n".parse().expect("syntax only ID")));
-    assert!(!issuer.validates_question_id(&"000-000P".parse().expect("syntax only ID")));
+    assert!(issuer.validates_question_id(&"0000q000".parse().expect("syntax only ID")));
+    assert!(!issuer.validates_question_id(&"0000P000".parse().expect("syntax only ID")));
+    let minted = issuer
+        .issue_question_id()
+        .expect("operating-system randomness mints a Question ID");
+    assert_eq!(minted.as_compact_str().len(), 8);
+    assert!(issuer.validates_question_id(&minted));
     assert_eq!(format!("{secret:?}"), "QuestionIdSecret([redacted])");
 }
 
@@ -381,12 +387,17 @@ async fn exact_question_id_collision_deletes_this_candidates_object_before_retry
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let object_store = MemoryObjectStore::default();
     let source_record = source_fixture(&object_store, workspace).await;
-    let (publication_store, publications) =
-        scripted_store(source_record, [Err(StoreError::AlreadyExists), Ok(())]);
+    let (publication_store, publications) = scripted_store(
+        source_record,
+        [
+            Err(NewQuestionLineagePublicationError::IdentityCollision),
+            Ok(()),
+        ],
+    );
     let publisher = NewQuestionLineagePublisher::new(
         object_store.clone(),
         publication_store,
-        fixed_issuer(&["000000", "000001"]),
+        fixed_issuer(&["0000000", "0000001"]),
     );
 
     let published = publisher
@@ -431,7 +442,7 @@ async fn conditional_object_already_exists_is_reported_without_retry_or_delete()
             delete_attempts: Arc::clone(&delete_attempts),
         },
         publication_store,
-        fixed_issuer(&["000000"]),
+        fixed_issuer(&["0000000"]),
     );
 
     let result = publisher
@@ -461,20 +472,20 @@ async fn conditional_object_already_exists_is_reported_without_retry_or_delete()
 }
 
 #[tokio::test]
-async fn a_noncollision_store_rejection_is_not_retried_or_compensated() {
+async fn noncollision_store_failure_retains_its_unregistered_publication_object() {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let object_store = MemoryObjectStore::default();
     let source_record = source_fixture(&object_store, workspace).await;
     let (publication_store, publications) = scripted_store(
         source_record,
-        [Err(StoreError::InvalidRecord(
-            "unrelated unique invariant".to_string(),
+        [Err(NewQuestionLineagePublicationError::Store(
+            StoreError::Forbidden,
         ))],
     );
     let publisher = NewQuestionLineagePublisher::new(
         object_store.clone(),
         publication_store,
-        fixed_issuer(&["000000"]),
+        fixed_issuer(&["0000000"]),
     );
 
     let result = publisher
@@ -484,11 +495,10 @@ async fn a_noncollision_store_rejection_is_not_retried_or_compensated() {
             Timestamp::from_unix_millis(2_000),
         )
         .await;
+
     assert_eq!(
         result,
-        Err(QuestionPublicationError::Store(StoreError::InvalidRecord(
-            "unrelated unique invariant".to_string()
-        )))
+        Err(QuestionPublicationError::Store(StoreError::Forbidden))
     );
     let publications = publications
         .lock()
@@ -508,14 +518,16 @@ async fn failed_collision_cleanup_fails_closed_without_another_publication_attem
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let memory = MemoryObjectStore::default();
     let source_record = source_fixture(&memory, workspace).await;
-    let (publication_store, publications) =
-        scripted_store(source_record, [Err(StoreError::AlreadyExists)]);
+    let (publication_store, publications) = scripted_store(
+        source_record,
+        [Err(NewQuestionLineagePublicationError::IdentityCollision)],
+    );
     let publisher = NewQuestionLineagePublisher::new(
         DeleteFailObjectStore {
             memory: memory.clone(),
         },
         publication_store,
-        fixed_issuer(&["000000", "000001"]),
+        fixed_issuer(&["0000000", "0000001"]),
     );
 
     let result = publisher
@@ -535,6 +547,52 @@ async fn failed_collision_cleanup_fails_closed_without_another_publication_attem
         publications.lock().expect("publication capture lock").len(),
         1
     );
+}
+
+#[tokio::test]
+async fn exhausted_question_id_collisions_leave_no_unregistered_publication_objects() {
+    let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
+    let object_store = MemoryObjectStore::default();
+    let source_record = source_fixture(&object_store, workspace).await;
+    let candidates: Vec<String> = (0..PUBLICATION_IDENTITY_ATTEMPTS)
+        .map(|index| format!("{index:07}"))
+        .collect();
+    let (publication_store, publications) = scripted_store(
+        source_record,
+        std::iter::repeat_n(
+            Err(NewQuestionLineagePublicationError::IdentityCollision),
+            PUBLICATION_IDENTITY_ATTEMPTS,
+        ),
+    );
+    let candidate_references: Vec<&str> = candidates.iter().map(String::as_str).collect();
+    let publisher = NewQuestionLineagePublisher::new(
+        object_store.clone(),
+        publication_store,
+        fixed_issuer(&candidate_references),
+    );
+
+    let result = publisher
+        .publish(
+            SessionTokenHash::compute(b"session"),
+            command(workspace),
+            Timestamp::from_unix_millis(2_000),
+        )
+        .await;
+
+    assert_eq!(result, Err(QuestionPublicationError::IdentityCollisions));
+    let publications = publications
+        .lock()
+        .expect("publication capture lock")
+        .clone();
+    assert_eq!(publications.len(), PUBLICATION_IDENTITY_ATTEMPTS);
+    for publication in publications {
+        assert_eq!(
+            object_store
+                .get(&publication.question_source_object_record.address)
+                .await,
+            Err(ObjectStoreError::NotFound)
+        );
+    }
 }
 
 #[tokio::test]

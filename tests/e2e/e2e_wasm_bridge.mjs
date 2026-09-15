@@ -204,8 +204,7 @@ assert.deepEqual(draftPreview, {
 });
 
 const presentation = {
-  questionRevision: { questionId: "ABC-DEFG", revisionNumber: 1 },
-  question_seed: 42,
+  questionRevision: { questionId: "ABCD-XEFG", revisionNumber: 1 },
   presentationNonce: "11111111111111111111111111111111",
   questionTitle: "Peptide bond",
   prompt: [{ kind: "text", markdown: "Which group forms the peptide bond?" }],
@@ -217,9 +216,9 @@ const presentation = {
     ],
   },
 };
-const presentationToken = "pd1_q2fE1ezXCkT6_yd7zeqkCQ";
+const presentationToken = "pd1_wxgG9DAg0hfK5l5Ya63o3Q";
 assert.equal(
-  bridge.verify_presentation_descriptor(
+  bridge.verify_native_static_presentation_descriptor(
     JSON.stringify(presentation),
     JSON.stringify([]),
     presentationToken,
@@ -228,7 +227,7 @@ assert.equal(
   "Wasm must reproduce the native Rust presentation vector",
 );
 assert.equal(
-  bridge.verify_presentation_descriptor(
+  bridge.verify_native_static_presentation_descriptor(
     JSON.stringify({ ...presentation, questionTitle: "Changed Question Title" }),
     JSON.stringify([]),
     presentationToken,

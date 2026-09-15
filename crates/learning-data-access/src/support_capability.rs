@@ -7,70 +7,143 @@ use uuid::Uuid;
 
 use crate::{CourseRosterEntry, SessionTokenHash, StoreError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// The only resource classes that an explicit support-repair request may name.
+/// The reference stays opaque here: C26 resolves and enforces it at the
+/// resource-owning boundary, never through a generic data reader.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SupportOperationKind {
-    CourseRosterSupport,
+pub enum SupportRepairResourceClass {
+    Course,
+    Student,
+    Content,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SupportMinimumProjection {
-    CourseRoster,
+impl SupportRepairResourceClass {
+    pub(crate) fn database_name(self) -> &'static str {
+        match self {
+            Self::Course => "course",
+            Self::Student => "student",
+            Self::Content => "content",
+        }
+    }
 }
 
-/// Course, operation, projection, and expiry are server derived.
+/// Server validates the bounded opaque reference and derives the expiry.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct IssueSupportCapabilityInput {
+pub struct IssueSupportRepairCapabilityInput {
     pub sysadmin_reference: AccountReference,
+    pub resource_class: SupportRepairResourceClass,
+    pub resource_reference: String,
     pub purpose: String,
 }
 
-impl IssueSupportCapabilityInput {
+impl IssueSupportRepairCapabilityInput {
     pub fn validate(&self) -> Result<(), StoreError> {
-        if self.purpose != self.purpose.trim()
-            || !(1..=1_000).contains(&self.purpose.chars().count())
-        {
-            return Err(StoreError::InvalidRecord(
-                "Support purpose is invalid".to_string(),
-            ));
+        for (label, value, maximum) in [
+            ("Support resource reference", &self.resource_reference, 512),
+            ("Support purpose", &self.purpose, 1_000),
+        ] {
+            if value != value.trim()
+                || !(1..=maximum).contains(&value.chars().count())
+                || value.chars().any(char::is_control)
+            {
+                return Err(StoreError::InvalidRecord(format!("{label} is invalid")));
+            }
         }
         Ok(())
     }
 }
 
-/// Safe receipt; it contains no roster, membership, email, or private ID data.
+/// Safe request receipt; it never contains the repaired resource's data.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SupportCapabilityReceipt {
+pub struct SupportRepairCapabilityReceipt {
     pub capability_id: Uuid,
-    pub course_reference: CourseInstanceReference,
     pub sysadmin_reference: AccountReference,
-    pub operation_kind: SupportOperationKind,
-    pub minimum_projection: SupportMinimumProjection,
+    pub resource_class: SupportRepairResourceClass,
+    pub resource_reference: String,
     pub purpose: String,
     pub expires_at: Timestamp,
     pub revoked_at: Option<Timestamp>,
 }
 
+/// Immutable evidence that C26 consumed an exact, active capability.  It is
+/// an audit receipt, not a projection of Course, Student, or content data.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupportRepairCapabilityUseReceipt {
+    pub audit_event_id: Uuid,
+    pub capability_id: Uuid,
+    pub resource_class: SupportRepairResourceClass,
+    pub resource_reference: String,
+    pub used_at: Timestamp,
+}
+
 #[async_trait]
-pub trait SupportCapabilityStore: Send + Sync {
-    async fn issue_course_roster_support(
+pub trait SupportRepairCapabilityStore: Send + Sync {
+    async fn issue_support_repair_capability(
         &self,
         token: SessionTokenHash,
-        course: CourseInstanceReference,
-        input: IssueSupportCapabilityInput,
-    ) -> Result<SupportCapabilityReceipt, StoreError>;
-    async fn revoke_course_roster_support(
-        &self,
-        token: SessionTokenHash,
-        course: CourseInstanceReference,
-        capability_id: Uuid,
-    ) -> Result<SupportCapabilityReceipt, StoreError>;
-    async fn read_course_roster_support(
+        input: IssueSupportRepairCapabilityInput,
+    ) -> Result<SupportRepairCapabilityReceipt, StoreError>;
+    async fn revoke_support_repair_capability(
         &self,
         token: SessionTokenHash,
         capability_id: Uuid,
-    ) -> Result<Vec<CourseRosterEntry>, StoreError>;
+    ) -> Result<SupportRepairCapabilityReceipt, StoreError>;
+    async fn record_support_repair_capability_use(
+        &self,
+        token: SessionTokenHash,
+        capability_id: Uuid,
+        resource_class: SupportRepairResourceClass,
+        resource_reference: String,
+    ) -> Result<SupportRepairCapabilityUseReceipt, StoreError>;
+    /// Reads one named roster record for an active, exact-course repair
+    /// capability.  This is deliberately not a generic or list reader.
+    async fn read_course_roster_entry_repair_support(
+        &self,
+        token: SessionTokenHash,
+        capability_id: Uuid,
+        course: CourseInstanceReference,
+        roster_id: String,
+    ) -> Result<Option<CourseRosterEntry>, StoreError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn input(reference: &str, purpose: &str) -> IssueSupportRepairCapabilityInput {
+        IssueSupportRepairCapabilityInput {
+            sysadmin_reference: AccountReference::new("U7K3M2Q").expect("valid reference"),
+            resource_class: SupportRepairResourceClass::Student,
+            resource_reference: reference.to_owned(),
+            purpose: purpose.to_owned(),
+        }
+    }
+
+    #[test]
+    fn support_repair_request_accepts_only_bounded_clean_opaque_fields() {
+        assert!(
+            input("student-record:opaque-42", "Correct a roster mismatch")
+                .validate()
+                .is_ok()
+        );
+        assert!(
+            input(" resource", "Correct a roster mismatch")
+                .validate()
+                .is_err()
+        );
+        assert!(
+            input("resource\n", "Correct a roster mismatch")
+                .validate()
+                .is_err()
+        );
+        assert!(
+            input(&"x".repeat(513), "Correct a roster mismatch")
+                .validate()
+                .is_err()
+        );
+    }
 }

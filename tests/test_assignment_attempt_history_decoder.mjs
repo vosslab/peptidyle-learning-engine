@@ -19,7 +19,7 @@ function history() {
     questions: [
       {
         position: 1,
-        questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+        questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
         responseState: "submitted",
       },
     ],
@@ -33,7 +33,7 @@ test("selected history independently accepts disclosed aggregate and per-positio
     questions: [
       {
         position: 1,
-        questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+        questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
         responseState: "submitted",
         correctness: false,
         pointsEarned: 0,
@@ -55,7 +55,7 @@ test("selected history keeps protected grade fields absent and rejects partial d
         questions: [
           {
             position: 1,
-            questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+            questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
             responseState: "submitted",
             pointsEarned: 1,
           },
@@ -87,7 +87,7 @@ test("selected history accepts readable recorded response blocks without grading
     questions: [
       {
         position: 1,
-        questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+        questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
         responseState: "submitted",
         response: [{ kind: "text", markdown: "alpha helix" }],
       },
@@ -104,7 +104,7 @@ test("selected history independently accepts a correct answer without a response
     questions: [
       {
         position: 1,
-        questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+        questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
         responseState: "closed",
         questionAnswer: [{ kind: "text", markdown: "ATP" }],
       },
@@ -121,7 +121,7 @@ test("selected history accepts recorded outcome feedback and omits unavailable e
     questions: [
       {
         position: 1,
-        questionRevision: { questionId: "7K3-M9QP", revisionNumber: 2 },
+        questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 2 },
         responseState: "submitted",
         choiceFeedback: [{ kind: "text", markdown: "You selected it." }],
         incorrectFeedback: [{ kind: "text", markdown: "Try again." }],

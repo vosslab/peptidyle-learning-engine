@@ -1,103 +1,103 @@
-//! Immutable Assignment Attempt evidence and the policy provenance that explains it.
+//! Immutable Assessment Attempt evidence and the policy provenance that explains it.
 
 use serde::{Deserialize, Serialize};
 
-use super::{AccommodationId, AssignmentAttemptId, AssignmentId, StudentRecordId, Timestamp};
+use super::{AccommodationId, AssessmentAttemptId, AssessmentId, StudentRecordId, Timestamp};
 use crate::{
-    AssignmentActivityRules, AssignmentAttemptReference, AssignmentInstructions, AssignmentTitle,
-    BaseAssignmentPolicy, StudentFeedbackReleaseRule,
+    AssessmentActivityRules, AssessmentAttemptReference, AssessmentInstructions, AssessmentTitle,
+    BaseAssessmentPolicy, StudentFeedbackReleaseRule,
 };
 
-/// Authoritative completion state of one Assignment Attempt.
+/// Authoritative completion state of one Assessment Attempt.
 ///
-/// Successor availability is deliberately separate: an Assignment Attempt can have no next
+/// Successor availability is deliberately separate: an Assessment Attempt can have no next
 /// attempt because it completed or because it exhausted its attempt policy.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub enum AssignmentAttemptCompletion {
-    /// The Assignment Attempt has not satisfied its assignment completion requirement.
+pub enum AssessmentAttemptCompletion {
+    /// The Assessment Attempt has not satisfied its assessment completion requirement.
     InProgress,
-    /// The Assignment Attempt has satisfied its assignment completion requirement.
+    /// The Assessment Attempt has satisfied its assessment completion requirement.
     Completed,
 }
 
-/// Effective Assignment facts retained when an Assignment Attempt starts.
+/// Effective Assessment facts retained when an Assessment Attempt starts.
 ///
 /// Resume, submission, grading, history, disclosure, and statistics consume
 /// this record with issued-question evidence. They do not reconstruct past
-/// meaning from a later mutable Assignment save.
+/// meaning from a later mutable Assessment save.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentAttemptEvidence {
-    pub title: AssignmentTitle,
-    pub instructions: AssignmentInstructions,
-    pub base_policy: BaseAssignmentPolicy,
-    pub activity_rules: AssignmentActivityRules,
+pub struct AssessmentAttemptEvidence {
+    pub title: AssessmentTitle,
+    pub instructions: AssessmentInstructions,
+    pub base_policy: BaseAssessmentPolicy,
+    pub activity_rules: AssessmentActivityRules,
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
-    pub effective_policy_sources: AssignmentAttemptPolicySources,
+    pub effective_policy_sources: AssessmentAttemptPolicySources,
 }
 
 /// The exact current policy record that supplied a retained effective value.
 ///
-/// Accommodation adjustments currently apply only to Assignment timing and
+/// Accommodation adjustments currently apply only to Assessment timing and
 /// limits. The storage boundary verifies that this identifier belongs to the
-/// Attempt's Student Record and Assignment; the domain model deliberately has
+/// Attempt's Student Record and Assessment; the domain model deliberately has
 /// no broad source category that could claim an unrelated override.
 /// This keeps the combined retained evidence contextually consistent (ASVS
 /// 2.1.2).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-pub enum AssignmentAttemptPolicySource {
-    Assignment,
+pub enum AssessmentAttemptPolicySource {
+    Assessment,
     Accommodation { accommodation: AccommodationId },
 }
 
 /// Qualified sources for the only retained effective values that current
 /// Student Accommodation adjustments can change.
 ///
-/// Schedule covers available, due, and close instants. The Assignment policy
+/// Schedule covers available, due, and close instants. The Assessment policy
 /// remains the source for all activity, feedback, ordering, reuse, variation,
 /// completion, and late-work rules because no current adjustment can change
 /// those facts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct AssignmentAttemptPolicySources {
-    pub schedule: AssignmentAttemptPolicySource,
-    pub assignment_attempt_time_limit: AssignmentAttemptPolicySource,
-    pub attempt_limit: AssignmentAttemptPolicySource,
+pub struct AssessmentAttemptPolicySources {
+    pub schedule: AssessmentAttemptPolicySource,
+    pub assessment_attempt_time_limit: AssessmentAttemptPolicySource,
+    pub attempt_limit: AssessmentAttemptPolicySource,
 }
 
-impl Default for AssignmentAttemptPolicySources {
+impl Default for AssessmentAttemptPolicySources {
     fn default() -> Self {
         Self {
-            schedule: AssignmentAttemptPolicySource::Assignment,
-            assignment_attempt_time_limit: AssignmentAttemptPolicySource::Assignment,
-            attempt_limit: AssignmentAttemptPolicySource::Assignment,
+            schedule: AssessmentAttemptPolicySource::Assessment,
+            assessment_attempt_time_limit: AssessmentAttemptPolicySource::Assessment,
+            attempt_limit: AssessmentAttemptPolicySource::Assessment,
         }
     }
 }
 
-/// One pass through an assignment.
+/// One pass through an assessment.
 ///
 /// There is deliberately no stored `complete` boolean. The domain derives
-/// within-Assignment-Attempt completion from current question states, then records the
+/// within-Assessment-Attempt completion from current question states, then records the
 /// resulting completion timestamp and score as one transition.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentAttempt {
-    /// Durable Assignment Attempt identity.
-    pub id: AssignmentAttemptId,
-    /// Stable Assignment Attempt Reference used in application navigation.
-    pub reference: AssignmentAttemptReference,
-    /// Student Record that owns this Assignment Attempt.
+pub struct AssessmentAttempt {
+    /// Durable Assessment Attempt identity.
+    pub id: AssessmentAttemptId,
+    /// Stable Assessment Attempt Reference used in application navigation.
+    pub reference: AssessmentAttemptReference,
+    /// Student Record that owns this Assessment Attempt.
     pub student_record: StudentRecordId,
-    /// Assignment that this Student Record attempts.
-    pub assignment: AssignmentId,
-    /// Effective assignment facts frozen for this Student Work occurrence.
-    pub evidence: AssignmentAttemptEvidence,
-    /// One-based attempt number for this Student Record and Assignment.
+    /// Assessment that this Student Record attempts.
+    pub assessment: AssessmentId,
+    /// Effective assessment facts frozen for this Student Work occurrence.
+    pub evidence: AssessmentAttemptEvidence,
+    /// One-based attempt number for this Student Record and Assessment.
     pub attempt_number: u32,
-    /// Server time at which the Assignment Attempt began.
+    /// Server time at which the Assessment Attempt began.
     pub started_at: Timestamp,
     /// Server time at which derived completion was recorded, if complete.
     pub completed_at: Option<Timestamp>,
@@ -105,40 +105,40 @@ pub struct AssignmentAttempt {
     pub score: Option<f64>,
 }
 
-/// The policy-selected course result for one Student Record and Assignment.
+/// The policy-selected course result for one Student Record and Assessment.
 ///
 /// This record owns selected-score pointers only. Immutable Student Work remains
-/// under Assignment Attempts and their Issued Questions.
+/// under Assessment Attempts and their Issued Questions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct AssignmentGrade {
+pub struct AssessmentGrade {
     /// Student Record whose course result this is.
     pub student_record: StudentRecordId,
-    /// Assignment whose policy selected this result.
-    pub assignment: AssignmentId,
-    /// First time an Assignment Attempt satisfied completion.
+    /// Assessment whose policy selected this result.
+    pub assessment: AssessmentId,
+    /// First time an Assessment Attempt satisfied completion.
     pub first_completed_at: Option<Timestamp>,
-    /// Assignment Attempt currently selected by the grade rule.
-    pub current_assignment_attempt: Option<AssignmentAttemptId>,
-    /// Score earned by the Assignment Attempt currently selected by the grade rule.
+    /// Assessment Attempt currently selected by the grade rule.
+    pub current_assessment_attempt: Option<AssessmentAttemptId>,
+    /// Score earned by the Assessment Attempt currently selected by the grade rule.
     pub current_score: Option<f64>,
-    /// Highest-scoring completed Assignment Attempt.
-    pub best_assignment_attempt: Option<AssignmentAttemptId>,
-    /// Score earned by the highest-scoring completed Assignment Attempt.
+    /// Highest-scoring completed Assessment Attempt.
+    pub best_assessment_attempt: Option<AssessmentAttemptId>,
+    /// Score earned by the highest-scoring completed Assessment Attempt.
     pub best_score: Option<f64>,
-    /// Most recently completed Assignment Attempt.
-    pub latest_assignment_attempt: Option<AssignmentAttemptId>,
-    /// Score earned by the most recently completed Assignment Attempt.
+    /// Most recently completed Assessment Attempt.
+    pub latest_assessment_attempt: Option<AssessmentAttemptId>,
+    /// Score earned by the most recently completed Assessment Attempt.
     pub latest_score: Option<f64>,
 }
 
-impl AssignmentAttempt {
-    /// Returns the completion state recorded by the authoritative Assignment Attempt.
-    pub fn completion(&self) -> AssignmentAttemptCompletion {
+impl AssessmentAttempt {
+    /// Returns the completion state recorded by the authoritative Assessment Attempt.
+    pub fn completion(&self) -> AssessmentAttemptCompletion {
         if self.completed_at.is_some() {
-            AssignmentAttemptCompletion::Completed
+            AssessmentAttemptCompletion::Completed
         } else {
-            AssignmentAttemptCompletion::InProgress
+            AssessmentAttemptCompletion::InProgress
         }
     }
 
@@ -148,7 +148,7 @@ impl AssignmentAttempt {
     }
 
     /// Returns the frozen Question Variation policy for this Attempt.
-    pub fn question_variation_rule(&self) -> crate::AssignmentQuestionVariationRule {
+    pub fn question_variation_rule(&self) -> crate::AssessmentQuestionVariationRule {
         self.evidence.activity_rules.question_variation_rule
     }
 }

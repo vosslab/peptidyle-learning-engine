@@ -1,26 +1,26 @@
-import type { AssignmentId } from "../../../generated/api/AssignmentId";
-import type { AssignmentAttempt } from "../../../generated/api/AssignmentAttempt";
+import type { AssessmentId } from "../../../generated/api/AssessmentId";
+import type { AssessmentAttempt } from "../../../generated/api/AssessmentAttempt";
 import type { CourseId } from "../../../generated/api/CourseId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { ApiClient } from "../client";
 import type {
-  AssignmentEditorDetail,
-  AssignmentContentInput,
-  AssignmentCreateInput,
+  AssessmentEditorDetail,
+  AssessmentContentInput,
+  AssessmentCreateInput,
   StudentFeedbackReleaseResponse,
   InstructorStudentView,
 } from "../contracts";
 import {
-  decodeAssignmentContentInput,
+  decodeAssessmentContentInput,
   decodeInstructorStudentView,
-  decodeAssignmentAttempt,
+  decodeAssessmentAttempt,
   decodeCapabilityViolations,
   decodeStudentFeedbackReleaseResponse,
   decodeStudentResponseFormatCheck,
   decodeQuestionAttemptTimingDecision,
 } from "../decoders";
-import { decodeAssignmentEditorDetail } from "../decoders/assignment_workspace";
-import { ApiProtocolError, ApiRequestError, AssignmentConflictError } from "./error";
+import { decodeAssessmentEditorDetail } from "../decoders/assessment_workspace";
+import { ApiProtocolError, ApiRequestError, AssessmentConflictError } from "./error";
 import {
   MAX_RESPONSE_CHARACTERS,
   boundedResponseJson,
@@ -114,34 +114,34 @@ function validRevision(value: string): boolean {
   return /^"[1-9][0-9]*"$/u.test(value) && BigInt(value.slice(1, -1)) <= 9_223_372_036_854_775_807n;
 }
 
-/** Converts the transport ETag into the exact Assignment edit precondition. */
-function assignmentEditPrecondition(assignmentEditEtag: string): string {
-  if (!validRevision(assignmentEditEtag))
-    throw new ApiProtocolError("assignment edit number must be one positive strong numeric ETag");
-  return assignmentEditEtag.slice(1, -1);
+/** Converts the transport ETag into the exact Assessment edit precondition. */
+function assessmentEditPrecondition(assessmentEditEtag: string): string {
+  if (!validRevision(assessmentEditEtag))
+    throw new ApiProtocolError("assessment edit number must be one positive strong numeric ETag");
+  return assessmentEditEtag.slice(1, -1);
 }
-function assignmentPath(courseId: CourseId, assignmentId?: AssignmentId): string {
+function assessmentPath(courseId: CourseId, assessmentId?: AssessmentId): string {
   const course = encodedId(courseId);
-  return assignmentId === undefined
-    ? `/api/courses/${course}/assignments`
-    : `/api/courses/${course}/assignments/${encodedId(assignmentId)}`;
+  return assessmentId === undefined
+    ? `/api/courses/${course}/assessments`
+    : `/api/courses/${course}/assessments/${encodedId(assessmentId)}`;
 }
 
 export function studentAttemptPath(
   courseId: CourseId,
-  assignmentId: AssignmentId,
+  assessmentId: AssessmentId,
   attemptId: QuestionAttemptId,
 ): string {
-  return `${assignmentPath(courseId, assignmentId)}/attempts/${encodedId(attemptId)}`;
+  return `${assessmentPath(courseId, assessmentId)}/attempts/${encodedId(attemptId)}`;
 }
 
-export async function requestAssignmentEditor(
+export async function requestAssessmentEditor(
   fetchImplementation: ApiFetch,
   basePath: string,
   path: string,
-  expected: { readonly assignmentId?: AssignmentId; readonly courseId?: CourseId },
+  expected: { readonly assessmentId?: AssessmentId; readonly courseId?: CourseId },
   options: RequestOptions = {},
-): Promise<AssignmentEditorDetail> {
+): Promise<AssessmentEditorDetail> {
   const headers: Record<string, string> = { accept: "application/json", ...options.headers };
   const body = options.body === undefined ? undefined : JSON.stringify(options.body);
   if (body !== undefined) headers["content-type"] = "application/json";
@@ -154,20 +154,20 @@ export async function requestAssignmentEditor(
   });
   requireNoStore(response, path);
   if (response.status === 409 || response.status === 412 || response.status === 428)
-    throw new AssignmentConflictError(response.status, path);
+    throw new AssessmentConflictError(response.status, path);
   responseContentType(response, path);
   const text = await response.text();
   if (text.length === 0 || text.length > MAX_RESPONSE_CHARACTERS)
     throw new ApiProtocolError(`API response ${path} must contain a bounded JSON body`);
   const value = decodeJson(text, path);
   if (!response.ok) throw new ApiRequestError(response.status, path);
-  const detail = decodeAssignmentEditorDetail(value, "response");
-  if (expected.assignmentId !== undefined && detail.id !== expected.assignmentId)
+  const detail = decodeAssessmentEditorDetail(value, "response");
+  if (expected.assessmentId !== undefined && detail.id !== expected.assessmentId)
     throw new ApiProtocolError(
-      "assignment editor response does not match the requested assignment",
+      "assessment editor response does not match the requested assessment",
     );
   if (expected.courseId !== undefined && detail.courseId !== expected.courseId)
-    throw new ApiProtocolError("assignment editor response does not match the requested course");
+    throw new ApiProtocolError("assessment editor response does not match the requested course");
   const revision = response.headers.get("etag");
   if (revision === null || !validRevision(revision))
     throw new ApiProtocolError(
@@ -181,60 +181,60 @@ export function createRequestClient(
   basePath: string,
 ): Pick<
   ApiClient,
-  | "createAssignment"
-  | "getAssignmentWorkspace"
-  | "saveAssignmentContent"
+  | "createAssessment"
+  | "getAssessmentWorkspace"
+  | "saveAssessmentContent"
   | "getInstructorStudentView"
-  | "startAssignmentAttempt"
+  | "startAssessmentAttempt"
   | "releaseStudentFeedback"
   | "validateResponseFormatOnServer"
   | "questionAttemptTimingDecisionOnServer"
-  | "validateAssignmentConfigOnServer"
+  | "validateAssessmentConfigOnServer"
 > {
   return {
-    getAssignmentWorkspace: (courseId, assignmentId) =>
-      requestAssignmentEditor(
+    getAssessmentWorkspace: (courseId, assessmentId) =>
+      requestAssessmentEditor(
         fetchImplementation,
         basePath,
-        assignmentPath(courseId, assignmentId),
-        { courseId, assignmentId },
+        assessmentPath(courseId, assessmentId),
+        { courseId, assessmentId },
       ),
-    createAssignment: (
+    createAssessment: (
       courseId,
-      input: AssignmentCreateInput,
-    ): ReturnType<ApiClient["createAssignment"]> => {
+      input: AssessmentCreateInput,
+    ): ReturnType<ApiClient["createAssessment"]> => {
       if (typeof input.title !== "string" || input.title.trim().length === 0)
-        return Promise.reject(new ApiProtocolError("Assignment needs a nonempty title"));
-      return requestAssignmentEditor(
+        return Promise.reject(new ApiProtocolError("Assessment needs a nonempty title"));
+      return requestAssessmentEditor(
         fetchImplementation,
         basePath,
-        assignmentPath(courseId),
+        assessmentPath(courseId),
         { courseId },
         { method: "POST", body: { title: input.title } },
       );
     },
-    saveAssignmentContent: (
+    saveAssessmentContent: (
       courseId,
-      assignmentId,
-      _assignmentReference,
-      input: AssignmentContentInput,
-      assignmentEtag,
-    ): ReturnType<ApiClient["saveAssignmentContent"]> => {
-      const baseEditNumber = assignmentEditPrecondition(assignmentEtag);
-      return requestAssignmentEditor(
+      assessmentId,
+      _assessmentReference,
+      input: AssessmentContentInput,
+      assessmentEtag,
+    ): ReturnType<ApiClient["saveAssessmentContent"]> => {
+      const baseEditNumber = assessmentEditPrecondition(assessmentEtag);
+      return requestAssessmentEditor(
         fetchImplementation,
         basePath,
-        `${assignmentPath(courseId, assignmentId)}/content`,
-        { courseId, assignmentId },
+        `${assessmentPath(courseId, assessmentId)}/content`,
+        { courseId, assessmentId },
         {
           method: "PUT",
-          body: { ...decodeAssignmentContentInput(input, "request"), baseEditNumber },
-          headers: { "if-match": assignmentEtag },
+          body: { ...decodeAssessmentContentInput(input, "request"), baseEditNumber },
+          headers: { "if-match": assessmentEtag },
         },
       );
     },
-    getInstructorStudentView: async (courseId, assignmentId): Promise<InstructorStudentView> => {
-      const path = `${assignmentPath(courseId, assignmentId)}/student-view`;
+    getInstructorStudentView: async (courseId, assessmentId): Promise<InstructorStudentView> => {
+      const path = `${assessmentPath(courseId, assessmentId)}/student-view`;
       const response = await fetchImplementation(requestPath(basePath, path), {
         method: "GET",
         headers: { accept: "application/json" },
@@ -245,12 +245,12 @@ export function createRequestClient(
       if (!response.ok) throw new ApiRequestError(response.status, path);
       return decodeInstructorStudentView(await boundedResponseJson(response, path), "response");
     },
-    startAssignmentAttempt: (courseId, assignmentId): Promise<AssignmentAttempt> =>
+    startAssessmentAttempt: (courseId, assessmentId): Promise<AssessmentAttempt> =>
       requestJson(
         fetchImplementation,
         basePath,
-        `${assignmentPath(courseId, assignmentId)}/assignment-attempts`,
-        decodeAssignmentAttempt,
+        `${assessmentPath(courseId, assessmentId)}/assessment-attempts`,
+        decodeAssessmentAttempt,
         {
           method: "POST",
         },
@@ -282,11 +282,11 @@ export function createRequestClient(
           body: evaluation,
         },
       ),
-    validateAssignmentConfigOnServer: (validationConfig) =>
+    validateAssessmentConfigOnServer: (validationConfig) =>
       requestJson(
         fetchImplementation,
         basePath,
-        "/api/validation/assignment-capabilities",
+        "/api/validation/assessment-capabilities",
         decodeCapabilityViolations,
         { method: "POST", body: validationConfig },
       ),

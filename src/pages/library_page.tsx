@@ -1,14 +1,21 @@
 // library_page.tsx - injected Question Library browse surface; route wiring follows the server contract.
 
-import { A } from "@solidjs/router";
-import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
+import { A, useSearchParams } from "@solidjs/router";
+import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import "./library_page.css";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   QuestionLibraryBrowseSession,
+  clampQuestionLibraryReturnScrollTop,
+  createQuestionLibraryReturnToken,
+  parseQuestionLibraryReturnToken,
   questionLibraryBrowseVirtualWindow,
+  questionLibraryReturnPath,
+  saveQuestionLibraryReturnState,
+  takeQuestionLibraryReturnState,
+  QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
   type QuestionLibraryBrowseRepository,
   type QuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRow,
@@ -20,8 +27,10 @@ import {
 const FALLBACK_ROW_HEIGHT_PX = 112;
 const OVERSCAN_ROWS = 5;
 
-function questionLink(row: QuestionLibraryBrowseRow): string {
-  return `/library/${encodeURIComponent(row.displayId)}`;
+function questionLink(row: QuestionLibraryBrowseRow, returnToken: string): string {
+  return `/library/${encodeURIComponent(row.displayId)}?${new URLSearchParams({
+    [QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]: returnToken,
+  }).toString()}`;
 }
 
 function questionTypeLabel(value: string): string {
@@ -47,14 +56,25 @@ function backendLabel(value: string): string {
   return labels[value] ?? value;
 }
 
+function webworkFormatLabel(value: QuestionLibraryBrowseRow["questionFormat"]): string | null {
+  if (value === "webworkPg") return "PG";
+  if (value === "webworkPgml") return "PGML";
+  return null;
+}
+
 export interface LibraryPageProps {
   readonly repository: QuestionLibraryBrowseRepository;
 }
 
 /** Question Library UI with the production repository injected by the route composition. */
 export function LibraryPage(props: LibraryPageProps): JSX.Element {
+  const [searchParams] = useSearchParams();
+  const returnToken = parseQuestionLibraryReturnToken(
+    searchParams[QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER],
+  );
+  const returnState = takeQuestionLibraryReturnState(returnToken);
   const [query, setQuery] = createSignal<QuestionLibraryBrowseQuery>(
-    EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
+    returnState?.query ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   );
   const [state, setState] = createSignal<QuestionLibraryBrowseState>({
     kind: "loading",
@@ -62,9 +82,12 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     aggregates: [],
     nextCursor: null,
   });
-  const [scrollTop, setScrollTop] = createSignal(0);
+  const [scrollTop, setScrollTop] = createSignal(returnState?.scrollTop ?? 0);
   const [viewportHeight, setViewportHeight] = createSignal(560);
   const [rowHeightPx, setRowHeightPx] = createSignal(FALLBACK_ROW_HEIGHT_PX);
+  const [libraryWindow, setLibraryWindow] = createSignal<HTMLDivElement>();
+  let pendingScrollRestore = returnState?.scrollTop ?? null;
+  const questionReturnTokens = new Map<string, string>();
   const session = new QuestionLibraryBrowseSession(props.repository, setState);
 
   const ready = (): Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }> | undefined => {
@@ -130,6 +153,39 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     }
   }
 
+  function returnTokenFor(row: QuestionLibraryBrowseRow): string {
+    const existing = questionReturnTokens.get(row.displayId);
+    if (existing !== undefined) return existing;
+    const token = createQuestionLibraryReturnToken();
+    questionReturnTokens.set(row.displayId, token);
+    return token;
+  }
+
+  function saveReturnState(token: string): void {
+    const current = session.state;
+    if (current.kind !== "ready") return;
+    saveQuestionLibraryReturnState(token, query(), current, scrollTop());
+    // The source history entry receives the same route token, so browser Back
+    // and the visible detail-page return link select the same saved view.
+    history.replaceState(history.state, "", questionLibraryReturnPath(token));
+  }
+
+  createEffect(() => {
+    const windowElement = libraryWindow();
+    const current = state();
+    if (windowElement === undefined || pendingScrollRestore === null || current.kind !== "ready") {
+      return;
+    }
+    const restored = clampQuestionLibraryReturnScrollTop(
+      pendingScrollRestore,
+      windowElement.scrollHeight,
+      windowElement.clientHeight,
+    );
+    windowElement.scrollTop = restored;
+    setScrollTop(restored);
+    pendingScrollRestore = null;
+  });
+
   onMount(() => {
     function refreshRowHeight(): void {
       const configured = Number.parseFloat(
@@ -144,7 +200,11 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     const observer = new ResizeObserver(refreshRowHeight);
     observer.observe(document.documentElement);
     onCleanup(() => observer.disconnect());
-    void session.reset(query());
+    if (returnState === null) {
+      void session.reset(query());
+    } else {
+      session.restore(returnState.query, returnState.browseState);
+    }
   });
 
   return (
@@ -285,6 +345,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           role="region"
           aria-label="Published questions"
           tabIndex={0}
+          ref={setLibraryWindow}
           onScroll={handleScroll}
           style={`--ple-question-library-loaded-block-size:${displayedRows().length * rowHeightPx()}px`}
         >
@@ -305,9 +366,33 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                     <p class="question-library-row-summary">{row.summary}</p>
                     <p class="question-library-row-authors" aria-label="Question Authors">
                       Authors: {row.authorNames.join(", ")}
+                      <Show when={webworkFormatLabel(row.questionFormat)}>
+                        {(format) => <> · Format: {format()}</>}
+                      </Show>
                     </p>
-                    <CopyableQuestionId displayId={row.displayId} />
-                    <A class="quiet-link" href={questionLink(row)}>
+                    <CopyableQuestionId
+                      questionTitle={row.questionTitle}
+                      displayId={row.displayId}
+                    />
+                    <A
+                      class="quiet-link"
+                      href={questionLink(row, returnTokenFor(row))}
+                      onClick={(event) => {
+                        if (
+                          event.button !== 0 ||
+                          event.metaKey ||
+                          event.ctrlKey ||
+                          event.shiftKey ||
+                          event.altKey
+                        ) {
+                          return;
+                        }
+                        const token = new URL(event.currentTarget.href).searchParams.get(
+                          QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
+                        );
+                        if (token !== null) saveReturnState(token);
+                      }}
+                    >
                       Open question
                     </A>
                   </article>

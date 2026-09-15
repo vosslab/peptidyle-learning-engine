@@ -52,7 +52,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await captureCheckpoint(runtime, scenario, "course_roster_active", session);
     await session.page
       .getByLabel("Email, roster ID")
-      .fill("screenshot.pending@live-demo.invalid,screenshot-pending");
+      .fill("screenshot.pending@biology.roosevelt.edu,screenshot-pending");
     await session.page.getByRole("button", { name: "Import roster", exact: true }).click();
     await session.page.getByText("screenshot-pending", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "course_roster_pending_invitation", session);

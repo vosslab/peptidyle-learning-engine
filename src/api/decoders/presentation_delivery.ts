@@ -35,6 +35,8 @@ import { decodeQuestionContentBlock } from "./question_response_format";
 export interface StudentQuestionPresentation {
   /** Exact immutable Question Revision identity required for every prompt asset. */
   readonly questionRevision: QuestionPresentation["questionRevision"];
+  /** Optional digest for isolated author content; never raw source or a URL. */
+  readonly authorContentDigest?: string;
   readonly prompt: QuestionPresentation["prompt"];
   readonly response: QuestionPresentation["response"];
 }
@@ -329,8 +331,8 @@ export function decodeIssuedQuestionPresentation(
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "questionRevision",
-    "question_seed",
     "presentationNonce",
+    "authorContentDigest",
     "questionTitle",
     "prompt",
     "response",
@@ -345,11 +347,15 @@ export function decodeIssuedQuestionPresentation(
       `${path}.questionRevision`,
       true,
     ),
-    question_seed: decodeNonnegativeInteger(
-      field(record, "question_seed", path),
-      `${path}.question_seed`,
-    ),
     presentationNonce: nonce,
+    ...(record.authorContentDigest === undefined
+      ? {}
+      : {
+          authorContentDigest: decodeSha256(
+            record.authorContentDigest,
+            `${path}.authorContentDigest`,
+          ),
+        }),
     questionTitle: decodeQuestionTitle(
       field(record, "questionTitle", path),
       `${path}.questionTitle`,
@@ -371,13 +377,26 @@ export function decodeStudentQuestionPresentation(
   path = "response",
 ): StudentQuestionPresentation {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionRevision", "prompt", "response"]);
+  requireOnlyFields(record, path, [
+    "questionRevision",
+    "authorContentDigest",
+    "prompt",
+    "response",
+  ]);
   return {
     questionRevision: decodeQuestionRevisionReference(
       field(record, "questionRevision", path),
       `${path}.questionRevision`,
       true,
     ),
+    ...(record.authorContentDigest === undefined
+      ? {}
+      : {
+          authorContentDigest: decodeSha256(
+            record.authorContentDigest,
+            `${path}.authorContentDigest`,
+          ),
+        }),
     prompt: decodeBoundedArray(
       field(record, "prompt", path),
       `${path}.prompt`,

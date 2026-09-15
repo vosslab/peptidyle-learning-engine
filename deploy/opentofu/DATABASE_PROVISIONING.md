@@ -26,7 +26,7 @@ installation workflow owns the final product-data step.
    `ple_accepted_submission_fast_path_login`, and `ple_publisher_login` with the
    memberships and attributes the production pool verifier attests. `ple_api_login` has direct
    `SET`-only membership in `ple_app` and `ple_auth`. `ple_worker_login` has direct `SET`-only
-   membership in `ple_assignment_attempt_expiry_worker` for Assignment Attempt expiry preparation
+   membership in `ple_assessment_attempt_expiry_worker` for Assessment Attempt expiry preparation
    and commit work. That capability has only `ple_api` usage plus execution of those two
    procedures, with no direct protected-table access. `ple_accepted_submission_recovery_login`
    has only direct `SET`-only membership in `ple_accepted_submission_execution`; the execution

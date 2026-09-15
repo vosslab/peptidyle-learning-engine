@@ -10,8 +10,9 @@ use sqlx::{Postgres, Row, Transaction};
 use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
-    CourseCreationInstructor, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
-    CreateCourseInstanceInput, CreatedCourseInstance, SessionTokenHash, StoreError,
+    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceStore,
+    CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput, CreatedCourseInstance,
+    SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for Course Instance creation and current Teaching Team reads.
@@ -66,7 +67,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the procedure resolves an opaque
         // reference only after binding it to the installed active membership.
         let row = sqlx::query("SELECT course_id FROM ple_api.resolve_course_navigation($1)")
-            .bind(i64::from(reference.number()))
+            .bind(reference.as_string())
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -93,7 +94,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // ASVS 1.2.3, 8.2.2, and 8.3.1: the SECURITY DEFINER procedure binds
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
-            "SELECT course_id, reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT course_id, public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, membership_role \
              FROM ple_api.read_course_summary($1)",
         )
@@ -118,7 +119,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows = sqlx::query(
-            "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
+            "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme \
              FROM ple_api.list_course_instances()",
         )
@@ -142,24 +143,36 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let assignments =
-            super::course_blueprint_adoption::creation_assignments(&mut transaction, &input)
+        let assessments =
+            super::course_blueprint_adoption::creation_assessments(&mut transaction, &input)
                 .await?;
+        let (source_kind, blueprint_reference, blueprint_revision) = match &input.source {
+            CourseInstanceCreationSource::Empty => ("empty", None, None),
+            CourseInstanceCreationSource::Adopted {
+                blueprint_course,
+                blueprint_revision,
+            } => (
+                "adopted",
+                Some(blueprint_course.to_string()),
+                Some(
+                    i64::try_from(blueprint_revision.value())
+                        .map_err(|_| invalid("Blueprint Revision"))?,
+                ),
+            ),
+        };
         let row = sqlx::query(
-            "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, creator_is_assigned_instructor \
+            "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
+             term_ends_on::text AS term_ends_on \
              FROM ple_api.create_course_instance(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9::date, $10::date, $11, $12)",
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13)",
         )
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
         .bind(random_uuid()?)
-        .bind(i64::from(input.blueprint_course.number()))
-        .bind(
-            i64::try_from(input.blueprint_revision.value())
-                .map_err(|_| invalid("Blueprint Revision"))?,
-        )
+        .bind(source_kind)
+        .bind(blueprint_reference)
+        .bind(blueprint_revision)
         .bind(&input.short_name)
         .bind(&input.long_name)
         .bind(input.term.start_date().to_string())
@@ -167,16 +180,16 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         .bind(
             input
                 .assigned_instructor
-                .map(|reference| i64::from(reference.number())),
+                .map(|reference| reference.as_string()),
         )
-        .bind(assignments)
+        .bind(assessments)
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         let record = CreatedCourseInstance {
             course: CourseInstanceSummary {
                 reference: course_reference(
-                    row.try_get("reference_number").map_err(map_sqlx_error)?,
+                    row.try_get("public_reference").map_err(map_sqlx_error)?,
                 )?,
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                 long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
@@ -186,12 +199,32 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 )?,
                 theme: CourseTheme::default(),
             },
-            creator_is_assigned_instructor: row
-                .try_get("creator_is_assigned_instructor")
-                .map_err(map_sqlx_error)?,
         };
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(record)
+    }
+
+    async fn add_course_instructor(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        instructor: AccountReference,
+    ) -> Result<(), StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        // The SQL command verifies the caller's active Instructor membership
+        // before adding a peer membership. Neither creator nor assigned
+        // Instructor identity establishes this authority.
+        sqlx::query("SELECT ple_api.add_course_instructor($1, $2, $3)")
+            .bind(random_uuid()?)
+            .bind(course.as_string())
+            .bind(instructor.as_string())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(())
     }
 
     async fn load_course_instance(
@@ -203,11 +236,11 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
-            "SELECT reference_number, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme, is_assigned_instructor, \
+            "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
+             term_ends_on::text AS term_ends_on, course_theme, \
              active_instructor_count FROM ple_api.load_course_instance($1)",
         )
-        .bind(i64::from(reference.number()))
+        .bind(reference.as_string())
         .fetch_optional(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -236,7 +269,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .map(|row| {
                 Ok(CourseCreationInstructor {
                     reference: account_reference(
-                        row.try_get("reference_number").map_err(map_sqlx_error)?,
+                        row.try_get("public_reference").map_err(map_sqlx_error)?,
                     )?,
                 })
             })
@@ -248,7 +281,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, StoreError> {
     Ok(CourseInstanceSummary {
-        reference: course_reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
+        reference: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
@@ -264,7 +297,7 @@ fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, S
     let stored_membership_role: String = row.try_get("membership_role").map_err(map_sqlx_error)?;
     Ok(CourseSummary {
         id: CourseId::from_uuid(course_id),
-        reference: course_reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
+        reference: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         term: term(
@@ -281,26 +314,17 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
         .map_err(map_sqlx_error)?;
     Ok(CourseInstanceView {
         course: decode_summary(row)?,
-        is_assigned_instructor: row
-            .try_get("is_assigned_instructor")
-            .map_err(map_sqlx_error)?,
         active_instructor_count: u32::try_from(active_instructor_count)
             .map_err(|_| invalid("Teaching Team size"))?,
     })
 }
 
-fn course_reference(value: i64) -> Result<CourseInstanceReference, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(CourseInstanceReference::new)
-        .ok_or_else(|| invalid("Course Instance Reference"))
+fn course_reference(value: String) -> Result<CourseInstanceReference, StoreError> {
+    CourseInstanceReference::new(value).map_err(|_| invalid("Course Instance Reference"))
 }
 
-fn account_reference(value: i64) -> Result<AccountReference, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(AccountReference::new)
-        .ok_or_else(|| invalid("Account Reference"))
+fn account_reference(value: String) -> Result<AccountReference, StoreError> {
+    AccountReference::new(value).map_err(|_| invalid("Account Reference"))
 }
 
 fn term(start_date: String, end_date: String) -> Result<CourseTerm, StoreError> {

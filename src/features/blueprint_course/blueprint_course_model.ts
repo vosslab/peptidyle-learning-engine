@@ -1,12 +1,14 @@
 // Immutable browser working state for the one reusable Blueprint Course model.
 
 import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
+import type { BlueprintAvailability } from "../../../generated/api/BlueprintAvailability";
+import type { BlueprintCourseReadAccess } from "../../../generated/api/BlueprintCourseReadAccess";
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
-import type { BlueprintAssignmentDefaults } from "../../../generated/api/BlueprintAssignmentDefaults";
-import type { BlueprintAssignmentContentInput } from "../../../generated/api/BlueprintAssignmentContentInput";
-import type { BlueprintAssignmentContentView } from "../../../generated/api/BlueprintAssignmentContentView";
-import type { BlueprintAssignmentEntryInput } from "../../../generated/api/BlueprintAssignmentEntryInput";
-import type { BlueprintAssignmentEntryView } from "../../../generated/api/BlueprintAssignmentEntryView";
+import type { BlueprintAssessmentDefaults } from "../../../generated/api/BlueprintAssessmentDefaults";
+import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
+import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
+import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
+import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 import type { QuestionPickerSelection } from "../question_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
@@ -23,6 +25,59 @@ export interface BlueprintCourseValidation {
 export interface BlueprintCourseContinuationPresentation {
   readonly visible: boolean;
   readonly action: string | null;
+}
+
+/** Visible lifecycle choices mirror the server's directed Blueprint state machine. */
+export interface BlueprintLifecyclePresentation {
+  readonly meaning: string;
+  readonly canAdopt: boolean;
+  readonly canEdit: boolean;
+  readonly canPublish: boolean;
+  readonly canArchive: boolean;
+  readonly canRestore: boolean;
+  readonly canReturnToPrivate: boolean;
+}
+
+/** Fails closed for a state/read-access combination the server would not expose. */
+export function blueprintLifecyclePresentation(
+  availability: BlueprintAvailability,
+  readAccess: BlueprintCourseReadAccess,
+): BlueprintLifecyclePresentation {
+  const owner = readAccess === "blueprint_course_owner";
+  if (availability === "private") {
+    return {
+      meaning:
+        "Only you can view and edit this Blueprint Course. Publish it to let other Instructors browse and adopt it.",
+      canAdopt: false,
+      canEdit: owner,
+      canPublish: owner,
+      canArchive: false,
+      canRestore: false,
+      canReturnToPrivate: false,
+    };
+  }
+  if (availability === "public") {
+    return {
+      meaning:
+        "Instructors can browse and adopt this Blueprint Course. Its current Revision is reusable.",
+      canAdopt: true,
+      canEdit: false,
+      canPublish: false,
+      canArchive: owner,
+      canRestore: false,
+      canReturnToPrivate: owner,
+    };
+  }
+  return {
+    meaning:
+      "This Blueprint Course is read-only and unavailable for new Course Instance creation. Restore it to Public to make it available again.",
+    canAdopt: false,
+    canEdit: false,
+    canPublish: false,
+    canArchive: false,
+    canRestore: owner,
+    canReturnToPrivate: false,
+  };
 }
 
 /** Appends a cursor page without duplicating an already visible Blueprint Course. */
@@ -46,21 +101,21 @@ export function blueprintCourseContinuationPresentation(
   };
 }
 
-function defaultDefaults(): BlueprintAssignmentDefaults {
+function defaultDefaults(): BlueprintAssessmentDefaults {
   return {
-    assignment_attempt_time_limit_seconds: null,
+    assessment_attempt_time_limit_seconds: null,
     attempt_limit: null,
     late_work_rule: "reject",
     activity_rules: {
-      assignmentCompletionRule: { kind: "answerAll" },
-      assignmentAttemptGradeRule: "highest",
-      assignmentAttemptContinuationRule: { kind: "unlimited" },
+      assessmentCompletionRule: { kind: "answerAll" },
+      assessmentAttemptGradeRule: "highest",
+      assessmentAttemptContinuationRule: { kind: "unlimited" },
       questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
-      assignmentAttemptResumeRule: "resumable",
-      assignmentQuestionDisplayRule: "oneQuestionAtATime",
-      assignmentNavigationRule: "freeNavigation",
-      assignmentQuestionOrderRule: "shuffled",
+      assessmentAttemptResumeRule: "resumable",
+      assessmentQuestionDisplayRule: "oneQuestionAtATime",
+      assessmentNavigationRule: "freeNavigation",
+      assessmentQuestionOrderRule: "shuffled",
     },
     student_feedback_release_rule: {
       score: "after_submit",
@@ -74,10 +129,10 @@ function defaultDefaults(): BlueprintAssignmentDefaults {
   };
 }
 
-/** Builds an editable assignment content with visible teaching defaults. */
+/** Builds an editable assessment content with visible teaching defaults. */
 export function emptyReusableContent(
-  title = "Untitled Blueprint Assignment",
-): BlueprintAssignmentContentInput {
+  title = "Untitled Blueprint Assessment",
+): BlueprintAssessmentContentInput {
   return {
     title,
     instructions: "",
@@ -91,7 +146,7 @@ export function emptyBlueprintCourseContent(): CreateBlueprintCourseInput {
   return {
     short_name: "Untitled Blueprint",
     long_name: "Untitled Blueprint Course",
-    modules: [{ label: "Module 1", assignments: [emptyReusableContent()] }],
+    modules: [{ label: "Module 1", assessments: [emptyReusableContent()] }],
   };
 }
 
@@ -101,7 +156,7 @@ function uniqueQuestionIds(selection: QuestionPickerSelection): ReadonlyArray<st
   );
 }
 
-function fixedEntry(questionId: string): BlueprintAssignmentEntryInput {
+function fixedEntry(questionId: string): BlueprintAssessmentEntryInput {
   return {
     kind: "fixed",
     question_id: questionId,
@@ -112,7 +167,7 @@ function fixedEntry(questionId: string): BlueprintAssignmentEntryInput {
   };
 }
 
-function poolEntry(questionPoolItems: ReadonlyArray<string>): BlueprintAssignmentEntryInput {
+function poolEntry(questionPoolItems: ReadonlyArray<string>): BlueprintAssessmentEntryInput {
   return {
     kind: "pool",
     items: [...questionPoolItems],
@@ -127,9 +182,9 @@ function poolEntry(questionPoolItems: ReadonlyArray<string>): BlueprintAssignmen
 
 /** Appends chosen Questions as fixed entries while retaining picker order. */
 export function appendPickedFixedEntries(
-  content: BlueprintAssignmentContentInput,
+  content: BlueprintAssessmentContentInput,
   selection: QuestionPickerSelection,
-): BlueprintAssignmentContentInput {
+): BlueprintAssessmentContentInput {
   return {
     ...content,
     entries: [...content.entries, ...uniqueQuestionIds(selection).map(fixedEntry)],
@@ -138,9 +193,9 @@ export function appendPickedFixedEntries(
 
 /** Appends one Question Pool with Question Pool Item order selected by the Instructor. */
 export function appendPickedPool(
-  content: BlueprintAssignmentContentInput,
+  content: BlueprintAssessmentContentInput,
   selection: QuestionPickerSelection,
-): BlueprintAssignmentContentInput {
+): BlueprintAssessmentContentInput {
   const questionPoolItems = uniqueQuestionIds(selection);
   return questionPoolItems.length === 0
     ? content
@@ -148,10 +203,10 @@ export function appendPickedPool(
 }
 
 export function moveReusableEntry(
-  content: BlueprintAssignmentContentInput,
+  content: BlueprintAssessmentContentInput,
   index: number,
   direction: ReusableEntryDirection,
-): BlueprintAssignmentContentInput {
+): BlueprintAssessmentContentInput {
   const destination = index + direction;
   if (index < 0 || destination < 0 || destination >= content.entries.length) return content;
   const entries = [...content.entries];
@@ -164,9 +219,9 @@ export function moveReusableEntry(
 }
 
 export function removeReusableEntry(
-  content: BlueprintAssignmentContentInput,
+  content: BlueprintAssessmentContentInput,
   index: number,
-): BlueprintAssignmentContentInput {
+): BlueprintAssessmentContentInput {
   if (index < 0 || index >= content.entries.length) return content;
   return {
     ...content,
@@ -175,10 +230,10 @@ export function removeReusableEntry(
 }
 
 export function updateReusablePoolSelectionCount(
-  content: BlueprintAssignmentContentInput,
+  content: BlueprintAssessmentContentInput,
   index: number,
   selectionCount: number,
-): BlueprintAssignmentContentInput {
+): BlueprintAssessmentContentInput {
   const entry = content.entries[index];
   if (entry === undefined || entry.kind !== "pool") return content;
   const entries = [...content.entries];
@@ -187,27 +242,27 @@ export function updateReusablePoolSelectionCount(
 }
 
 export function updateReusableDefaults(
-  content: BlueprintAssignmentContentInput,
-  defaults: BlueprintAssignmentDefaults,
-): BlueprintAssignmentContentInput {
+  content: BlueprintAssessmentContentInput,
+  defaults: BlueprintAssessmentDefaults,
+): BlueprintAssessmentContentInput {
   return { ...content, defaults };
 }
 
 export function updateReusableText(
-  content: BlueprintAssignmentContentInput,
-  change: Partial<Pick<BlueprintAssignmentContentInput, "title" | "instructions">>,
-): BlueprintAssignmentContentInput {
+  content: BlueprintAssessmentContentInput,
+  change: Partial<Pick<BlueprintAssessmentContentInput, "title" | "instructions">>,
+): BlueprintAssessmentContentInput {
   return { ...content, ...change };
 }
 
 /** Guides local authoring before the server performs authoritative validation. */
 export function validateReusableContent(
-  content: BlueprintAssignmentContentInput,
+  content: BlueprintAssessmentContentInput,
 ): BlueprintCourseValidation {
   if (content.title.trim().length === 0 || content.title.length > MAX_REUSABLE_TITLE_LENGTH) {
     return {
       valid: false,
-      message: "Give this Blueprint Assignment a title of up to 200 characters.",
+      message: "Give this Blueprint Assessment a title of up to 200 characters.",
     };
   }
   if (content.entries.length === 0 || content.entries.length > MAX_REUSABLE_ENTRIES) {
@@ -269,18 +324,18 @@ export function validateBlueprintCourseContent(
         message: "Give each Blueprint Course module a label of up to 200 characters.",
       };
     }
-    if (module.assignments.length === 0 || module.assignments.length > MAX_REUSABLE_ENTRIES) {
-      return { valid: false, message: "Each module needs at least one Blueprint Assignment." };
+    if (module.assessments.length === 0 || module.assessments.length > MAX_REUSABLE_ENTRIES) {
+      return { valid: false, message: "Each module needs at least one Blueprint Assessment." };
     }
-    for (const assignment of module.assignments) {
-      const validation = validateReusableContent(assignment);
+    for (const assessment of module.assessments) {
+      const validation = validateReusableContent(assessment);
       if (!validation.valid) return validation;
     }
   }
   return { valid: true, message: null };
 }
 
-function entryInputFromView(entry: BlueprintAssignmentEntryView): BlueprintAssignmentEntryInput {
+function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAssessmentEntryInput {
   if (entry.kind === "pool") {
     return {
       kind: "pool",
@@ -304,8 +359,8 @@ function entryInputFromView(entry: BlueprintAssignmentEntryView): BlueprintAssig
 }
 
 export function reusableContentInputFromView(
-  content: BlueprintAssignmentContentView,
-): BlueprintAssignmentContentInput {
+  content: BlueprintAssessmentContentView,
+): BlueprintAssessmentContentInput {
   return {
     title: content.title,
     instructions: content.instructions,
@@ -325,12 +380,12 @@ export function replacementContentFromBlueprintModules(
         blueprint_module_reference: module.blueprint_module_reference,
       },
       label: module.label,
-      assignments: module.assignments.map((assignment) => ({
+      assessments: module.assessments.map((assessment) => ({
         choice: {
           kind: "retained",
-          blueprint_assignment_reference: assignment.blueprint_assignment_reference,
+          blueprint_assessment_reference: assessment.blueprint_assessment_reference,
         },
-        content: reusableContentInputFromView(assignment.content),
+        content: reusableContentInputFromView(assessment.content),
       })),
     })),
   };

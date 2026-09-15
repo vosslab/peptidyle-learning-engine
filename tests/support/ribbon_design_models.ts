@@ -70,13 +70,13 @@ const ALL_CATALOG_CONTROLS: ReadonlyArray<RibbonCatalogControl<RibbonDestination
 ];
 
 const CANONICAL_PARAMS = {
-  courseRef: "C-1",
-  assignmentRef: "A-1",
+  courseRef: "CI7K3M2Q",
+  assignmentRef: "A9D2RX5",
   assignmentAttemptRef: "R-1",
   membershipRef: "M-1",
-  questionRef: "7K3-M9QP",
+  questionRef: "7K3M-X9QP",
   draftQuestionRef: "D-1",
-  blueprintCourseRef: "BP-1",
+  blueprintCourseRef: "BP7K3M2Q",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;

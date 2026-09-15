@@ -13,7 +13,7 @@ export interface CreateCourseInstanceInput {
   readonly shortName: string;
   readonly longName: string;
   readonly term: CourseTerm;
-  /** Omitted for Instructor self-assignment; required for a Sysadmin creation. */
+  /** Omitted for Instructor self-assessment; required for a Sysadmin creation. */
   readonly assignedInstructor?: AccountReference;
 }
 

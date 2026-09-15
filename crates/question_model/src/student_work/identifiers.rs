@@ -3,24 +3,20 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// A course-owned assignment offered to Students.
+/// A course-owned assessment offered to Students.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentId(Uuid);
+pub struct AssessmentId(Uuid);
 
-/// One stable Assignment Entry within an Assignment.
+/// One stable Assessment Entry within an Assessment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentEntryId(Uuid);
+pub struct AssessmentEntryId(Uuid);
 
-/// One stable Question Pool Item inside its owning Question Pool Assignment Entry.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionPoolItemId(Uuid);
-
-/// One immutable Question Pool result for one Assignment Attempt and one Assignment Entry.
+/// One immutable Question Pool result for one Assessment Attempt and one Assessment Entry.
 #[doc(hidden)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct QuestionPoolSelectionId(Uuid);
 
-/// A Course Instance containing Assignments.
+/// A Course Instance containing Assessments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct CourseId(Uuid);
 
@@ -35,15 +31,15 @@ pub struct CourseMembershipId(Uuid);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct StudentRecordId(Uuid);
 
-/// One direct Student Accommodation attached to an Assignment.
+/// One direct Student Accommodation attached to an Assessment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct AccommodationId(Uuid);
 
-/// One pass through an Assignment.
+/// One pass through an Assessment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct AssignmentAttemptId(Uuid);
+pub struct AssessmentAttemptId(Uuid);
 
-/// One Question issued inside an Assignment Attempt.
+/// One Question issued inside an Assessment Attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct IssuedQuestionId(Uuid);
 
@@ -87,36 +83,48 @@ macro_rules! impl_student_work_identifier {
     };
 }
 
-impl_student_work_identifier!(AssignmentId);
-impl_student_work_identifier!(AssignmentEntryId);
-impl_student_work_identifier!(QuestionPoolItemId);
+impl_student_work_identifier!(AssessmentId);
+impl_student_work_identifier!(AssessmentEntryId);
 impl_student_work_identifier!(QuestionPoolSelectionId);
 impl_student_work_identifier!(CourseId);
 impl_student_work_identifier!(CourseMembershipId);
 impl_student_work_identifier!(StudentRecordId);
 impl_student_work_identifier!(AccommodationId);
-impl_student_work_identifier!(AssignmentAttemptId);
+impl_student_work_identifier!(AssessmentAttemptId);
 impl_student_work_identifier!(IssuedQuestionId);
 impl_student_work_identifier!(QuestionAttemptId);
 impl_student_work_identifier!(QuestionSubmissionId);
 
 impl IssuedQuestionId {
-    /// Derives the stable identity for one frozen Assignment Attempt entry.
+    /// Derives the stable identity for one frozen Assessment Attempt entry.
     ///
-    /// A Question Pool Item distinguishes pooled Issued Questions. A fixed
-    /// Question has no Question Pool Item, so its explicit discriminator prevents a
-    /// collision with a pooled value containing all-zero UUID bytes.
+    /// A Pool Revision member distinguishes pooled Issued Questions. A fixed
+    /// Question has no Pool member, so its explicit discriminator prevents a collision.
     pub fn for_frozen_content(
-        assignment_attempt: AssignmentAttemptId,
-        assignment_entry: AssignmentEntryId,
-        question_pool_item: Option<QuestionPoolItemId>,
+        assessment_attempt: AssessmentAttemptId,
+        assessment_entry: AssessmentEntryId,
+        pool_revision_member: Option<&crate::PoolRevisionMemberReference>,
     ) -> Self {
-        let mut name = [0_u8; 49];
-        name[..16].copy_from_slice(assignment_attempt.as_uuid().as_bytes());
-        name[16..32].copy_from_slice(assignment_entry.as_uuid().as_bytes());
-        if let Some(question_pool_item) = question_pool_item {
-            name[32] = 1;
-            name[33..].copy_from_slice(question_pool_item.as_uuid().as_bytes());
+        let mut name = Vec::with_capacity(96);
+        name.extend_from_slice(assessment_attempt.as_uuid().as_bytes());
+        name.extend_from_slice(assessment_entry.as_uuid().as_bytes());
+        if let Some(member) = pool_revision_member {
+            name.push(1);
+            name.extend_from_slice(
+                member
+                    .question_pool_revision
+                    .question_pool_id
+                    .as_compact_str()
+                    .as_bytes(),
+            );
+            name.extend_from_slice(
+                &member
+                    .question_pool_revision
+                    .revision_number
+                    .get()
+                    .to_be_bytes(),
+            );
+            name.extend_from_slice(&member.member_position.to_be_bytes());
         }
         Self(Uuid::new_v5(&ISSUED_QUESTION_NAMESPACE, &name))
     }
@@ -128,11 +136,19 @@ mod tests {
 
     #[test]
     fn issued_question_identity_is_stable_and_distinguishes_frozen_content() {
-        let attempt = AssignmentAttemptId::from_uuid(Uuid::from_u128(1));
-        let entry = AssignmentEntryId::from_uuid(Uuid::from_u128(2));
-        let question_pool_item = QuestionPoolItemId::from_uuid(Uuid::from_u128(3));
+        let attempt = AssessmentAttemptId::from_uuid(Uuid::from_u128(1));
+        let entry = AssessmentEntryId::from_uuid(Uuid::from_u128(2));
+        let pool_revision_member = crate::PoolRevisionMemberReference {
+            question_pool_revision: crate::QuestionPoolRevisionReference {
+                question_pool_id: "7654-X321".parse().expect("valid Pool ID"),
+                revision_number: crate::QuestionPoolRevisionNumber::new(1)
+                    .expect("positive Pool Revision"),
+            },
+            member_position: 0,
+        };
         let fixed = IssuedQuestionId::for_frozen_content(attempt, entry, None);
-        let pooled = IssuedQuestionId::for_frozen_content(attempt, entry, Some(question_pool_item));
+        let pooled =
+            IssuedQuestionId::for_frozen_content(attempt, entry, Some(&pool_revision_member));
 
         assert_eq!(
             fixed,

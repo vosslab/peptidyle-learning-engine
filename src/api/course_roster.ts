@@ -16,7 +16,6 @@ export interface CourseRosterImportInput {
 /** The direct Teaching Team's course-scoped roster projection. */
 export interface CourseRosterEntry {
   readonly rosterId: string;
-  readonly rosterEmail: string;
   readonly state: "invitationPending" | "activeStudent";
 }
 

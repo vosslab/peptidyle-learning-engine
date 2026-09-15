@@ -19,19 +19,18 @@ import { createRecordingFetch, jsonResponse } from "./http_client_test_support.m
 test("asset URLs require and retain the exact Question Revision identity", () => {
   const client = createHttpApiClient({ basePath: "/live" });
   const assetUrl = client.assetUrl(
-    { questionId: "7K3-M9QP", revisionNumber: 2 },
+    { questionId: "7K3M-X9QP", revisionNumber: 2 },
     "00000000-0000-0000-0000-000000000001",
   );
   assert.equal(
     assetUrl,
-    "/live/api/questions/7K3-M9QP/revisions/2/assets/00000000-0000-0000-0000-000000000001",
+    "/live/api/questions/7K3M-X9QP/revisions/2/assets/00000000-0000-0000-0000-000000000001",
   );
 });
 
 test("an issued iMathAS Question Backend Question Presentation accepts only its public marker", () => {
   const presentation = {
-    questionRevision: { questionId: "7K3-M9QP", revisionNumber: 1 },
-    question_seed: 2,
+    questionRevision: { questionId: "7K3M-X9QP", revisionNumber: 1 },
     presentationNonce: "0123456789abcdef0123456789abcdef",
     questionTitle: "iMathAS Question Backend practice item",
     prompt: [],
@@ -139,7 +138,11 @@ test("Assignment Attempt transport preserves its retained effective evidence", (
 test("Student Question Attempt decoding accepts every generated issued capability and rejects retired values", () => {
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
-  const { questionPoolSelectionPosition: _position, ...attemptView } = attempt;
+  const {
+    questionPoolSelectionPosition: _position,
+    question_seed: _legacyQuestionSeed,
+    ...attemptView
+  } = attempt;
   for (const issuedCapability of [
     "questionPresentation",
     "pleQuestionJsonPresentation",
@@ -159,6 +162,26 @@ test("Student Question Attempt decoding accepts every generated issued capabilit
       }),
     DecodeError,
   );
+});
+
+// Permanent browser-boundary test: native source-generation evidence must not
+// return through a Student attempt view. A failure means keep this wire
+// contract closed rather than add a legacy-field compatibility path.
+test("Student Question Attempt decoding rejects legacy reproduction fields", () => {
+  const attempt = publishedQuestionFixture.attempts[0];
+  assert.ok(attempt);
+  const {
+    questionPoolSelectionPosition: _position,
+    question_seed: _legacyQuestionSeed,
+    ...attemptView
+  } = attempt;
+  for (const field of ["question_seed", "generated_parameter_sha256"]) {
+    assert.throws(
+      () => decodeStudentQuestionAttemptView({ ...attemptView, [field]: "server-only" }),
+      DecodeError,
+      field,
+    );
+  }
 });
 
 test("iMathAS Question Backend launch returns its strict same-origin launch route", async () => {

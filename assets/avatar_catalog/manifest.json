@@ -1,0 +1,101 @@
+{
+  "catalogVersion": 1,
+  "license": "CC-BY-4.0",
+  "assetChecksumAlgorithm": "SHA-256",
+  "checksumInputOrder": [
+    "catalogVersion",
+    "license",
+    "avatars[].id",
+    "avatars[].file",
+    "avatars[].selectable",
+    "avatars[].name",
+    "avatars[].description"
+  ],
+  "assetChecksumInput": "The exact UTF-8 bytes of each manifest-relative SVG file, with no newline normalization.",
+  "avatars": [
+    {
+      "id": "amber-arch",
+      "file": "svg/amber-arch.svg",
+      "selectable": true,
+      "name": "Amber arch",
+      "description": "Amber arch with two blue dots."
+    },
+    {
+      "id": "berry-bloom",
+      "file": "svg/berry-bloom.svg",
+      "selectable": true,
+      "name": "Berry bloom",
+      "description": "Berry circles around a bright center."
+    },
+    {
+      "id": "cobalt-circuit",
+      "file": "svg/cobalt-circuit.svg",
+      "selectable": true,
+      "name": "Cobalt circuit",
+      "description": "Cobalt blocks joined by a curved line."
+    },
+    {
+      "id": "coral-crossing",
+      "file": "svg/coral-crossing.svg",
+      "selectable": true,
+      "name": "Coral crossing",
+      "description": "Coral crossing bands and small squares."
+    },
+    {
+      "id": "fern-facet",
+      "file": "svg/fern-facet.svg",
+      "selectable": true,
+      "name": "Fern facet",
+      "description": "Green facets in a rounded tile."
+    },
+    {
+      "id": "golden-garden",
+      "file": "svg/golden-garden.svg",
+      "selectable": true,
+      "name": "Golden garden",
+      "description": "Golden petals with green leaves."
+    },
+    {
+      "id": "indigo-island",
+      "file": "svg/indigo-island.svg",
+      "selectable": true,
+      "name": "Indigo island",
+      "description": "Indigo oval above a small wave."
+    },
+    {
+      "id": "mint-mosaic",
+      "file": "svg/mint-mosaic.svg",
+      "selectable": true,
+      "name": "Mint mosaic",
+      "description": "Mint and blue mosaic squares."
+    },
+    {
+      "id": "plum-pulse",
+      "file": "svg/plum-pulse.svg",
+      "selectable": true,
+      "name": "Plum pulse",
+      "description": "Plum rings around a warm dot."
+    },
+    {
+      "id": "saffron-spark",
+      "file": "svg/saffron-spark.svg",
+      "selectable": true,
+      "name": "Saffron spark",
+      "description": "Saffron star shapes on navy."
+    },
+    {
+      "id": "sky-stack",
+      "file": "svg/sky-stack.svg",
+      "selectable": true,
+      "name": "Sky stack",
+      "description": "Blue blocks stacked in balance."
+    },
+    {
+      "id": "teal-trail",
+      "file": "svg/teal-trail.svg",
+      "selectable": true,
+      "name": "Teal trail",
+      "description": "Teal path through peach circles."
+    }
+  ]
+}

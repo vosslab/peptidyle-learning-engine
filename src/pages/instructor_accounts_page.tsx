@@ -5,6 +5,8 @@ import { For, Show, createMemo, createResource, createSignal, type JSX } from "s
 import type { InstructorAccountList, InstructorAccountSummary } from "../api/instructor_account";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
+import { AvatarVisual } from "../features/profile_avatar/provided_avatar_picker";
+import { RibbonIcon } from "../ribbon/ribbon_icon";
 import { formatSignInLabel } from "./instructor_account_model";
 
 const unavailableAccountList: InstructorAccountList = {
@@ -40,6 +42,7 @@ export function InstructorAccountsPage(): JSX.Element {
     async (allowed) => (allowed ? runtime.client.listInstructorAccounts() : unavailableAccountList),
   );
   const [email, setEmail] = createSignal("");
+  const [verifiedInstructorDisplayName, setVerifiedInstructorDisplayName] = createSignal("");
   const [reasonByReference, setReasonByReference] = createSignal<Record<string, string>>({});
   const [busyReference, setBusyReference] = createSignal<string | null>(null);
   const [creating, setCreating] = createSignal(false);
@@ -67,20 +70,40 @@ export function InstructorAccountsPage(): JSX.Element {
     event.preventDefault();
     if (creating()) return;
     const normalizedEmail = email().trim().toLowerCase();
+    const displayName = verifiedInstructorDisplayName().trim();
     if (normalizedEmail.length < 3 || normalizedEmail.length > 320) {
       setError("Enter a normalized Instructor Authentication Email within its allowed length.");
+      return;
+    }
+    if (
+      displayName.length === 0 ||
+      [...displayName].length > 200 ||
+      displayName !== verifiedInstructorDisplayName() ||
+      /[\p{Cc}]/u.test(displayName)
+    ) {
+      setError(
+        "Enter a trimmed, control-free verified Instructor display name within 200 characters.",
+      );
       return;
     }
     setCreating(true);
     setError(null);
     try {
-      const created = await runtime.client.createInstructorAccount({ normalizedEmail });
+      const vetting = await runtime.client.completeInstructorIdentityVetting({
+        normalizedEmail,
+        verifiedInstructorDisplayName: displayName,
+      });
+      const created = await runtime.client.createInstructorAccount({
+        normalizedEmail,
+        vettingDecisionReference: vetting.vettingDecisionReference,
+      });
       mutate((current) => {
         if (current === undefined) return current;
         const accounts = [created, ...current.accounts];
         return { ...current, accounts };
       });
       setEmail("");
+      setVerifiedInstructorDisplayName("");
       setAnnouncement("Instructor Account created.");
     } catch {
       // ASVS 5.2.4: never reflect submitted email or a transport/server body.
@@ -163,6 +186,19 @@ export function InstructorAccountsPage(): JSX.Element {
             required
           />
         </label>
+        <label for="instructor-account-verified-display-name">
+          Verified Instructor Display Name
+          <input
+            id="instructor-account-verified-display-name"
+            name="verifiedInstructorDisplayName"
+            type="text"
+            value={verifiedInstructorDisplayName()}
+            onInput={(event) => setVerifiedInstructorDisplayName(event.currentTarget.value)}
+            autocomplete="off"
+            maxlength={400}
+            required
+          />
+        </label>
         <button class="primary-action" type="submit" disabled={creating()}>
           {creating() ? "Creating Instructor Account..." : "Create Instructor Account"}
         </button>
@@ -198,7 +234,17 @@ export function InstructorAccountsPage(): JSX.Element {
               >
                 {(account) => (
                   <article class="auth-panel">
-                    <h2>{account.reference}</h2>
+                    <h2>
+                      <Show
+                        when={account.providedAvatarId}
+                        fallback={<RibbonIcon glyph="circle-user" />}
+                      >
+                        {(providedAvatarId) => (
+                          <AvatarVisual avatarId={providedAvatarId()} decorative size={24} />
+                        )}
+                      </Show>{" "}
+                      {account.reference}
+                    </h2>
                     <p>State: {stateLabel(account.state)}</p>
                     <p>
                       Last successful sign-in:{" "}

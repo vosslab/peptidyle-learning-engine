@@ -4,21 +4,20 @@ import type { CourseInstanceReference } from "../../../generated/api/CourseInsta
 import type { ApiClient } from "../client";
 import type { LiveStudentCourseLandingClient } from "../live_student_course_landing";
 import {
-  decodeLiveStudentAssignmentLandings,
+  decodeLiveStudentAssessmentLandings,
   decodeLiveStudentCourseInvitations,
   decodeLiveStudentCourseLandings,
-  decodeStudentTimeZoneProfile,
-  decodeUpdateStudentTimeZoneInput,
 } from "../decoders/live_student_course_landing";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch, type RequestOptions } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
+import { parseCourseInstanceReference } from "../../navigation/public_route";
 
-function assignmentLandingPath(course: CourseInstanceReference): string {
-  if (!/^C-[1-9][0-9]{0,9}$/u.test(course) || Number(course.slice(2)) > 2_147_483_647) {
+function assessmentLandingPath(course: CourseInstanceReference): string {
+  if (parseCourseInstanceReference(course) === null) {
     throw new ApiProtocolError("Course Instance reference must be canonical");
   }
-  return `/api/course-instances/${encodeURIComponent(course)}/assignment-landing`;
+  return `/api/course-instances/${encodeURIComponent(course)}/assessment-landing`;
 }
 
 async function landingJson<T>(
@@ -43,24 +42,6 @@ export function createLiveStudentCourseLandingClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveStudentCourseLandingClient> {
   return {
-    getStudentTimeZoneProfile: () =>
-      landingJson(
-        fetchImplementation,
-        basePath,
-        "/api/student/profile/time-zone",
-        decodeStudentTimeZoneProfile,
-      ),
-    updateStudentTimeZone: (input) =>
-      landingJson(
-        fetchImplementation,
-        basePath,
-        "/api/student/profile/time-zone",
-        decodeStudentTimeZoneProfile,
-        {
-          method: "PUT",
-          body: decodeUpdateStudentTimeZoneInput(input, "request"),
-        },
-      ),
     listPendingLiveStudentCourseInvitations: () =>
       landingJson(
         fetchImplementation,
@@ -75,12 +56,12 @@ export function createLiveStudentCourseLandingClient(
         "/api/student/course-instances",
         decodeLiveStudentCourseLandings,
       ),
-    listLiveStudentAssignments: (course) =>
+    listLiveStudentAssessments: (course) =>
       landingJson(
         fetchImplementation,
         basePath,
-        assignmentLandingPath(course),
-        decodeLiveStudentAssignmentLandings,
+        assessmentLandingPath(course),
+        decodeLiveStudentAssessmentLandings,
       ),
   };
 }

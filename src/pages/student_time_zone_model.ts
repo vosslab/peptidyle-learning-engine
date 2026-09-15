@@ -1,16 +1,16 @@
-import type { StudentAssignmentDecisionSummary } from "../../generated/api/StudentAssignmentDecisionSummary";
-import type { LiveStudentAssignmentLandingSummary } from "../api/live_student_course_landing";
+import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
+import type { LiveStudentAssessmentLandingSummary } from "../api/live_student_course_landing";
 
 /** Applies a server-confirmed display preference without changing any decision or instant. */
 export function applyStudentDisplayTimeZone(
-  assignments: ReadonlyArray<LiveStudentAssignmentLandingSummary>,
+  assessments: ReadonlyArray<LiveStudentAssessmentLandingSummary>,
   timeZone: string,
-): ReadonlyArray<LiveStudentAssignmentLandingSummary> {
-  return assignments.map((assignment) => ({
-    ...assignment,
+): ReadonlyArray<LiveStudentAssessmentLandingSummary> {
+  return assessments.map((assessment) => ({
+    ...assessment,
     decision: {
-      ...assignment.decision,
+      ...assessment.decision,
       displayTimeZone: timeZone,
-    } satisfies StudentAssignmentDecisionSummary,
+    } satisfies StudentAssessmentDecisionSummary,
   }));
 }

@@ -22,6 +22,8 @@ BEGIN
 
     -- ASVS 2.3.3: reject a non-dedicated target before this manifest creates
     -- PLE objects, so the enclosing single transaction leaves no partial base.
+    -- ASVS 8.2.1: execution capabilities are explicit non-login roles; only
+    -- the restricted migration principal may SET the installation capability.
     IF EXISTS (
         SELECT 1
           FROM pg_catalog.pg_namespace AS namespace
@@ -41,15 +43,40 @@ BEGIN
             MESSAGE = 'the PLE base schema requires an otherwise empty dedicated database';
     END IF;
 
-    IF (
-        SELECT count(*)
-          FROM pg_catalog.pg_auth_members AS membership
-         WHERE membership.roleid = (
-                   SELECT oid
-                     FROM pg_catalog.pg_roles
-                    WHERE rolname = 'ple_unrelease_executor'
-               )
-    ) <> 1 OR NOT EXISTS (
+    IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles AS role
+         WHERE role.rolname IN (
+             'ple_unrelease_executor',
+             'ple_course_retention_executor',
+             'ple_course_retention_notifier',
+             'ple_course_retention_notification_owner'
+         )
+           AND (
+               role.rolcanlogin
+               OR role.rolinherit
+               OR role.rolsuper
+               OR role.rolcreatedb
+               OR role.rolcreaterole
+               OR role.rolreplication
+               OR role.rolbypassrls
+               OR role.rolconnlimit <> -1
+           )
+    ) OR EXISTS (
+        SELECT 1
+          FROM pg_catalog.pg_roles AS role
+         WHERE role.rolname IN (
+             'ple_unrelease_executor',
+             'ple_course_retention_executor',
+             'ple_course_retention_notifier',
+             'ple_course_retention_notification_owner'
+         )
+           AND (
+               SELECT count(*)
+                 FROM pg_catalog.pg_auth_members AS membership
+                WHERE membership.roleid = role.oid
+           ) <> 1
+    ) OR NOT EXISTS (
         SELECT 1
           FROM pg_catalog.pg_roles AS role
          WHERE role.rolname = 'ple_migrator'
@@ -86,8 +113,11 @@ BEGIN
           FROM pg_catalog.pg_roles AS role
          WHERE role.rolname IN (
              'ple_public_asset_publisher',
-             'ple_assignment_attempt_expiry_worker',
+             'ple_assessment_attempt_expiry_worker',
              'ple_unrelease_executor',
+             'ple_course_retention_executor',
+             'ple_course_retention_notifier',
+             'ple_course_retention_notification_owner',
              'ple_data_owner',
              'ple_private_owner',
              'ple_audit_owner',
@@ -111,8 +141,11 @@ BEGIN
           FROM pg_catalog.pg_roles AS role
          WHERE role.rolname IN (
              'ple_public_asset_publisher',
-             'ple_assignment_attempt_expiry_worker',
+             'ple_assessment_attempt_expiry_worker',
              'ple_unrelease_executor',
+             'ple_course_retention_executor',
+             'ple_course_retention_notifier',
+             'ple_course_retention_notification_owner',
              'ple_data_owner',
              'ple_private_owner',
              'ple_audit_owner',
@@ -121,7 +154,7 @@ BEGIN
              'ple_auth',
              'ple_student'
          )
-    ) <> 10 THEN
+    ) <> 13 THEN
         RAISE EXCEPTION USING
             ERRCODE = '55000',
             MESSAGE = 'the PLE capability roles do not satisfy the bootstrap contract';
@@ -135,7 +168,7 @@ BEGIN
                      FROM pg_catalog.pg_roles
                     WHERE rolname = 'ple_migrator'
                )
-    ) <> 6 OR (
+    ) <> 9 OR (
         SELECT count(*)
           FROM pg_catalog.pg_auth_members AS membership
           JOIN pg_catalog.pg_roles AS granted_role
@@ -146,6 +179,9 @@ BEGIN
            AND granted_role.rolname IN (
                'ple_database_owner',
                'ple_unrelease_executor',
+               'ple_course_retention_executor',
+               'ple_course_retention_notifier',
+               'ple_course_retention_notification_owner',
                'ple_data_owner',
                'ple_private_owner',
                'ple_audit_owner',
@@ -154,7 +190,7 @@ BEGIN
            AND NOT membership.admin_option
            AND NOT membership.inherit_option
            AND membership.set_option
-    ) <> 6 THEN
+    ) <> 9 THEN
         RAISE EXCEPTION USING
             ERRCODE = '42501',
             MESSAGE = 'the migrator memberships do not satisfy the PLE bootstrap contract';
@@ -190,7 +226,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE ple_migrator
 -- System-catalog name resolution is server-owned, distinct from PLE object
 -- access. ASVS 8.2.1 and 13.2.2: PLE data access remains explicitly granted.
 GRANT USAGE ON SCHEMA pg_catalog TO ple_data_owner, ple_private_owner,
-    ple_audit_owner, ple_api_owner, ple_app, ple_auth, ple_student;
+    ple_audit_owner, ple_api_owner, ple_course_retention_notification_owner,
+    ple_app, ple_auth, ple_student;
 
 SET LOCAL ROLE ple_database_owner;
 

@@ -14,7 +14,11 @@ use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use cookie::{Cookie, SameSite};
-use learning_data_access::{SessionLifetime, SessionRecord, SessionStore, StoreError};
+use learning_data_access::{
+    AuthenticationCeremonyLifetime, AuthenticationSecretHash, PendingSysadminTotpAttestation,
+    SessionLifetime, SessionRecord, SessionStore, StoreError, SysadminTotpAttestationId,
+    SysadminTotpCounter, SysadminTotpSeed, SysadminTotpStore, SysadminTotpVerificationReservation,
+};
 use question_model::{AccountId, ProductRole};
 use serde::Serialize;
 
@@ -24,12 +28,20 @@ mod browser_boundary;
 mod live_demo;
 #[path = "auth/session_cookie.rs"]
 mod session_cookie;
+#[path = "auth/sysadmin_totp.rs"]
+mod sysadmin_totp;
 
 pub(crate) use browser_boundary::{ProductionBrowserBoundary, production_cookie_boundary};
 #[cfg(test)]
 use browser_boundary::{normalize_production_cookies, origin_matches};
-pub use live_demo::{SeededDemoAccount, SeededDemoConfig, SeededDemoPersona, live_demo_router};
+pub use live_demo::{
+    SeededDemoAccount, SeededDemoConfig, SeededDemoPersona, live_demo_mfa_router, live_demo_router,
+};
 use session_cookie::{SessionToken, presented_token, session_cookie, wire_cookie_name};
+pub use sysadmin_totp::{
+    PrimaryAuthenticationOutcome, SysadminTotpCompletionRequest, SysadminTotpPendingResponse,
+    establish_primary_authentication, sysadmin_totp_router,
+};
 
 const SESSION_COOKIE_NAME: &str = "ple_session";
 const SESSION_TOKEN_BYTES: usize = 32;
@@ -46,6 +58,124 @@ pub enum CookieTransport {
 pub struct SessionConfig {
     lifetime: SessionLifetime,
     transport: CookieTransport,
+}
+
+/// Combines the independently least-privileged session and TOTP adapters for
+/// the authentication routes only. It does not grant either adapter an
+/// additional database role. ASVS 8.2.1.
+#[derive(Clone)]
+pub struct AuthenticationStores<S, T> {
+    sessions: Arc<S>,
+    sysadmin_totp: Arc<T>,
+}
+
+impl<S, T> AuthenticationStores<S, T> {
+    /// Retains each server-owned adapter behind its original typed boundary.
+    pub fn new(sessions: Arc<S>, sysadmin_totp: Arc<T>) -> Self {
+        Self {
+            sessions,
+            sysadmin_totp,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl<S, T> SessionStore for AuthenticationStores<S, T>
+where
+    S: SessionStore,
+    T: Send + Sync,
+{
+    async fn create_session(
+        &self,
+        token_hash: learning_data_access::SessionTokenHash,
+        account: AccountId,
+        lifetime: SessionLifetime,
+    ) -> Result<SessionRecord, StoreError> {
+        self.sessions
+            .create_session(token_hash, account, lifetime)
+            .await
+    }
+
+    async fn resolve_session(
+        &self,
+        token_hash: learning_data_access::SessionTokenHash,
+    ) -> Result<Option<SessionRecord>, StoreError> {
+        self.sessions.resolve_session(token_hash).await
+    }
+
+    async fn revoke_session(
+        &self,
+        token_hash: learning_data_access::SessionTokenHash,
+    ) -> Result<(), StoreError> {
+        self.sessions.revoke_session(token_hash).await
+    }
+}
+
+#[async_trait::async_trait]
+impl<S, T> SysadminTotpStore for AuthenticationStores<S, T>
+where
+    S: Send + Sync,
+    T: SysadminTotpStore,
+{
+    async fn provision_sysadmin_totp_seed(
+        &self,
+        account: AccountId,
+        seed: SysadminTotpSeed,
+    ) -> Result<(), StoreError> {
+        self.sysadmin_totp
+            .provision_sysadmin_totp_seed(account, seed)
+            .await
+    }
+
+    async fn create_pending_sysadmin_totp_attestation(
+        &self,
+        account: AccountId,
+        browser_binding_hash: AuthenticationSecretHash,
+        lifetime: AuthenticationCeremonyLifetime,
+    ) -> Result<Option<SysadminTotpAttestationId>, StoreError> {
+        self.sysadmin_totp
+            .create_pending_sysadmin_totp_attestation(account, browser_binding_hash, lifetime)
+            .await
+    }
+
+    async fn load_pending_sysadmin_totp_attestation(
+        &self,
+        attestation: SysadminTotpAttestationId,
+        browser_binding_hash: AuthenticationSecretHash,
+    ) -> Result<Option<PendingSysadminTotpAttestation>, StoreError> {
+        self.sysadmin_totp
+            .load_pending_sysadmin_totp_attestation(attestation, browser_binding_hash)
+            .await
+    }
+
+    async fn reserve_sysadmin_totp_verification_attempt(
+        &self,
+        attestation: SysadminTotpAttestationId,
+        browser_binding_hash: AuthenticationSecretHash,
+    ) -> Result<Option<SysadminTotpVerificationReservation>, StoreError> {
+        self.sysadmin_totp
+            .reserve_sysadmin_totp_verification_attempt(attestation, browser_binding_hash)
+            .await
+    }
+
+    async fn consume_sysadmin_totp_attestation_into_session(
+        &self,
+        attestation: SysadminTotpAttestationId,
+        browser_binding_hash: AuthenticationSecretHash,
+        counter: SysadminTotpCounter,
+        token_hash: learning_data_access::SessionTokenHash,
+        lifetime: SessionLifetime,
+    ) -> Result<Option<SessionRecord>, StoreError> {
+        self.sysadmin_totp
+            .consume_sysadmin_totp_attestation_into_session(
+                attestation,
+                browser_binding_hash,
+                counter,
+                token_hash,
+                lifetime,
+            )
+            .await
+    }
 }
 
 impl SessionConfig {

@@ -10,11 +10,13 @@ use axum::{
     routing::{get, post},
 };
 use learning_data_access::{
-    CreateInstructorAccountInput, DeactivateInstructorAccountInput, InstructorAccountStore,
-    SessionTokenHash, StoreError,
+    CompleteInstructorIdentityVettingInput, CreateInstructorAccountInput,
+    DeactivateInstructorAccountInput, InstructorAccountStore,
+    InstructorIdentityVettingDecisionReference, SessionTokenHash, StoreError,
     postgres::{PostgresInstructorAccountStore, PostgresSessionStore},
 };
 use question_model::{AccountReference, ProductRole};
+use serde::Serialize;
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -33,6 +35,10 @@ pub fn instructor_account_router(
         .route(
             "/api/instructor-accounts",
             get(list_instructor_accounts).post(create_instructor_account),
+        )
+        .route(
+            "/api/instructor-identity-vetting-decisions",
+            post(complete_instructor_identity_vetting),
         )
         .route(
             "/api/instructor-accounts/{reference}/deactivate",
@@ -54,8 +60,8 @@ async fn list_instructor_accounts(
         Err(response) => return *response,
     };
     match state.accounts.list_instructor_accounts(token).await {
-        // ASVS 8.2.3: rows remain the closed three-field target projection;
-        // the display zone is the authenticated Sysadmin's outer context.
+        // ASVS 8.2.3: rows expose only closed Account state plus a nullable
+        // static provided-avatar ID; the display zone is viewer-owned context.
         Ok(accounts) => crate::auth::no_store(Json(accounts).into_response()),
         Err(error) => store_error_response(error),
     }
@@ -74,6 +80,44 @@ async fn create_instructor_account(
         Ok(account) => crate::auth::no_store((StatusCode::CREATED, Json(account)).into_response()),
         Err(error) => store_error_response(error),
     }
+}
+
+/// Records a completed human identity check before the separate creation step.
+///
+/// PostgreSQL derives the active Sysadmin from the authenticated session. The
+/// opaque receipt is the only value a later creation request may present.
+async fn complete_instructor_identity_vetting(
+    State(state): State<InstructorAccountRouteState>,
+    headers: HeaderMap,
+    Json(input): Json<CompleteInstructorIdentityVettingInput>,
+) -> Response {
+    let token = match sysadmin_session_hash(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return *response,
+    };
+    match state
+        .accounts
+        .complete_instructor_identity_vetting(token, input)
+        .await
+    {
+        Ok(vetting_decision_reference) => crate::auth::no_store(
+            (
+                StatusCode::CREATED,
+                Json(InstructorIdentityVettingReceipt {
+                    vetting_decision_reference,
+                }),
+            )
+                .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+/// Opaque receipt for the Sysadmin-owned creation workflow.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct InstructorIdentityVettingReceipt {
+    vetting_decision_reference: InstructorIdentityVettingDecisionReference,
 }
 
 async fn deactivate_instructor_account(
@@ -173,7 +217,7 @@ fn store_error_response(error: StoreError) -> Response {
         StoreError::AlreadyExists => {
             route_error(StatusCode::CONFLICT, "Instructor Account conflict")
         }
-        StoreError::AssignmentActivity(_)
+        StoreError::AssessmentActivity(_)
         | StoreError::TimedOut
         | StoreError::LeaseLost
         | StoreError::Unavailable(_) => route_error(

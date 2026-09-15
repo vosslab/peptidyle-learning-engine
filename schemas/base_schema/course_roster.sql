@@ -28,7 +28,6 @@ CREATE TABLE ple_private.course_roster_profile (
     course_roster_profile_id uuid PRIMARY KEY,
     course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
     student_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
-    roster_email text NOT NULL CHECK (char_length(roster_email) BETWEEN 3 AND 320 AND roster_email=lower(btrim(roster_email))),
     roster_id text NOT NULL CHECK (char_length(roster_id) BETWEEN 1 AND 64 AND roster_id ~ '^[A-Za-z0-9._-]+$'),
     created_at timestamp with time zone NOT NULL,
     UNIQUE(course_id,student_account_id), UNIQUE(course_id,roster_id)
@@ -36,6 +35,33 @@ CREATE TABLE ple_private.course_roster_profile (
 CREATE FUNCTION ple_private.reject_course_invitation_change() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,ple_private AS $$ BEGIN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='Course Invitations are immutable'; END $$;
 CREATE FUNCTION ple_private.reject_course_invitation_event_change() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,ple_private AS $$ BEGIN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='Course Invitation Events are immutable'; END $$;
 CREATE FUNCTION ple_private.reject_course_roster_profile_change() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,ple_private AS $$ BEGIN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='a Course Roster Profile is immutable'; END $$;
+-- ASVS 8.2.3/8.3.1: the normal roster has no email projection.  This private
+-- helper is the sole lower-level email read for the distinct, already-pending
+-- invitation delivery operation; callers cannot use it for active, revoked,
+-- expired, or unrelated Course records.
+CREATE FUNCTION ple_private.pending_course_invitation_delivery_email(
+    p_course_id uuid, p_student_account_id uuid
+) RETURNS text
+LANGUAGE sql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_private
+AS $$
+    SELECT email.delivery_email
+      FROM ple_private.account_authentication_email AS email
+     WHERE email.account_id = $2
+       AND EXISTS (
+           SELECT 1
+             FROM ple_private.course_invitation AS invitation
+            WHERE invitation.course_id = $1
+              AND invitation.target_account_id = $2
+              AND invitation.membership_role = 'student'
+              AND invitation.expires_at > pg_catalog.clock_timestamp()
+              AND NOT EXISTS (
+                  SELECT 1
+                    FROM ple_private.course_invitation_event AS event
+                   WHERE event.invitation_id = invitation.invitation_id
+              )
+       )
+$$;
 CREATE TRIGGER course_invitation_is_immutable BEFORE UPDATE OR DELETE ON ple_private.course_invitation FOR EACH ROW EXECUTE FUNCTION ple_private.reject_course_invitation_change();
 CREATE TRIGGER course_invitation_event_is_immutable BEFORE UPDATE OR DELETE ON ple_private.course_invitation_event FOR EACH ROW EXECUTE FUNCTION ple_private.reject_course_invitation_event_change();
 CREATE TRIGGER course_roster_profile_is_immutable BEFORE UPDATE OR DELETE ON ple_private.course_roster_profile FOR EACH ROW EXECUTE FUNCTION ple_private.reject_course_roster_profile_change();
@@ -57,7 +83,9 @@ GRANT SELECT, INSERT ON ple_private.course_invitation_event,
 CREATE POLICY course_invitation_api_owner_access ON ple_private.course_invitation FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
 CREATE POLICY course_invitation_event_api_owner_access ON ple_private.course_invitation_event FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
 CREATE POLICY course_roster_profile_api_owner_access ON ple_private.course_roster_profile FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
-REVOKE ALL ON FUNCTION ple_private.reject_course_invitation_change(),ple_private.reject_course_invitation_event_change(),ple_private.reject_course_roster_profile_change(),ple_private.assert_course_invitation_event_is_valid() FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_private.reject_course_invitation_change(),ple_private.reject_course_invitation_event_change(),ple_private.reject_course_roster_profile_change(),ple_private.assert_course_invitation_event_is_valid(),ple_private.pending_course_invitation_delivery_email(uuid, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.pending_course_invitation_delivery_email(uuid, uuid)
+    TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_audit_owner;

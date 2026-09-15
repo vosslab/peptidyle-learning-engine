@@ -56,6 +56,14 @@ CREATE TABLE ple_private.draft_question_metadata (
         AND char_length(question_description) BETWEEN 1 AND 4000
         AND question_description !~ '[[:cntrl:]]'
     ),
+    -- PLE-managed general feedback is authored metadata, distinct from
+    -- backend-generated interaction feedback.  Publication copies it into
+    -- the immutable Question Revision.
+    general_feedback text CHECK (
+        general_feedback = btrim(general_feedback)
+        AND char_length(general_feedback) BETWEEN 1 AND 4000
+        AND general_feedback !~ '[[:cntrl:]]'
+    ),
     language text NOT NULL CHECK (language = btrim(language) AND char_length(language) BETWEEN 2 AND 35),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL CHECK (updated_at >= created_at)
@@ -70,7 +78,7 @@ CREATE FUNCTION ple_private.question_source_binding_fields_are_valid(
         (p_backend = 'ple' AND p_question_format = 'pleQuestionJson'
             AND p_webwork_pg_path IS NULL AND p_imathas_deployment_reference IS NULL
             AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
-        OR (p_backend = 'webwork' AND p_question_format = 'webworkPg'
+        OR (p_backend = 'webwork' AND p_question_format IN ('webworkPg', 'webworkPgml')
             AND p_webwork_pg_path IS NOT NULL AND p_imathas_deployment_reference IS NULL
             AND p_imathas_item_reference IS NULL AND p_imathas_profile IS NULL)
         OR (p_backend = 'imathas' AND p_question_format = 'imathas'
@@ -83,7 +91,7 @@ CREATE TABLE ple_private.draft_question_source_binding (
     draft_question_uuid uuid PRIMARY KEY
         REFERENCES ple_private.draft_question(draft_question_uuid) ON DELETE CASCADE,
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
-    question_format text NOT NULL CHECK (question_format IN ('pleQuestionJson', 'webworkPg', 'imathas')),
+    question_format text NOT NULL CHECK (question_format IN ('pleQuestionJson', 'webworkPg', 'webworkPgml', 'imathas')),
     question_type text NOT NULL CHECK (question_type IN (
         'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
         'numeric', 'matching', 'ordering', 'hotspot'
@@ -105,7 +113,7 @@ CREATE TABLE ple_private.question_revision_source_binding (
     question_id text NOT NULL,
     revision_number integer NOT NULL,
     backend text NOT NULL CHECK (backend IN ('ple', 'webwork', 'imathas')),
-    question_format text NOT NULL CHECK (question_format IN ('pleQuestionJson', 'webworkPg', 'imathas')),
+    question_format text NOT NULL CHECK (question_format IN ('pleQuestionJson', 'webworkPg', 'webworkPgml', 'imathas')),
     webwork_pg_path text,
     imathas_deployment_reference text,
     imathas_item_reference text,
@@ -125,7 +133,7 @@ CREATE TABLE ple_private.workspace_import (
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace(workspace_id),
     import_id uuid NOT NULL,
     import_format text NOT NULL CHECK (import_format IN (
-        'pleQuestionJson', 'webworkPg', 'qti', 'h5p', 'imathas'
+        'pleQuestionJson', 'webworkPg', 'webworkPgml', 'qti', 'imathas'
     )),
     format_import_data jsonb NOT NULL CHECK (jsonb_typeof(format_import_data) = 'object'),
     format_import_data_sha256 text NOT NULL CHECK (format_import_data_sha256 ~ '^[0-9a-f]{64}$'),
@@ -163,10 +171,19 @@ ALTER TABLE ple_private.question_revision_source_binding
 
 CREATE TABLE ple_private.draft_question_fork_source (
     draft_question_uuid uuid PRIMARY KEY
-        REFERENCES ple_private.draft_question(draft_question_uuid),
+        REFERENCES ple_private.draft_question(draft_question_uuid) ON DELETE CASCADE,
+    -- Allocated by the trusted server before this Draft exists. C878 owns
+    -- HMAC validation/issuance; this storage boundary validates only the
+    -- compact shape. It becomes the Question ID only if this fork publishes.
+    forked_question_id text NOT NULL UNIQUE CHECK (
+        forked_question_id ~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+    ),
+    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    idempotency_key uuid NOT NULL,
     source_question_id text NOT NULL,
     source_revision_number integer NOT NULL,
     created_at timestamptz NOT NULL,
+    UNIQUE (actor_account_id, idempotency_key),
     FOREIGN KEY (source_question_id, source_revision_number)
         REFERENCES ple_data.question_revision(question_id, revision_number)
 );
@@ -199,6 +216,29 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
     RAISE EXCEPTION USING ERRCODE = '55000',
         MESSAGE = 'Question Revision source and Question Fork Source are immutable';
+END
+$$;
+
+-- Fork provenance cannot be edited or directly discarded.  It is nevertheless
+-- private working state: an authorized deletion of the parent Draft must
+-- remove it with that Draft.  The per-transaction token is installed only by
+-- the narrow active-Instructor deletion procedure, so a direct parent/child delete still
+-- fails closed and rolls back as one transaction.
+CREATE FUNCTION ple_private.reject_draft_question_fork_source_change()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, ple_private AS $$
+BEGIN
+    IF TG_OP = 'DELETE'
+       AND pg_catalog.current_setting('ple.authorized_draft_delete_uuid', true)
+            IS NOT DISTINCT FROM OLD.draft_question_uuid::text
+       AND NOT EXISTS (
+           SELECT 1 FROM ple_private.draft_question AS question
+            WHERE question.draft_question_uuid = OLD.draft_question_uuid
+       ) THEN
+        RETURN OLD;
+    END IF;
+    RAISE EXCEPTION USING ERRCODE = '55000',
+        MESSAGE = 'Draft Question Fork Source is immutable outside authorized Draft deletion';
 END
 $$;
 
@@ -334,11 +374,10 @@ BEFORE UPDATE OR DELETE ON ple_private.question_revision_source_binding
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_immutable_question_source_change();
 CREATE TRIGGER draft_question_fork_source_is_immutable
 BEFORE UPDATE OR DELETE ON ple_private.draft_question_fork_source
-FOR EACH ROW EXECUTE FUNCTION ple_private.reject_immutable_question_source_change();
+FOR EACH ROW EXECUTE FUNCTION ple_private.reject_draft_question_fork_source_change();
 CREATE TRIGGER workspace_import_item_result_is_immutable_after_commit
 BEFORE UPDATE OR DELETE ON ple_private.workspace_import_item_result
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_committed_workspace_import_item_result_change();
-
 ALTER TABLE ple_private.authoring_workspace ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.authoring_workspace FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.authoring_workspace_collaborator_event ENABLE ROW LEVEL SECURITY;
@@ -441,8 +480,7 @@ CREATE FUNCTION ple_private.question_revision_has_source_binding(
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_private AS $$
     SELECT p_question_id IS NOT NULL AND p_revision_number IS NOT NULL AND EXISTS (
-        SELECT 1
-          FROM ple_private.question_revision_source_binding AS binding
+        SELECT 1 FROM ple_private.question_revision_source_binding AS binding
          WHERE binding.question_id = p_question_id
            AND binding.revision_number = p_revision_number
     )
@@ -450,7 +488,8 @@ $$;
 
 REVOKE ALL ON FUNCTION ple_private.current_session_is_authoring_workspace_owner(uuid),
     ple_private.current_session_can_access_authoring_workspace(uuid),
-    ple_private.question_revision_has_source_binding(text, integer) FROM PUBLIC;
+    ple_private.question_revision_has_source_binding(text, integer)
+    FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.current_session_is_authoring_workspace_owner(uuid),
     ple_private.current_session_can_access_authoring_workspace(uuid) TO ple_api_owner;
 GRANT EXECUTE ON FUNCTION ple_private.question_revision_has_source_binding(text, integer)
@@ -460,6 +499,7 @@ REVOKE ALL ON ALL TABLES IN SCHEMA ple_private FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_private.question_source_binding_fields_are_valid(
     text, text, text, text, text, text, boolean),
     ple_private.reject_immutable_question_source_change(),
+    ple_private.reject_draft_question_fork_source_change(),
     ple_private.validate_question_revision_source_binding(),
     ple_private.validate_authoring_workspace_collaborator_event(),
     ple_private.reject_authoring_workspace_collaborator_event_change(),
@@ -467,4 +507,3 @@ REVOKE ALL ON FUNCTION ple_private.question_source_binding_fields_are_valid(
     ple_private.validate_draft_question_source_binding_object_record(),
     ple_private.validate_question_revision_source_binding_object_record() FROM PUBLIC;
 RESET ROLE;
-

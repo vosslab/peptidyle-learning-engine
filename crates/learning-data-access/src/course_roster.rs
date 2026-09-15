@@ -4,7 +4,7 @@
 //! Account (creating it only when absent) and records a pending Course
 //! Invitation. Claim is the separate transaction that creates the stable
 //! Student Record and active Student Course Membership for the exact Course
-//! Instance. No Assignment or Student-work record is created here.
+//! Instance. No Assessment or Student-work record is created here.
 
 use async_trait::async_trait;
 use question_model::CourseInstanceReference;
@@ -56,6 +56,14 @@ impl CourseRosterImportInput {
                 let email = AuthenticationEmail::parse(&entry.email).map_err(|_| {
                     StoreError::InvalidRecord("Course Roster Import email is invalid".to_string())
                 })?;
+                // ASVS 2.2.1, 2.2.2: enforce the Student institutional-email
+                // business rule at the trusted roster-import boundary before an
+                // Account lookup or creation can occur.
+                if !is_institutional_student_email(&email) {
+                    return Err(StoreError::InvalidRecord(
+                        "Course Roster Import requires a Student institutional email".to_string(),
+                    ));
+                }
                 if !emails.insert(email.normalized().to_string()) {
                     return Err(StoreError::InvalidRecord(
                         "Course Roster Import repeats a Student Authentication Email".to_string(),
@@ -83,14 +91,19 @@ impl CourseRosterImportInput {
     }
 }
 
+/// PLE currently recognizes United States institutional Student addresses by
+/// their exact `.edu` domain suffix. The normalized `EmailDomain` prevents
+/// a lookalike suffix (for example, `university.edu.example`) from passing.
+fn is_institutional_student_email(email: &AuthenticationEmail) -> bool {
+    email.domain().as_str().ends_with(".edu")
+}
+
 /// Browser-safe state of one course-scoped roster entry.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseRosterEntry {
     /// Course-local roster identifier used for the roster and later export only.
     pub roster_id: String,
-    /// Course-scoped invitation and roster email snapshot.
-    pub roster_email: String,
     /// Pending invitation or current Student Course Membership state.
     pub state: CourseRosterEntryState,
 }
@@ -145,4 +158,44 @@ pub trait CourseRosterStore: Send + Sync {
         course: CourseInstanceReference,
         roster_id: String,
     ) -> Result<(), StoreError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CourseRosterImportEntry, CourseRosterImportInput};
+
+    #[test]
+    fn roster_import_accepts_institutional_student_identity() {
+        let input = CourseRosterImportInput {
+            entries: vec![CourseRosterImportEntry {
+                email: "Student@biology.roosevelt.edu".to_string(),
+                roster_id: "bio301-student".to_string(),
+            }],
+        };
+
+        let entries = input
+            .validated_entries()
+            .expect("institutional Student identity is valid for roster import");
+        assert_eq!(entries[0].normalized_email, "student@biology.roosevelt.edu");
+    }
+
+    #[test]
+    fn roster_import_rejects_noninstitutional_address_before_account_resolution() {
+        for email in ["student@example.com", "student@university.edu.example"] {
+            let input = CourseRosterImportInput {
+                entries: vec![CourseRosterImportEntry {
+                    email: email.to_string(),
+                    roster_id: "bio301-student".to_string(),
+                }],
+            };
+
+            match input.validated_entries() {
+                Err(crate::StoreError::InvalidRecord(message)) => assert_eq!(
+                    message,
+                    "Course Roster Import requires a Student institutional email"
+                ),
+                _ => panic!("noninstitutional email must be rejected before account resolution"),
+            }
+        }
+    }
 }

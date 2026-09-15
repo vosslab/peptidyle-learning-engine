@@ -19,7 +19,9 @@ import { appRoutes, notFoundRoute } from "./routes";
 // entry imports browser-only styles so shared component modules remain usable
 // by the offline Node fast lane.
 import "./ribbon/app_ribbon.css";
-import "./components/student_assignment_presentation.css";
+import "./components/student_assessment_presentation.css";
+import "./features/profile_avatar/provided_avatar_picker.css";
+import "./features/profile_avatar/staff_avatar_settings.css";
 import { WasmRuntimeProvider } from "./wasm/context";
 
 const mountPoint = document.getElementById("root");
@@ -47,7 +49,7 @@ render(
         <WasmRuntimeProvider
           formatFallback={apiClient.validateResponseFormatOnServer}
           timerFallback={apiClient.questionAttemptTimingDecisionOnServer}
-          capabilityFallback={apiClient.validateAssignmentConfigOnServer}
+          capabilityFallback={apiClient.validateAssessmentConfigOnServer}
         >
           <Router root={App}>{[...appRoutes, notFoundRoute]}</Router>
         </WasmRuntimeProvider>

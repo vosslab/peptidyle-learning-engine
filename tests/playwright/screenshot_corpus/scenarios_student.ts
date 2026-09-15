@@ -81,7 +81,7 @@ async function prepareStudentInvitation(
     await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
     await page
       .getByLabel("Email, roster ID")
-      .fill("mary.okafor@live-demo.invalid,screenshot-invitation");
+      .fill("mary.okafor@biology.roosevelt.edu,screenshot-invitation");
     await page.getByRole("button", { name: "Import roster", exact: true }).click();
     await page.getByText("screenshot-invitation", { exact: true }).waitFor();
   } finally {

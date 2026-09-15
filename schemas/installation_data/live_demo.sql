@@ -15,8 +15,8 @@ SELECT set_config(
     :'live_demo_blueprint_reference', true
 ) AS ignored \gset
 SELECT set_config(
-    'ple.installation_live_demo_blueprint_assignment_reference',
-    :'live_demo_blueprint_assignment_reference', true
+    'ple.installation_live_demo_blueprint_assessment_reference',
+    :'live_demo_blueprint_assessment_reference', true
 ) AS ignored \gset
 
 SET LOCAL ROLE ple_private_owner;
@@ -45,8 +45,8 @@ BEGIN
                 'biochemistry-functional-groups-ple-question-json-mc',
                 'biochemistry-functional-groups-ple-question-json-matching'
         ) OR source_checksum !~ '^[0-9a-f]{64}$'
-          OR rendered_question_id !~ '^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$'
-          OR question_id !~ '^[0-9A-HJKMNP-TV-Z]{7}$'
+          OR rendered_question_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+          OR question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
           OR revision_number <= 0
           OR NOT EXISTS (
               SELECT 1 FROM ple_private.question_revision_source_binding AS binding
@@ -73,8 +73,8 @@ DECLARE
     blueprint_reference bigint := current_setting(
         'ple.installation_live_demo_blueprint_reference'
     )::bigint;
-    expected_blueprint_assignment_reference uuid := current_setting(
-        'ple.installation_live_demo_blueprint_assignment_reference'
+    expected_blueprint_assessment_reference uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
     IF NOT EXISTS (
@@ -84,11 +84,11 @@ BEGIN
            AND availability = 'available'
            AND current_blueprint_revision_number = 1
            AND EXISTS (
-               SELECT 1 FROM ple_data.blueprint_revision_assignment AS revision_assignment
-                WHERE revision_assignment.blueprint_course_reference_number = blueprint_reference
-                  AND revision_assignment.blueprint_revision_number = 1
-                  AND revision_assignment.blueprint_assignment_reference
-                      = expected_blueprint_assignment_reference
+               SELECT 1 FROM ple_data.blueprint_revision_assessment AS revision_assessment
+                WHERE revision_assessment.blueprint_course_reference_number = blueprint_reference
+                  AND revision_assessment.blueprint_revision_number = 1
+                  AND revision_assessment.blueprint_assessment_reference
+                      = expected_blueprint_assessment_reference
            )
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
@@ -103,6 +103,7 @@ BEGIN
               AND course.course_long_name = 'Biochemistry 301: Proteins and Peptides'
               AND course.term_starts_on = date '2026-08-24'
               AND course.term_ends_on = date '2026-12-11'
+              AND course.source_kind = 'adopted'
               AND course.blueprint_course_reference_number = blueprint_reference
               AND course.blueprint_revision_number = 1
        ) THEN
@@ -120,26 +121,29 @@ DECLARE
     )::bigint;
 BEGIN
     INSERT INTO ple_data.course_instance (
-        course_id, blueprint_course_reference_number, blueprint_revision_number,
+        course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
         term_starts_on, term_ends_on, created_at
     ) VALUES (
-        '00000000-0000-0000-0000-000000000220', blueprint_reference, 1,
+        '00000000-0000-0000-0000-000000000220', 'adopted', blueprint_reference, 1,
         '00000000-0000-0000-0000-000000000101', 'BCHM 301',
         'Biochemistry 301: Proteins and Peptides', date '2026-08-24', date '2026-12-11',
         clock_timestamp()
     ) ON CONFLICT (course_id) DO NOTHING RETURNING reference_number INTO course_reference;
     IF course_reference IS NOT NULL THEN
-        INSERT INTO ple_data.course_origin VALUES (
+        INSERT INTO ple_data.course_origin (
+            course_origin_id, course_id, source_kind, blueprint_course_reference_number,
+            blueprint_revision_number, source_course_id, created_at
+        ) VALUES (
             '00000000-0000-0000-0000-000000000221', '00000000-0000-0000-0000-000000000220',
-            blueprint_reference, 1, NULL, clock_timestamp()
+            'adopted', blueprint_reference, 1, NULL, clock_timestamp()
         );
         INSERT INTO ple_data.course_membership (membership_id, course_id, account_id, role, joined_at)
         VALUES ('00000000-0000-0000-0000-000000000222', '00000000-0000-0000-0000-000000000220',
                 '00000000-0000-0000-0000-000000000101', 'instructor', clock_timestamp());
         PERFORM ple_audit.record_course_instance_creation_event(
             '00000000-0000-0000-0000-000000000223', '00000000-0000-0000-0000-000000000220',
-            course_reference, blueprint_reference, 1,
+            course_reference, 'adopted', blueprint_reference, 1,
             '00000000-0000-0000-0000-000000000101',
             '00000000-0000-0000-0000-000000000101', clock_timestamp()
         );
@@ -151,11 +155,11 @@ END
 $$;
 
 INSERT INTO ple_private.course_roster_profile (
-    course_roster_profile_id, course_id, student_account_id, roster_email, roster_id, created_at
+    course_roster_profile_id, course_id, student_account_id, roster_id, created_at
 ) VALUES
-    ('00000000-0000-0000-0000-000000000231', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'mary.okafor@live-demo.invalid', 'BIO301-MARY', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000232', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'jack.nguyen@live-demo.invalid', 'BIO301-JACK', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000233', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'avery.thompson@live-demo.invalid', 'BIO301-AVERY', clock_timestamp())
+    ('00000000-0000-0000-0000-000000000231', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000102', 'BIO301-MARY', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000232', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000103', 'BIO301-JACK', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000233', '00000000-0000-0000-0000-000000000220', '00000000-0000-0000-0000-000000000104', 'BIO301-AVERY', clock_timestamp())
 ON CONFLICT (course_roster_profile_id) DO NOTHING;
 
 INSERT INTO ple_private.course_invitation (
@@ -185,17 +189,17 @@ SET LOCAL ROLE ple_data_owner;
 
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM ple_data.assignment WHERE assignment_id = '00000000-0000-0000-0000-000000000270')
+    IF EXISTS (SELECT 1 FROM ple_data.assessment WHERE assessment_id = '00000000-0000-0000-0000-000000000270')
        AND (
            NOT EXISTS (
-               SELECT 1 FROM ple_data.assignment
-                WHERE assignment_id = '00000000-0000-0000-0000-000000000270'
+               SELECT 1 FROM ple_data.assessment
+                WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
                   AND course_id = '00000000-0000-0000-0000-000000000220'
-                  AND assignment_status = 'released'
-                  AND assignment_title = 'Chapter 1 Pilot Practice'
+                  AND assessment_status = 'released'
+                  AND assessment_title = 'Chapter 1 Pilot Practice'
            )
-           OR (SELECT count(*) FROM ple_data.assignment_entry
-                WHERE assignment_id = '00000000-0000-0000-0000-000000000270') <> 4
+           OR (SELECT count(*) FROM ple_data.assessment_entry
+                WHERE assessment_id = '00000000-0000-0000-0000-000000000270') <> 4
            OR EXISTS (
                WITH input AS (
                    SELECT replace(value -> 'questionRevision' ->> 'questionId', '-', '') AS question_id,
@@ -211,60 +215,60 @@ BEGIN
                     )
                )
                SELECT 1 FROM input
-               LEFT JOIN ple_data.assignment_entry AS entry
-                 ON entry.assignment_id = '00000000-0000-0000-0000-000000000270'
+               LEFT JOIN ple_data.assessment_entry AS entry
+                 ON entry.assessment_id = '00000000-0000-0000-0000-000000000270'
                 AND entry.authored_position = input.position
                 AND entry.entry_kind = 'fixed_question'
                 AND entry.question_id = input.question_id
                 AND entry.question_revision_number = input.revision_number
-               WHERE entry.assignment_entry_id IS NULL
+               WHERE entry.assessment_entry_id IS NULL
            )
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Live Demo Assignment conflicts with existing product data';
+            MESSAGE = 'Live Demo Assessment conflicts with existing product data';
     END IF;
 END
 $$;
 
 DO $$
 DECLARE
-    new_assignment_id uuid;
-    expected_blueprint_assignment_reference uuid := current_setting(
-        'ple.installation_live_demo_blueprint_assignment_reference'
+    new_assessment_id uuid;
+    expected_blueprint_assessment_reference uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
-    INSERT INTO ple_data.assignment (
-        assignment_id, course_id, source_blueprint_course_reference_number,
-        source_blueprint_revision_number, source_blueprint_assignment_reference,
-        created_at, updated_at, assignment_title, assignment_instructions,
-        assignment_attempt_time_limit_seconds, late_work_rule, assignment_completion_rule,
-        assignment_attempt_grade_rule, assignment_attempt_continuation_rule,
-        question_pool_reuse_rule, question_variation_rule, assignment_attempt_resume_rule,
-        assignment_question_display_rule, assignment_navigation_rule,
-        assignment_question_order_rule, feedback_score, feedback_per_item_correctness,
+    INSERT INTO ple_data.assessment (
+        assessment_id, course_id, source_blueprint_course_reference_number,
+        source_blueprint_revision_number, source_blueprint_assessment_reference,
+        created_at, updated_at, assessment_title, assessment_instructions,
+        assessment_attempt_time_limit_seconds, late_work_rule, assessment_completion_rule,
+        assessment_attempt_grade_rule, assessment_attempt_continuation_rule,
+        question_pool_reuse_rule, question_variation_rule, assessment_attempt_resume_rule,
+        assessment_question_display_rule, assessment_navigation_rule,
+        assessment_question_order_rule, feedback_score, feedback_per_item_correctness,
         feedback_submitted_response, feedback_question_feedback, feedback_question_answer,
         feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
         '00000000-0000-0000-0000-000000000270',
         '00000000-0000-0000-0000-000000000220',
         (SELECT blueprint_course_reference_number FROM ple_data.course_instance WHERE course_id = '00000000-0000-0000-0000-000000000220'),
-        1, expected_blueprint_assignment_reference, clock_timestamp(), clock_timestamp(),
+        1, expected_blueprint_assessment_reference, clock_timestamp(), clock_timestamp(),
         'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         1800, 'accept', 'answer_all', 'highest', 'unlimited', 'reuse_selection',
         'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation',
         'authored_order', 'after_submit', 'after_submit', 'after_submit', 'after_submit',
         'never', 'never', 'never'
-    ) ON CONFLICT (assignment_id) DO NOTHING
-    RETURNING assignment_id INTO new_assignment_id;
-    IF new_assignment_id IS NULL THEN
+    ) ON CONFLICT (assessment_id) DO NOTHING
+    RETURNING assessment_id INTO new_assessment_id;
+    IF new_assessment_id IS NULL THEN
         RETURN;
     END IF;
-    INSERT INTO ple_data.assignment_entry (
-        assignment_entry_id, assignment_id, authored_position, entry_kind, scoring_rule,
+    INSERT INTO ple_data.assessment_entry (
+        assessment_entry_id, assessment_id, authored_position, entry_kind, scoring_rule,
         question_id, question_revision_number, points_possible
     )
     SELECT ('00000000-0000-0000-0000-00000000028' || input_position)::uuid,
-           new_assignment_id, input_position::integer,
+           new_assessment_id, input_position::integer,
            'fixed_question', 'normal', input.question_id, input.revision_number, 1
       FROM (
           SELECT publication.key AS slug,
@@ -281,10 +285,10 @@ BEGIN
                'biochemistry-functional-groups-ple-question-json-mc', 'biochemistry-functional-groups-ple-question-json-matching'
            )
       ) AS input;
-    PERFORM ple_data.validate_assignment_release(new_assignment_id);
-    UPDATE ple_data.assignment SET assignment_status = 'released',
-        assignment_edit_number = assignment_edit_number + 1, updated_at = clock_timestamp()
-     WHERE assignment_id = new_assignment_id;
+    PERFORM ple_data.validate_assessment_release(new_assessment_id);
+    UPDATE ple_data.assessment SET assessment_status = 'released',
+        assessment_edit_number = assessment_edit_number + 1, updated_at = clock_timestamp()
+     WHERE assessment_id = new_assessment_id;
 END
 $$;
 
@@ -335,6 +339,6 @@ END
 $$;
 RESET ROLE;
 
--- This installation-data layer intentionally ends before Attempts, response
+-- This installation-data layer intentionally ends before Assessment Attempts, response
 -- presentation, submission, grading, and statistics: each has external or
 -- worker-owned effects and remains with its existing owner path.

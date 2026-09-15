@@ -8,9 +8,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AccommodationAdjustmentView, AccommodationApplicationRuleView, AssignmentEditNumber,
-    AssignmentReference, CourseMembershipReference, LateWorkRule, LocalDateAndTime,
-    MAX_ASSIGNMENT_ATTEMPT_LIMIT, MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
+    AccommodationAdjustmentView, AccommodationApplicationRuleView, AssessmentEditNumber,
+    AssessmentReference, CourseMembershipReference, LateWorkRule, LocalDateAndTime,
+    MAX_ASSESSMENT_ATTEMPT_LIMIT, MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, TeachingDisplayLabel,
 };
 
 /// Zone-free Instructor wall-clock input. The authorized Account zone resolves it at the boundary.
@@ -24,16 +24,16 @@ pub struct PreviewSelectedMoment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct HypotheticalStudentViewScenarioRequest {
-    pub assignment: AssignmentReference,
-    pub edit_number: AssignmentEditNumber,
+    pub assessment: AssessmentReference,
+    pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub modifiers: HypotheticalStudentViewScenarioModifiers,
 }
 
 /// Identity-free direct modifiers for a Hypothetical Student View Scenario.
 ///
-/// The server validates compatibility; this input cannot assert Assignment Access
-/// or an Assignment Policy Source.
+/// The server validates compatibility; this input cannot assert Assessment Access
+/// or an Assessment Policy Source.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct HypotheticalStudentViewScenarioModifiers {
@@ -48,16 +48,16 @@ pub struct HypotheticalStudentViewScenarioModifiers {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct SelectedStudentViewScenarioRequest {
-    pub assignment: AssignmentReference,
-    pub edit_number: AssignmentEditNumber,
+    pub assessment: AssessmentReference,
+    pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub selected_student_membership: CourseMembershipReference,
 }
 
-/// Closed, sanitized Assignment Policy Source kind labels. These never carry a membership or person Reference.
+/// Closed, sanitized Assessment Policy Source kind labels. These never carry a membership or person Reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum AssignmentPolicySourceKind {
+pub enum AssessmentPolicySourceKind {
     Base,
     Accommodation,
     HypotheticalStudentViewScenario,
@@ -67,19 +67,19 @@ pub enum AssignmentPolicySourceKind {
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct PreviewTimeField {
     pub value: Option<LocalDateAndTime>,
-    pub source: AssignmentPolicySourceKind,
+    pub source: AssessmentPolicySourceKind,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct PreviewLimitField {
     pub value: Option<u32>,
-    pub source: AssignmentPolicySourceKind,
+    pub source: AssessmentPolicySourceKind,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct PreviewLateWorkRuleField {
     pub value: LateWorkRule,
-    pub source: AssignmentPolicySourceKind,
+    pub source: AssessmentPolicySourceKind,
 }
 /// Server-resolved values copied into a Student View Scenario, never raw policy inputs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,7 +92,7 @@ pub struct PreviewResolvedPolicy {
     available_at: PreviewTimeField,
     due_at: PreviewTimeField,
     closes_at: PreviewTimeField,
-    assignment_attempt_time_limit_seconds: PreviewLimitField,
+    assessment_attempt_time_limit_seconds: PreviewLimitField,
     attempt_limit: PreviewLimitField,
     late_work_rule: PreviewLateWorkRuleField,
 }
@@ -102,7 +102,7 @@ struct PreviewResolvedPolicyWire {
     available_at: PreviewTimeField,
     due_at: PreviewTimeField,
     closes_at: PreviewTimeField,
-    assignment_attempt_time_limit_seconds: PreviewLimitField,
+    assessment_attempt_time_limit_seconds: PreviewLimitField,
     attempt_limit: PreviewLimitField,
     late_work_rule: PreviewLateWorkRuleField,
 }
@@ -113,7 +113,7 @@ impl TryFrom<PreviewResolvedPolicyWire> for PreviewResolvedPolicy {
             v.available_at,
             v.due_at,
             v.closes_at,
-            v.assignment_attempt_time_limit_seconds,
+            v.assessment_attempt_time_limit_seconds,
             v.attempt_limit,
             v.late_work_rule,
         )
@@ -124,18 +124,18 @@ impl PreviewResolvedPolicy {
         available_at: PreviewTimeField,
         due_at: PreviewTimeField,
         closes_at: PreviewTimeField,
-        assignment_attempt_time_limit_seconds: PreviewLimitField,
+        assessment_attempt_time_limit_seconds: PreviewLimitField,
         attempt_limit: PreviewLimitField,
         late_work_rule: PreviewLateWorkRuleField,
     ) -> Result<Self, &'static str> {
-        if assignment_attempt_time_limit_seconds
+        if assessment_attempt_time_limit_seconds
             .value
-            .is_some_and(|v| v == 0 || v > MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS)
+            .is_some_and(|v| v == 0 || v > MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS)
             || attempt_limit
                 .value
-                .is_some_and(|v| v == 0 || v > MAX_ASSIGNMENT_ATTEMPT_LIMIT)
+                .is_some_and(|v| v == 0 || v > MAX_ASSESSMENT_ATTEMPT_LIMIT)
         {
-            return Err("preview limit is outside assignment bounds");
+            return Err("preview limit is outside assessment bounds");
         }
         if available_at
             .value
@@ -153,13 +153,13 @@ impl PreviewResolvedPolicy {
                 .zip(closes_at.value.as_ref())
                 .is_some_and(|(a, b)| a > b)
         {
-            return Err("preview effective_assignment_policy is out of order");
+            return Err("preview effective_assessment_policy is out of order");
         }
         Ok(Self {
             available_at,
             due_at,
             closes_at,
-            assignment_attempt_time_limit_seconds,
+            assessment_attempt_time_limit_seconds,
             attempt_limit,
             late_work_rule,
         })
@@ -174,8 +174,8 @@ impl PreviewResolvedPolicy {
         &self.closes_at
     }
     /// Returns the validated effective time limit without exposing policy internals.
-    pub fn assignment_attempt_time_limit_seconds(&self) -> &PreviewLimitField {
-        &self.assignment_attempt_time_limit_seconds
+    pub fn assessment_attempt_time_limit_seconds(&self) -> &PreviewLimitField {
+        &self.assessment_attempt_time_limit_seconds
     }
     /// Returns the validated effective attempt limit without exposing policy internals.
     pub fn attempt_limit(&self) -> &PreviewLimitField {
@@ -187,12 +187,12 @@ impl PreviewResolvedPolicy {
     }
 }
 
-/// Prior Assignment Attempt fact; it is a count, not an attempt or receipt reference.
+/// Prior Assessment Attempt fact; it is a count, not an attempt or receipt reference.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "u32", into = "u32")]
-pub struct PreviewPriorAssignmentAttemptCount(u32);
+pub struct PreviewPriorAssessmentAttemptCount(u32);
 
-impl TryFrom<u32> for PreviewPriorAssignmentAttemptCount {
+impl TryFrom<u32> for PreviewPriorAssessmentAttemptCount {
     type Error = &'static str;
 
     fn try_from(value: u32) -> Result<Self, Self::Error> {
@@ -200,8 +200,8 @@ impl TryFrom<u32> for PreviewPriorAssignmentAttemptCount {
     }
 }
 
-impl From<PreviewPriorAssignmentAttemptCount> for u32 {
-    fn from(value: PreviewPriorAssignmentAttemptCount) -> Self {
+impl From<PreviewPriorAssessmentAttemptCount> for u32 {
+    fn from(value: PreviewPriorAssessmentAttemptCount) -> Self {
         value.0
     }
 }
@@ -234,22 +234,22 @@ pub enum StudentViewScenarioAdmission {
 )]
 pub struct StudentViewScenario {
     pub origin: StudentViewScenarioOrigin,
-    pub assignment: AssignmentReference,
-    pub edit_number: AssignmentEditNumber,
+    pub assessment: AssessmentReference,
+    pub edit_number: AssessmentEditNumber,
     pub selected_moment: PreviewSelectedMoment,
     pub policy: PreviewResolvedPolicy,
-    pub prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
+    pub prior_assessment_attempt_count: PreviewPriorAssessmentAttemptCount,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 struct StudentViewScenarioWire {
     origin: StudentViewScenarioOrigin,
-    assignment: AssignmentReference,
-    edit_number: AssignmentEditNumber,
+    assessment: AssessmentReference,
+    edit_number: AssessmentEditNumber,
     selected_moment: PreviewSelectedMoment,
     policy: PreviewResolvedPolicy,
-    prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
+    prior_assessment_attempt_count: PreviewPriorAssessmentAttemptCount,
 }
 
 impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
@@ -257,11 +257,11 @@ impl TryFrom<StudentViewScenarioWire> for StudentViewScenario {
     fn try_from(value: StudentViewScenarioWire) -> Result<Self, Self::Error> {
         Self::new(
             value.origin,
-            value.assignment,
+            value.assessment,
             value.edit_number,
             value.selected_moment,
             value.policy,
-            value.prior_assignment_attempt_count,
+            value.prior_assessment_attempt_count,
         )
     }
 }
@@ -271,24 +271,24 @@ impl StudentViewScenario {
     /// authorization and resolution.
     pub fn new(
         origin: StudentViewScenarioOrigin,
-        assignment: AssignmentReference,
-        edit_number: AssignmentEditNumber,
+        assessment: AssessmentReference,
+        edit_number: AssessmentEditNumber,
         selected_moment: PreviewSelectedMoment,
         policy: PreviewResolvedPolicy,
-        prior_assignment_attempt_count: PreviewPriorAssignmentAttemptCount,
+        prior_assessment_attempt_count: PreviewPriorAssessmentAttemptCount,
     ) -> Result<Self, &'static str> {
         Ok(Self {
             origin,
-            assignment,
+            assessment,
             edit_number,
             selected_moment,
             policy,
-            prior_assignment_attempt_count,
+            prior_assessment_attempt_count,
         })
     }
 }
 
-/// Safe Assignment Access outcome for one Instructor Preview Schedule Row.
+/// Safe Assessment Access outcome for one Instructor Preview Schedule Row.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(
     tag = "kind",
@@ -330,7 +330,7 @@ pub enum InstructorPreviewScheduleRow {
         membership: CourseMembershipReference,
         display: TeachingDisplayLabel,
         active_student_course_membership: ActiveStudentCourseMembershipGrantReason,
-        effective_assignment_policy: EffectiveAssignmentPolicyView,
+        effective_assessment_policy: EffectiveAssessmentPolicyView,
     },
     Denied {
         membership: CourseMembershipReference,
@@ -339,36 +339,36 @@ pub enum InstructorPreviewScheduleRow {
     },
 }
 
-/// Instructor Preview page for effective_assignment_policy. Store paging owns cursor opacity and row bounds.
+/// Instructor Preview page for effective_assessment_policy. Store paging owns cursor opacity and row bounds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct InstructorPreviewSchedulePage {
-    pub edit_number: AssignmentEditNumber,
+    pub edit_number: AssessmentEditNumber,
     pub rows: Vec<InstructorPreviewScheduleRow>,
     pub next_cursor: Option<String>,
 }
 
-/// Safe effective window and limits, reused in effective_assignment_policy and Before/After views.
+/// Safe effective window and limits, reused in effective_assessment_policy and Before/After views.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct EffectiveAssignmentPolicyView {
+pub struct EffectiveAssessmentPolicyView {
     pub available_at: PreviewTimeField,
     pub due_at: PreviewTimeField,
     pub closes_at: PreviewTimeField,
-    pub assignment_attempt_time_limit_seconds: PreviewLimitField,
+    pub assessment_attempt_time_limit_seconds: PreviewLimitField,
     pub attempt_limit: PreviewLimitField,
     pub late_work_rule: PreviewLateWorkRuleField,
 }
 
-/// Accommodation effect compares two independently resolved Effective Assignment Policy Views.
+/// Accommodation effect compares two independently resolved Effective Assessment Policy Views.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct PreviewAccommodationComparison {
-    pub before: EffectiveAssignmentPolicyView,
-    pub after: EffectiveAssignmentPolicyView,
+    pub before: EffectiveAssessmentPolicyView,
+    pub after: EffectiveAssessmentPolicyView,
 }
 
-/// Complete non-mutating preview response returned by the Assignment Delivery Preview
+/// Complete non-mutating preview response returned by the Assessment Delivery Preview
 /// contract boundary.
 ///
 /// The optional accommodation comparison is absent when a Hypothetical Student View Scenario
@@ -447,7 +447,7 @@ pub enum PreviewEvaluation {
     Allowed {
         student_view_scenario: StudentViewScenario,
         student_view_scenario_admission: StudentViewScenarioAdmission,
-        effective_assignment_policy: EffectiveAssignmentPolicyView,
+        effective_assessment_policy: EffectiveAssessmentPolicyView,
         student_feedback_release: Vec<StudentFeedbackReleaseView>,
     },
     Denied {
@@ -482,28 +482,28 @@ mod direct_preview_tests {
     #[test]
     fn hypothetical_student_view_scenario_request_accepts_only_direct_preview_fields() {
         let request = serde_json::json!({
-            "assignment": "A-1",
+            "assessment": "A7K3M2Q",
             "edit_number": "1",
             "selected_moment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {
                 "available_at": { "kind": "inherit" },
                 "due_at": { "kind": "inherit" },
                 "closes_at": { "kind": "inherit" },
-                "assignment_attempt_time_limit_seconds": { "kind": "inherit" },
+                "assessment_attempt_time_limit_seconds": { "kind": "inherit" },
                 "attempt_limit": { "kind": "inherit" }
             } }
         });
         serde_json::from_value::<HypotheticalStudentViewScenarioRequest>(request)
             .expect("direct hypothetical Student View Scenario request");
         let retired = serde_json::json!({
-            "assignment": "A-1",
+            "assessment": "A7K3M2Q",
             "revision": "1",
             "selectedMoment": { "value": "2026-08-20T09:00:00.000" },
             "modifiers": { "mode": "extend_only", "adjustment": {
                 "available_at": { "kind": "inherit" },
                 "due_at": { "kind": "inherit" },
                 "closes_at": { "kind": "inherit" },
-                "assignment_attempt_time_limit_seconds": { "kind": "inherit" },
+                "assessment_attempt_time_limit_seconds": { "kind": "inherit" },
                 "attempt_limit": { "kind": "inherit" }
             } }
         });
@@ -514,7 +514,7 @@ mod direct_preview_tests {
     fn student_view_scenario_serializes_without_membership_or_group_facts() {
         let student_view_scenario = StudentViewScenario::new(
             StudentViewScenarioOrigin::Hypothetical,
-            AssignmentReference::new(1).expect("assignment reference"),
+            AssessmentReference::new("A7K3M2Q").expect("assessment reference"),
             "1".parse().expect("edit number"),
             PreviewSelectedMoment {
                 value: LocalDateAndTime::parse("2026-08-20T09:00:00.000").expect("moment"),
@@ -522,31 +522,31 @@ mod direct_preview_tests {
             PreviewResolvedPolicy::new(
                 PreviewTimeField {
                     value: None,
-                    source: AssignmentPolicySourceKind::Base,
+                    source: AssessmentPolicySourceKind::Base,
                 },
                 PreviewTimeField {
                     value: None,
-                    source: AssignmentPolicySourceKind::Base,
+                    source: AssessmentPolicySourceKind::Base,
                 },
                 PreviewTimeField {
                     value: None,
-                    source: AssignmentPolicySourceKind::Base,
+                    source: AssessmentPolicySourceKind::Base,
                 },
                 PreviewLimitField {
                     value: None,
-                    source: AssignmentPolicySourceKind::Base,
+                    source: AssessmentPolicySourceKind::Base,
                 },
                 PreviewLimitField {
                     value: None,
-                    source: AssignmentPolicySourceKind::Base,
+                    source: AssessmentPolicySourceKind::Base,
                 },
                 PreviewLateWorkRuleField {
                     value: LateWorkRule::Accept,
-                    source: AssignmentPolicySourceKind::Base,
+                    source: AssessmentPolicySourceKind::Base,
                 },
             )
             .expect("policy"),
-            PreviewPriorAssignmentAttemptCount::try_from(0).expect("count"),
+            PreviewPriorAssessmentAttemptCount::try_from(0).expect("count"),
         )
         .expect("Student View Scenario");
         let wire = serde_json::to_string(&student_view_scenario).expect("wire");

@@ -6,8 +6,8 @@ use objects::ObjectAddress;
 use question_model::generation::QuestionSeed;
 use question_model::{
     ImathasQuestionBackendBinding, ObjectId, QuestionBackendVersion, QuestionGraderVersion,
-    QuestionRevisionReference, QuestionVariationPresentation, SourceObjectChecksum,
-    SourceObjectReference,
+    QuestionReproduction, QuestionRevisionReference, QuestionVariationPresentation,
+    SourceObjectChecksum, SourceObjectReference,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -35,12 +35,21 @@ pub(super) fn validate_cache(
     question_seed: QuestionSeed,
     source: &ResolvedImathasQuestionSource,
 ) -> Result<(), ImathasAdapterError> {
+    let QuestionReproduction::Seeded {
+        question_seed: cached_seed,
+        generated_parameter_sha256,
+    } = &cached.presentation.variation.reproduction
+    else {
+        // iMathAS is renderer-backed: a static reproduction record cannot be its cache entry.
+        return Err(ImathasAdapterError::InvalidCache);
+    };
     if cached.schema != 1
         || cached.source != *source.source_object_reference()
         || cached.source_object_checksum != *source.source_object_checksum()
         || cached.binding != source.binding
         || cached.presentation.variation.question_revision != *question_revision
-        || cached.presentation.variation.question_seed != question_seed
+        || *cached_seed != question_seed
+        || *generated_parameter_sha256 != parameter_hash(question_seed)
         || question_model::validate_question_title(&cached.presentation.question_title).is_err()
         || !matches!(
             cached.presentation.response,

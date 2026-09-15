@@ -22,7 +22,7 @@ CREATE TABLE ple_private.imathas_render_cache_entry (
 CREATE TABLE ple_private.imathas_question_backend_session (
     imathas_question_backend_session_id uuid PRIMARY KEY,
     course_id uuid NOT NULL,
-    assignment_id uuid NOT NULL,
+    assessment_id uuid NOT NULL,
     question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt(question_attempt_id) ON DELETE CASCADE,
     account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     imathas_deployment_reference text NOT NULL CHECK (imathas_deployment_reference ~ '^[A-Za-z0-9._-]{1,160}$'),
@@ -46,7 +46,7 @@ CREATE TABLE ple_private.imathas_question_backend_session (
     imathas_question_backend_state_key_id text NOT NULL CHECK (imathas_question_backend_state_key_id ~ '^[A-Za-z0-9._:-]{1,160}$'),
     imathas_question_backend_state_nonce bytea NOT NULL CHECK (octet_length(imathas_question_backend_state_nonce) = 24),
     imathas_question_backend_state_ciphertext bytea NOT NULL CHECK (octet_length(imathas_question_backend_state_ciphertext) BETWEEN 17 AND 65536),
-    FOREIGN KEY (course_id, assignment_id) REFERENCES ple_data.assignment(course_id, assignment_id),
+    FOREIGN KEY (course_id, assessment_id) REFERENCES ple_data.assessment(course_id, assessment_id),
     FOREIGN KEY (question_id, revision_number) REFERENCES ple_data.question_revision(question_id, revision_number),
     CHECK (revoked_at IS NULL OR revoked_at >= issued_at),
     CHECK (consumed_at IS NULL OR consumed_at >= issued_at),
@@ -59,8 +59,8 @@ CREATE TABLE ple_private.imathas_question_backend_session (
 CREATE FUNCTION ple_private.enforce_imathas_question_backend_session_transition()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN
-    IF ROW(NEW.imathas_question_backend_session_id, NEW.course_id, NEW.assignment_id, NEW.question_attempt_id, NEW.account_id, NEW.imathas_deployment_reference, NEW.imathas_item_reference, NEW.question_id, NEW.revision_number, NEW.source_object_id, NEW.source_object_checksum, NEW.imathas_profile, NEW.question_seed, NEW.imathas_launch_binding_checksum, NEW.imathas_response_sha256, NEW.imathas_question_backend_session_challenge, NEW.imathas_question_backend_session_authentication, NEW.issued_at, NEW.expires_at, NEW.imathas_question_backend_state_key_id, NEW.imathas_question_backend_state_nonce, NEW.imathas_question_backend_state_ciphertext)
-       IS DISTINCT FROM ROW(OLD.imathas_question_backend_session_id, OLD.course_id, OLD.assignment_id, OLD.question_attempt_id, OLD.account_id, OLD.imathas_deployment_reference, OLD.imathas_item_reference, OLD.question_id, OLD.revision_number, OLD.source_object_id, OLD.source_object_checksum, OLD.imathas_profile, OLD.question_seed, OLD.imathas_launch_binding_checksum, OLD.imathas_response_sha256, OLD.imathas_question_backend_session_challenge, OLD.imathas_question_backend_session_authentication, OLD.issued_at, OLD.expires_at, OLD.imathas_question_backend_state_key_id, OLD.imathas_question_backend_state_nonce, OLD.imathas_question_backend_state_ciphertext) THEN
+    IF ROW(NEW.imathas_question_backend_session_id, NEW.course_id, NEW.assessment_id, NEW.question_attempt_id, NEW.account_id, NEW.imathas_deployment_reference, NEW.imathas_item_reference, NEW.question_id, NEW.revision_number, NEW.source_object_id, NEW.source_object_checksum, NEW.imathas_profile, NEW.question_seed, NEW.imathas_launch_binding_checksum, NEW.imathas_response_sha256, NEW.imathas_question_backend_session_challenge, NEW.imathas_question_backend_session_authentication, NEW.issued_at, NEW.expires_at, NEW.imathas_question_backend_state_key_id, NEW.imathas_question_backend_state_nonce, NEW.imathas_question_backend_state_ciphertext)
+       IS DISTINCT FROM ROW(OLD.imathas_question_backend_session_id, OLD.course_id, OLD.assessment_id, OLD.question_attempt_id, OLD.account_id, OLD.imathas_deployment_reference, OLD.imathas_item_reference, OLD.question_id, OLD.revision_number, OLD.source_object_id, OLD.source_object_checksum, OLD.imathas_profile, OLD.question_seed, OLD.imathas_launch_binding_checksum, OLD.imathas_response_sha256, OLD.imathas_question_backend_session_challenge, OLD.imathas_question_backend_session_authentication, OLD.issued_at, OLD.expires_at, OLD.imathas_question_backend_state_key_id, OLD.imathas_question_backend_state_nonce, OLD.imathas_question_backend_state_ciphertext) THEN
         RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'iMathAS Question Backend Session binding is immutable';
     END IF;
     IF OLD.revoked_at IS NOT NULL OR OLD.consumed_at IS NOT NULL THEN

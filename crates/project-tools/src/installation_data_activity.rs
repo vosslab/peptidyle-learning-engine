@@ -15,7 +15,7 @@ use url::Url;
 use uuid::Uuid;
 
 use crate::installation_data::{
-    LIVE_DEMO_ASSIGNMENT_TITLE, LIVE_DEMO_AVERY_ACCOUNT_ID, LIVE_DEMO_COURSE_LONG_NAME,
+    LIVE_DEMO_ASSESSMENT_TITLE, LIVE_DEMO_AVERY_ACCOUNT_ID, LIVE_DEMO_COURSE_LONG_NAME,
     LIVE_DEMO_COURSE_SHORT_NAME, LIVE_DEMO_ELENA_ACCOUNT_ID, LIVE_DEMO_JACK_ACCOUNT_ID,
     LIVE_DEMO_MARY_ACCOUNT_ID,
 };
@@ -305,7 +305,7 @@ fn expect_status(
 #[derive(Clone)]
 struct DemoGraph {
     course: String,
-    assignment: String,
+    assessment: String,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -337,11 +337,11 @@ async fn converge(endpoint: &BrowserEndpoint, sessions: &TemporarySessions) -> R
     let jack = student_attempt_state(&api, sessions.session("jack")?, &graph).await?;
     ensure!(
         jack != AttemptState::Completed,
-        "Live Demo Jack Assignment Attempt cannot be converged"
+        "Live Demo Jack Assessment Attempt cannot be converged"
     );
     let jack_attempt = prepare_attempt(&api, sessions.session("jack")?, &graph, jack, "Jack")
         .await?
-        .context("Live Demo Jack Assignment Attempt is unavailable")?;
+        .context("Live Demo Jack Assessment Attempt is unavailable")?;
     save_responses(
         &api,
         sessions.session("jack")?,
@@ -387,22 +387,22 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
     );
     let course = public_reference(courses[0].get("reference"), "C-", "Course")?;
 
-    let assignments = expect_status(
+    let assessments = expect_status(
         api.request(
             instructor,
-            "Assignment discovery",
+            "Assessment discovery",
             Method::GET,
-            &format!("/api/course-instances/{course}/assignments"),
+            &format!("/api/course-instances/{course}/assessments"),
             None,
         )
         .await?,
         StatusCode::OK,
-        "Assignment discovery",
+        "Assessment discovery",
     )?;
-    let assignment_items = assignments
+    let assessment_items = assessments
         .as_array()
-        .context("Live Demo Assignment projection is invalid")?;
-    let assignments = assignment_items
+        .context("Live Demo Assessment projection is invalid")?;
+    let assessments = assessment_items
         .iter()
         .filter_map(|item| {
             let object = closed_object(
@@ -415,20 +415,20 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                     "status",
                     "editNumber",
                 ],
-                "Assignment",
+                "Assessment",
             )
             .ok()?;
-            (object.get("title")?.as_str() == Some(LIVE_DEMO_ASSIGNMENT_TITLE)
+            (object.get("title")?.as_str() == Some(LIVE_DEMO_ASSESSMENT_TITLE)
                 && object.get("status")?.as_str() == Some("released"))
             .then_some(object)
         })
         .collect::<Vec<_>>();
     ensure!(
-        assignments.len() == 1,
-        "Live Demo Assignment is missing or ambiguous"
+        assessments.len() == 1,
+        "Live Demo Assessment is missing or ambiguous"
     );
-    let assignment = public_reference(assignments[0].get("reference"), "A-", "Assignment")?;
-    Ok(DemoGraph { course, assignment })
+    let assessment = public_reference(assessments[0].get("reference"), "A-", "Assessment")?;
+    Ok(DemoGraph { course, assessment })
 }
 
 async fn student_attempt_state(
@@ -439,17 +439,17 @@ async fn student_attempt_state(
     let landing = expect_status(
         api.request(
             student,
-            "Student Assignment landing",
+            "Student Assessment landing",
             Method::GET,
-            &format!("/api/course-instances/{}/assignment-landing", graph.course),
+            &format!("/api/course-instances/{}/assessment-landing", graph.course),
             None,
         )
         .await?,
         StatusCode::OK,
-        "Student Assignment landing",
+        "Student Assessment landing",
     )?;
-    let assignments = closed_array_field(&landing, &["assignments"], "assignments", "Student")?;
-    let matches = assignments
+    let assessments = closed_array_field(&landing, &["assessments"], "assessments", "Student")?;
+    let matches = assessments
         .iter()
         .filter_map(|item| {
             let object = closed_object_with_optional(
@@ -458,30 +458,30 @@ async fn student_attempt_state(
                     "reference",
                     "title",
                     "decision",
-                    "assignmentAttemptNumber",
-                    "assignmentAttemptCompletion",
+                    "assessmentAttemptNumber",
+                    "assessmentAttemptCompletion",
                     "gradedQuestionCount",
                     "questionCount",
                 ],
                 &["score"],
-                "Student Assignment",
+                "Student Assessment",
             )
             .ok()?;
-            (object.get("reference")?.as_str() == Some(graph.assignment.as_str())).then_some(object)
+            (object.get("reference")?.as_str() == Some(graph.assessment.as_str())).then_some(object)
         })
         .collect::<Vec<_>>();
     ensure!(
         matches.len() == 1,
-        "Live Demo Student Assignment is missing or ambiguous"
+        "Live Demo Student Assessment is missing or ambiguous"
     );
-    let assignment = matches[0];
+    let assessment = matches[0];
     ensure!(
-        assignment.get("questionCount").and_then(Value::as_u64) == Some(LIVE_DEMO_QUESTION_COUNT),
-        "Live Demo Student Assignment question count is invalid"
+        assessment.get("questionCount").and_then(Value::as_u64) == Some(LIVE_DEMO_QUESTION_COUNT),
+        "Live Demo Student Assessment question count is invalid"
     );
     match (
-        assignment.get("assignmentAttemptNumber"),
-        assignment.get("assignmentAttemptCompletion"),
+        assessment.get("assessmentAttemptNumber"),
+        assessment.get("assessmentAttemptCompletion"),
     ) {
         (Some(Value::Null), Some(Value::Null)) => Ok(AttemptState::NotStarted),
         (Some(number), Some(Value::String(completion)))
@@ -494,7 +494,7 @@ async fn student_attempt_state(
         {
             Ok(AttemptState::Completed)
         }
-        _ => bail!("Live Demo Student Assignment state is invalid"),
+        _ => bail!("Live Demo Student Assessment state is invalid"),
     }
 }
 
@@ -505,9 +505,9 @@ async fn ensure_avery_is_startable(
 ) -> Result<()> {
     ensure!(
         student_attempt_state(api, avery, graph).await? == AttemptState::NotStarted,
-        "Live Demo Avery Assignment Attempt cannot be converged"
+        "Live Demo Avery Assessment Attempt cannot be converged"
     );
-    let access = assignment_access(api, avery, graph).await?;
+    let access = assessment_access(api, avery, graph).await?;
     ensure!(
         access
             .get("decision")
@@ -515,13 +515,13 @@ async fn ensure_avery_is_startable(
             .and_then(|decision| decision.get("startDecision"))
             .and_then(Value::as_str)
             == Some("may_start")
-            && access.get("activeAssignmentAttempt") == Some(&Value::Null),
-        "Live Demo Avery Assignment is not startable"
+            && access.get("activeAssessmentAttempt") == Some(&Value::Null),
+        "Live Demo Avery Assessment is not startable"
     );
     Ok(())
 }
 
-async fn assignment_access(
+async fn assessment_access(
     api: &ProductApi,
     student: &TemporarySession,
     graph: &DemoGraph,
@@ -529,29 +529,29 @@ async fn assignment_access(
     let value = expect_status(
         api.request(
             student,
-            "Assignment access",
+            "Assessment access",
             Method::GET,
             &format!(
-                "/api/course-instances/{}/assignments/{}/access",
-                graph.course, graph.assignment
+                "/api/course-instances/{}/assessments/{}/access",
+                graph.course, graph.assessment
             ),
             None,
         )
         .await?,
         StatusCode::OK,
-        "Assignment access",
+        "Assessment access",
     )?;
     let object = closed_object(
         &value,
         &[
             "decision",
-            "activeAssignmentAttempt",
+            "activeAssessmentAttempt",
             "title",
             "questionCount",
             "pointsPossible",
             "previousAttempts",
         ],
-        "Assignment access",
+        "Assessment access",
     )?;
     Ok(object.clone())
 }
@@ -567,7 +567,7 @@ async fn prepare_attempt(
         return Ok(None);
     }
     if state == AttemptState::NotStarted {
-        let access = assignment_access(api, student, graph).await?;
+        let access = assessment_access(api, student, graph).await?;
         ensure!(
             access
                 .get("decision")
@@ -575,40 +575,40 @@ async fn prepare_attempt(
                 .and_then(|decision| decision.get("startDecision"))
                 .and_then(Value::as_str)
                 == Some("may_start")
-                && access.get("activeAssignmentAttempt") == Some(&Value::Null),
-            "Live Demo {student_name} Assignment is not startable"
+                && access.get("activeAssessmentAttempt") == Some(&Value::Null),
+            "Live Demo {student_name} Assessment is not startable"
         );
     }
     let started = expect_status(
         api.request(
             student,
-            "Assignment start",
+            "Assessment start",
             Method::POST,
             &format!(
-                "/api/course-instances/{}/assignments/{}/start",
-                graph.course, graph.assignment
+                "/api/course-instances/{}/assessments/{}/start",
+                graph.course, graph.assessment
             ),
             Some(json!({})),
         )
         .await?,
         StatusCode::CREATED,
-        "Assignment start",
+        "Assessment start",
     )?;
     let object = closed_object(
         &started,
         &[
-            "assignmentAttempt",
-            "assignment",
+            "assessmentAttempt",
+            "assessment",
             "attemptNumber",
             "resumed",
             "title",
             "instructions",
             "questions",
         ],
-        "Assignment start",
+        "Assessment start",
     )?;
     ensure!(
-        object.get("assignment").and_then(Value::as_str) == Some(graph.assignment.as_str())
+        object.get("assessment").and_then(Value::as_str) == Some(graph.assessment.as_str())
             && object
                 .get("attemptNumber")
                 .and_then(Value::as_u64)
@@ -619,9 +619,9 @@ async fn prepare_attempt(
                 .get("questions")
                 .and_then(Value::as_array)
                 .is_some_and(|items| items.len() == LIVE_DEMO_QUESTION_COUNT as usize),
-        "Live Demo {student_name} Assignment Attempt is invalid"
+        "Live Demo {student_name} Assessment Attempt is invalid"
     );
-    public_reference(object.get("assignmentAttempt"), "R-", "Assignment Attempt").map(Some)
+    public_reference(object.get("assessmentAttempt"), "R-", "Assessment Attempt").map(Some)
 }
 
 async fn save_responses(
@@ -638,7 +638,7 @@ async fn save_responses(
                 student,
                 "Student response save",
                 Method::PUT,
-                &format!("/api/assignment-attempts/{attempt}/responses/{position}"),
+                &format!("/api/assessment-attempts/{attempt}/responses/{position}"),
                 Some(json!({"response": response})),
             )
             .await?,
@@ -648,7 +648,7 @@ async fn save_responses(
         ensure!(
             receipt
                 == json!({
-                    "assignmentAttempt": attempt,
+                    "assessmentAttempt": attempt,
                     "position": position,
                     "responseState": "saved"
                 }),
@@ -669,7 +669,7 @@ async fn selected_presentation(
             student,
             "Student presentation",
             Method::GET,
-            &format!("/api/assignment-attempts/{attempt}/student-question?position={position}"),
+            &format!("/api/assessment-attempts/{attempt}/student-question?position={position}"),
             None,
         )
         .await?,
@@ -704,27 +704,27 @@ async fn submit_attempt(api: &ProductApi, student: &TemporarySession, attempt: &
     let receipt = expect_status(
         api.request(
             student,
-            "Assignment submission",
+            "Assessment submission",
             Method::POST,
-            &format!("/api/assignment-attempts/{attempt}/submission"),
+            &format!("/api/assessment-attempts/{attempt}/submission"),
             Some(json!({})),
         )
         .await?,
         StatusCode::OK,
-        "Assignment submission",
+        "Assessment submission",
     )?;
     let receipt = receipt
         .as_object()
-        .context("Live Demo Assignment submission receipt is invalid")?;
+        .context("Live Demo Assessment submission receipt is invalid")?;
     ensure!(
         receipt.keys().map(String::as_str).collect::<Vec<_>>()
-            == ["assignmentAttempt", "score", "submissionState"],
-        "Live Demo Assignment submission receipt is not closed"
+            == ["assessmentAttempt", "score", "submissionState"],
+        "Live Demo Assessment submission receipt is not closed"
     );
     ensure!(
-        receipt.get("assignmentAttempt").and_then(Value::as_str) == Some(attempt)
+        receipt.get("assessmentAttempt").and_then(Value::as_str) == Some(attempt)
             && receipt.get("submissionState").and_then(Value::as_str) == Some("submitted"),
-        "Live Demo Assignment submission receipt is invalid"
+        "Live Demo Assessment submission receipt is invalid"
     );
     let score = receipt
         .get("score")
@@ -732,21 +732,21 @@ async fn submit_attempt(api: &ProductApi, student: &TemporarySession, attempt: &
         .context("Live Demo native PLE submission did not return a score")?;
     ensure!(
         score.keys().map(String::as_str).collect::<Vec<_>>() == ["pointsEarned", "pointsPossible"],
-        "Live Demo Assignment score is not closed"
+        "Live Demo Assessment score is not closed"
     );
     let points_earned = score
         .get("pointsEarned")
         .and_then(Value::as_f64)
-        .context("Live Demo Assignment score is invalid")?;
+        .context("Live Demo Assessment score is invalid")?;
     let points_possible = score
         .get("pointsPossible")
         .and_then(Value::as_f64)
-        .context("Live Demo Assignment score is invalid")?;
+        .context("Live Demo Assessment score is invalid")?;
     ensure!(
         points_earned.is_finite()
             && points_possible.is_finite()
             && (0.0..=points_possible).contains(&points_earned),
-        "Live Demo Assignment score is invalid"
+        "Live Demo Assessment score is invalid"
     );
     Ok(())
 }
@@ -760,12 +760,12 @@ async fn verify_complete_activity(
     ensure!(
         student_attempt_state(api, sessions.session("mary")?, graph).await?
             == AttemptState::Completed,
-        "Live Demo Mary Assignment Attempt is not completed"
+        "Live Demo Mary Assessment Attempt is not completed"
     );
     ensure!(
         student_attempt_state(api, sessions.session("jack")?, graph).await?
             == AttemptState::InProgress,
-        "Live Demo Jack Assignment Attempt is not open"
+        "Live Demo Jack Assessment Attempt is not open"
     );
     ensure_avery_is_startable(api, sessions.session("avery")?, graph).await?;
     let progress = expect_status(
@@ -773,7 +773,7 @@ async fn verify_complete_activity(
             sessions.session("jack")?,
             "Student progress",
             Method::GET,
-            &format!("/api/assignment-attempts/{jack_attempt}/student-progress"),
+            &format!("/api/assessment-attempts/{jack_attempt}/student-progress"),
             None,
         )
         .await?,
@@ -783,7 +783,7 @@ async fn verify_complete_activity(
     let positions = closed_array_field(
         &progress,
         &[
-            "assignmentAttempt",
+            "assessmentAttempt",
             "questionCount",
             "recommendedPosition",
             "positions",
@@ -792,7 +792,7 @@ async fn verify_complete_activity(
         "Student progress",
     )?;
     ensure!(
-        progress.get("assignmentAttempt").and_then(Value::as_str) == Some(jack_attempt)
+        progress.get("assessmentAttempt").and_then(Value::as_str) == Some(jack_attempt)
             && progress.get("questionCount").and_then(Value::as_u64)
                 == Some(LIVE_DEMO_QUESTION_COUNT)
             && positions.len() == LIVE_DEMO_QUESTION_COUNT as usize,

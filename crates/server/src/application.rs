@@ -12,18 +12,23 @@ enum ProcessMode {
     ApiHealthProbe,
     Worker,
     WorkerHealthProbe,
+    CourseRetentionWorker,
     PublicAssetPublisher,
+    LocalSysadminTotpProvisioning,
 }
 
-const PROCESS_USAGE: &str =
-    "peptidyle-api [--health-probe | --worker [--health-probe] | --public-asset-publisher]";
+const PROCESS_USAGE: &str = "peptidyle-api [--health-probe | --worker [--health-probe] | --course-retention-worker | --public-asset-publisher | --provision-local-sysadmin-totp]";
 
 fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
     match arguments {
         [] => Ok(ProcessMode::Api),
         [flag] if flag == "--health-probe" => Ok(ProcessMode::ApiHealthProbe),
         [flag] if flag == "--worker" => Ok(ProcessMode::Worker),
+        [flag] if flag == "--course-retention-worker" => Ok(ProcessMode::CourseRetentionWorker),
         [flag] if flag == "--public-asset-publisher" => Ok(ProcessMode::PublicAssetPublisher),
+        [flag] if flag == "--provision-local-sysadmin-totp" => {
+            Ok(ProcessMode::LocalSysadminTotpProvisioning)
+        }
         [worker, probe] if worker == "--worker" && probe == "--health-probe" => {
             Ok(ProcessMode::WorkerHealthProbe)
         }
@@ -72,9 +77,17 @@ pub(crate) async fn run() -> anyhow::Result<()> {
         return server_core::composition::run_attempt_expiry_worker_from_env().await;
     }
 
+    if mode == ProcessMode::CourseRetentionWorker {
+        return server_core::composition::run_course_retention_process_from_env().await;
+    }
+
     if mode == ProcessMode::PublicAssetPublisher {
         let _published = server_core::composition::publish_one_public_asset_from_env().await?;
         return Ok(());
+    }
+
+    if mode == ProcessMode::LocalSysadminTotpProvisioning {
+        return server_core::composition::provision_local_sysadmin_totp_from_env().await;
     }
 
     let bind_addr = server_core::composition::bind_address_from_env()?;
@@ -172,6 +185,11 @@ mod tests {
         assert_eq!(
             process_mode(&["--worker".to_string()]).expect("worker"),
             ProcessMode::Worker
+        );
+        assert_eq!(
+            process_mode(&["--course-retention-worker".to_string()])
+                .expect("Course-retention worker"),
+            ProcessMode::CourseRetentionWorker
         );
         assert_eq!(
             process_mode(&["--worker".to_string(), "--health-probe".to_string()])

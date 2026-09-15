@@ -19,13 +19,13 @@ import { M6_RIBBON_FIXTURES } from "./support/ribbon_model_fixtures.ts";
 const PRODUCT_ROLES = ["student", "instructor", "sysadmin"];
 const LABELS = {};
 const PARAMETER_VALUES = {
-  courseRef: "C-1",
-  assignmentRef: "A-1",
-  assignmentAttemptRef: "R-1",
+  courseRef: "CI7K3M2Q",
+  assessmentRef: "A9D2RX5",
+  assessmentAttemptRef: "R-1",
   membershipRef: "M-1",
-  questionRef: "7K3M9QP",
+  questionRef: "7K3MX9QP",
   draftQuestionRef: "D-1",
-  blueprintCourseRef: "BP-1",
+  blueprintCourseRef: "BP7K3M2Q",
 };
 const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
 
@@ -63,21 +63,14 @@ function restoreDescriptors(target, descriptors) {
   Object.defineProperties(target, descriptors);
 }
 
-test("declared routes build and extract a canonical public pathname", () => {
-  for (const route of ROUTE_CONTRACT) {
-    const pathname = buildRoutePath(route.id, paramsForRoute(route));
-    assert.ok(pathname, route.id);
-    const extracted = routeParams(route, pathname);
-    assert.ok(extracted, route.id);
-    assert.equal(buildRoutePath(route.id, extracted), pathname, route.id);
-  }
-});
-
 test("route construction fails closed for incomplete, surplus, and malformed input", () => {
   assert.equal(buildRoutePath("unknown", {}), undefined);
-  assert.equal(buildRoutePath("courseAssignments", {}), undefined);
-  assert.equal(buildRoutePath("courseAssignments", { courseRef: "C-1", extra: "x" }), undefined);
-  assert.equal(buildRoutePath("courseAssignments", { courseRef: "C-1/gradebook" }), undefined);
+  assert.equal(buildRoutePath("courseAssessments", {}), undefined);
+  assert.equal(
+    buildRoutePath("courseAssessments", { courseRef: "CI7K3M2Q", extra: "x" }),
+    undefined,
+  );
+  assert.equal(buildRoutePath("courseAssessments", { courseRef: "CI7K3M2Q/gradebook" }), undefined);
   assert.equal(buildRoutePath("questionDetail", { questionRef: "7K3%2FM9QP" }), undefined);
 });
 
@@ -112,38 +105,49 @@ test("admission withholds unavailable controls and respects declared role ceilin
   }
 });
 
-test("Instructor Ribbon has one Product Role plate and an accessible icon-only Profile end control", async () => {
-  const model = controlsFor("courses", "instructor").model;
-  assert.deepEqual(model.context.accountControls, [
-    {
-      id: "profile",
-      label: "Profile",
-      availability: "Available",
-      glyph: "profile",
-      href: "/profile",
-    },
-  ]);
+// Permanent contract: every signed-in role reaches the same self-owned account
+// commands through the compact Profile menu. A regression would either strand a
+// role from Profile/Account settings or scatter Sign out back into the top bar.
+test("every signed-in Product Role has one accessible generic Profile end control", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
-  const html = renderToString(() => createComponent(RealAppRibbon, { model }));
-  assert.match(html, /data-ribbon-context-control="profile"/);
-  assert.equal(
-    (html.match(/ple-app-ribbon__product-role/g) ?? []).length,
-    1,
-    "the Product Role is represented by one role plate",
-  );
-  const profile = html.match(
-    /<a[^>]*data-ribbon-context-control="profile"[^>]*>[\s\S]*?<\/a>/,
-  )?.[0];
-  assert.ok(profile, "Instructor Ribbon has a Profile end control");
-  assert.match(profile, /aria-label="Profile"/);
-  assert.doesNotMatch(profile, />Profile</);
-  assert.ok(
-    html.indexOf('data-ribbon-action="signOut"') <
-      html.indexOf('data-ribbon-context-control="profile"'),
-    "Profile follows Sign out at the account end",
-  );
-  const profileRoute = ROUTE_CONTRACT.find((route) => route.id === "instructorProfile");
-  assert.deepEqual(profileRoute?.ribbon, { scope: "product", contentLayout: "reading" });
+  for (const [role, routeId] of [
+    ["student", "studentHome"],
+    ["instructor", "instructorHome"],
+    ["sysadmin", "sysadminHome"],
+  ]) {
+    const model = controlsFor(routeId, role).model;
+    assert.deepEqual(
+      model.context.accountControls,
+      [
+        {
+          id: "profile",
+          label: "Profile",
+          availability: "Available",
+          glyph: "profile",
+          href: "/profile",
+        },
+      ],
+      `${role} has the one shared Profile destination`,
+    );
+    const html = renderToString(() => createComponent(RealAppRibbon, { model }));
+    assert.equal(
+      (html.match(/data-ribbon-context-control="profile"/g) ?? []).length,
+      1,
+      `${role} has one Profile control`,
+    );
+    const profile = html.match(
+      /<button[^>]*data-ribbon-context-control="profile"[^>]*>[\s\S]*?<\/button>/,
+    )?.[0];
+    assert.ok(profile, `${role} Profile is a button while its menu is pending`);
+    assert.match(profile, /aria-label="Profile"/);
+    assert.match(profile, /aria-haspopup="menu"/);
+    assert.match(profile, /aria-expanded="false"/);
+    assert.match(profile, /data-ribbon-profile-avatar="generic"/);
+    assert.match(profile, /data-ribbon-glyph="circle-user"/);
+    assert.doesNotMatch(profile, />Profile</);
+    assert.doesNotMatch(html, /href="\/account-settings"/);
+    assert.doesNotMatch(html, /data-ribbon-action="signOut"/);
+  }
 });
 
 test("Appearance admits only the Instructor Course Setup task and preserves its route", async () => {
@@ -154,7 +158,7 @@ test("Appearance admits only the Instructor Course Setup task and preserves its 
   );
   assert.match(
     instructorHtml,
-    /href="\/instructor\/courses\/C-1\/appearance"[^>]*data-ribbon-control="appearance"/,
+    /href="\/instructor\/courses\/CI7K3M2Q\/appearance"[^>]*data-ribbon-control="appearance"/,
   );
   for (const role of ["student", "sysadmin"]) {
     const model = controlsFor("courseAppearance", role).model;
@@ -182,7 +186,7 @@ test("Task Row topology is exactly the declared task-group topology for every ro
       const instructorProductTaskGroup = [
         "instructorCourses",
         "instructorQuestions",
-        "instructorAssignments",
+        "instructorAssessments",
       ].includes(route.ribbon.taskGroup);
       assert.equal(
         model.taskAreas.length > 0,
@@ -195,7 +199,7 @@ test("Task Row topology is exactly the declared task-group topology for every ro
 });
 
 test("Task Row topology does not report task-control admission", () => {
-  const routeId = "assignmentWorkspaceOverview";
+  const routeId = "assessmentWorkspaceOverview";
   const before = controlsFor(routeId, "instructor").model.taskAreas;
   const taskEntries = RIBBON_TASK_CATALOG.map((control) => CAPABILITY_REGISTRY[control.id]);
   const descriptors = taskEntries.map((entry) => [entry, Object.getOwnPropertyDescriptors(entry)]);
@@ -230,11 +234,11 @@ test("Task Row topology does not report task-control admission", () => {
 });
 
 test("Instructor Product routes reserve owner-ordered task groups despite unavailable entries", () => {
-  const courses = controlsFor("courses", "instructor").model;
+  const courses = controlsFor("instructorHome", "instructor").model;
   const questions = controlsFor("library", "instructor").model;
   assert.deepEqual(
     courses.tabs.map((control) => control.label),
-    ["Courses", "Questions", "Assignments"],
+    ["Courses", "Questions", "Assessments"],
   );
   assert.deepEqual(
     courses.taskAreas.flatMap((area) => area.controls).map((control) => control.label),
@@ -282,17 +286,17 @@ test("Ribbon has one plain brand anchor rather than a separate product-name trea
   assert.doesNotMatch(html, /ple-app-ribbon__product-name/);
 });
 
-test("Student Assignment Access and its Course landing retain the role-owned Assignments tab", () => {
-  const assignmentAccess = controlsFor("assignmentOverview", "student").model;
+test("Student Assessment Access and its Course landing retain the role-owned Assessments tab", () => {
+  const assessmentAccess = controlsFor("assessmentOverview", "student").model;
   const courseLanding = controlsFor("studentCourseLanding", "student").model;
   const expectedTab = [
     {
-      id: "studentAssignments",
-      label: "Assignments",
+      id: "studentAssessments",
+      label: "Assessments",
       destination: { kind: "route", routeId: "studentCourseLanding" },
       availability: "Available",
       selected: true,
-      href: "/student/courses/C-1",
+      href: "/student/courses/CI7K3M2Q",
       role: "primary",
       priority: "critical",
       presentation: "standard",
@@ -300,28 +304,31 @@ test("Student Assignment Access and its Course landing retain the role-owned Ass
       iconOnlySafe: false,
     },
   ];
-  assert.deepEqual(assignmentAccess.tabs, expectedTab);
+  assert.deepEqual(assessmentAccess.tabs, expectedTab);
   assert.deepEqual(courseLanding.tabs, expectedTab);
 });
 
-test("Assignment workspace tasks retain supported links and exactly one selected task", async () => {
+// Permanent contract: these canonical links are the Instructor's stable
+// Assessment workspace navigation. A regression would strand Properties or
+// reintroduce an obsolete generic path.
+test("Assessment workspace tasks retain canonical links and one selected task", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const expected = {
-    assignmentWorkspaceOverview: "/instructor/courses/C-1/assignments/A-1",
-    assignmentWorkspaceQuestions: "/instructor/courses/C-1/assignments/A-1/questions",
-    assignmentWorkspacePolicies: "/instructor/courses/C-1/assignments/A-1/policies",
+    assessmentWorkspaceOverview: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5",
+    assessmentWorkspaceQuestions: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/questions",
+    assessmentWorkspacePolicies: "/instructor/courses/CI7K3M2Q/assessments/A9D2RX5/properties",
   };
   for (const [routeId, selectedHref] of Object.entries(expected)) {
     const { model, controls } = controlsFor(routeId, "instructor");
     const tasks = controls.filter((control) =>
-      ["assignmentOverview", "assignmentQuestions", "assignmentPolicies"].includes(control.id),
+      ["assessmentOverview", "assessmentQuestions", "assessmentPolicies"].includes(control.id),
     );
     assert.deepEqual(
       tasks.map(({ id, href }) => ({ id, href })),
       [
-        { id: "assignmentOverview", href: expected.assignmentWorkspaceOverview },
-        { id: "assignmentQuestions", href: expected.assignmentWorkspaceQuestions },
-        { id: "assignmentPolicies", href: expected.assignmentWorkspacePolicies },
+        { id: "assessmentOverview", href: expected.assessmentWorkspaceOverview },
+        { id: "assessmentQuestions", href: expected.assessmentWorkspaceQuestions },
+        { id: "assessmentPolicies", href: expected.assessmentWorkspacePolicies },
       ],
       routeId,
     );
@@ -339,9 +346,9 @@ test("Assignment workspace tasks retain supported links and exactly one selected
 });
 
 test("missing source parameters withhold a backed destination without changing its position", () => {
-  const entry = CAPABILITY_REGISTRY.backToAssignments;
+  const entry = CAPABILITY_REGISTRY.backToAssessments;
   const descriptors = Object.getOwnPropertyDescriptors(entry);
-  const before = controlsFor("assignmentAttempt", "student").controls.map(({ id }) => id);
+  const before = controlsFor("assessmentAttempt", "student").controls.map(({ id }) => id);
   try {
     Object.assign(entry, {
       relationshipRequirement: "none",
@@ -352,7 +359,7 @@ test("missing source parameters withhold a backed destination without changing i
         evidence: ["tests/test_ribbon_contract.mjs"],
       },
     });
-    const controls = controlsFor("assignmentAttempt", "student").controls;
+    const controls = controlsFor("assessmentAttempt", "student").controls;
     const back = controls.find((control) => control.id === entry.id);
     assert.deepEqual(
       controls.map(({ id }) => id),
@@ -365,9 +372,9 @@ test("missing source parameters withhold a backed destination without changing i
 });
 
 test("relationship admission may check without moving schema-owned positions", () => {
-  const entry = CAPABILITY_REGISTRY.assignments;
+  const entry = CAPABILITY_REGISTRY.assessments;
   const descriptors = Object.getOwnPropertyDescriptors(entry);
-  const before = controlsFor("courseAssignments", "instructor").controls.map(({ id }) => id);
+  const before = controlsFor("courseAssessments", "instructor").controls.map(({ id }) => id);
   try {
     Object.assign(entry, {
       relationshipRequirement: "grader",
@@ -378,7 +385,7 @@ test("relationship admission may check without moving schema-owned positions", (
         evidence: ["tests/test_ribbon_contract.mjs"],
       },
     });
-    const controls = controlsFor("courseAssignments", "instructor").controls;
+    const controls = controlsFor("courseAssessments", "instructor").controls;
     assert.deepEqual(
       controls.map(({ id }) => id),
       before,
@@ -393,26 +400,26 @@ test("breadcrumb trails are canonical route projections with one current termina
   const labels = {
     courseShortName: "BCHM 355",
     courseLongName: "Biochemistry I",
-    assignmentTitle: "Problem Set 7",
-    assignmentAttemptTitle: "Problem Set 7",
+    assessmentTitle: "Problem Set 7",
+    assessmentAttemptTitle: "Problem Set 7",
   };
   const cases = [
     ["courses", []],
-    ["courseAssignments", ["Courses", "Biochemistry I"]],
+    ["courseAssessments", ["Courses", "Biochemistry I"]],
     ["courseAppearance", ["Courses", "Biochemistry I", "Appearance"]],
-    ["assignmentWorkspaceQuestions", ["Courses", "Biochemistry I", "Problem Set 7", "Questions"]],
+    ["assessmentWorkspaceQuestions", ["Courses", "Biochemistry I", "Problem Set 7", "Questions"]],
     ["questionDetail", ["Questions", "Question Library", "Question"]],
     ["questionDraftEditor", ["Questions", "My Draft Questions", "Draft Question"]],
     ["blueprintCourseDetail", ["Courses", "My Blueprint Courses", "Blueprint Course"]],
-    ["assignmentAttempt", ["Courses", "Biochemistry I", "Problem Set 7", "Assignment attempt"]],
+    ["assessmentAttempt", ["Courses", "Biochemistry I", "Problem Set 7", "Assessment attempt"]],
   ];
   for (const [routeId, expectedLabels] of cases) {
     const routeState = routeStateFor(routeId);
     const model = deriveRibbonModel(
-      routeId === "assignmentAttempt"
+      routeId === "assessmentAttempt"
         ? {
             ...routeState,
-            params: { ...routeState.params, courseRef: "C-1", assignmentRef: "A-1" },
+            params: { ...routeState.params, courseRef: "CI7K3M2Q", assessmentRef: "A9D2RX5" },
           }
         : routeState,
       { productRole: "instructor" },

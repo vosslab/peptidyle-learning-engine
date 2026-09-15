@@ -26,7 +26,7 @@ test("Question Summary rejects an absent, extraneous, or cross-lineage Latest Qu
       decodeQuestionSummary(
         {
           ...summary,
-          latestQuestionRevision: { questionId: "2R5-X7YA", revisionNumber: 1 },
+          latestQuestionRevision: { questionId: "2R5X-Z7YA", revisionNumber: 1 },
         },
         "summary",
         true,

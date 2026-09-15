@@ -1,8 +1,8 @@
 //! Session-authorized Course Instance creation and teaching-team projections.
 //!
-//! A Course Instance always records one exact Blueprint Revision and one
-//! assigned Instructor before it becomes visible.  This deliberately stops
-//! before roster, Assignment, or Student delivery concerns.
+//! A Course Instance begins empty or adopts one exact Blueprint Revision, and
+//! records one initial accountable Instructor before it becomes visible. This
+//! deliberately stops before roster, Assessment, or Student delivery concerns.
 
 use async_trait::async_trait;
 use question_model::{
@@ -13,14 +13,31 @@ use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
 
+/// Closed source for a new live Course Instance.
+///
+/// An Empty Course is intentionally independent of every Blueprint read and
+/// materialization path. An Adopted Course names one immutable source
+/// Revision. The tagged JSON representation rejects old flat source fields.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+pub enum CourseInstanceCreationSource {
+    /// Start a teaching Course without imported Blueprint content.
+    Empty,
+    /// Materialize content from exactly this reusable Blueprint Revision.
+    Adopted {
+        /// Exact reusable Blueprint Course source.
+        blueprint_course: BlueprintCourseReference,
+        /// Exact immutable Blueprint Revision source.
+        blueprint_revision: BlueprintRevision,
+    },
+}
+
 /// Browser request for one new live Course Instance.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateCourseInstanceInput {
-    /// Exact reusable Blueprint Course source.
-    pub blueprint_course: BlueprintCourseReference,
-    /// Exact immutable Blueprint Revision source.
-    pub blueprint_revision: BlueprintRevision,
+    /// Explicit Empty or exact Adopted Course source.
+    pub source: CourseInstanceCreationSource,
     /// Compact Course Instance name for constrained navigation.
     pub short_name: String,
     /// Descriptive Course Instance name for headings and breadcrumbs.
@@ -70,8 +87,6 @@ fn valid_name(value: &str) -> bool {
 pub struct CourseInstanceView {
     /// Course identity and Course Term.
     pub course: CourseInstanceSummary,
-    /// Whether the current Instructor is the required Assigned Instructor.
-    pub is_assigned_instructor: bool,
     /// Current Teaching Team size; creation starts with exactly one Instructor membership.
     pub active_instructor_count: u32,
 }
@@ -90,8 +105,6 @@ pub struct CourseCreationInstructor {
 pub struct CreatedCourseInstance {
     /// Newly allocated Course Instance identity.
     pub course: CourseInstanceSummary,
-    /// True only when the creator is the Course Instance's Assigned Instructor.
-    pub creator_is_assigned_instructor: bool,
 }
 
 /// Persistence contract for the Course Instance and initial Teaching Team boundary.
@@ -124,6 +137,16 @@ pub trait CourseInstanceStore: Send + Sync {
         input: CreateCourseInstanceInput,
     ) -> Result<CreatedCourseInstance, StoreError>;
 
+    /// Adds an active Instructor Course Membership when the current active
+    /// Instructor is already a member. Membership, rather than creator or
+    /// assigned-Instructor status, is the authority boundary.
+    async fn add_course_instructor(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        instructor: AccountReference,
+    ) -> Result<(), StoreError>;
+
     /// Loads the current Instructor's minimal teaching-team workspace projection.
     async fn load_course_instance(
         &self,
@@ -131,7 +154,7 @@ pub trait CourseInstanceStore: Send + Sync {
         reference: CourseInstanceReference,
     ) -> Result<CourseInstanceView, StoreError>;
 
-    /// Lists active Instructor Accounts only for the current Sysadmin's explicit assignment choice.
+    /// Lists active Instructor Accounts only for the current Sysadmin's explicit assessment choice.
     async fn list_course_creation_instructors(
         &self,
         session_token_hash: SessionTokenHash,

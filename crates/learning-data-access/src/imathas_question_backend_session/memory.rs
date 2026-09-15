@@ -16,7 +16,7 @@ use super::{
 
 /// In-memory server-only iMathAS launch-session persistence.
 ///
-/// Submission and scoring use the ordinary Assignment path. iMathAS session storage owns only
+/// Submission and scoring use the ordinary Assessment path. iMathAS session storage owns only
 /// authorization and encrypted backend state required to restore the backend-owned launch.
 pub struct MemoryImathasQuestionBackendSessionStore {
     key_ring: ImathasQuestionBackendStateKeyRing,

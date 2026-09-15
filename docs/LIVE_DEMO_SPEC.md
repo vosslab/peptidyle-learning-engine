@@ -93,8 +93,18 @@ The disposable local HTTPS entry currently offers a fixed five-persona
 identity selector: Elena Rivera (Instructor); Mary Okafor, Jack Nguyen, and
 Avery Thompson (Students); and Morgan Delgado (Sysadmin). It replaces only
 identity verification, then the server resolves the configured Account and
-issues an ordinary authenticated session. Stored roles and relationships still
-decide every authorization result.
+issues the ordinary authenticated session for a Student or Instructor. Morgan
+selection creates only opaque pending MFA. PostgreSQL derives Morgan's stored
+Sysadmin role and issues a session only after it atomically consumes one
+unused, short-lived, Account- and browser-bound TOTP attestation. Stored roles
+and relationships still decide every authorization result.
+
+The local controller provisions Morgan's genuine TOTP seed from the
+operating-system CSPRNG and writes a restricted, ignored, mode-0600 operator
+artifact, logging only the artifact path. A separate local authenticator
+consumes the artifact. It is not a browser credential or a fixed shared secret.
+The selector has no TOTP bypass, and PLE has no recovery or self-service flow
+for Morgan.
 
 The selector remains available in the default local browser Live Demo after
 provisioning, so its ordinary teaching journeys remain usable on restart.

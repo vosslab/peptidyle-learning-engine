@@ -90,7 +90,7 @@ impl ImathasQuestionBackendSessionStore for PostgresImathasQuestionBackendSessio
         )
         .bind(parts.reference.as_uuid())
         .bind(parts.course.as_uuid())
-        .bind(parts.assignment.as_uuid())
+        .bind(parts.assessment.as_uuid())
         .bind(parts.grading_context.question_attempt().as_uuid())
         .bind(parts.imathas_question_backend_binding.deployment_reference().as_str())
         .bind(parts.imathas_question_backend_binding.item_reference().as_str())
@@ -163,7 +163,7 @@ async fn load_row(
     .bind(reference.as_uuid())
     .bind(expectation.storage_parts().account.as_uuid())
     .bind(expectation.storage_parts().course.as_uuid())
-    .bind(expectation.storage_parts().assignment.as_uuid())
+    .bind(expectation.storage_parts().assessment.as_uuid())
     .bind(expectation.storage_parts().grading_context.question_attempt().as_uuid())
     .bind(
         expectation
@@ -272,7 +272,7 @@ fn decode_imathas_question_backend_session_row(
         reference,
         account: restore.account,
         course: restore.course,
-        assignment: restore.assignment,
+        assessment: restore.assessment,
         grading_context: restore.grading_context,
         imathas_question_backend_binding: question_model::ImathasQuestionBackendBinding::new(
             restore

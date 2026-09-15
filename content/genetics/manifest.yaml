@@ -7,6 +7,595 @@ course:
   source_revision: sha256:abffb921340c3e8df86f7dee4c328dc4dac16d074c011d6aa346f77372dadd73
   author: Neil R. Voss
   content_license: CC-BY-4.0
+parameterized_sources:
+- source_id: topic02-dna-structure-biol-351
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-dna-structure-biol-351
+  question_title: True/False Statements About DNA Structure (BIOL 351)
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/dna_structure-biol_351.pgml
+  pg_sha256: 5736360bfc2bdb1b660c516bf3cec99c274d39ab434c77fc8340126f365264cd
+  webwork_pg_path: genetics/topic02/dna_structure-biol_351.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/dna_structure-biol_351.pg
+  canonical_author_source_sha256: ad1d04f2db2aa93a72acddbd28c99804bb4e71302d4b40133dddd90d4d705920
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic02-dna-structure
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-dna-structure
+  question_title: True/False Statements About DNA Structure
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/dna_structure.pgml
+  pg_sha256: 8e70e1546efd4b1c8693d01f8fc9cd7dd4bc59242d9ae6fa60b654d9320dbef2
+  webwork_pg_path: genetics/topic02/dna_structure.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/dna_structure.pg
+  canonical_author_source_sha256: 30763969f6c23a78f04104d5bdd3053b1b2ea5f6587a03a5970be9e2ad39f43c
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic02-melting-tm-type-1
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-melting-tm-type-1
+  question_title: True/False Statements About DNA Melting Temperature (Tm)
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/melting_Tm_type_1.pgml
+  pg_sha256: cfc0f46b848b57b5cfd1cca27218f6cbcd46be5cabda93c60cac55600568e20d
+  webwork_pg_path: genetics/topic02/melting_Tm_type_1.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/melting_Tm_type_1.pg
+  canonical_author_source_sha256: b08d4c9c7ac9c2a9f7d9259ccd3d6bf75deae168c0f7106a3a7cfa6822a85353
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic02-melting-tm-type-2a
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-melting-tm-type-2a
+  question_title: True/False Statements About Factors That Increase DNA Melting Temperature (Tm)
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/melting_Tm_type_2a.pgml
+  pg_sha256: e0f35909e7448d28be3a0b77bc64a073702dc5488d299c09a3d4aadc1fd4fa2c
+  webwork_pg_path: genetics/topic02/melting_Tm_type_2a.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/melting_Tm_type_2a.pg
+  canonical_author_source_sha256: 1820c5ca8808cfadbcd7cfd9888532bfe2d04a2a668409ea5c0651abbe054e1d
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic02-melting-tm-type-2b
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-melting-tm-type-2b
+  question_title: True/False Statements About Factors That Decrease DNA Melting Temperature (Tm)
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/melting_Tm_type_2b.pgml
+  pg_sha256: c1f5affe3c0164166e0eccd28318ee98b3fc84d9bf8d8ed273f979078ce78220
+  webwork_pg_path: genetics/topic02/melting_Tm_type_2b.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/melting_Tm_type_2b.pg
+  canonical_author_source_sha256: e8d273ab802e5f2118d8839baf166e71ec4c6c53b2eea03ae53a365a00677cc9
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic02-nucleotide-components
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-nucleotide-components
+  question_title: True/False Statements About Nucleotide Components
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/nucleotide_components.pgml
+  pg_sha256: 2bdf1908836b54d6a230e7c666ab22fc69bf28e04a83baaa4cb785eaf076d79d
+  webwork_pg_path: genetics/topic02/nucleotide_components.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/nucleotide_components.pg
+  canonical_author_source_sha256: 30fbb73a3425c67955941b3b8a975efc0d6436927359ba485d01d9282085d772
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic02-rna-v-dna-biol-301
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-rna-v-dna-biol-301
+  question_title: True/False Statements About RNA and DNA Differences (BIOL 301)
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/rna_v_dna-biol_301.pgml
+  pg_sha256: aeaf398d6e4e1b04ad63181dee9e6966e4b476c057f6020a535721a7b1a2d7a4
+  webwork_pg_path: genetics/topic02/rna_v_dna-biol_301.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/rna_v_dna-biol_301.pg
+  canonical_author_source_sha256: c92db433939556abd70b1e9cda49ad8e8ef56bfe4b1640fb86303af8f6aa5061
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic02-rna-v-dna
+  topic_slug: topic02
+  replaces_static_bank_slug: tfms-rna-v-dna
+  question_title: True/False Statements About RNA and DNA Differences
+  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide components, and double-helix complementarity.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic02/rna_v_dna.pgml
+  pg_sha256: c14741e7ac62d1012461660ad8f3ca9b9d3f7c8ed62436b0829018fa6f2e199e
+  webwork_pg_path: genetics/topic02/rna_v_dna.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/rna_v_dna.pg
+  canonical_author_source_sha256: 7210902151c9c74559c34e6954952f7c417a74136d156d6c54aedb8186989f05
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic03-english-palindromes
+  topic_slug: topic03
+  replaces_static_bank_slug: tfms-english-palindromes
+  question_title: True/False Statements About English Palindromes
+  question_description: Students use blood typing agglutination tests, HLA genotyping, gel electrophoresis band patterns, and DNA fingerprinting techniques to solve paternity disputes and forensic identification problems.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic03/english_palindromes.pgml
+  pg_sha256: a800def5247e4c6e07abce8b6b718b3d6c89044f09b15038897fac7df650cfed
+  webwork_pg_path: genetics/topic03/english_palindromes.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic03/downloads/english_palindromes.pg
+  canonical_author_source_sha256: 14f5ef7f8320dba5145907da46bb837b13cdf9891cc0b328ddc4a94fa22b24f1
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-mitosis-and-meiosis
+  topic_slug: topic06
+  replaces_static_bank_slug: tfms-mitosis-and-meiosis
+  question_title: True/False Statements About Mitosis and Meiosis
+  question_description: Students trace inheritance of X-linked genes through meiosis, predict progeny outcomes from sex-linked crosses, and explain the chromosomal basis of inheritance.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic06/mitosis_and_meiosis.pgml
+  pg_sha256: 78f109b7da1a841de12c08f144502cd4e1f7e723879c33c8d44eeb6244789c9d
+  webwork_pg_path: genetics/topic06/mitosis_and_meiosis.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic06/downloads/mitosis_and_meiosis.pg
+  canonical_author_source_sha256: b74916890d8bc5465cd16a976855ff809503070bbcb7f24463f88595c936f3a1
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic07-chi-square
+  topic_slug: topic07
+  replaces_static_bank_slug: tfms-chi-square
+  question_title: True/False Statements About Chi-Square Tests
+  question_description: Students perform chi-square tests on genetic cross data to evaluate whether observed ratios fit expected Mendelian predictions.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic07/chi-square.pgml
+  pg_sha256: e0a3bb7b555d5ec3d54f1e51c674bc17c3dace6bcce30b6a5d37aa77ef694703
+  webwork_pg_path: genetics/topic07/chi-square.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic07/downloads/chi-square.pg
+  canonical_author_source_sha256: d0217da963baf8e181e60c49e1d723ab008fbbc91614ab56323533a53697ce3f
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic10-h-w-non-evolve-criteria
+  topic_slug: topic10
+  replaces_static_bank_slug: tfms-h-w-non-evolve-criteria
+  question_title: True/False Statements About Hardy-Weinberg Equilibrium Conditions
+  question_description: Students calculate allele and genotype frequencies in populations, apply the Hardy-Weinberg equation, and evaluate factors that change allele frequencies.
+  question_type: multipleChoice
+  source_format: pgml
+  pg_source: pg/topic10/h-w_non-evolve_criteria.pgml
+  pg_sha256: f1a8d0c5d83a3db7a3a9543d5d42096b28eb8caf01cc97becd4f591dc4f884c6
+  webwork_pg_path: genetics/topic10/h-w_non-evolve_criteria.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic10/downloads/h-w_non-evolve_criteria.pg
+  canonical_author_source_sha256: 76d5e02ffced2b7b877942a40302edfea5155da439ffc680ada873416c6a490c
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic03-hla-genotype-2-markers-black
+  topic_slug: topic03
+  question_title: Offspring HLA Genotypes (2 Markers, Black)
+  question_description: Seed-driven HLA inheritance MC problem; canonical biologyproblems.org source replaces this family's generated static variants.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: hla-genotype-2-markers-black
+  pg_source: pg/topic03/hla_genotype_2_markers_black.pgml
+  pg_sha256: 36a3a9efea38a5703e17de4896356868c306425dc661f69f6cdf5e446f227f26
+  webwork_pg_path: genetics/topic03/hla_genotype_2_markers_black.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems/blob/601277c0c4add743b125bff7e3032cf2910160e4/problems/dna_profiling-problems/hla_genotype.py
+  canonical_author_source_sha256: fb5888af119c69b19a33613590268ef823baeec0030a864182d92c01008757a0
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic01-genetic-disorders-matching
+  topic_slug: topic01
+  question_title: Matching Genetic Disorders to Descriptions
+  question_description: Match each of the following genetic disorders with their corresponding descriptions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-genetic-disorders
+  pg_source: pg/topic01/genetic_disorders-matching.pgml
+  pg_sha256: ddefa0befbcfc7985e4b01bee50d2fa1306ba5189a6711c9fb2b6dbf86153196
+  webwork_pg_path: genetics/topic01/genetic_disorders-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic01/downloads/genetic_disorders-matching.pgml
+  canonical_author_source_sha256: 29e6d8360174b16933f9da8a905cea2d3506a100028f574ae173583012b6392d
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic01-genetic-disorders-which-one
+  topic_slug: topic01
+  question_title: Genetic Disorders from Descriptions
+  question_description: Select the genetic disorder that corresponds to the given description.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-genetic-disorders
+  pg_source: pg/topic01/genetic_disorders-which_one.pgml
+  pg_sha256: ff50258e78f6f6e5fcae384ac224bab4b2d3595eb1b233b37fc06953a1c496d2
+  webwork_pg_path: genetics/topic01/genetic_disorders-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic01/downloads/genetic_disorders-which_one.pgml
+  canonical_author_source_sha256: cc64c35b8ee071561929aff3bfdba95aa6f069788abfc7c7f21d10fc525bb535
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-genetics-terminology-matching
+  topic_slug: topic04
+  question_title: Matching Genetic Terms to Definitions
+  question_description: Match each of the following genetic terms with their corresponding definitions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-genetics-terminology
+  pg_source: pg/topic04/genetics_terminology-matching.pgml
+  pg_sha256: 1d734985117246a6a14fb21679f9c9bf6ed026a51997d09705dccf50c6afe5b3
+  webwork_pg_path: genetics/topic04/genetics_terminology-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/genetics_terminology-matching.pgml
+  canonical_author_source_sha256: 2b6e9411cf94b113e27df04ebd9635e48f3869dcda4cfb3b84e6e2ff042a8dad
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-genetics-terminology-which-one
+  topic_slug: topic04
+  question_title: Genetic Terms from Definitions
+  question_description: Select the genetic term that corresponds to the given definition.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-genetics-terminology
+  pg_source: pg/topic04/genetics_terminology-which_one.pgml
+  pg_sha256: b1c6945dbde6444a5c75d949099e7b5f7e15cb79c04b1d4f45f9278d10fce8b4
+  webwork_pg_path: genetics/topic04/genetics_terminology-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/genetics_terminology-which_one.pgml
+  canonical_author_source_sha256: c1974109735988b591b61ec20ca98beac9210c5c6542c092f9be345923417436
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-mendel-cross-terminology-matching
+  topic_slug: topic04
+  question_title: Matching Mendelian Cross Generations to Descriptions
+  question_description: Match each of the following Mendelian crosses and generational stages with their corresponding descriptions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-mendel-cross-terminology
+  pg_source: pg/topic04/mendel_cross_terminology-matching.pgml
+  pg_sha256: d18c29d80f0bc3197ea2a7827a11264d3f86969462244d08bd97f1183e5c1c7e
+  webwork_pg_path: genetics/topic04/mendel_cross_terminology-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/mendel_cross_terminology-matching.pgml
+  canonical_author_source_sha256: 10146dee9bdf114c0810d9061ecdd2608eff649fdb7b5434576c545c91bf01fd
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-mendel-cross-terminology-which-one
+  topic_slug: topic04
+  question_title: Mendelian Cross Types from Generational Descriptions
+  question_description: Select the Mendelian cross or generational stage that corresponds to the given description.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-mendel-cross-terminology
+  pg_source: pg/topic04/mendel_cross_terminology-which_one.pgml
+  pg_sha256: 17296b12a3f17b9b8428d28fa0fdff64b08437d29063e2583f3cb8dd7c9c9263
+  webwork_pg_path: genetics/topic04/mendel_cross_terminology-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/mendel_cross_terminology-which_one.pgml
+  canonical_author_source_sha256: db98f174dc6fb836c02140ba46da2fd85520053a294b3b0d3c9dda749fb875e6
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-mendel-four-principles-matching
+  topic_slug: topic04
+  question_title: Matching Mendel's Principles to Descriptions
+  question_description: Match each of the following Mendel's Foundational Principles of Genetics with their corresponding descriptions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-mendel-four-principles
+  pg_source: pg/topic04/mendel_four_principles-matching.pgml
+  pg_sha256: 25a8cefdfec0bf51c17dad15862fc318cb0ec5721f4c77bf46a1860b16726c07
+  webwork_pg_path: genetics/topic04/mendel_four_principles-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/mendel_four_principles-matching.pgml
+  canonical_author_source_sha256: a5036eb0d7e15354918edfb7986f18f462b4f23c23a8f39216c56744548e14f2
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-mendel-four-principles-which-one
+  topic_slug: topic04
+  question_title: Mendel's Principles from Descriptions
+  question_description: Select the Mendel's Foundational Principle of Genetics that corresponds to the given description.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-mendel-four-principles
+  pg_source: pg/topic04/mendel_four_principles-which_one.pgml
+  pg_sha256: 96a862531c4f37f1e7f175ff1ea23fd13918d53e005e7e222b3620053de7fcfd
+  webwork_pg_path: genetics/topic04/mendel_four_principles-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/mendel_four_principles-which_one.pgml
+  canonical_author_source_sha256: 86096dc17ce20a2a5fbf746dde995999ae0aa39209e2591c8ca60b312370d394
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-mendelian-genetics-terms-matching
+  topic_slug: topic04
+  question_title: Matching Mendelian Genetics Terms to Definitions
+  question_description: Match each of the following Mendelian genetics terms with their corresponding definitions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-mendelian-genetics-terms
+  pg_source: pg/topic04/mendelian_genetics_terms-matching.pgml
+  pg_sha256: fad9c17c8df42ace5df1dcae000685d524ede1e518479024563f06d23a66a91d
+  webwork_pg_path: genetics/topic04/mendelian_genetics_terms-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/mendelian_genetics_terms-matching.pgml
+  canonical_author_source_sha256: 695a7ffb7b57e149296bfd5b2dc9aaf3ced943afb399b6810ff6697615f5c51e
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-mendelian-genetics-terms-which-one
+  topic_slug: topic04
+  question_title: Mendelian Genetics Terms from Definitions
+  question_description: Select the Mendelian genetics term that corresponds to the given definition.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-mendelian-genetics-terms
+  pg_source: pg/topic04/mendelian_genetics_terms-which_one.pgml
+  pg_sha256: eea9be309ad908cb8ed4532c1bc961dc355944ea10ad4c82f4f1f2589eabae51
+  webwork_pg_path: genetics/topic04/mendelian_genetics_terms-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/mendelian_genetics_terms-which_one.pgml
+  canonical_author_source_sha256: 93bbe7e58a4ac928c9ed5b12563464bb8e9ca706bf74911a594e2dcd353eea3b
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-monohybrid-cross-genotype-matching
+  topic_slug: topic04
+  question_title: Matching Monohybrid Cross Genotypes to Phenotypes
+  question_description: Match each of the following parental genotypes in monohybrid crosses with their corresponding descriptions of the progeny.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-monohybrid-cross-genotype
+  pg_source: pg/topic04/monohybrid_cross_genotype-matching.pgml
+  pg_sha256: 85997c7b726c146831a09b38d118c9700f3d34a395dcbab05e49e00d01fc1ea3
+  webwork_pg_path: genetics/topic04/monohybrid_cross_genotype-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/monohybrid_cross_genotype-matching.pgml
+  canonical_author_source_sha256: 85997c7b726c146831a09b38d118c9700f3d34a395dcbab05e49e00d01fc1ea3
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic04-monohybrid-cross-genotype-which-one
+  topic_slug: topic04
+  question_title: Parental Genotypes in Monohybrid Crosses from Offspring Outcomes
+  question_description: Select the parental genotypes in a monohybrid cross that corresponds to the given description of the progeny.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-monohybrid-cross-genotype
+  pg_source: pg/topic04/monohybrid_cross_genotype-which_one.pgml
+  pg_sha256: 139d77748f5b7f18af1bbd3ca2810ad24428bce961114f820d1e9c6168efd1a5
+  webwork_pg_path: genetics/topic04/monohybrid_cross_genotype-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic04/downloads/monohybrid_cross_genotype-which_one.pgml
+  canonical_author_source_sha256: 139d77748f5b7f18af1bbd3ca2810ad24428bce961114f820d1e9c6168efd1a5
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic05-degrees-of-dominance-matching
+  topic_slug: topic05
+  question_title: Matching Inheritance Patterns to Definitions
+  question_description: Match each of the following inheritance patterns with their corresponding definitions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-degrees-of-dominance
+  pg_source: pg/topic05/degrees_of_dominance-matching.pgml
+  pg_sha256: 6b404be037ea23e2951ea08271961a6e2ecc0b12fe067a9ec6b419ab3848114f
+  webwork_pg_path: genetics/topic05/degrees_of_dominance-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic05/downloads/degrees_of_dominance-matching.pgml
+  canonical_author_source_sha256: 6b404be037ea23e2951ea08271961a6e2ecc0b12fe067a9ec6b419ab3848114f
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic05-degrees-of-dominance-which-one
+  topic_slug: topic05
+  question_title: Inheritance Patterns from Allele-Expression Descriptions
+  question_description: Select the inheritance pattern that corresponds to the given definition.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-degrees-of-dominance
+  pg_source: pg/topic05/degrees_of_dominance-which_one.pgml
+  pg_sha256: 942922e8669bfaa47fcfe90ad169cc09234bc7e5e730112e784b64fdb2a88149
+  webwork_pg_path: genetics/topic05/degrees_of_dominance-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic05/downloads/degrees_of_dominance-which_one.pgml
+  canonical_author_source_sha256: 942922e8669bfaa47fcfe90ad169cc09234bc7e5e730112e784b64fdb2a88149
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-meiosis-prophase-1-matching
+  topic_slug: topic06
+  question_title: Matching Meiosis Prophase I Stages to Descriptions
+  question_description: Match each of the following stages of meiosis prophase I with their corresponding partial descriptions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-meiosis-prophase-1
+  pg_source: pg/topic06/meiosis_prophase_1-matching.pgml
+  pg_sha256: d07167f9ce89c40aa972242d216478f46fe5b7f8d6e5578a8b50c510eaba3182
+  webwork_pg_path: genetics/topic06/meiosis_prophase_1-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic06/downloads/meiosis_prophase_1-matching.pgml
+  canonical_author_source_sha256: d07167f9ce89c40aa972242d216478f46fe5b7f8d6e5578a8b50c510eaba3182
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-meiosis-prophase-1-which-one
+  topic_slug: topic06
+  question_title: Meiosis Prophase I Stages from Descriptions
+  question_description: Select the stage of meiosis prophase I that corresponds to the given partial description.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-meiosis-prophase-1
+  pg_source: pg/topic06/meiosis_prophase_1-which_one.pgml
+  pg_sha256: 41f82a85c305526e33bc2cff1844f2ed92f1021f8e38c568db3836a1c25c06f4
+  webwork_pg_path: genetics/topic06/meiosis_prophase_1-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic06/downloads/meiosis_prophase_1-which_one.pgml
+  canonical_author_source_sha256: 41f82a85c305526e33bc2cff1844f2ed92f1021f8e38c568db3836a1c25c06f4
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-meiosis-terms-matching
+  topic_slug: topic06
+  question_title: Matching Meiosis Terms to Definitions
+  question_description: Match each of the following Meiosis terms with their corresponding definitions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-meiosis-terms
+  pg_source: pg/topic06/meiosis_terms-matching.pgml
+  pg_sha256: 87dba9d4889c64a9fa312ab0f98c009a7165f2440ce4a2d8d7ae111ccf7e96c8
+  webwork_pg_path: genetics/topic06/meiosis_terms-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic06/downloads/meiosis_terms-matching.pgml
+  canonical_author_source_sha256: 87dba9d4889c64a9fa312ab0f98c009a7165f2440ce4a2d8d7ae111ccf7e96c8
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-meiosis-terms-which-one
+  topic_slug: topic06
+  question_title: Meiosis Terms from Definitions
+  question_description: Select the Meiosis term that corresponds to the given definition.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-meiosis-terms
+  pg_source: pg/topic06/meiosis_terms-which_one.pgml
+  pg_sha256: 0e880d4988d448e89c3610dcabfb95aa0bcb387c199001ccc17b822262363a39
+  webwork_pg_path: genetics/topic06/meiosis_terms-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic06/downloads/meiosis_terms-which_one.pgml
+  canonical_author_source_sha256: 0e880d4988d448e89c3610dcabfb95aa0bcb387c199001ccc17b822262363a39
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-poisson-flies
+  topic_slug: topic06
+  question_title: Parent Genotypes in X-Linked Recessive Crosses
+  question_description: Determine parental genotypes from an X-linked recessive fly cross using offspring phenotype counts. Use the table of offspring counts by sex and eye color to identify the parents. Assume the white allele is recessive to the red allele.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: poisson-flies
+  pg_source: pg/topic06/poisson_flies.pgml
+  pg_sha256: a6939724504c7604976bc1f733b24cd5a824b51590ac868dfcbc2a162fe66c47
+  webwork_pg_path: genetics/topic06/poisson_flies.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic06/downloads/poisson_flies.pgml
+  canonical_author_source_sha256: a6939724504c7604976bc1f733b24cd5a824b51590ac868dfcbc2a162fe66c47
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-sex-determination-matching
+  topic_slug: topic06
+  question_title: Matching Sex Determination Systems to Descriptions
+  question_description: Match each of the following sex determination systems with their corresponding descriptions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-sex-determination
+  pg_source: pg/topic06/sex_determination-matching.pgml
+  pg_sha256: f149e9b8c382e68fd13c0661d3d8d72577f4110d0a54f18ec5e110eb754a11ed
+  webwork_pg_path: genetics/topic06/sex_determination-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic06/downloads/sex_determination-matching.pgml
+  canonical_author_source_sha256: f149e9b8c382e68fd13c0661d3d8d72577f4110d0a54f18ec5e110eb754a11ed
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic06-sex-determination-which-one
+  topic_slug: topic06
+  question_title: Sex Determination Systems from Descriptions
+  question_description: Select the sex determination system that corresponds to the given description.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-sex-determination
+  pg_source: pg/topic06/sex_determination-which_one.pgml
+  pg_sha256: cfaef9fbe9ddca924f3a55cb47ca79d09e98c0eda119e4c95775bd5d24700e53
+  webwork_pg_path: genetics/topic06/sex_determination-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic06/downloads/sex_determination-which_one.pgml
+  canonical_author_source_sha256: cfaef9fbe9ddca924f3a55cb47ca79d09e98c0eda119e4c95775bd5d24700e53
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic07-chi-square-terms-matching
+  topic_slug: topic07
+  question_title: Matching Chi-Square Terms to Definitions
+  question_description: Match each of the following chi2 terms with their corresponding definitions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-chi-square-terms
+  pg_source: pg/topic07/chi-square_terms-matching.pgml
+  pg_sha256: db7f4d6cb03a0dce7d793db574c0676d1d41f4e302afd8f734037c324b5e9b31
+  webwork_pg_path: genetics/topic07/chi-square_terms-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic07/downloads/chi-square_terms-matching.pgml
+  canonical_author_source_sha256: db7f4d6cb03a0dce7d793db574c0676d1d41f4e302afd8f734037c324b5e9b31
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic07-chi-square-terms-which-one
+  topic_slug: topic07
+  question_title: Chi-Square Terms from Definitions
+  question_description: Select the chi2 term that corresponds to the given definition.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-chi-square-terms
+  pg_source: pg/topic07/chi-square_terms-which_one.pgml
+  pg_sha256: f29ad1b9ce786f1a2279e3d394c9f7195c2b4e714292a40f2a83091f80b97452
+  webwork_pg_path: genetics/topic07/chi-square_terms-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic07/downloads/chi-square_terms-which_one.pgml
+  canonical_author_source_sha256: f29ad1b9ce786f1a2279e3d394c9f7195c2b4e714292a40f2a83091f80b97452
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic09-chromosome-alterations-matching
+  topic_slug: topic09
+  question_title: Matching Chromosome Structure Alterations to Descriptions
+  question_description: Match each of the following alterations to chromosome structure with their corresponding descriptions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-chromosome-alterations
+  pg_source: pg/topic09/chromosome_alterations-matching.pgml
+  pg_sha256: 3583c994e689299ad23864748b1b49d8031bf998db64d01bed0aaae8f3688669
+  webwork_pg_path: genetics/topic09/chromosome_alterations-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic09/downloads/chromosome_alterations-matching.pgml
+  canonical_author_source_sha256: 3583c994e689299ad23864748b1b49d8031bf998db64d01bed0aaae8f3688669
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic09-chromosome-alterations-which-one
+  topic_slug: topic09
+  question_title: Types of Chromosomal Alterations
+  question_description: Select the alteration of chromosome structure that corresponds to the given description.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-chromosome-alterations
+  pg_source: pg/topic09/chromosome_alterations-which_one.pgml
+  pg_sha256: 5df3d73d0321d0c22d514766b333a9f2634e6c21425fe70e80db2254b559f0be
+  webwork_pg_path: genetics/topic09/chromosome_alterations-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic09/downloads/chromosome_alterations-which_one.pgml
+  canonical_author_source_sha256: 5df3d73d0321d0c22d514766b333a9f2634e6c21425fe70e80db2254b559f0be
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic09-chromosome-shapes-matching
+  topic_slug: topic09
+  question_title: Matching Chromosome Shapes to Descriptions
+  question_description: Match each of the following categories of chromosome shape with their corresponding shape descriptions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-chromosome-shapes
+  pg_source: pg/topic09/chromosome_shapes-matching.pgml
+  pg_sha256: 39f2760eef7f15b5def229fca60a62619a6070883f872421b561162528245d8a
+  webwork_pg_path: genetics/topic09/chromosome_shapes-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic09/downloads/chromosome_shapes-matching.pgml
+  canonical_author_source_sha256: 39f2760eef7f15b5def229fca60a62619a6070883f872421b561162528245d8a
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic09-chromosome-shapes-which-one
+  topic_slug: topic09
+  question_title: Chromosome Shape Categories Based on Descriptions
+  question_description: Select the category of chromosome shape that corresponds to the given shape description.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-chromosome-shapes
+  pg_source: pg/topic09/chromosome_shapes-which_one.pgml
+  pg_sha256: c560da8b32c3e37f0f981cd009bba8d88d1c918d5644a35167ba41e62108e210
+  webwork_pg_path: genetics/topic09/chromosome_shapes-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic09/downloads/chromosome_shapes-which_one.pgml
+  canonical_author_source_sha256: c560da8b32c3e37f0f981cd009bba8d88d1c918d5644a35167ba41e62108e210
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic10-population-genetics-terms-matching
+  topic_slug: topic10
+  question_title: Matching Population Genetic Terms
+  question_description: Match each of the following population genetic terms with their corresponding definitions.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: match-population-genetics-terms
+  pg_source: pg/topic10/population_genetics_terms-matching.pgml
+  pg_sha256: b5be3ea4d0d8f02a7b752ec40c9d0946bf91c40b606f2ea01cb7a443444dfd05
+  webwork_pg_path: genetics/topic10/population_genetics_terms-matching.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic10/downloads/population_genetics_terms-matching.pgml
+  canonical_author_source_sha256: b5be3ea4d0d8f02a7b752ec40c9d0946bf91c40b606f2ea01cb7a443444dfd05
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
+- source_id: topic10-population-genetics-terms-which-one
+  topic_slug: topic10
+  question_title: Population Genetics Terms from Definitions
+  question_description: Select the population genetic term that corresponds to the given definition.
+  question_type: multipleChoice
+  source_format: pgml
+  replaces_static_bank_slug: womc-population-genetics-terms
+  pg_source: pg/topic10/population_genetics_terms-which_one.pgml
+  pg_sha256: 79b73ded2917f84eae6b8b52edb2e82b9ba1aa35147c8121b5b5eec1ac97485b
+  webwork_pg_path: genetics/topic10/population_genetics_terms-which_one.pgml
+  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic10/downloads/population_genetics_terms-which_one.pgml
+  canonical_author_source_sha256: 79b73ded2917f84eae6b8b52edb2e82b9ba1aa35147c8121b5b5eec1ac97485b
+  content_license: CC-BY-4.0
+  source_code_license: LGPL-3.0-or-later
 topics:
 - slug: topic01
   title: Genetic Disorders

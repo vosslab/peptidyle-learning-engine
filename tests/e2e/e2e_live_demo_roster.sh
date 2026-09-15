@@ -99,23 +99,34 @@ assert_concealed() {
 }
 
 new_course_reference() {
-	local instructor_cookie list
+	local instructor_cookie before after
 	instructor_cookie="$1"
+	before="$(request '/api/course-instances' "$instructor_cookie")"
+	if [ "$(response_status "$before")" != "200" ]; then
+		echo "Instructor could not list Course Instances before the prerequisite was created" >&2
+		exit 1
+	fi
 	bash "$repository_root/tests/e2e/e2e_live_demo_course_instance.sh" --authority >/dev/null
-	list="$(request '/api/course-instances' "$instructor_cookie")"
-	if [ "$(response_status "$list")" != "200" ]; then
+	after="$(request '/api/course-instances' "$instructor_cookie")"
+	if [ "$(response_status "$after")" != "200" ]; then
 		echo "Instructor could not list the prerequisite Course Instance" >&2
 		exit 1
 	fi
 	python3 -c '
 import json, re, sys
-items=json.loads(sys.argv[1]).get("items")
-if not isinstance(items,list): raise SystemExit("Course Instance list was malformed")
-references=[item.get("reference") for item in items if isinstance(item,dict)]
-if not references or any(not isinstance(value,str) or not re.fullmatch(r"C-[1-9][0-9]{0,9}",value) for value in references):
-    raise SystemExit("Course Instance list lacks public identities")
-print(max(references,key=lambda value:int(value[2:])))
-' "$(response_body "$list")"
+def references(response):
+    items=json.loads(response).get("items")
+    if not isinstance(items,list): raise SystemExit("Course Instance list was malformed")
+    values=[item.get("reference") for item in items if isinstance(item,dict)]
+    if any(not isinstance(value,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",value) for value in values):
+        raise SystemExit("Course Instance list lacks canonical public identities")
+    return set(values)
+
+created=references(sys.argv[2])-references(sys.argv[1])
+if not created:
+    raise SystemExit("Course Instance creation did not expose a new public identity")
+print(sorted(created)[0])
+' "$(response_body "$before")" "$(response_body "$after")"
 }
 
 assert_import_projection() {
@@ -125,11 +136,11 @@ items=json.loads(sys.argv[1])
 if not isinstance(items,list) or len(items) != 2:
     raise SystemExit("Course Roster Import did not return its two reviewed rows")
 for item in items:
-    if not isinstance(item,dict) or set(item)!={"rosterId","rosterEmail","state"}:
+    if not isinstance(item,dict) or set(item)!={"rosterId","state"}:
         raise SystemExit("Course Roster Import response is not a closed roster projection")
     if item["state"] != "invitationPending":
         raise SystemExit("Course Roster Import did not retain pending Course Invitations")
-    if not isinstance(item["rosterId"],str) or not isinstance(item["rosterEmail"],str):
+    if not isinstance(item["rosterId"],str):
         raise SystemExit("Course Roster Import projection is malformed")
 ' "$1"
 }
@@ -156,7 +167,7 @@ DECLARE
     v_student_account_id uuid;
 BEGIN
     SELECT course_id INTO v_course_id FROM ple_data.course_instance
-     WHERE reference_number = ${course_reference#C-};
+     WHERE public_reference = '${course_reference}';
     SELECT profile.student_account_id INTO v_student_account_id
       FROM ple_private.course_roster_profile AS profile
      WHERE profile.course_id = v_course_id AND profile.roster_id = 'm9-seeded';
@@ -167,7 +178,7 @@ BEGIN
                   WHERE membership.course_id = v_course_id AND membership.account_id = v_student_account_id
                     AND membership.role = 'student' AND ple_data.course_membership_is_active(membership.membership_id))
        OR (SELECT count(*) FROM ple_private.account_authentication_email
-           WHERE normalized_email = 'm9-created@live-demo.invalid') <> 1
+           WHERE normalized_email = 'm9-created@biology.roosevelt.edu') <> 1
        OR NOT EXISTS (SELECT 1 FROM ple_audit.course_roster_event AS event
                       WHERE event.course_id = v_course_id AND event.student_account_id = v_student_account_id
                         AND event.event_kind = 'invitation_claimed')
@@ -200,13 +211,13 @@ prove_import() {
 		echo "Course Roster did not begin empty for its exact Course Instance" >&2
 		exit 1
 	fi
-	imported="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@live-demo.invalid","rosterId":"m9-seeded"},{"email":"m9-created@live-demo.invalid","rosterId":"m9-created"}]}')"
+	imported="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created"}]}')"
 	if [ "$(response_status "$imported")" != "201" ]; then
 		echo "Instructor could not commit Course Roster Import" >&2
 		exit 1
 	fi
 	assert_import_projection "$(response_body "$imported")"
-	imported_again="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@live-demo.invalid","rosterId":"m9-seeded"},{"email":"m9-created@live-demo.invalid","rosterId":"m9-created"}]}')"
+	imported_again="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created"}]}')"
 	if [ "$(response_status "$imported_again")" != "201" ]; then
 		echo "Course Roster Import was not idempotent" >&2
 		exit 1

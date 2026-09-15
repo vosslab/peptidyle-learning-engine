@@ -15,32 +15,32 @@ export function decodeNavigationResolution(
         kind: "course",
         courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
       };
-    case "assignment":
-      requireOnlyFields(record, path, ["kind", "courseId", "assignmentId"]);
+    case "assessment":
+      requireOnlyFields(record, path, ["kind", "courseId", "assessmentId"]);
       return {
-        kind: "assignment",
+        kind: "assessment",
         courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
-        assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
+        assessmentId: decodeIdentifier(field(record, "assessmentId", path), `${path}.assessmentId`),
       };
-    case "assignmentAttempt":
+    case "assessmentAttempt":
       requireOnlyFields(record, path, [
         "kind",
         "courseId",
-        "assignmentId",
+        "assessmentId",
         "studentRecordId",
-        "assignmentAttemptId",
+        "assessmentAttemptId",
       ]);
       return {
-        kind: "assignmentAttempt",
+        kind: "assessmentAttempt",
         courseId: decodeIdentifier(field(record, "courseId", path), `${path}.courseId`),
-        assignmentId: decodeIdentifier(field(record, "assignmentId", path), `${path}.assignmentId`),
+        assessmentId: decodeIdentifier(field(record, "assessmentId", path), `${path}.assessmentId`),
         studentRecordId: decodeIdentifier(
           field(record, "studentRecordId", path),
           `${path}.studentRecordId`,
         ),
-        assignmentAttemptId: decodeIdentifier(
-          field(record, "assignmentAttemptId", path),
-          `${path}.assignmentAttemptId`,
+        assessmentAttemptId: decodeIdentifier(
+          field(record, "assessmentAttemptId", path),
+          `${path}.assessmentAttemptId`,
         ),
       };
     case "workspace":
@@ -50,6 +50,6 @@ export function decodeNavigationResolution(
         workspaceId: decodeIdentifier(field(record, "workspaceId", path), `${path}.workspaceId`),
       };
     default:
-      throw new DecodeError(`${path}.kind`, "course, assignment, assignmentAttempt, or workspace");
+      throw new DecodeError(`${path}.kind`, "course, assessment, assessmentAttempt, or workspace");
   }
 }

@@ -2,10 +2,10 @@
 
 export function imathasQuestionBackendLaunchPath(
   courseId: string,
-  assignmentId: string,
+  assessmentId: string,
   attemptId: string,
 ): string {
-  return `/api/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}/attempts/${encodeURIComponent(attemptId)}/imathas-question-backend/launch`;
+  return `/api/courses/${encodeURIComponent(courseId)}/assessments/${encodeURIComponent(assessmentId)}/attempts/${encodeURIComponent(attemptId)}/imathas-question-backend/launch`;
 }
 
 /**
@@ -16,12 +16,12 @@ export function imathasQuestionBackendLaunchPath(
 export function isExpectedImathasQuestionBackendLaunchPath(
   launchUrl: string,
   courseId: string,
-  assignmentId: string,
+  assessmentId: string,
   attemptId: string,
   origin: string,
 ): boolean {
   if (
-    launchUrl !== imathasQuestionBackendLaunchPath(courseId, assignmentId, attemptId) ||
+    launchUrl !== imathasQuestionBackendLaunchPath(courseId, assessmentId, attemptId) ||
     !launchUrl.startsWith("/") ||
     launchUrl.startsWith("//") ||
     launchUrl.includes("?") ||

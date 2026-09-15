@@ -17,18 +17,20 @@
 /// Account-owned exact IANA time-zone preference.
 pub mod account_time_zone;
 pub mod answer;
-/// Stable Assignment Entries, Question Pools, and exact point values.
-pub mod assignment;
-pub mod assignment_activity_rules;
-/// Strict browser contracts and derived readiness for the Instructor assignment workspace.
-pub mod assignment_workspace;
+/// Stable Assessment Entries, Question Pools, and exact point values.
+pub mod assessment;
+pub mod assessment_activity_rules;
+/// Strict browser contracts and derived readiness for the Instructor assessment workspace.
+pub mod assessment_workspace;
 pub mod auth;
+/// Generated closed registry for PLE-provided profile avatars.
+pub mod avatar_catalog_generated;
 /// Browser-safe reusable BlueprintCourse contracts.
 pub mod blueprint_course;
 /// Exact Blueprint operations, immutable evidence, and target-term schedule resolution.
 pub mod blueprint_operations;
 pub mod capability;
-/// Course and assignment browser projections.
+/// Course and assessment browser projections.
 pub mod course;
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
@@ -39,14 +41,14 @@ pub mod feedback;
 pub mod generation;
 /// Browser-safe automated-grading operation status and safe explanation contracts.
 pub mod identity;
-/// Browser-safe, no-store Instructor samples of saved Assignment Question Pools.
+/// Browser-safe, no-store Instructor samples of saved Assessment Question Pools.
 pub mod pool_preview;
 /// Browser-safe, attempt-presentation-scoped question contracts.
 pub mod presentation;
 /// Strict non-mutating preview-plane contracts, separate from mutating Teaching Operations.
 pub mod preview_plane;
-/// Opaque self-profile thumbnail identity and fixed rendition contract.
-pub mod profile_thumbnail;
+/// Opaque role-neutral identity for a self-owned Account Profile image.
+pub mod profile_image;
 /// Human-facing route References that resolve to internal identities under authorization.
 pub mod public_route;
 /// Immutable browser-safe Question Authorship display records.
@@ -62,6 +64,8 @@ pub mod question_license;
 /// Immutable Question Revision acceptance facts.
 pub mod question_revision;
 mod question_search;
+/// Browser-safe activity vocabulary for Published Question stewardship.
+pub mod question_stewardship;
 pub mod question_tag;
 mod question_variation;
 pub mod response;
@@ -77,50 +81,59 @@ pub mod teaching_operations;
 // they are re-exported to keep call sites short. Everything else stays
 // available under its module.
 pub use crate::account_time_zone::{AccountTimeZone, AccountTimeZoneError};
-pub use crate::assignment::{
-    AssignmentAuthoredContent, AssignmentAuthoredContentFailureCode,
-    AssignmentAuthoredContentFailureReason, AssignmentAuthoredContentField,
-    AssignmentAuthoredContentLocalError, AssignmentAuthoredContentValidationFailure,
-    AssignmentEditNumber, AssignmentEditNumberError, AssignmentEntry, AssignmentEntryAvailability,
-    AssignmentEntryScoringRule, AssignmentInstructions, AssignmentInstructionsError,
-    AssignmentPointValue, AssignmentScoringState, AssignmentStatus, AssignmentTitle,
-    AssignmentTitleError, BaseAssignmentPolicy, FixedQuestionAssignmentEntry,
-    InstructorAssignmentAuthoredContentLocal, InstructorAssignmentAvailabilityView, LateWorkRule,
-    LocalDateAndTime, LocalDateAndTimeError, MAX_ASSIGNMENT_ATTEMPT_LIMIT,
-    MAX_ASSIGNMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSIGNMENT_INSTRUCTIONS_UNICODE_SCALARS,
-    MAX_ASSIGNMENT_ORDERED_ENTRIES, MAX_ASSIGNMENT_QUESTION_POOL_ITEMS,
-    MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSIGNMENT_ENTRY,
-    QuestionPoolAssignmentEntry, QuestionPoolItem, QuestionPoolItemAvailability,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, ScoringGeneration,
-    derive_instructor_assignment_availability,
+pub use crate::assessment::{
+    AssessmentAuthoredContent, AssessmentAuthoredContentFailureCode,
+    AssessmentAuthoredContentFailureReason, AssessmentAuthoredContentField,
+    AssessmentAuthoredContentLocalError, AssessmentAuthoredContentValidationFailure,
+    AssessmentEditNumber, AssessmentEditNumberError, AssessmentEntry, AssessmentEntryAvailability,
+    AssessmentEntryScoringRule, AssessmentInstructions, AssessmentInstructionsError,
+    AssessmentPointValue, AssessmentScoringState, AssessmentStatus, AssessmentTitle,
+    AssessmentTitleError, BaseAssessmentPolicy, FixedQuestionAssessmentEntry,
+    InstructorAssessmentAuthoredContentLocal, InstructorAssessmentAvailabilityView, LateWorkRule,
+    LocalDateAndTime, LocalDateAndTimeError, MAX_ASSESSMENT_ATTEMPT_LIMIT,
+    MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS,
+    MAX_ASSESSMENT_ORDERED_ENTRIES, MAX_ASSESSMENT_QUESTION_POOL_ITEMS,
+    MAX_ASSESSMENT_TITLE_UNICODE_SCALARS, MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
+    PoolRevisionMemberReference, QuestionPoolAssessmentEntry, QuestionPoolRevisionNumber,
+    QuestionPoolRevisionReference, QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule,
+    ScoringGeneration, derive_instructor_assessment_availability,
 };
-pub use crate::assignment_activity_rules::{
-    AssignmentActivityRules, AssignmentAttemptContinuationRule, AssignmentAttemptGradeRule,
-    AssignmentAttemptResumeRule, AssignmentCompletionRule, AssignmentNavigationRule,
-    AssignmentQuestionDisplayRule, AssignmentQuestionOrderRule, AssignmentQuestionVariationRule,
+pub use crate::assessment_activity_rules::{
+    AssessmentActivityRules, AssessmentAttemptContinuationRule, AssessmentAttemptGradeRule,
+    AssessmentAttemptResumeRule, AssessmentCompletionRule, AssessmentNavigationRule,
+    AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule, AssessmentQuestionVariationRule,
     QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolPreviewNonce,
     QuestionPoolReuseRule, QuestionPoolSelectionInputs, StudentFeedbackReleaseRule,
     StudentFeedbackReleaseTiming,
 };
-pub use crate::assignment_workspace::{
-    AssignmentEntryRequest, AssignmentPoliciesValidationFailure,
-    AssignmentPoliciesValidationFailureCode, AssignmentPoliciesValidationIssue,
-    AssignmentReleaseIssue, AssignmentReleaseValidation, CreateAssignmentRequest,
-    InstructorStudentView, InstructorStudentViewDelivery, ReplaceAssignmentContentRequest,
-    ReplaceAssignmentPoliciesRequest,
+pub use crate::assessment_workspace::{
+    AssessmentEntryRequest, AssessmentPoliciesValidationFailure,
+    AssessmentPoliciesValidationFailureCode, AssessmentPoliciesValidationIssue,
+    AssessmentReleaseIssue, AssessmentReleaseValidation, CreateAssessmentRequest,
+    InstructorStudentView, InstructorStudentViewDelivery, ReplaceAssessmentContentRequest,
+    ReplaceAssessmentPoliciesRequest,
 };
 pub use crate::auth::{AccountId, ProductRole};
+pub use crate::blueprint_course::canonical_exchange::{
+    CanonicalBlueprintAssessment, CanonicalBlueprintAssessmentEntry, CanonicalBlueprintCourse,
+    CanonicalBlueprintMetadata, CanonicalBlueprintModule,
+};
+pub use crate::blueprint_course::fork_sync_comparison::{
+    BlueprintForkAssessmentOrder, BlueprintForkSyncClassification, BlueprintForkSyncComparison,
+    BlueprintForkSyncSnapshot, BlueprintForkSyncUnit, compare_blueprint_fork_sync,
+    compare_blueprint_fork_sync_unit,
+};
 pub use crate::blueprint_course::{
-    BlueprintAssignmentContentInput, BlueprintAssignmentContentView, BlueprintAssignmentDefaults,
-    BlueprintAssignmentEditChoice, BlueprintAssignmentEntryInput, BlueprintAssignmentEntryView,
-    BlueprintAssignmentReference, BlueprintAssignmentReplacementInput, BlueprintChildIdError,
-    BlueprintCourseAssignmentContentView, BlueprintCourseReadAccess, BlueprintCourseSummaryView,
+    BlueprintAssessmentContentInput, BlueprintAssessmentContentView, BlueprintAssessmentDefaults,
+    BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput, BlueprintAssessmentEntryView,
+    BlueprintAssessmentReference, BlueprintAssessmentReplacementInput, BlueprintChildIdError,
+    BlueprintCourseAssessmentContentView, BlueprintCourseReadAccess, BlueprintCourseSummaryView,
     BlueprintCourseTitleError, BlueprintCourseValidationError, BlueprintCourseView,
     BlueprintModuleEditChoice, BlueprintModuleReference, BlueprintModuleReplacementInput,
     BlueprintModuleView, BlueprintRevision, CreateBlueprintCourseInput, CreateBlueprintModuleInput,
     MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS, ReplaceBlueprintCourseContentInput,
-    ReusableFixedQuestionInput, ReusablePoolInput, ReusablePoolView, ReusableQuestionPoolItemView,
-    ReusableQuestionView, ReusableSelectionAvailability, validate_blueprint_course_title,
+    ReusableFixedQuestionInput, ReusablePoolInput, ReusablePoolView, ReusableQuestionView,
+    ReusableSelectionAvailability, validate_blueprint_course_title,
 };
 pub use crate::blueprint_operations::*;
 pub use crate::capability::{
@@ -128,10 +141,10 @@ pub use crate::capability::{
     QuestionBackendCapabilities,
 };
 pub use crate::course::{
-    AssignmentEntrySummary, AssignmentOverview, AssignmentSummary, CourseMembershipRole,
-    CourseSummary, FixedQuestionAssignmentEntrySummary, GradebookSummaryRow,
-    QuestionPoolAssignmentEntrySummary, QuestionPoolItemSummary, StudentAssignmentDelivery,
-    StudentAssignmentDetail, StudentAssignmentLandingSummary, StudentLateWorkStatus,
+    AssessmentEntrySummary, AssessmentOverview, AssessmentSummary, CourseMembershipRole,
+    CourseSummary, FixedQuestionAssessmentEntrySummary, GradebookSummaryRow,
+    QuestionPoolAssessmentEntrySummary, StudentAssessmentDelivery, StudentAssessmentDetail,
+    StudentAssessmentLandingSummary, StudentLateWorkStatus,
 };
 pub use crate::course_appearance::{
     CourseAppearanceView, CourseBanner, CourseBannerAlternativeText, CourseBannerInformativeText,
@@ -146,7 +159,7 @@ pub use crate::feedback::{
     QuestionAnswer, QuestionAnswerExplanation, QuestionFeedback, QuestionHint, StudentFeedback,
     StudentResponseInspectionFeedback,
 };
-pub use crate::generation::QuestionSeed;
+pub use crate::generation::{QuestionReproduction, QuestionSeed, QuestionSourceSelection};
 pub use crate::identity::{
     ObjectId, QuestionAssetId, QuestionRevisionNumber, WorkspaceId, WorkspaceImportId,
 };
@@ -159,26 +172,26 @@ pub use crate::presentation::{
     PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
     QuestionAssetRendition, QuestionPresentation, QuestionPresentationBinding,
     QuestionPresentationChecksum, QuestionPresentationNonce, QuestionPresentationResponseFormat,
-    QuestionPresentationToken, StudentAssignmentAttemptScreen,
-    StudentAssignmentAttemptScreenAttempt, StudentAssignmentAttemptScreenScope,
+    QuestionPresentationToken, StudentAssessmentAttemptScreen,
+    StudentAssessmentAttemptScreenAttempt, StudentAssessmentAttemptScreenScope,
     StudentAttemptDescriptor,
 };
 pub use crate::preview_plane::{
     ActiveStudentCourseMembershipDenialReason, ActiveStudentCourseMembershipGrantReason,
-    ActiveStudentCourseMembershipOutcome, AssignmentPolicySourceKind,
-    EffectiveAssignmentPolicyView, HypotheticalStudentViewScenarioModifiers,
+    ActiveStudentCourseMembershipOutcome, AssessmentPolicySourceKind,
+    EffectiveAssessmentPolicyView, HypotheticalStudentViewScenarioModifiers,
     HypotheticalStudentViewScenarioRequest, InstructorPreviewSchedulePage,
     InstructorPreviewScheduleRow, PreviewAccommodationComparison, PreviewDeferredCapability,
     PreviewDenialReason, PreviewDisclosureFlags, PreviewDisclosureMoment,
     PreviewDisclosureUnavailableReason, PreviewEvaluation, PreviewFutureSeam,
     PreviewLateWorkRuleField, PreviewLimitField, PreviewPlaneResponse,
-    PreviewPriorAssignmentAttemptCount, PreviewResolvedPolicy, PreviewSelectedMoment,
+    PreviewPriorAssessmentAttemptCount, PreviewResolvedPolicy, PreviewSelectedMoment,
     PreviewTimeField, SelectedStudentViewScenarioRequest, StudentFeedbackReleaseView,
     StudentViewScenario, StudentViewScenarioAdmission, StudentViewScenarioOrigin,
 };
-pub use crate::profile_thumbnail::{ProfileThumbnailReference, ProfileThumbnailRendition};
+pub use crate::profile_image::ProfileImageReference;
 pub use crate::public_route::{
-    AccountReference, AssignmentAttemptReference, AssignmentReference, AuthoringWorkspaceReference,
+    AccountReference, AssessmentAttemptReference, AssessmentReference, AuthoringWorkspaceReference,
     BlueprintCourseReference, CourseInstanceReference, CourseInvitationReference,
     CourseMembershipReference, DraftQuestionReference, MAX_PUBLIC_ROUTE_NUMBER,
     NavigationResolution, RESERVED_REFERENCE_PREFIXES,
@@ -218,9 +231,11 @@ pub use crate::question_license::QuestionLicense;
 pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,
 };
+pub use crate::question_stewardship::QuestionStewardshipEvent;
 pub use crate::question_tag::Tag;
 pub use crate::question_variation::{
-    NativeChoiceOrder, QuestionVariation, QuestionVariationPresentation,
+    AuthorContentLibraryId, AuthorContentPresentation, NativeChoiceOrder, QuestionVariation,
+    QuestionVariationPresentation,
 };
 pub use crate::response::{
     MAX_BACKEND_OWNED_PAYLOAD_BYTES, QuestionResponseControl, QuestionResponseFormat, QuestionType,
@@ -228,18 +243,18 @@ pub use crate::response::{
 };
 pub use crate::statistics::{ClassStatistics, DEFAULT_STATISTICS_MINIMUM_COHORT_SIZE};
 pub use crate::student_work::{
-    AccommodationId, AssignmentAttempt, AssignmentAttemptCompletion, AssignmentAttemptEvidence,
-    AssignmentAttemptId, AssignmentAttemptPolicySource, AssignmentAttemptPolicySources,
-    AssignmentEntryId, AssignmentGrade, AssignmentGradeScoreState, AssignmentId,
-    AssignmentProgress, AssignmentProgressRecord, CourseId, CourseMembershipId, GradingResult,
+    AccommodationId, AssessmentAttempt, AssessmentAttemptCompletion, AssessmentAttemptEvidence,
+    AssessmentAttemptId, AssessmentAttemptPolicySource, AssessmentAttemptPolicySources,
+    AssessmentEntryId, AssessmentGrade, AssessmentGradeScoreState, AssessmentId,
+    AssessmentProgress, AssessmentProgressRecord, CourseId, CourseMembershipId, GradingResult,
     IssuedAttemptCapability, IssuedQuestion, IssuedQuestionId, QuestionAttempt, QuestionAttemptId,
     QuestionAttemptReproductionDetails, QuestionAttemptState, QuestionAttemptTiming,
     QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,
-    QuestionPoolItemId, QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
+    QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
     QuestionPoolSelectionReuseError, QuestionRendererVersion, QuestionSubmission,
     QuestionSubmissionId, RecordedCredit, SourceObjectChecksum, SourceObjectChecksumError,
-    SourceObjectReference, StudentAssignmentAttemptPosition, StudentAssignmentAttemptProgress,
-    StudentAssignmentAttemptResponseState, StudentAssignmentGrade, StudentAssignmentProgress,
+    SourceObjectReference, StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
+    StudentAssessmentAttemptResponseState, StudentAssessmentGrade, StudentAssessmentProgress,
     StudentQuestionAttemptView, StudentRecordId, Timestamp,
 };
 pub use crate::teaching_authority::{
@@ -250,7 +265,7 @@ pub use crate::teaching_operations::{
     AccommodationAdjustmentView, AccommodationApplicationRuleView,
     CourseInvitationStatePrecondition, CourseInvitationStateView, CourseInvitationTerminalAction,
     CourseInvitationTerminalActionRequest, CourseRosterChangeNumber, PendingCourseInvitationView,
-    PendingCourseInvitationsPage, TeachingAssignmentAttemptTimeLimitFieldPatch,
-    TeachingAssignmentAttemptTimeLimitSeconds, TeachingAttemptLimit,
+    PendingCourseInvitationsPage, TeachingAssessmentAttemptTimeLimitFieldPatch,
+    TeachingAssessmentAttemptTimeLimitSeconds, TeachingAttemptLimit,
     TeachingAttemptLimitFieldPatch, TeachingDisplayLabel, TeachingTimeFieldPatch,
 };

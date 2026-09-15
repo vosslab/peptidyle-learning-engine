@@ -42,12 +42,18 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo fictional identities are not active';
     END IF;
+    IF ple_private.verified_instructor_display_name(
+        '00000000-0000-0000-0000-000000000101'::uuid
+    ) IS DISTINCT FROM 'Elena Martinez' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Live Demo Instructor vetted identity is incomplete';
+    END IF;
     IF EXISTS (
         SELECT 1 FROM (VALUES
             ('00000000-0000-0000-0000-000000000101'::uuid, 'elena.martinez@live-demo.invalid'::text),
-            ('00000000-0000-0000-0000-000000000102'::uuid, 'mary.okafor@live-demo.invalid'::text),
-            ('00000000-0000-0000-0000-000000000103'::uuid, 'jack.nguyen@live-demo.invalid'::text),
-            ('00000000-0000-0000-0000-000000000104'::uuid, 'avery.thompson@live-demo.invalid'::text)
+            ('00000000-0000-0000-0000-000000000102'::uuid, 'mary.okafor@biology.roosevelt.edu'::text),
+            ('00000000-0000-0000-0000-000000000103'::uuid, 'jack.nguyen@biology.roosevelt.edu'::text),
+            ('00000000-0000-0000-0000-000000000104'::uuid, 'avery.thompson@biology.roosevelt.edu'::text)
         ) AS expected(account_id, normalized_email)
         LEFT JOIN ple_private.account_authentication_email AS email
           ON email.account_id = expected.account_id
@@ -102,13 +108,13 @@ SET LOCAL ROLE ple_api_owner;
 DO $$
 DECLARE
     blueprint_reference bigint;
-    expected_blueprint_assignment_reference uuid;
+    expected_blueprint_assessment_reference uuid;
 BEGIN
     blueprint_reference := current_setting(
         'ple.installation_live_demo_blueprint_reference'
     )::bigint;
-    expected_blueprint_assignment_reference := current_setting(
-        'ple.installation_live_demo_blueprint_assignment_reference'
+    expected_blueprint_assessment_reference := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
     IF (SELECT count(*) FROM ple_data.blueprint_course
              WHERE reference_number = blueprint_reference) <> 1
@@ -161,11 +167,11 @@ BEGIN
             WHERE pin.question_id IS NULL
        )
        OR NOT EXISTS (
-           SELECT 1 FROM ple_data.blueprint_revision_assignment AS revision_assignment
-            WHERE revision_assignment.blueprint_course_reference_number = blueprint_reference
-              AND revision_assignment.blueprint_revision_number = 1
-              AND revision_assignment.blueprint_assignment_reference
-                  = expected_blueprint_assignment_reference
+           SELECT 1 FROM ple_data.blueprint_revision_assessment AS revision_assessment
+            WHERE revision_assessment.blueprint_course_reference_number = blueprint_reference
+              AND revision_assessment.blueprint_revision_number = 1
+              AND revision_assessment.blueprint_assessment_reference
+                  = expected_blueprint_assessment_reference
        )
        OR NOT EXISTS (
            SELECT 1 FROM ple_data.course_origin
@@ -204,15 +210,14 @@ BEGIN
        )
        OR EXISTS (
            SELECT 1 FROM (VALUES
-               ('00000000-0000-0000-0000-000000000231'::uuid, '00000000-0000-0000-0000-000000000102'::uuid, 'mary.okafor@live-demo.invalid'::text, 'BIO301-MARY'::text),
-               ('00000000-0000-0000-0000-000000000232'::uuid, '00000000-0000-0000-0000-000000000103'::uuid, 'jack.nguyen@live-demo.invalid'::text, 'BIO301-JACK'::text),
-               ('00000000-0000-0000-0000-000000000233'::uuid, '00000000-0000-0000-0000-000000000104'::uuid, 'avery.thompson@live-demo.invalid'::text, 'BIO301-AVERY'::text)
-           ) AS expected(profile_id, student_id, roster_email, roster_id)
+               ('00000000-0000-0000-0000-000000000231'::uuid, '00000000-0000-0000-0000-000000000102'::uuid, 'BIO301-MARY'::text),
+               ('00000000-0000-0000-0000-000000000232'::uuid, '00000000-0000-0000-0000-000000000103'::uuid, 'BIO301-JACK'::text),
+               ('00000000-0000-0000-0000-000000000233'::uuid, '00000000-0000-0000-0000-000000000104'::uuid, 'BIO301-AVERY'::text)
+           ) AS expected(profile_id, student_id, roster_id)
            LEFT JOIN ple_private.course_roster_profile AS profile
              ON profile.course_roster_profile_id = expected.profile_id
             AND profile.course_id = '00000000-0000-0000-0000-000000000220'
             AND profile.student_account_id = expected.student_id
-            AND profile.roster_email = expected.roster_email
             AND profile.roster_id = expected.roster_id
            WHERE profile.course_roster_profile_id IS NULL
        )
@@ -247,24 +252,24 @@ DECLARE
     blueprint_reference bigint := current_setting(
         'ple.installation_live_demo_blueprint_reference'
     )::bigint;
-    expected_blueprint_assignment_reference uuid := current_setting(
-        'ple.installation_live_demo_blueprint_assignment_reference'
+    expected_blueprint_assessment_reference uuid := current_setting(
+        'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
-    IF (SELECT count(*) FROM ple_data.assignment
-             WHERE assignment_id = '00000000-0000-0000-0000-000000000270'
-               AND assignment_status = 'released'
+    IF (SELECT count(*) FROM ple_data.assessment
+             WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
+               AND assessment_status = 'released'
                AND course_id = '00000000-0000-0000-0000-000000000220'
                AND source_blueprint_course_reference_number = blueprint_reference
                AND source_blueprint_revision_number = 1
-               AND source_blueprint_assignment_reference
-                   = expected_blueprint_assignment_reference) <> 1
-       OR (SELECT count(*) FROM ple_data.assignment_entry
-             WHERE assignment_id = '00000000-0000-0000-0000-000000000270') <> 4
+               AND source_blueprint_assessment_reference
+                   = expected_blueprint_assessment_reference) <> 1
+       OR (SELECT count(*) FROM ple_data.assessment_entry
+             WHERE assessment_id = '00000000-0000-0000-0000-000000000270') <> 4
        OR EXISTS (
-           SELECT 1 FROM ple_data.assignment_entry
-            WHERE assignment_id = '00000000-0000-0000-0000-000000000270'
-              AND question_id !~ '^[0-9A-HJKMNP-TV-Z]{7}$'
+           SELECT 1 FROM ple_data.assessment_entry
+            WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
+              AND question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
        )
        OR EXISTS (
            WITH input AS (
@@ -287,13 +292,13 @@ BEGIN
                 )
            )
            SELECT 1 FROM input
-           LEFT JOIN ple_data.assignment_entry AS entry
-             ON entry.assignment_id = '00000000-0000-0000-0000-000000000270'
+           LEFT JOIN ple_data.assessment_entry AS entry
+             ON entry.assessment_id = '00000000-0000-0000-0000-000000000270'
             AND entry.authored_position = input.authored_position
             AND entry.entry_kind = 'fixed_question'
             AND entry.question_id = input.question_id
             AND entry.question_revision_number = input.revision_number
-            WHERE entry.assignment_entry_id IS NULL
+            WHERE entry.assessment_entry_id IS NULL
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo installation data is incomplete or uses an invalid Question identifier';

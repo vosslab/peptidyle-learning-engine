@@ -37,6 +37,12 @@ pub struct CourseBannerObjectMetadata {
     pub sha256: Sha256Checksum,
     pub byte_length: u64,
     pub media_type: String,
+    /// Verified pixel width.  It is durable source/rendition evidence, never
+    /// a browser-selected transform instruction.
+    pub width: u32,
+    /// Verified pixel height.  The database enforces the source 5:1 ratio and
+    /// the fixed delivery rendition dimensions.
+    pub height: u32,
 }
 
 /// Staged upload address and its exact pre-put work identity.
@@ -52,11 +58,9 @@ pub struct StagedCourseBannerUpload {
 pub struct PreparedCourseBannerPromotion {
     pub banner: CourseBannerReference,
     pub source: ObjectAddress,
-    pub hero: ObjectAddress,
-    pub card: ObjectAddress,
+    pub rendition: ObjectAddress,
     pub source_put_work_id: uuid::Uuid,
-    pub hero_put_work_id: uuid::Uuid,
-    pub card_put_work_id: uuid::Uuid,
+    pub rendition_put_work_id: uuid::Uuid,
 }
 
 /// All database facts that must be durable before the upload object put.
@@ -78,8 +82,9 @@ pub struct PrepareCourseBannerPromotion {
     pub banner: CourseBannerReference,
     pub update: CourseBannerUpdate,
     pub source: CourseBannerObjectMetadata,
-    pub hero: CourseBannerObjectMetadata,
-    pub card: CourseBannerObjectMetadata,
+    /// The one server-owned 5:1 delivery rendition.  Source bytes remain
+    /// private and are never substituted for this presentation object.
+    pub rendition: CourseBannerObjectMetadata,
 }
 
 /// Retired current banner objects that must be deleted or placed in repair.
@@ -87,11 +92,9 @@ pub struct PrepareCourseBannerPromotion {
 pub struct PreparedCourseBannerRemoval {
     pub banner: CourseBannerReference,
     pub source: ObjectAddress,
-    pub hero: ObjectAddress,
-    pub card: ObjectAddress,
+    pub rendition: ObjectAddress,
     pub source_put_work_id: uuid::Uuid,
-    pub hero_put_work_id: uuid::Uuid,
-    pub card_put_work_id: uuid::Uuid,
+    pub rendition_put_work_id: uuid::Uuid,
 }
 
 /// Exact durable authorization to perform one external deletion.
@@ -145,7 +148,7 @@ pub trait CourseBannerStore: Send + Sync {
         upload: CourseBannerUploadReference,
     ) -> Result<(), StoreError>;
 
-    /// Creates a hidden source, fixed hero/card pending deliveries, and all
+    /// Creates a hidden source, one fixed banner-rendition delivery, and all
     /// associated pending work before any source or rendition external put.
     async fn prepare_course_banner_promotion(
         &self,

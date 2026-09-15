@@ -7,19 +7,25 @@ use anyhow::{Context, Result, bail};
 use axum::{Router, routing::get};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    SessionLifetime,
+    SessionLifetime, SysadminTotpSeed, SysadminTotpStore,
     postgres::{
-        PostgresAccountTimeZoneStore, PostgresAssignmentAttemptExpirySweepStore,
-        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresCourseBannerStore,
-        PostgresCourseGradebookStore, PostgresCourseInstanceStore, PostgresCourseRosterStore,
-        PostgresCourseThemeStore, PostgresDraftQuestionSourceBindingStore,
-        PostgresInstructorAccountStore, PostgresInstructorProfileStore,
-        PostgresInvitationExportStore, PostgresLiveAssignmentDeliveryStore,
-        PostgresLiveAssignmentStore, PostgresLiveStudentCourseLandingStore,
-        PostgresProfileThumbnailStore, PostgresPublicAssetPublicationStore,
-        PostgresQuestionAssetDeliveryStore, PostgresQuestionLibraryStore, PostgresSessionStore,
-        PostgresSupportCapabilityStore, ProductionLoginProfile, local_development_pool,
-        production_pool,
+        Pool, PostgresAccountAvatarStore, PostgresAccountTimeZoneStore,
+        PostgresAssessmentAttemptExpirySweepStore, PostgresAuthoringDraftStore,
+        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
+        PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
+        PostgresCourseBannerStore, PostgresCourseGradebookStore, PostgresCourseInstanceStore,
+        PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
+        PostgresCourseRosterStore, PostgresCourseThemeStore,
+        PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
+        PostgresInvitationExportStore, PostgresLiveAssessmentDeliveryStore,
+        PostgresLiveAssessmentStore, PostgresLiveStudentCourseLandingStore,
+        PostgresPublicAssetPublicationStore, PostgresQuestionAssetDeliveryStore,
+        PostgresQuestionForkStore, PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
+        PostgresQuestionStarStore, PostgresQuestionWatchNotificationStore,
+        PostgresQuestionWatchStore, PostgresSessionStore, PostgresSupportCapabilityStore,
+        PostgresAssessmentPoolForkStore,
+        PostgresSysadminTotpStore, ProductionLoginProfile, SysadminTotpSeedKeyId,
+        SysadminTotpSeedKeyRing, local_development_pool, production_pool,
     },
 };
 use objects::{
@@ -28,10 +34,12 @@ use objects::{
 };
 use question_model::AccountId;
 use question_model::QuestionRendererVersion;
+use zeroize::Zeroize;
 
 use crate::auth::{
-    CookieTransport, ProductionBrowserBoundary, SeededDemoAccount, SeededDemoConfig,
-    SeededDemoPersona, SessionConfig, live_demo_router, session_router,
+    AuthenticationStores, CookieTransport, ProductionBrowserBoundary, SeededDemoAccount,
+    SeededDemoConfig, SeededDemoPersona, SessionConfig, live_demo_mfa_router, live_demo_router,
+    session_router, sysadmin_totp_router,
 };
 
 const LIVE_DEMO_ACCOUNT_ID_ENV: [(SeededDemoPersona, &str, &str); 5] = [
@@ -80,22 +88,30 @@ pub async fn production_router_from_env() -> Result<Router> {
         .map_err(anyhow::Error::msg)
         .context("could not configure API readiness checks")?;
     let sessions = Arc::new(PostgresSessionStore::new(pool.clone()));
+    let sysadmin_totp = local_sysadmin_totp_store_from_env(pool.clone())?;
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
+    let question_bulk_metadata = PostgresBulkPublishedQuestionMetadataStore::new(pool.clone());
+    let question_pool_creation = PostgresQuestionPoolCreationStore::new(pool.clone());
+    let question_forks = PostgresQuestionForkStore::new(pool.clone());
+    let question_stars = PostgresQuestionStarStore::new(pool.clone());
+    let question_watches = PostgresQuestionWatchStore::new(pool.clone());
     let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone());
+    let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone());
+    let blueprint_stewardship = PostgresBlueprintStewardshipStore::new(pool.clone());
     let course_instances = PostgresCourseInstanceStore::new(pool.clone());
     let course_themes = PostgresCourseThemeStore::new(pool.clone());
     let course_banners = PostgresCourseBannerStore::new(pool.clone());
     let course_roster = PostgresCourseRosterStore::new(pool.clone());
     let instructor_accounts = PostgresInstructorAccountStore::new(pool.clone());
-    let instructor_profiles = PostgresInstructorProfileStore::new(pool.clone());
-    let profile_thumbnails = PostgresProfileThumbnailStore::new(pool.clone());
+    let account_avatars = PostgresAccountAvatarStore::new(pool.clone());
     let support_capabilities = PostgresSupportCapabilityStore::new(pool.clone());
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresCourseGradebookStore::new(pool.clone());
     let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
-    let student_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
-    let assignments = PostgresLiveAssignmentStore::new(pool.clone());
-    let assignment_delivery = PostgresLiveAssignmentDeliveryStore::new(pool.clone());
+    let profile_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
+    let assessments = PostgresLiveAssessmentStore::new(pool.clone());
+    let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
+    let assessment_delivery = PostgresLiveAssessmentDeliveryStore::new(pool.clone());
     let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool);
@@ -103,22 +119,68 @@ pub async fn production_router_from_env() -> Result<Router> {
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
     let question_id_issuer = question_id_issuer_from_env()?;
+    let browser_boundary = production_browser_boundary_from_env()?;
     let session_config = production_session_config();
     let readiness_router = Router::new()
         .route("/health", get(crate::health::readiness_handler))
         .with_state(readiness);
-    let router = Router::new()
-        .merge(readiness_router)
-        .merge(session_router(Arc::clone(&sessions), session_config))
-        .merge(live_demo_router(
+    let authentication_router = match sysadmin_totp {
+        Some(sysadmin_totp) => {
+            let authentication_stores = Arc::new(AuthenticationStores::new(
+                Arc::clone(&sessions),
+                sysadmin_totp,
+            ));
+            session_router(Arc::clone(&sessions), session_config)
+                .merge(live_demo_mfa_router(
+                    Arc::clone(&authentication_stores),
+                    live_demo_config_from_env()?,
+                    session_config,
+                ))
+                .merge(sysadmin_totp_router(authentication_stores, session_config))
+        }
+        None => session_router(Arc::clone(&sessions), session_config).merge(live_demo_router(
             Arc::clone(&sessions),
             live_demo_config_from_env()?,
             session_config,
-        ))
+        )),
+    };
+    let router = Router::new()
+        .merge(readiness_router)
+        .merge(authentication_router)
+        .merge(crate::author_content_dependency_assets::author_content_dependency_asset_router())
         .merge(crate::question_library::question_library_router(
             Arc::clone(&sessions),
             question_library_store.clone(),
             question_library_objects.clone(),
+            question_id_issuer.clone(),
+        ))
+        .merge(
+            crate::question_bulk_metadata::question_bulk_metadata_router(
+                Arc::clone(&sessions),
+                question_bulk_metadata,
+                question_id_issuer.clone(),
+            ),
+        )
+        .merge(
+            crate::question_pool_creation::question_pool_creation_router(
+                Arc::clone(&sessions),
+                question_pool_creation,
+                question_id_issuer.clone(),
+            ),
+        )
+        .merge(crate::question_fork::question_fork_router(
+            Arc::clone(&sessions),
+            question_forks,
+            question_id_issuer.clone(),
+        ))
+        .merge(crate::question_stewardship::question_stewardship_router(
+            Arc::clone(&sessions),
+            question_stars,
+            question_id_issuer.clone(),
+        ))
+        .merge(crate::question_watch::question_watch_router(
+            Arc::clone(&sessions),
+            question_watches,
             question_id_issuer.clone(),
         ))
         .merge(crate::authoring::authoring_router(
@@ -131,9 +193,14 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::blueprint_course::blueprint_course_router(
             Arc::clone(&sessions),
             blueprint_courses,
+            blueprint_lineage,
             question_library_store,
             question_library_objects.clone(),
             question_id_issuer.clone(),
+        ))
+        .merge(crate::blueprint_stewardship::blueprint_stewardship_router(
+            Arc::clone(&sessions),
+            blueprint_stewardship,
         ))
         .merge(crate::navigation::navigation_router(
             Arc::clone(&sessions),
@@ -157,11 +224,14 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             instructor_accounts,
         ))
-        .merge(crate::instructor_profile::instructor_profile_router(
+        .merge(crate::profile_avatar::profile_avatar_router(
             Arc::clone(&sessions),
-            instructor_profiles,
-            profile_thumbnails,
+            account_avatars,
             question_library_objects.clone(),
+        ))
+        .merge(crate::profile_settings::profile_settings_router(
+            Arc::clone(&sessions),
+            profile_time_zones,
         ))
         .merge(crate::support_capability::support_capability_router(
             Arc::clone(&sessions),
@@ -180,19 +250,24 @@ pub async fn production_router_from_env() -> Result<Router> {
             crate::live_student_course_landing::live_student_course_landing_router(
                 Arc::clone(&sessions),
                 student_course_landing,
-                student_time_zones,
             ),
         )
-        .merge(crate::assignment_release::assignment_release_router(
+        .merge(crate::assessment_release::assessment_release_router(
             Arc::clone(&sessions),
-            assignments,
+            assessments,
             question_id_issuer.clone(),
         ))
-        .merge(crate::assignment_delivery::assignment_delivery_router(
+        .merge(crate::assessment_pool_fork::assessment_pool_fork_router(
             Arc::clone(&sessions),
-            assignment_delivery,
+            assessment_pool_forks,
+            question_id_issuer.clone(),
+        ))
+        .merge(crate::assessment_delivery::assessment_delivery_router(
+            Arc::clone(&sessions),
+            assessment_delivery,
             question_library_objects.clone(),
             webwork_adapter,
+            Arc::clone(&browser_boundary.origin),
         ))
         .merge(
             crate::webwork_asset_proxy::webwork_asset_proxy_router(webwork_asset_proxy)
@@ -209,7 +284,6 @@ pub async fn production_router_from_env() -> Result<Router> {
                 question_id_issuer,
             ),
         );
-    let browser_boundary = production_browser_boundary_from_env()?;
     Ok(crate::http_security::apply_api_security_headers(
         router.layer(axum::middleware::from_fn_with_state(
             browser_boundary,
@@ -317,19 +391,19 @@ pub async fn question_library_object_store_from_env() -> Result<S3ObjectStore> {
 
 /// Attests the one worker login without constructing an API router or listener.
 // ASVS 8.3.1: the worker's database URL must attest the worker profile before
-// it can sweep expired Assignment Attempts. No Account/session authority is constructed.
+// it can sweep expired Assessment Attempts. No Account/session authority is constructed.
 pub async fn verify_worker_database_login_from_env() -> Result<()> {
     let database_url = required_env("DATABASE_URL")?;
     let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
     {
         local_development_pool(
             &database_url,
-            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
+            ProductionLoginProfile::AssessmentAttemptExpiryWorker,
         )
     } else {
         production_pool(
             &database_url,
-            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
+            ProductionLoginProfile::AssessmentAttemptExpiryWorker,
         )
     }
     .context("could not construct the attested worker database pool")?;
@@ -339,19 +413,69 @@ pub async fn verify_worker_database_login_from_env() -> Result<()> {
     Ok(())
 }
 
-/// Runs the attested Assignment Attempt expiry worker.
+/// Runs the isolated Course-retention process from its two attested pools.
+///
+/// This constructs no listener, object/session/renderer client, or API state.
+/// The executor and notifier stay separate so a provider-facing notification
+/// attempt cannot acquire Course-transition authority.
+pub async fn run_course_retention_process_from_env() -> Result<()> {
+    let executor_url = required_env("PLE_COURSE_RETENTION_EXECUTOR_DATABASE_URL")?;
+    let notifier_url = required_env("PLE_COURSE_RETENTION_NOTIFIER_DATABASE_URL")?;
+    let local = std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local");
+    let executor = if local {
+        local_development_pool(
+            &executor_url,
+            ProductionLoginProfile::CourseRetentionExecutor,
+        )
+    } else {
+        production_pool(
+            &executor_url,
+            ProductionLoginProfile::CourseRetentionExecutor,
+        )
+    }
+    .context("could not construct the attested Course-retention executor database pool")?;
+    let notifier = if local {
+        local_development_pool(
+            &notifier_url,
+            ProductionLoginProfile::CourseRetentionNotifier,
+        )
+    } else {
+        production_pool(
+            &notifier_url,
+            ProductionLoginProfile::CourseRetentionNotifier,
+        )
+    }
+    .context("could not construct the attested Course-retention notifier database pool")?;
+    executor
+        .acquire()
+        .await
+        .context("the attested Course-retention executor database pool could not connect")?;
+    notifier
+        .acquire()
+        .await
+        .context("the attested Course-retention notifier database pool could not connect")?;
+
+    crate::course_retention_worker::run_until_shutdown(
+        PostgresCourseRetentionStore::new(executor),
+        PostgresCourseRetentionNotificationStore::new(notifier),
+        crate::course_retention_notification_delivery::NotConfiguredCourseRetentionNotificationDelivery,
+    )
+    .await
+}
+
+/// Runs the attested Assessment Attempt expiry worker.
 pub async fn run_attempt_expiry_worker_from_env() -> Result<()> {
     let database_url = required_env("DATABASE_URL")?;
     let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
     {
         local_development_pool(
             &database_url,
-            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
+            ProductionLoginProfile::AssessmentAttemptExpiryWorker,
         )
     } else {
         production_pool(
             &database_url,
-            ProductionLoginProfile::AssignmentAttemptExpiryWorker,
+            ProductionLoginProfile::AssessmentAttemptExpiryWorker,
         )
     }
     .context("could not construct the attested Attempt expiry worker database pool")?;
@@ -361,7 +485,10 @@ pub async fn run_attempt_expiry_worker_from_env() -> Result<()> {
     let objects = question_library_object_store_from_env().await?;
     let webwork = webwork_adapter_from_env()?;
     crate::worker::run_until_shutdown(
-        PostgresAssignmentAttemptExpirySweepStore::new(pool),
+        crate::worker::WorkerStores {
+            expiry: PostgresAssessmentAttemptExpirySweepStore::new(pool.clone()),
+            watches: PostgresQuestionWatchNotificationStore::new(pool),
+        },
         objects,
         webwork,
     )
@@ -507,6 +634,79 @@ fn required_env(name: &str) -> Result<String> {
         bail!("{name} must not be empty");
     }
     Ok(value)
+}
+
+/// Creates the local-only store after the controller has supplied both
+/// independent private files. No absent or malformed value falls back to a
+/// fixed key or seed. Seed provisioning is deliberately a controller-owned
+/// one-shot after installation data creates Morgan's Account. ASVS 2.2.1,
+/// 2.3.1, 6.4.1, and 8.2.1.
+fn local_sysadmin_totp_store_from_env(
+    pool: Pool,
+) -> Result<Option<Arc<PostgresSysadminTotpStore>>> {
+    let seed_path = std::env::var("PLE_LOCAL_SYSADMIN_TOTP_SEED_FILE").ok();
+    let key_path = std::env::var("PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_FILE").ok();
+    let (Some(seed_path), Some(key_path)) = (seed_path, key_path) else {
+        if std::env::var("PLE_LOCAL_SYSADMIN_TOTP_SEED_FILE").is_ok()
+            || std::env::var("PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_FILE").is_ok()
+        {
+            bail!("local Sysadmin TOTP seed and wrapping-key files must be configured together");
+        }
+        return Ok(None);
+    };
+    if seed_path.is_empty() {
+        bail!("local Sysadmin TOTP seed file must not be empty");
+    }
+    let mut key_bytes =
+        std::fs::read(key_path).context("could not read the local Sysadmin TOTP wrapping key")?;
+    let key: [u8; 32] = key_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP wrapping key is invalid"))?;
+    key_bytes.zeroize();
+    let key_id = SysadminTotpSeedKeyId::parse("local-demo-v1")
+        .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP wrapping key ID is invalid"))?;
+    let key_ring = Arc::new(
+        SysadminTotpSeedKeyRing::new(key_id, key, [])
+            .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP wrapping key is invalid"))?,
+    );
+    Ok(Some(Arc::new(PostgresSysadminTotpStore::new(
+        pool, key_ring,
+    ))))
+}
+
+/// Performs the controller-owned local seed transition only after installation
+/// data has created Morgan's active Sysadmin Account. The process mode has no
+/// listener or browser surface. ASVS 2.3.1 and 6.4.1.
+pub async fn provision_local_sysadmin_totp_from_env() -> Result<()> {
+    let database_url = required_env("DATABASE_URL")?;
+    let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
+    {
+        local_development_pool(&database_url, ProductionLoginProfile::Api)
+    } else {
+        production_pool(&database_url, ProductionLoginProfile::Api)
+    }
+    .context("could not construct the attested API database pool")?;
+    pool.acquire()
+        .await
+        .context("the attested API database pool could not connect")?;
+    let store = local_sysadmin_totp_store_from_env(pool)?
+        .ok_or_else(|| anyhow::anyhow!("local Sysadmin TOTP material is not configured"))?;
+    let seed_path = required_env("PLE_LOCAL_SYSADMIN_TOTP_SEED_FILE")?;
+    let mut seed_bytes =
+        std::fs::read(seed_path).context("could not read the local Sysadmin TOTP seed")?;
+    let seed = SysadminTotpSeed::from_csprng_bytes(std::mem::take(&mut seed_bytes))
+        .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP seed is invalid"))?;
+    seed_bytes.zeroize();
+    let account = AccountId::from_uuid(
+        uuid::Uuid::parse_str(&required_env("PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID")?)
+            .context("Morgan local Sysadmin Account ID is invalid")?,
+    );
+    store
+        .provision_sysadmin_totp_seed(account, seed)
+        .await
+        .map_err(|_| anyhow::anyhow!("local Sysadmin TOTP seed provisioning failed"))?;
+    Ok(())
 }
 
 #[cfg(test)]

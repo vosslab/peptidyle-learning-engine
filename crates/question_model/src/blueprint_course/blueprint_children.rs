@@ -7,10 +7,10 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{
-    BlueprintAssignmentContentInput, BlueprintAssignmentContentView,
+    BlueprintAssessmentContentInput, BlueprintAssessmentContentView,
     BlueprintCourseValidationError, validate_blueprint_course_title,
 };
-use crate::MAX_ASSIGNMENT_ORDERED_ENTRIES;
+use crate::MAX_ASSESSMENT_ORDERED_ENTRIES;
 
 /// Opaque stable reference for one retained Blueprint Module in a Blueprint Course lineage.
 ///
@@ -21,13 +21,13 @@ use crate::MAX_ASSIGNMENT_ORDERED_ENTRIES;
 #[serde(try_from = "String", into = "String")]
 pub struct BlueprintModuleReference(Uuid);
 
-/// Opaque stable identity for one retained assignment in a BlueprintCourse lineage.
+/// Opaque stable identity for one retained assessment in a BlueprintCourse lineage.
 ///
 /// Vector position remains authored order; this identifier is the immutable
 /// lineage key used by snapshots, Blueprint updates, and audit evidence.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
-pub struct BlueprintAssignmentReference(Uuid);
+pub struct BlueprintAssessmentReference(Uuid);
 
 macro_rules! impl_blueprint_child_id {
     ($name:ident) => {
@@ -83,7 +83,7 @@ macro_rules! impl_blueprint_child_id {
 }
 
 impl_blueprint_child_id!(BlueprintModuleReference);
-impl_blueprint_child_id!(BlueprintAssignmentReference);
+impl_blueprint_child_id!(BlueprintAssessmentReference);
 
 /// A browser-supplied Blueprint child Reference was not a canonical UUID string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,15 +106,15 @@ impl std::error::Error for BlueprintChildIdError {}
 pub struct CreateBlueprintModuleInput {
     /// Week or module label visible to active Instructor readers.
     pub label: String,
-    /// Blueprint Assignments in authored order.
-    pub assignments: Vec<BlueprintAssignmentContentInput>,
+    /// Blueprint Assessments in authored order.
+    pub assessments: Vec<BlueprintAssessmentContentInput>,
 }
 
 /// Complete submitted meaning for a newly created Blueprint Course.
 ///
 /// Creation carries lineage names beside the first reusable structure. It has
 /// no child identity fields, so the browser cannot choose stable Module or
-/// Assignment lineage identifiers.
+/// Assessment lineage identifiers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CreateBlueprintCourseInput {
@@ -133,18 +133,18 @@ impl CreateBlueprintCourseInput {
             .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintName)?;
         validate_blueprint_course_title(&self.long_name)
             .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintName)?;
-        if self.modules.is_empty() || self.modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+        if self.modules.is_empty() || self.modules.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
         }
         for module in &self.modules {
             validate_blueprint_course_title(&module.label)
                 .map_err(|_| BlueprintCourseValidationError::InvalidModuleLabel)?;
-            if module.assignments.is_empty()
-                || module.assignments.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
+            if module.assessments.is_empty()
+                || module.assessments.len() > MAX_ASSESSMENT_ORDERED_ENTRIES
             {
-                return Err(BlueprintCourseValidationError::InvalidModuleAssignmentCount);
+                return Err(BlueprintCourseValidationError::InvalidModuleAssessmentCount);
             }
-            for content in &module.assignments {
+            for content in &module.assessments {
                 content.validate()?;
             }
         }
@@ -176,38 +176,38 @@ impl BlueprintModuleEditChoice {
     }
 }
 
-/// Explicit Blueprint Assignment Edit Choice in a complete Blueprint Course edit.
+/// Explicit Blueprint Assessment Edit Choice in a complete Blueprint Course edit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum BlueprintAssignmentEditChoice {
-    /// Keep this exact assignment lineage from the expected head revision.
+pub enum BlueprintAssessmentEditChoice {
+    /// Keep this exact assessment lineage from the expected head revision.
     Retained {
-        blueprint_assignment_reference: BlueprintAssignmentReference,
+        blueprint_assessment_reference: BlueprintAssessmentReference,
     },
-    /// Add an assignment and let the server allocate its stable identity.
+    /// Add an assessment and let the server allocate its stable identity.
     New,
 }
 
-impl BlueprintAssignmentEditChoice {
-    /// Returns the retained Blueprint Assignment Reference, if this edit preserves the lineage.
-    pub fn retained_reference(self) -> Option<BlueprintAssignmentReference> {
+impl BlueprintAssessmentEditChoice {
+    /// Returns the retained Blueprint Assessment Reference, if this edit preserves the lineage.
+    pub fn retained_reference(self) -> Option<BlueprintAssessmentReference> {
         match self {
             Self::Retained {
-                blueprint_assignment_reference,
-            } => Some(blueprint_assignment_reference),
+                blueprint_assessment_reference,
+            } => Some(blueprint_assessment_reference),
             Self::New => None,
         }
     }
 }
 
-/// One Blueprint Assignment in a complete BlueprintCourse edit.
+/// One Blueprint Assessment in a complete BlueprintCourse edit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintAssignmentReplacementInput {
-    /// Explicit retained/new Blueprint Assignment Edit Choice for this ordered node.
-    pub choice: BlueprintAssignmentEditChoice,
-    /// Complete assignment meaning for this revision snapshot.
-    pub content: BlueprintAssignmentContentInput,
+pub struct BlueprintAssessmentReplacementInput {
+    /// Explicit retained/new Blueprint Assessment Edit Choice for this ordered node.
+    pub choice: BlueprintAssessmentEditChoice,
+    /// Complete assessment meaning for this revision snapshot.
+    pub content: BlueprintAssessmentContentInput,
 }
 
 /// One module in a complete BlueprintCourse edit.
@@ -218,8 +218,8 @@ pub struct BlueprintModuleReplacementInput {
     pub choice: BlueprintModuleEditChoice,
     /// Week or module label visible to active Instructor readers.
     pub label: String,
-    /// Complete Blueprint Assignments in authored order.
-    pub assignments: Vec<BlueprintAssignmentReplacementInput>,
+    /// Complete Blueprint Assessments in authored order.
+    pub assessments: Vec<BlueprintAssessmentReplacementInput>,
 }
 
 /// Complete submitted meaning for a replacement of one BlueprintCourse head.
@@ -233,11 +233,11 @@ pub struct ReplaceBlueprintCourseContentInput {
 impl ReplaceBlueprintCourseContentInput {
     /// Validates complete tree meaning and rejects duplicate retained References.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
-        if self.modules.is_empty() || self.modules.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES {
+        if self.modules.is_empty() || self.modules.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
         }
         let mut retained_modules = BTreeSet::new();
-        let mut retained_assignments = BTreeSet::new();
+        let mut retained_assessments = BTreeSet::new();
         for module in &self.modules {
             if let Some(module_reference) = module.choice.retained_reference()
                 && !retained_modules.insert(module_reference)
@@ -246,34 +246,34 @@ impl ReplaceBlueprintCourseContentInput {
             }
             validate_blueprint_course_title(&module.label)
                 .map_err(|_| BlueprintCourseValidationError::InvalidModuleLabel)?;
-            if module.assignments.is_empty()
-                || module.assignments.len() > MAX_ASSIGNMENT_ORDERED_ENTRIES
+            if module.assessments.is_empty()
+                || module.assessments.len() > MAX_ASSESSMENT_ORDERED_ENTRIES
             {
-                return Err(BlueprintCourseValidationError::InvalidModuleAssignmentCount);
+                return Err(BlueprintCourseValidationError::InvalidModuleAssessmentCount);
             }
-            for assignment in &module.assignments {
-                if let Some(assignment_reference) = assignment.choice.retained_reference()
-                    && !retained_assignments.insert(assignment_reference)
+            for assessment in &module.assessments {
+                if let Some(assessment_reference) = assessment.choice.retained_reference()
+                    && !retained_assessments.insert(assessment_reference)
                 {
                     return Err(
-                        BlueprintCourseValidationError::DuplicateRetainedBlueprintAssignmentChoice,
+                        BlueprintCourseValidationError::DuplicateRetainedBlueprintAssessmentChoice,
                     );
                 }
-                assignment.content.validate()?;
+                assessment.content.validate()?;
             }
         }
         Ok(())
     }
 }
 
-/// One answer-free Blueprint Assignment with its stable Blueprint Assignment Reference.
+/// One answer-free Blueprint Assessment with its stable Blueprint Assessment Reference.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintCourseAssignmentContentView {
-    /// Stable opaque Blueprint Assignment Reference retained by an edit of this Assignment.
-    pub blueprint_assignment_reference: BlueprintAssignmentReference,
-    /// Current answer-free assignment meaning.
-    pub content: BlueprintAssignmentContentView,
+pub struct BlueprintCourseAssessmentContentView {
+    /// Stable opaque Blueprint Assessment Reference retained by an edit of this Assessment.
+    pub blueprint_assessment_reference: BlueprintAssessmentReference,
+    /// Current answer-free assessment meaning.
+    pub content: BlueprintAssessmentContentView,
 }
 
 /// One answer-free Blueprint Module in retained aggregate-owned order.
@@ -284,6 +284,6 @@ pub struct BlueprintModuleView {
     pub blueprint_module_reference: BlueprintModuleReference,
     /// Week or module label visible to active Instructor readers.
     pub label: String,
-    /// Blueprint Assignments in retained aggregate-owned order.
-    pub assignments: Vec<BlueprintCourseAssignmentContentView>,
+    /// Blueprint Assessments in retained aggregate-owned order.
+    pub assessments: Vec<BlueprintCourseAssessmentContentView>,
 }

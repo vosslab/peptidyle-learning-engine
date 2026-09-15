@@ -7,10 +7,10 @@ use axum::{
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
-use learning_data_access::LiveAssignmentDeliveryStore;
-use question_model::{AssignmentAttemptReference, generation::QuestionSeed};
+use learning_data_access::{LiveAssessmentDeliveryStore, QuestionIssuanceReproductionInput};
+use question_model::AssessmentAttemptReference;
 
-use crate::assignment_delivery::{StateData, concealed, student};
+use crate::assessment_delivery::{StateData, concealed, student};
 
 const DOCUMENT_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
 
@@ -22,9 +22,9 @@ const DOCUMENT_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'se
 pub(crate) async fn document(
     State(state): State<StateData>,
     headers: HeaderMap,
-    Path((assignment_attempt, position)): Path<(String, u32)>,
+    Path((assessment_attempt, position)): Path<(String, u32)>,
 ) -> Response {
-    let assignment_attempt = match AssignmentAttemptReference::from_str(&assignment_attempt) {
+    let assessment_attempt = match AssessmentAttemptReference::from_str(&assessment_attempt) {
         Ok(value) if position > 0 => value,
         _ => return concealed(),
     };
@@ -34,13 +34,13 @@ pub(crate) async fn document(
     };
     let document = match state
         .delivery
-        .student_assignment_attempt_backend_document(token, assignment_attempt, position)
+        .student_assessment_attempt_backend_document(token, assessment_attempt, position)
         .await
     {
         Ok(value) => match value.resume {
             None => value.backend_document,
             Some(resume) => {
-                let source = match crate::assignment_delivery::resolve_webwork_source(
+                let source = match crate::assessment_delivery::resolve_webwork_source(
                     &state.objects,
                     &resume.source,
                 )
@@ -50,13 +50,13 @@ pub(crate) async fn document(
                     // ASVS 16.5.1: renderer/source failures stay concealed.
                     Err(_) => return concealed(),
                 };
+                let seed = match &resume.source.reproduction {
+                    QuestionIssuanceReproductionInput::Seeded { question_seed } => *question_seed,
+                    QuestionIssuanceReproductionInput::Static => return concealed(),
+                };
                 let document = match state
                     .webwork
-                    .resume_document(
-                        QuestionSeed::new(resume.source.question_seed),
-                        &source,
-                        &resume.saved_response,
-                    )
+                    .resume_document(seed, &source, &resume.saved_response)
                     .await
                 {
                     Ok(value) => value,

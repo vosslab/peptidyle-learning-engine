@@ -42,7 +42,6 @@ owner. The referenced files are current-user-owned regular files with mode `0600
 | PLE Question JSON      | Private PLE Question JSON route; `application/vnd.peptidyle.question+json`  | One answer-bearing document with the closed eight Question Types: MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT; maximum 256 KiB                                                | PLE Question JSON adapter source (currently `crates/adapters/ple/src/question_json.rs`), [QTI-JSON_OBJECT_FORMAT.md](QTI-JSON_OBJECT_FORMAT.md) |
 | Canvas QTI 1.2 ZIP     | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `canvas-qti-1.2-static-single-choice/v1` profile. Unsupported semantics refuse without loss; archive, answers, mappings, and QTI Import Package Checksum evidence stay private    | [crates/adapters/qti/src/profiles/canvas.rs](../crates/adapters/qti/src/profiles/canvas.rs)                                                     |
 | Blackboard QTI 2.1 ZIP | Deferred private QTI profile route; exact `application/zip`; maximum 32 MiB | Strict `blackboard-qti-2.1-static-single-choice-pool/v1` profile. Unsupported semantics refuse without loss; browser reports are answer-free                                             | [crates/adapters/qti/src/profiles/blackboard.rs](../crates/adapters/qti/src/profiles/blackboard.rs)                                             |
-| H5P `.h5p` package     | Trusted private adapter/object-store boundary                               | The current key-free, ungraded `H5P.MultiChoice` slice is implementation evidence only; Human Guidance requires H5P to own runtime, interactions, state, and scoring as a supported secondary Question Backend | [crates/adapters/h5p/src/import.rs](../crates/adapters/h5p/src/import.rs), [CONTRACTS.md](CONTRACTS.md) |
 
 QTI conversion produces one complete PLE Question JSON Draft Question through
 the shared authoring contract. Workspace Import separately retains the original
@@ -106,9 +105,10 @@ These are retained future-contract work, not current interfaces:
   shipped by this page.
 - A future external QTI-JSONL adapter. PLE Question JSON remains the authoritative internal
   source contract; QTI-JSONL is not a current upload format.
-- Complete the supported secondary H5P Question Backend so H5P owns runtime, interactions, state,
-  and scoring behind the common backend contract. The current ungraded slice is an implementation
-  gap, not the target product behavior.
+- H5P delivery is blocked on the product decision recorded in
+  [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md#future-h5p-delivery-is-a-blocked-isolated-lumi-runtime):
+  supported content types and pinned libraries, terminal xAPI/score semantics, and the role of
+  scoreless activities. PLE currently has no H5P import, source, or runtime interface.
 
 YAML is not a generic input or output interface. The checked-in pilot Question Set manifest is a
 controlled source input owned and validated by

@@ -44,7 +44,7 @@ mod launch_session_bridge {
     use objects::{ObjectAddress, ObjectStore, PutObject};
     use question_model::generation::QuestionSeed;
     use question_model::{
-        AccountId, AssignmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
+        AccountId, AssessmentId, CourseId, ImathasDeploymentReference, ImathasItemReference,
         ImathasProfile, ImathasQuestionBackendBinding, ObjectId, QuestionAttemptId, QuestionId,
         QuestionRevisionNumber, QuestionRevisionReference, SourceObjectChecksum,
         SourceObjectReference, Timestamp,
@@ -82,7 +82,7 @@ mod launch_session_bridge {
 
     fn question() -> QuestionRevisionReference {
         QuestionRevisionReference {
-            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question ID"),
+            question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("question ID"),
             revision_number: QuestionRevisionNumber::new(2).expect("revision"),
         }
     }
@@ -141,7 +141,7 @@ mod launch_session_bridge {
         ImathasQuestionBackendSessionPreparationContext::new(
             AccountId::from_uuid(Uuid::from_u128(1)),
             CourseId::from_uuid(Uuid::from_u128(2)),
-            AssignmentId::from_uuid(Uuid::from_u128(3)),
+            AssessmentId::from_uuid(Uuid::from_u128(3)),
             grading_context,
             imathas_question_backend_binding,
             artifact.clone(),
@@ -244,7 +244,7 @@ mod launch_session_bridge {
         let initial_restore_expectation = ImathasQuestionBackendSessionRestoreExpectation::new(
             account,
             CourseId::from_uuid(Uuid::from_u128(2)),
-            AssignmentId::from_uuid(Uuid::from_u128(3)),
+            AssessmentId::from_uuid(Uuid::from_u128(3)),
             learning_data_access::ImathasGradingContext::new(
                 QuestionAttemptId::from_uuid(Uuid::from_u128(7)),
                 question.clone(),
@@ -387,7 +387,7 @@ mod launch_session_bridge {
         wrong_question_id.grading_context = learning_data_access::ImathasGradingContext::new(
             wrong_question_id.grading_context.question_attempt(),
             QuestionRevisionReference {
-                question_id: QuestionId::from_canonical_parts("BCDEFG", 'H').expect("Question ID"),
+                question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H').expect("Question ID"),
                 revision_number: wrong_question_id
                     .grading_context
                     .question_revision()
@@ -516,7 +516,7 @@ mod launch_session_bridge {
                 validation.grading_context = learning_data_access::ImathasGradingContext::new(
                     validation.grading_context.question_attempt(),
                     QuestionRevisionReference {
-                        question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
+                        question_id: QuestionId::from_canonical_parts("BCDEFGH", 'H')
                             .expect("Question ID"),
                         revision_number: validation
                             .grading_context

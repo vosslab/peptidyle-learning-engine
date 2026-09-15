@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
 use crate::answer::{ResponseSelectionRule, TextResponseMatchRule};
-use crate::generation::QuestionSeed;
 use crate::question_content::{QuestionAssetReference, QuestionContentBlock};
 use crate::question_variation::{NativeChoiceOrder, QuestionVariationPresentation};
 use crate::response::{
@@ -23,7 +22,7 @@ use super::{
     StudentResponseInspection, extract_durable_response_item_bindings,
     project_durable_response_to_presentation_response_item_references,
     project_presentation_response_item_references_for_inspection,
-    rebind_durable_response_item_bindings, rebuild_public_question_presentation,
+    rebind_durable_response_item_bindings, rebuild_native_static_question_presentation,
     reproduce_question_presentation, translate_presentation_response_item_references,
     verify_question_presentation,
 };
@@ -64,12 +63,12 @@ fn response_item_body(text: &str) -> Vec<QuestionContentBlock> {
 
 fn fixture() -> QuestionVariationPresentation {
     QuestionVariationPresentation {
-        variation: crate::QuestionVariation::from_question_revision_and_question_seed(
+        variation: crate::QuestionVariation::from_question_revision_and_reproduction(
             QuestionRevisionReference {
-                question_id: "123-4567".parse().expect("valid Question ID"),
+                question_id: "1234-X567".parse().expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
-            QuestionSeed::new(42),
+            crate::QuestionReproduction::Static,
         ),
         question_title: "Peptide bond".to_owned(),
         prompt: vec![QuestionContentBlock::Text {
@@ -83,6 +82,7 @@ fn fixture() -> QuestionVariationPresentation {
             selection: ResponseSelectionRule::ExactlyOne,
         },
         native_choice_order: NativeChoiceOrder::Fixed,
+        author_content: None,
     }
 }
 
@@ -122,7 +122,7 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     let bytes = descriptor_bytes(&presentation).expect("descriptor");
     let public = presentation.checksum.public_token();
 
-    assert!(bytes.starts_with(b"ple:presentation:v1\0\x01"));
+    assert!(bytes.starts_with(b"ple:presentation:v3\0\x03"));
     assert_eq!(
         presentation.presentation.presentation_nonce,
         QuestionPresentationNonce::from_bytes([0x11; 16])
@@ -138,21 +138,6 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
         presentation.item_bindings[0].presentation_response_item_reference,
         presentation.item_bindings[1].presentation_response_item_reference
     );
-    assert_eq!(
-        presentation.item_bindings[0]
-            .presentation_response_item_reference
-            .as_str(),
-        "dee4"
-    );
-    assert_eq!(
-        presentation.checksum.as_bytes(),
-        [
-            0xf2, 0xec, 0x6c, 0x72, 0x5e, 0x7b, 0x64, 0x94, 0x63, 0x74, 0xc1, 0x8b, 0x1c, 0x52,
-            0x04, 0x2d, 0x7a, 0xd9, 0x65, 0xcf, 0xf1, 0x7a, 0xe9, 0x00, 0x89, 0xaf, 0x94, 0x2b,
-            0x9f, 0x3f, 0x40, 0xce,
-        ]
-    );
-    assert_eq!(public.as_str(), "pd1_8uxscl57ZJRjdMGLHFIELQ");
     assert!(
         !serde_json::to_string(&presentation.presentation)
             .expect("public JSON")
@@ -160,8 +145,9 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
     );
     verify_question_presentation(&presentation, presentation.checksum, &public)
         .expect("matching descriptor");
-    let public_rebuild = rebuild_public_question_presentation(&presentation.presentation, &[])
-        .expect("public presentation should reproduce the server descriptor");
+    let public_rebuild =
+        rebuild_native_static_question_presentation(&presentation.presentation, &[])
+            .expect("public presentation should reproduce the server descriptor");
     assert_eq!(public_rebuild.checksum, presentation.checksum);
     assert!(
         public_rebuild
@@ -179,7 +165,7 @@ fn descriptor_is_stable_answer_free_and_bound_to_every_visible_field() {
 }
 
 #[test]
-fn backend_owned_presentation_rebuilds_answer_free() {
+fn native_static_rebuild_refuses_renderer_owned_presentations() {
     let mut source = fixture();
     source.question_title = "Backend-owned response".to_owned();
     source.prompt = Vec::new();
@@ -199,10 +185,17 @@ fn backend_owned_presentation_rebuilds_answer_free() {
     );
     assert!(first.item_bindings.is_empty());
 
-    let rebuilt = rebuild_public_question_presentation(&first.presentation, &[])
-        .expect("backend-owned public presentation rebuild");
-    assert_eq!(rebuilt.checksum, first.checksum);
-    assert!(rebuilt.item_bindings.is_empty());
+    assert!(rebuild_native_static_question_presentation(&first.presentation, &[]).is_err());
+
+    let mut imathas_source = fixture();
+    imathas_source.question_title = "iMathAS response".to_owned();
+    imathas_source.prompt = Vec::new();
+    imathas_source.response = QuestionResponseFormat::ImathasQuestionBackend {};
+    let mut imathas_nonce = Nonces::new([[0x23; 16]]);
+    let imathas =
+        build_question_presentation_with_nonce_source(&imathas_source, &[], &mut imathas_nonce)
+            .expect("iMathAS presentation");
+    assert!(rebuild_native_static_question_presentation(&imathas.presentation, &[]).is_err());
 }
 
 #[test]
@@ -211,8 +204,8 @@ fn retained_response_item_bindings_rebind_only_the_exact_public_set() {
     let issued = build_question_presentation_with_nonce_source(&fixture(), &[], &mut source)
         .expect("issued presentation");
     let bindings = extract_durable_response_item_bindings(&issued).expect("durable bindings");
-    let rebuilt =
-        rebuild_public_question_presentation(&issued.presentation, &[]).expect("public rebuild");
+    let rebuilt = rebuild_native_static_question_presentation(&issued.presentation, &[])
+        .expect("native static rebuild");
     let rebound = rebind_durable_response_item_bindings(rebuilt, &bindings).expect("exact set");
     assert_eq!(
         rebound
@@ -231,8 +224,8 @@ fn retained_response_item_bindings_rebind_only_the_exact_public_set() {
     missing.pop();
     assert!(
         rebind_durable_response_item_bindings(
-            rebuild_public_question_presentation(&issued.presentation, &[])
-                .expect("public rebuild"),
+            rebuild_native_static_question_presentation(&issued.presentation, &[])
+                .expect("native static rebuild"),
             &missing,
         )
         .is_err()
@@ -243,8 +236,8 @@ fn retained_response_item_bindings_rebind_only_the_exact_public_set() {
         duplicate[0].presentation_response_item_reference.clone();
     assert!(
         rebind_durable_response_item_bindings(
-            rebuild_public_question_presentation(&issued.presentation, &[])
-                .expect("public rebuild"),
+            rebuild_native_static_question_presentation(&issued.presentation, &[])
+                .expect("native static rebuild"),
             &duplicate,
         )
         .is_err()
@@ -349,6 +342,7 @@ fn public_json_uses_presentation_response_item_references_and_schema_kind_only()
     assert!(choices.iter().all(|choice| choice.id.as_str().len() == 4));
     let json = serde_json::to_value(&presentation.presentation).expect("public JSON");
     assert_eq!(json["response"]["kind"], "singleChoice");
+    assert!(json.get("questionSeed").is_none());
     assert!(json.get("grading").is_none());
 }
 
@@ -363,7 +357,7 @@ fn persisted_binding_is_strict_and_round_trips_full_checksum() {
     );
     let json = serde_json::to_value(binding).expect("binding JSON");
 
-    assert_eq!(json["descriptorVersion"], 1);
+    assert_eq!(json["descriptorVersion"], 3);
     assert_eq!(json["nonce"].as_str().expect("nonce").len(), 32);
     assert_eq!(json["checksum"].as_str().expect("checksum").len(), 64);
     assert_eq!(
@@ -372,7 +366,7 @@ fn persisted_binding_is_strict_and_round_trips_full_checksum() {
     );
 
     let mut wrong_version = json.clone();
-    wrong_version["descriptorVersion"] = serde_json::json!(2);
+    wrong_version["descriptorVersion"] = serde_json::json!(1);
     assert!(serde_json::from_value::<QuestionPresentationBinding>(wrong_version).is_err());
 
     let mut unknown = json;
@@ -753,7 +747,7 @@ fn browser_submitted_response_round_trips_through_safe_inspection() {
             ResponseItemRole::QuestionChoice,
         )],
     };
-    let rebuilt = rebuild_public_question_presentation(&presentation.presentation, &[])
+    let rebuilt = rebuild_native_static_question_presentation(&presentation.presentation, &[])
         .expect("browser-safe presentation rebuild");
 
     assert!(matches!(

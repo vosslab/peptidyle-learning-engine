@@ -22,7 +22,9 @@ pub use builder::{
     QuestionPresentationNonceSource, ResponseItemBinding, ResponseItemRole,
     build_question_presentation, build_question_presentation_with_nonce_source,
     extract_durable_response_item_bindings, rebind_durable_response_item_bindings,
-    rebuild_public_question_presentation, reproduce_question_presentation,
+    rebuild_native_static_question_presentation, rebuild_question_presentation_with_reproduction,
+    rebuild_question_presentation_with_reproduction_and_author_content,
+    reproduce_question_presentation,
 };
 pub use codec::{
     CURRENT_DESCRIPTOR_VERSION, QuestionPresentationChecksum, descriptor_bytes,
@@ -33,8 +35,8 @@ pub use model::{
     PresentedMatchingChoice, PresentedMatchingPrompt, PresentedOrderingItem,
     PresentedQuestionChoice, PresentedResponseItemContent, PresentedTextEntrySlot,
     QuestionAssetRendition, QuestionPresentation, QuestionPresentationNonce,
-    QuestionPresentationResponseFormat, QuestionPresentationToken, StudentAssignmentAttemptScreen,
-    StudentAssignmentAttemptScreenAttempt, StudentAssignmentAttemptScreenScope,
+    QuestionPresentationResponseFormat, QuestionPresentationToken, StudentAssessmentAttemptScreen,
+    StudentAssessmentAttemptScreenAttempt, StudentAssessmentAttemptScreenScope,
     StudentAttemptDescriptor,
 };
 pub use response_translation::{

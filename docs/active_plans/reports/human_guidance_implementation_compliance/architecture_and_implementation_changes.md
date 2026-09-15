@@ -15,6 +15,12 @@ The authoritative exhaustive record is the
 
 ### Development principles -- Codebase development rules
 
+- PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior.
+  - Source: `docs/HUMAN_GUIDANCE.md:46`
+
+- PLE is pre-production with no users or durable production data. Improve the design directly.
+  - Source: `docs/HUMAN_GUIDANCE.md:50`
+
 - Every source file should stay below 1000 lines. Split complete capabilities into focused modules.
   - Source: `docs/HUMAN_GUIDANCE.md:45`
 
@@ -40,7 +46,7 @@ The authoritative exhaustive record is the
 
 ## Count method
 
-This report owns **7** checklist records. The count is the number of `[ ]` bullets
+This report owns **9** checklist records. The count is the number of `[ ]` bullets
 in the listed sections after excluding records with a later-duplicate `Owner:` pointer.
 It is mechanically reconciled with the other topical inventories by the temporary report
 generation check; it is not a permanent test.

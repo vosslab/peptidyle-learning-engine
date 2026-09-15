@@ -1,13 +1,11 @@
 // Strict decoding for the minimal current Student Course Landing projection.
 
 import type {
-  LiveStudentAssignmentLandingSummary,
+  LiveStudentAssessmentLandingSummary,
   LiveStudentCourseInvitationSummary,
   LiveStudentCourseLandingSummary,
-  StudentTimeZoneProfile,
-  UpdateStudentTimeZoneInput,
 } from "../live_student_course_landing";
-import type { AssignmentAttemptCompletion } from "../../../generated/api/AssignmentAttemptCompletion";
+import type { AssessmentAttemptCompletion } from "../../../generated/api/AssessmentAttemptCompletion";
 import {
   DecodeError,
   decodeArray,
@@ -19,22 +17,19 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import {
-  decodeAssignmentReference,
-  decodeAssignmentTitle,
+  decodeAssessmentReference,
+  decodeAssessmentTitle,
   decodeCourseInstanceReference,
   decodeCourseName,
   field,
   requireOnlyFields,
 } from "./shared";
-import {
-  decodeAccountTimeZone,
-  decodeStudentAssignmentDecision,
-} from "./student_assignment_decision";
+import { decodeStudentAssessmentDecision } from "./student_assessment_decision";
 
 const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
   "completed",
-] as const satisfies ReadonlyArray<AssignmentAttemptCompletion>;
+] as const satisfies ReadonlyArray<AssessmentAttemptCompletion>;
 
 function decodeCourseSummary(value: unknown, path: string): LiveStudentCourseLandingSummary {
   const record = decodeRecord(value, path);
@@ -56,29 +51,29 @@ function decodeInvitationSummary(value: unknown, path: string): LiveStudentCours
   };
 }
 
-function decodeAssignmentSummary(
+function decodeAssessmentSummary(
   value: unknown,
   path: string,
-): LiveStudentAssignmentLandingSummary {
+): LiveStudentAssessmentLandingSummary {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "reference",
     "title",
     "decision",
-    "assignmentAttemptNumber",
-    "assignmentAttemptCompletion",
+    "assessmentAttemptNumber",
+    "assessmentAttemptCompletion",
     "gradedQuestionCount",
     "questionCount",
     "score",
   ]);
-  const assignmentAttemptNumber = decodeNullable(
-    field(record, "assignmentAttemptNumber", path),
-    `${path}.assignmentAttemptNumber`,
+  const assessmentAttemptNumber = decodeNullable(
+    field(record, "assessmentAttemptNumber", path),
+    `${path}.assessmentAttemptNumber`,
     decodePositiveInteger,
   );
-  const assignmentAttemptCompletion = decodeNullable(
-    field(record, "assignmentAttemptCompletion", path),
-    `${path}.assignmentAttemptCompletion`,
+  const assessmentAttemptCompletion = decodeNullable(
+    field(record, "assessmentAttemptCompletion", path),
+    `${path}.assessmentAttemptCompletion`,
     (candidate, candidatePath) =>
       decodeStringEnum(candidate, candidatePath, ASSIGNMENT_ATTEMPT_COMPLETIONS),
   );
@@ -104,25 +99,25 @@ function decodeAssignmentSummary(
       `${path}.score.pointsPossible`,
     );
     if (pointsEarned < 0 || pointsPossible < pointsEarned) {
-      throw new DecodeError(`${path}.score`, "an ordered nonnegative Assignment score");
+      throw new DecodeError(`${path}.score`, "an ordered nonnegative Assessment score");
     }
     score = { pointsEarned, pointsPossible };
   }
   if (
     gradedQuestionCount > questionCount ||
     (score !== undefined && gradedQuestionCount !== questionCount) ||
-    (assignmentAttemptCompletion === null &&
-      (assignmentAttemptNumber !== null || gradedQuestionCount !== 0 || score !== undefined)) ||
-    (assignmentAttemptCompletion !== null && assignmentAttemptNumber === null)
+    (assessmentAttemptCompletion === null &&
+      (assessmentAttemptNumber !== null || gradedQuestionCount !== 0 || score !== undefined)) ||
+    (assessmentAttemptCompletion !== null && assessmentAttemptNumber === null)
   ) {
-    throw new DecodeError(path, "internally consistent self-only Assignment progress");
+    throw new DecodeError(path, "internally consistent self-only Assessment progress");
   }
   return {
-    reference: decodeAssignmentReference(field(record, "reference", path), `${path}.reference`),
-    title: decodeAssignmentTitle(field(record, "title", path), `${path}.title`),
-    decision: decodeStudentAssignmentDecision(field(record, "decision", path), `${path}.decision`),
-    assignmentAttemptNumber,
-    assignmentAttemptCompletion,
+    reference: decodeAssessmentReference(field(record, "reference", path), `${path}.reference`),
+    title: decodeAssessmentTitle(field(record, "title", path), `${path}.title`),
+    decision: decodeStudentAssessmentDecision(field(record, "decision", path), `${path}.decision`),
+    assessmentAttemptNumber,
+    assessmentAttemptCompletion,
     gradedQuestionCount,
     questionCount,
     ...(score === undefined ? {} : { score }),
@@ -153,38 +148,16 @@ export function decodeLiveStudentCourseInvitations(
   );
 }
 
-/** Rejects anything beyond the current Student's minimal Assignment landing projection. */
-export function decodeLiveStudentAssignmentLandings(
+/** Rejects anything beyond the current Student's minimal Assessment landing projection. */
+export function decodeLiveStudentAssessmentLandings(
   value: unknown,
   path = "response",
-): ReadonlyArray<LiveStudentAssignmentLandingSummary> {
+): ReadonlyArray<LiveStudentAssessmentLandingSummary> {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assignments"]);
+  requireOnlyFields(record, path, ["assessments"]);
   return decodeArray(
-    field(record, "assignments", path),
-    `${path}.assignments`,
-    decodeAssignmentSummary,
+    field(record, "assessments", path),
+    `${path}.assessments`,
+    decodeAssessmentSummary,
   );
-}
-
-export function decodeStudentTimeZoneProfile(
-  value: unknown,
-  path = "response",
-): StudentTimeZoneProfile {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["timeZone"]);
-  return {
-    timeZone: decodeAccountTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
-  };
-}
-
-export function decodeUpdateStudentTimeZoneInput(
-  value: unknown,
-  path = "request",
-): UpdateStudentTimeZoneInput {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["timeZone"]);
-  return {
-    timeZone: decodeAccountTimeZone(field(record, "timeZone", path), `${path}.timeZone`),
-  };
 }

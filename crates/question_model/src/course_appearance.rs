@@ -158,33 +158,33 @@ pub struct CourseBannerUploadReference(Uuid);
 
 impl_banner_route_id!(CourseBannerUploadReference);
 
-/// A server-owned Course Banner delivery rendition.
+/// The single server-owned Course Banner rendition.
 ///
 /// This is deliberately closed: callers select neither a storage key nor an
-/// arbitrary resize.  The delivery route chooses one of these fixed values.
+/// arbitrary resize. The delivery route always resolves this one rendition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum CourseBannerRendition {
-    /// Wide course-entry image, normalized to 1200 by 200 pixels.
-    Hero,
-    /// Course-card image, normalized to 1000 by 400 pixels.
-    Card,
+    /// Lossless WebP banner delivery, normalized to 1280 by 256 pixels.
+    ///
+    /// The output dimensions are fixed. Upload input has no minimum size, but
+    /// it must be oriented at the exact 5:1 aspect ratio; the server neither
+    /// crops nor pads it.
+    Banner,
 }
 
 impl CourseBannerRendition {
     /// Stable storage and database value.
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::Hero => "hero",
-            Self::Card => "card",
+            Self::Banner => "banner",
         }
     }
 
     /// Exact normalized pixel dimensions for this rendition.
     pub const fn dimensions(self) -> (u32, u32) {
         match self {
-            Self::Hero => (1200, 200),
-            Self::Card => (1000, 400),
+            Self::Banner => (1280, 256),
         }
     }
 }

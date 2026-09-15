@@ -50,7 +50,7 @@ test("Student Question navigation renders ordered, answer-free states with one c
       questionTitle: "Private title",
       answer: "private answer",
     },
-    { position: 1, responseState: "unanswered", questionId: "AAA-BBBB" },
+    { position: 1, responseState: "unanswered", questionId: "AAAA-ZBBB" },
     { position: 3, responseState: "closed", privateData: "private data" },
   ];
   const html = renderToString(() =>
@@ -70,7 +70,7 @@ test("Student Question navigation renders ordered, answer-free states with one c
   assert.equal((html.match(/Current/gu) ?? []).length, 1);
   assert.match(html, /Question 3: Closed/u);
   assert.match(html, /disabled(?:\s|>)/u);
-  assert.doesNotMatch(html, /Private title|AAA-BBBB|private answer|private data/u);
+  assert.doesNotMatch(html, /Private title|AAAA-ZBBB|private answer|private data/u);
 });
 
 test("Student Question navigation renders its intentional empty state", async () => {

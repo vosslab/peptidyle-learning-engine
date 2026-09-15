@@ -13,10 +13,14 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use learning_data_access::{AuthenticatedAccount, SysadminTotpStore};
 use question_model::{AccountId, ProductRole};
 use serde::{Deserialize, Serialize};
 
-use super::{AuthError, SessionConfig, SessionStore, issue_session, no_store};
+use super::{
+    AuthError, PrimaryAuthenticationOutcome, SessionConfig, SessionStore,
+    establish_primary_authentication, issue_session, no_store,
+};
 
 const MAX_DISPLAY_NAME_CHARACTERS: usize = 200;
 
@@ -151,7 +155,11 @@ impl<S> Clone for LiveDemoState<S> {
     }
 }
 
-/// Adds the deployment-gated direct-entry routes to a normal session router.
+/// Adds the deployment-gated seeded-role entry routes to a normal session router.
+///
+/// This deliberately mounts only the closed persona selector.  It does not
+/// mount an email-code ceremony or deliver email, even when a seeded Account
+/// has demonstration email data in the disposable installation.
 pub fn live_demo_router<S>(
     sessions: Arc<S>,
     config: Option<SeededDemoConfig>,
@@ -167,6 +175,35 @@ where
         .route(
             "/api/auth/live-demo/accounts",
             get(list_accounts::<S>).post(select_account::<S>),
+        )
+        .with_state(LiveDemoState {
+            sessions,
+            config,
+            session_config,
+        })
+}
+
+/// Adds the same closed seeded-persona surface, but routes Morgan through the
+/// ordinary pending Sysadmin-TOTP ceremony instead of issuing a session.
+///
+/// C806 mounts this route only after it has provisioned the deployment-owned
+/// TOTP Store and authenticator.  Until then, [`live_demo_router`] rejects the
+/// Morgan selection rather than retaining a demo-only session shortcut.
+pub fn live_demo_mfa_router<S>(
+    sessions: Arc<S>,
+    config: Option<SeededDemoConfig>,
+    session_config: SessionConfig,
+) -> Router
+where
+    S: SessionStore + SysadminTotpStore + 'static,
+{
+    let Some(config) = config else {
+        return Router::new();
+    };
+    Router::new()
+        .route(
+            "/api/auth/live-demo/accounts",
+            get(list_mfa_accounts::<S>).post(select_mfa_account::<S>),
         )
         .with_state(LiveDemoState {
             sessions,
@@ -223,6 +260,14 @@ where
     let Some(selected) = state.config.account(request.persona) else {
         return no_store((StatusCode::NOT_FOUND, "demo persona unavailable").into_response());
     };
+    if selected.persona == SeededDemoPersona::MorganSysadmin {
+        // ASVS 2.3.1: no locally configured secret or role choice may bypass
+        // the C804 pending-MFA transition. C806 replaces this unavailable
+        // pre-provisioning route with `live_demo_mfa_router`.
+        return no_store(
+            (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
+        );
+    }
 
     // ASVS 2.3.1 and 3.5.1: the route accepts only a closed persona and the
     // production browser boundary verifies the request's first-party origin.
@@ -268,6 +313,81 @@ where
     };
     response.headers_mut().append(SET_COOKIE, cookie);
     no_store(response)
+}
+
+async fn list_mfa_accounts<S>(State(state): State<LiveDemoState<S>>) -> Response
+where
+    S: SessionStore + SysadminTotpStore + 'static,
+{
+    list_accounts(State(state)).await
+}
+
+async fn select_mfa_account<S>(
+    State(state): State<LiveDemoState<S>>,
+    Json(request): Json<SelectSeededDemoAccountRequest>,
+) -> Response
+where
+    S: SessionStore + SysadminTotpStore + 'static,
+{
+    let Some(selected) = state.config.account(request.persona) else {
+        return no_store((StatusCode::NOT_FOUND, "demo persona unavailable").into_response());
+    };
+    // The deployment's closed persona mapping is the primary identity
+    // ceremony. The Store remains authoritative for the Sysadmin branch and
+    // for every resulting session record; request data cannot name a role.
+    let primary = AuthenticatedAccount {
+        account: selected.account,
+        product_role: selected.persona.required_product_role(),
+    };
+    match establish_primary_authentication(state.sessions.as_ref(), primary, state.session_config)
+        .await
+    {
+        Ok(PrimaryAuthenticationOutcome::Authenticated(issued)) => {
+            if issued.record.product_role != selected.persona.required_product_role() {
+                // A non-Sysadmin mapping whose persisted role changed never
+                // exposes the just-created credential.
+                let _ = state
+                    .sessions
+                    .revoke_session(issued.record.token_hash)
+                    .await;
+                return no_store(
+                    (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
+                );
+            }
+            let Ok(cookie) = HeaderValue::from_str(&issued.set_cookie) else {
+                return no_store(
+                    (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
+                );
+            };
+            let mut response = Json(SelectedSeededDemoAccountResponse {
+                authenticated: true,
+            })
+            .into_response();
+            response.headers_mut().append(SET_COOKIE, cookie);
+            no_store(response)
+        }
+        Ok(PrimaryAuthenticationOutcome::PendingSysadminTotp {
+            response,
+            set_cookie,
+        }) => {
+            if selected.persona != SeededDemoPersona::MorganSysadmin {
+                return no_store(
+                    (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
+                );
+            }
+            let Ok(cookie) = HeaderValue::from_str(&set_cookie) else {
+                return no_store(
+                    (StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response(),
+                );
+            };
+            let mut response = Json(response).into_response();
+            response.headers_mut().append(SET_COOKIE, cookie);
+            no_store(response)
+        }
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_) | AuthError::Unauthenticated) => {
+            no_store((StatusCode::SERVICE_UNAVAILABLE, "demo entry unavailable").into_response())
+        }
+    }
 }
 
 #[cfg(test)]

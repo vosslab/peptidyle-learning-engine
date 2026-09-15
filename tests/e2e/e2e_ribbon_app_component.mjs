@@ -116,7 +116,8 @@ test(topologyRowsTestName, async () => {
   assert.doesNotMatch(html, /aria-label="Breadcrumb"/);
   assert.doesNotMatch(html, /ple-app-ribbon__breadcrumbs/);
   assert.match(html, /aria-current="page"/);
-  assert.match(html, /data-ribbon-action="signOut"/);
+  assert.match(html, /aria-haspopup="menu"[^>]*data-ribbon-context-control="profile"/);
+  assert.doesNotMatch(html, /ple-app-ribbon__sign-out|data-ribbon-action="signOut"/);
   assert.match(html, /data-ribbon-task-row="reserved"/);
   assert.equal(
     (html.match(/class="ple-app-ribbon__brand-word"/g) ?? []).length,
@@ -130,7 +131,6 @@ test(topologyRowsTestName, async () => {
   assert.doesNotMatch(html, /role="tab(list)?"/);
   assert.ok(html.indexOf("Peptidyle") < html.indexOf("Instructor"));
   assert.ok(html.indexOf("Instructor") < html.indexOf("Assignments"));
-  assert.ok(html.indexOf("Assignments") < html.indexOf("signOut"));
 });
 
 test("AppRibbon omits the Task Row when declared route topology has no Task Group", async () => {
@@ -191,7 +191,6 @@ test(bundledGlyphTestName, async () => {
   }
   assert.match(html, /<svg[^>]*aria-hidden="true"[^>]*focusable="false"[^>]*>/);
   assert.doesNotMatch(html, /<(?:img|i)\b/);
-  assert.match(html, /aria-label="Sign out"[^>]*title="Sign out"[^>]*data-ribbon-action="signOut"/);
 });
 
 test(modelGlyphDeclarationTestName, async () => {
@@ -299,6 +298,7 @@ test(catalogPresentationTestName, async () => {
     "--ple-ribbon-space-row",
     "--ple-ribbon-space-inline",
     "--ple-ribbon-space-cue",
+    "--ple-ribbon-space-endcap",
   ]) {
     assert.match(
       source,

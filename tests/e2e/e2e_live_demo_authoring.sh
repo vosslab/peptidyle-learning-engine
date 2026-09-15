@@ -211,7 +211,7 @@ import json, re, sys
 value = json.loads(sys.argv[1])
 if set(value) != {"questionId"} or not isinstance(value["questionId"], str):
     raise SystemExit("Question Publication returned a non-publication DTO")
-if not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}", value["questionId"]):
+if not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", value["questionId"]):
     raise SystemExit("Question Publication did not mint a Question ID")
 print(value["questionId"])
 ' "$(response_body "$published")")"

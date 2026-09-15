@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Prove Blueprint Course creation, immutable revision replacement, and Instructor read authority.
+#
+# The optional C19 reader capability is supplied only by a self-owned isolated
+# service fixture.  The fixed Developer Browser Suite deliberately has one
+# Instructor persona and must never be altered to manufacture another account.
 
 set -euo pipefail
 
@@ -115,7 +119,7 @@ items = payload.get("items")
 if not isinstance(items, list) or not items:
     raise SystemExit("Question Library did not return a published Question for Blueprint Course creation")
 question_id = items[0].get("summary", {}).get("questionId")
-if not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
+if not isinstance(question_id, str) or not re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}", question_id):
     raise SystemExit("Question Library did not return an opaque Question ID")
 print(question_id)
 ' "$response"
@@ -156,7 +160,6 @@ content = {
             "question_answer_explanation": "never", "class_statistics": "never",
         },
     },
-    "schedule": {"available_at": None, "due_at": None, "closes_at": None},
 }
 print(json.dumps({"short_name": "Live Blueprint", "long_name": "Live Demo Blueprint Course", "modules": [{"label": "Module 1", "assignments": [content]}]}, separators=(",", ":")))
 ' "$question_id"
@@ -198,7 +201,6 @@ payload = {
                     "question_attempt_time_limit": content["entries"][0]["question_attempt_time_limit"],
                 }],
                 "defaults": content.get("defaults"),
-                "schedule": content.get("schedule"),
             },
         }],
     }],
@@ -208,21 +210,21 @@ print(json.dumps(payload, separators=(",", ":")))
 }
 
 assert_current_view() {
-	local response="$1" reference="$2" revision="$3" short_name="$4" long_name="$5"
+	local response="$1" reference="$2" revision="$3" short_name="$4" long_name="$5" availability="$6" read_access="$7"
 	python3 -c '
 import json, sys
 payload = json.loads(sys.argv[1])
-reference, revision, short_name, long_name = sys.argv[2:]
+reference, revision, short_name, long_name, availability, read_access = sys.argv[2:]
 expected = {"reference", "short_name", "long_name", "availability", "metadata_etag", "current_revision", "read_access", "modules"}
 if set(payload) != expected:
     raise SystemExit("Blueprint Course response did not have the current closed DTO shape")
 if (payload["reference"] != reference or payload["short_name"] != short_name or payload["long_name"] != long_name
-        or payload["availability"] != "available" or payload["read_access"] != "blueprint_course_owner"
+        or payload["availability"] != availability or payload["read_access"] != read_access
         or payload["current_revision"] != {"reference": reference, "revision": revision}
         or not isinstance(payload["metadata_etag"], str) or not payload["metadata_etag"]
         or not isinstance(payload["modules"], list)):
-    raise SystemExit("Blueprint Course did not return its available current immutable Revision")
-' "$response" "$reference" "$revision" "$short_name" "$long_name"
+    raise SystemExit("Blueprint Course did not return its current immutable Revision")
+' "$response" "$reference" "$revision" "$short_name" "$long_name" "$availability" "$read_access"
 }
 
 assert_save() {
@@ -289,8 +291,113 @@ if not isinstance(items, list) or not any(item.get("reference") == sys.argv[2] f
 ' "$1" "$2"
 }
 
+adoption_payload() {
+	local reference="$1" revision="$2"
+	python3 -c '
+import datetime, json, sys
+reference, revision = sys.argv[1:]
+today = datetime.date.today()
+print(json.dumps({
+    "source": {"kind": "adopted", "blueprintCourse": reference, "blueprintRevision": revision},
+    "shortName": "Blueprint browse adoption",
+    "longName": "Blueprint Course browse adoption",
+    "term": {"startDate": today.isoformat(), "endDate": (today + datetime.timedelta(days=7)).isoformat()},
+}, separators=(",", ":")))
+' "$reference" "$revision"
+}
+
+assert_distinct_instructors() {
+	local owner_cookie="$1" reader_cookie="$2" owner reader
+	owner="$(request '/api/auth/session' "$owner_cookie")"
+	reader="$(request '/api/auth/session' "$reader_cookie")"
+	if [ "$(response_status "$owner")" != "200" ] || [ "$(response_status "$reader")" != "200" ]; then
+		echo "C19 isolated fixture did not provide two authenticated Instructor Sessions" >&2
+		exit 1
+	fi
+	python3 -c '
+import json, sys
+owner, reader = (json.loads(value) for value in sys.argv[1:])
+for value in (owner, reader):
+    account = value.get("account")
+    if value.get("authenticated") is not True or not isinstance(account, dict) or account.get("productRole") != "instructor":
+        raise SystemExit("C19 fixture Session is not an authenticated Instructor")
+if owner["account"].get("id") == reader["account"].get("id"):
+    raise SystemExit("C19 fixture must use distinct owner and reader Instructors")
+' "$(response_body "$owner")" "$(response_body "$reader")"
+}
+
+prove_non_owner_browse() {
+	local reader_cookie="$1" reference="$2" metadata_etag="$3" replacement="$4"
+	local private public archived response next_metadata_etag adoption public_adoption
+
+	# Regression: an accidental owner check, a Private disclosure, or an
+	# Archived adoption would alter deliberate reusable-course authority.  If
+	# this fails, repair the route/persistence authorization predicate or the
+	# lifecycle guard; do not weaken these product-boundary assertions.
+	assert_distinct_instructors "$instructor_cookie" "$reader_cookie"
+	private="$(request "/api/course-blueprints/$reference" "$reader_cookie")"
+	assert_concealed "$private"
+	response="$(request "/api/course-blueprints/$reference" "$reader_cookie" PUT "$replacement" '"1"' "m19-reader-save-$run_id")"
+	assert_concealed "$response"
+
+	public="$(request "/api/course-blueprints/$reference/publish" "$instructor_cookie" POST '' "\"$metadata_etag\"")"
+	if [ "$(response_status "$public")" != "200" ]; then
+		echo "Blueprint Course Owner could not publish the Private Blueprint for C19 browse evidence" >&2
+		exit 1
+	fi
+	next_metadata_etag="$(assert_metadata "$(response_body "$public")" public "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed")"
+	response="$(request "/api/course-blueprints/$reference" "$reader_cookie")"
+	if [ "$(response_status "$response")" != "200" ]; then
+		echo "Second vetted Instructor could not browse Public Blueprint content" >&2
+		exit 1
+	fi
+	assert_current_view "$(response_body "$response")" "$reference" "2" "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed" public active_instructor
+	response="$(request "/api/course-blueprints/$reference/revisions/1" "$reader_cookie")"
+	if [ "$(response_status "$response")" != "200" ]; then
+		echo "Second vetted Instructor could not browse Public Blueprint Revision content" >&2
+		exit 1
+	fi
+	assert_exact_revision "$(response_body "$response")" "$reference" "1"
+	public_adoption="$(request '/api/course-instances' "$reader_cookie" POST "$(adoption_payload "$reference" 2)")"
+	if [ "$(response_status "$public_adoption")" != "201" ]; then
+		echo "Public Blueprint Course did not permit a new Course Instance adoption" >&2
+		exit 1
+	fi
+	response="$(request "/api/course-blueprints/$reference/metadata" "$reader_cookie" PUT '{"short_name":"Reader edit","long_name":"Reader edit"}' "\"$next_metadata_etag\"")"
+	assert_concealed "$response"
+
+	archived="$(request "/api/course-blueprints/$reference/archive" "$instructor_cookie" POST '{"confirmationLongName":"Live Demo Blueprint Course Renamed"}' "\"$next_metadata_etag\"")"
+	if [ "$(response_status "$archived")" != "200" ]; then
+		echo "Blueprint Course Owner could not archive the Public Blueprint for C19 browse evidence" >&2
+		exit 1
+	fi
+	metadata_etag="$(assert_metadata "$(response_body "$archived")" archived "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed")"
+	response="$(request "/api/course-blueprints/$reference" "$reader_cookie")"
+	if [ "$(response_status "$response")" != "200" ]; then
+		echo "Second vetted Instructor could not browse Archived Blueprint content" >&2
+		exit 1
+	fi
+	assert_current_view "$(response_body "$response")" "$reference" "2" "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed" archived active_instructor
+	response="$(request "/api/course-blueprints/$reference/archive" "$reader_cookie" POST '{"confirmationLongName":"Live Demo Blueprint Course Renamed"}' "\"$metadata_etag\"")"
+	assert_concealed "$response"
+	adoption="$(request '/api/course-instances' "$reader_cookie" POST "$(adoption_payload "$reference" 2)")"
+	if [ "$(response_status "$adoption")" != "422" ]; then
+		echo "Archived Blueprint Course accepted a new Course Instance adoption" >&2
+		exit 1
+	fi
+
+	# Restore the source so the fixed owner-only service walkthrough remains
+	# repeatable when an isolated fixture chooses to run the added C19 branch.
+	response="$(request "/api/course-blueprints/$reference/restore" "$instructor_cookie" POST '' "\"$metadata_etag\"")"
+	if [ "$(response_status "$response")" != "200" ]; then
+		echo "Blueprint Course Owner could not restore C19 browse fixture" >&2
+		exit 1
+	fi
+	assert_metadata "$(response_body "$response")" public "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed" >/dev/null
+}
+
 prove_service() {
-	local anonymous student_cookie student instructor_cookie library question_id created body reference metadata_etag replacement saved stale_save no_op detail renamed archived restored listed
+	local anonymous student_cookie student instructor_cookie reader_cookie library question_id created body reference metadata_etag replacement saved stale_save no_op detail renamed published archived restored listed
 	anonymous="$(request '/api/course-blueprints')"
 	assert_concealed "$anonymous"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -325,13 +432,13 @@ if (not isinstance(reference, str) or not re.fullmatch(r"BP-[1-9][0-9]{0,9}", re
     raise SystemExit("Blueprint Course creation did not return Revision 1 and metadata identity")
 print(reference, metadata_etag)
 ' "$body")
-	assert_current_view "$body" "$reference" "1" "Live Blueprint" "Live Demo Blueprint Course"
+	assert_current_view "$body" "$reference" "1" "Live Blueprint" "Live Demo Blueprint Course" private blueprint_course_owner
 	detail="$(request "/api/course-blueprints/$reference" "$instructor_cookie")"
 	if [ "$(response_status "$detail")" != "200" ]; then
 		echo "Blueprint Course Owner could not read the current Revision" >&2
 		exit 1
 	fi
-	assert_current_view "$(response_body "$detail")" "$reference" "1" "Live Blueprint" "Live Demo Blueprint Course"
+	assert_current_view "$(response_body "$detail")" "$reference" "1" "Live Blueprint" "Live Demo Blueprint Course" private blueprint_course_owner
 	replacement="$(replacement_payload "$body")"
 	saved="$(request "/api/course-blueprints/$reference" "$instructor_cookie" PUT "$replacement" '"1"' "m7-blueprint-save-$run_id")"
 	if [ "$(response_status "$saved")" != "200" ]; then
@@ -355,19 +462,36 @@ print(reference, metadata_etag)
 		echo "Blueprint Course Owner could not rename Blueprint lineage metadata" >&2
 		exit 1
 	fi
-	metadata_etag="$(assert_metadata "$(response_body "$renamed")" available "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed")"
+	metadata_etag="$(assert_metadata "$(response_body "$renamed")" private "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed")"
 	detail="$(request "/api/course-blueprints/$reference" "$instructor_cookie")"
 	if [ "$(response_status "$detail")" != "200" ]; then
 		echo "renamed Blueprint Course could not reload its current Revision" >&2
 		exit 1
 	fi
-	assert_current_view "$(response_body "$detail")" "$reference" "2" "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed"
+	assert_current_view "$(response_body "$detail")" "$reference" "2" "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed" private blueprint_course_owner
 	exact="$(request "/api/course-blueprints/$reference/revisions/1" "$instructor_cookie")"
 	if [ "$(response_status "$exact")" != "200" ]; then
 		echo "exact saved Blueprint Revision did not resolve" >&2
 		exit 1
 	fi
 	assert_exact_revision "$(response_body "$exact")" "$reference" "1"
+	reader_cookie="${PLE_BLUEPRINT_E2E_READER_COOKIE:-}"
+	if [ -n "$reader_cookie" ]; then
+		prove_non_owner_browse "$reader_cookie" "$reference" "$metadata_etag" "$replacement"
+		# C19's archive/restore path advances the opaque metadata validator.
+		detail="$(request "/api/course-blueprints/$reference" "$instructor_cookie")"
+		metadata_etag="$(python3 -c 'import json, sys; value=json.loads(sys.argv[1]); print(value["metadata_etag"])' "$(response_body "$detail")")"
+	else
+		# The fixed Browser Suite deliberately has only one Instructor. It still
+		# proves the owner lifecycle; a self-owned runtime supplies the C19 reader
+		# capability above without mutating the shared suite.
+		published="$(request "/api/course-blueprints/$reference/publish" "$instructor_cookie" POST '' "\"$metadata_etag\"")"
+		if [ "$(response_status "$published")" != "200" ]; then
+			echo "Blueprint Course Owner could not publish the Private Blueprint" >&2
+			exit 1
+		fi
+		metadata_etag="$(assert_metadata "$(response_body "$published")" public "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed")"
+	fi
 	archived="$(request "/api/course-blueprints/$reference/archive" "$instructor_cookie" POST '{"confirmationLongName":"Live Demo Blueprint Course Renamed"}' "\"$metadata_etag\"")"
 	if [ "$(response_status "$archived")" != "200" ]; then
 		echo "Blueprint Course Owner could not archive its lineage" >&2
@@ -390,7 +514,7 @@ print(reference, metadata_etag)
 		echo "Blueprint Course Owner could not restore its lineage" >&2
 		exit 1
 	fi
-	assert_metadata "$(response_body "$restored")" available "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed" >/dev/null
+	assert_metadata "$(response_body "$restored")" public "Live Renamed Blueprint" "Live Demo Blueprint Course Renamed" >/dev/null
 	listed="$(request '/api/course-blueprints?pageSize=100' "$instructor_cookie")"
 	if [ "$(response_status "$listed")" != "200" ]; then
 		echo "Instructor could not browse Blueprint Courses after restore" >&2

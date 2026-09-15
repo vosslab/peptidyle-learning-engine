@@ -3,6 +3,7 @@ import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorsh
 import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import { decodeQuestionSummary, isAvailablePleQuestionSummary } from "../../api/decoders";
 import { isQuestionAuthorship } from "../../api/question_authorship";
+import { normalizeQuestionIdSyntax } from "../../question_id";
 import { PLE_QUESTION_JSON_MEDIA_TYPE, type PleQuestionJsonDocument } from "./question_json_source";
 import { parsePleQuestionJsonSource, serializePleQuestionJsonSource } from "./question_json_codec";
 
@@ -319,7 +320,13 @@ function publishedQuestionId(value: unknown, path: string): string {
       `PLE Question JSON publication ${path} must return only a Question ID`,
     );
   }
-  return questionId;
+  const canonicalQuestionId = normalizeQuestionIdSyntax(questionId);
+  if (canonicalQuestionId === null || canonicalQuestionId !== questionId) {
+    throw new PleQuestionJsonProtocolError(
+      `PLE Question JSON publication ${path} must return a canonical Question ID`,
+    );
+  }
+  return canonicalQuestionId;
 }
 
 function validRevision(value: string): string {

@@ -27,7 +27,7 @@ pub(crate) const LIVE_DEMO_JACK_ACCOUNT_ID: &str = "00000000-0000-0000-0000-0000
 pub(crate) const LIVE_DEMO_AVERY_ACCOUNT_ID: &str = "00000000-0000-0000-0000-000000000104";
 pub(crate) const LIVE_DEMO_COURSE_SHORT_NAME: &str = "BCHM 301";
 pub(crate) const LIVE_DEMO_COURSE_LONG_NAME: &str = "Biochemistry 301: Proteins and Peptides";
-pub(crate) const LIVE_DEMO_ASSIGNMENT_TITLE: &str = "Chapter 1 Pilot Practice";
+pub(crate) const LIVE_DEMO_ASSESSMENT_TITLE: &str = "Chapter 1 Pilot Practice";
 
 /// Runs the fixed bundled curriculum and optional teaching-data installation operation.
 pub(crate) fn run(args: &[String]) -> Result<()> {
@@ -122,11 +122,11 @@ fn apply_live_demo() -> Result<()> {
         "Live Demo Blueprint Store receipt is not a decimal reference"
     );
     ensure!(
-        Uuid::parse_str(&live_demo_blueprint.assignment_reference)
+        Uuid::parse_str(&live_demo_blueprint.assessment_reference)
             .is_ok_and(
-                |value| value.hyphenated().to_string() == live_demo_blueprint.assignment_reference
+                |value| value.hyphenated().to_string() == live_demo_blueprint.assessment_reference
             ),
-        "Live Demo Blueprint Store receipt is not a canonical Assignment reference"
+        "Live Demo Blueprint Store receipt is not a canonical Assessment reference"
     );
     run_manifest(
         &migration_database_url,
@@ -139,8 +139,8 @@ fn apply_live_demo() -> Result<()> {
                 live_demo_blueprint.blueprint_reference,
             ),
             (
-                "live_demo_blueprint_assignment_reference",
-                live_demo_blueprint.assignment_reference,
+                "live_demo_blueprint_assessment_reference",
+                live_demo_blueprint.assessment_reference,
             ),
         ]),
     )?;
@@ -438,11 +438,11 @@ mod tests {
                 ),
                 (
                     "pilot_question_publications",
-                    r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC-1234","revisionNumber":1}}}"#.to_string(),
+                    r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC1-X234","revisionNumber":1}}}"#.to_string(),
                 ),
                 ("live_demo_blueprint_reference", "12".to_string()),
                 (
-                    "live_demo_blueprint_assignment_reference",
+                    "live_demo_blueprint_assessment_reference",
                     "00000000-0000-0000-0000-000000000012".to_string(),
                 ),
             ]),
@@ -452,7 +452,7 @@ mod tests {
         assert!(script.contains("\\set pilot_question_publications"));
         assert!(script.contains("\\set live_demo_blueprint_reference '12'"));
         assert!(script.contains(
-            "\\set live_demo_blueprint_assignment_reference '00000000-0000-0000-0000-000000000012'"
+            "\\set live_demo_blueprint_assessment_reference '00000000-0000-0000-0000-000000000012'"
         ));
         assert!(script.ends_with("\\ir /opt/ple/schemas/installation_data/install.sql\n"));
     }

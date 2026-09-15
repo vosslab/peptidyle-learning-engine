@@ -190,34 +190,34 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
     ],
   },
-  productAssignments: {
+  productAssessments: {
     kind: "backed",
-    clientMethod: "ApiClient.listAssignmentsDueSoon",
+    clientMethod: "ApiClient.listAssessmentsDueSoon",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+      handler: "crates/server/src/assessment_release.rs::assessment_release_router",
     },
     evidence: [
-      "crates/server/src/assignment_release.rs::assignment_release_router",
-      "src/api/http_client/assignment_release.ts::createLiveAssignmentReleaseClient",
-      "src/pages/assignments_due_soon_page.tsx::AssignmentsDueSoonPage",
+      "crates/server/src/assessment_release.rs::assessment_release_router",
+      "src/api/http_client/assessment_release.ts::createLiveAssessmentReleaseClient",
+      "src/pages/assessments_due_soon_page.tsx::AssessmentsDueSoonPage",
     ],
   },
-  assignments: {
+  assessments: {
     kind: "backed",
-    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    clientMethod: "ApiClient.getLiveAssessmentWorkspace",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+      handler: "crates/server/src/assessment_release.rs::assessment_release_router",
     },
     evidence: [
-      "crates/server/src/assignment_release.rs::assignment_release_router",
-      "src/api/http_client/assignment_release.ts::createLiveAssignmentReleaseClient",
+      "crates/server/src/assessment_release.rs::assessment_release_router",
+      "src/api/http_client/assessment_release.ts::createLiveAssessmentReleaseClient",
     ],
   },
-  studentAssignments: {
+  studentAssessments: {
     kind: "backed",
-    clientMethod: "ApiClient.listLiveStudentAssignments",
+    clientMethod: "ApiClient.listLiveStudentAssessments",
     serverEvidence: {
       kind: "registeredHandler",
       handler:
@@ -270,15 +270,15 @@ const CAPABILITY_DECLARATIONS = {
   },
   attempt: {
     kind: "backed",
-    clientMethod: "ApiClient.startLiveAssignment",
+    clientMethod: "ApiClient.startLiveAssessment",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+      handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
     },
     evidence: [
-      "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
-      "src/api/http_client/assignment_attempt_issuance.ts::createLiveAssignmentAttemptIssuanceClient",
-      "src/pages/assignment_attempt_page.tsx::AssignmentAttemptPage",
+      "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
+      "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
+      "src/pages/assessment_attempt_page.tsx::AssessmentAttemptPage",
     ],
   },
   instructorAccounts: {
@@ -291,18 +291,6 @@ const CAPABILITY_DECLARATIONS = {
     evidence: [
       "crates/server/src/instructor_account.rs::instructor_account_router",
       "src/api/http_client/instructor_account.ts::createInstructorAccountClient",
-    ],
-  },
-  supportRoster: {
-    kind: "backed",
-    clientMethod: "ApiClient.readSupportCourseRoster",
-    serverEvidence: {
-      kind: "registeredHandler",
-      handler: "crates/server/src/support_capability.rs::support_capability_router",
-    },
-    evidence: [
-      "crates/server/src/support_capability.rs::support_capability_router",
-      "src/api/http_client/support_roster.ts::createSupportCapabilityClient",
     ],
   },
   myBlueprintCourses: {
@@ -383,71 +371,71 @@ const CAPABILITY_DECLARATIONS = {
       "src/api/application_api.tsx::ApiClient.searchQuestionLibrary",
     ],
   },
-  assignmentsDueSoon: {
+  assessmentsDueSoon: {
     kind: "backed",
-    clientMethod: "ApiClient.listAssignmentsDueSoon",
+    clientMethod: "ApiClient.listAssessmentsDueSoon",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+      handler: "crates/server/src/assessment_release.rs::assessment_release_router",
     },
     evidence: [
-      "crates/server/src/assignment_release.rs::assignment_release_router",
-      "src/api/http_client/assignment_release.ts::createLiveAssignmentReleaseClient",
-      "src/pages/assignments_due_soon_page.tsx::AssignmentsDueSoonPage",
+      "crates/server/src/assessment_release.rs::assessment_release_router",
+      "src/api/http_client/assessment_release.ts::createLiveAssessmentReleaseClient",
+      "src/pages/assessments_due_soon_page.tsx::AssessmentsDueSoonPage",
     ],
   },
-  assignmentTemplates: {
+  assessmentTemplates: {
     kind: "unbacked",
-    reason: "My Assignment Templates has no declared route or registered handler.",
-    evidence: ["src/ribbon/ribbon_catalog.ts::assignmentTemplates"],
+    reason: "My Assessment Templates has no declared route or registered handler.",
+    evidence: ["src/ribbon/ribbon_catalog.ts::assessmentTemplates"],
   },
-  assignmentOverview: {
+  assessmentOverview: {
     kind: "backed",
-    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    clientMethod: "ApiClient.getLiveAssessmentWorkspace",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+      handler: "crates/server/src/assessment_release.rs::assessment_release_router",
     },
     evidence: [
       "src/routes.ts::routeComponents",
-      "src/pages/assignment_workspace/assignment_workspace_overview_page.tsx::AssignmentWorkspaceOverviewPage",
-      "src/pages/assignment_workspace/assignment_workspace_live_page.tsx::AssignmentWorkspaceLivePage",
-      "src/api/http_client/assignment_release.ts::getLiveAssignmentWorkspace",
-      "crates/server/src/assignment_release.rs::assignment_release_router",
+      "src/pages/assessment_workspace/assessment_workspace_overview_page.tsx::AssessmentWorkspaceOverviewPage",
+      "src/pages/assessment_workspace/assessment_workspace_live_page.tsx::AssessmentWorkspaceLivePage",
+      "src/api/http_client/assessment_release.ts::getLiveAssessmentWorkspace",
+      "crates/server/src/assessment_release.rs::assessment_release_router",
     ],
   },
-  assignmentQuestions: {
+  assessmentQuestions: {
     kind: "backed",
-    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    clientMethod: "ApiClient.getLiveAssessmentWorkspace",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assignment_release.rs::assignment_release_router",
+      handler: "crates/server/src/assessment_release.rs::assessment_release_router",
     },
     evidence: [
       "src/routes.ts::routeComponents",
-      "src/pages/assignment_workspace/assignment_workspace_questions_page.tsx::AssignmentWorkspaceQuestionsPage",
-      "src/pages/assignment_workspace/assignment_workspace_live_page.tsx::AssignmentWorkspaceLivePage",
-      "src/api/http_client/assignment_release.ts::getLiveAssignmentWorkspace",
-      "src/api/http_client/assignment_release.ts::listLiveAssignmentQuestionPicker",
-      "crates/server/src/assignment_release.rs::assignment_release_router",
+      "src/pages/assessment_workspace/assessment_workspace_questions_page.tsx::AssessmentWorkspaceQuestionsPage",
+      "src/pages/assessment_workspace/assessment_workspace_live_page.tsx::AssessmentWorkspaceLivePage",
+      "src/api/http_client/assessment_release.ts::getLiveAssessmentWorkspace",
+      "src/api/http_client/assessment_release.ts::listLiveAssessmentQuestionPicker",
+      "crates/server/src/assessment_release.rs::assessment_release_router",
     ],
   },
-  assignmentPolicies: {
+  assessmentPolicies: {
     kind: "backed",
-    clientMethod: "ApiClient.getLiveAssignmentWorkspace",
+    clientMethod: "ApiClient.getLiveAssessmentWorkspace",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "GET /api/course-instances/{course}/assignments/{assignment}",
+      handler: "GET /api/course-instances/{course}/assessments/{assessment}",
     },
     evidence: [
       "src/routes.ts::routeComponents",
-      "src/pages/assignment_workspace/assignment_workspace_policies_page.tsx::AssignmentWorkspacePoliciesPage",
-      "src/api/http_client/assignment_release.ts::getLiveAssignmentWorkspace",
+      "src/pages/assessment_workspace/assessment_workspace_policies_page.tsx::AssessmentWorkspacePoliciesPage",
+      "src/api/http_client/assessment_release.ts::getLiveAssessmentWorkspace",
     ],
   },
-  assignmentStudentView: {
+  assessmentStudentView: {
     kind: "unbacked",
-    reason: "Assignment workspace Student View has no registered production teaching/data handler.",
+    reason: "Assessment workspace Student View has no registered production teaching/data handler.",
     evidence: [...NO_TEACHING_HANDLER, "src/routes.ts::routeComponents"],
   },
   gradeSettings: {
@@ -475,17 +463,17 @@ const CAPABILITY_DECLARATIONS = {
       "crates/learning-data-access/src/course_banner.rs::CourseBannerStore",
     ],
   },
-  backToAssignments: {
+  backToAssessments: {
     kind: "backed",
-    clientMethod: "ApiClient.getLiveAssignmentAccess",
+    clientMethod: "ApiClient.getLiveAssessmentAccess",
     serverEvidence: {
       kind: "registeredHandler",
-      handler: "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
+      handler: "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
     },
     evidence: [
-      "crates/server/src/assignment_delivery.rs::assignment_delivery_router",
-      "src/api/http_client/assignment_attempt_issuance.ts::createLiveAssignmentAttemptIssuanceClient",
-      "src/pages/assignment_overview_page.tsx::AssignmentOverviewPage",
+      "crates/server/src/assessment_delivery.rs::assessment_delivery_router",
+      "src/api/http_client/assessment_attempt_issuance.ts::createLiveAssessmentAttemptIssuanceClient",
+      "src/pages/assessment_overview_page.tsx::AssessmentOverviewPage",
       "src/app.tsx::ribbonParamsFor",
     ],
   },

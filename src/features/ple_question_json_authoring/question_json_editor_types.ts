@@ -3,6 +3,10 @@
 import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import type { WasmFacade } from "../../wasm/index";
 import type { PleQuestionJsonRead } from "./question_json_client";
+import type {
+  PleQuestionGeneralFeedbackClient,
+  PleQuestionGeneralFeedbackRead,
+} from "./question_general_feedback_client";
 import type { PleQuestionJsonRepository } from "./question_json_repository";
 import type {
   PleQuestionJsonMatchingChoice,
@@ -34,6 +38,8 @@ void (undefined as unknown as PleQuestionJsonResponseMemberRolesAreDistinct);
 export interface PleQuestionJsonEditorPageProps {
   readonly draftQuestion: DraftQuestionReference;
   readonly initial: PleQuestionJsonRead;
+  readonly initialGeneralFeedback: PleQuestionGeneralFeedbackRead;
+  readonly generalFeedbackClient: PleQuestionGeneralFeedbackClient;
   readonly repository: PleQuestionJsonRepository;
   /** Injected browser-safe validator keeps preview on the same student QuestionResponseControl path. */
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;

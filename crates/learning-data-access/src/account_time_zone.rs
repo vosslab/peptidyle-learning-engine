@@ -14,14 +14,11 @@ pub trait AccountTimeZoneStore: Send + Sync {
         session_token_hash: SessionTokenHash,
     ) -> Result<AccountTimeZone, StoreError>;
 
-    /// Loads only an active Student caller's Account-owned display zone.
-    async fn authenticated_student_time_zone(
-        &self,
-        session_token_hash: SessionTokenHash,
-    ) -> Result<AccountTimeZone, StoreError>;
-
-    /// Replaces only an active Student caller's own display zone.
-    async fn update_authenticated_student_time_zone(
+    /// Replaces only the authenticated Account's own exact IANA preference.
+    ///
+    /// The subject is always derived from the installed server-side session;
+    /// this boundary intentionally accepts no Account or role identifier.
+    async fn update_authenticated_account_time_zone(
         &self,
         session_token_hash: SessionTokenHash,
         time_zone: AccountTimeZone,

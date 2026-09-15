@@ -154,6 +154,22 @@ only the normal identity-verification ceremony with a known persona key. The
 server resolves the global Account and issues an ordinary session; it does not
 accept a browser role claim.
 
+Morgan is different only at the second factor: selecting Morgan creates a
+browser-bound pending MFA state, not a session. The controller creates Morgan's
+seed and independent wrapping key with the operating-system CSPRNG in ignored
+mode-0600 state, while its mode-0600 authenticator artifact contains only
+private paths and setup metadata. After starting the local stack, prepare a
+separate local authenticator import without printing the seed or a time-based
+code:
+
+```bash
+source source_me.sh && python3 local_stack.py authenticator
+```
+
+The command prints only the path of a separately created, mode-0600 `otpauth`
+URI file for the local authenticator to consume. It is not a browser credential
+and PLE provides no MFA recovery or self-service flow for Morgan.
+
 The default local installation runs `cargo tools installation-data provision`
 after the API and supporting services are ready. It creates the database-owned
 Pilot Question publication, ordinary Accounts, Blueprint Revision, Course,

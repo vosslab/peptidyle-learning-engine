@@ -18,6 +18,13 @@ no implemented-system claim, by the named audit-classification correction.
 - Verification: run `source source_me.sh && python3 -m pytest tests/test_source_file_line_limit.py`;
   confirm every tracked source file remains at or below the limit.
 
+### A1-01a: direct pre-production design correction
+
+- HG bullets: "PLE is pre-production with no users. Fix the design directly rather than preserving legacy behavior." and "PLE is pre-production with no users or durable production data. Improve the design directly."
+- Current evidence and mismatch: `crates/project-tools/src/database_coordinator.rs` `run` enforces direct base-schema correction, but that narrow guard is not a repository-wide direct-cutover proof. The obsolete Assessment route layer and tsgen retired-header migration are removed; live CI/A/U/BP client guards and receipt formats remain under audit. One Unrelease mutation path was found; no duplicate-current-path claim is made.
+- Closure: audit actual live alternate readers, writers, routes, parsers, DTOs, clients, fallbacks, aliases, and migration paths; remove any obsolete path that lacks a current nonlegacy requirement. Historical documentation, rejection tests, and local variable words are not cleanup targets.
+- Verification: record the focused audit result and re-audit both checklist occurrences. No new audit framework or permanent test is authorized.
+
 ### A1-02
 
 - HG bullet: "Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details."
@@ -37,8 +44,9 @@ no implemented-system claim, by the named audit-classification correction.
 - Owning source area: Human Guidance audit classification.
 - Dependencies: none.
 - Closure owner: C4.
-- Verification: re-audit the bullet as `N/A` with a concise reason that it does not claim a
-  specific PLE behavior; run checklist `--consistency` and the A1 gate.
+- Verification: re-audit the bullet as `N/A` with a concise reason that it is not separately
+  closable. Review Course, Assessment, Question Backend, retention, and authorization changes
+  against it as a binding design constraint; run checklist `--consistency` and the A1 gate.
 
 ### A1-04
 
@@ -317,30 +325,33 @@ no implemented-system claim, by the named audit-classification correction.
 ### A2-08
 
 - HG bullet: "**Student** data should be collected reluctantly, used deliberately, and purged predictably."
-- Current evidence and mismatch: the repository has no auditable collection-minimization or
-  predictable Student-data purge policy.
-- Owning source area: Student-record collection/use policy and Course-retention processing.
-- Dependencies: C21 establishes the Course retention schedule; C22 supplies predictable purge.
-- Question: Should collection minimization and deliberate use be enforced by (1) a fixed
-  per-field, per-purpose allowlist, or (2) a qualitative minimization-and-purpose policy enforced
-  at Student-data category and operation boundaries? `docs/HUMAN_GUIDANCE.md` lines 117 and 434
-  state the same qualitative requirement but select neither enforcement shape.
-  `docs/DATABASE_STRUCTURE.md` separates `ple_private` Student Work and specifies retention, while
-  `docs/DESIGN_DECISIONS.md` requires minimal, purpose-bound Student Work evidence and separate
-  Account/Course lifetimes; neither authority selects a per-field allowlist over category/operation
-  enforcement. Do not invent that policy.
-- Closure owner: none until that product question is resolved. C22 contributes the predictable
-  purge portion only.
-- Verification after decision: a focused audit applies the human-selected collection/use policy
-  using criteria appropriate to either field/purpose allowlisting or category/operation-boundary
-  enforcement; C22's controlled-clock integration proves the approved Student data is purged at
-  the Course-policy boundary while non-Student Course metadata survives.
+- Implementation: use the existing category and operation boundaries, not a field-policy engine.
+  Roster import accepts only the institutional email required to resolve or create the global
+  Student Account plus the Course-local roster ID required for teaching. `course_roster_profile`
+  retains no duplicate email; ordinary Instructor roster projections return only roster ID and
+  state, while task-scoped Sysadmin repair may read only one named roster record. The delivery
+  email is read only by the exact, authorized,
+  pending-invitation export. Student Work stays private Course data and the retention executor
+  removes the defined identifiable Course records while preserving global Accounts and
+  identity-free statistics.
+- Owning source area: `schemas/base_schema/course_roster.sql`,
+  `schemas/base_schema/course_operations.sql`, closed roster DTOs, and the existing
+  Course-retention chain.
+- Dependencies: C206/C208/C210/C215 establish retention authority and C851 verifies worker
+  execution. They are implementation dependencies, not a product question.
+- Closure: no unresolved product decision. The qualitative HG rule selects the simplest
+  enforceable approach: minimize direct collection at the operation boundary, disclose it only
+  when that operation requires it, and purge Course-scoped evidence under stored policy.
+- Verification: roster/support E2Es require exact email-free projections; the invitation-export
+  E2E proves email is available only to the authorized pending-delivery operation; controlled-clock
+  retention proof verifies repeatable purge while Course metadata and global Accounts survive.
 
 ### A2-09
 
 - HG bullet: "Student Course data falls under FERPA; treat it as radioactive."
-- Current evidence and mismatch: `crates/server/src/support_capability.rs` `read_roster` and its
-  E2E establish scoped roster support, not repository-wide FERPA handling.
+- Current evidence and mismatch: `crates/server/src/support_capability.rs`
+  `read_course_roster_entry_repair_support` establishes exact-record repair support, not
+  repository-wide FERPA handling.
 - Owning source area: support authorization enforcement,
   `schemas/base_schema/course_operations.sql`.
 - Dependencies: C24 defines platform administration distinct from Course records; C25 supplies
@@ -1867,7 +1878,7 @@ recovery/notification, and session termination remain unresolved pending a separ
 | C821 | Recorded scope: every role gets only self-derived time-zone read/write at `/account-settings`; Account Settings exposes no credential lifecycle. Student/Instructor passwordless authentication and multiple Student passkeys remain Accounts-and-roles milestone-owned. Only self-service credential enumeration/revocation/re-authentication, identity-proofed recovery/notification, and session termination remain unresolved. | `docs/DESIGN_DECISIONS.md` Account Settings decision; no credential-lifecycle implementation. | Decision satisfied; no HG closure or behavior evidence implied. |
 | C822 | All-role `/account-settings` consumes C821's self-only time-zone behavior; invitations remain separate. | routes/route contract/account-settings page/API; C821. | Closed-shape self-only behavior plus Ribbon route/contract tests; no fake controls. |
 | C823 | Final menu composition is sole owner of real `/profile`, `/account-settings`, and Sign Out contents/no-scattering closure. | Ribbon/route contract; C818/C820/C822. | Ribbon route/contract, M10 shell tests, leased capture. |
-| C824 | C311 evidence owner: inventory every biologyproblems.org WeBWorK problem family, pin provenance/license and its canonical algorithmic author source (official PG/PGML file or generator), and map generated static QTI/PG variants. Work one family at a time; `topic03/002-hla-genotype-2-markers-black` begins as a 199-row example traced to an author generator, not an upstream PG, so C838 constructs its target PG. It makes no Question lineage, Pool, Blueprint, archive, or historical rewrite. | `docs/TODO.md`; `content/genetics/manifest.yaml`, `content/genetics/sources/`, `content/genetics/pg/`; hands C838. | Ignored family ledger proves canonical author-source hash, provenance/license, and exact generated-variant coverage; remove after C838 handoff. A missing canonical source is an implementation gap to repair, not authority to retain static copies or use a Pool. |
+| C824 | C311 evidence owner: inventory every biologyproblems.org WeBWorK problem family, record provenance/license and its canonical algorithmic author source (official PG/PGML file or generator), and map generated static QTI/PG variants. The accepted inventory contains 42 canonical PGML sources (41 official biologyproblems-website sources plus HLA), but it creates no Question lineage, Pool, Blueprint, archive, or historical rewrite. | `docs/TODO.md`; `content/genetics/manifest.yaml`, `content/genetics/sources/`, `content/genetics/pg/`; hands C838. | A temporary independent validator accepted all 42 manifest registrations, including source-format/path, local and upstream SHA, license, and legacy-bank mapping; its 42-source renderer/lint/whitelist and representative seed/grading evidence passed and was removed. A missing canonical source is an implementation gap to repair, not authority to retain static copies. |
 
 | C832 | Avatar-catalog contributor: canonical original safe SVG assets, `avatar_catalog` manifest and PROVENANCE, with one deterministic generator deriving Rust/TypeScript/SQL registry data. | Asset source/manifest/provenance/generator only; no selection route. | Ignored safe-SVG/provenance/determinism probe and SVG-skill renders at smallest, typical, largest picker tiles with dimensions and accessible-name/decorative evidence; repair then remove. |
 | C833 | Avatar-catalog schema contributor: seed generated catalog facts in `profile_media.sql`; `is_selectable` controls new selection while retired assets still render for existing rows. | C37 and C832 generated SQL; fresh PG17. | Ignored PG17 seed/checksum, unknown-ID, selectable-only, and retired-render/no-new-select fixture; repair invariants, then remove. |
@@ -1875,17 +1886,17 @@ recovery/notification, and session termination remain unresolved pending a separ
 | C835 | Avatar UI contributor: reusable `ProvidedAvatarPicker` plus `AvatarVisual` from C832's generated TypeScript registry, keyboard/name/text alternative/playful grid. The pure picker has only `currentAvatarId` and `onSelect(id)` props: no route, API call, C834 server shape, or closure. | C832 generated TypeScript registry only. | Ignored component accessibility/render probe and SVG-skill three-tile evidence; remove. Promote only independently justified stable accessible behavior. |
 | C836 | Avatar UI integration contributor: use C835 only on real `/profile` after C819/C820; Student provided-only/no upload, staff provided plus C39 self-image. C40/C41 remain closure owners. | C39,C819,C820,C834,C835. | Ignored three-role route/browser plus Student-denial/staff-delivery proof; remove then use C40/C41 acceptance gates. |
 | C837 | C42 contributor and terminal privacy question: project generic/provided static assets across representation surfaces; private staff Profile images remain C39 self-only, not cross-account. | C35,C39,C835,C836; C42 only after decision. | Ignored surface inventory/matrix; remove. **Question:** May private Instructor/Sysadmin Profile images be delivered cross-account, and to which authorized roles/surfaces? HG does not resolve it; static provided assets alone may render cross-account. |
-| C838 | C311 canonical-source and publication owner: for one C824 family at a time, validate its pinned canonical algorithmic author source, then retain or reconstruct exactly one canonical algorithmic PG/PGML file with provenance/license; remove generated source copies from the content shape; and create one ordinary WeBWorK Question lineage from that file. | Canonical `content/genetics/pg/` source and manifest mapping; `question_authoring_operations.sql`, `question_publication.rs`; C824. | Ignored per-family source/publication fixture records exactly one canonical PG/PGML file and one lineage, without an adapter heuristic or historical ID/revision/pin rewrite/delete. |
-| C839 | C311 canonical-source acceptance owner: before catalog mutation, verify canonical PG/PGML source, provenance, deterministic parameter contract, and representative rendered/grading instances for one accepted family. This is source acceptance, not row-for-row equivalence to an inferior static expansion. | C838; one affected Genetics family; hands C840. | Ignored per-family provenance/parameter/render/grade fixture; always temporary. A failure repairs canonical source before retirement. |
-| C840 | C311 catalog-state and no-Pool closure owner: after C839, require expected-current Genetics Blueprint Revision CAS, replace the accepted family's Pool entry and static Question placements with its canonical algorithmic Question directly in the Assessment, and remove every biologyproblems.org WeBWorK member of that family from every Question Pool. For each affected live Pool, publish a successor Revision containing only remaining eligible members, or, if none remain, remove the Pool from current Assessments/Blueprints and mark its lineage for C841 retirement. Never create an empty Pool or singleton BiologyProblems.org Pool. | current Question/Pool/Blueprint revision operation; C838,C839. | Ignored per-family Pool-membership inventory plus Blueprint CAS fixture proves direct Assessment placement, no canonical/replaced biologyproblems.org WeBWorK Pool member, and no empty Pool Revision. On CAS failure retain current catalog state; never delete evidence. |
-| C841 | C311 single-source retirement closure owner: only after C839 acceptance and C840's CAS-published catalog state, archive replaced static Question lineages and every Pool lineage made empty or removed from current catalog use through ordinary availability and remove redundant generated PG/QTI source copies, leaving one canonical algorithmic PG/PGML file for that family. A revised shared Pool remains published only with no biologyproblems.org WeBWorK members. Preserve historical Blueprint and Student Work pins. | published availability and `content/genetics` source/manifest rewrite; C840. | Ignored per-family historical-pin/revision-preservation plus source-count fixture proves one canonical source, no live static duplicate, no live prohibited Pool member, and no empty Pool Revision. Forward recovery uses ordinary availability and a later Blueprint Revision, never historical rewrite/delete. |
+| C838 | C311 canonical-source and publication owner: for one C824 family at a time, validate its recorded canonical algorithmic author source and `source_format`, retain exactly one canonical `.pg` or `.pgml` file with provenance/license, and create one ordinary WeBWorK Question lineage from that file. `pgml` requires a fully-compliant classification; traditional or mixed source remains `pg`. This is no parser and no separate backend. | Canonical `content/genetics/pg/topicNN/` source and manifest mapping; `question_authoring_operations.sql`, `question_publication.rs`; C824. | The redundant static source bulk is already removed. Ignored per-family source/publication fixture records exactly one canonical source file with matching format/extension and one lineage, without an adapter heuristic, runtime PG parser, separate backend, or historical ID/revision/pin rewrite/delete. |
+| C839 | C311 canonical-source acceptance owner: before catalog mutation, verify canonical PG/PGML source, provenance, deterministic parameter contract, and representative rendered/grading instances for one accepted family. The temporary 42-source acceptance passed for 41 official biologyproblems-website PGML sources plus HLA: render/lint/whitelist, repeatable/reseeded variation, matching `1`/`.83`, which-one `1`/`0`, and Poisson `1`/`0`. This is source acceptance, not row-for-row equivalence to an inferior static expansion or catalog migration. | C838; one affected Genetics family; hands C840. | The accepted source probe was temporary and removed. C840/C841 still require ordinary publication, expected-current Blueprint CAS, and retirement proof; the normal curriculum-content runtime gate remains blocked by the current AWS Smithy dependency incompatibility. |
+| C840 | C311 catalog-state closure owner: after C839, require expected-current Genetics Blueprint Revision CAS and reconcile the accepted family's one canonical algorithmic Question with the catalog. Do not create an implicit Pool. Revise an existing Pool only to retire redundant generated variants, never create an empty Pool, and preserve every deliberate Pool of distinct Questions, substituting the canonical Question only where its former static predecessor was a member. An emptied redundant Pool retires through C841. | current Question/Pool/Blueprint revision operation; C838,C839. | Redundant static source files have already been removed; ignored per-family Pool-purpose inventory plus Blueprint CAS fixture still proves one canonical Question, no empty or implicit Pool, and deliberate distinct-Question Pool preservation. On CAS failure retain current catalog state; never delete evidence. |
+| C841 | C311 single-source retirement closure owner: only after C839 acceptance and C840's CAS-published catalog state, archive replaced static Question lineages and Pool lineages made empty solely by redundant generated-variant retirement through ordinary availability, while retaining the already-consolidated canonical source shape. Preserve intentional distinct-algorithm Pools and historical Blueprint and Student Work pins. | published availability and `content/genetics` source/manifest rewrite; C840. | Ignored per-family historical-pin/revision-preservation plus source-count fixture proves one canonical source, no live static duplicate or redundant generated-variant Pool member, no empty Pool Revision, and intentional-Pool preservation. Forward recovery uses ordinary availability and a later Blueprint Revision, never historical rewrite/delete. |
 
 Cross-boundary DAG: `C801 -> C802`; recorded TOTP decision -> `C803 -> C804 -> C805 -> C806 -> C807`;
 C808 -> C206 and `{C206, C809} -> C207`; `C37 -> C811`; C812 and `C832 -> C833 -> C834`;
 `{C812, C833} -> C38 -> C39 -> C819 -> C820`; `C832 -> C835`;
 `{C39, C820, C834, C835} -> C836 -> C40/C41`; `{C35, C39, C835, C836} -> C837 -> C42` after its
 terminal privacy decision; `C814 -> C815 -> C813`; `C821 -> C822`; `{C818, C820, C822} -> C823`;
-`C311 -> C824 -> C838 -> C839 -> C840 -> C841` processes one biologyproblems.org WeBWorK family at a time: its canonical algorithmic source replaces static variants directly and never through a Question Pool.
+`C311 -> C824 -> C838 -> C839 -> C840 -> C841` processes one biologyproblems.org WeBWorK family at a time: its canonical algorithmic source replaces static variants while preserving intentional Pools of distinct algorithms.
 
 For the unresolved C14 non-U.S. case, retain: `Reason: product decision still unclear` and
 `Question: For a Student whose institution uses a non-US or non-.edu domain, what approved institutional-domain evidence or configuration authorizes roster import?`
@@ -1925,9 +1936,9 @@ named boundary. C317's 13,000-Question fixture is always temporary.
 | C308 | contributor; 0; `crates/adapters/webwork/src/lib.rs`: opaque backend fixtures. | C307; hands C331-C333,C361. | Create `tests/_temp/hg_a7_c308_backend_fixture.sh`; lease-gated run `bash tests/_temp/hg_a7_c308_backend_fixture.sh`; remove. |
 | C309 | closure; 5; `crates/server/src/assignment_delivery/direct_finalization.rs`: synchronous immutable fraction and score derivation. | C362,C333; hands C310,C324. | Create `tests/_temp/hg_a7_c309_result_pipeline_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c309_result_pipeline_probe.py`; retain only if PYTEST_STYLE approves immutable public outcome contract. |
 | C310 | closure; 1; `crates/server/src/assignment_delivery/direct_finalization.rs`: reproject score when points change without backend call. | C309. | Create `tests/_temp/hg_a7_c310_rescore_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c310_rescore_probe.py`; remove. |
-| C311 | contributor; 0; inventory every biologyproblems.org WeBWorK family against bundled Genetics content and identify its canonical algorithmic author source (official PG/PGML or generator) and generated static variants. It supplies evidence for C840/C841 and closes no HG occurrence itself. | `docs/TODO.md`; `content/genetics/manifest.yaml`, `content/genetics/sources/`, `content/genetics/pg/`; hands C824. | Ignored family ledger records pinned hash/provenance/license, canonical author source, generated coverage, and source count; remove after C824 handoff. No adapter heuristic, Pool substitution, or permanent catalog snapshot. |
+| C311 | contributor; 0; inventory every biologyproblems.org WeBWorK family against bundled Genetics content and identify its canonical algorithmic author source, closed `source_format` (`pg` or `pgml`), matching extension, and generated static variants. `pgml` requires fully PGML-compliant source; traditional or mixed source remains `pg`. This is metadata only, not a runtime parser or separate backend. Any current same-question Genetics folder containing more than one `.pg` file is an incorrect static import to clean up. It supplies evidence for C840/C841 and closes no HG occurrence itself. | `docs/TODO.md`; `content/genetics/manifest.yaml`, `content/genetics/sources/`, `content/genetics/pg/`; hands C824. | Ignored family ledger records source format/extension, source hash/provenance/license, canonical author source, generated coverage, and source count; remove after C824 handoff. No adapter heuristic, runtime parser, separate backend, automatic Pool substitution, or permanent catalog snapshot. |
 | C312 | contributor; 0; `schemas/base_schema/question_pools.sql`: reusable published Pool root plus later-independent immutable Pool Revision/member physical foundation. It has no Assessment-local `question_pool_item` substitute. | —; hands C313,C354,C885. | Ignored fresh-schema root/member separation proof; remove. No table-inventory test is permanent. |
-| C313 | contributor; 0; `question_pools.sql`: immutable ordered Pool Revision members pin each member's exact Published Question ID and Revision, require a nonempty distinct member set, and retain an Instructor interchangeability attestation. Pool changes append a Revision under a Pool metadata ETag/CAS; they never mutate an earlier Revision. This is backend-neutral and stores no selection count until C904 answers its ownership question. | C312; hands C354,C885,C905. | Ignored fresh-schema append/CAS/member-pin/backend-mix matrix; remove. Retain only a small immutable-revision or CAS outcome if every `PYTEST_STYLE.md` criterion passes. |
+| C313 | contributor; 0; `question_pools.sql`: immutable ordered Pool Revision members pin each member's exact Published Question ID and Revision, require a nonempty distinct member set, and retain an Instructor interchangeability attestation. Pool changes append a Revision under a Pool metadata ETag/CAS; they never mutate an earlier Revision. Membership is backend-neutral; C904 assigns selection count to the Assessment-owned fork, not the reusable Pool Revision. | C312; hands C354,C885,C905. | Ignored fresh-schema append/CAS/member-pin/backend-mix matrix; remove. Retain only a small immutable-revision or CAS outcome if every `PYTEST_STYLE.md` criterion passes. |
 | C314 | closure; 4; `schemas/base_schema/question_pools.sql`: import/fork a Pool for an Assessment while retaining member IDs. | C909,C362. | Create `tests/_temp/hg_a7_c314_pool_fork_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c314_pool_fork_probe.py`; remove. |
 | C315 | contributor; 0; `schemas/base_schema/attempt_access.sql`: persisted per-Attempt selection read/write. | C353; hands C334 and A6 C213. | Create `tests/_temp/hg_a7_c315_selection_probe.py`; run `source source_me.sh && cargo test -p learning-data-access`; remove. |
 | C316 | contributor; 0; `src/route_contract.ts`: Pool-library and Student-route candidates. | C354; hands C364,C336. | Create `tests/_temp/hg_a7_c316_access_manifest.mjs`; run `node tests/_temp/hg_a7_c316_access_manifest.mjs`; remove. |
@@ -1942,7 +1953,7 @@ named boundary. C317's 13,000-Question fixture is always temporary.
 | C325 | contributor; 0; `schemas/base_schema/question_authoring_operations.sql`: Draft ownership predicate. | C307; hands C351. | Create `tests/_temp/hg_a7_c325_draft_auth_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c325_draft_auth_probe.py`; remove. |
 | C328 | contributor; 0; `crates/question_model/src/question_library.rs`: split common-interface policy seam. | C307; successor C358. | Create `tests/_temp/hg_a7_c328_backend_contract_seam.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c328_backend_contract_seam.py`; remove. |
 | C330 | contributor; 0; `crates/server/src/assignment_delivery.rs`: split backend-ownership seam. | C359,C361; successor C362. | Create `tests/_temp/hg_a7_c330_backend_ownership_seam.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c330_backend_ownership_seam.py`; remove. |
-| C331 | closure; 1; `crates/adapters/webwork/src/lib.rs`: opaque WeBWorK PG/PGML ownership, including renderer-owned feedback. | C308,C358,C831,C910. | Create `tests/_temp/hg_a7_c331_webwork_opaque.sh`; lease-gated run `bash tests/_temp/hg_a7_c331_webwork_opaque.sh`; remove. |
+| C331 | closure; 1; `crates/adapters/webwork/src/lib.rs`: opaque WeBWorK PG/PGML ownership, including renderer-owned transient feedback. | C308,C358,C831. | Create `tests/_temp/hg_a7_c331_webwork_opaque.sh`; lease-gated run `bash tests/_temp/hg_a7_c331_webwork_opaque.sh`; remove. |
 | C332 | closure; 1; `crates/adapters/imathas/src/imathas_question_backend.rs`: opaque iMathAS ownership. | C308,C358,C831. | Create `tests/_temp/hg_a7_c332_imathas_opaque.sh`; lease-gated run `bash tests/_temp/hg_a7_c332_imathas_opaque.sh`; remove. |
 | C333 | closure; 1; `crates/question_model/src/question_library.rs`: delivered complex backend interaction remains adapter-owned. | C331,C332; future H5P work is blocked by its product decision and does not close this row. | Create `tests/_temp/hg_a7_c333_complex_backend_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c333_complex_backend_probe.py`; remove. |
 | C334 | closure; 1; `schemas/base_schema/attempt_access.sql`: fresh Pool selection persists for reload. | C315,C909; hands A6 C213. | Create `tests/_temp/hg_a7_c334_fresh_selection_probe.py`; run `source source_me.sh && cargo test -p learning-data-access`; retain only if PYTEST_STYLE approves attempt-selection persistence. |
@@ -1963,14 +1974,14 @@ named boundary. C317's 13,000-Question fixture is always temporary.
 | C349 | closure; 1; `crates/question_model/src/presentation/choice_order.rs`: delivery obeys Question choice randomization, not Assessment policy. | C348,C64. | Create `tests/_temp/hg_a7_c349_choice_delivery_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c349_choice_delivery_probe.py`; remove. |
 | C350 | closure; 1; `src/components/student_feedback_panel.tsx`: completion works with feedback withheld or shown. | C324. | Create `tests/_temp/hg_a7_c350_feedback_optional.spec.ts`; run `npx playwright test tests/_temp/hg_a7_c350_feedback_optional.spec.ts`; remove. |
 | C351 | closure; 1; `schemas/base_schema/question_authoring_operations.sql`: Instructor deletes own Draft, never another's. | C325. | Create `tests/_temp/hg_a7_c351_draft_delete_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c351_draft_delete_probe.py`; retain only if PYTEST_STYLE approves stable authorization denial. |
-| C353 | blocked contributor; 0; `crates/domain/src/question_pool_selection.rs`: backend-neutral deterministic selection from the exact pinned Pool Revision once C904 establishes where the selected-count setting belongs and C906 exposes that decision. It never changes backend-native randomization. | C313,C904,C906; hands C315,C907. | Ignored selection/reload/new-Attempt matrix after the decision; remove. No random-fixture or algorithm snapshot is permanent. |
+| C353 | contributor; 0; `crates/domain/src/question_pool_selection.rs`: backend-neutral deterministic selection from the exact Assessment-owned fork Pool Revision after C905-C906 carry the existing per-entry `selection_count` and provenance. It never changes backend-native randomization. | C313,C905,C906; hands C315,C907. | Ignored selection/reload/new-Attempt matrix; remove. No random-fixture or algorithm snapshot is permanent. |
 | C354 | contributor; 0; audit pointer: Pool ID/revision schema requires the C312/C313 content foundation and C846 issuer evidence. It owns no storage, allocator, operation, or test; C885 is the sole Pool schema/create-operation owner. | C312,C313,C846; hands C885,A6 C212/C213,C314,C363,C342. | Record the corrected ownership; no implementation test or permanent inventory. |
-| C355 | contributor; 0; audit pointer for the five Pool behavior occurrences formerly claimed by a schema-only selection path. It closes none: C909 is their sole closure after C904's product decision and C905-C908's real selection chain. | C313,C887,C904; hands C909. | Record the corrected ownership; no implementation test or permanent inventory. |
+| C355 | contributor; 0; audit pointer for the five Pool behavior occurrences formerly claimed by a schema-only selection path. It closes none: C909 is their sole closure after C904's engineering decision and C905-C908's real selection chain. | C313,C887; hands C909. | Record the corrected ownership; no implementation test or permanent inventory. |
 | C358 | closure; 1; `crates/question_model/src/question_library.rs`: common backend interface. | C328; hands C359,C331,C332,C361. | Create `tests/_temp/hg_a7_c358_interface_probe.py`; run `source source_me.sh && cargo test -p question_model`; remove. |
 | C359 | closure; 1; `crates/server/src/assignment_delivery.rs`: architect-approved PLE authorization/ID/revision/persistence/lifecycle/outcome shell. | C358; hands C362,C320,C336. | Create `tests/_temp/hg_a7_c359_ple_shell_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c359_ple_shell_probe.py`; retain only if PYTEST_STYLE approves public authorization/outcome contract. |
 | C361 | closure; 1; `crates/adapters/webwork/src/lib.rs`: backend-specific adapter knowledge. | C306,C308,C358; hands C362. | Create `tests/_temp/hg_a7_c361_adapter_knowledge.sh`; lease-gated run `bash tests/_temp/hg_a7_c361_adapter_knowledge.sh`; remove. |
-| C362 | closure; 1; `crates/server/src/assignment_delivery.rs`: backend owns rendering, response, grading, feedback and state. | C330,C331,C332,C333,C359-C361,C910; hands C309. | Create `tests/_temp/hg_a7_c362_backend_boundary_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c362_backend_boundary_probe.py`; remove. |
-| C910 | contributor; 0; one typed opaque-backend feedback chain from renderer outcome through protected Student Work evidence, finalization, and Student-authorized policy-gated history. It retains/discloses no PLE-parsed PG control, HTML, answer, or native feedback semantics. | C308,C358,C359,C361,C831; hands C331,C362. | Ignored real-renderer/fresh-PostgreSQL authorization and release matrix proves retained opaque feedback, policy withholding, authorized release, and cross-Account concealment; remove. No permanent serializer or renderer-call-order test. |
+| C362 | closure; 1; `crates/server/src/assignment_delivery.rs`: backend owns rendering, response, grading, feedback and state. | C330,C331,C332,C333,C359-C361; hands C309. | Create `tests/_temp/hg_a7_c362_backend_boundary_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c362_backend_boundary_probe.py`; remove. |
+| C910 | closure; 3; add the smallest author-managed general-feedback metadata field and authorized Question-delivery projection. It treats backend feedback as transient unless robust preservation exists, never extracts or reconstructs transient feedback from backend source or output, and keeps PLE-managed general feedback separate from backend-generated interaction feedback. An accepted fresh-PG17 procedure created an explicit `webworkPgml` Draft/binding, saved general feedback, published Revision 1, made a feedback-only edit, published Revision 2, and read both immutable feedback values with the same format/path/checksum; the SQL `RETURNING` output-variable ambiguity was qualified and independently reviewed. | C307; independent of C331/C362. | Temporary database proof/workspace removed; full TypeScript check passed, with explicit UI format and `null` for locally retained unknown picker values. Authorized Student HTTP projection/release remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility. Do not close the three behaviors. |
 | C363 | contributor; 0; `schemas/base_schema/question_authoring_operations.sql`: vetted-Instructor Pool projection. | C335,C885; hands C364. | Create `tests/_temp/hg_a7_c363_pool_projection_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c363_pool_projection_probe.py`; remove. |
 | C364 | closure; 1; `src/pages/library_route_page.tsx`: vetted Instructor sees published Pools. | C316,C363. | Create `tests/_temp/hg_a7_c364_pool_library_access.spec.ts`; run `npx playwright test tests/_temp/hg_a7_c364_pool_library_access.spec.ts`; remove. |
 | C365 | contributor; 0; one install-safe metadata schema/operation graph in `question_lineages.sql` and later `question_authoring_operations.sql`: current global Published Question metadata has a strong per-Question metadata Edit Number and only closed bulk fields `tags`, `subject`, and `topic`. The atomic all-or-none operation takes distinct canonical IDs with each expected metadata Edit Number, a closed replacement patch, and actor-bound idempotency key; it locks a canonical ID order, validates active vetted Instructor authority and every target before writes, and returns the same ordered whole result only for the same key/request digest. Unknown, unavailable, unauthorized, stale, oversized, invalid, or duplicate selection has no per-item disclosure and writes nothing. | C338; hands C367,C893. | Ignored fresh-schema matrix proves closed fields, atomic stale/invalid denial, nonenumeration, repeat-key result, and mismatch-key refusal; remove. Retain only a narrow real authorization or all-or-none CAS outcome if every `PYTEST_STYLE.md` criterion passes. |
@@ -2068,7 +2079,7 @@ closure.
 | --- | --- | --- | --- |
 | C856 | closure; 1; 102; after C408/C409/C852, Blueprint Star SQL, typed LDA, and server projection return exact Verified Instructor Display Names only to an active vetted Instructor viewing a Public or Archived Blueprint Star list. Return no email, UUID, Account reference, avatar, Course, substitute identifier, or Watch identity/state; no client lookup or Profile link. | C408,C409,C852; hands C423, whose browser result supplies final closure. | Retain one small real-session authorization/privacy outcome test only if it passes every `PYTEST_STYLE.md` criterion: authorized active vetted Instructor gets exact names; all other roles, visibility states, and Watch paths do not. Use ignored multi-identity/browser fixtures for the full matrix, then remove them. Failure repairs the projection predicate/fields, never a fixture snapshot. |
 | C857 | contributor; 0; adapter/model/persistence answer-free `AuthorContentPresentation` carries only validated author-script source and closed reviewed library IDs through issuance, reproduction, and checksum. It excludes Answer Key, feedback correctness, grading input/output, seed/generated-parameter hash, response bindings, session/capability, Account/Course/Attempt metadata, and arbitrary URL; raw source is never a generic browser DTO. | C302; hands C858. | Ignored permitted/excluded-field adapter/model/persistence/issuance/reproduction/checksum matrix; remove. No serialization snapshot is permanent. |
-| C858 | contributor; 0; dedicated authenticated `no-store` HTML document route authorizes exact Student/position ownership and reproduces the pinned presentation. Safely encode source, never concatenate; no raw-source browser API/save/submit/grading/object-store/general API. Its CSP permits only the C901 exact local WASM `connect-src`, registry JS SRI hash, and server bootstrap nonce; no author URL or broad `'self'` source. | C857,C901; hands C859. | Ignored route/header/authorization matrix proves every header/CSP exclusion, exact SRI/`locateFile`, and denied route; remove. A small real-session access/isolation outcome is a candidate only after every `PYTEST_STYLE.md` question passes. |
+| C858 | contributor; 0; dedicated authenticated `no-store` HTML document route authorizes exact Student/position ownership and reproduces current reviewed author content. Safely encode source, never concatenate; no raw-source browser API/save/submit/grading/object-store/general API. Its CSP permits only the C901 exact local WASM `connect-src`, current registry JS SRI hash, and server bootstrap nonce; no author URL or broad `'self'` source. | C857,C901; hands C859. | Ignored route/header/authorization matrix proves every header/CSP exclusion, current SRI/`locateFile`, and denied route; remove. A small real-session access/isolation outcome is a candidate only after every `PYTEST_STYLE.md` question passes. |
 | C859 | closure; 5; AuthorContentFrame consumes only typed optional frame reference/availability. Exact iframe is `sandbox="allow-scripts" referrerpolicy="no-referrer" allow=""`, with no same-origin/forms/popups/downloads/modals/top navigation/pointer lock/storage access/permissions. No parent init/message; optional outbound resize only is versioned `author-content.resize`, finite integer/clamped, and accepted only from `event.source === iframe.contentWindow`; no answer/URL/HTML/navigation/storage/API command. | C858; hands C860. | Ignored security browser matrix proves frame/CSP confinement, no privileged parent channel, denied form/navigation/network/API paths, and resize predicate; remove. Retain only an independently justified stable real-session isolation outcome. |
 | C860 | contributor; 0; connected authorized Student-position proof covers C859 rendering/interaction, isolation, grading independence, and C901 reviewed local RDKit manifest before C304. | C859,C901; hands C903. | Ignored connected server/browser/RDKit-manifest fixture; remove. No renderer orchestration or mock call-order test is permanent. |
 | C861 | abandoned-Draft cleanup removal owner: delete the prohibited baseline placeholder warning/recovery table, APIs, grants, Store, worker, generated seams, and test seams. Preserve manual C351 own-Draft deletion and publication; do not implement a cleanup feature. | The N/A audit classification and unresolved Draft-cleanup question; independent of C351. | Ignored bounded removal inventory proves every listed placeholder seam is absent while C351 manual delete/publication remain; remove. A textual absence test is never permanent. |
@@ -2081,19 +2092,19 @@ closure.
 | C879 | closure; 2; active Instructor UI invokes C878 from a Published Question and opens only its returned distinct private Draft, with own authorship and exact immutable source attribution. It never enters the library before C9 publication validation. | C9,C878. | Ignored connected two-Instructor PostgreSQL/server/browser proof covers source pin/attribution, private cross-account denial, retry/concurrency, distinct HMAC ID, and prevalidation-publication denial; remove. Retain only a small real-session authorization/privacy or idempotency outcome if every `PYTEST_STYLE.md` criterion passes. |
 | C885 | contributor; 0; `question_pools.sql` stores unique compact canonical Pool ID, immutable sequential Pool Revisions, and their ordered exact Published Question Revision members. Its trusted create/append operations accept a server-issued typed ID only at Revision 1, no browser/client grant, and are neither allocator nor unused coordinator. | C312,C313,C846,C354; hands C886,C342,C905. | Ignored uniqueness/revision/member-pin/RLS matrix proves no direct client path; remove. No schema call-shape test is permanent. |
 | C886 | contributor; 0; typed `QuestionPoolCreationStore` and active-Instructor server route mint Pool IDs only through C369's HMAC allocator and atomically create Revision 1 from an ordered nonempty distinct list of exact Published Question Revision references plus the Instructor's interchangeability attestation. Browser input supplies only that bounded Pool content/attestation, never an ID, owner, stored revision number, or backend behavior; an ID collision gets a newly issued ID and retries the one creation transaction. | C369,C885; hands C887. | Ignored Store/server authorization, member validation, client-ID refusal, backend-mix, forced collision/retry, and atomic-create matrix; remove. No mock allocator/call-order test is permanent. |
-| C887 | closure; 1; authorized Instructor Pool workflow creates a Published reusable Pool with a new canonical `AAAA-ZBBB` ID, Revision 1, ordered pinned Published Question members, and interchangeability attestation through C886. C342 projects that ID; selection remains blocked on C904 rather than using a second issuance path. | C886; hands C342,C355,C904. | Ignored connected PostgreSQL/server/browser proof covers active-Instructor creation, non-Instructor/client-ID denial, collision retry, unique canonical ID, Revision 1, exact member pins, and C342 handoff. Retain only a narrow real-session authorization or issuance outcome if every `PYTEST_STYLE.md` criterion passes. |
+| C887 | closure; 1; authorized Instructor Pool workflow creates a Published reusable Pool with a new canonical `AAAA-ZBBB` ID, Revision 1, ordered pinned Published Question members, and interchangeability attestation through C886. C342 projects that ID; C905 owns Assessment-owned fork provenance and selection evidence. | C886; hands C342,C355,C905. | Ignored connected PostgreSQL/server/browser proof covers active-Instructor creation, non-Instructor/client-ID denial, collision retry, unique canonical ID, Revision 1, exact member pins, and C342 handoff. Retain only a narrow real-session authorization or issuance outcome if every `PYTEST_STYLE.md` criterion passes. |
 | C893 | contributor; 0; server/API route accepts only C367's typed metadata request from an active vetted Instructor, rejects a selection above the server-owned `MAX_BULK_QUESTION_METADATA_ITEMS`, validates the client-provided opaque idempotency key and binds it to the actor/request digest, invokes C365 once, and maps whole outcomes only: `200` same ordered result, `412` stale with no writes, `422` invalid closed patch/selection, `409` same-key different-request, and the repository's nonenumerating denial for inaccessible targets. No generic coordinator, queued job, partial result API, or arbitrary field patch exists. | C365,C367,C338; hands C366,C368. | Ignored real server request matrix proves bounded request, closed decoder, role/target nonenumeration, exact whole-result mapping, idempotent retry, stale all-or-none result, and key/request mismatch; remove. Retain only a stable external authorization or all-or-none CAS result if it earns promotion. |
-| C904 | terminal product question; 0; **For an independently reusable Question Pool, does the number of Questions selected belong to the immutable Pool Revision, to each Assessment Pool entry, or may an Assessment override a Pool Revision default? If override is allowed, what validation and exact delivered-evidence rule applies?** HG requires an Instructor to choose the number but does not place it. | Blocks C353 and C905-C909. | Record this exact question in the fresh unresolved report. Keep the five Pool behavior occurrences `[ ]` with `Reason: product decision still unclear`; no schema/API/placeholder is created. |
-| C905 | blocked contributor; 0; after C904 only, schema defines the decision-approved selected-count field/override, positive bounded validation, and exact immutable Pool Revision or Assessment-entry provenance. It neither changes existing Pool member pins nor creates an unspecified default/override. | C313,C885,C904; hands C906. | Ignored fresh-schema validation/provenance matrix after decision; remove. No speculative schema or permanent inventory test. |
-| C906 | blocked contributor; 0; after C905 only, typed LDA carries the exact Pool Revision and decision-approved selected-count source without client-selected revision, backend behavior, or arbitrary selection policy. | C905; hands C353,C907. | Ignored typed authorization/provenance codec matrix after decision; remove. No Store call-order test is permanent. |
-| C907 | blocked contributor; 0; after C906 only, the authorized server/Assessment operation writes the selected-count source, calls C353's backend-neutral exact-Pool-Revision selection, and C315 persists only the resulting exact selected Question Revision evidence. It exposes no generic Pool-selection endpoint or backend-native randomization. | C353,C315,C906,C887; hands C908. | Ignored server/Assessment authorization, fresh-Attempt, resume, and persistence matrix after decision; remove. No orchestration test is permanent. |
-| C908 | blocked contributor; 0; after C907 only, the Instructor Assessment editor and typed browser client submit only the decision-approved selected-count setting and exact existing Pool Revision reference, then show a whole validation outcome. They cannot provide selected Question IDs, Pool ID issuance, backend behavior, or a silent override. | C907; hands C909. | Ignored connected client/editor boundary proof after decision; remove. No component snapshot is permanent. |
-| C909 | blocked closure; 5; after C908 only, connected Instructor/Student proof closes C355's five Pool behaviors: approved count configuration, new-Attempt backend-neutral selection from exact pinned Pool Revision, resume preservation, and exact Pool/Question Revision evidence. | C355,C907,C908; hands C314,C334. | Ignored fresh schema/server/browser proof after decision; remove. Retain only a narrow stable selection-evidence or authorization outcome if every `PYTEST_STYLE.md` criterion passes. |
+| C904 | engineering decision; 0; use the existing positive `selection_count` on the Assessment-owned Pool entry/fork. The reusable immutable Pool Revision owns exact members; no Pool default or Assessment override mechanism is added. This is the simplest existing architecture consistent with HG, not a claim that HG mandates field placement. | `crates/question_model/src/assignment.rs`; `schemas/base_schema/assessments.sql`; imported Pool fork belongs to its Assessment. Hands C905-C909. | Source audit records existing positive per-entry count; no new code or permanent test. |
+| C905 | contributor; 0; retain the Assessment-owned fork's exact reusable Pool ID and immutable Revision, and validate its positive `selection_count` is no greater than the exact fork member count. It adds no Pool default or override. | C313,C885,C887,C904; hands C906. | Ignored fresh-schema validation/provenance matrix; remove. No permanent inventory test. |
+| C906 | contributor; 0; carry the Assessment-owned fork's exact Pool ID/Revision and `selection_count` through typed selection inputs without client-selected revision, backend behavior, or arbitrary selection policy. | C905; hands C353,C907. | Ignored typed authorization/provenance codec matrix; remove. No Store call-order test is permanent. |
+| C907 | contributor; 0; authorized Assessment operation writes the existing per-entry `selection_count`, resolves its exact owned fork Pool ID/Revision, calls C353's backend-neutral selection, and C315 persists that exact fork Pool ID/Revision with the resulting exact selected Question Revisions. | C353,C315,C906,C887; hands C908. | Ignored server/Assessment authorization, count-bound, fresh-Attempt, resume, and Pool/Question provenance persistence matrix; remove. No orchestration test is permanent. |
+| C908 | contributor; 0; Instructor Assessment editor and typed browser client submit only the Assessment entry's positive `selection_count`; the server derives the exact owned fork Pool ID/Revision and returns a whole validation outcome. They cannot provide selected Question IDs, Pool ID issuance, backend behavior, or a default/override. | C907; hands C909. | Ignored connected client/editor boundary proof; remove. No component snapshot is permanent. |
+| C909 | closure; 5; after C908, connected Instructor/Student proof closes C355's five Pool behaviors: Assessment-owned count configuration, new-Attempt backend-neutral selection from exact fork Pool Revision, resume preservation, and exact Pool/Question Revision evidence. | C355,C907,C908; hands C314,C334. | Ignored fresh schema/server/browser proof; remove. Retain only a narrow stable selection-evidence or authorization outcome if every `PYTEST_STYLE.md` criterion passes. |
 | C899 | contributor; 0; direct-cutover removal of author-supplied `externalDependencies[].{id,cdnUrl,localPath}` from the strict native source shape. Only C302's closed `libraries` enum may request a runtime; C305 is reclassified false-closure evidence. | C301,C302; hands C900. | Ignored legacy-declaration rejection/closed-`rdkit` acceptance matrix; remove. No absence or serialization snapshot test is permanent. |
-| C900 | contributor; 0; canonical RDKit supply-chain manifest and deterministic vendoring command pin official `@rdkit/rdkit@2025.3.4-1.0.0`, BSD-3-Clause, npm integrity, license hash, and exactly its approved JS/WASM hashes; generated server registry consumes no resolver/CDN. | C899; hands C901,C902. | Ignored clean-cache/tamper/extra-file/reproducibility matrix; remove. No manifest snapshot is permanent. |
-| C901 | contributor; 0; generated server registry exposes only immutable server-derived local JS/WASM GET/HEAD routes with exact MIME, nosniff, CORP, cache, SRI, and `locateFile` facts. No caller path, redirect, CORS grant, cookie-sensitive response, or object-store URL. | C900; hands C858,C860,C903. | Ignored route/header/method/traversal/mismatch/opaque-frame matrix; remove. Retain only an independently justified stable outcome. |
-| C902 | contributor; 0; reviewed dependency-update workflow permits a fresh immutable entry only after official provenance/license/integrity/file-hash/browser review and frame proof; it never replaces an existing path and retires entries only when no pinned presentation uses them. | C900; hands C903. | Ignored update/replacement/retirement matrix; remove. No release orchestration test is permanent. |
-| C903 | closure; 3; authorized pinned Student delivery proves `rdkit` yields only reviewed C901 local JS/WASM, isolated chemistry rendering, no CDN/API fallback, exact CSP/SRI/`locateFile` confinement, and unchanged server grading. | C858,C859,C860,C900,C901,C902; hands C304. | Ignored connected offline/network-denial server/browser proof; remove. Promote only one small stable local-runtime/security outcome if every `PYTEST_STYLE.md` criterion approves it. |
+| C900 | contributor; 0; current official RDKit supply-chain manifest and deterministic vendoring command verify provenance, BSD-3-Clause, npm integrity, license hash, and exactly the current approved JS/WASM hashes; generated server registry consumes no resolver/CDN or historical catalog. | C899; hands C901,C902. | Ignored current-release/tamper/extra-file/reproducibility matrix; remove. No manifest snapshot is permanent. |
+| C901 | contributor; 0; current generated registry exposes only exact local JS/WASM GET/HEAD routes with MIME, nosniff, CORP, revalidating cache, SRI, `locateFile`, and the sole anonymous `Access-Control-Allow-Origin: *` exception required by the opaque sandbox WASM fetch. C858 permits `'unsafe-eval'` only in that opaque document for the current official RDKit loader; it is not a main-PLE CSP allowance. No caller path, credential grant, redirect, cookie-sensitive response, or object-store URL. | C900; hands C858,C860,C903. | Ignored route/header/method/traversal/mismatch/opaque-frame matrix; remove. Retain only an independently justified stable outcome. |
+| C902 | contributor; 0; reviewed current-dependency refresh resolves the latest official release after provenance/license/integrity/file-hash/browser review and frame proof, directly replacing the pre-production local runtime with no history or retirement workflow. | C900; hands C903. | Ignored current-refresh/rejection/browser matrix; remove. No release orchestration test is permanent. |
+| C903 | closure; 3; authorized Student delivery proves `rdkit` yields only reviewed current C901 local JS/WASM, isolated chemistry rendering, no CDN/API fallback, exact CSP/SRI/`locateFile` confinement, and unchanged server grading. | C858,C859,C860,C900,C901,C902; hands C304. | Ignored connected offline/network-denial server/browser proof; remove. Promote only one small stable local-runtime/security outcome if every `PYTEST_STYLE.md` criterion approves it. |
 
 ### C871-C875: blocked Question Watch thread and impact-notice decisions
 
@@ -2116,41 +2127,23 @@ implement a generic event hook, or create schema/API placeholders before then.
 | C874 | blocked contributor; 0; source-bound outbox writers emit exactly revision, fork, decision-approved thread, and decision-approved impact-notice events, with no generic notification hook. | C346,C871,C872; hands C875. | Ignored transaction/outbox matrix after decision; remove. Retain a small authorization or idempotence contract only if it passes every `PYTEST_STYLE.md` question. |
 | C875 | blocked closure; 1; private in-app Watch notification delivery covers all four approved event classes without exposing Watch identities to Students, anonymous users, or unauthorized Instructors. | C373,C873,C874. | Ignored connected multi-identity/four-event proof after decision; remove. Retain only a stable private-notification authorization outcome if every `PYTEST_STYLE.md` criterion approves it. |
 
-### Ownership ledger
+### A7 coordination notes
 
-Closure counts are mechanically checkable from the table's `closure; N` cells.
-The ordinary C300-C375 rows now own 62 occurrences; C879 owns the two moved Question-fork
-occurrences, C887 owns the moved Pool-creation occurrence, blocked C875 owns the one
-Watch-notification occurrence, and C859 owns the five moved author-isolation occurrences, for
-71 closure-owned A7 occurrences. C904's one exact product question blocks the five C909
-Pool-selection occurrences; no contributor owns an occurrence. The duplicate is A6 C208. The
-optional abandoned-Draft-cleanup bullet is a positive-audit N/A, leaving 76 A7 requirements
-accounted for.
+Use the current table rows as the dispatch source. Each row names its owner, affected boundary,
+prerequisites, and proof. Before an edit to a shared schema, route, or model boundary, the manager
+confirms the named predecessor has handed off and assigns one writer for that boundary. This is
+enough coordination to prevent conflicts; do not build or maintain a separate dependency parser,
+count checker, or ownership ledger.
 
-### Machine-checkable dependency ledger
-
-The following `parent>child` ledger and its immediately following RDKit
-correction extension are the only A7 DAG. Together they intentionally include
-contributors, closures, and external prerequisite labels, and contain no
-reciprocal edge:
-
-`C301>C302 C302>C303 C302>C857 C305>C858 C857>C858 C858>C859 C859>C860 C860>C304 C831>C304 C301>C305 C306>C307 C307>C308 C308>C331 C358>C331 C831>C331 C910>C331 C308>C332 C358>C332 C831>C333 C332>C333 C831>C309 C333>C309 C362>C309 C309>C310 C312>C313 C312>C354 C313>C354 C846>C354 C354>C885 C369>C886 C885>C886 C886>C887 C887>C342 C313>C355 C887>C355 C904>C355 C355>C909 C313>C905 C885>C905 C904>C905 C905>C906 C904>C353 C906>C353 C353>C315 C315>C907 C906>C907 C887>C907 C907>C908 C907>C909 C908>C909 C909>C314 C362>C314 C909>C334 C354>C316 C58>C317 C846>C319 C211>C319 C319>C876 C9>C876 C876>C877 C369>C878 C877>C878 C9>C879 C878>C879 C359>C320 C208>C321 C211>C321 C213>C321 C321>C322 C205>C322 C300>C825 C825>C826 C825>C827 C826>C829 C827>C828 C828>C829 C829>C830 C830>C831 C831>C323 C64>C323 C323>C348 C348>C349 C64>C349 C309>C324 C324>C350 C307>C325 C325>C351 C307>C328 C328>C358 C359>C330 C361>C330 C330>C362 C910>C362 C306>C361 C308>C361 C358>C361 C308>C910 C358>C910 C359>C910 C361>C910 C831>C910 C885>C335 C316>C335 C335>C363 C885>C363 C363>C364 C316>C364 C316>C336 C359>C336 C317>C338 C338>C365 C365>C367 C339>C367 C367>C893 C338>C893 C893>C366 C366>C368 C9>C368 C893>C368 C368>C337 C9>C337 C58>C340 C368>C340 C318>C341 C842>C843 C842>C369 C843>C369 C341>C369 C842>C844 C369>C844 C843>C845 C844>C845 C358>C845 C369>C846 C844>C846 C845>C846 C846>C342 C846>C343 C320>C344 C344>C370 C17>C852 C18>C852 C370>C853 C852>C853 C853>C854 C854>C855 C855>C371 C320>C345 C345>C372 C372>C373 C346>C874 C871>C873 C872>C873 C871>C874 C872>C874 C373>C875 C873>C875 C874>C875 C371>C347 C373>C347`
-
-The RDKit correction extension is:
-
-`C301>C899 C302>C899 C899>C900 C900>C901 C900>C902 C857>C858 C901>C858 C858>C859 C859>C860 C901>C860 C858>C903 C859>C903 C860>C903 C900>C903 C901>C903 C902>C903 C903>C304`
-
-Before dispatch, the manager creates ignored `tests/_temp/hg_a7_dag_validate.py`; it must parse
-both literals, derive the row IDs and closure counts from this table plus the accepted
-C857-C860, C899-C903, and C904-C909 rows, reject an unknown node, duplicate closure owner, count other than 76, missing A6
-C208 duplicate, or any cycle, and
-print the computed node/edge/count values. Run
-`source source_me.sh && python3 tests/_temp/hg_a7_dag_validate.py`; remove it after the planning
-gate. This is a one-time plan proof, not a permanent test.
+Important sequences are: the canonical author-content/RDKit path (C899 through C903 before C304),
+the native reproduction path (C825 through C831), Question IDs before dependent publication,
+fork, and Pool creation work, and Pool selection only after C904's engineering decision is recorded. The individual rows
+remain the authority for their exact prerequisite and proof.
 
 ### C400-C425: Complete A8 Courses gaps
 
-Scope: all 64 owning unchecked bullets in 08_courses.md. Audit lines retain verbatim HG and mismatch evidence. The six later Owner duplicates (47, 221, 224, 229, 232, 235) are pointers, not work.
+Scope: the open A8 bullets in `08_courses.md`. Audit lines retain verbatim HG and mismatch
+evidence. Later duplicate references point to their owning behavior rather than creating work.
 
 A contract-only A8 row flips **no** checklist bullet. Its named recipient is the sole writer of the shared implementation boundary, and only the recipient gate plus the A8 temporary evidence allows the listed lines to close.
 
@@ -2213,41 +2206,17 @@ Candidate set: src/pages/course_list_page.tsx; src/pages/course_instance_page.ts
 
 It reports an opaque Course/Blueprint/Assessment reference shown without its human title/reference for recognition, copy, or entry. Each finding is handed to C30/C46/C47/C48/C55 or an A8-owned feature; remove the inventory after C216 consumes it.
 
-## Acyclic DAG
+## A8 coordination notes
 
-    C6 -> C400,C403,C406,C419
-    C49,C72 -> C7
-    C503 -> C7 -> C401,C402,C417,C418,C419
-    C403 -> C49 -> C404 -> C72 -> C405 -> C19,C47
-    C406 -> C73 -> C407 -> C52
-         \\-> C419
-                    \\-> C414 -> C415 -> C412 -> C51
-                              \\-> C880
-                    C412,C414 -> C881
-                    C880,C881,C51 -> C882 -> C883 -> C884
-    C408 -> C409
-    C408,C409,C852 -> C856
-    C52 -> C410 -> C411
-    C410,C415 -> C416 -> C421
-    C415 -> C425
-    C52,C49,C72,C503 -> C417 -> C424
-    C417,C406 -> C419 -> C420
-    C206,C207,C208,C53 -> C418 -> C46
-    C46,C55,A4 -> C411
-    C47,C50,C884 -> C413
-    C48,C55 -> C420
-    C409,C856,C47,C48 -> C423
-    C46,C47,C55 -> C424
-    C47,C48 -> C425
-    C30 plus A8 title/reference inventory -> C216
-
-No lifecycle/fork cycle: lifecycle recipients precede lineage/fork route. No discovery/create cycle: C19/C47 consume C405 while C417 separately consumes C7/C52. No update/Proposal cycle: C416 calls C410 update offers after its single Revision transaction; C410 never calls Proposal code.
+Keep lifecycle work ahead of dependent discovery and fork work: C49/C72 establish the Public
+eligibility needed by adoption; C412/C414 precede fork comparison and C880-C884; C47/C50/C884
+precede the fork-update UI. Contract rows hand off to their named recipient and do not change a
+checklist bullet alone. The table and surrounding milestone text identify the exact order when a
+shared boundary is involved; no separate DAG artifact is required.
 
 ### C500-C536: Complete A9 Assessments gaps
 
-Raw A9 opens: 109. Owners: **104**. Pointers: `99->7`, `104->A8-L165`,
-`152->111`, `254->A7-L126`, `304->A7-L122`. C500-C536 contain the 37 A9
-milestones; C502 is the zero-closure C216 contributor. `G24`/C525 (cohort
+C500-C536 cover the A9 implementation work. C502 is the C216 contributor. `G24`/C525 (cohort
 completion semantics) and `G35`/C536 (CSV/TSV identity and permitted FERPA
 metadata) are terminal product questions and remain `[ ]`.
 
@@ -2261,24 +2230,20 @@ metadata) are terminal product questions and remain `[ ]`.
 **DD-A9-01 / terminology chain.** C12 is contributor-only frontend evidence.
 Before any terminology closure: `{C857,C870} -> {C500,C501} -> T-A9-1` fresh-schema/workspace-compile
 integration barrier -> LDA/server canonical API -> TS
-decoders/client -> route/link emitters -> legacy browser GET/HEAD same-origin fixed 308 ->
-fresh-install/E2E. Canonical paths are `/courses/:courseRef/assessments/:assessmentRef`,
+decoders/client -> route/link emitters -> direct caller/no-legacy verification -> fresh-install/E2E.
+Canonical paths are `/courses/:courseRef/assessments/:assessmentRef`,
 `/assessment-attempts/:assessmentAttemptRef`, and Instructor `/assessments/.../properties`.
 JSON: `assessment`, `assessmentReference`, `assessmentAttempt`, `assessmentEntry`,
-`assessmentStatus`; Blueprint `assessments`, `blueprint_assessment_reference`. Legacy browser
-GET/HEAD only receives one fixed same-origin 308 carrying declared-safe query parameters; legacy
-API is payload-free nonenumerating 410. Canonical route authorizes. No mixed-version deployment;
-rollback restores matching code and resettable base together.
+`assessmentStatus`; Blueprint `assessments`, `blueprint_assessment_reference`. Legacy Assignment
+routes, APIs, decoders, and tests are absent; callers use the canonical route directly. No
+mixed-version deployment; rollback restores matching code and resettable base together.
 
 **Dependencies and temporary-proof policy:** C500's full SQL consumer list and C501's full Rust
-consumer list are in the active plan because graph-atomic ownership, rather than a root-file
-inventory, is the direct-cutover boundary. C500 and C501 can be prepared in parallel only in
-isolated worktrees after their handoffs. This shared checkout serializes their mutating bundles,
-runs no install/compile gate until both are present, and then uses T-A9-1. The active plan's
-authoritative C500-C536 ledger contains the only acyclic dependency graph and the complete
-per-row handoffs. All probes are
-temporary and removed unless that ledger's six-question `PYTEST_STYLE.md` review justifies one
-focused permanent replacement.
+consumer list are in the active plan because each direct cutover must leave its whole layer
+installable or compilable. C500 and C501 can be prepared in parallel only in isolated worktrees
+after their handoffs. This shared checkout serializes their mutating bundles, runs no
+install/compile gate until both are present, and then uses T-A9-1. All probes are temporary and
+removed unless `PYTEST_STYLE.md` justifies one focused permanent replacement.
 
 ## Final closeout
 
@@ -2291,9 +2256,3 @@ After dependency-closed tranche, use only existing Browser Suite lease:
     source source_me.sh && ./launchers/all_test.sh
 
 Then generator build/diff/consistency. Do not start, stop, replace, or clean up the shared Browser Suite.
-
-## One-to-one owner index
-
-3 C400; 5 C400; 7 C400; 9 C402; 11 C401; 13 C401; 17 C401; 30 C405; 32 C406; 34 C420; 39 C403; 41 C403; 43 C404; 45 C404; 50 C405; 52 C404; 54 C405; 56 C405; 60 C404; 62 C404; 64 C404; 92 C408; 94 C409; 96 C409; 98 C408; 100 C409; 102 C856; 104 C408; 113 C410; 115 C411; 117 C411; 119 C410; 121 C410; 123 C410; 128 C412; 130 C412; 132 C412; 134 C412; 136 C413; 138 C412; 140 C416; 142 C416; 144 C416; 146 C416; 148 C416; 150 C410; 155 C414; 157 C415; 159 C415; 161 C414; 165 C406; 169 C415; 171 C416; 175 C414; 182 C417; 184 C417; 186 C417; 188 C407; 192 C418; 194 C418; 197 C419; 217 C407; 227 C411; 245 C422.
-
-Count check: 64 owners; exactly six excluded later Owner duplicates.

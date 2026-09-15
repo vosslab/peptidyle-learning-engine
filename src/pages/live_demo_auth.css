@@ -29,6 +29,23 @@
   margin: 0;
 }
 
+.live-demo-totp {
+  display: grid;
+  gap: var(--ple-space-2);
+  margin-block: var(--ple-space-3);
+}
+
+.live-demo-totp form {
+  display: grid;
+  gap: var(--ple-space-2);
+  max-width: 22rem;
+}
+
+.live-demo-totp label {
+  display: grid;
+  gap: 0.25rem;
+}
+
 @media (max-width: 30rem) {
   .live-demo-persona-action {
     width: 100%;

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    AccountId, AssignmentReference, BlueprintAssignmentReference, BlueprintCourseReference,
+    AccountId, AssessmentReference, BlueprintAssessmentReference, BlueprintCourseReference,
     BlueprintRevision, Timestamp,
 };
 
@@ -18,22 +18,22 @@ pub struct BlueprintRevisionReference {
     pub revision: BlueprintRevision,
 }
 
-/// Stable Blueprint Assignment provenance inside one exact Blueprint Revision.
+/// Stable Blueprint Assessment provenance inside one exact Blueprint Revision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
-pub struct BlueprintAssignmentSource {
+pub struct BlueprintAssessmentSource {
     pub blueprint_revision: BlueprintRevisionReference,
-    pub blueprint_assignment_reference: BlueprintAssignmentReference,
+    pub blueprint_assessment_reference: BlueprintAssessmentReference,
 }
 
-impl BlueprintAssignmentSource {
+impl BlueprintAssessmentSource {
     pub const fn new(
         blueprint_revision: BlueprintRevisionReference,
-        blueprint_assignment_reference: BlueprintAssignmentReference,
+        blueprint_assessment_reference: BlueprintAssessmentReference,
     ) -> Self {
         Self {
             blueprint_revision,
-            blueprint_assignment_reference,
+            blueprint_assessment_reference,
         }
     }
 }
@@ -52,12 +52,15 @@ impl RequestChecksum {
     }
 }
 
-/// Current stable-lineage availability. Exact Revisions remain resolvable
-/// when ordinary discovery is archived.
+/// Current stable-lineage lifecycle state. Private Blueprints are visible only
+/// to their owner; Public Blueprints are eligible for discovery and adoption;
+/// Archived Blueprints are unavailable for new selection. Exact Revisions
+/// remain resolvable after either later transition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlueprintAvailability {
-    Available,
+    Private,
+    Public,
     Archived,
 }
 
@@ -158,12 +161,12 @@ pub struct SaveBlueprintCourseReceipt {
     pub accepted_at: Timestamp,
 }
 
-/// Provenance retained by a destination Assignment created from a Blueprint
-/// Assignment. The destination is stable current Assignment state.
+/// Provenance retained by a destination Assessment created from a Blueprint
+/// Assessment. The destination is stable current Assessment state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BlueprintAssignmentImportReceipt {
-    pub source: BlueprintAssignmentSource,
-    pub destination_assignment: AssignmentReference,
+pub struct BlueprintAssessmentImportReceipt {
+    pub source: BlueprintAssessmentSource,
+    pub destination_assessment: AssessmentReference,
     pub actor: AccountId,
     pub request_checksum: RequestChecksum,
     pub accepted_at: Timestamp,
@@ -188,7 +191,7 @@ mod tests {
 
     #[test]
     fn creation_receipt_identifies_revision_one() {
-        let blueprint = BlueprintCourseReference::new(12).expect("valid Blueprint Course");
+        let blueprint = BlueprintCourseReference::new("BP7K3M2Q").expect("valid Blueprint Course");
         let receipt = CreateBlueprintCourseReceipt {
             blueprint_revision: BlueprintRevisionReference {
                 reference: blueprint,

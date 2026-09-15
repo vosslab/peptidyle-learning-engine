@@ -8,17 +8,17 @@ use learning_data_access::postgres::{
     PostgresBlueprintCourseStore, PostgresCourseInstanceStore, lazy_pool,
 };
 use learning_data_access::{
-    BlueprintCourseStore, CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash,
-    StoreError, StoredBlueprintCourseContent,
+    BlueprintCourseStore, CourseInstanceCreationSource, CourseInstanceStore,
+    CreateCourseInstanceInput, SessionTokenHash, StoreError, StoredBlueprintCourseContent,
 };
 use question_model::{
-    AssignmentActivityRules, AssignmentEntryScoringRule, AssignmentInstructions,
-    AssignmentPointValue, BlueprintAssignmentContentInput, BlueprintAssignmentDefaults,
-    BlueprintAssignmentEditChoice, BlueprintAssignmentEntryInput,
-    BlueprintAssignmentReplacementInput, BlueprintCourseReference, BlueprintModuleEditChoice,
-    BlueprintModuleReplacementInput, BlueprintRevision, CreateBlueprintCourseInput,
-    CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
+    AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
+    AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
+    BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput,
+    BlueprintAssessmentReplacementInput, BlueprintAvailability, BlueprintCourseReference,
+    BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevision,
+    CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
     ReplaceBlueprintCourseContentInput, ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
 };
 use sqlx::{Connection, PgConnection, Row};
@@ -26,194 +26,11 @@ use tokio::sync::oneshot;
 use tokio::time::{Duration, timeout};
 use uuid::Uuid;
 
-const INSTRUCTOR: u128 = 0xb100;
-const SESSION: u128 = 0xb101;
-const READER_INSTRUCTOR: u128 = 0xb102;
-const READER_SESSION: u128 = 0xb103;
-const QUESTION: &str = "ABCDE12";
-
-fn id(value: u128) -> Uuid {
-    Uuid::from_u128(value)
-}
-
-fn token() -> SessionTokenHash {
-    SessionTokenHash::compute(&[0xb2; 32])
-}
-
-fn reader_token() -> SessionTokenHash {
-    SessionTokenHash::compute(&[0xb3; 32])
-}
-
-fn request(value: u8) -> Vec<u8> {
-    vec![value; 32]
-}
-
-fn question_id() -> QuestionId {
-    QUESTION.parse().expect("closed Question ID fixture")
-}
-
-fn content_input(title: &str) -> CreateBlueprintCourseInput {
-    CreateBlueprintCourseInput {
-        short_name: "REV-ACC".to_owned(),
-        long_name: "Revision acceptance Blueprint".to_owned(),
-        modules: vec![CreateBlueprintModuleInput {
-            label: "Module alpha".to_owned(),
-            assignments: vec![BlueprintAssignmentContentInput {
-                title: title.to_owned(),
-                instructions: AssignmentInstructions::try_new("Read the prompt.".to_owned())
-                    .expect("fixture instructions"),
-                entries: vec![
-                    BlueprintAssignmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                        question_id: question_id(),
-                        points_possible: AssignmentPointValue::from_whole(2),
-                        scoring_rule: AssignmentEntryScoringRule::Normal,
-                        question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-                    }),
-                    BlueprintAssignmentEntryInput::Pool(question_model::ReusablePoolInput {
-                        items: vec![question_id()],
-                        selection_count: 1,
-                        points_per_item: AssignmentPointValue::from_whole(3),
-                        scoring_rule: AssignmentEntryScoringRule::ExtraCredit,
-                        selection_rule: question_model::QuestionPoolSelectionRule {
-                            selected_question_order:
-                                question_model::QuestionPoolSelectedQuestionOrder::RandomOrder,
-                        },
-                        question_attempt_limit: QuestionAttemptLimit {
-                            max_attempts: Some(2),
-                        },
-                        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-                    }),
-                ],
-                defaults: BlueprintAssignmentDefaults {
-                    assignment_attempt_time_limit_seconds: None,
-                    attempt_limit: None,
-                    late_work_rule: LateWorkRule::Accept,
-                    activity_rules: AssignmentActivityRules::default(),
-                    student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
-                },
-            }],
-        }],
-    }
-}
-
-fn initial_content() -> StoredBlueprintCourseContent {
-    let question = question_id();
-    let pins = BTreeMap::from([(
-        question.clone(),
-        QuestionRevisionReference {
-            question_id: question,
-            revision_number: QuestionRevisionNumber::new(1).expect("fixture Question Revision"),
-        },
-    )]);
-    StoredBlueprintCourseContent::from_create(content_input("Revision one Assignment"), &pins)
-        .expect("closed Blueprint content fixture")
-}
-
-fn pins() -> BTreeMap<QuestionId, QuestionRevisionReference> {
-    let question = question_id();
-    BTreeMap::from([(
-        question.clone(),
-        QuestionRevisionReference {
-            question_id: question,
-            revision_number: QuestionRevisionNumber::new(1).expect("fixture Question Revision"),
-        },
-    )])
-}
-
-fn assignment_input(title: &str) -> BlueprintAssignmentContentInput {
-    content_input(title).modules.remove(0).assignments.remove(0)
-}
-
-fn changed_content(
-    mut content: StoredBlueprintCourseContent,
-    title: &str,
-) -> StoredBlueprintCourseContent {
-    content.modules[0].assignments[0].content.title = title.to_owned();
-    content
-}
-
-async fn seed(admin: &sqlx::postgres::PgPool) {
-    let mut transaction = admin.begin().await.expect("fixture transaction");
-    sqlx::query("SET LOCAL ROLE ple_private_owner")
-        .execute(&mut *transaction)
-        .await
-        .expect("private fixture role");
-    sqlx::query(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'instructor', clock_timestamp())",
-    )
-    .bind(id(INSTRUCTOR))
-    .execute(&mut *transaction)
-    .await
-    .expect("Instructor account");
-    sqlx::query(
-        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
-         VALUES ($1, 'instructor', clock_timestamp())",
-    )
-    .bind(id(READER_INSTRUCTOR))
-    .execute(&mut *transaction)
-    .await
-    .expect("reader Instructor account");
-    sqlx::query("INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES ($1, 'student', clock_timestamp())")
-        .bind(id(0xb104)).execute(&mut *transaction).await.expect("Student fixture");
-    sqlx::query(
-        "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
-    )
-    .bind(id(SESSION))
-    .bind(id(INSTRUCTOR))
-    .bind(token().to_string())
-    .execute(&mut *transaction)
-    .await
-    .expect("Instructor session");
-    sqlx::query(
-        "INSERT INTO ple_private.authenticated_session \
-         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
-         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
-                 clock_timestamp() + interval '1 hour')",
-    )
-    .bind(id(READER_SESSION))
-    .bind(id(READER_INSTRUCTOR))
-    .bind(reader_token().to_string())
-    .execute(&mut *transaction)
-    .await
-    .expect("reader Instructor session");
-    sqlx::query("SET LOCAL ROLE ple_data_owner")
-        .execute(&mut *transaction)
-        .await
-        .expect("data fixture role");
-    sqlx::query(
-        "SELECT setval(\
-             'ple_data.blueprint_course_reference_number_seq', \
-             GREATEST(COALESCE((SELECT max(reference_number) FROM ple_data.blueprint_course), 1), 1), \
-             true\
-         )",
-    )
-    .execute(&mut *transaction)
-    .await
-    .expect("Blueprint reference sequence follows fixed fixtures");
-    sqlx::query(
-        "INSERT INTO ple_data.published_question (question_id, created_at) \
-         VALUES ($1, clock_timestamp())",
-    )
-    .bind(QUESTION)
-    .execute(&mut *transaction)
-    .await
-    .expect("Published Question");
-    sqlx::query(
-        "INSERT INTO ple_data.question_revision \
-         (question_id, revision_number, backend, question_type, published_at) \
-         VALUES ($1, 1, 'ple', 'multipleChoice', clock_timestamp())",
-    )
-    .bind(QUESTION)
-    .execute(&mut *transaction)
-    .await
-    .expect("Question Revision");
-    transaction.commit().await.expect("fixture commit");
-}
+#[path = "blueprint_course_postgres/support.rs"]
+mod blueprint_course_postgres_support;
+use blueprint_course_postgres_support::*;
+#[path = "blueprint_course_postgres/adoption.rs"]
+mod blueprint_course_postgres_adoption;
 
 async fn authenticate_application_transaction(
     transaction: &mut sqlx::Transaction<'_, sqlx::Postgres>,
@@ -322,6 +139,71 @@ async fn save(
     }
 }
 
+async fn transition_blueprint_availability(
+    url: &str,
+    reference: i64,
+    expected_metadata_etag: Uuid,
+    availability: &'static str,
+    archive_confirmation_long_name: Option<&str>,
+) -> Result<(BlueprintAvailability, Uuid), sqlx::Error> {
+    let mut connection = PgConnection::connect(url)
+        .await
+        .expect("Blueprint lifecycle application connection");
+    let mut transaction = connection
+        .begin()
+        .await
+        .expect("Blueprint lifecycle application transaction");
+    authenticate_application_transaction(&mut transaction).await;
+    let result = sqlx::query(
+        "SELECT availability, metadata_etag FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
+    )
+    .bind(reference)
+    .bind(expected_metadata_etag)
+    .bind(availability)
+    .bind(archive_confirmation_long_name)
+    .fetch_one(&mut *transaction)
+    .await
+    .map(|row| {
+        let availability = match row
+            .try_get::<String, _>("availability")
+            .expect("Blueprint lifecycle availability")
+            .as_str()
+        {
+            "private" => BlueprintAvailability::Private,
+            "public" => BlueprintAvailability::Public,
+            "archived" => BlueprintAvailability::Archived,
+            value => panic!("unexpected Blueprint lifecycle availability: {value}"),
+        };
+        (
+            availability,
+            row.try_get("metadata_etag")
+                .expect("Blueprint lifecycle metadata ETag"),
+        )
+    });
+    match result {
+        Ok(value) => {
+            transaction
+                .commit()
+                .await
+                .expect("Blueprint lifecycle transition commit");
+            Ok(value)
+        }
+        Err(error) => Err(error),
+    }
+}
+
+async fn near_now_term(url: &str) -> question_model::CourseTerm {
+    let mut connection = PgConnection::connect(url)
+        .await
+        .expect("term-clock connection");
+    let (starts_on, ends_on): (String, String) =
+        sqlx::query_as("SELECT current_date::text, (current_date + 1)::text")
+            .fetch_one(&mut connection)
+            .await
+            .expect("database current term dates");
+    question_model::CourseTerm::from_parts(&starts_on, &ends_on).expect("near-now Course term")
+}
+
 fn error_code(error: &sqlx::Error) -> Option<String> {
     match error {
         sqlx::Error::Database(database) => database.code().map(|code| code.into_owned()),
@@ -371,40 +253,198 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "create request replay returns its original Revision"
     );
 
-    let reader_store =
-        PostgresBlueprintCourseStore::new(lazy_pool(&application_url).expect("reader pool"));
     let blueprint_reference = format!("BP-{reference}")
         .parse::<BlueprintCourseReference>()
         .expect("Blueprint reference");
+    let owner_store =
+        PostgresBlueprintCourseStore::new(lazy_pool(&application_url).expect("owner pool"));
+    let reader_store =
+        PostgresBlueprintCourseStore::new(lazy_pool(&application_url).expect("reader pool"));
+    // Regression: a refactor could disclose Private immutable content or let
+    // an adoption hide its source. These owner/non-owner lifecycle rules are
+    // deliberate product and authorization contracts, so this connected
+    // acceptance oracle earns permanent coverage. Failure action: repair the
+    // lifecycle/persistence predicate; do not loosen this contract.
+    let owner_private = owner_store
+        .load_blueprint_course(token(), blueprint_reference)
+        .await
+        .expect("owner reads a new Private Blueprint");
+    assert_eq!(owner_private.availability, BlueprintAvailability::Private);
+    assert!(
+        reader_store
+            .list_blueprint_courses(reader_token())
+            .await
+            .expect("non-owner Private Blueprint list")
+            .iter()
+            .all(|summary| summary.reference != blueprint_reference),
+        "Private Blueprint is absent from non-owner discovery"
+    );
+    assert!(matches!(
+        reader_store
+            .load_blueprint_course(reader_token(), blueprint_reference)
+            .await,
+        Err(StoreError::NotFound)
+    ));
+    assert!(matches!(
+        reader_store
+            .load_blueprint_revision(
+                reader_token(),
+                question_model::BlueprintRevisionReference {
+                    reference: blueprint_reference,
+                    revision: BlueprintRevision::INITIAL,
+                },
+            )
+            .await,
+        Err(StoreError::NotFound)
+    ));
+    let (availability, public_metadata_etag) = transition_blueprint_availability(
+        &application_url,
+        reference,
+        owner_private.metadata_etag.into_uuid(),
+        "public",
+        None,
+    )
+    .await
+    .expect("owner publishes Private Blueprint");
+    assert_eq!(availability, BlueprintAvailability::Public);
+    assert_eq!(
+        reader_store
+            .load_blueprint_course(reader_token(), blueprint_reference)
+            .await
+            .expect("Public Blueprint is readable by another Instructor")
+            .availability,
+        BlueprintAvailability::Public
+    );
     let instance_store =
         PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("adoption pool"));
+    let adoption_term = near_now_term(&application_url).await;
     let adopted = instance_store
         .create_course_instance(
             reader_token(),
             CreateCourseInstanceInput {
-                blueprint_course: blueprint_reference,
-                blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
+                source: CourseInstanceCreationSource::Adopted {
+                    blueprint_course: blueprint_reference,
+                    blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
+                },
                 short_name: "ADOPT".into(),
                 long_name: "Complete Blueprint adoption".into(),
-                term: question_model::CourseTerm::from_parts("2030-01-01", "2030-05-01")
-                    .expect("term"),
+                term: adoption_term.clone(),
                 assigned_instructor: None,
             },
         )
         .await
-        .expect("adopt all Blueprint Assignments");
-    let inspection = lazy_pool(migration_url).expect("adoption inspection pool");
-    let row = sqlx::query("SELECT count(*) AS assignments, bool_and(a.assignment_status = 'unreleased' AND a.assignment_edit_number = 1 AND a.available_at IS NULL AND a.due_at IS NULL AND a.closes_at IS NULL) AS initial_state, bool_and(a.source_blueprint_revision_number = 1) AS exact_source FROM ple_data.assignment a JOIN ple_data.course_instance c ON c.course_id = a.course_id WHERE c.reference_number = $1")
-        .bind(i64::from(adopted.course.reference.number())).fetch_one(&inspection).await.expect("adopted assignments");
-    assert_eq!(row.get::<i64, _>("assignments"), 1);
-    assert!(row.get::<bool, _>("initial_state"));
-    assert!(row.get::<bool, _>("exact_source"));
-    let adopted_pins: Vec<(String, i32)> = sqlx::query_as("SELECT e.question_id, e.question_revision_number FROM ple_data.assignment_entry e JOIN ple_data.assignment a ON a.assignment_id=e.assignment_id JOIN ple_data.course_instance c ON c.course_id=a.course_id WHERE c.reference_number=$1 AND e.entry_kind='fixed_question'")
-        .bind(i64::from(adopted.course.reference.number())).fetch_all(&inspection).await.expect("adopted Question pins");
-    assert_eq!(adopted_pins, vec![(QUESTION.to_owned(), 1)]);
-    let pool_pins: Vec<(String, i32)> = sqlx::query_as("SELECT i.question_id,i.question_revision_number FROM ple_data.question_pool_item i JOIN ple_data.assignment a ON a.assignment_id=i.assignment_id JOIN ple_data.course_instance c ON c.course_id=a.course_id WHERE c.reference_number=$1")
-        .bind(i64::from(adopted.course.reference.number())).fetch_all(&inspection).await.expect("adopted pool pins");
-    assert_eq!(pool_pins, vec![(QUESTION.to_owned(), 1)]);
+        .expect("adopt all Blueprint Assessments");
+    let independently_adopted = instance_store
+        .create_course_instance(
+            reader_token(),
+            CreateCourseInstanceInput {
+                source: CourseInstanceCreationSource::Adopted {
+                    blueprint_course: blueprint_reference,
+                    blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
+                },
+                short_name: "ADOPT-2".into(),
+                long_name: "Independent Blueprint adoption".into(),
+                term: adoption_term.clone(),
+                assigned_instructor: None,
+            },
+        )
+        .await
+        .expect("independently adopt the same Blueprint Revision");
+    let public_to_private = transition_blueprint_availability(
+        &application_url,
+        reference,
+        public_metadata_etag,
+        "private",
+        None,
+    )
+    .await
+    .expect_err("adopted Public Blueprint remains Public");
+    assert_eq!(error_code(&public_to_private).as_deref(), Some("55000"));
+    let owner_public = owner_store
+        .load_blueprint_course(token(), blueprint_reference)
+        .await
+        .expect("owner reads adopted Public Blueprint");
+    let archived = owner_store
+        .archive_blueprint(
+            token(),
+            blueprint_reference,
+            owner_public.metadata_etag,
+            "Revision acceptance Blueprint",
+        )
+        .await
+        .expect("owner archives Blueprint after adoption");
+    assert_eq!(archived.availability, BlueprintAvailability::Archived);
+    assert_eq!(
+        reader_store
+            .load_blueprint_course(reader_token(), blueprint_reference)
+            .await
+            .expect("Archived Blueprint stays readable by another Instructor")
+            .availability,
+        BlueprintAvailability::Archived
+    );
+    assert!(
+        reader_store
+            .list_blueprint_courses(reader_token())
+            .await
+            .expect("ordinary Public discovery after archive")
+            .iter()
+            .all(|summary| summary.reference != blueprint_reference),
+        "Archived Blueprint leaves ordinary discovery"
+    );
+    assert!(
+        reader_store
+            .load_blueprint_revision(
+                reader_token(),
+                question_model::BlueprintRevisionReference {
+                    reference: blueprint_reference,
+                    revision: BlueprintRevision::INITIAL,
+                },
+            )
+            .await
+            .is_ok(),
+        "Archived Blueprint keeps exact Revision history readable"
+    );
+    // The persistent contract is that an Archived Blueprint cannot create a
+    // Course. Its HTTP status belongs to the route layer, so do not freeze a
+    // storage-error taxonomy here.
+    assert!(
+        instance_store
+            .create_course_instance(
+                reader_token(),
+                CreateCourseInstanceInput {
+                    source: CourseInstanceCreationSource::Adopted {
+                        blueprint_course: blueprint_reference,
+                        blueprint_revision: BlueprintRevision::INITIAL,
+                    },
+                    short_name: "ARCH".into(),
+                    long_name: "Archived Blueprint adoption denial".into(),
+                    term: adoption_term,
+                    assigned_instructor: None,
+                },
+            )
+            .await
+            .is_err(),
+        "Archived Blueprint adoption is denied"
+    );
+    let restored = owner_store
+        .restore_blueprint(token(), blueprint_reference, archived.metadata_etag)
+        .await
+        .expect("owner restores Archived Blueprint to Public");
+    assert_eq!(restored.availability, BlueprintAvailability::Public);
+    // The disposable C73 harness may provide its administrator URL solely for
+    // this post-operation relational oracle. Product writes above remain the
+    // normal authenticated application path.
+    let inspection_url = std::env::var("C73_ADOPTION_INSPECTION_DATABASE_URL")
+        .unwrap_or_else(|_| migration_url.to_owned());
+    let inspection = lazy_pool(&inspection_url).expect("adoption inspection pool");
+    blueprint_course_postgres_adoption::assert_adoption_projection(
+        &inspection,
+        i64::from(adopted.course.reference.number()),
+        reference,
+        1,
+        i64::from(independently_adopted.course.reference.number()),
+    )
+    .await;
     let mut enrollment = inspection.begin().await.expect("enrollment fixture");
     sqlx::query("SET LOCAL ROLE ple_api_owner")
         .execute(&mut *enrollment)
@@ -443,7 +483,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         reader_summary.read_access,
         question_model::BlueprintCourseReadAccess::ActiveInstructor
     );
-    assert_eq!(reader_summary.total_adoptions, 1);
+    assert_eq!(reader_summary.total_adoptions, 2);
     assert_eq!(reader_summary.total_students_ever_enrolled, 1);
     let reader_view = reader_store
         .load_blueprint_course(reader_token(), blueprint_reference)
@@ -533,8 +573,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "Save replay returns its original receipt"
     );
 
-    let retained_assignment =
-        current_content.modules[0].assignments[0].blueprint_assignment_reference;
+    let retained_assessment =
+        current_content.modules[0].assessments[0].blueprint_assessment_reference;
     let retained_module = current_content.modules[0].blueprint_module_reference;
     let moved_input = ReplaceBlueprintCourseContentInput {
         modules: vec![
@@ -543,26 +583,26 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     blueprint_module_reference: retained_module,
                 },
                 label: "Module alpha".to_owned(),
-                assignments: vec![BlueprintAssignmentReplacementInput {
-                    choice: BlueprintAssignmentEditChoice::New,
-                    content: assignment_input("Replacement in Module alpha"),
+                assessments: vec![BlueprintAssessmentReplacementInput {
+                    choice: BlueprintAssessmentEditChoice::New,
+                    content: assessment_input("Replacement in Module alpha"),
                 }],
             },
             BlueprintModuleReplacementInput {
                 choice: BlueprintModuleEditChoice::New,
                 label: "Module beta".to_owned(),
-                assignments: vec![BlueprintAssignmentReplacementInput {
-                    choice: BlueprintAssignmentEditChoice::Retained {
-                        blueprint_assignment_reference: retained_assignment,
+                assessments: vec![BlueprintAssessmentReplacementInput {
+                    choice: BlueprintAssessmentEditChoice::Retained {
+                        blueprint_assessment_reference: retained_assessment,
                     },
-                    content: assignment_input("Moved retained Assignment"),
+                    content: assessment_input("Moved retained Assessment"),
                 }],
             },
         ],
     };
     let moved_content =
         StoredBlueprintCourseContent::from_replace(moved_input, &current_content, &pins())
-            .expect("retained Assignment may move into a new Module");
+            .expect("retained Assessment may move into a new Module");
     let moved = save(
         &application_url,
         reference,
@@ -571,7 +611,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         &moved_content,
     )
     .await
-    .expect("Save moving retained Assignment");
+    .expect("Save moving retained Assessment");
     assert_eq!(moved, (3, true));
     let moved_replay = save(
         &application_url,
@@ -587,27 +627,27 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "changed Save replay returns its original receipt"
     );
     let module_rows: Vec<Uuid> = sqlx::query_scalar(
-        "SELECT blueprint_module_reference FROM ple_data.blueprint_revision_assignment \
+        "SELECT blueprint_module_reference FROM ple_data.blueprint_revision_assessment \
          WHERE blueprint_course_reference_number = $1 \
-           AND blueprint_assignment_reference = $2 \
+           AND blueprint_assessment_reference = $2 \
            AND blueprint_revision_number IN (2, 3) ORDER BY blueprint_revision_number",
     )
     .bind(reference)
-    .bind(retained_assignment.as_uuid())
+    .bind(retained_assessment.as_uuid())
     .fetch_all(&mut inspection)
     .await
-    .expect("retained Assignment lineage");
+    .expect("retained Assessment lineage");
     assert_eq!(module_rows.len(), 2);
     assert_ne!(
         module_rows[0], module_rows[1],
-        "retained Assignment moved Modules"
+        "retained Assessment moved Modules"
     );
 
     let sealed_insert: &'static str = "INSERT INTO ple_data.blueprint_revision_module \
         (blueprint_course_reference_number, blueprint_revision_number, blueprint_module_reference, module_position) \
         VALUES ($1, $2, '00000000-0000-0000-0000-00000000b122', 9)";
-    let sealed_update = "UPDATE ple_data.blueprint_revision_assignment \
-        SET assignment_position = assignment_position + 10 \
+    let sealed_update = "UPDATE ple_data.blueprint_revision_assessment \
+        SET assessment_position = assessment_position + 10 \
         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = $2";
     let sealed_delete = "DELETE FROM ple_data.blueprint_revision_question_pin \
         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = $2";
@@ -649,7 +689,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let tampered = sqlx::query(
         "UPDATE ple_data.blueprint_course_revision \
          SET content = jsonb_set(content, \
-             '{modules,0,assignments,0,blueprint_assignment_reference}', \
+             '{modules,0,assessments,0,blueprint_assessment_reference}', \
              to_jsonb('00000000-0000-0000-0000-00000000b123'::text)) \
          WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = 3",
     )
@@ -773,8 +813,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
              '00000000-0000-0000-0000-00000000b131', \
              '00000000-0000-0000-0000-00000000b132', \
              '00000000-0000-0000-0000-00000000b133', \
-             $1, 3, 'RACE-C', 'Concurrent head Course', \
-             '2030-01-01'::date, '2030-05-01'::date, NULL, '[]'::jsonb)",
+             'adopted', $1, 3, 'RACE-C', 'Concurrent head Course', \
+             current_date, current_date + 1, NULL, '[]'::jsonb)",
         )
         .bind(reference)
         .fetch_one(&mut *transaction)
@@ -855,16 +895,16 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .await
     .expect("uncommitted Modules");
     sqlx::query(
-        "INSERT INTO ple_data.blueprint_revision_assignment \
-         SELECT $1, 5, assignments.blueprint_module_reference, \
-                assignments.blueprint_assignment_reference, assignments.assignment_position \
-           FROM ple_data.blueprint_content_assignments($2) AS assignments",
+        "INSERT INTO ple_data.blueprint_revision_assessment \
+         SELECT $1, 5, assessments.blueprint_module_reference, \
+                assessments.blueprint_assessment_reference, assessments.assessment_position \
+           FROM ple_data.blueprint_content_assessments($2) AS assessments",
     )
     .bind(reference)
     .bind(&revision_five_json)
     .execute(&mut *construction)
     .await
-    .expect("uncommitted Assignments");
+    .expect("uncommitted Assessments");
     sqlx::query(
         "INSERT INTO ple_data.blueprint_revision_event \
          (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) \

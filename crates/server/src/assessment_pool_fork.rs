@@ -1,0 +1,368 @@
+//! Closed Instructor commands for Assessment-owned immutable Question Pool forks.
+
+use std::{num::NonZeroU32, sync::Arc};
+
+use axum::{
+    Json, Router,
+    body::to_bytes,
+    extract::{Path, Request, State},
+    http::{HeaderMap, StatusCode, header::IF_MATCH},
+    response::{IntoResponse, Response},
+    routing::{post, put},
+};
+use learning_data_access::{
+    AppendAssessmentPoolForkRevisionInput, AssessmentPoolForkStore, ImportAssessmentPoolForkInput,
+    SessionTokenHash, StoreError, postgres::PostgresAssessmentPoolForkStore,
+};
+use question_model::{
+    AssessmentEditNumber, AssessmentEntryId, AssessmentEntryScoringRule, AssessmentPointValue,
+    AssessmentReference, CourseInstanceReference, ProductRole, QuestionId,
+    QuestionPoolSelectedQuestionOrder, QuestionRevisionNumber, QuestionRevisionReference,
+};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
+use crate::{
+    auth::{AuthError, resolve_session},
+    question_publication::{HmacQuestionIdIssuer, QuestionIdIssuer},
+};
+
+const MAX_POOL_FORK_REQUEST_BYTES: usize = 128 * 1024;
+const POOL_IDENTITY_ATTEMPTS: usize = 8;
+
+#[derive(Clone)]
+struct RouteState {
+    sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
+    forks: Arc<dyn AssessmentPoolForkStore>,
+    issuer: HmacQuestionIdIssuer,
+}
+
+/// Registers only trusted import and append commands; ordinary Assessment saves
+/// cannot create or rebind a Pool lineage.
+pub fn assessment_pool_fork_router(
+    sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
+    forks: PostgresAssessmentPoolForkStore,
+    issuer: HmacQuestionIdIssuer,
+) -> Router {
+    Router::new()
+        .route(
+            "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks",
+            post(import_fork),
+        )
+        .route(
+            "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks/{entry}",
+            put(append_fork_revision),
+        )
+        .with_state(RouteState {
+            sessions,
+            forks: Arc::new(forks),
+            issuer,
+        })
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ImportForkRequest {
+    source_question_pool_id: String,
+    authored_position: u32,
+    selection_count: NonZeroU32,
+    points_per_item: AssessmentPointValue,
+    selected_question_order: QuestionPoolSelectedQuestionOrder,
+    scoring_rule: AssessmentEntryScoringRule,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ForkMemberRequest {
+    question_id: String,
+    revision_number: u32,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AppendForkRequest {
+    expected_pool_metadata_etag: Uuid,
+    members: Vec<ForkMemberRequest>,
+    interchangeability_attested: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ImportedForkResponse {
+    assessment_entry_id: AssessmentEntryId,
+    question_pool_id: String,
+    revision_number: u64,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppendedForkResponse {
+    assessment_entry_id: AssessmentEntryId,
+    revision_number: u64,
+    metadata_etag: Uuid,
+    assessment_edit_number: u64,
+}
+
+async fn import_fork(
+    State(state): State<RouteState>,
+    Path((course, assessment)): Path<(String, String)>,
+    request: Request,
+) -> Response {
+    let (course, assessment) = match refs(&course, &assessment) {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    let token = match instructor(&state, request.headers()).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let request = match decode_json::<ImportForkRequest>(request).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let source_public_question_pool_id =
+        match verified_question_id(&state.issuer, &request.source_question_pool_id) {
+            Some(value) => value,
+            None => return concealed(),
+        };
+    for _ in 0..POOL_IDENTITY_ATTEMPTS {
+        let fork_public_question_pool_id = match state.issuer.issue_question_id() {
+            Ok(value) => value,
+            Err(_) => return unavailable(),
+        };
+        let input = ImportAssessmentPoolForkInput {
+            course,
+            assessment,
+            assessment_entry: AssessmentEntryId::from_uuid(Uuid::now_v7()),
+            fork_question_pool_id: Uuid::now_v7(),
+            fork_public_question_pool_id,
+            source_public_question_pool_id: source_public_question_pool_id.clone(),
+            authored_position: request.authored_position,
+            selection_count: request.selection_count,
+            points_per_item: request.points_per_item.clone(),
+            selected_question_order: request.selected_question_order,
+            scoring_rule: request.scoring_rule,
+        };
+        match state
+            .forks
+            .import_assessment_question_pool_fork(token.clone(), input)
+            .await
+        {
+            Ok(result) => {
+                return crate::auth::no_store(
+                    (
+                        StatusCode::CREATED,
+                        Json(ImportedForkResponse {
+                            assessment_entry_id: result.assessment_entry,
+                            question_pool_id: result
+                                .question_pool_revision
+                                .question_pool_id
+                                .to_string(),
+                            revision_number: result.question_pool_revision.revision_number.get(),
+                        }),
+                    )
+                        .into_response(),
+                );
+            }
+            // The candidate entry and fork UUIDs are fresh, so the only expected
+            // uniqueness race is the HMAC public Pool identity.
+            Err(StoreError::AlreadyExists) => continue,
+            Err(error) => return store_error(error),
+        }
+    }
+    unavailable()
+}
+
+async fn append_fork_revision(
+    State(state): State<RouteState>,
+    Path((course, assessment, entry)): Path<(String, String, String)>,
+    request: Request,
+) -> Response {
+    let (course, assessment) = match refs(&course, &assessment) {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    let entry = match Uuid::parse_str(&entry) {
+        Ok(value) => AssessmentEntryId::from_uuid(value),
+        Err(_) => return concealed(),
+    };
+    let expected_assessment_edit_number = match edit_header(request.headers()) {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    let token = match instructor(&state, request.headers()).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let request = match decode_json::<AppendForkRequest>(request).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let members = match verified_members(&state.issuer, request.members) {
+        Some(value) if !value.is_empty() && request.interchangeability_attested => value,
+        _ => return invalid(),
+    };
+    match state
+        .forks
+        .append_assessment_question_pool_fork_revision(
+            token,
+            AppendAssessmentPoolForkRevisionInput {
+                course,
+                assessment,
+                assessment_entry: entry,
+                expected_assessment_edit_number,
+                expected_pool_metadata_etag: request.expected_pool_metadata_etag,
+                members,
+                interchangeability_attested: true,
+            },
+        )
+        .await
+    {
+        Ok(result) => crate::auth::no_store(
+            (
+                StatusCode::OK,
+                Json(AppendedForkResponse {
+                    assessment_entry_id: result.assessment_entry,
+                    revision_number: result.question_pool_revision_number.get(),
+                    metadata_etag: result.metadata_etag,
+                    assessment_edit_number: result.assessment_edit_number.value(),
+                }),
+            )
+                .into_response(),
+        ),
+        Err(error) => store_error(error),
+    }
+}
+
+async fn decode_json<T: serde::de::DeserializeOwned>(request: Request) -> Result<T, Response> {
+    let is_json = request
+        .headers()
+        .get("content-type")
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| {
+            value
+                .split(';')
+                .next()
+                .is_some_and(|kind| kind.trim().eq_ignore_ascii_case("application/json"))
+        });
+    if !is_json {
+        return Err(crate::auth::no_store(
+            (
+                StatusCode::UNSUPPORTED_MEDIA_TYPE,
+                "Question Pool fork requires JSON",
+            )
+                .into_response(),
+        ));
+    }
+    let body = to_bytes(request.into_body(), MAX_POOL_FORK_REQUEST_BYTES)
+        .await
+        .map_err(|_| {
+            crate::auth::no_store(
+                (
+                    StatusCode::PAYLOAD_TOO_LARGE,
+                    "Question Pool fork is too large",
+                )
+                    .into_response(),
+            )
+        })?;
+    serde_json::from_slice(&body).map_err(|_| invalid())
+}
+
+fn refs(course: &str, assessment: &str) -> Option<(CourseInstanceReference, AssessmentReference)> {
+    Some((course.parse().ok()?, assessment.parse().ok()?))
+}
+
+fn verified_question_id(issuer: &HmacQuestionIdIssuer, raw: &str) -> Option<QuestionId> {
+    let value = raw.parse().ok()?;
+    issuer.validates_question_id(&value).then_some(value)
+}
+
+fn verified_members(
+    issuer: &HmacQuestionIdIssuer,
+    values: Vec<ForkMemberRequest>,
+) -> Option<Vec<QuestionRevisionReference>> {
+    values
+        .into_iter()
+        .map(|member| {
+            Some(QuestionRevisionReference {
+                question_id: verified_question_id(issuer, &member.question_id)?,
+                revision_number: QuestionRevisionNumber::new(member.revision_number).ok()?,
+            })
+        })
+        .collect()
+}
+
+fn edit_header(headers: &HeaderMap) -> Option<AssessmentEditNumber> {
+    headers
+        .get(IF_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            value
+                .strip_prefix('"')
+                .and_then(|value| value.strip_suffix('"'))
+        })
+        .and_then(|value| value.parse().ok())
+}
+
+async fn instructor(
+    state: &RouteState,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
+    match resolve_session(state.sessions.as_ref(), cookie(headers).as_deref()).await {
+        Ok(value) if value.record.product_role == ProductRole::Instructor => Ok(value.session_hash),
+        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
+    }
+}
+
+fn cookie(headers: &HeaderMap) -> Option<String> {
+    let values = headers
+        .get_all("cookie")
+        .iter()
+        .map(|value| value.to_str().ok())
+        .collect::<Option<Vec<_>>>()?;
+    (!values.is_empty()).then(|| values.join("; "))
+}
+
+fn store_error(error: StoreError) -> Response {
+    match error {
+        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
+        StoreError::InvalidRecord(_) => invalid(),
+        StoreError::Conflict | StoreError::RetryableTransaction => crate::auth::no_store(
+            (
+                StatusCode::PRECONDITION_FAILED,
+                "Question Pool fork changed",
+            )
+                .into_response(),
+        ),
+        StoreError::LifecycleConflict | StoreError::AlreadyExists => crate::auth::no_store(
+            (StatusCode::CONFLICT, "Question Pool fork conflicts").into_response(),
+        ),
+        StoreError::AssessmentActivity(_)
+        | StoreError::TimedOut
+        | StoreError::LeaseLost
+        | StoreError::Unavailable(_) => unavailable(),
+    }
+}
+
+fn concealed() -> Response {
+    crate::auth::no_store((StatusCode::NOT_FOUND, "Question Pool fork not found").into_response())
+}
+fn invalid() -> Response {
+    crate::auth::no_store(
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Question Pool fork is invalid",
+        )
+            .into_response(),
+    )
+}
+fn unavailable() -> Response {
+    crate::auth::no_store(
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Question Pool fork unavailable",
+        )
+            .into_response(),
+    )
+}

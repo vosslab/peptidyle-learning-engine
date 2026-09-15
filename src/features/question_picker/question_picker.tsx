@@ -36,8 +36,8 @@ export interface QuestionPickerProps {
 }
 
 function sourceKey(source: QuestionPickerSource): string {
-  if (source.kind === "retainedAssignment") {
-    return `retained:${source.retainedAssignment.course}:${source.retainedAssignment.assignment}`;
+  if (source.kind === "retainedAssessment") {
+    return `retained:${source.retainedAssessment.course}:${source.retainedAssessment.assessment}`;
   }
   return source.kind;
 }

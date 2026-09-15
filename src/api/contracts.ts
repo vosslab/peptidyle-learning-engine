@@ -1,42 +1,42 @@
 // contracts.ts - browser-safe DTOs at the application transport boundary.
 
-import type { AssignmentSummary } from "../../generated/api/AssignmentSummary";
-import type { StudentAssignmentLandingSummary } from "../../generated/api/StudentAssignmentLandingSummary";
-import type { StudentAssignmentDetail } from "../../generated/api/StudentAssignmentDetail";
+import type { AssessmentSummary } from "../../generated/api/AssessmentSummary";
+import type { StudentAssessmentLandingSummary } from "../../generated/api/StudentAssessmentLandingSummary";
+import type { StudentAssessmentDetail } from "../../generated/api/StudentAssessmentDetail";
 import type { CourseSummary } from "../../generated/api/CourseSummary";
 import type { StudentQuestionAttemptView } from "../../generated/api/StudentQuestionAttemptView";
-import type { AssignmentAttemptId } from "../../generated/api/AssignmentAttemptId";
-import type { AssignmentEntryId } from "../../generated/api/AssignmentEntryId";
+import type { AssessmentAttemptId } from "../../generated/api/AssessmentAttemptId";
+import type { AssessmentEntryId } from "../../generated/api/AssessmentEntryId";
 import type { IssuedQuestionId } from "../../generated/api/IssuedQuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
-import type { AssignmentScoringState } from "../../generated/api/AssignmentScoringState";
-import type { AssignmentStatus } from "../../generated/api/AssignmentStatus";
+import type { AssessmentScoringState } from "../../generated/api/AssessmentScoringState";
+import type { AssessmentStatus } from "../../generated/api/AssessmentStatus";
 import type { Capability } from "../../generated/api/Capability";
 import type { AccountId } from "../../generated/api/AccountId";
 import type { ProductRole } from "../../generated/api/ProductRole";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
-import type { InstructorAssignmentAuthoredContentLocal } from "../../generated/api/InstructorAssignmentAuthoredContentLocal";
-import type { InstructorAssignmentAvailabilityView } from "../../generated/api/InstructorAssignmentAvailabilityView";
+import type { InstructorAssessmentAuthoredContentLocal } from "../../generated/api/InstructorAssessmentAuthoredContentLocal";
+import type { InstructorAssessmentAvailabilityView } from "../../generated/api/InstructorAssessmentAvailabilityView";
 import type { NavigationResolution } from "../../generated/api/NavigationResolution";
-import type { AssignmentReference } from "../../generated/api/AssignmentReference";
-import type { AssignmentEditNumber } from "../../generated/api/AssignmentEditNumber";
-import type { AssignmentReleaseValidation } from "../../generated/api/AssignmentReleaseValidation";
+import type { AssessmentReference } from "../../generated/api/AssessmentReference";
+import type { AssessmentEditNumber } from "../../generated/api/AssessmentEditNumber";
+import type { AssessmentReleaseValidation } from "../../generated/api/AssessmentReleaseValidation";
 import type { InstructorStudentView } from "../../generated/api/InstructorStudentView";
-import type { CreateAssignmentRequest } from "../../generated/api/CreateAssignmentRequest";
+import type { CreateAssessmentRequest } from "../../generated/api/CreateAssessmentRequest";
 
 export type {
-  AssignmentSummary,
+  AssessmentSummary,
   CourseSummary,
   InstructorStudentView,
-  StudentAssignmentDetail,
-  StudentAssignmentLandingSummary,
+  StudentAssessmentDetail,
+  StudentAssessmentLandingSummary,
 };
-export type { CreateAssignmentRequest as AssignmentCreateInput };
+export type { CreateAssessmentRequest as AssessmentCreateInput };
 
 /** Questions-owned browser input; readonly collections retain page draft ownership. */
-export interface AssignmentContentInput {
+export interface AssessmentContentInput {
   readonly title: string;
-  readonly entries: ReadonlyArray<AssignmentEditorEntryInput>;
+  readonly entries: ReadonlyArray<AssessmentEditorEntryInput>;
 }
 
 /** One authorized Course Route View with its summary and browser-safe appearance. */
@@ -46,22 +46,22 @@ export interface CourseRouteView {
 }
 
 /**
- * The instructor-only editable Instructor Assignment Authored Content Local.
+ * The instructor-only editable Instructor Assessment Authored Content Local.
  *
  * This intentionally carries immutable published references rather than
- * complete Question Revisions: authoring an assignment never transfers question
+ * complete Question Revisions: authoring an assessment never transfers question
  * source, capability declarations, keys, grading, or student-feedback policy
  * into the editor transport.
  */
-export interface AssignmentEditorDetail extends AssignmentSummary {
-  /** Stable Assignment Status; release selection stays outside editable content. */
-  readonly assignmentStatus: AssignmentStatus;
-  /** Zone-free Instructor Assignment Authored Content Local; the server owns trusted-zone resolution. */
-  readonly assignmentAuthoredContent: InstructorAssignmentAuthoredContentLocal;
-  /** Server-derived Assignment Availability View at the response's authoritative instant. */
-  readonly assignmentAvailability: InstructorAssignmentAvailabilityView;
-  /** Closed, server-derived release blockers for this Assignment. */
-  readonly assignmentReleaseValidation: AssignmentReleaseValidation;
+export interface AssessmentEditorDetail extends AssessmentSummary {
+  /** Stable Assessment Status; release selection stays outside editable content. */
+  readonly assessmentStatus: AssessmentStatus;
+  /** Zone-free Instructor Assessment Authored Content Local; the server owns trusted-zone resolution. */
+  readonly assessmentAuthoredContent: InstructorAssessmentAuthoredContentLocal;
+  /** Server-derived Assessment Availability View at the response's authoritative instant. */
+  readonly assessmentAvailability: InstructorAssessmentAvailabilityView;
+  /** Closed, server-derived release blockers for this Assessment. */
+  readonly assessmentReleaseValidation: AssessmentReleaseValidation;
   /** Strong server-issued ETag; send it byte-for-byte when updating. */
   readonly revision: string;
 }
@@ -75,16 +75,16 @@ export interface QuestionPoolPreviewItem {
   readonly questionTitle: string;
 }
 
-/** Strict browser request for one saved Question Pool by its Assignment Entry reference. */
+/** Strict browser request for one saved Question Pool by its Assessment Entry reference. */
 export interface QuestionPoolPreviewRequest {
-  readonly assignmentEntryId: string;
+  readonly assessmentEntryId: string;
 }
 
 /** A no-store Instructor sample of one saved pool; it is never student activity or evidence. */
 export interface QuestionPoolPreview {
-  readonly assignment: AssignmentReference;
-  readonly editNumber: AssignmentEditNumber;
-  readonly assignmentEntryId: string;
+  readonly assessment: AssessmentReference;
+  readonly editNumber: AssessmentEditNumber;
+  readonly assessmentEntryId: string;
   readonly questionPoolLabel: string;
   readonly selectionCount: number;
   readonly selectionRule: {
@@ -95,10 +95,10 @@ export interface QuestionPoolPreview {
 }
 
 /**
- * One public, ordered Assignment Content entry. The browser sends compact Question IDs only;
+ * One public, ordered Assessment Content entry. The browser sends compact Question IDs only;
  * the server resolves immutable publications and owns all internal identities and selection mechanics.
  */
-export type AssignmentEditorEntryInput =
+export type AssessmentEditorEntryInput =
   | {
       readonly kind: "fixedQuestion";
       readonly questionId: string;
@@ -123,7 +123,7 @@ export type AssignmentEditorEntryInput =
     };
 
 /** One server-derived capability conflict for a selected immutable version. */
-export interface AssignmentCapabilityViolation {
+export interface AssessmentCapabilityViolation {
   readonly questionTitle: string;
   readonly questionId: string;
   readonly capability: Capability;
@@ -151,8 +151,8 @@ export interface SignedOutResponse {
 
 /** Student Question Attempt View with the current server-owned score freshness gate. */
 export interface StudentQuestionAttempt extends StudentQuestionAttemptView {
-  readonly assignmentScoringState: AssignmentScoringState;
-  /** Null for a Fixed Question Assignment Entry; otherwise the safe selected-Question position. */
+  readonly assessmentScoringState: AssessmentScoringState;
+  /** Null for a Fixed Question Assessment Entry; otherwise the safe selected-Question position. */
   readonly questionPoolSelectionPosition: QuestionPoolSelectionPosition | null;
 }
 
@@ -171,9 +171,9 @@ export interface QuestionPoolSelectionPosition {
  */
 export interface StudentIssuedQuestion {
   readonly id: IssuedQuestionId;
-  readonly assignmentAttempt: AssignmentAttemptId;
-  readonly assignmentEntry: AssignmentEntryId;
-  readonly assignmentContentEntryIndex: number;
+  readonly assessmentAttempt: AssessmentAttemptId;
+  readonly assessmentEntry: AssessmentEntryId;
+  readonly assessmentContentEntryIndex: number;
   readonly issuedPosition: number;
   readonly reference: QuestionRevisionReference;
   readonly questionStatisticsEligibility: boolean;

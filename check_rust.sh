@@ -69,7 +69,7 @@ run_step() {
 	"$@"
 }
 
-run_step "Rust-owned TypeScript contracts" cargo tools tsgen
+run_step "Rust-owned TypeScript contracts" cargo tsgen
 run_step "Rust-owned fixture contracts" cargo tools fixtures --check
 run_step "Rust formatting" cargo fmt --all -- --check
 run_step "Default-feature workspace check" cargo check --workspace --locked

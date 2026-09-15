@@ -11,7 +11,7 @@ use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail, ensure};
 use question_model::{
-    AssignmentAttempt, AssignmentGrade, AssignmentProgressRecord, AssignmentSummary,
+    AssessmentAttempt, AssessmentGrade, AssessmentProgressRecord, AssessmentSummary,
     GradebookSummaryRow, IssuedQuestion, QuestionAttempt, QuestionRevisionReference,
     QuestionSummary, SourceObjectChecksum, SourceObjectReference, StudentRecordId,
 };
@@ -48,14 +48,14 @@ struct StoredFixtureSet {
     question_summary: QuestionSummary,
     assets: Vec<FixtureAsset>,
     course: question_model::CourseSummary,
-    assignment: AssignmentSummary,
+    assessment: AssessmentSummary,
     student_record: StudentRecordId,
-    #[serde(rename = "assignment_attempts")]
-    assignment_attempts: Vec<AssignmentAttempt>,
+    #[serde(rename = "assessment_attempts")]
+    assessment_attempts: Vec<AssessmentAttempt>,
     issued_questions: Vec<IssuedQuestion>,
     attempts: Vec<QuestionAttempt>,
-    assignment_grade: AssignmentGrade,
-    assignment_progress: AssignmentProgressRecord,
+    assessment_grade: AssessmentGrade,
+    assessment_progress: AssessmentProgressRecord,
     gradebook: Vec<GradebookSummaryRow>,
 }
 
@@ -85,8 +85,8 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
         "stored Question fixture has no assets"
     );
     ensure!(
-        !fixture_set.assignment_attempts.is_empty(),
-        "stored fixture has no Assignment Attempts"
+        !fixture_set.assessment_attempts.is_empty(),
+        "stored fixture has no Assessment Attempts"
     );
     ensure!(
         fixture_set.issued_questions.len() == fixture_set.attempts.len(),
@@ -99,18 +99,18 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     }
 
     ensure!(
-        fixture_set.course.id == fixture_set.assignment.course_id,
-        "stored Assignment must belong to the stored Course Instance"
+        fixture_set.course.id == fixture_set.assessment.course_id,
+        "stored Assessment must belong to the stored Course Instance"
     );
     ensure!(
-        fixture_set.student_record == fixture_set.assignment_grade.student_record
-            && fixture_set.student_record == fixture_set.assignment_progress.student_record,
-        "stored Assignment Grade and Assignment Progress must belong to the stored Student Record"
+        fixture_set.student_record == fixture_set.assessment_grade.student_record
+            && fixture_set.student_record == fixture_set.assessment_progress.student_record,
+        "stored Assessment Grade and Assessment Progress must belong to the stored Student Record"
     );
     ensure!(
-        fixture_set.assignment_grade.assignment == fixture_set.assignment.id
-            && fixture_set.assignment_progress.assignment == fixture_set.assignment.id,
-        "stored Assignment Grade and Assignment Progress must belong to the stored Assignment"
+        fixture_set.assessment_grade.assessment == fixture_set.assessment.id
+            && fixture_set.assessment_progress.assessment == fixture_set.assessment.id,
+        "stored Assessment Grade and Assessment Progress must belong to the stored Assessment"
     );
     ensure!(
         !fixture_set.gradebook.is_empty(),
@@ -119,20 +119,30 @@ fn validate_fixture_set(fixture_dir: &Path, fixture_set: &StoredFixtureSet) -> R
     for row in &fixture_set.gradebook {
         ensure!(
             row.course_id == fixture_set.course.id
-                && row.assignment_id == fixture_set.assignment.id
+                && row.assessment_id == fixture_set.assessment.id
                 && row.student_record_id == fixture_set.student_record,
-            "stored Gradebook row must match its Course, Assignment, and Student Record"
+            "stored Gradebook row must match its Course, Assessment, and Student Record"
         );
     }
 
+    // A native static Question has no seed.  Keep the fixture's old
+    // uniqueness check only for renderer-backed attempts that actually retain
+    // seeded reproduction evidence; inventing a sentinel seed here would make
+    // static PLE evidence look generated.
+    let seeded_attempt_count = fixture_set
+        .attempts
+        .iter()
+        .filter(|attempt| attempt.reproduction.question_seed().is_some())
+        .count();
     let seeds: BTreeSet<u64> = fixture_set
         .attempts
         .iter()
-        .map(|attempt| attempt.question_seed.value())
+        .filter_map(|attempt| attempt.reproduction.question_seed())
+        .map(|seed| seed.value())
         .collect();
     ensure!(
-        seeds.len() == fixture_set.attempts.len(),
-        "stored Question Attempts must use distinct fixture seeds"
+        seeds.len() == seeded_attempt_count,
+        "stored seeded Question Attempts must use distinct fixture seeds"
     );
     for attempt in &fixture_set.attempts {
         ensure!(

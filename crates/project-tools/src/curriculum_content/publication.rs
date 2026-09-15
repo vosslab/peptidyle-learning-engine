@@ -9,7 +9,7 @@ use learning_data_access::{
     AuthoringDraft, AuthoringDraftStore, BlueprintCourseStore, CreateAuthoringDraftInput,
     DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore, DraftQuestionUuid,
     PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash,
-    StoredBlueprintAssignmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
+    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
     postgres::{
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore,
         PostgresDraftQuestionSourceBindingStore, PostgresQuestionLibraryStore, lazy_pool,
@@ -17,15 +17,17 @@ use learning_data_access::{
 };
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
-    AssignmentActivityRules, AssignmentEntryScoringRule, AssignmentInstructions,
-    AssignmentPointValue, BlueprintAssignmentContentInput, BlueprintAssignmentDefaults,
-    BlueprintAssignmentEntryInput, BlueprintAvailability, BlueprintRevision,
-    CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, ObjectId,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName,
-    QuestionAuthorship, QuestionBackend, QuestionFormat, QuestionLicense,
-    QuestionPoolSelectedQuestionOrder, QuestionPoolSelectionRule, QuestionRevisionReason,
-    QuestionRevisionReference, QuestionType, RequestChecksum, ReusablePoolInput,
-    SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
+    AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
+    AssessmentPointValue, BlueprintAssessmentContentInput, BlueprintAssessmentDefaults,
+    BlueprintAssessmentEditChoice, BlueprintAssessmentEntryInput,
+    BlueprintAssessmentReplacementInput, BlueprintAvailability, BlueprintModuleEditChoice,
+    BlueprintModuleReplacementInput, BlueprintRevision, CreateBlueprintCourseInput,
+    CreateBlueprintModuleInput, LateWorkRule, ObjectId, QuestionAttemptLimit,
+    QuestionAttemptTimeLimit, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
+    QuestionBackend, QuestionFormat, QuestionLicense, QuestionPoolSelectedQuestionOrder,
+    QuestionPoolSelectionRule, QuestionRevisionReason, QuestionRevisionReference, QuestionType,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, ReusableFixedQuestionInput,
+    ReusablePoolInput, SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
 };
 use server_core::question_publication::{
     HmacQuestionIdIssuer, NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
@@ -34,12 +36,15 @@ use sha2::{Digest, Sha256};
 use uuid::Uuid;
 
 use super::{
-    Course, CurriculumQuestionType, Manifest, Row, Topic, read_pg_source, repository_root,
+    Course, CurriculumQuestionType, Manifest, ParameterizedSource, Row, Topic, read_pg_source,
+    repository_root,
 };
 
 const SESSION_HASH_ENV: &str = "PLE_CURRICULUM_PUBLICATION_SESSION_TOKEN_HASH";
 const WORKSPACE_ENV: &str = "PLE_CURRICULUM_PUBLICATION_WORKSPACE_ID";
 const INITIAL_PUBLICATION_REASON: &str = "Initial publication from trusted curriculum import";
+
+type ReplacementRevisions = BTreeMap<(String, String), QuestionRevisionReference>;
 
 pub(crate) fn publish(manifest: Manifest) -> Result<()> {
     let session = required_session_hash()?;
@@ -61,6 +66,9 @@ pub(crate) async fn publish_with_context(
     manifest: Manifest,
     root: &Path,
 ) -> Result<Receipt> {
+    super::validate(&manifest, root)?;
+    let replacement_revisions =
+        publish_accepted_replacements(session, workspace, &manifest, root).await?;
     let database_url = required_environment("DATABASE_URL")?;
     let pool =
         lazy_pool(&database_url).context("curriculum publication database URL is invalid")?;
@@ -92,13 +100,54 @@ pub(crate) async fn publish_with_context(
             &license,
         )
         .await?;
-        let input = blueprint_input(&manifest, &published)?;
-        validate_loaded_content(&retained.content, &input, Some(&manifest), &published)?;
+        let input = blueprint_input(&manifest, &published, &replacement_revisions)?;
+        let has_pending_replacement = validate_loaded_content(
+            &retained.content,
+            &input,
+            Some(&manifest),
+            &published,
+            &replacement_revisions,
+            true,
+        )?;
+        if has_pending_replacement {
+            let replacement = replacement_input(&retained.content, &input)?;
+            let checksum = request_checksum(&replacement)?;
+            blueprints
+                .save_blueprint_course(
+                    session,
+                    retained.reference,
+                    retained.current_revision,
+                    checksum,
+                    replacement,
+                )
+                .await
+                .context("CAS replacing accepted static curriculum expansion")?;
+            let updated = blueprints
+                .load_blueprint_course(session, retained.reference)
+                .await
+                .context("reloading C840-replaced curriculum Blueprint Course")?;
+            validate_loaded_content(
+                &updated.content,
+                &input,
+                Some(&manifest),
+                &published,
+                &replacement_revisions,
+                false,
+            )?;
+            return Receipt::new(
+                updated.reference.to_string(),
+                updated.current_revision.value(),
+                &manifest,
+                &published,
+                &replacement_revisions,
+            );
+        }
         return Receipt::new(
             retained.reference.to_string(),
             retained.current_revision.value(),
             &manifest,
             &published,
+            &replacement_revisions,
         );
     }
     let existing = library
@@ -110,6 +159,9 @@ pub(crate) async fn publish_with_context(
     let mut published = BTreeMap::new();
     for topic in &manifest.topics {
         for bank in &topic.banks {
+            if replacement_revisions.contains_key(&(topic.slug.clone(), bank.slug.clone())) {
+                continue;
+            }
             for row in &bank.rows {
                 let key = source_key(topic, bank, row);
                 let revision = if let Some(revision) =
@@ -139,15 +191,67 @@ pub(crate) async fn publish_with_context(
             }
         }
     }
-    let input = blueprint_input(&manifest, &published)?;
-    let (reference, revision) =
-        create_blueprint(session, &input, &manifest, &published, &blueprints).await?;
+    let input = blueprint_input(&manifest, &published, &replacement_revisions)?;
+    let (reference, revision) = create_blueprint(
+        session,
+        &input,
+        &manifest,
+        &published,
+        &replacement_revisions,
+        &blueprints,
+    )
+    .await?;
     Receipt::new(
         reference.to_string(),
         revision.value(),
         &manifest,
         &published,
+        &replacement_revisions,
     )
+}
+
+/// Publishes only C839-accepted sources that have an explicit catalog target.
+/// Other canonical sources remain independently publishable C838 candidates;
+/// they cannot silently alter the ordinary Genetics Blueprint.
+async fn publish_accepted_replacements(
+    session: SessionTokenHash,
+    workspace: WorkspaceId,
+    manifest: &Manifest,
+    root: &Path,
+) -> Result<ReplacementRevisions> {
+    let mut replacement_manifest = manifest.clone();
+    replacement_manifest
+        .parameterized_sources
+        .retain(|source| source.replaces_static_bank_slug.is_some());
+    if replacement_manifest.parameterized_sources.is_empty() {
+        return Ok(ReplacementRevisions::new());
+    }
+    let receipt = super::parameterized_publication::publish_with_context(
+        session,
+        workspace,
+        replacement_manifest.clone(),
+        root,
+    )
+    .await
+    .context("publishing accepted canonical algorithmic replacements")?;
+    let revisions = receipt.question_revisions();
+    replacement_manifest
+        .parameterized_sources
+        .iter()
+        .map(|source| {
+            let bank = source
+                .replaces_static_bank_slug
+                .as_ref()
+                .expect("replacement manifest contains explicit targets");
+            let revision = revisions.get(&source.source_id).cloned().with_context(|| {
+                format!(
+                    "accepted canonical publication is missing source {}",
+                    source.source_id
+                )
+            })?;
+            Ok(((source.topic_slug.clone(), bank.clone()), revision))
+        })
+        .collect()
 }
 
 async fn matching_blueprint(
@@ -175,8 +279,8 @@ async fn matching_blueprint(
         .await
         .context("reloading retained curriculum Blueprint Course before publication")?;
     ensure!(
-        loaded.availability == BlueprintAvailability::Available,
-        "retained curriculum Blueprint Course is not Available"
+        loaded.availability == BlueprintAvailability::Private,
+        "retained curriculum Blueprint Course is not Private"
     );
     Ok(Some(loaded))
 }
@@ -193,18 +297,26 @@ async fn retained_published_references(
         bail!("retained curriculum Blueprint has no module");
     };
     ensure!(
-        retained.content.modules.len() == 1 && module.assignments.len() == manifest.topics.len(),
+        retained.content.modules.len() == 1 && module.assessments.len() == manifest.topics.len(),
         "retained curriculum Blueprint topic mapping conflicts with the manifest"
     );
     let mut published = BTreeMap::new();
-    for (assignment, topic) in module.assignments.iter().zip(&manifest.topics) {
+    for (assessment, topic) in module.assessments.iter().zip(&manifest.topics) {
         ensure!(
-            assignment.content.entries.len() == topic.banks.len(),
+            assessment.content.entries.len() == topic.banks.len(),
             "retained curriculum Blueprint Pool mapping conflicts with topic {}",
             topic.slug
         );
-        for (entry, bank) in assignment.content.entries.iter().zip(&topic.banks) {
-            let StoredBlueprintAssignmentEntry::Pool {
+        for (entry, bank) in assessment.content.entries.iter().zip(&topic.banks) {
+            if replacement_source(manifest, topic, bank).is_some()
+                && matches!(entry, StoredBlueprintAssessmentEntry::Fixed { .. })
+            {
+                // The later exact Fixed-entry validation proves this is the
+                // already-converted canonical pin. Static provenance is only
+                // needed while a reviewed Pool is still eligible for CAS.
+                continue;
+            }
+            let StoredBlueprintAssessmentEntry::Pool {
                 question_revisions, ..
             } = entry
             else {
@@ -368,6 +480,7 @@ async fn matching_or_new_draft(
             CreateAuthoringDraftInput {
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
                 source_record,
+                question_format: QuestionFormat::WebworkPg,
                 webwork_pg_path: Some(row.webwork_pg_path.clone()),
                 question_type: question_type(row.question_type),
                 title: row.question_title.clone(),
@@ -431,11 +544,32 @@ fn ensure_entry_compatible(
 fn blueprint_input(
     manifest: &Manifest,
     published: &BTreeMap<String, QuestionRevisionReference>,
+    replacements: &ReplacementRevisions,
 ) -> Result<CreateBlueprintCourseInput> {
-    let mut assignments = Vec::with_capacity(manifest.topics.len());
+    let mut assessments = Vec::with_capacity(manifest.topics.len());
     for topic in &manifest.topics {
         let mut entries = Vec::with_capacity(topic.banks.len());
         for bank in &topic.banks {
+            if replacement_source(manifest, topic, bank).is_some() {
+                let revision = replacements
+                    .get(&(topic.slug.clone(), bank.slug.clone()))
+                    .with_context(|| {
+                        format!(
+                            "accepted canonical replacement is missing for {}/{}",
+                            topic.slug, bank.slug
+                        )
+                    })?;
+                entries.push(BlueprintAssessmentEntryInput::Fixed(
+                    ReusableFixedQuestionInput {
+                        question_id: revision.question_id.clone(),
+                        points_possible: AssessmentPointValue::from_whole(1),
+                        scoring_rule: AssessmentEntryScoringRule::Normal,
+                        question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
+                        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
+                    },
+                ));
+                continue;
+            }
             let items = bank
                 .rows
                 .iter()
@@ -448,11 +582,11 @@ fn blueprint_input(
                         })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            entries.push(BlueprintAssignmentEntryInput::Pool(ReusablePoolInput {
+            entries.push(BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
                 items,
                 selection_count: bank.selection_count,
-                points_per_item: AssignmentPointValue::from_whole(1),
-                scoring_rule: AssignmentEntryScoringRule::Normal,
+                points_per_item: AssessmentPointValue::from_whole(1),
+                scoring_rule: AssessmentEntryScoringRule::Normal,
                 selection_rule: QuestionPoolSelectionRule {
                     selected_question_order: QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
                 },
@@ -460,16 +594,16 @@ fn blueprint_input(
                 question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
             }));
         }
-        assignments.push(BlueprintAssignmentContentInput {
+        assessments.push(BlueprintAssessmentContentInput {
             title: topic.title.clone(),
-            instructions: AssignmentInstructions::try_new(topic.instructions.clone())
+            instructions: AssessmentInstructions::try_new(topic.instructions.clone())
                 .map_err(|_| anyhow::anyhow!("curriculum topic instructions are invalid"))?,
             entries,
-            defaults: BlueprintAssignmentDefaults {
-                assignment_attempt_time_limit_seconds: None,
+            defaults: BlueprintAssessmentDefaults {
+                assessment_attempt_time_limit_seconds: None,
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Reject,
-                activity_rules: AssignmentActivityRules::default(),
+                activity_rules: AssessmentActivityRules::default(),
                 student_feedback_release_rule: Default::default(),
             },
         });
@@ -479,7 +613,7 @@ fn blueprint_input(
         long_name: manifest.course.long_name.clone(),
         modules: vec![CreateBlueprintModuleInput {
             label: manifest.course.module_label.clone(),
-            assignments,
+            assessments,
         }],
     };
     input
@@ -488,11 +622,23 @@ fn blueprint_input(
     Ok(input)
 }
 
+fn replacement_source<'a>(
+    manifest: &'a Manifest,
+    topic: &Topic,
+    bank: &super::Bank,
+) -> Option<&'a ParameterizedSource> {
+    manifest.parameterized_sources.iter().find(|source| {
+        source.topic_slug == topic.slug
+            && source.replaces_static_bank_slug.as_deref() == Some(bank.slug.as_str())
+    })
+}
+
 async fn create_blueprint(
     session: SessionTokenHash,
     input: &CreateBlueprintCourseInput,
     manifest: &Manifest,
     published: &BTreeMap<String, QuestionRevisionReference>,
+    replacements: &ReplacementRevisions,
     store: &PostgresBlueprintCourseStore,
 ) -> Result<(question_model::BlueprintCourseReference, BlueprintRevision)> {
     let checksum = request_checksum(input)?;
@@ -509,10 +655,17 @@ async fn create_blueprint(
         .await
         .context("reloading ordinary curriculum Blueprint Course")?;
     ensure!(
-        loaded.availability == BlueprintAvailability::Available,
-        "new curriculum Blueprint Course is not Available"
+        loaded.availability == BlueprintAvailability::Private,
+        "new curriculum Blueprint Course is not Private"
     );
-    validate_loaded_content(&loaded.content, input, Some(manifest), published)?;
+    validate_loaded_content(
+        &loaded.content,
+        input,
+        Some(manifest),
+        published,
+        replacements,
+        false,
+    )?;
     Ok((loaded.reference, loaded.current_revision))
 }
 
@@ -521,7 +674,9 @@ fn validate_loaded_content(
     expected: &CreateBlueprintCourseInput,
     manifest: Option<&Manifest>,
     expected_revisions: &BTreeMap<String, QuestionRevisionReference>,
-) -> Result<()> {
+    replacements: &ReplacementRevisions,
+    allow_pending_replacement: bool,
+) -> Result<bool> {
     ensure!(
         actual.modules.len() == 1 && expected.modules.len() == 1,
         "curriculum Blueprint must retain one module"
@@ -529,13 +684,14 @@ fn validate_loaded_content(
     let actual = &actual.modules[0];
     let expected = &expected.modules[0];
     ensure!(
-        actual.label == expected.label && actual.assignments.len() == expected.assignments.len(),
+        actual.label == expected.label && actual.assessments.len() == expected.assessments.len(),
         "curriculum Blueprint topic ordering differs"
     );
-    for (assignment_index, (actual, expected)) in actual
-        .assignments
+    let mut has_pending_replacement = false;
+    for (assessment_index, (actual, expected)) in actual
+        .assessments
         .iter()
-        .zip(&expected.assignments)
+        .zip(&expected.assessments)
         .enumerate()
     {
         ensure!(
@@ -543,7 +699,7 @@ fn validate_loaded_content(
                 && actual.content.instructions == expected.instructions
                 && actual.content.defaults == expected.defaults
                 && actual.content.entries.len() == expected.entries.len(),
-            "curriculum Blueprint Assignment content differs"
+            "curriculum Blueprint Assessment content differs"
         );
         for (entry_index, (actual, expected)) in actual
             .content
@@ -552,63 +708,166 @@ fn validate_loaded_content(
             .zip(&expected.entries)
             .enumerate()
         {
-            let (
-                StoredBlueprintAssignmentEntry::Pool {
-                    question_revisions,
-                    selection_count,
-                    points_per_item,
-                    scoring_rule,
-                    selection_rule,
-                    question_attempt_limit,
-                    question_attempt_time_limit,
-                },
-                BlueprintAssignmentEntryInput::Pool(expected),
-            ) = (actual, expected)
-            else {
-                bail!("curriculum Blueprint entries must remain Question Pools");
-            };
-            ensure!(
-                question_revisions
-                    .iter()
-                    .map(|reference| &reference.question_id)
-                    .eq(expected.items.iter())
-                    && selection_count == &expected.selection_count
-                    && points_per_item == &expected.points_per_item
-                    && scoring_rule == &expected.scoring_rule
-                    && selection_rule == &expected.selection_rule
-                    && question_attempt_limit == &expected.question_attempt_limit
-                    && question_attempt_time_limit == &expected.question_attempt_time_limit,
-                "curriculum Blueprint Pool pins or policy differs"
-            );
-            if !expected_revisions.is_empty() {
-                let manifest =
-                    manifest.context("curriculum manifest is required for exact pin checks")?;
-                let topic = manifest.topics.get(assignment_index).with_context(
-                    || "curriculum Blueprint Assignment has no manifest topic for exact pin check",
-                )?;
-                let bank = topic.banks.get(entry_index).with_context(
-                    || "curriculum Blueprint Pool has no manifest bank for exact pin check",
-                )?;
-                let expected_pins = bank
-                    .rows
-                    .iter()
-                    .map(|row| {
-                        expected_revisions
-                            .get(&source_key(topic, bank, row))
-                            .cloned()
-                            .with_context(|| {
-                                format!(
-                                    "curriculum source is missing an exact Question Revision for {}",
-                                    row.row_id
-                                )
+            match (actual, expected) {
+                (
+                    StoredBlueprintAssessmentEntry::Pool {
+                        question_revisions,
+                        selection_count,
+                        points_per_item,
+                        scoring_rule,
+                        selection_rule,
+                        question_attempt_limit,
+                        question_attempt_time_limit,
+                    },
+                    BlueprintAssessmentEntryInput::Pool(expected),
+                ) => {
+                    ensure!(
+                        question_revisions
+                            .iter()
+                            .map(|reference| &reference.question_id)
+                            .eq(expected.items.iter())
+                            && selection_count == &expected.selection_count
+                            && points_per_item == &expected.points_per_item
+                            && scoring_rule == &expected.scoring_rule
+                            && selection_rule == &expected.selection_rule
+                            && question_attempt_limit == &expected.question_attempt_limit
+                            && question_attempt_time_limit == &expected.question_attempt_time_limit,
+                        "curriculum Blueprint Pool pins or policy differs"
+                    );
+                    if !expected_revisions.is_empty() {
+                        let manifest = manifest
+                            .context("curriculum manifest is required for exact pin checks")?;
+                        let topic = manifest.topics.get(assessment_index).with_context(|| {
+                            "curriculum Blueprint Assessment has no manifest topic for exact pin check"
+                        })?;
+                        let bank = topic.banks.get(entry_index).with_context(
+                            || "curriculum Blueprint Pool has no manifest bank for exact pin check",
+                        )?;
+                        let expected_pins = bank
+                            .rows
+                            .iter()
+                            .map(|row| {
+                                expected_revisions
+                                    .get(&source_key(topic, bank, row))
+                                    .cloned()
+                                    .with_context(|| {
+                                        format!(
+                                            "curriculum source is missing an exact Question Revision for {}",
+                                            row.row_id
+                                        )
+                                    })
                             })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                ensure_exact_pool_pins(question_revisions, &expected_pins)?;
+                            .collect::<Result<Vec<_>>>()?;
+                        ensure_exact_pool_pins(question_revisions, &expected_pins)?;
+                    }
+                }
+                (
+                    StoredBlueprintAssessmentEntry::Fixed {
+                        question_revision,
+                        points_possible,
+                        scoring_rule,
+                        question_attempt_limit,
+                        question_attempt_time_limit,
+                    },
+                    BlueprintAssessmentEntryInput::Fixed(expected),
+                ) => {
+                    ensure!(
+                        question_revision.question_id == expected.question_id
+                            && points_possible == &expected.points_possible
+                            && scoring_rule == &expected.scoring_rule
+                            && question_attempt_limit == &expected.question_attempt_limit
+                            && question_attempt_time_limit == &expected.question_attempt_time_limit,
+                        "curriculum Blueprint fixed Question pins or policy differs"
+                    );
+                    if !replacements.is_empty() {
+                        let manifest = manifest.context(
+                            "curriculum manifest is required for exact replacement pin checks",
+                        )?;
+                        let topic = manifest.topics.get(assessment_index).with_context(|| {
+                            "curriculum Blueprint Assessment has no manifest topic for exact pin check"
+                        })?;
+                        let bank = topic.banks.get(entry_index).with_context(|| {
+                            "curriculum Blueprint fixed entry has no manifest bank for exact pin check"
+                        })?;
+                        if replacement_source(manifest, topic, bank).is_some() {
+                            let expected_revision = replacements
+                                .get(&(topic.slug.clone(), bank.slug.clone()))
+                                .with_context(|| {
+                                    format!(
+                                        "accepted canonical replacement is missing for {}/{}",
+                                        topic.slug, bank.slug
+                                    )
+                                })?;
+                            ensure!(
+                                question_revision == expected_revision,
+                                "curriculum Blueprint fixed Question exact Revision pin differs"
+                            );
+                        }
+                    }
+                }
+                (
+                    StoredBlueprintAssessmentEntry::Pool {
+                        question_revisions,
+                        selection_count,
+                        points_per_item,
+                        scoring_rule,
+                        selection_rule,
+                        question_attempt_limit,
+                        question_attempt_time_limit,
+                    },
+                    BlueprintAssessmentEntryInput::Fixed(_),
+                ) if allow_pending_replacement => {
+                    let manifest = manifest.context(
+                        "curriculum manifest is required for accepted replacement checks",
+                    )?;
+                    let topic = manifest.topics.get(assessment_index).with_context(|| {
+                        "curriculum Blueprint Assessment has no manifest topic for accepted replacement check"
+                    })?;
+                    let bank = topic.banks.get(entry_index).with_context(|| {
+                        "curriculum Blueprint Pool has no manifest bank for accepted replacement check"
+                    })?;
+                    ensure!(
+                        replacement_source(manifest, topic, bank).is_some()
+                            && replacements.contains_key(&(topic.slug.clone(), bank.slug.clone())),
+                        "curriculum Blueprint has an unaccepted static Pool replacement"
+                    );
+                    let expected_pins = bank
+                        .rows
+                        .iter()
+                        .map(|row| {
+                            expected_revisions
+                                .get(&source_key(topic, bank, row))
+                                .cloned()
+                                .with_context(|| {
+                                    format!(
+                                        "curriculum source is missing an exact Question Revision for {}",
+                                        row.row_id
+                                    )
+                                })
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    ensure!(
+                        selection_count == &bank.selection_count
+                            && *points_per_item == AssessmentPointValue::from_whole(1)
+                            && *scoring_rule == AssessmentEntryScoringRule::Normal
+                            && *selection_rule
+                                == QuestionPoolSelectionRule {
+                                    selected_question_order:
+                                        QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
+                                }
+                            && *question_attempt_limit
+                                == QuestionAttemptLimit { max_attempts: None }
+                            && *question_attempt_time_limit == QuestionAttemptTimeLimit::Unlimited,
+                        "accepted static Pool policy differs before canonical replacement"
+                    );
+                    ensure_exact_pool_pins(question_revisions, &expected_pins)?;
+                    has_pending_replacement = true;
+                }
+                _ => bail!("curriculum Blueprint entry kind differs"),
             }
         }
     }
-    Ok(())
+    Ok(has_pending_replacement)
 }
 
 fn ensure_exact_pool_pins(
@@ -620,6 +879,56 @@ fn ensure_exact_pool_pins(
         "curriculum Blueprint Pool exact Question Revision pins differ"
     );
     Ok(())
+}
+
+/// Converts complete reviewed content into a compare-and-swap replacement
+/// while retaining every existing module and Assessment identity. Historical
+/// Blueprint Revisions remain untouched in the Store; only the head receives
+/// the accepted direct canonical Question entry.
+fn replacement_input(
+    retained: &StoredBlueprintCourseContent,
+    input: &CreateBlueprintCourseInput,
+) -> Result<ReplaceBlueprintCourseContentInput> {
+    ensure!(
+        retained.modules.len() == input.modules.len(),
+        "retained curriculum Blueprint module mapping conflicts with replacement input"
+    );
+    let modules = retained
+        .modules
+        .iter()
+        .zip(&input.modules)
+        .map(|(retained_module, expected_module)| -> Result<_> {
+            ensure!(
+                retained_module.assessments.len() == expected_module.assessments.len(),
+                "retained curriculum Blueprint Assessment mapping conflicts with replacement input"
+            );
+            Ok(BlueprintModuleReplacementInput {
+                choice: BlueprintModuleEditChoice::Retained {
+                    blueprint_module_reference: retained_module.blueprint_module_reference,
+                },
+                label: expected_module.label.clone(),
+                assessments: retained_module
+                    .assessments
+                    .iter()
+                    .zip(&expected_module.assessments)
+                    .map(|(retained_assessment, expected_assessment)| {
+                        BlueprintAssessmentReplacementInput {
+                            choice: BlueprintAssessmentEditChoice::Retained {
+                                blueprint_assessment_reference: retained_assessment
+                                    .blueprint_assessment_reference,
+                            },
+                            content: expected_assessment.clone(),
+                        }
+                    })
+                    .collect(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let replacement = ReplaceBlueprintCourseContentInput { modules };
+    replacement
+        .validate()
+        .map_err(|error| anyhow::anyhow!("curriculum Blueprint replacement is invalid: {error}"))?;
+    Ok(replacement)
 }
 
 fn source_key(topic: &Topic, bank: &super::Bank, row: &Row) -> String {
@@ -642,7 +951,7 @@ fn now() -> Timestamp {
         .unwrap_or_default();
     Timestamp::from_unix_millis(i64::try_from(milliseconds).unwrap_or(i64::MAX))
 }
-fn request_checksum(input: &CreateBlueprintCourseInput) -> Result<RequestChecksum> {
+fn request_checksum(input: &impl serde::Serialize) -> Result<RequestChecksum> {
     let bytes =
         serde_json::to_vec(input).context("encoding normalized curriculum Blueprint input")?;
     Ok(RequestChecksum::from_bytes(Sha256::digest(bytes).into()))
@@ -694,6 +1003,8 @@ struct ReceiptBank {
     source_checksum: String,
     selection_count: u32,
     backend: QuestionBackend,
+    canonical_source_id: Option<String>,
+    canonical_question_revision: Option<QuestionRevisionReference>,
     rows: Vec<ReceiptRow>,
     pool_question_revisions: Vec<QuestionRevisionReference>,
 }
@@ -740,6 +1051,7 @@ impl Receipt {
         revision: u64,
         manifest: &Manifest,
         published: &BTreeMap<String, QuestionRevisionReference>,
+        replacements: &ReplacementRevisions,
     ) -> Result<Self> {
         let topics = manifest
             .topics
@@ -752,9 +1064,24 @@ impl Receipt {
                     .banks
                     .iter()
                     .map(|bank| -> Result<ReceiptBank> {
+                        let replacement = replacement_source(manifest, topic, bank);
+                        let canonical_question_revision = replacement
+                            .map(|source| {
+                                replacements
+                                    .get(&(topic.slug.clone(), bank.slug.clone()))
+                                    .cloned()
+                                    .with_context(|| {
+                                        format!(
+                                            "curriculum receipt is missing canonical replacement for {}/{}",
+                                            topic.slug, bank.slug
+                                        )
+                                    })
+                            })
+                            .transpose()?;
                         let rows = bank
                             .rows
                             .iter()
+                            .filter(|_| replacement.is_none())
                             .enumerate()
                             .map(|(pool_position, row)| -> Result<ReceiptRow> {
                                 let source_key = source_key(topic, bank, row);
@@ -788,6 +1115,8 @@ impl Receipt {
                             source_checksum: bank.source_sha256.clone(),
                             selection_count: bank.selection_count,
                             backend: QuestionBackend::Webwork,
+                            canonical_source_id: replacement.map(|source| source.source_id.clone()),
+                            canonical_question_revision,
                             pool_question_revisions: rows
                                 .iter()
                                 .map(|row| row.question_revision.clone())
@@ -821,6 +1150,25 @@ mod tests {
     use super::*;
     use question_model::{QuestionId, QuestionRevisionNumber};
 
+    fn accepted_replacement() -> ParameterizedSource {
+        ParameterizedSource {
+            source_id: "topic-canonical".to_owned(),
+            topic_slug: "topic".to_owned(),
+            question_title: "Canonical Question".to_owned(),
+            question_description: "Canonical Question description".to_owned(),
+            question_type: CurriculumQuestionType::MultipleChoice,
+            source_format: super::super::WebworkSourceFormat::Pgml,
+            replaces_static_bank_slug: Some("bank".to_owned()),
+            pg_source: "pg/genetics/parameterized/topic/canonical.pgml".into(),
+            pg_sha256: "c".repeat(64),
+            webwork_pg_path: "genetics/parameterized/topic/canonical.pgml".to_owned(),
+            canonical_author_source_url: "https://github.com/vosslab/example/blob/0123456789abcdef0123456789abcdef01234567/source.pgml".to_owned(),
+            canonical_author_source_sha256: "d".repeat(64),
+            content_license: "CC-BY-4.0".to_owned(),
+            source_code_license: "LGPL-3.0-or-later".to_owned(),
+        }
+    }
+
     fn reference(question_id: &str, revision_number: u32) -> QuestionRevisionReference {
         QuestionRevisionReference {
             question_id: question_id
@@ -843,6 +1191,7 @@ mod tests {
                 author: "Author".to_owned(),
                 content_license: "CC-BY-4.0".to_owned(),
             },
+            parameterized_sources: Vec::new(),
             topics: vec![Topic {
                 slug: "topic".to_owned(),
                 title: "Topic title".to_owned(),
@@ -881,15 +1230,21 @@ mod tests {
     #[test]
     fn receipt_retains_source_provenance_and_exact_pool_pin_order() {
         let manifest = receipt_manifest();
-        let first = reference("7K3-M9QX", 1);
-        let second = reference("8K3-M9QX", 2);
+        let first = reference("7K3M-X9QX", 1);
+        let second = reference("8K3M-X9QX", 2);
         let published = BTreeMap::from([
             ("topic/bank/first".to_owned(), first.clone()),
             ("topic/bank/second".to_owned(), second.clone()),
         ]);
 
-        let receipt = Receipt::new("BP-TEST".to_owned(), 1, &manifest, &published)
-            .expect("receipt from complete source map");
+        let receipt = Receipt::new(
+            "BP-TEST".to_owned(),
+            1,
+            &manifest,
+            &published,
+            &ReplacementRevisions::new(),
+        )
+        .expect("receipt from complete source map");
         let bank = &receipt.topics[0].banks[0];
         assert_eq!(bank.pool_question_revisions, vec![first, second]);
         assert_eq!(bank.source_path, "bank.txt");
@@ -904,8 +1259,8 @@ mod tests {
 
     #[test]
     fn exact_pool_pins_reject_a_newer_revision_of_the_same_question() {
-        let revision_one = reference("7K3-M9QX", 1);
-        let revision_two = reference("7K3-M9QX", 2);
+        let revision_one = reference("7K3M-X9QX", 1);
+        let revision_two = reference("7K3M-X9QX", 2);
 
         assert!(
             ensure_exact_pool_pins(
@@ -920,27 +1275,110 @@ mod tests {
     #[test]
     fn retained_blueprint_rejects_a_newer_revision_of_the_same_question() {
         let manifest = receipt_manifest();
-        let first = reference("7K3-M9QX", 1);
-        let second = reference("8K3-M9QX", 2);
+        let first = reference("7K3M-X9QX", 1);
+        let second = reference("8K3M-X9QX", 2);
         let published = BTreeMap::from([
             ("topic/bank/first".to_owned(), first.clone()),
             ("topic/bank/second".to_owned(), second.clone()),
         ]);
-        let input = blueprint_input(&manifest, &published).expect("valid Blueprint input");
+        let input = blueprint_input(&manifest, &published, &ReplacementRevisions::new())
+            .expect("valid Blueprint input");
         let pins = BTreeMap::from([
             (first.question_id.clone(), first.clone()),
             (second.question_id.clone(), second.clone()),
         ]);
         let mut actual = StoredBlueprintCourseContent::from_create(input.clone(), &pins)
             .expect("stored Blueprint content");
-        let StoredBlueprintAssignmentEntry::Pool {
+        let StoredBlueprintAssessmentEntry::Pool {
             question_revisions, ..
-        } = &mut actual.modules[0].assignments[0].content.entries[0]
+        } = &mut actual.modules[0].assessments[0].content.entries[0]
         else {
             panic!("fixture retains one Question Pool");
         };
-        question_revisions[0] = reference("7K3-M9QX", 2);
+        question_revisions[0] = reference("7K3M-X9QX", 2);
 
-        assert!(validate_loaded_content(&actual, &input, Some(&manifest), &published).is_err());
+        assert!(
+            validate_loaded_content(
+                &actual,
+                &input,
+                Some(&manifest),
+                &published,
+                &ReplacementRevisions::new(),
+                false,
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn accepted_replacement_requires_the_exact_static_pool_before_cas() {
+        let mut manifest = receipt_manifest();
+        let first = reference("7K3M-X9QX", 1);
+        let second = reference("8K3M-X9QX", 2);
+        let canonical = reference("9K3M-X9QX", 1);
+        let published = BTreeMap::from([
+            ("topic/bank/first".to_owned(), first.clone()),
+            ("topic/bank/second".to_owned(), second.clone()),
+        ]);
+        let static_input = blueprint_input(&manifest, &published, &ReplacementRevisions::new())
+            .expect("valid static Blueprint input");
+        let pins = BTreeMap::from([
+            (first.question_id.clone(), first.clone()),
+            (second.question_id.clone(), second.clone()),
+        ]);
+        let mut actual = StoredBlueprintCourseContent::from_create(static_input, &pins)
+            .expect("stored static Blueprint content");
+        manifest.parameterized_sources.push(accepted_replacement());
+        let replacements =
+            BTreeMap::from([(("topic".to_owned(), "bank".to_owned()), canonical.clone())]);
+        let replacement_input = blueprint_input(&manifest, &published, &replacements)
+            .expect("valid canonical replacement input");
+
+        assert_eq!(
+            validate_loaded_content(
+                &actual,
+                &replacement_input,
+                Some(&manifest),
+                &published,
+                &replacements,
+                true,
+            )
+            .expect("exact static Pool is eligible for replacement"),
+            true
+        );
+        let converted = StoredBlueprintCourseContent::from_create(
+            replacement_input.clone(),
+            &BTreeMap::from([(canonical.question_id.clone(), canonical.clone())]),
+        )
+        .expect("stored canonical replacement Blueprint content");
+        assert!(
+            !validate_loaded_content(
+                &converted,
+                &replacement_input,
+                Some(&manifest),
+                &published,
+                &replacements,
+                true,
+            )
+            .expect("already-converted canonical entry is idempotent")
+        );
+        let StoredBlueprintAssessmentEntry::Pool {
+            selection_count, ..
+        } = &mut actual.modules[0].assessments[0].content.entries[0]
+        else {
+            panic!("fixture retains one static Question Pool");
+        };
+        *selection_count = 2;
+        assert!(
+            validate_loaded_content(
+                &actual,
+                &replacement_input,
+                Some(&manifest),
+                &published,
+                &replacements,
+                true,
+            )
+            .is_err()
+        );
     }
 }

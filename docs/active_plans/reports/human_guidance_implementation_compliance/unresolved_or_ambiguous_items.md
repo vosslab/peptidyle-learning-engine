@@ -24,5 +24,10 @@ example authorizes implementation before a product decision.
 No genuine product ambiguity was found beyond that explicitly unlocked design. Generated evidence
 refreshes, implementation mismatches, and future work are not product ambiguity.
 
+Assessment Pool selection count is not an unresolved product decision. The recorded engineering
+choice uses the existing positive `selection_count` on the Assessment-owned Pool fork; the reusable
+Pool Revision owns its exact members. C905-C909 still own the missing exact fork Pool ID/Revision
+provenance, count-bound validation, delivery chain, and proof.
+
 Correction-milestone mappings are pending Milestone G and will be added after all Milestone G runs
 are complete.

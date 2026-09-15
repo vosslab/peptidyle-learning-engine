@@ -25,7 +25,7 @@ fn id(value: u128) -> Uuid {
 
 fn question_revision(revision_number: u32) -> QuestionRevisionReference {
     QuestionRevisionReference {
-        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(revision_number).expect("positive version"),
     }
 }

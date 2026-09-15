@@ -54,7 +54,9 @@ pub const MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS: usize = 4_000;
 pub enum QuestionFormat {
     PleQuestionJson,
     WebworkPg,
-    H5p,
+    /// Fully reviewed PGML source supplied with explicit import/authoring
+    /// provenance. The suffix alone never classifies a Question Source.
+    WebworkPgml,
     Imathas,
 }
 

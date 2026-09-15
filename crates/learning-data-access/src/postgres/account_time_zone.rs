@@ -72,33 +72,18 @@ impl AccountTimeZoneStore for PostgresAccountTimeZoneStore {
         Ok(zone)
     }
 
-    async fn authenticated_student_time_zone(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<AccountTimeZone, StoreError> {
-        let mut tx = self.begin(token).await?;
-        // ASVS 2.2.2 and 4.2.1: PostgreSQL repeats active Student-role and
-        // authenticated-self authorization without accepting an Account ID.
-        let zone = Self::decode(
-            sqlx::query_scalar("SELECT ple_api.read_student_time_zone()")
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(map_sqlx_error)?,
-        )?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(zone)
-    }
-
-    async fn update_authenticated_student_time_zone(
+    async fn update_authenticated_account_time_zone(
         &self,
         token: SessionTokenHash,
         time_zone: AccountTimeZone,
     ) -> Result<AccountTimeZone, StoreError> {
         let mut tx = self.begin(token).await?;
-        // ASVS 5.1.2: the domain validates the exact IANA spelling before the
-        // database independently checks pg_timezone_names and the Student role.
+        // ASVS 2.2.1--2.2.2, 8.2.2, and 8.3.1: the typed value is an exact
+        // IANA zone and PostgreSQL independently derives the active Account
+        // from the installed session. Neither a browser role nor Account ID
+        // can select a different preference row.
         let zone = Self::decode(
-            sqlx::query_scalar("SELECT ple_api.update_student_time_zone($1)")
+            sqlx::query_scalar("SELECT ple_api.update_current_account_time_zone($1)")
                 .bind(time_zone.as_str())
                 .fetch_one(&mut *tx)
                 .await

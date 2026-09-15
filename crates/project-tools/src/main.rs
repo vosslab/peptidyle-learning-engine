@@ -10,7 +10,6 @@ mod installation_data_activity;
 mod installation_data_blueprint;
 mod libpq_environment;
 mod pilot_content;
-mod tsgen;
 
 fn main() -> anyhow::Result<()> {
     application::run()

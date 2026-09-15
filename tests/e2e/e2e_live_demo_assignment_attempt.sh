@@ -52,7 +52,7 @@ reference=summary.get("latestQuestionRevision") if isinstance(summary,dict) else
 if not isinstance(summary,dict) or summary.get("backend") != backend or not isinstance(reference,dict):
     raise SystemExit("Question Library did not return the selected backend")
 if (set(reference)!={"questionId","revisionNumber"} or not isinstance(reference["questionId"],str)
-    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}",reference["questionId"]) is None
+    or re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}",reference["questionId"]) is None
     or not isinstance(reference["revisionNumber"],int) or reference["revisionNumber"] < 1):
     raise SystemExit("Question Library backend reference is malformed")
 print(json.dumps(reference,separators=(",",":")))
@@ -76,7 +76,7 @@ for item in items:
     if (isinstance(metadata,dict) and metadata.get("questionTitle")=="Genetics Chapter 1: Phenylalanine metabolism"
         and summary.get("backend")=="ple" and isinstance(reference,dict)
         and set(reference)=={"questionId","revisionNumber"}
-        and re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}",reference["questionId"])
+        and re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}",reference["questionId"])
         and isinstance(reference["revisionNumber"],int) and reference["revisionNumber"] > 0):
         print(json.dumps(reference,separators=(",",":"))); break
 else: raise SystemExit("canonical native acceptance Question is unavailable")
@@ -136,8 +136,8 @@ prove_start() {
 	assert_concealed "$(request "/api/course-instances/$course/assignments/$assignment/access")"
 	assert_concealed "$(request "/api/course-instances/$course/assignments/$assignment/access" "$instructor")"
 	assert_concealed "$(request "/api/course-instances/$course/assignments/$assignment/start" "$sysadmin" POST '{}')"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@live-demo.invalid current-model-mary
-	claim_student_record "$course" "$instructor" "$jack" jack.nguyen@live-demo.invalid current-model-jack
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu current-model-mary
+	claim_student_record "$course" "$instructor" "$jack" jack.nguyen@biology.roosevelt.edu current-model-jack
 	access="$(request "/api/course-instances/$course/assignments/$assignment/access" "$mary")"
 	require_status "Student Assignment Access" "$access" 200
 
@@ -232,7 +232,7 @@ prove_native_current_points() {
 	local instructor mary course assignment reference started attempt selected saved submitted initial_score workspace edit updated history gradebook
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"
 	course="$(new_course_reference "$instructor")"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@live-demo.invalid current-points-mary
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu current-points-mary
 	reference="$(canonical_native_question_reference "$instructor")"
 	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Native Current Points" 300 "$reference")"
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$mary" POST '{}')"
@@ -272,7 +272,7 @@ prove_background_expiry() {
 	local instructor mary course assignment reference started attempt selected saved history completed=0 postgres evidence
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"
 	course="$(new_course_reference "$instructor")"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@live-demo.invalid expiry-worker-mary
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu expiry-worker-mary
 	reference="$(canonical_native_question_reference "$instructor")"
 	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Background Expiry" 300 "$reference")"
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$mary" POST '{}')"
@@ -311,7 +311,7 @@ prove_webwork_submission() {
 	# by backend through the public Question Library rather than a test fixture.
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_attempt.sh" --start >/dev/null
 	course="$(new_course_reference "$instructor")"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@live-demo.invalid submission-journey-mary
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu submission-journey-mary
 	assignment="$(create_released_backend_assignment "$course" "$instructor" webwork "WeBWorK Submission")"
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$mary" POST '{}')"
 	require_status "WeBWorK Assignment start" "$started" 201

@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 
-const DEFAULT_MANIFEST: &str = "content/pilot/chapter_1_assignments.yaml";
+const DEFAULT_MANIFEST: &str = "content/pilot/chapter_1_assessments.yaml";
 const IMAGE_CONTENT_ROOT: &str = "/opt/ple/content";
 const EXPECTED_QUESTION_SHAPES: [(Backend, PilotQuestionType); 4] = [
     (Backend::Webwork, PilotQuestionType::MultipleChoice),
@@ -48,7 +48,7 @@ pub(crate) struct Chapter {
     course: String,
     pub(crate) course_title: String,
     chapter: u32,
-    pub(crate) assignment_title: String,
+    pub(crate) assessment_title: String,
     pub(crate) questions: Vec<Question>,
 }
 
@@ -199,7 +199,7 @@ fn tracked_manifest_path() -> Result<PathBuf> {
         .and_then(Path::parent)
         .context("locating the repository root for the Pilot Question Set")?;
     for path in [
-        PathBuf::from(IMAGE_CONTENT_ROOT).join("pilot/chapter_1_assignments.yaml"),
+        PathBuf::from(IMAGE_CONTENT_ROOT).join("pilot/chapter_1_assessments.yaml"),
         source_root.join(DEFAULT_MANIFEST),
     ] {
         if path.is_file() {
@@ -279,7 +279,7 @@ fn validate_loaded_manifest(manifest: &PilotManifest, root: &Path) -> Result<Val
         chapters: manifest
             .chapters
             .iter()
-            .map(|chapter| chapter.assignment_title.clone())
+            .map(|chapter| chapter.assessment_title.clone())
             .collect(),
         question_count: manifest
             .chapters
@@ -327,17 +327,17 @@ fn validate_manifest_contract(manifest: &PilotManifest) -> Result<()> {
 fn validate_chapter(chapter: &Chapter) -> Result<()> {
     if chapter.slug.trim().is_empty()
         || chapter.course_title.trim().is_empty()
-        || chapter.assignment_title.trim().is_empty()
+        || chapter.assessment_title.trim().is_empty()
     {
-        bail!("pilot chapter slug, course title, and assignment title must not be blank");
+        bail!("pilot chapter slug, course title, and assessment title must not be blank");
     }
     if chapter.chapter != 1 {
-        bail!("pilot assignments must be Chapter 1");
+        bail!("pilot assessments must be Chapter 1");
     }
     if chapter.questions.len() != 4 {
         bail!(
             "{} must contain exactly four questions",
-            chapter.assignment_title
+            chapter.assessment_title
         );
     }
     let shapes = chapter
@@ -348,7 +348,7 @@ fn validate_chapter(chapter: &Chapter) -> Result<()> {
     if shapes != HashSet::from(EXPECTED_QUESTION_SHAPES) {
         bail!(
             "{} must contain one WeBWorK MC, WeBWorK MATCH, PLE Question JSON MC, and PLE Question JSON MATCH",
-            chapter.assignment_title
+            chapter.assessment_title
         );
     }
     Ok(())

@@ -3,7 +3,7 @@ use std::{collections::VecDeque, sync::Mutex};
 use super::*;
 use async_trait::async_trait;
 use learning_data_access::{
-    StudentAssignmentAttemptFinalizationKind, StudentAssignmentAttemptFinalizationPreparation,
+    StudentAssessmentAttemptFinalizationKind, StudentAssessmentAttemptFinalizationPreparation,
 };
 
 #[derive(Default)]
@@ -13,24 +13,24 @@ struct FakeExpiryStore {
 }
 
 #[async_trait]
-impl AssignmentAttemptExpirySweepStore for FakeExpiryStore {
-    async fn prepare_expired_assignment_attempt_finalizations(
+impl AssessmentAttemptExpirySweepStore for FakeExpiryStore {
+    async fn prepare_expired_assessment_attempt_finalizations(
         &self,
         _limit: u32,
-    ) -> Result<Vec<ExpiredAssignmentAttemptFinalizationPreparation>, StoreError> {
+    ) -> Result<Vec<ExpiredAssessmentAttemptFinalizationPreparation>, StoreError> {
         Ok(Vec::new())
     }
 
-    async fn commit_expired_assignment_attempt_finalization(
+    async fn commit_expired_assessment_attempt_finalization(
         &self,
-        assignment_attempt_id: uuid::Uuid,
-        _preparation: StudentAssignmentAttemptFinalizationPreparation,
-        _evaluations: Vec<StudentAssignmentAttemptFinalizationEvaluation>,
+        assessment_attempt_id: uuid::Uuid,
+        _preparation: StudentAssessmentAttemptFinalizationPreparation,
+        _evaluations: Vec<StudentAssessmentAttemptFinalizationEvaluation>,
     ) -> Result<(), StoreError> {
         self.committed_attempts
             .lock()
             .expect("committed attempts")
-            .push(assignment_attempt_id);
+            .push(assessment_attempt_id);
         self.commit_results
             .lock()
             .expect("commit results")
@@ -39,11 +39,21 @@ impl AssignmentAttemptExpirySweepStore for FakeExpiryStore {
     }
 }
 
-fn prepared_attempt(value: u128) -> ExpiredAssignmentAttemptFinalizationPreparation {
-    ExpiredAssignmentAttemptFinalizationPreparation {
-        assignment_attempt_id: uuid::Uuid::from_u128(value),
-        preparation: StudentAssignmentAttemptFinalizationPreparation {
-            kind: StudentAssignmentAttemptFinalizationKind::Deadline,
+#[async_trait]
+impl QuestionWatchNotificationStore for FakeExpiryStore {
+    async fn materialize_question_watch_notifications(
+        &self,
+        _limit: u16,
+    ) -> Result<u32, StoreError> {
+        Ok(0)
+    }
+}
+
+fn prepared_attempt(value: u128) -> ExpiredAssessmentAttemptFinalizationPreparation {
+    ExpiredAssessmentAttemptFinalizationPreparation {
+        assessment_attempt_id: uuid::Uuid::from_u128(value),
+        preparation: StudentAssessmentAttemptFinalizationPreparation {
+            kind: StudentAssessmentAttemptFinalizationKind::Deadline,
             saved_responses: Vec::new(),
         },
     }
@@ -70,7 +80,7 @@ async fn failed_expiry_commit_does_not_block_later_prepared_attempts() {
 
     assert_eq!(
         *store.committed_attempts.lock().expect("committed attempts"),
-        vec![first.assignment_attempt_id, second.assignment_attempt_id]
+        vec![first.assessment_attempt_id, second.assessment_attempt_id]
     );
 }
 

@@ -67,7 +67,7 @@ impl QtiMappedItemServerParts {
 
     /// Converts one supported QTI item into the sole-current PLE Question JSON
     /// source. QTI vendor points remain only in Workspace Import evidence and
-    /// never become Question or Assignment policy.
+    /// never become Question or Assessment policy.
     pub fn into_ple_question_json(
         self,
     ) -> Result<ImportedPleQuestionJson, ImportedPleQuestionJsonError> {

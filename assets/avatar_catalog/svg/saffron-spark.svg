@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">
+  <g id="saffron-spark-background"><rect x="4" y="4" width="120" height="120" rx="28" fill="#183E5B"/></g>
+  <g id="saffron-spark-stars"><polygon points="64,17 72,48 104,48 78,67 88,99 64,80 40,99 50,67 24,48 56,48" fill="#F2B134"/><polygon points="101,20 105,34 119,38 105,42 101,56 97,42 83,38 97,34" fill="#F7D774"/><polygon points="27,72 31,84 43,88 31,92 27,104 23,92 11,88 23,84" fill="#F7D774"/></g>
+</svg>

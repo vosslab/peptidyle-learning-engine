@@ -15,13 +15,13 @@ import { CourseAppearancePage } from "../../src/pages/course_appearance_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 
 const COURSE_ID = "course-m7" as CourseId;
-const COURSE_PATH = "/instructor/courses/C-1/appearance";
+const COURSE_PATH = "/instructor/courses/CI7K3M2Q/appearance";
 
 function initialCourse(): CourseRouteView {
   return {
     summary: {
       id: COURSE_ID,
-      reference: "C-1",
+      reference: "CI7K3M2Q",
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
@@ -118,7 +118,6 @@ export function mountCourseAppearanceM7Harness(
         return Promise.resolve(currentAppearance);
       },
       fetchCourseBanner: () => Promise.resolve(new Blob(["hero"], { type: "image/webp" })),
-      fetchCourseBannerCard: () => Promise.resolve(new Blob(["card"], { type: "image/webp" })),
     },
     queries: {
       resolveCourse: () => Promise.resolve({ courseId: COURSE_ID }),

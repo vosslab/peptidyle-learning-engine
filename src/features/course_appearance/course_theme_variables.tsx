@@ -83,8 +83,8 @@ const COURSE_THEME_VARIABLE_SHELL_STYLES = `
 
 function appearanceFor(data: CourseThemeRouteData | undefined): CourseAppearanceView | undefined {
   if (data === undefined) return undefined;
-  if (data.kind === "assignmentAttempt") return { theme: data.context.course.theme, banner: null };
-  if (data.kind === "assignmentAttemptHistory")
+  if (data.kind === "assessmentAttempt") return { theme: data.context.course.theme, banner: null };
+  if (data.kind === "assessmentAttemptHistory")
     return { theme: data.history.course.theme, banner: null };
   return courseRouteView(data).appearance;
 }
@@ -100,8 +100,8 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
   const currentCourseId = createMemo(() => {
     const data = routeData();
     return data === undefined ||
-      data.kind === "assignmentAttempt" ||
-      data.kind === "assignmentAttemptHistory"
+      data.kind === "assessmentAttempt" ||
+      data.kind === "assessmentAttemptHistory"
       ? undefined
       : courseRouteView(data).summary.id;
   });
@@ -134,10 +134,10 @@ export function CourseThemeVariables(props: CourseThemeVariablesProps): JSX.Elem
   const courseReference = createMemo(() => {
     const data = routeData();
     if (data === undefined) return undefined;
-    if (data.kind === "assignmentAttempt") {
+    if (data.kind === "assessmentAttempt") {
       return courseInstanceRouteReference(data.context.course.reference);
     }
-    if (data.kind === "assignmentAttemptHistory") {
+    if (data.kind === "assessmentAttemptHistory") {
       return courseInstanceRouteReference(data.history.course.reference);
     }
     return courseInstanceRouteReference(courseRouteView(data).summary.reference);

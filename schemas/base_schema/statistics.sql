@@ -1,7 +1,10 @@
 -- Privacy-safe global statistics for immutable Question Revisions.  The
--- receipt rows retain no Student, Account, Course, response, or grade identity;
--- they are rooted in the grading receipt solely so Unrelease can remove an
--- observation and rebuild the affected aggregate from surviving evidence.
+-- aggregate key deliberately contains only the immutable Question Revision;
+-- it has no Student, Account, Course, Attempt, response, or grade identity.
+-- Private rebuild receipts are rooted in Student Work solely so Unrelease can
+-- remove an observation and rebuild from surviving evidence.  Course-retention
+-- deletion instead removes those receipts with the private Work roots and
+-- deliberately leaves the already-materialized aggregate unchanged.
 
 SET LOCAL ROLE ple_data_owner;
 
@@ -61,7 +64,7 @@ CREATE FUNCTION ple_data.rebuild_question_revision_statistics(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
 BEGIN
-    IF p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{7}$'
+    IF p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
        OR p_revision_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Revision Statistics rebuild target is invalid';
@@ -269,9 +272,9 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
 COMMENT ON TABLE ple_data.question_revision_statistics IS
-    'Identity-free accepted-grade and correct counts for one immutable Question Revision.';
+    'Identity-free accepted-grade and correct counts for one immutable Question Revision, retained after Course Student-record deletion.';
 COMMENT ON TABLE ple_data.question_revision_choice_statistics IS
-    'Identity-free selected eligible-choice counts for one immutable Question Revision.';
+    'Identity-free selected eligible-choice counts for one immutable Question Revision, retained after Course Student-record deletion.';
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;

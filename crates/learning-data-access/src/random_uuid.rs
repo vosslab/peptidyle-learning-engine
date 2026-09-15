@@ -32,7 +32,7 @@ fn browser_safe_question_seed(value: u64) -> u64 {
 ///
 /// Question variation is evidence retained with an Issued Question, so its
 /// value is minted by the trusted application boundary rather than inferred
-/// by PostgreSQL from mutable Assignment state.
+/// by PostgreSQL from mutable Assessment state.
 pub(crate) fn random_question_seed<E>(
     map_error: impl FnOnce(getrandom::Error) -> E,
 ) -> Result<u64, E> {

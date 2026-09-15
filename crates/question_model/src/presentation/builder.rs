@@ -9,7 +9,10 @@ use crate::response::{
     MatchingChoice, MatchingPrompt, OrderingItem, QuestionChoice, QuestionResponseFormat,
     ResponseItemReference,
 };
-use crate::{QuestionContentBlock, QuestionVariationPresentation};
+use crate::{
+    AuthorContentPresentation, QuestionContentBlock, QuestionReproduction,
+    QuestionVariationPresentation,
+};
 
 use super::assets::{
     content_assets, question_asset_rendition, validate_assets, validate_public_assets,
@@ -109,8 +112,14 @@ struct PendingResponseItem {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IssuedQuestionPresentation {
     pub presentation: QuestionPresentation,
+    /// Server-only tagged reproduction evidence. It never crosses the public
+    /// Question Presentation boundary.
+    pub reproduction: QuestionReproduction,
     pub question_asset_renditions: Vec<QuestionAssetRendition>,
     pub item_bindings: Vec<ResponseItemBinding>,
+    /// Server-only isolated author-content evidence. It is not part of the
+    /// generic browser `QuestionPresentation` DTO.
+    pub author_content: Option<AuthorContentPresentation>,
     pub checksum: QuestionPresentationChecksum,
 }
 
@@ -221,10 +230,64 @@ pub fn build_question_presentation_with_nonce_source<N: QuestionPresentationNonc
 }
 
 /// Reconstructs descriptor inputs from one browser-safe Question Presentation for Wasm verification.
-pub fn rebuild_public_question_presentation(
+/// Rebuilds a browser-visible native static presentation.
+///
+/// This intentionally rejects renderer-owned response formats. They have
+/// private tagged reproduction evidence and must be rebuilt by the server
+/// through [`rebuild_question_presentation_with_reproduction`].
+pub fn rebuild_native_static_question_presentation(
     presentation: &QuestionPresentation,
     question_asset_renditions: &[QuestionAssetRendition],
 ) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
+    if matches!(
+        presentation.response,
+        QuestionPresentationResponseFormat::BackendOwned {}
+            | QuestionPresentationResponseFormat::ImathasQuestionBackend {}
+    ) {
+        return Err(PresentationBuildError::InvalidPublicContent(
+            "backend-owned presentation cannot rebuild as native static evidence",
+        ));
+    }
+    rebuild_question_presentation_with_reproduction(
+        presentation,
+        question_asset_renditions,
+        QuestionReproduction::Static,
+    )
+}
+
+/// Reconstructs one descriptor using server-retained reproduction evidence.
+///
+/// Browser-safe presentation JSON never carries a source or generator seed.
+/// Server resume and history reads must therefore provide the exact tagged
+/// reproduction evidence they retained alongside the presentation.
+pub fn rebuild_question_presentation_with_reproduction(
+    presentation: &QuestionPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
+    reproduction: QuestionReproduction,
+) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
+    rebuild_question_presentation_with_reproduction_and_author_content(
+        presentation,
+        question_asset_renditions,
+        reproduction,
+        None,
+    )
+}
+
+/// Reconstructs one descriptor with separately retained server-only author
+/// content. The generic browser presentation deliberately cannot carry it.
+pub fn rebuild_question_presentation_with_reproduction_and_author_content(
+    presentation: &QuestionPresentation,
+    question_asset_renditions: &[QuestionAssetRendition],
+    reproduction: QuestionReproduction,
+    author_content: Option<AuthorContentPresentation>,
+) -> Result<IssuedQuestionPresentation, PresentationBuildError> {
+    if let Some(author_content) = author_content.as_ref()
+        && presentation.author_content_digest.as_deref() != Some(author_content.digest().as_str())
+    {
+        return Err(PresentationBuildError::InvalidPublicContent(
+            "author content digest does not match retained descriptor",
+        ));
+    }
     let assets = validate_public_assets(presentation, question_asset_renditions)?;
     let item_bindings = public_item_bindings(&presentation.response, &assets)?;
     if item_bindings.len() > MAX_PRESENTED_ITEMS {
@@ -241,8 +304,10 @@ pub fn rebuild_public_question_presentation(
     }
     let mut presentation = IssuedQuestionPresentation {
         presentation: presentation.clone(),
+        reproduction,
         question_asset_renditions: assets,
         item_bindings,
+        author_content,
         checksum: QuestionPresentationChecksum::zero(),
     };
     presentation.checksum =
@@ -393,8 +458,10 @@ where
         let public = public_presentation(presentation, nonce, &bindings)?;
         let mut presentation = IssuedQuestionPresentation {
             presentation: public,
+            reproduction: presentation.variation.reproduction.clone(),
             question_asset_renditions: assets.clone(),
             item_bindings: bindings,
+            author_content: presentation.author_content.clone(),
             checksum: QuestionPresentationChecksum::zero(),
         };
         let bytes = descriptor_bytes(&presentation)?;
@@ -428,7 +495,17 @@ fn presentation_response_item_reference_input(
             .get()
             .to_be_bytes(),
     );
-    bytes.extend_from_slice(&presentation.variation.question_seed.value().to_be_bytes());
+    match &presentation.variation.reproduction {
+        QuestionReproduction::Static => bytes.push(0),
+        QuestionReproduction::Seeded {
+            question_seed,
+            generated_parameter_sha256,
+        } => {
+            bytes.push(1);
+            bytes.extend_from_slice(&question_seed.value().to_be_bytes());
+            push_bytes(&mut bytes, generated_parameter_sha256.as_bytes())?;
+        }
+    }
     bytes.push(item.role.tag());
     bytes.extend_from_slice(&item.ordinal.to_be_bytes());
     push_bytes(&mut bytes, item.response_item_reference.as_str().as_bytes())?;
@@ -780,8 +857,11 @@ fn public_presentation(
     };
     Ok(QuestionPresentation {
         question_revision: source.variation.question_revision.clone(),
-        question_seed: source.variation.question_seed,
         presentation_nonce: nonce,
+        author_content_digest: source
+            .author_content
+            .as_ref()
+            .map(AuthorContentPresentation::digest),
         question_title: source.question_title.clone(),
         prompt: source.prompt.clone(),
         response,

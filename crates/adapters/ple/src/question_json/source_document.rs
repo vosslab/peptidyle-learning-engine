@@ -1,5 +1,7 @@
 //! Strict source shapes for all supported PLE Question JSON Question Types.
 
+mod author_script;
+
 use std::collections::HashSet;
 
 use grading::AnswerKey;
@@ -15,7 +17,10 @@ use question_model::response::{
 use question_model::{NativeChoiceOrder, QuestionAssetId, QuestionHint, QuestionMetadata};
 use question_model::{QuestionAssetReference, QuestionContentBlock};
 use serde::{Deserialize, Serialize};
+use url::Url;
 use uuid::Uuid;
+
+use author_script::{PleQuestionJsonAuthorScript, compile_author_content, validate_author_script};
 
 use super::{
     CompiledPleQuestionJson, MAX_CHOICE_TEXT_CHARS, MAX_CHOICES, MAX_FEEDBACK_CHARS,
@@ -28,6 +33,8 @@ use super::{
 
 const MAX_BLANKS: usize = 50;
 const MAX_TEXT_RESPONSE_CHARS: u32 = 16_384;
+const MAX_EXTERNAL_RESOURCES: usize = 100;
+const MAX_EXTERNAL_RESOURCE_URL_CHARS: usize = 4_096;
 
 /// Common metadata outside a closed, type-specific response object.
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -48,7 +55,39 @@ pub(super) struct PleQuestionJsonDocumentBody {
     question_license: Option<QuestionLicense>,
     #[serde(default)]
     question_citation: Option<QuestionCitation>,
+    /// Complete, author-declared inventory of every remote URL used by this
+    /// Question. It is source metadata only: this document neither fetches
+    /// nor grants a browser permission for a recorded resource.
+    #[serde(default)]
+    external_resources: Vec<PleQuestionJsonExternalResource>,
+    /// Untrusted browser-only behavior declared by an author.  This is source
+    /// metadata, not a PLE execution capability: the later browser boundary
+    /// receives it only through an isolated author-content runtime.
+    #[serde(default)]
+    author_script: Option<PleQuestionJsonAuthorScript>,
     language: String,
+}
+
+/// One remote resource declared by a native Question author.
+///
+/// The closed kind set makes links, images, scripts, stylesheets, and
+/// miscellaneous resources reviewable without making a new execution or
+/// upload surface. Later browser-policy steps decide which recorded entries
+/// may load and how they are served.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct PleQuestionJsonExternalResource {
+    url: String,
+    kind: PleQuestionJsonExternalResourceKind,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum PleQuestionJsonExternalResourceKind {
+    Link,
+    Image,
+    Script,
+    Stylesheet,
+    Other,
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -267,6 +306,8 @@ impl PleQuestionJsonDocumentBody {
             tags: Vec::new(),
             question_license: None,
             question_citation: None,
+            external_resources: Vec::new(),
+            author_script: None,
             language: "en-US".to_string(),
         }
     }
@@ -290,6 +331,8 @@ impl PleQuestionJsonDocumentBody {
         for tag in &self.tags {
             validate_bounded_text("tag", tag, MAX_TAG_CHARS)?;
         }
+        validate_external_resources(&self.external_resources)?;
+        validate_author_script(self.author_script.as_ref())?;
         self.validate_response()
     }
 
@@ -380,8 +423,65 @@ impl PleQuestionJsonDocumentBody {
             },
             private,
             question_hint,
+            author_content: compile_author_content(self.author_script.as_ref())?,
         })
     }
+}
+
+fn validate_external_resources(
+    resources: &[PleQuestionJsonExternalResource],
+) -> Result<(), PleQuestionJsonError> {
+    if resources.len() > MAX_EXTERNAL_RESOURCES {
+        return invalid("external resource count is outside the supported range");
+    }
+    let mut unique = HashSet::new();
+    for resource in resources {
+        validate_external_resource_url(&resource.url)?;
+        if !unique.insert(resource.url.as_str()) {
+            return invalid("external resource URLs must be unique");
+        }
+    }
+    Ok(())
+}
+
+fn validate_external_resource_url(value: &str) -> Result<(), PleQuestionJsonError> {
+    if value.chars().count() > MAX_EXTERNAL_RESOURCE_URL_CHARS
+        || value.chars().any(char::is_whitespace)
+        || value.chars().any(char::is_control)
+        || !has_valid_percent_escapes(value)
+    {
+        return invalid("external resource URL must be bounded printable text");
+    }
+
+    let parsed = Url::parse(value).map_err(|_| {
+        PleQuestionJsonError::InvalidDocument("external resource URL is malformed".to_string())
+    })?;
+    if parsed.scheme() != "https" || parsed.host().is_none() {
+        return invalid("external resource URL must be an absolute HTTPS URL");
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return invalid("external resource URL must not contain user information");
+    }
+    Ok(())
+}
+
+fn has_valid_percent_escapes(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len()
+                || !bytes[index + 1].is_ascii_hexdigit()
+                || !bytes[index + 2].is_ascii_hexdigit()
+            {
+                return false;
+            }
+            index += 3;
+        } else {
+            index += 1;
+        }
+    }
+    true
 }
 
 fn question_type_for(response: &PleQuestionJsonResponse) -> QuestionType {

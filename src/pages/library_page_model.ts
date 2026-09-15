@@ -1,6 +1,7 @@
 // library_page_model.ts - bounded, transport-validated Question Library browse state.
 
 import { normalizeQuestionIdSyntax } from "../question_id";
+import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 
@@ -10,6 +11,10 @@ export interface QuestionLibraryBrowseRow {
   readonly displayId: string;
   readonly questionTitle: string;
   readonly summary: string;
+  /** Immutable source representation, without source location or content.
+   * Retained Assessment picker candidates have no format projection, so they
+   * explicitly retain unavailable metadata rather than guessing from backend. */
+  readonly questionFormat: QuestionFormat | null;
   /** Reviewed Question Author display names; never Account or Question Owner identity. */
   readonly authorNames: ReadonlyArray<string>;
   readonly capabilities: ReadonlyArray<string>;
@@ -92,6 +97,88 @@ export type QuestionLibraryBrowseState =
       readonly nextCursor: string | null;
     };
 
+/**
+ * One in-memory return snapshot for the Library -> Question -> Library path.
+ *
+ * This deliberately lasts only for the current browser document. It is not a
+ * second persistence channel for search preferences, nor is it visible to a
+ * Question detail route. The saved page is the last server-validated browse
+ * result, so a return can restore an exact position even when it was reached
+ * after loading more than the first cursor page.
+ */
+export interface QuestionLibraryReturnState {
+  readonly token: string;
+  readonly query: QuestionLibraryBrowseQuery;
+  readonly browseState: Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }>;
+  readonly scrollTop: number;
+}
+
+let pendingQuestionLibraryReturnState: QuestionLibraryReturnState | null = null;
+
+export const QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER = "libraryReturn";
+
+const QUESTION_LIBRARY_RETURN_TOKEN_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
+
+/** Generate an opaque route token; it never names an Account, Question, or query. */
+export function createQuestionLibraryReturnToken(): string {
+  return crypto.randomUUID();
+}
+
+/** Reject malformed route input before it can select an in-memory return view. */
+export function parseQuestionLibraryReturnToken(value: unknown): string | null {
+  return typeof value === "string" && QUESTION_LIBRARY_RETURN_TOKEN_PATTERN.test(value)
+    ? value
+    : null;
+}
+
+export function questionLibraryReturnPath(token: string): string {
+  return `/library?${new URLSearchParams({ [QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]: token }).toString()}`;
+}
+
+/** Save the current Library view only immediately before opening a Question. */
+export function saveQuestionLibraryReturnState(
+  token: string,
+  query: QuestionLibraryBrowseQuery,
+  browseState: QuestionLibraryBrowseState,
+  scrollTop: number,
+): void {
+  if (parseQuestionLibraryReturnToken(token) === null) return;
+  pendingQuestionLibraryReturnState = null;
+  if (browseState.kind !== "ready") return;
+  pendingQuestionLibraryReturnState = {
+    token,
+    query: normalizeQuestionLibraryBrowseQuery(query),
+    browseState,
+    scrollTop: Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0,
+  };
+}
+
+/** Consume a pending Question-detail return view so unrelated Library visits start fresh. */
+export function takeQuestionLibraryReturnState(
+  token: string | null,
+): QuestionLibraryReturnState | null {
+  const saved =
+    token !== null && pendingQuestionLibraryReturnState?.token === token
+      ? pendingQuestionLibraryReturnState
+      : null;
+  if (saved === null) return null;
+  pendingQuestionLibraryReturnState = null;
+  return saved;
+}
+
+/** Keep a restored virtual-list position inside the current rendered scroll range. */
+export function clampQuestionLibraryReturnScrollTop(
+  scrollTop: number,
+  scrollHeight: number,
+  clientHeight: number,
+): number {
+  return Math.min(
+    Math.max(0, Number.isFinite(scrollTop) ? scrollTop : 0),
+    Math.max(0, scrollHeight - clientHeight),
+  );
+}
+
 const MAX_TEXT_LENGTH = 512;
 const MAX_SUMMARY_LENGTH = 4_000;
 export const MAX_QUESTION_LIBRARY_BROWSE_PAGE_ITEMS = 100;
@@ -126,6 +213,18 @@ function decodeNullableQuestionLicense(value: unknown, path: string): string | n
   return value;
 }
 
+function decodeQuestionFormat(value: unknown, path: string): QuestionFormat {
+  if (
+    value !== "pleQuestionJson" &&
+    value !== "webworkPg" &&
+    value !== "webworkPgml" &&
+    value !== "imathas"
+  ) {
+    throw new Error(`${path} must be an exact published Question Format`);
+  }
+  return value;
+}
+
 function stringList(value: unknown, path: string): ReadonlyArray<string> {
   if (!Array.isArray(value) || value.length > MAX_QUESTION_LIBRARY_BROWSE_AGGREGATES) {
     throw new Error(`${path} must be an array`);
@@ -141,6 +240,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "capabilities",
       "displayId",
       "questionLicense",
+      "questionFormat",
       "summary",
       "questionTitle",
       "evidence",
@@ -148,8 +248,9 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
   ) {
     throw new Error(`${path} has an unexpected shape`);
   }
-  const displayId = normalizeQuestionIdSyntax(boundedText(value["displayId"], `${path}.displayId`));
-  if (displayId === null) {
+  const rawDisplayId = boundedText(value["displayId"], `${path}.displayId`);
+  const displayId = normalizeQuestionIdSyntax(rawDisplayId);
+  if (displayId === null || displayId !== rawDisplayId) {
     throw new Error(`${path}.displayId must be a canonical Question ID`);
   }
   const evidence = decodeBrowseEvidence(value["evidence"], `${path}.evidence`);
@@ -157,6 +258,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     displayId,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
+    questionFormat: decodeQuestionFormat(value["questionFormat"], `${path}.questionFormat`),
     authorNames: stringList(value["authorNames"], `${path}.authorNames`),
     capabilities: stringList(value["capabilities"], `${path}.capabilities`),
     questionLicense: decodeNullableQuestionLicense(
@@ -326,6 +428,18 @@ export class QuestionLibraryBrowseSession {
 
   public get state(): QuestionLibraryBrowseState {
     return this.#state;
+  }
+
+  /** Rehydrate the server-validated page retained for an immediate detail return. */
+  public restore(
+    query: QuestionLibraryBrowseQuery,
+    state: Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }>,
+  ): void {
+    this.#generation += 1;
+    this.#queuedReset = false;
+    this.#loading = false;
+    this.#query = normalizeQuestionLibraryBrowseQuery(query);
+    this.setState(state);
   }
 
   public async reset(query: QuestionLibraryBrowseQuery): Promise<void> {

@@ -3,10 +3,12 @@
 import { createSignal } from "solid-js";
 import { render } from "solid-js/web";
 
+import type { ProductRole } from "../../generated/api/ProductRole";
+import { productRoleHomeRouteId, ROUTE_CONTRACT } from "../../src/route_contract";
 import type { RibbonDestinationId } from "../../src/ribbon/ribbon_catalog";
-import type { RibbonTabId } from "../../src/route_contract";
 import { AppRibbon } from "../../src/ribbon/app_ribbon";
-import type { RibbonModel } from "../../src/ribbon/ribbon_contract";
+import { deriveRibbonModel, type RibbonModel } from "../../src/ribbon/ribbon_contract";
+import type { RibbonTabId } from "../../src/route_contract";
 import { M6_RIBBON_FIXTURES, type M6RibbonFixtureName } from "./ribbon_model_fixtures";
 
 function selectTab(model: RibbonModel, tabId: RibbonTabId): RibbonModel {
@@ -33,6 +35,7 @@ function selectTask(model: RibbonModel, taskId: RibbonDestinationId): RibbonMode
 
 export interface RibbonM9ResponsiveHarness {
   readonly dispose: () => void;
+  readonly setRoleHome: (productRole: ProductRole) => void;
   readonly selectTask: (taskId: RibbonDestinationId) => void;
   readonly selectTab: (tabId: RibbonTabId) => void;
   readonly setFixture: (fixture: M6RibbonFixtureName) => void;
@@ -47,6 +50,14 @@ export function mountRibbonM9ResponsiveHarness(target: HTMLElement): RibbonM9Res
   const dispose = render(() => <AppRibbon model={model()} reducedMotion={() => true} />, target);
   return {
     dispose,
+    setRoleHome: (productRole): void => {
+      const routeId = productRoleHomeRouteId(productRole);
+      const route = ROUTE_CONTRACT.find((candidate) => candidate.id === routeId);
+      if (route === undefined) {
+        throw new Error(`Responsive harness cannot resolve ${productRole} home route.`);
+      }
+      setModel(deriveRibbonModel({ route, params: {} }, { productRole }, {}));
+    },
     selectTask: (taskId) => setModel((current) => selectTask(current, taskId)),
     selectTab: (tabId) => setModel((current) => selectTab(current, tabId)),
     setFixture: (fixture) => setModel(M6_RIBBON_FIXTURES[fixture]),

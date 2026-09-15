@@ -3,7 +3,7 @@
 use question_model::generation::QuestionSeed;
 use question_model::{
     CourseBannerReference, CourseBannerRendition, CourseBannerUploadReference, CourseId, ObjectId,
-    ProfileThumbnailReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId,
+    ProfileImageReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId,
     WorkspaceImportId,
 };
 use serde::{Deserialize, Serialize};
@@ -57,8 +57,8 @@ pub enum ObjectDataClass {
     QuestionRender,
     /// A Course Banner Upload or saved Course Banner.
     CourseAppearance,
-    /// A normalized, self-authorized Instructor identity thumbnail.
-    ProfileThumbnail,
+    /// A normalized, self-authorized Account Profile image.
+    ProfileImage,
     /// FERPA-bearing bytes owned by one Student record.
     StudentRecord,
     /// Short-lived bytes used only during processing.
@@ -196,10 +196,12 @@ pub enum ObjectAddress {
         /// Closed, server-owned rendition identity.
         rendition: CourseBannerRendition,
     },
-    /// One normalized private rendition for an Instructor Profile thumbnail.
-    ProfileThumbnail {
-        /// Opaque delivery reference minted only by the server.
-        thumbnail: ProfileThumbnailReference,
+    /// One normalized private rendition for a self-owned Account Profile image.
+    ProfileImage {
+        /// Opaque role-neutral image reference minted only by the server.
+        image: ProfileImageReference,
+        /// Physical object-record identity.
+        object: ObjectId,
     },
     /// A course-owned Student Record Object.
     StudentRecord {
@@ -281,7 +283,7 @@ impl ObjectAddress {
             | Self::QuestionRender { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. }
-            | Self::ProfileThumbnail { .. } => ObjectStorageArea::PrivateContent,
+            | Self::ProfileImage { .. } => ObjectStorageArea::PrivateContent,
             Self::QuestionAsset { .. } => ObjectStorageArea::PublicAssets,
             Self::CourseBannerUpload { .. } => ObjectStorageArea::TempProcessing,
             Self::StudentRecord { .. } => ObjectStorageArea::StudentRecords,
@@ -305,7 +307,7 @@ impl ObjectAddress {
             Self::CourseBannerUpload { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. } => ObjectDataClass::CourseAppearance,
-            Self::ProfileThumbnail { .. } => ObjectDataClass::ProfileThumbnail,
+            Self::ProfileImage { .. } => ObjectDataClass::ProfileImage,
             Self::StudentRecord { .. } => ObjectDataClass::StudentRecord,
             Self::Temporary { .. } => ObjectDataClass::TemporaryProcessing,
         }
@@ -396,8 +398,10 @@ impl ObjectAddress {
                 rendition.as_str(),
                 self.object_id()
             ),
-            Self::ProfileThumbnail { thumbnail } => {
-                format!("profiles/thumbnails/{thumbnail}/{}", self.object_id())
+            Self::ProfileImage { image, object } => {
+                // ASVS 5.3.2: this storage path is constructed exclusively
+                // from server-owned typed identifiers, never a filename.
+                format!("profiles/images/{image}/{object}")
             }
             Self::StudentRecord { course, object } => {
                 format!("courses/{course}/records/{object}")
@@ -430,7 +434,7 @@ impl ObjectAddress {
                 banner,
                 rendition,
             } => course_banner_rendition_object_id(*course, *banner, *rendition),
-            Self::ProfileThumbnail { thumbnail } => profile_thumbnail_object_id(*thumbnail),
+            Self::ProfileImage { object, .. } => *object,
         }
     }
 
@@ -458,7 +462,7 @@ impl ObjectAddress {
             | Self::CourseBannerUpload { .. }
             | Self::CourseBannerSource { .. }
             | Self::CourseBannerRendition { .. }
-            | Self::ProfileThumbnail { .. }
+            | Self::ProfileImage { .. }
             | Self::StudentRecord { .. }
             | Self::Temporary { .. } => None,
         }
@@ -478,7 +482,7 @@ impl ObjectAddress {
                 | Self::RestrictedQuestionAsset { .. }
                 | Self::QuestionRender { .. }
                 | Self::CourseBannerRendition { .. }
-                | Self::ProfileThumbnail { .. }
+                | Self::ProfileImage { .. }
                 | Self::StudentRecord { .. }
         )
     }
@@ -525,20 +529,13 @@ pub fn course_banner_rendition_object_id(
     rendition: CourseBannerRendition,
 ) -> ObjectId {
     let rendition_uuid = match rendition {
-        CourseBannerRendition::Hero => uuid::Uuid::from_u128(1),
-        CourseBannerRendition::Card => uuid::Uuid::from_u128(2),
+        CourseBannerRendition::Banner => uuid::Uuid::from_u128(1),
     };
     domain_separated_object_id(
-        b"ple:course-banner-rendition:v1\0",
+        // `v2` is a direct preproduction cutover.  It prevents the retired
+        // Hero identity from aliasing the only Banner rendition.
+        b"ple:course-banner-rendition:v2\0",
         [course.as_uuid(), banner.as_uuid(), rendition_uuid],
-    )
-}
-
-/// Derives the immutable physical identity of a normalized profile thumbnail.
-pub fn profile_thumbnail_object_id(thumbnail: ProfileThumbnailReference) -> ObjectId {
-    domain_separated_object_id(
-        b"ple:profile-thumbnail:v1\0",
-        [thumbnail.as_uuid(), uuid::Uuid::nil(), uuid::Uuid::nil()],
     )
 }
 
@@ -603,366 +600,5 @@ pub fn published_import_archive_object_id(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use question_model::{QuestionId, QuestionRevisionNumber};
-    use uuid::Uuid;
-
-    fn question_revision(revision_number: u32) -> QuestionRevisionReference {
-        QuestionRevisionReference {
-            question_id: QuestionId::from_canonical_parts("ABCDEF", 'G')
-                .expect("canonical Question ID"),
-            revision_number: QuestionRevisionNumber::new(revision_number)
-                .expect("positive Question Revision Number"),
-        }
-    }
-
-    #[test]
-    fn source_objects_are_never_direct_delivery_targets() {
-        let source = ObjectAddress::QuestionSource {
-            question_revision: question_revision(2),
-            object: ObjectId::from_uuid(Uuid::from_u128(3)),
-        };
-        let asset = ObjectAddress::QuestionAsset {
-            question_revision: question_revision(2),
-            asset: QuestionAssetId::from_uuid(Uuid::from_u128(4)),
-            object: ObjectId::from_uuid(Uuid::from_u128(5)),
-        };
-
-        assert!(!source.may_issue_signed_url());
-        assert!(asset.may_issue_signed_url());
-    }
-
-    #[test]
-    fn only_immutable_question_assets_enter_the_public_delivery_domain() {
-        let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
-        let question_revision = question_revision(4);
-        let object = ObjectId::from_uuid(Uuid::from_u128(5));
-
-        let public_asset = ObjectAddress::QuestionAsset {
-            question_revision: question_revision.clone(),
-            asset: QuestionAssetId::from_uuid(Uuid::from_u128(6)),
-            object,
-        };
-        assert_eq!(public_asset.storage_area(), ObjectStorageArea::PublicAssets);
-        assert_eq!(
-            ObjectAddress::published_question_asset(
-                question_revision.clone(),
-                QuestionAssetId::from_uuid(Uuid::from_u128(60)),
-                object,
-            )
-            .storage_area(),
-            ObjectStorageArea::PrivateContent,
-            "Published Question assets must never enter the CDN-readable Object Storage Area"
-        );
-
-        for private_key in [
-            ObjectAddress::WorkspaceImportSource {
-                workspace,
-                import: WorkspaceImportId::from_uuid(Uuid::from_u128(7)),
-                object,
-            },
-            ObjectAddress::QuestionSource {
-                question_revision: question_revision.clone(),
-                object,
-            },
-            ObjectAddress::RestrictedQuestionAsset {
-                question_revision: question_revision.clone(),
-                asset: QuestionAssetId::from_uuid(Uuid::from_u128(61)),
-                object,
-            },
-            ObjectAddress::PublishedImportArchive {
-                question_revision: question_revision.clone(),
-                import: WorkspaceImportId::from_uuid(Uuid::from_u128(9)),
-                object,
-            },
-            ObjectAddress::QuestionRender {
-                question_revision: question_revision.clone(),
-                question_seed: QuestionSeed::new(1),
-                object,
-            },
-            ObjectAddress::CourseBannerSource {
-                course: CourseId::from_uuid(Uuid::from_u128(10)),
-                banner: CourseBannerReference::from_uuid(Uuid::from_u128(11)),
-            },
-        ] {
-            assert_eq!(
-                private_key.storage_area(),
-                ObjectStorageArea::PrivateContent,
-                "{private_key:?} must not be placed in the CDN-readable Object Storage Area"
-            );
-        }
-    }
-
-    #[test]
-    fn course_banner_keys_bind_scope_classification_and_signing() {
-        let course = CourseId::from_uuid(Uuid::from_u128(2));
-        let upload_reference = CourseBannerUploadReference::from_uuid(Uuid::from_u128(3));
-        let banner_reference = CourseBannerReference::from_uuid(Uuid::from_u128(4));
-        let upload = ObjectAddress::CourseBannerUpload {
-            course,
-            upload: upload_reference,
-        };
-        let source = ObjectAddress::CourseBannerSource {
-            course,
-            banner: banner_reference,
-        };
-        let banner = ObjectAddress::CourseBannerRendition {
-            course,
-            banner: banner_reference,
-            rendition: CourseBannerRendition::Hero,
-        };
-
-        assert_eq!(upload.storage_area(), ObjectStorageArea::TempProcessing);
-        assert_eq!(upload.question_revision(), None);
-        assert!(!upload.may_issue_signed_url());
-        assert_eq!(source.storage_area(), ObjectStorageArea::PrivateContent);
-        assert_eq!(source.question_revision(), None);
-        assert!(!source.may_issue_signed_url());
-        assert_eq!(banner.storage_area(), ObjectStorageArea::PrivateContent);
-        assert!(banner.may_issue_signed_url());
-        assert!(upload.path().contains(&course.to_string()));
-        assert!(upload.path().contains(&upload_reference.to_string()));
-        assert!(banner.path().contains(&course.to_string()));
-        assert!(banner.path().contains(&banner_reference.to_string()));
-        assert_ne!(upload.object_id(), banner.object_id());
-    }
-
-    #[test]
-    fn banner_object_identity_changes_with_course_and_route_id() {
-        let course = CourseId::from_uuid(Uuid::from_u128(2));
-        let banner = CourseBannerReference::from_uuid(Uuid::from_u128(3));
-        let base = course_banner_source_object_id(course, banner);
-        assert_ne!(
-            base,
-            course_banner_source_object_id(CourseId::from_uuid(Uuid::from_u128(12)), banner)
-        );
-        assert_ne!(
-            base,
-            course_banner_source_object_id(
-                course,
-                CourseBannerReference::from_uuid(Uuid::from_u128(13))
-            )
-        );
-    }
-
-    #[test]
-    fn banner_keys_round_trip_without_a_caller_supplied_object_id() {
-        let key = ObjectAddress::CourseBannerRendition {
-            course: CourseId::from_uuid(Uuid::from_u128(2)),
-            banner: CourseBannerReference::from_uuid(Uuid::from_u128(3)),
-            rendition: CourseBannerRendition::Card,
-        };
-        let encoded = serde_json::to_string(&key).expect("banner key should serialize");
-        let decoded: ObjectAddress =
-            serde_json::from_str(&encoded).expect("banner key should deserialize");
-
-        assert_eq!(decoded, key);
-        assert!(!encoded.contains("\"object\""));
-    }
-
-    #[test]
-    fn workspace_qti_archive_object_id_matches_golden() {
-        let actual = workspace_qti_archive_object_id(
-            WorkspaceId::from_uuid(Uuid::from_u128(2)),
-            WorkspaceImportId::from_uuid(Uuid::from_u128(3)),
-        );
-
-        assert_eq!(
-            actual,
-            workspace_qti_archive_object_id(
-                WorkspaceId::from_uuid(Uuid::from_u128(2)),
-                WorkspaceImportId::from_uuid(Uuid::from_u128(3)),
-            )
-        );
-    }
-
-    #[test]
-    fn workspace_qti_archive_identity_changes_with_workspace() {
-        let import = WorkspaceImportId::from_uuid(Uuid::from_u128(3));
-
-        assert_ne!(
-            workspace_qti_archive_object_id(WorkspaceId::from_uuid(Uuid::from_u128(2)), import),
-            workspace_qti_archive_object_id(WorkspaceId::from_uuid(Uuid::from_u128(12)), import)
-        );
-    }
-
-    #[test]
-    fn workspace_qti_archive_identity_changes_with_import() {
-        let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
-
-        assert_ne!(
-            workspace_qti_archive_object_id(
-                workspace,
-                WorkspaceImportId::from_uuid(Uuid::from_u128(3))
-            ),
-            workspace_qti_archive_object_id(
-                workspace,
-                WorkspaceImportId::from_uuid(Uuid::from_u128(13))
-            )
-        );
-    }
-
-    #[test]
-    fn workspace_qti_archive_uses_private_workspace_import_source_key() {
-        let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
-        let import = WorkspaceImportId::from_uuid(Uuid::from_u128(3));
-        let object = workspace_qti_archive_object_id(workspace, import);
-        let key = ObjectAddress::WorkspaceImportSource {
-            workspace,
-            import,
-            object,
-        };
-
-        assert_eq!(
-            key.path(),
-            format!("workspaces/{workspace}/imports/{import}/source/{object}")
-        );
-        assert_eq!(key.object_id(), object);
-        assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
-        assert_eq!(key.question_revision(), None);
-        assert!(!key.may_issue_signed_url());
-    }
-
-    #[test]
-    fn published_import_archive_object_id_matches_golden() {
-        let actual = published_import_archive_object_id(
-            &question_revision(3),
-            WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
-            Sha256Checksum::compute(b"archive fixture"),
-        );
-
-        assert_eq!(
-            actual,
-            published_import_archive_object_id(
-                &question_revision(3),
-                WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
-                Sha256Checksum::compute(b"archive fixture"),
-            )
-        );
-    }
-
-    #[test]
-    fn published_import_archive_key_has_distinct_path_and_private_classification() {
-        let key = ObjectAddress::PublishedImportArchive {
-            question_revision: question_revision(3),
-            import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
-            object: ObjectId::from_uuid(Uuid::from_u128(5)),
-        };
-
-        assert_eq!(
-            key.path(),
-            "questions/ABCDEFG/versions/3/imports/00000000-0000-0000-0000-000000000004/archive/00000000-0000-0000-0000-000000000005"
-        );
-        assert_eq!(key.storage_area(), ObjectStorageArea::PrivateContent);
-        assert_eq!(key.question_revision(), Some(&question_revision(3)));
-        assert!(!key.may_issue_signed_url());
-    }
-
-    #[test]
-    fn every_archive_identity_input_changes_the_object_id() {
-        let reference = question_revision(3);
-        let import = WorkspaceImportId::from_uuid(Uuid::from_u128(4));
-        let archive = Sha256Checksum::compute(b"archive fixture");
-        let base = published_import_archive_object_id(&reference, import, archive);
-        assert_ne!(
-            base,
-            published_import_archive_object_id(
-                &QuestionRevisionReference {
-                    question_id: QuestionId::from_canonical_parts("BCDEFG", 'H')
-                        .expect("canonical Question ID"),
-                    revision_number: reference.revision_number,
-                },
-                import,
-                archive
-            )
-        );
-        assert_ne!(
-            base,
-            published_import_archive_object_id(&question_revision(13), import, archive)
-        );
-        assert_ne!(
-            base,
-            published_import_archive_object_id(
-                &reference,
-                WorkspaceImportId::from_uuid(Uuid::from_u128(14)),
-                archive
-            )
-        );
-        assert_ne!(
-            base,
-            published_import_archive_object_id(
-                &reference,
-                import,
-                Sha256Checksum::compute(b"different archive")
-            )
-        );
-    }
-
-    #[test]
-    fn published_import_archive_address_round_trips_through_serde() {
-        let address = ObjectAddress::PublishedImportArchive {
-            question_revision: question_revision(3),
-            import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
-            object: ObjectId::from_uuid(Uuid::from_u128(5)),
-        };
-
-        let encoded = serde_json::to_string(&address).expect("Object Address should serialize");
-        let decoded: ObjectAddress =
-            serde_json::from_str(&encoded).expect("Object Address should deserialize");
-        assert_eq!(decoded, address);
-        assert!(encoded.contains("publishedImportArchive"));
-        assert!(encoded.contains("\"questionId\":\"ABCDEFG\""));
-        assert!(!encoded.contains("ABC-DEFG"));
-    }
-
-    #[test]
-    fn every_published_question_address_uses_compact_question_id_json() {
-        let revision = question_revision(3);
-        let object = ObjectId::from_uuid(Uuid::from_u128(5));
-        let addresses = [
-            ObjectAddress::QuestionSource {
-                question_revision: revision.clone(),
-                object,
-            },
-            ObjectAddress::PublishedImportArchive {
-                question_revision: revision.clone(),
-                import: WorkspaceImportId::from_uuid(Uuid::from_u128(4)),
-                object,
-            },
-            ObjectAddress::QuestionAsset {
-                question_revision: revision.clone(),
-                asset: QuestionAssetId::from_uuid(Uuid::from_u128(6)),
-                object,
-            },
-            ObjectAddress::RestrictedQuestionAsset {
-                question_revision: revision.clone(),
-                asset: QuestionAssetId::from_uuid(Uuid::from_u128(7)),
-                object,
-            },
-            ObjectAddress::QuestionRender {
-                question_revision: revision,
-                question_seed: QuestionSeed::new(8),
-                object,
-            },
-        ];
-
-        for address in addresses {
-            let encoded = serde_json::to_string(&address).expect("Object Address should serialize");
-            assert!(encoded.contains("\"questionId\":\"ABCDEFG\""));
-            assert!(!encoded.contains("ABC-DEFG"));
-            assert_eq!(
-                serde_json::from_str::<ObjectAddress>(&encoded)
-                    .expect("compact Object Address should deserialize"),
-                address
-            );
-        }
-    }
-
-    #[test]
-    fn object_address_rejects_display_question_id_json() {
-        let encoded = r#"{"kind":"questionSource","questionRevision":{"questionId":"ABC-DEFG","revisionNumber":3},"object":"00000000-0000-0000-0000-000000000005"}"#;
-
-        assert!(serde_json::from_str::<ObjectAddress>(encoded).is_err());
-    }
-}
+#[path = "bucket_tests.rs"]
+mod tests;

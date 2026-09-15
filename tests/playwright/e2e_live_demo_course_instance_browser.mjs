@@ -48,6 +48,12 @@ try {
   await page.getByText("1 fixed Question selected in order.").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "Create Blueprint Course" }).click();
   await page.waitForURL(/\/blueprint-courses\/BP-[1-9][0-9]*$/u);
+  await page.getByRole("button", { name: "Publish Blueprint Course" }).click();
+  await page
+    .getByText(
+      "Blueprint Course published. Instructors can now browse and adopt its current Revision.",
+    )
+    .waitFor();
   await page
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })

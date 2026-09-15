@@ -108,6 +108,7 @@ pub struct CompiledPleQuestionJson {
     presentation: PleQuestionJsonPresentation,
     private: PleQuestionJsonPrivateGrading,
     question_hint: Option<QuestionHint>,
+    author_content: Option<question_model::AuthorContentPresentation>,
 }
 
 impl CompiledPleQuestionJson {
@@ -125,6 +126,11 @@ impl CompiledPleQuestionJson {
     /// Private Grading.
     pub fn question_hint(&self) -> Option<&QuestionHint> {
         self.question_hint.as_ref()
+    }
+
+    /// Returns the answer-free isolated author-content descriptor, if present.
+    pub fn author_content(&self) -> Option<&question_model::AuthorContentPresentation> {
+        self.author_content.as_ref()
     }
 }
 

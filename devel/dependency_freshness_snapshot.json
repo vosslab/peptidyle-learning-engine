@@ -1,0 +1,420 @@
+{
+  "schema_version": 1,
+  "snapshot_date": "2026-09-14",
+  "max_snapshot_age_days": 30,
+  "sources": {
+    "cargo": "https://crates.io/",
+    "node": "https://registry.npmjs.org/",
+    "pypi": "https://pypi.org/"
+  },
+  "cargo": {
+    "anyhow": {
+      "version": "1.0.104",
+      "manifests": [
+        "crates/project-tools/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "async-trait": {
+      "version": "0.1.92",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "aws-config": {
+      "version": "1.12.0",
+      "manifests": [
+        "crates/objects/Cargo.toml"
+      ]
+    },
+    "aws-sdk-s3": {
+      "version": "1.147.0",
+      "manifests": [
+        "crates/objects/Cargo.toml"
+      ]
+    },
+    "axum": {
+      "version": "0.8.9",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "axum-extra": {
+      "version": "0.12.6",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "base64": {
+      "version": "0.23.1",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/qti/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/question_model/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "bigdecimal": {
+      "version": "0.4.10",
+      "manifests": [
+        "crates/learning-data-access/Cargo.toml"
+      ]
+    },
+    "chacha20poly1305": {
+      "version": "0.11.0",
+      "manifests": [
+        "crates/learning-data-access/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "chrono": {
+      "version": "0.4.45",
+      "manifests": [
+        "crates/domain/Cargo.toml",
+        "crates/question_model/Cargo.toml"
+      ]
+    },
+    "chrono-tz": {
+      "version": "0.10.4",
+      "manifests": [
+        "crates/domain/Cargo.toml",
+        "crates/question_model/Cargo.toml"
+      ]
+    },
+    "cookie": {
+      "version": "0.18.2",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "csv": {
+      "version": "1.4.0",
+      "manifests": [
+        "crates/project-tools/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "flate2": {
+      "version": "1.1.10",
+      "manifests": [
+        "crates/export/Cargo.toml"
+      ]
+    },
+    "futures-core": {
+      "version": "0.3.34",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "getrandom": {
+      "version": "0.4.3",
+      "manifests": [
+        "crates/learning-data-access/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/question_model/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "hmac": {
+      "version": "0.13.0",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "html5ever": {
+      "version": "0.40.1",
+      "manifests": [
+        "crates/adapters/qti/Cargo.toml"
+      ]
+    },
+    "idna": {
+      "version": "1.1.0",
+      "manifests": [
+        "crates/learning-data-access/Cargo.toml"
+      ]
+    },
+    "image": {
+      "version": "0.25.10",
+      "manifests": [
+        "crates/adapters/qti/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "lettre": {
+      "version": "0.11.23",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "libc": {
+      "version": "0.2.189",
+      "manifests": [
+        "crates/acceptance-runtime/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "percent-encoding": {
+      "version": "2.3.2",
+      "manifests": [
+        "crates/project-tools/Cargo.toml"
+      ]
+    },
+    "rand_chacha": {
+      "version": "0.10.0",
+      "manifests": [
+        "crates/domain/Cargo.toml"
+      ]
+    },
+    "reqwest": {
+      "version": "0.13.5",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "serde": {
+      "version": "1.0.229",
+      "manifests": [
+        "crates/acceptance-runtime/Cargo.toml",
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/ple/Cargo.toml",
+        "crates/adapters/qti/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/browser-api-contract/Cargo.toml",
+        "crates/domain/Cargo.toml",
+        "crates/export/Cargo.toml",
+        "crates/grading/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/question_model/Cargo.toml",
+        "crates/server/Cargo.toml",
+        "crates/wasm/Cargo.toml"
+      ]
+    },
+    "serde_json": {
+      "version": "1.0.151",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/ple/Cargo.toml",
+        "crates/adapters/qti/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/browser-api-contract/Cargo.toml",
+        "crates/domain/Cargo.toml",
+        "crates/export/Cargo.toml",
+        "crates/grading/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/question_model/Cargo.toml",
+        "crates/server/Cargo.toml",
+        "crates/wasm/Cargo.toml"
+      ]
+    },
+    "serde_yaml_ng": {
+      "version": "0.10.0",
+      "manifests": [
+        "crates/acceptance-runtime/Cargo.toml",
+        "crates/project-tools/Cargo.toml"
+      ]
+    },
+    "sha1": {
+      "version": "0.11.0",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "sha2": {
+      "version": "0.11.0",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/ple/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/domain/Cargo.toml",
+        "crates/grading/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/question_model/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "sqlx": {
+      "version": "0.9.0",
+      "manifests": [
+        "crates/learning-data-access/Cargo.toml",
+        "crates/project-tools/Cargo.toml"
+      ]
+    },
+    "subtle": {
+      "version": "2.6.1",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "syn": {
+      "version": "3.0.5",
+      "manifests": [
+        "crates/project-tools/Cargo.toml"
+      ]
+    },
+    "tokio": {
+      "version": "1.53.1",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/ple/Cargo.toml",
+        "crates/adapters/qti/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "tower": {
+      "version": "0.5.3",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "tracing": {
+      "version": "0.1.44",
+      "manifests": [
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "tracing-subscriber": {
+      "version": "0.3.23",
+      "manifests": [
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "url": {
+      "version": "2.5.8",
+      "manifests": [
+        "crates/acceptance-runtime/Cargo.toml",
+        "crates/adapters/ple/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "uuid": {
+      "version": "1.26.1",
+      "manifests": [
+        "crates/adapters/imathas/Cargo.toml",
+        "crates/adapters/ple/Cargo.toml",
+        "crates/adapters/qti/Cargo.toml",
+        "crates/adapters/webwork/Cargo.toml",
+        "crates/domain/Cargo.toml",
+        "crates/grading/Cargo.toml",
+        "crates/learning-data-access/Cargo.toml",
+        "crates/objects/Cargo.toml",
+        "crates/project-tools/Cargo.toml",
+        "crates/question_model/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "wasm-bindgen": {
+      "version": "0.2.128",
+      "manifests": [
+        "crates/domain/Cargo.toml",
+        "crates/question_model/Cargo.toml",
+        "crates/wasm/Cargo.toml"
+      ]
+    },
+    "wasm-bindgen-cli-support": {
+      "version": "0.2.128",
+      "manifests": [
+        "crates/project-tools/Cargo.toml"
+      ]
+    },
+    "wasm-bindgen-test": {
+      "version": "0.3.78",
+      "manifests": [
+        "crates/wasm/Cargo.toml"
+      ]
+    },
+    "xmlparser": {
+      "version": "0.13.6",
+      "manifests": [
+        "crates/adapters/qti/Cargo.toml"
+      ]
+    },
+    "zeroize": {
+      "version": "1.9.0",
+      "manifests": [
+        "crates/learning-data-access/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    },
+    "zip": {
+      "version": "8.6.0",
+      "manifests": [
+        "crates/adapters/qti/Cargo.toml",
+        "crates/server/Cargo.toml"
+      ]
+    }
+  },
+  "cargo_exceptions": {},
+  "node": {
+    "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "10.0.1",
+    "@fortawesome/free-solid-svg-icons": "7.3.1",
+    "@playwright/test": "1.63.0",
+    "@rdkit/rdkit": "2026.3.6",
+    "@solidjs/router": "1.0.0",
+    "@types/node": "26.5.1",
+    "esbuild": "0.28.2",
+    "esbuild-plugin-solid": "0.6.0",
+    "eslint": "10.10.0",
+    "globals": "17.12.0",
+    "playwright": "1.63.0",
+    "prettier": "3.9.6",
+    "solid-js": "1.9.15",
+    "temml": "0.13.5",
+    "tsx": "4.23.13",
+    "typescript": "7.0.2",
+    "typescript-eslint": "8.70.0"
+  },
+  "pypi": {
+    "pip_requirements-dev.txt:bandit": "1.9.4",
+    "pip_requirements-dev.txt:graphifyy": "0.9.61",
+    "pip_requirements-dev.txt:lxml": "6.1.3",
+    "pip_requirements-dev.txt:packaging": "26.3",
+    "pip_requirements-dev.txt:pyflakes": "3.4.0",
+    "pip_requirements-dev.txt:pytest": "9.1.1",
+    "pip_requirements-dev.txt:rich": "15.0.0",
+    "pip_requirements-dev.txt:tree-sitter": "0.26.0",
+    "pip_requirements-dev.txt:tree-sitter-rust": "0.24.2",
+    "pip_requirements.txt:podman-compose": "1.6.0",
+    "pip_requirements.txt:py-applescript": "1.0.3",
+    "pip_requirements.txt:pyyaml": "6.0.3"
+  },
+  "exceptions": {
+    "typescript": {
+      "snapshot_date": "2026-09-14",
+      "blocked_latest": "7.0.2",
+      "supported_security_release": "6.0.3",
+      "blocker": "typescript-eslint@8.70.0 publishes peer dependency typescript >=4.8.4 <6.1.0 in the npm registry.",
+      "manifest_requirement": ">=6.0.3 <6.1.0"
+    }
+  }
+}

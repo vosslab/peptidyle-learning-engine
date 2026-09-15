@@ -2,11 +2,12 @@
 
 import type { LiveDemoClient } from "../live_demo";
 import {
+  decodeLiveDemoSelection,
   decodeLiveDemoSelectedAccount,
   decodeSeededDemoAccounts,
   decodeSeededDemoPersona,
 } from "../live_demo";
-import { requestJson, type ApiFetch } from "./request";
+import { encodedId, requestJson, type ApiFetch } from "./request";
 
 const ACCOUNTS_PATH = "/api/auth/live-demo/accounts";
 
@@ -19,16 +20,18 @@ export function createLiveDemoClient(
       requestJson(fetchImplementation, basePath, ACCOUNTS_PATH, decodeSeededDemoAccounts),
     selectSeededDemoAccount: (persona): ReturnType<LiveDemoClient["selectSeededDemoAccount"]> => {
       const selectedPersona = decodeSeededDemoPersona(persona);
-      return requestJson(
+      return requestJson(fetchImplementation, basePath, ACCOUNTS_PATH, decodeLiveDemoSelection, {
+        method: "POST",
+        body: { persona: selectedPersona },
+      });
+    },
+    completeSeededDemoSysadminTotp: (attestationId, code) =>
+      requestJson(
         fetchImplementation,
         basePath,
-        ACCOUNTS_PATH,
+        `/api/auth/sysadmin-totp/complete/${encodedId(attestationId)}`,
         decodeLiveDemoSelectedAccount,
-        {
-          method: "POST",
-          body: { persona: selectedPersona },
-        },
-      );
-    },
+        { method: "POST", body: { code } },
+      ),
   };
 }

@@ -1,5 +1,6 @@
 // ribbon_catalog.ts - declared Ribbon navigation inventory, independent of capability admission.
 
+import type { ProductRole } from "../../generated/api/ProductRole";
 import { type RibbonTabId, type RibbonTaskGroupId, type RouteId } from "../route_contract";
 import type { RouteParamName } from "../navigation/route_params";
 
@@ -24,7 +25,7 @@ export type RibbonContextControlGlyphKey = "profile";
 export interface RibbonContextControlCatalogEntry {
   readonly id: RibbonContextControlId;
   readonly label: string;
-  readonly productRole: "instructor";
+  readonly productRoles: ReadonlyArray<ProductRole>;
   readonly availability: RibbonContextControlAvailability;
   readonly glyph: RibbonContextControlGlyphKey;
 }
@@ -32,7 +33,6 @@ export interface RibbonContextControlCatalogEntry {
 /** The closed identities for destinations whose backend capability has not landed. */
 export type FutureRibbonDestinationId =
   | "instructorAccounts"
-  | "supportRoster"
   | "blueprintUpdates"
   | "courseSetup"
   | "myActiveCourses"
@@ -41,7 +41,7 @@ export type FutureRibbonDestinationId =
   | "myQuestions"
   | "starredQuestions"
   | "watchedQuestions"
-  | "assignmentTemplates"
+  | "assessmentTemplates"
   | "teachingOperations"
   | "gradeSettings";
 
@@ -76,25 +76,25 @@ export type RibbonTaskId =
   | "watched"
   | "searchQuestionLibrary"
   | "browseQuestionLibrary"
-  | "assignmentsDueSoon"
-  | "assignmentTemplates"
-  | "assignmentOverview"
-  | "assignmentQuestions"
-  | "assignmentPolicies"
-  | "assignmentStudentView"
+  | "assessmentsDueSoon"
+  | "assessmentTemplates"
+  | "assessmentOverview"
+  | "assessmentQuestions"
+  | "assessmentPolicies"
+  | "assessmentStudentView"
   | "gradeSettings"
   | "appearance"
-  | "backToAssignments";
+  | "backToAssessments";
 
 export type RibbonDestinationId = RibbonTabId | RibbonTaskId;
 
 export type RibbonTaskArea =
   | "instructorCourses"
   | "instructorQuestions"
-  | "instructorAssignments"
-  | "assignment"
+  | "instructorAssessments"
+  | "assessment"
   | "courseSetup"
-  | "assignmentAttempt";
+  | "assessmentAttempt";
 
 export interface RibbonTaskCatalogEntry extends RibbonCatalogControl<RibbonTaskId> {
   readonly taskGroup: RibbonTaskGroupId;
@@ -107,13 +107,13 @@ const pairedIconFlags = {
 } as const;
 
 /**
- * Instructor Profile is a backed Instructor account-endcap Context Control.
+ * Profile is a backed, authenticated-self account-endcap Context Control.
  */
 export const RIBBON_CONTEXT_CONTROL_CATALOG = [
   {
     id: "profile",
     label: "Profile",
-    productRole: "instructor",
+    productRoles: ["student", "instructor", "sysadmin"],
     availability: "Available",
     glyph: "profile",
   },
@@ -145,9 +145,9 @@ export const TAB_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "productAssignments",
-    label: "Assignments",
-    destination: { kind: "route", routeId: "assignmentsDueSoon" },
+    id: "productAssessments",
+    label: "Assessments",
+    destination: { kind: "route", routeId: "assessmentsDueSoon" },
     requiredParams: [],
     role: "primary",
     priority: "critical",
@@ -155,9 +155,9 @@ export const TAB_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "assignments",
-    label: "Assignments",
-    destination: { kind: "route", routeId: "courseAssignments" },
+    id: "assessments",
+    label: "Assessments",
+    destination: { kind: "route", routeId: "courseAssessments" },
     requiredParams: ["courseRef"],
     role: "primary",
     priority: "critical",
@@ -165,8 +165,8 @@ export const TAB_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "studentAssignments",
-    label: "Assignments",
+    id: "studentAssessments",
+    label: "Assessments",
     destination: { kind: "route", routeId: "studentCourseLanding" },
     requiredParams: ["courseRef"],
     role: "primary",
@@ -227,8 +227,8 @@ export const TAB_CATALOG = [
   {
     id: "attempt",
     label: "Attempt",
-    destination: { kind: "route", routeId: "assignmentAttempt" },
-    requiredParams: ["assignmentAttemptRef"],
+    destination: { kind: "route", routeId: "assessmentAttempt" },
+    requiredParams: ["assessmentAttemptRef"],
     role: "primary",
     priority: "critical",
     presentation: "standard",
@@ -241,16 +241,6 @@ export const TAB_CATALOG = [
     requiredParams: [],
     role: "primary",
     priority: "critical",
-    presentation: "standard",
-    ...pairedIconFlags,
-  },
-  {
-    id: "supportRoster",
-    label: "Scoped Support",
-    destination: { kind: "route", routeId: "supportRoster" },
-    requiredParams: [],
-    role: "supporting",
-    priority: "normal",
     presentation: "standard",
     ...pairedIconFlags,
   },
@@ -382,72 +372,72 @@ export const RIBBON_TASK_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "assignmentsDueSoon",
-    label: "Assignments Due Soon",
-    destination: { kind: "route", routeId: "assignmentsDueSoon" },
+    id: "assessmentsDueSoon",
+    label: "Assessments Due Soon",
+    destination: { kind: "route", routeId: "assessmentsDueSoon" },
     requiredParams: [],
-    taskGroup: "instructorAssignments",
-    area: "instructorAssignments",
+    taskGroup: "instructorAssessments",
+    area: "instructorAssessments",
     role: "primary",
     priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "assignmentTemplates",
-    label: "My Assignment Templates",
-    destination: { kind: "future", futureId: "assignmentTemplates" },
+    id: "assessmentTemplates",
+    label: "My Assessment Templates",
+    destination: { kind: "future", futureId: "assessmentTemplates" },
     requiredParams: [],
-    taskGroup: "instructorAssignments",
-    area: "instructorAssignments",
+    taskGroup: "instructorAssessments",
+    area: "instructorAssessments",
     role: "supporting",
     priority: "normal",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "assignmentOverview",
+    id: "assessmentOverview",
     label: "Overview",
-    destination: { kind: "route", routeId: "assignmentWorkspaceOverview" },
-    requiredParams: ["courseRef", "assignmentRef"],
-    taskGroup: "assignment",
-    area: "assignment",
+    destination: { kind: "route", routeId: "assessmentWorkspaceOverview" },
+    requiredParams: ["courseRef", "assessmentRef"],
+    taskGroup: "assessment",
+    area: "assessment",
     role: "primary",
     priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "assignmentQuestions",
+    id: "assessmentQuestions",
     label: "Questions",
-    destination: { kind: "route", routeId: "assignmentWorkspaceQuestions" },
-    requiredParams: ["courseRef", "assignmentRef"],
-    taskGroup: "assignment",
-    area: "assignment",
+    destination: { kind: "route", routeId: "assessmentWorkspaceQuestions" },
+    requiredParams: ["courseRef", "assessmentRef"],
+    taskGroup: "assessment",
+    area: "assessment",
     role: "primary",
     priority: "critical",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "assignmentPolicies",
+    id: "assessmentPolicies",
     label: "Policies",
-    destination: { kind: "route", routeId: "assignmentWorkspacePolicies" },
-    requiredParams: ["courseRef", "assignmentRef"],
-    taskGroup: "assignment",
-    area: "assignment",
+    destination: { kind: "route", routeId: "assessmentWorkspacePolicies" },
+    requiredParams: ["courseRef", "assessmentRef"],
+    taskGroup: "assessment",
+    area: "assessment",
     role: "supporting",
     priority: "normal",
     presentation: "standard",
     ...pairedIconFlags,
   },
   {
-    id: "assignmentStudentView",
+    id: "assessmentStudentView",
     label: "Student View",
-    destination: { kind: "route", routeId: "assignmentWorkspaceStudentView" },
-    requiredParams: ["courseRef", "assignmentRef"],
-    taskGroup: "assignment",
-    area: "assignment",
+    destination: { kind: "route", routeId: "assessmentWorkspaceStudentView" },
+    requiredParams: ["courseRef", "assessmentRef"],
+    taskGroup: "assessment",
+    area: "assessment",
     role: "supporting",
     priority: "normal",
     presentation: "standard",
@@ -478,12 +468,12 @@ export const RIBBON_TASK_CATALOG = [
     ...pairedIconFlags,
   },
   {
-    id: "backToAssignments",
-    label: "Back to Assignments",
-    destination: { kind: "route", routeId: "assignmentOverview" },
-    requiredParams: ["courseRef", "assignmentRef"],
-    taskGroup: "assignmentAttempt",
-    area: "assignmentAttempt",
+    id: "backToAssessments",
+    label: "Back to Assessments",
+    destination: { kind: "route", routeId: "assessmentOverview" },
+    requiredParams: ["courseRef", "assessmentRef"],
+    taskGroup: "assessmentAttempt",
+    area: "assessmentAttempt",
     role: "primary",
     priority: "critical",
     presentation: "standard",

@@ -16,6 +16,7 @@ import yaml
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
 import local_stack_control.lifecycle
+import local_stack_control.local_totp_authenticator
 import local_stack_control.models
 import local_stack_control.process
 
@@ -201,6 +202,11 @@ def write_private_target(
 	question_path = directory / "question-id-secret"
 	_write_private_file(invitation_path, random_secret32())
 	_write_private_file(question_path, random_secret32())
+	totp_artifact_path = local_stack_control.local_totp_authenticator.bootstrap_local_totp_material(
+		directory
+	)
+	totp_seed_path = directory / local_stack_control.local_totp_authenticator.MORGAN_TOTP_SEED_FILE
+	totp_key_path = directory / local_stack_control.local_totp_authenticator.MORGAN_TOTP_SEED_KEY_FILE
 	renderer_version_path = directory / "question-renderer-version"
 	environment_path = directory / "env.local"
 	application_image_setting = ""
@@ -226,6 +232,9 @@ def write_private_target(
 		"PLE_STORAGE_TOPOLOGY=disposable-local\n"
 		f"PLE_INVITATION_TOKEN_SECRET_HOST_FILE={invitation_path}\n"
 		f"PLE_QUESTION_ID_SECRET_HOST_FILE={question_path}\n"
+		f"PLE_LOCAL_SYSADMIN_TOTP_SEED_HOST_FILE={totp_seed_path}\n"
+		f"PLE_LOCAL_SYSADMIN_TOTP_SEED_KEY_HOST_FILE={totp_key_path}\n"
+		f"PLE_LOCAL_SYSADMIN_TOTP_AUTHENTICATOR_ARTIFACT={totp_artifact_path}\n"
 		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID=00000000-0000-0000-0000-000000000101\n"
 		"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID=00000000-0000-0000-0000-000000000102\n"
 		"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID=00000000-0000-0000-0000-000000000103\n"

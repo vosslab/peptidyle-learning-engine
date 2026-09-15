@@ -307,7 +307,7 @@ pub(super) fn imathas_question_backend_state_aad(
         session.reference.as_uuid().as_bytes().as_slice(),
         session.account.as_uuid().as_bytes().as_slice(),
         session.course.as_uuid().as_bytes().as_slice(),
-        session.assignment.as_uuid().as_bytes().as_slice(),
+        session.assessment.as_uuid().as_bytes().as_slice(),
         session
             .grading_context
             .question_attempt()

@@ -1,0 +1,29 @@
+/* Shared role colors keep demo selection and the Ribbon identity consistent. */
+[data-product-role="instructor"] {
+  --ple-role-ink: #07594f;
+  --ple-role-surface: #d9f2e9;
+  --ple-role-accent: #168575;
+}
+
+[data-product-role="student"] {
+  --ple-role-ink: #563183;
+  --ple-role-surface: #eee5fa;
+  --ple-role-accent: #8861b5;
+}
+
+[data-product-role="sysadmin"] {
+  --ple-role-ink: #8d291d;
+  --ple-role-surface: #ffe5df;
+  --ple-role-accent: #ff6347;
+}
+
+.live-demo-persona-action[data-product-role],
+.ple-app-ribbon__product-role[data-product-role] {
+  color: var(--ple-role-ink);
+  background: var(--ple-role-surface);
+  border-inline-start: 4px solid var(--ple-role-accent);
+}
+
+.live-demo-persona-action[data-product-role] small {
+  color: var(--ple-role-ink);
+}

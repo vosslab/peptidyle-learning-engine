@@ -1,14 +1,14 @@
-//! Server-only Question Backend evaluation and Assignment-owned scoring records.
+//! Server-only Question Backend evaluation and Assessment-owned scoring records.
 
 use serde::{Deserialize, Serialize};
 
 use super::IssuedQuestion;
-use crate::assignment::{AssignmentEntryScoringRule, AssignmentPointValue};
+use crate::assessment::{AssessmentEntryScoringRule, AssessmentPointValue};
 
-/// Server-only Question Backend evaluation before Assignment scoring.
+/// Server-only Question Backend evaluation before Assessment scoring.
 ///
 /// This deliberately has no Serde implementation: normalized credit is a
-/// trusted backend-to-assignment fact, not a browser contract.
+/// trusted backend-to-assessment fact, not a browser contract.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct QuestionEvaluation {
     correct: bool,
@@ -16,8 +16,8 @@ pub struct QuestionEvaluation {
 }
 
 /// Immutable credit outcome retained after a Question Backend evaluates a
-/// submitted response. It deliberately contains no Assignment points: points
-/// are current Assignment configuration and are applied when a score is read.
+/// submitted response. It deliberately contains no Assessment points: points
+/// are current Assessment configuration and are applied when a score is read.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RecordedCredit {
     normalized_credit: f64,
@@ -47,16 +47,16 @@ impl RecordedCredit {
     /// treatment. This is pure calculation and never contacts a backend.
     pub fn score(
         self,
-        scoring_rule: AssignmentEntryScoringRule,
-        point_value: AssignmentPointValue,
+        scoring_rule: AssessmentEntryScoringRule,
+        point_value: AssessmentPointValue,
     ) -> GradingResult {
         let points_possible = point_value.scaled() as f64 / 10_000.0;
         let points_earned = match scoring_rule {
-            AssignmentEntryScoringRule::Normal | AssignmentEntryScoringRule::ExtraCredit => {
+            AssessmentEntryScoringRule::Normal | AssessmentEntryScoringRule::ExtraCredit => {
                 points_possible * self.normalized_credit
             }
-            AssignmentEntryScoringRule::FullCredit => points_possible,
-            AssignmentEntryScoringRule::Excluded => 0.0,
+            AssessmentEntryScoringRule::FullCredit => points_possible,
+            AssessmentEntryScoringRule::Excluded => 0.0,
         };
         GradingResult {
             correct: self.is_fully_correct(),
@@ -106,7 +106,7 @@ impl std::error::Error for QuestionEvaluationError {}
 
 /// A grading result without an answer key.
 ///
-/// The server may disclose this according to the assignment feedback policy;
+/// The server may disclose this according to the assessment feedback policy;
 /// the correct response and Question Grader code remain in `grading`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -120,7 +120,7 @@ pub struct GradingResult {
 }
 
 impl GradingResult {
-    /// Applies the exact issued Assignment Entry scoring policy to one backend evaluation.
+    /// Applies the exact issued Assessment Entry scoring policy to one backend evaluation.
     pub fn from_issued_question_evaluation(
         issued_question: &IssuedQuestion,
         evaluation: QuestionEvaluation,
@@ -137,24 +137,24 @@ impl GradingResult {
 mod tests {
     use super::*;
     use crate::{
-        AssignmentAttemptId, AssignmentEntryId, AssignmentPointValue, IssuedQuestionId,
+        AssessmentAttemptId, AssessmentEntryId, AssessmentPointValue, IssuedQuestionId,
         QuestionAttemptReproductionDetails, QuestionBackendVersion, QuestionGraderVersion,
-        QuestionId, QuestionRevisionNumber, QuestionRevisionReference, QuestionSeed,
+        QuestionId, QuestionRevisionNumber, QuestionRevisionReference, QuestionSourceSelection,
     };
     use uuid::Uuid;
 
-    fn issued_question(scoring_rule: AssignmentEntryScoringRule) -> IssuedQuestion {
+    fn issued_question(scoring_rule: AssessmentEntryScoringRule) -> IssuedQuestion {
         IssuedQuestion {
             id: IssuedQuestionId::from_uuid(Uuid::from_u128(1)),
-            assignment_attempt: AssignmentAttemptId::from_uuid(Uuid::from_u128(2)),
-            assignment_entry: AssignmentEntryId::from_uuid(Uuid::from_u128(3)),
-            assignment_content_entry_index: 0,
+            assessment_attempt: AssessmentAttemptId::from_uuid(Uuid::from_u128(2)),
+            assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
+            assessment_content_entry_index: 0,
             issued_position: 0,
             reference: QuestionRevisionReference {
-                question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("question ID"),
+                question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
-            question_seed: QuestionSeed::new(1),
+            source_selection: QuestionSourceSelection::Static,
             reproduction_details: QuestionAttemptReproductionDetails {
                 backend: QuestionBackendVersion {
                     name: "ple".to_string(),
@@ -170,22 +170,22 @@ mod tests {
                 },
                 rendered_question_sha256: "0".repeat(64),
             },
-            point_value: AssignmentPointValue::from_whole(8),
+            point_value: AssessmentPointValue::from_whole(8),
             scoring_rule,
             question_statistics_eligibility: true,
             question_pool_selection: None,
-            question_pool_item: None,
+            pool_revision_member: None,
         }
     }
 
     #[test]
-    fn issued_question_scoring_owns_every_assignment_treatment() {
+    fn issued_question_scoring_owns_every_assessment_treatment() {
         let evaluation = QuestionEvaluation::new(false, 0.5).expect("normalized credit");
         let cases = [
-            (AssignmentEntryScoringRule::Normal, 4.0, 8.0),
-            (AssignmentEntryScoringRule::FullCredit, 8.0, 8.0),
-            (AssignmentEntryScoringRule::ExtraCredit, 4.0, 8.0),
-            (AssignmentEntryScoringRule::Excluded, 0.0, 8.0),
+            (AssessmentEntryScoringRule::Normal, 4.0, 8.0),
+            (AssessmentEntryScoringRule::FullCredit, 8.0, 8.0),
+            (AssessmentEntryScoringRule::ExtraCredit, 4.0, 8.0),
+            (AssessmentEntryScoringRule::Excluded, 0.0, 8.0),
         ];
         for (rule, points_earned, points_possible) in cases {
             assert_eq!(
@@ -214,14 +214,14 @@ mod tests {
         let recorded = RecordedCredit::new(0.67).expect("normalized credit");
         let two_points = recorded
             .score(
-                AssignmentEntryScoringRule::Normal,
-                AssignmentPointValue::from_whole(2),
+                AssessmentEntryScoringRule::Normal,
+                AssessmentPointValue::from_whole(2),
             )
             .points_earned;
         let three_points = recorded
             .score(
-                AssignmentEntryScoringRule::Normal,
-                AssignmentPointValue::from_whole(3),
+                AssessmentEntryScoringRule::Normal,
+                AssessmentPointValue::from_whole(3),
             )
             .points_earned;
         assert!((two_points - 1.34).abs() < 1e-12);

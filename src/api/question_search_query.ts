@@ -3,10 +3,10 @@
 import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRequest";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
+import { normalizeQuestionIdSyntax } from "../question_id";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
 const MAX_QUESTION_SEARCH_PAGE_SIZE = 100;
-const MAX_QUESTION_ID_CHARACTERS = 44;
 const QUESTION_SEARCH_CAPABILITIES = [
   "algorithmicGeneration",
   "clientRendering",
@@ -218,11 +218,9 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   return `/api/questions/search${suffix}`;
 }
 
-/** Serializes the bounded copyable Question ID without interpreting its server-owned syntax. */
+/** Serializes one normalized Question ID without exposing server-owned check validation. */
 export function questionReferencePath(displayReference: string): string {
-  const reference = displayReference.trim();
-  if (reference.length === 0 || Array.from(reference).length > MAX_QUESTION_ID_CHARACTERS) {
-    throw new Error("Question ID must be 1 to 44 characters");
-  }
+  const reference = normalizeQuestionIdSyntax(displayReference);
+  if (reference === null) throw new Error("Question ID must use canonical Crockford entry syntax");
   return `/api/questions/by-id/${encodeURIComponent(reference)}`;
 }

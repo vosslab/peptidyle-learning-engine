@@ -55,7 +55,7 @@ function createdWorkspace(displayTimeZone = "America/Chicago") {
       {
         kind: "fixedQuestion",
         id: "00000000-0000-0000-0000-000000000001",
-        reference: { questionId: "7K3-M9QP", revisionNumber: 1 },
+        reference: { questionId: "7K3M-X9QP", revisionNumber: 1 },
         pointsPossible: "1",
         availability: "available",
         scoringRule: "normal",
@@ -75,7 +75,7 @@ function createdWorkspace(displayTimeZone = "America/Chicago") {
         items: [
           {
             id: "00000000-0000-0000-0000-000000000003",
-            reference: { questionId: "2R5-X7YA", revisionNumber: 1 },
+            reference: { questionId: "2R5X-Z7YA", revisionNumber: 1 },
             availability: "available",
           },
         ],
@@ -83,7 +83,7 @@ function createdWorkspace(displayTimeZone = "America/Chicago") {
     ],
     questions: [
       {
-        reference: { questionId: "7K3-M9QP", revisionNumber: 1 },
+        reference: { questionId: "7K3M-X9QP", revisionNumber: 1 },
         description: "A fixed question.",
       },
     ],
@@ -162,7 +162,7 @@ test("current Assignment workspace retains exact source and normalized fixed and
   assert.equal(workspace.source.blueprint_revision.reference, "BP-1");
   assert.equal(workspace.entries[0].kind, "fixedQuestion");
   assert.equal(workspace.entries[1].kind, "questionPool");
-  assert.equal(workspace.entries[1].items[0].reference.questionId, "2R5-X7YA");
+  assert.equal(workspace.entries[1].items[0].reference.questionId, "2R5X-Z7YA");
   assert.throws(() => decodeLiveAssignmentWorkspace({ ...createdWorkspace(), revisionNumber: 1 }));
 });
 

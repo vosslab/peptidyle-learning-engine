@@ -12,11 +12,11 @@ import type { QuestionBackend } from "../../../generated/api/QuestionBackend";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionMetadata } from "../../../generated/api/QuestionMetadata";
 import type {
-  AssignmentRouteReference,
+  AssessmentRouteReference,
   CourseInstanceRouteReference,
 } from "../../navigation/public_route";
 import {
-  parseAssignmentReference,
+  parseAssessmentReference,
   parseCourseInstanceReference,
 } from "../../navigation/public_route";
 import type { CursorPage } from "../contracts";
@@ -33,6 +33,7 @@ import {
   decodeUuid,
   type Decoder,
 } from "../decoder";
+import { normalizeQuestionIdSyntax } from "../../question_id";
 
 const CAPABILITIES = [
   "algorithmicGeneration",
@@ -70,16 +71,16 @@ export function decodeCourseInstanceReference(
   value: unknown,
   path: string,
 ): CourseInstanceRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "a C- reference");
+  if (typeof value !== "string") throw new DecodeError(path, "a CI reference");
   const reference = parseCourseInstanceReference(value);
-  if (reference === null) throw new DecodeError(path, "a C- reference");
+  if (reference === null) throw new DecodeError(path, "a CI reference");
   return reference;
 }
 
-export function decodeAssignmentReference(value: unknown, path: string): AssignmentRouteReference {
-  if (typeof value !== "string") throw new DecodeError(path, "an A- reference");
-  const reference = parseAssignmentReference(value);
-  if (reference === null) throw new DecodeError(path, "an A- reference");
+export function decodeAssessmentReference(value: unknown, path: string): AssessmentRouteReference {
+  if (typeof value !== "string") throw new DecodeError(path, "an A reference");
+  const reference = parseAssessmentReference(value);
+  if (reference === null) throw new DecodeError(path, "an A reference");
   return reference;
 }
 
@@ -126,15 +127,15 @@ export function decodeQuestionDescription(value: unknown, path: string): string 
   return questionDescription;
 }
 
-export function decodeAssignmentTitle(value: unknown, path: string): string {
+export function decodeAssessmentTitle(value: unknown, path: string): string {
   const title = decodeNonemptyString(value, path);
   if (title.trim().length === 0) {
-    throw new DecodeError(path, "an assignment title containing non-whitespace content");
+    throw new DecodeError(path, "an assessment title containing non-whitespace content");
   }
   if (Array.from(title).length > MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS) {
     throw new DecodeError(
       path,
-      `an assignment title no longer than ${MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS} Unicode scalar values`,
+      `an assessment title no longer than ${MAX_ASSIGNMENT_TITLE_UNICODE_SCALARS} Unicode scalar values`,
     );
   }
   return title;
@@ -226,10 +227,11 @@ export function decodeIdentifier(value: unknown, path: string): string {
 /** Decodes the canonical, browser-visible identity of an immutable question. */
 export function decodeQuestionId(value: unknown, path: string): QuestionId {
   const questionId = decodeString(value, path);
-  if (!/^[0-9A-HJKMNP-TV-Z]{3}-[0-9A-HJKMNP-TV-Z]{4}$/u.test(questionId)) {
+  const canonicalQuestionId = normalizeQuestionIdSyntax(questionId);
+  if (canonicalQuestionId === null || canonicalQuestionId !== questionId) {
     throw new DecodeError(path, "a canonical Question ID");
   }
-  return questionId;
+  return canonicalQuestionId;
 }
 
 /** Decodes the positive version number within one published Question lineage. */

@@ -8,7 +8,7 @@ export const STUDENT_FEEDBACK_PANEL_STYLES = `
   .student-feedback-panel__section h3 { margin: 0; }
   .student-feedback-panel__blocks { display: grid; gap: var(--ple-space-2, 0.5rem); }
   .student-feedback-panel__blocks > * { margin: 0; }
-  .student-feedback-panel__math { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .student-feedback-panel__math { font-family: var(--ple-font-mono); }
   .student-feedback-panel__image { display: block; max-width: 100%; height: auto; border-radius: var(--ple-radius-inset, 0.5rem); }
   .student-feedback-panel__code { overflow-x: auto; padding: 0.65rem; border-radius: var(--ple-radius-control, 0.375rem); background: var(--ple-surface-soft); }
   .student-feedback-panel__table-wrap { overflow-x: auto; }

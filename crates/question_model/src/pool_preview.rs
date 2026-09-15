@@ -8,17 +8,17 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AssignmentEditNumber, AssignmentEntryId, AssignmentReference, QuestionId,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentReference, QuestionId,
     QuestionPoolSelectionRule,
 };
 
 /// Strict request body for an Instructor's one-off sample of a saved pool.
-/// The route owns course and assignment identity; the Assignment edit number comes from the
-/// `If-Match` header, so the browser can select only one saved Assignment Entry.
+/// The route owns course and assessment identity; the Assessment edit number comes from the
+/// `If-Match` header, so the browser can select only one saved Assessment Entry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolPreviewRequest {
-    pub assignment_entry_id: AssignmentEntryId,
+    pub assessment_entry_id: AssessmentEntryId,
 }
 
 /// The public Question Library identity and Question Title that are safe in an Instructor
@@ -30,15 +30,15 @@ pub struct QuestionPoolPreviewItem {
     pub question_title: String,
 }
 
-/// One no-store preview result for a saved assignment Question Pool.
+/// One no-store preview result for a saved assessment Question Pool.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolPreview {
-    pub assignment: AssignmentReference,
-    pub edit_number: AssignmentEditNumber,
-    pub assignment_entry_id: AssignmentEntryId,
+    pub assessment: AssessmentReference,
+    pub edit_number: AssessmentEditNumber,
+    pub assessment_entry_id: AssessmentEntryId,
     /// Stable presentation label derived from the saved Question Pool
-    /// Assignment Entry order. Question Pool Assignment Entries have no
+    /// Assessment Entry order. Question Pool Assessment Entries have no
     /// Instructor-authored label in v1.
     pub question_pool_label: String,
     pub selection_count: u32,
@@ -55,15 +55,15 @@ mod tests {
     fn request_is_strict_and_result_serializes_only_public_question_identity() {
         assert!(
             serde_json::from_value::<QuestionPoolPreviewRequest>(
-                serde_json::json!({"assignmentEntryId": 2, "nonce": "browser-controlled"})
+                serde_json::json!({"assessmentEntryId": 2, "nonce": "browser-controlled"})
             )
             .is_err()
         );
-        let question_id: QuestionId = "ABC-DEF1".parse().expect("canonical question ID");
+        let question_id: QuestionId = "ABCD-XEF1".parse().expect("canonical question ID");
         let result = QuestionPoolPreview {
-            assignment: "A-4".parse().expect("assignment reference"),
+            assessment: "A7K3M2Q".parse().expect("assessment reference"),
             edit_number: "3".parse().expect("edit number"),
-            assignment_entry_id: serde_json::from_value(serde_json::json!(
+            assessment_entry_id: serde_json::from_value(serde_json::json!(
                 "0198e000-0000-7000-8000-000000000017"
             ))
             .expect("entry ID"),
@@ -84,10 +84,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(result).expect("serializes"),
             serde_json::json!({
-                "assignment":"A-4", "editNumber":"3", "assignmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
+                "assessment":"A7K3M2Q", "editNumber":"3", "assessmentEntryId":"0198e000-0000-7000-8000-000000000017", "questionPoolLabel":"Pool 3",
                 "selectionCount":1, "selectionRule":{"selectedQuestionOrder":"randomOrder"},
-                "items":[{"questionId":"ABC-DEF1", "questionTitle":"Question Pool Item"}],
-                "selectedItems":[{"questionId":"ABC-DEF1", "questionTitle":"Question Pool Item"}]
+                "items":[{"questionId":"ABCD-XEF1", "questionTitle":"Question Pool Item"}],
+                "selectedItems":[{"questionId":"ABCD-XEF1", "questionTitle":"Question Pool Item"}]
             })
         );
     }

@@ -57,17 +57,20 @@ BEGIN
 			SELECT count(*)
 			FROM pg_catalog.pg_auth_members AS membership
 			WHERE membership.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'ple_migrator')
-		) <> 6 OR (
+		) <> 9 OR (
 			SELECT count(*)
 			FROM pg_catalog.pg_auth_members AS membership
 			JOIN pg_catalog.pg_roles AS granted_role ON granted_role.oid = membership.roleid
 			WHERE membership.member = (SELECT oid FROM pg_catalog.pg_roles WHERE rolname = 'ple_migrator')
 			AND granted_role.rolname IN (
-				'ple_database_owner', 'ple_unrelease_executor', 'ple_data_owner',
+				'ple_database_owner', 'ple_unrelease_executor',
+				'ple_course_retention_executor', 'ple_course_retention_notifier',
+				'ple_course_retention_notification_owner',
+				'ple_data_owner',
 				'ple_private_owner', 'ple_audit_owner', 'ple_api_owner'
 			)
 			AND NOT membership.admin_option AND NOT membership.inherit_option AND membership.set_option
-		) <> 6
+		) <> 9
 	) THEN
 		RAISE EXCEPTION USING ERRCODE = '55000',
 			MESSAGE = 'the existing migrator memberships do not satisfy the bootstrap contract';
@@ -106,8 +109,11 @@ def migration_principal_bootstrap_sql(database_name: str, migrator_password: str
 		_create_or_validate_role_sql(role, ordinary_attributes, ordinary_predicate)
 		for role in (
 			"ple_public_asset_publisher",
-			"ple_assignment_attempt_expiry_worker",
+			"ple_assessment_attempt_expiry_worker",
 			"ple_unrelease_executor",
+			"ple_course_retention_executor",
+			"ple_course_retention_notifier",
+			"ple_course_retention_notification_owner",
 		)
 	)
 	result.append(
@@ -127,6 +133,12 @@ def migration_principal_bootstrap_sql(database_name: str, migrator_password: str
 			f"GRANT {MIGRATION_DATABASE_OWNER} TO {MIGRATION_ROLE} "
 			"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n",
 			"GRANT ple_unrelease_executor TO ple_migrator "
+			"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n",
+			"GRANT ple_course_retention_executor TO ple_migrator "
+			"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n",
+			"GRANT ple_course_retention_notifier TO ple_migrator "
+			"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n",
+			"GRANT ple_course_retention_notification_owner TO ple_migrator "
 			"WITH INHERIT FALSE, SET TRUE, ADMIN FALSE;\n",
 		)
 	)

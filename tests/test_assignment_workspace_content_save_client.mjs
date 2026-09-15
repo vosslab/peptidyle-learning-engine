@@ -17,7 +17,7 @@ const input = {
   entries: [
     {
       kind: "fixedQuestion",
-      questionId: "7K3-M9QP",
+      questionId: "7K3M-X9QP",
       pointsPossible: "1",
       availability: "available",
       scoringRule: "normal",

@@ -16,10 +16,28 @@ INSERT INTO ple_private.account_authentication_email (
     account_id, normalized_email, delivery_email, verified_at, updated_at
 ) VALUES
     ('00000000-0000-0000-0000-000000000101', 'elena.martinez@live-demo.invalid', 'elena.martinez@live-demo.invalid', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000102', 'mary.okafor@live-demo.invalid', 'mary.okafor@live-demo.invalid', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000103', 'jack.nguyen@live-demo.invalid', 'jack.nguyen@live-demo.invalid', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000104', 'avery.thompson@live-demo.invalid', 'avery.thompson@live-demo.invalid', clock_timestamp(), clock_timestamp())
+    ('00000000-0000-0000-0000-000000000102', 'mary.okafor@biology.roosevelt.edu', 'mary.okafor@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000103', 'jack.nguyen@biology.roosevelt.edu', 'jack.nguyen@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000104', 'avery.thompson@biology.roosevelt.edu', 'avery.thompson@biology.roosevelt.edu', clock_timestamp(), clock_timestamp())
 ON CONFLICT (account_id) DO NOTHING;
+
+-- The canonical Instructor is represented by the same immutable vetting and
+-- creation facts as an ordinary Sysadmin-created Instructor.  This is not an
+-- Account/Profile display name; later Star projections may use it only through
+-- their dedicated authorization procedure.
+DO $$
+DECLARE decision uuid;
+BEGIN
+    SELECT ple_audit.record_completed_instructor_identity_vetting_decision(
+        'elena.martinez@live-demo.invalid', 'Elena Martinez',
+        '00000000-0000-0000-0000-000000000105'::uuid
+    ) INTO decision;
+    PERFORM ple_audit.record_instructor_account_creation_event(
+        '00000000-0000-0000-0000-000000000101'::uuid,
+        '00000000-0000-0000-0000-000000000105'::uuid, decision
+    );
+END
+$$;
 
 -- This is Elena's ordinary private workspace.  It remains ordinary product
 -- state after the temporary publication session expires.

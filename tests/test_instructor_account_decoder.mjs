@@ -11,9 +11,10 @@ import { formatSignInLabel } from "../src/pages/instructor_account_model.ts";
 const listResponse = {
   accounts: [
     {
-      reference: "U-42",
+      reference: "U7K3M2P",
       state: "active",
       lastSuccessfulSignIn: 1768501800000,
+      providedAvatarId: null,
     },
   ],
   displayTimeZone: "America/New_York",

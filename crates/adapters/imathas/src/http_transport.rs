@@ -614,7 +614,7 @@ mod tests {
         let binding = learning_data_access::ImathasGradingContext::new(
             question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
             question_model::QuestionRevisionReference {
-                question_id: question_model::QuestionId::from_canonical_parts("BCDEFG", 'H')
+                question_id: question_model::QuestionId::from_canonical_parts("BCDEFGH", 'H')
                     .expect("Question ID"),
                 revision_number: question_model::QuestionRevisionNumber::new(4)
                     .expect("positive version"),

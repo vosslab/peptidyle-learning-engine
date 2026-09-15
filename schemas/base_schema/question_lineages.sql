@@ -19,7 +19,7 @@ CREATE TABLE ple_data.published_question (
         CHECK (availability_edit_number > 0),
     created_at timestamptz NOT NULL,
     CONSTRAINT published_question_id_is_crockford_shape CHECK (
-        question_id ~ '^[0-9A-HJKMNP-TV-Z]{7}$'
+        question_id ~ '^[0-9A-HJKMNP-TV-Z]{8}$'
     )
 );
 
@@ -31,9 +31,34 @@ CREATE TABLE ple_data.question_revision (
         'multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
         'numeric', 'matching', 'ordering', 'hotspot'
     )),
+    -- Deliberately authored, backend-independent general feedback.  It is
+    -- immutable with this Question Revision; dynamic backend feedback is not
+    -- captured here.
+    general_feedback text CHECK (
+        general_feedback = btrim(general_feedback)
+        AND char_length(general_feedback) BETWEEN 1 AND 4000
+        AND general_feedback !~ '[[:cntrl:]]'
+    ),
     published_at timestamptz NOT NULL,
     PRIMARY KEY (question_id, revision_number)
 );
+
+CREATE FUNCTION ple_data.question_metadata_tags_are_valid(p_tags text[])
+RETURNS boolean LANGUAGE sql IMMUTABLE
+SET search_path = pg_catalog AS $$
+    SELECT p_tags IS NOT NULL
+       AND cardinality(p_tags) <= 64
+       AND NOT EXISTS (
+           SELECT 1 FROM unnest(p_tags) AS tag(value)
+            WHERE value <> btrim(value)
+               OR char_length(value) NOT BETWEEN 1 AND 120
+               OR value ~ '[[:cntrl:]]'
+       )
+       AND cardinality(p_tags) = cardinality(
+           ARRAY(SELECT DISTINCT value FROM unnest(p_tags) AS tag(value)));
+$$;
+REVOKE ALL ON FUNCTION ple_data.question_metadata_tags_are_valid(text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_data.question_metadata_tags_are_valid(text[]) TO ple_private_owner;
 
 CREATE TABLE ple_data.published_question_metadata (
     question_id text PRIMARY KEY REFERENCES ple_data.published_question(question_id),
@@ -49,6 +74,22 @@ CREATE TABLE ple_data.published_question_metadata (
     ),
     language text NOT NULL CHECK (
         language = btrim(language) AND char_length(language) BETWEEN 2 AND 35
+    ),
+    -- Search metadata belongs to the Published Question lineage, not to an
+    -- immutable Revision.  C365 is the only bulk writer and advances this
+    -- independent optimistic-concurrency value.
+    metadata_edit_number bigint NOT NULL DEFAULT 1 CHECK (metadata_edit_number > 0),
+    tags text[] NOT NULL DEFAULT ARRAY[]::text[]
+        CHECK (ple_data.question_metadata_tags_are_valid(tags)),
+    subject text CHECK (
+        subject = btrim(subject)
+        AND char_length(subject) BETWEEN 1 AND 120
+        AND subject !~ '[[:cntrl:]]'
+    ),
+    topic text CHECK (
+        topic = btrim(topic)
+        AND char_length(topic) BETWEEN 1 AND 120
+        AND topic !~ '[[:cntrl:]]'
     ),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL CHECK (updated_at >= created_at)
@@ -147,6 +188,8 @@ CREATE INDEX published_question_available_discovery_idx
     ON ple_data.published_question(question_id) WHERE availability = 'available';
 CREATE INDEX published_question_metadata_search_idx ON ple_data.published_question_metadata
     USING gin (to_tsvector('simple', question_title || ' ' || question_description));
+CREATE INDEX published_question_metadata_subject_topic_idx
+    ON ple_data.published_question_metadata(subject, topic);
 
 ALTER TABLE ple_data.published_question ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.published_question FORCE ROW LEVEL SECURITY;
@@ -220,6 +263,51 @@ COMMENT ON TABLE ple_data.question_revision IS
     'Immutable exact published Question content identity; archive never removes this provenance.';
 COMMENT ON TABLE ple_data.question_availability_event IS
     'Append-only actor-attributed current-lineage availability transitions.';
+-- The later security-definer source reader needs namespace resolution only;
+-- its own fixed query and RLS policies remain the data boundary.
+GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
+RESET ROLE;
+
+-- This is a private replay receipt, not an editable Question field or a
+-- public audit feed.  The later C365 command is its sole writer and reader.
+SET LOCAL ROLE ple_private_owner;
+CREATE TABLE ple_private.question_bulk_metadata_operation (
+    actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
+    idempotency_key uuid NOT NULL,
+    request_digest bytea NOT NULL CHECK (octet_length(request_digest) = 32),
+    result jsonb NOT NULL CHECK (jsonb_typeof(result) = 'array'),
+    created_at timestamptz NOT NULL,
+    PRIMARY KEY (actor_account_id, idempotency_key)
+);
+ALTER TABLE ple_private.question_bulk_metadata_operation ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.question_bulk_metadata_operation FORCE ROW LEVEL SECURITY;
+CREATE POLICY question_bulk_metadata_operation_private_owner_access
+    ON ple_private.question_bulk_metadata_operation
+    FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+REVOKE ALL ON TABLE ple_private.question_bulk_metadata_operation FROM PUBLIC;
+RESET ROLE;
+
+-- This is deliberately the only Question-fork capability in the lineage
+-- install phase.  A later authoring operation consumes the returned immutable
+-- pin to create the private Draft and its attribution.  Keeping this reader
+-- here prevents a client or early schema phase from creating authoring state.
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.load_available_question_fork_source(
+    p_question_id text, p_revision_number integer
+) RETURNS TABLE(question_id text, revision_number integer)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT revision.question_id, revision.revision_number
+      FROM ple_data.published_question AS lineage
+      JOIN ple_data.question_revision AS revision
+        ON revision.question_id = lineage.question_id
+       AND revision.revision_number = p_revision_number
+     WHERE lineage.question_id = p_question_id
+       AND lineage.availability = 'available'
+       AND ple_api.current_session_account_is_instructor()
+$$;
+REVOKE ALL ON FUNCTION ple_api.load_available_question_fork_source(text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.load_available_question_fork_source(text, integer) TO ple_app;
 RESET ROLE;
 
 -- ASVS 1.2.4, 2.2-2.3, 8.2-8.3, and 15.4: this capability is the only

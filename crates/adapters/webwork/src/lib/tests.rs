@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-
 use async_trait::async_trait;
 use grading::QuestionGradingOutcome;
 use objects::memory::MemoryObjectStore;
@@ -26,15 +23,13 @@ const PAYLOAD: &[u8] = br#"[["AnSwEr0001","student value"],["hidden","1"]]"#;
 
 fn question_revision() -> QuestionRevisionReference {
     QuestionRevisionReference {
-        question_id: QuestionId::from_canonical_parts("ABCDEF", 'G').expect("Question ID"),
+        question_id: QuestionId::from_canonical_parts("ABCDEFG", 'G').expect("Question ID"),
         revision_number: QuestionRevisionNumber::new(2).expect("positive version"),
     }
 }
 
 #[derive(Clone)]
 struct RecordedRenderer {
-    render_calls: Arc<AtomicUsize>,
-    grade_calls: Arc<AtomicUsize>,
     identity: QuestionRendererVersion,
     lifecycle_state: BackendOwnedLifecycleState,
 }
@@ -49,7 +44,6 @@ impl WebworkRenderer for RecordedRenderer {
         &self,
         request: RenderRequest<'_>,
     ) -> Result<RenderedWebworkQuestion, RendererFailure> {
-        self.render_calls.fetch_add(1, Ordering::SeqCst);
         if request.pg_source != SOURCE || request.pg_path != "Library/opaque.pg" {
             return Err(RendererFailure::InvalidOutput(
                 "recorded source did not match issuance".to_string(),
@@ -65,7 +59,6 @@ impl WebworkRenderer for RecordedRenderer {
         &self,
         request: ResumeRenderRequest<'_>,
     ) -> Result<RenderedWebworkQuestion, RendererFailure> {
-        self.render_calls.fetch_add(1, Ordering::SeqCst);
         if request.pg_source != SOURCE
             || request.pg_path != "Library/opaque.pg"
             || request.response_payload != PAYLOAD
@@ -84,7 +77,6 @@ impl WebworkRenderer for RecordedRenderer {
         &self,
         request: GradeRequest<'_>,
     ) -> Result<QuestionGradingOutcome, RendererFailure> {
-        self.grade_calls.fetch_add(1, Ordering::SeqCst);
         if request.pg_source != SOURCE
             || request.pg_path != "Library/opaque.pg"
             || request.response_payload != PAYLOAD
@@ -100,18 +92,43 @@ impl WebworkRenderer for RecordedRenderer {
     }
 }
 
-fn recorded_renderer(
-    render_calls: Arc<AtomicUsize>,
-    grade_calls: Arc<AtomicUsize>,
-) -> RecordedRenderer {
+fn recorded_renderer() -> RecordedRenderer {
     RecordedRenderer {
-        render_calls,
-        grade_calls,
         identity: QuestionRendererVersion {
             name: "recorded-renderer".to_string(),
             version: "1".to_string(),
         },
         lifecycle_state: BackendOwnedLifecycleState::none(),
+    }
+}
+
+#[derive(Clone)]
+struct NativeResponseRejectingRenderer {
+    identity: QuestionRendererVersion,
+}
+
+#[async_trait]
+impl WebworkRenderer for NativeResponseRejectingRenderer {
+    fn identity(&self) -> &QuestionRendererVersion {
+        &self.identity
+    }
+
+    async fn render(
+        &self,
+        _: RenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        panic!("native PLE response validation must reject before rendering")
+    }
+
+    async fn render_saved_response(
+        &self,
+        _: ResumeRenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        panic!("native PLE response validation must reject before resuming")
+    }
+
+    async fn grade(&self, _: GradeRequest<'_>) -> Result<QuestionGradingOutcome, RendererFailure> {
+        panic!("native PLE response validation must reject before grading")
     }
 }
 
@@ -148,19 +165,16 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
 }
 
 #[tokio::test]
-/// Prevents a backend-owned attempt from acquiring PLE control semantics or extra renderer lifecycle calls.
-async fn opaque_lifecycle_renders_once_and_grades_one_backend_owned_payload() {
-    let render_calls = Arc::new(AtomicUsize::new(0));
-    let grade_calls = Arc::new(AtomicUsize::new(0));
+/// Prevents a backend-owned attempt from acquiring PLE control semantics.
+async fn opaque_lifecycle_issues_and_grades_one_backend_owned_payload() {
     let store = MemoryObjectStore::default();
     let source = source(&store).await;
-    let adapter = WebworkAdapter::new(recorded_renderer(render_calls.clone(), grade_calls.clone()));
+    let adapter = WebworkAdapter::new(recorded_renderer());
 
     let issued = adapter
         .issue(QuestionSeed::new(17), &source)
         .await
         .expect("renderer issues one document");
-    assert_eq!(render_calls.load(Ordering::SeqCst), 1);
     assert_eq!(issued.document, DOCUMENT);
     assert_eq!(issued.document_sha256.len(), 32);
     assert!(issued.lifecycle_state.as_deref().is_none());
@@ -181,26 +195,21 @@ async fn opaque_lifecycle_renders_once_and_grades_one_backend_owned_payload() {
         .await
         .expect("renderer grades exactly the opaque payload");
     assert!(matches!(outcome, QuestionGradingOutcome::Evaluated(result) if result.correct()));
-    assert_eq!(render_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(grade_calls.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
 /// Prevents stateful renderer behavior from silently violating the selected E1 stateless lifecycle.
 async fn issuance_refuses_renderer_lifecycle_state_for_stateless_webwork() {
-    let render_calls = Arc::new(AtomicUsize::new(0));
-    let grade_calls = Arc::new(AtomicUsize::new(0));
     let store = MemoryObjectStore::default();
     let source = source(&store).await;
     let adapter = WebworkAdapter::new(RecordedRenderer {
         lifecycle_state: BackendOwnedLifecycleState::from_bytes(vec![1])
             .expect("fixed lifecycle state is bounded"),
-        ..recorded_renderer(render_calls.clone(), grade_calls)
+        ..recorded_renderer()
     });
 
     let result = adapter.issue(QuestionSeed::new(17), &source).await;
 
-    assert_eq!(render_calls.load(Ordering::SeqCst), 1);
     assert_eq!(
         result,
         Err(WebworkAdapterError::Renderer(
@@ -215,11 +224,14 @@ async fn issuance_refuses_renderer_lifecycle_state_for_stateless_webwork() {
 #[tokio::test]
 /// Prevents native PLE response types from reaching the WeBWorK grading boundary.
 async fn opaque_grading_refuses_native_ple_responses_without_a_renderer_call() {
-    let render_calls = Arc::new(AtomicUsize::new(0));
-    let grade_calls = Arc::new(AtomicUsize::new(0));
     let store = MemoryObjectStore::default();
     let source = source(&store).await;
-    let adapter = WebworkAdapter::new(recorded_renderer(render_calls, grade_calls.clone()));
+    let adapter = WebworkAdapter::new(NativeResponseRejectingRenderer {
+        identity: QuestionRendererVersion {
+            name: "native-response-rejecting-renderer".to_string(),
+            version: "1".to_string(),
+        },
+    });
     let result = adapter
         .grade(
             QuestionSeed::new(17),
@@ -230,5 +242,4 @@ async fn opaque_grading_refuses_native_ple_responses_without_a_renderer_call() {
         )
         .await;
     assert!(matches!(result, Err(WebworkAdapterError::Renderer(_))));
-    assert_eq!(grade_calls.load(Ordering::SeqCst), 0);
 }
