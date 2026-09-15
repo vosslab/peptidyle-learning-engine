@@ -91,8 +91,11 @@ or Course analysis as FERPA-protected even if direct names have been removed.
 Small-cell aggregates can still identify Students and remain protected.
 
 Removing a Student from a Course or deactivating an Account does not delete
-these records. The final Assessment deadline starts the retention clock; later
-Student activity resets it. See [RETENTION_POLICY.md](RETENTION_POLICY.md).
+these records. The latest Assessment deadline starts the FERPA retention clock;
+the six-month Active limit caps deadline movement so Course reuse cannot delay
+FERPA retention indefinitely. Becoming Inactive is a separate transition and
+does not itself delete Student records. See
+[RETENTION_POLICY.md](RETENTION_POLICY.md).
 
 ## Shared content is not automatically public
 

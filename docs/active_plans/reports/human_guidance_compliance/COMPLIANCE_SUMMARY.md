@@ -21,9 +21,9 @@ product intent.
 - 295 files inventoried.
 - 167 files received substantive documentation changes.
 - 73 files reviewed with no content change needed.
-- 55 generated files or visual artifacts require a later source-owned refresh; two of their text
+- 55 generated files or visual artifacts remain source-owned follow-up work; two of their text
   files received authority notices outside the generated body.
-- All known product ambiguities are recorded in
+- The remaining product area without a locked-in design is recorded in
   [UNRESOLVED_OR_AMBIGUOUS_ITEMS.md](UNRESOLVED_OR_AMBIGUOUS_ITEMS.md).
 
 Changed documents now use the Human Guidance Assessment, Blueprint, role, retention, Question,
@@ -35,11 +35,30 @@ by its path and inventory classification. Human-readable dated audits, workstrea
 reports now carry file-local evidence notices. Loose source-note and completed-plan files that could
 otherwise look current carry their own authority notices.
 
+A KISS triage then resolved the manufactured product ambiguities. Assessment is the generic object
+and has exactly five Assessment Types; Assignment is not an object or parent category. Practice
+Question Assignments use the ordinary whole-Attempt boundary and disclose correct answers
+immediately after submission. Optional Question Feedback does not use correct-answer disclosure
+settings. Unanswered Questions receive zero credit and count as incorrect without being sent to a
+backend, and the highest submitted Attempt score is used. PLE calculates point-based Assessment scores without a
+separate weighting or Course-grade model; pilot export is CSV or TSV. Pool Revisions are explicit,
+new terms use new Course Instances, backend evaluation has no deferred result state, and no permanent
+Account-closure workflow is currently defined. Course Instances represent one teaching period,
+remain Active for at most six months from creation, and permit bulk roster import for adding
+Students. Student removal is individual; PLE has no bulk-removal workflow. The latest Assessment
+deadline starts a separate FERPA retention clock but does not itself archive or remove Student data;
+the configured policy determines the later notice, archive, recovery, and deletion transitions. The
+six-month Active limit caps deadline movement so Course reuse cannot indefinitely delay that FERPA
+path, while becoming Inactive does not itself delete Student records.
+
+Course banners use one responsive 5:1 geometry, with 1280 by 256 pixels as the recommended authoring
+size; the former 6:1 hero, 5:2 card crop, and dual-rendition design are superseded.
+
 ## Independent audit follow-up
 
 Six fresh reviewers completed independent Plan, Test, Style, Documentation, Legacy, and Comment
 passes after the initial closeout. The Plan pass reported no finding. The other passes found and
-corrected stale authentication status, ambiguous submission targets, unsupported unanswered-score
+corrected stale authentication status, ambiguous submission targets, then-unsupported unanswered-score
 and retry claims, overbroad backend evaluation and score-retention wording, universal adapter
 snapshot machinery, non-clickable report references, and ambiguous generated-artifact statuses.
 
@@ -58,9 +77,9 @@ Two audit risks remain explicit:
 - **Changed:** The file was created or received substantive edits in this docs-only pass.
 - **Reviewed - no change needed:** The content is compatible, out of product scope, or
   deliberately historical as classified in this report.
-- **Changed notice; generated body unresolved:** A docs-side authority notice was added outside
+- **Changed notice; generated body needs source-owned refresh:** A docs-side authority notice was added outside
   generated content that still needs a source-owned refresh.
-- **Unresolved:** The artifact is generated from source/UI ownership outside `docs/` and still
+- **Follow-up:** The artifact is generated from source/UI ownership outside `docs/` and still
   needs a source-owned refresh.
 
 ## Complete corpus inventory
@@ -112,8 +131,8 @@ Two audit risks remain explicit:
 | [docs/FRONTEND_ARCHITECTURE.md](../../../FRONTEND_ARCHITECTURE.md) | Changed |
 | [docs/FUN_VIBES_DESIGN_STYLE.md](../../../FUN_VIBES_DESIGN_STYLE.md) | Reviewed - no change needed |
 | [docs/GMAIL_EMAIL_DELIVERY_BACKEND.md](../../../GMAIL_EMAIL_DELIVERY_BACKEND.md) | Changed |
-| [docs/GRAPHIFY.md](../../../GRAPHIFY.md) | Changed notice; generated body unresolved |
-| [docs/GRAPHIFY_map.svg](../../../GRAPHIFY_map.svg) | Unresolved - generated implementation evidence needs a source-owned refresh |
+| [docs/GRAPHIFY.md](../../../GRAPHIFY.md) | Changed notice; generated body needs source-owned refresh |
+| [docs/GRAPHIFY_map.svg](../../../GRAPHIFY_map.svg) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [docs/HUMAN_GUIDANCE.md](../../../HUMAN_GUIDANCE.md) | Changed |
 | [docs/IDENTITY_CONTRACTS.md](../../../IDENTITY_CONTRACTS.md) | Changed |
 | [docs/INPUT_FORMATS.md](../../../INPUT_FORMATS.md) | Changed |
@@ -153,7 +172,7 @@ Two audit risks remain explicit:
 | [docs/RUST_PYO3_STYLE.md](../../../RUST_PYO3_STYLE.md) | Reviewed - no change needed |
 | [docs/RUST_STYLE.md](../../../RUST_STYLE.md) | Reviewed - no change needed |
 | [docs/RUST_WASM_STYLE.md](../../../RUST_WASM_STYLE.md) | Reviewed - no change needed |
-| [docs/SCREENSHOT_ATLAS.md](../../../SCREENSHOT_ATLAS.md) | Unresolved - generated implementation evidence needs a source-owned refresh |
+| [docs/SCREENSHOT_ATLAS.md](../../../SCREENSHOT_ATLAS.md) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [docs/SCREENSHOT_CONTRACT.md](../../../SCREENSHOT_CONTRACT.md) | Changed |
 | [docs/SECURITY_MODEL.md](../../../SECURITY_MODEL.md) | Changed |
 | [docs/SOLID_MODEL.md](../../../SOLID_MODEL.md) | Changed |
@@ -305,60 +324,60 @@ Two audit risks remain explicit:
 | [docs/archive/wire_naming_contract_migration_plan.md](../../../archive/wire_naming_contract_migration_plan.md) | Reviewed - no change needed; historical evidence remains subordinate to Human Guidance |
 | [docs/archive/wp_rc8_docs_closeout_review.md](../../../archive/wp_rc8_docs_closeout_review.md) | Reviewed - no change needed; historical evidence remains subordinate to Human Guidance |
 | [docs/how-to-reduce-impact-of-bot-traffic.md](../../../how-to-reduce-impact-of-bot-traffic.md) | Reviewed - no change needed |
-| [docs/screenshots/current_capture_manifest.json](../../../screenshots/current_capture_manifest.json) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/current_capture_receipt.json](../../../screenshots/current_capture_receipt.json) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/assignment_creation_laptop.png](../../../screenshots/instructor/assignment_creation_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/assignment_release_draft_laptop.png](../../../screenshots/instructor/assignment_release_draft_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/assignment_release_preview_laptop.png](../../../screenshots/instructor/assignment_release_preview_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/assignment_release_released_laptop.png](../../../screenshots/instructor/assignment_release_released_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/assignments_due_soon_empty_laptop.png](../../../screenshots/instructor/assignments_due_soon_empty_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/blueprint_course_detail_laptop.png](../../../screenshots/instructor/blueprint_course_detail_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/blueprint_courses_laptop.png](../../../screenshots/instructor/blueprint_courses_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/blueprint_question_picker_laptop.png](../../../screenshots/instructor/blueprint_question_picker_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/course_assignment_workspace_laptop.png](../../../screenshots/instructor/course_assignment_workspace_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/course_list_laptop.png](../../../screenshots/instructor/course_list_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/course_roster_active_laptop.png](../../../screenshots/instructor/course_roster_active_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/course_roster_pending_invitation_laptop.png](../../../screenshots/instructor/course_roster_pending_invitation_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/draft_editor_saved_laptop.png](../../../screenshots/instructor/draft_editor_saved_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/gradebook_laptop.png](../../../screenshots/instructor/gradebook_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/profile_default_laptop.png](../../../screenshots/instructor/profile_default_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/publication_review_laptop.png](../../../screenshots/instructor/publication_review_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/published_question_detail_laptop.png](../../../screenshots/instructor/published_question_detail_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/published_question_result_laptop.png](../../../screenshots/instructor/published_question_result_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/question_drafts_laptop.png](../../../screenshots/instructor/question_drafts_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/question_library_filtered_laptop.png](../../../screenshots/instructor/question_library_filtered_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/instructor/question_library_laptop.png](../../../screenshots/instructor/question_library_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/public/session_renewal_laptop.png](../../../screenshots/public/session_renewal_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/public/sign_in_laptop.png](../../../screenshots/public/sign_in_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/public/sign_in_phone.png](../../../screenshots/public/sign_in_phone.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/assignment_attempt_resumed_tablet.png](../../../screenshots/student/assignment_attempt_resumed_tablet.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/assignment_attempt_saved_laptop.png](../../../screenshots/student/assignment_attempt_saved_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/assignment_attempt_submitted_phone.png](../../../screenshots/student/assignment_attempt_submitted_phone.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/assignment_attempt_summary_laptop.png](../../../screenshots/student/assignment_attempt_summary_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/assignment_overview_history_laptop.png](../../../screenshots/student/assignment_overview_history_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/assignment_overview_unanswered_laptop.png](../../../screenshots/student/assignment_overview_unanswered_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/assignment_overview_unanswered_tablet.png](../../../screenshots/student/assignment_overview_unanswered_tablet.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/authorization_denial_laptop.png](../../../screenshots/student/authorization_denial_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/authorization_denial_phone.png](../../../screenshots/student/authorization_denial_phone.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/course_completed_laptop.png](../../../screenshots/student/course_completed_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/course_in_progress_laptop.png](../../../screenshots/student/course_in_progress_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/course_list_laptop.png](../../../screenshots/student/course_list_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/course_list_phone.png](../../../screenshots/student/course_list_phone.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/course_not_started_laptop.png](../../../screenshots/student/course_not_started_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/course_not_started_phone.png](../../../screenshots/student/course_not_started_phone.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/invitation_accepted_laptop.png](../../../screenshots/student/invitation_accepted_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/invitation_detail_laptop.png](../../../screenshots/student/invitation_detail_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/student/invitation_index_laptop.png](../../../screenshots/student/invitation_index_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/sysadmin/course_list_laptop.png](../../../screenshots/sysadmin/course_list_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/sysadmin/instructor_account_created_laptop.png](../../../screenshots/sysadmin/instructor_account_created_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/sysadmin/instructor_account_deactivated_laptop.png](../../../screenshots/sysadmin/instructor_account_deactivated_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/sysadmin/instructor_account_validation_laptop.png](../../../screenshots/sysadmin/instructor_account_validation_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/sysadmin/instructor_accounts_initial_laptop.png](../../../screenshots/sysadmin/instructor_accounts_initial_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/sysadmin/scoped_support_entry_laptop.png](../../../screenshots/sysadmin/scoped_support_entry_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
-| [docs/screenshots/sysadmin/scoped_support_roster_laptop.png](../../../screenshots/sysadmin/scoped_support_roster_laptop.png) | Unresolved - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/current_capture_manifest.json](../../../screenshots/current_capture_manifest.json) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/current_capture_receipt.json](../../../screenshots/current_capture_receipt.json) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/assignment_creation_laptop.png](../../../screenshots/instructor/assignment_creation_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/assignment_release_draft_laptop.png](../../../screenshots/instructor/assignment_release_draft_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/assignment_release_preview_laptop.png](../../../screenshots/instructor/assignment_release_preview_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/assignment_release_released_laptop.png](../../../screenshots/instructor/assignment_release_released_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/assignments_due_soon_empty_laptop.png](../../../screenshots/instructor/assignments_due_soon_empty_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/blueprint_course_detail_laptop.png](../../../screenshots/instructor/blueprint_course_detail_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/blueprint_courses_laptop.png](../../../screenshots/instructor/blueprint_courses_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/blueprint_question_picker_laptop.png](../../../screenshots/instructor/blueprint_question_picker_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/course_assignment_workspace_laptop.png](../../../screenshots/instructor/course_assignment_workspace_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/course_list_laptop.png](../../../screenshots/instructor/course_list_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/course_roster_active_laptop.png](../../../screenshots/instructor/course_roster_active_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/course_roster_pending_invitation_laptop.png](../../../screenshots/instructor/course_roster_pending_invitation_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/draft_editor_saved_laptop.png](../../../screenshots/instructor/draft_editor_saved_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/gradebook_laptop.png](../../../screenshots/instructor/gradebook_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/profile_default_laptop.png](../../../screenshots/instructor/profile_default_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/publication_review_laptop.png](../../../screenshots/instructor/publication_review_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/published_question_detail_laptop.png](../../../screenshots/instructor/published_question_detail_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/published_question_result_laptop.png](../../../screenshots/instructor/published_question_result_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/question_drafts_laptop.png](../../../screenshots/instructor/question_drafts_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/question_library_filtered_laptop.png](../../../screenshots/instructor/question_library_filtered_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/instructor/question_library_laptop.png](../../../screenshots/instructor/question_library_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/public/session_renewal_laptop.png](../../../screenshots/public/session_renewal_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/public/sign_in_laptop.png](../../../screenshots/public/sign_in_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/public/sign_in_phone.png](../../../screenshots/public/sign_in_phone.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/assignment_attempt_resumed_tablet.png](../../../screenshots/student/assignment_attempt_resumed_tablet.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/assignment_attempt_saved_laptop.png](../../../screenshots/student/assignment_attempt_saved_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/assignment_attempt_submitted_phone.png](../../../screenshots/student/assignment_attempt_submitted_phone.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/assignment_attempt_summary_laptop.png](../../../screenshots/student/assignment_attempt_summary_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/assignment_overview_history_laptop.png](../../../screenshots/student/assignment_overview_history_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/assignment_overview_unanswered_laptop.png](../../../screenshots/student/assignment_overview_unanswered_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/assignment_overview_unanswered_tablet.png](../../../screenshots/student/assignment_overview_unanswered_tablet.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/authorization_denial_laptop.png](../../../screenshots/student/authorization_denial_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/authorization_denial_phone.png](../../../screenshots/student/authorization_denial_phone.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/course_completed_laptop.png](../../../screenshots/student/course_completed_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/course_in_progress_laptop.png](../../../screenshots/student/course_in_progress_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/course_list_laptop.png](../../../screenshots/student/course_list_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/course_list_phone.png](../../../screenshots/student/course_list_phone.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/course_not_started_laptop.png](../../../screenshots/student/course_not_started_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/course_not_started_phone.png](../../../screenshots/student/course_not_started_phone.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/invitation_accepted_laptop.png](../../../screenshots/student/invitation_accepted_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/invitation_detail_laptop.png](../../../screenshots/student/invitation_detail_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/student/invitation_index_laptop.png](../../../screenshots/student/invitation_index_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/sysadmin/course_list_laptop.png](../../../screenshots/sysadmin/course_list_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/sysadmin/instructor_account_created_laptop.png](../../../screenshots/sysadmin/instructor_account_created_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/sysadmin/instructor_account_deactivated_laptop.png](../../../screenshots/sysadmin/instructor_account_deactivated_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/sysadmin/instructor_account_validation_laptop.png](../../../screenshots/sysadmin/instructor_account_validation_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/sysadmin/instructor_accounts_initial_laptop.png](../../../screenshots/sysadmin/instructor_accounts_initial_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/sysadmin/scoped_support_entry_laptop.png](../../../screenshots/sysadmin/scoped_support_entry_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
+| [docs/screenshots/sysadmin/scoped_support_roster_laptop.png](../../../screenshots/sysadmin/scoped_support_roster_laptop.png) | Follow-up - generated implementation evidence needs a source-owned refresh |
 | [docs/ux/COURSE_APPEARANCE_ACCESSIBILITY_AUDIT.md](../../../ux/COURSE_APPEARANCE_ACCESSIBILITY_AUDIT.md) | Changed |
 | [docs/ux/FRONTEND_CAPABILITY_INTEGRATION.md](../../../ux/FRONTEND_CAPABILITY_INTEGRATION.md) | Changed |
-| [docs/ux/RIBBON_DESTINATION_LEDGER.md](../../../ux/RIBBON_DESTINATION_LEDGER.md) | Changed notice; generated body unresolved |
+| [docs/ux/RIBBON_DESTINATION_LEDGER.md](../../../ux/RIBBON_DESTINATION_LEDGER.md) | Changed notice; generated body needs source-owned refresh |
 | [docs/ux/RIBBON_RETIREMENT_RESPONSIBILITY_INVENTORY.md](../../../ux/RIBBON_RETIREMENT_RESPONSIBILITY_INVENTORY.md) | Changed |
 | [docs/ux/RIBBON_TASK_MODEL.md](../../../ux/RIBBON_TASK_MODEL.md) | Changed |
 | [docs/ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md](../../../ux/STUDENT_KEYBOARD_ACCESSIBILITY_AUDIT.md) | Changed |

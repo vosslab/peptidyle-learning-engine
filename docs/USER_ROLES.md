@@ -37,7 +37,8 @@ and service-capability boundaries are in
   deactivation also closes the Account's Instructor capabilities.
 - Instructor Account deactivation preserves authored content, Course
   relationships, and historical records. Reactivation restores the same
-  Account and Product Role; permanent closure is a separate deliberate action.
+  Account and Product Role. No permanent Account-closure workflow is currently
+  defined.
 
 ## Sysadmin
 

@@ -16,8 +16,7 @@ evidence, not a second product vocabulary.
 - Public References are human-facing selectors. Internal UUIDs remain behind
   trusted boundaries.
 - Published Questions, published Question Pools, and Blueprint Courses have
-  immutable Revision families. Human Guidance's general history summary omits
-  Pools even though its Pool rules explicitly require Pool Revisions.
+  immutable Revision families.
 
 ## Account and relationship identities
 
@@ -106,9 +105,9 @@ changes its owner accepts.
 
 ## Assessment and Student Work identities
 
-Assessment is the generic product object. The word Assignment appears only in
-the three Assessment Type names Regular Assignment, Practice Question
-Assignment, and Bonus Assignment.
+Assessment is the generic product object. Assignment is not an object,
+category, or parent Type; the word appears only in the three Assessment Type
+names Regular Assignment, Practice Question Assignment, and Bonus Assignment.
 
 An Assessment Attempt owns the Student's saved responses and whole-Assessment
 submission state. An implementation may assign internal row IDs to Question

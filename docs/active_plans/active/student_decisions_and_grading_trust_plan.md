@@ -4,9 +4,11 @@
 > complete Question responses save while the Attempt is open; the whole
 > Assessment Attempt is the submission target and finalizes them together;
 > native PLE JSON receives no random seed; and current point values apply to the
-> backend's immutable credit fractions. Any old snapshot, Entry, Question
-> Attempt/Submission, grade-selection, or deferred-completion language below is
-> implementation evidence, not additional product intent.
+> backend's immutable credit fractions. Unanswered Questions receive zero and
+> count as incorrect without backend work; the highest submitted Attempt score
+> is used; and grading has no deferred-result state. Any old snapshot, Entry, or
+> Question Attempt/Submission language below is implementation evidence, not
+> additional product intent.
 
 Status: in progress. M1 and M2.5 are complete. The former M2/M3 background grading lifecycle is
 superseded and is not completion evidence. M2.5 audit cleanup removed obsolete grading-job, retry,
@@ -36,13 +38,16 @@ operation or interpretation of backend control formats.
 - Store one immutable normalized credit fraction for every response finalized with an Assessment
   Attempt.
 - Calculate displayed scores from stored credit, current Entry points, and the issued scoring rule.
+- Treat unanswered Questions as zero and incorrect without backend evaluation, and use the highest
+  submitted Assessment Attempt score.
 - Remove the user-visible grading lifecycle and instructor-attention workflow.
 - Retain the eleven-topic Genetics Blueprint Course after corrected behavior is verified.
 
 ## Design philosophy
 
 Apply KISS aggressively. Direct saved-response evaluation and atomic commit satisfy the product
-contract. Narrow the existing worker to abandoned expiry submission. A queue, retry policy,
+contract. Narrow the existing worker to submission of expired open Attempts after the Student has
+left. A queue, retry policy,
 materialized score, extra state, or permanent test earns inclusion only for a demonstrated approved
 operation. One-time source, renderer, and timing probes remain temporary evidence.
 
@@ -50,7 +55,7 @@ operation. One-time source, renderer, and timing probes remain temporary evidenc
 
 - Replace grading-time point snapshots with immutable normalized credit and current-point scoring.
 - Change manual submission and expiry finalization to use one direct finalizer, reusing the existing
-  worker only for abandoned expired Attempts.
+  worker only to ensure expired open Attempts are submitted after the Student has left.
 - Remove grading states, polling, attention counts, and grading-detail routes.
 - Permit zero-valued legacy `Assignment Entry` rows consistently with the Rust point-value type while preserving
   the current positive-denominator completion rule.
@@ -75,7 +80,7 @@ operation. One-time source, renderer, and timing probes remain temporary evidenc
 | Result     | Immutable normalized credit is recorded              | Remove legacy grading-job/failure residue from the remaining boundary     |
 | Scoring    | Readers apply current Entry points to stored credit  | Keep scores derived on read                                               |
 | Public UI  | Polling and Gradebook attention detail were removed  | Keep completed results without grading-progress UI                        |
-| Expiry     | M1 closes further edits at expiry                    | Existing narrow worker finalizes abandoned expired work; reads stay reads |
+| Expiry     | M1 closes further edits at expiry                    | Existing narrow worker submits expired open Attempts after the Student leaves; reads stay reads |
 
 Architecture review approved one persisted normalized_credit fraction. All current backends derive
 correct from that fraction, including rare partial credit, so correct is not stored independently.
@@ -173,15 +178,16 @@ completion semantics.
   finalization, and the existing worker.
 - Depends on: WP-K1.
 - Outcome: authorized saved-response capture, then atomic current-state verification and commit of
-  finalized saved responses, credit, and Attempt completion. Abandoned expiry uses the existing
-  worker through the same finalizer.
+  finalized saved responses, credit, and Attempt completion. Expiry after the Student has left uses
+  the existing worker through the same finalizer.
 - Acceptance criteria: backend failure and pre-commit process loss record no acceptance; replay
   reads immutable credit; concurrent save rejects stale preparation; expiry/manual/worker races
   converge through server clock and one whole-Assessment submission; unanswered expiry positions
-  remain unanswered without backend evaluation. Gradebook, result, and export reads never call a Backend or
-  write; expires_at logically blocks edits and counts before physical finalization.
-- Decision procedure: reuse the existing worker only to submit abandoned expired Attempts. Do not
-  delete and recreate it or expose its progress publicly.
+  remain visibly unanswered, receive zero, and count as incorrect without backend evaluation.
+  Gradebook, result, and export reads never call a Backend or write; expires_at logically blocks
+  edits and counts before physical finalization.
+- Decision procedure: reuse the existing worker only to ensure expired open Attempts are submitted
+  after the Student has left. Do not delete and recreate it or expose its progress publicly.
 - Evidence: focused native/WeBWorK checks plus a disposable abandoned-expiry behavior observation.
 - Obvious follow-on: WP-K3.
 

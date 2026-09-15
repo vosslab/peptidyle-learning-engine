@@ -13,9 +13,9 @@ Do not use the historical routes, captions, or screenshots below as product
 requirements. Current intent is in [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md):
 Blueprints are Private, Public, or Archived; Private is owner-only; Course
 Instances can adopt a Public Blueprint or start empty; generic teaching objects
-are Assessments; current co-Instructors are equal; and Human Guidance does not
-define Grade Categories, weighted Course Grade Schemes, or Instructor grading
-operations.
+are Assessments; current co-Instructors are equal; and PLE uses direct Question
+points without separate weights, Grade Categories, weighted Course Grade
+Schemes, Course percentage calculations, or Instructor grading operations.
 
 In the historical product reference, Blueprint Courses show reusable course-level content and
 structure. Its old publication/draft labels are superseded by the current
@@ -48,7 +48,7 @@ an image.
 | Grading operations        | `/instructor/courses/C-1/assignments/A-1/grading-operations` | Retired status concept; it is not a current route or an Instructor grading action                                                  |
 | Students                  | `/instructor/courses/C-1/students`                           | Invitation, enrollment policy, pending invitation, and roster context                                                              |
 | Gradebook                 | `/instructor/courses/C-1/gradebook`                          | Compact Student-assignment progress without expanded raw records                                                                   |
-| Grade settings            | `/instructor/courses/C-1/grade-settings`                     | Superseded mockup; Human Guidance does not define weighted categories or a Course Grade Scheme                                     |
+| Grade settings            | `/instructor/courses/C-1/grade-settings`                     | Superseded mockup; PLE uses direct Question points without weighted categories or a Course Grade Scheme                            |
 | Course appearance         | `/instructor/courses/C-1/appearance`                         | Applied Course Instance palettes, banner settings, and live theme context                                                          |
 | Question Library          | `/library`                                                   | Published Question views, Starred, Watched, Search Question Library, Browse Question Library, filters, and Question IDs             |
 | Question Details          | `/library/AAAA-ZBBB`                                         | Human-facing identity, source context, Question Statistics, and Student-facing prompt                                              |

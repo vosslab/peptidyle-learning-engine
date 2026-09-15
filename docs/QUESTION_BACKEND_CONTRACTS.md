@@ -49,11 +49,11 @@ submitted, but saving it creates no Student-visible grading outcome. PLE stores
 the backend's credit fraction without reinterpretation. A point-value change
 recalculates the score and never regrades the response.
 
-Human Guidance does not require a public grading job, pending-result lifecycle,
-Retry action, regrading operation, result replacement, or generic grading
-receipt. A server-only continuation for a backend that cannot return the credit
-fraction directly is not approved by this contract; record and resolve that
-need before adding machinery.
+PLE has no public grading job, pending-result lifecycle, Retry action, regrading
+operation, result replacement, or generic grading receipt. When PLE requests a
+grading outcome, the Question Backend returns it without a deferred grading
+state. If it cannot return the credit fraction, that processing does not
+complete.
 
 ## Browser boundary
 

@@ -36,6 +36,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Fix the design that causes a problem rather than adding a workaround for its symptom.
 - Prefer durable long-term fixes when the additional cost is justified.
 - Prefer adaptable boundaries and simple domain concepts over speculative edge-case machinery.
+- Add product states, workflows, background processing, and recovery mechanisms only for a
+  demonstrated product or Question Backend need.
 - Stay focused on the requested work. Complete the required work and avoid adding unplanned functionality.
 
 ### Codebase development rules
@@ -99,7 +101,6 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A person who needs more than one Product Role uses separate Accounts.
 - Instructor Accounts may be deactivated without deleting their authored content, Course relationships, or historical records.
 - Reactivating an Instructor Account restores access to the same Account and Product Role.
-- Instructor Account deletion or permanent closure should be a separate deliberate action from temporary deactivation.
 
 ### Instructor role
 
@@ -129,6 +130,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - An **Instructor** can deactivate a Student's access to their Course.
 - Deactivating Course access does not delete the Student Account or Student Work.
 - An **Instructor** can restore the Student's Course access later.
+- **Instructors** can bulk add Students to a Course Instance through roster import.
+- **Instructors** remove Students individually.
+- PLE does not provide bulk Student removal from a Course Instance.
 
 ### Sysadmin role
 
@@ -282,7 +286,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **My Inactive Courses** should keep past Course Instances available without competing with active Course Instances.
 - Creating a Course Instance from a Blueprint Course preserves its Assessments, Questions, pools, and settings.
 - Assessments created from a Blueprint Course start unreleased with dates unset.
-- An Instructor can upload a small centered Course banner and select a three-color theme.
+- A Course Instance represents one teaching period and remains Active for at most six months from
+  creation.
+- Course banners use a 5:1 aspect ratio.
+- 1280 by 256 pixels is the recommended Course banner authoring size.
+- Higher-resolution 5:1 Course banner images are supported.
+- PLE responsively scales Course banners while preserving their aspect ratio.
+- Course banners appear as small centered banners rather than full-width page heroes.
+- An Instructor can upload a Course banner and select a three-color theme.
 - Course Instance Assessments have two editors:
   - **Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.
   - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
@@ -363,10 +374,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Student interface
 
 - The Student interface should focus on current Courses, Coursework, and work that needs attention.
-- **Coursework** is the Student-facing collective term for Assignments, Practice, Bonus work, Quizzes, and Exams.
+- **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question
+  Assignments, Bonus Assignments, Quizzes, and Exams.
 - Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
 - The Student Ribbon should use familiar Student language rather than internal PLE terms such as Assessment.
-- Coursework lists may provide filters for **Assignments**, **Practice**, **Bonus**, **Quizzes**, and **Exams**.
+- Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
+  **Bonus Assignments**, **Quizzes**, and **Exams**.
 - Each Coursework item should clearly show its Assessment Type using its label and Type icon.
 - The Student interface should make the next useful action easy to find.
 - The Student menu is simpler than the Instructor menu.
@@ -379,7 +392,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
 - Coursework lists should make due dates, Type, and completion status easy to scan.
 - Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
-- Students see one Question at a time while completing an Assignment, Practice, Bonus work, Quiz, or Exam.
+- Students see one Question at a time while completing Coursework.
 - While completing Coursework, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.
 - Leaving a Question and returning should preserve its saved response.
 - The current Question and overall progress should remain easy to see.
@@ -389,6 +402,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Scores and feedback should appear where the Coursework settings allow them.
 - Completed Coursework should remain easy to find and review.
 - Student content entry should use the response controls provided by Questions and other Student activities.
+- The complete Student Ribbon task layout does not have a locked-in design yet.
 
 ### Sysadmin interface
 
@@ -408,6 +422,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Rare installation and configuration tasks should remain available through secondary navigation.
 - High-consequence administrative actions should have a visually distinct area.
 - Confirmation for destructive actions should clearly state what will happen.
+- The complete Sysadmin Ribbon task layout does not have a locked-in design yet.
 
 ## Data and history
 
@@ -425,7 +440,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Sysadmins** receive only the FERPA access required for a specific administrative task.
 - Student Accounts persist independently of Course data and Course retention.
 - Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
-- Course metadata, Assignment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
+- Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
 - **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
 - Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
 - Student Work is an umbrella term; the underlying records retain their own identities and purposes.
@@ -438,37 +453,46 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Course retention
 
-- Course retention should follow Course dates and Student activity rather than a fixed academic calendar.
-- The final Assignment deadline in a **Course Instance** starts its retention clock.
-- Student activity after the final Assignment deadline should reset the inactivity clock.
-- Instructors should not need to mark a Course Instance inactive to start retention.
+- Course retention should follow Course Instance dates and its six-month Active lifetime rather than
+  a fixed academic calendar.
+- The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA
+  retention clock.
+- Creating or extending a later Assessment deadline may move those dates, but not beyond the
+  six-month Active lifetime.
+- Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
+- The configured FERPA retention policy determines the later notice, archive, recovery, and
+  permanent deletion transitions.
+- PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
+  creation.
+- The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
+  FERPA retention and deletion.
+- Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
+  delete Student records.
 - Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
 - PLE should notify the **Instructor** before FERPA-sensitive Student data is archived.
 - Archived Student data should leave normal Instructor and Student interfaces but remain recoverable during the retention period.
 - FERPA-sensitive Student data should be permanently deleted when its retention period expires.
-- Course metadata, Assignment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-- A Course Instance with its FERPA-sensitive Student data removed becomes an Inactive Course.
+- Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
+- FERPA retention intervals are operational configuration rather than separate product decisions.
 
 ### Retention processing
 
 - A background process should periodically find Course Instances whose retention deadlines have passed.
-- Retention decisions should come from stored Course dates and Student activity.
+- Retention decisions should come from stored Course dates and the Course Instance creation time.
 - The background process should execute retention policy rather than define when retention periods begin or end.
 - Running the retention process late should produce the same retention decision as running it on schedule.
 - The retention process should be safe to run repeatedly.
-- Student activity should be checked again before archival or permanent deletion.
 
 ### Revisions and history
 
 - Be conservative about creating revisions.
 - Assessments, Course Instances, and Draft Questions use current state.
-- Published Questions and Blueprint Courses have immutable revisions.
+- Published Questions, Question Pools, and Blueprint Courses have immutable revisions.
 - Mutable working state uses a monotonic sequential Edit Number when needed for concurrency.
 - An Edit Number is only a counter and does not identify a stored historical object.
-- Question and Blueprint Revisions use monotonic sequential Revision Numbers.
+- Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for
+  each object.
 - A Revision Number identifies a specific immutable Revision stored by PLE.
-- Question Revision Numbers start at 1 for each Published Question.
-- Blueprint Revision Numbers start at 1 for each Blueprint Course.
 - Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
 - Student Work records the Student's responses and the grading outcome returned by the Question Backend.
 - Student Work records the Question Pool Revision and selected Published Question Revision for each response.
@@ -478,7 +502,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Dates and time zones
 
-- Assignment deadlines are stored as instants.
+- Assessment deadlines are stored as instants.
 - Instructor dates and times use the Instructor's IANA time zone.
 - The Instructor's time zone is used to interpret dates and times the Instructor enters.
 - Changing an Instructor's time zone changes how existing deadlines are displayed without changing the deadlines.
@@ -559,7 +583,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question Backends may support more complex interactions without requiring PLE to implement those interactions.
 - A Question Backend returns an immutable credit fraction for each complete response it evaluates.
 - PLE stores the immutable credit fraction as the grading outcome.
-- Assignment scores are calculated from stored credit fractions and current Question point values.
+- When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
+  state.
+- Assessment scores are calculated from stored credit fractions and current Question point values.
 - Changing Question point values recalculates scores without another Question Backend interaction.
 - When parameterized WeBWorK source exists, prefer it to importing static variants.
 
@@ -573,8 +599,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question Pools are always published and have no draft or unpublished state.
 - A Question Pool is an independently reusable Question Library object.
 - A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
-- Importing a Question Pool into a new Assignment automatically forks the Question Pool.
-- The fork belongs to the new Assignment and can be changed without changing the source Question Pool.
+- Importing a Question Pool into a new Assessment automatically forks the Question Pool.
+- The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
 - Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
 - Question Pools work the same way regardless of the Question Backend.
 - **Instructors** choose the contents of a Question Pool and how many Questions are selected.
@@ -591,7 +617,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Question Library is one global collection of published Question content.
 - **Published Questions** are available to all vetted **Instructors**.
 - Published Question Pools are available to all vetted **Instructors**.
-- **Students** access Question content through their Assignments rather than through the Question Library.
+- **Students** access Question content through their Coursework rather than through the Question Library.
 - Published content remains discoverable when used by a private **Course Instance**.
 - With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
 - Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
@@ -654,6 +680,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Answer-choice randomization belongs to the Question.
 - PLE-native Questions control their own answer-choice randomization.
 - Question writers may add optional Question Feedback when it helps.
+- Optional Question Feedback is shown when the Question Backend provides it.
+- Question Feedback does not use Assessment correct-answer disclosure settings.
 - Student workflows remain complete whether or not Students read Question Feedback.
 
 ## Courses
@@ -687,7 +715,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
 - Public Blueprint Courses can be adopted to create daughter Course Instances.
 - Archived Blueprint Courses are read-only and no longer actively maintained.
-- Archived Blueprint Courses remain visible by every vetted **Instructor**. 
+- Archived Blueprint Courses remain visible by every vetted **Instructor**.
 - Archived Blueprint Courses are excluded from normal search results unless the search explicitly includes them.
 - Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
 - Archived Blueprint Courses can be forked but not adopted.
@@ -766,8 +794,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Course Instances contain only **Published Questions** and published **Question Pools**.
 - Course Instances are visible only to their co-**Instructors** and enrolled **Students**.
 - Active Courses are current teaching Course Instances.
-- Inactive Courses retain Course metadata after FERPA-sensitive Student data is removed.
+- Inactive Courses are past Course Instances and retain Course metadata, including after
+  FERPA-sensitive Student data is removed.
 - An **Instructor** may deliberately publish reusable Course Instance structure as a new **Blueprint Course**.
+- A new academic term uses a new Course Instance. Rollover is not a separate product model.
 
 #### Blueprint adoption and daughter Course Instances
 
@@ -803,7 +833,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Assessments define reusable Assessment content and teaching settings.
 - Course Instance Assessments deliver Questions to **Students**.
 - All Assessments use the same underlying Assessment model.
-- Use **Assignment** only for Regular Assignments, Practice Question Assignments, and Bonus Assignments.
+- **Assignment** is not a separate object or category. The word appears only in the names
+  **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
 
 ### Assessment content
 
@@ -826,7 +857,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Regular Assignments are designed as practice for learning, not merely as one-time assessments.
 - **Practice Question Assignments** provide focused review or study-guide practice using material already covered.
 - Practice Question Assignments may be worth a small number of points or a small amount of extra credit.
-- Practice Question Assignments always show the correct answer after the **Student** responds.
+- Practice Question Assignments use the same whole-Attempt submission boundary as every other
+  Assessment and show the correct answer immediately after that Assessment Attempt is submitted.
 - **Bonus Assignments** provide optional extra credit.
 - Bonus Assignments are worth zero points possible and add earned points directly to the grade.
 - **Quizzes** assess understanding of recent material.
@@ -887,7 +919,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Releasing a Course Instance Assessment requires an automated and interactive **Assessment Release Validation** process.
 - Assessment Release Validation checks the Assessment settings and data required for release.
 - Validation should catch missing, invalid, or unreasonable values and explain what the **Instructor** needs to fix.
-- Release Validation should check dates for reasonable values, such as a due date at least 24 hours in the future and less than 6 months away.
+- Release Validation should require a due date at least 24 hours in the future and no later than the
+  Course Instance's six-month Active limit.
 - Release Validation should check that release, due, and other dates occur in a valid order.
 - Release Validation should check required settings such as point values, Attempt limits, and time limits for valid ranges.
 - Release Validation should check that the Assessment contains Questions and that required Question settings are valid.
@@ -901,10 +934,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Assessment disclosure settings remain separate and independently configurable.
 - **Regular Assignments** and **Bonus Assignments** should rarely show the correct answer.
 - Regular and Bonus Assignments show the **Student's** response and whether it was correct or incorrect.
-- **Practice Question Assignments** always show the correct answer after the **Student** responds.
+- **Practice Question Assignments** show correct answers immediately after Assessment Attempt
+  submission.
 - **Quizzes** and **Exams** show correct answers after all **Students** in the Course have completed the Assessment.
 - Until then, Quizzes and Exams do not disclose correct answers.
-- Question Feedback is always shown when a Question includes it.
+- Optional Question Feedback is shown when the Question Backend provides it.
+- Question Feedback does not use Assessment correct-answer disclosure settings.
 - Unreleasing a Course Instance Assessment permanently deletes its Student Work and returns to a pre-release state.
 
 ### Assessment Attempts
@@ -915,6 +950,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Instructors** control the number of permitted Assessment Attempts.
 - Regular Assignments default to unlimited Attempts.
 - **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
+- When an Assessment permits multiple Attempts, the highest Assessment Attempt score is used as the
+  Student's Assessment score.
 - Assessment Attempt submission and grading are fully automatic and require no **Instructor** action.
 - Automatic grading does not require a separate Student or **Instructor** grading workflow.
 
@@ -925,9 +962,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - PLE saves complete Question responses as the **Student** works.
 - The Student may change a saved response while the Assessment Attempt remains open.
 - Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
-- Questions without a saved response remain unanswered when the Attempt is submitted.
+- Questions without a saved response remain visibly unanswered when the Attempt is submitted.
+- An unanswered Question receives zero credit and counts as incorrect without being sent to the
+  Question Backend.
 - PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
 - A Question Backend may evaluate a response before Assessment submission when needed for its interaction.
+- When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
+  state.
 - The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
 
 ### Assessment Attempt timing and expiration
@@ -941,7 +982,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Resuming an Attempt does not reset, pause, or extend its time limit.
 - Attempt expiration is checked whenever a **Student** interacts with the Attempt.
 - Background processing ensures expired Attempts are submitted even when the **Student** is no longer connected.
-- When an Attempt expires, PLE submits the whole Attempt, finalizing its saved responses and leaving other Questions unanswered.
+- When an Attempt expires, PLE submits the whole Attempt, finalizing its saved responses. Other
+  Questions remain visibly unanswered, receive zero credit, and count as incorrect without being
+  sent to the Question Backend.
 
 ### Student Work
 
@@ -957,6 +1000,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A Question Backend returns an immutable credit fraction for each complete response it evaluates.
 - PLE stores the credit fraction as the Question grading outcome.
 - Course Instance Assessment scores are calculated from stored credit fractions and current Question point values.
+- An unanswered Question contributes zero points to the Assessment score and counts as incorrect.
+- When an Assessment has multiple submitted Attempts, the highest Assessment Attempt score is the
+  Student's Assessment score.
+- PLE uses Question point values directly to calculate Assessment scores.
+- PLE does not use separate Question weights, Grade Categories, weighted categories, Course Grade
+  Schemes, or Course percentage calculations.
+- For the pilot, grade export uses CSV or TSV only and exports point-based Assessment scores.
+- The Instructor handles Course-level weighting or percentage calculations in the home LMS.
 - Changing Question point values recalculates affected Assessment scores.
 - Score recalculation does not require another Question Backend interaction.
 - Score recalculation does not change the stored Question grading outcome.

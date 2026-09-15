@@ -50,7 +50,8 @@ What follows from it:
 - Once a grade is recorded, it is final.
 - "Recovery" has exactly one meaning: when a timed Attempt runs out, the server submits the whole
   Attempt and finalizes whatever the Student had saved. Questions without a saved response remain
-  unanswered. That auto-submission produces a grade like any other submission.
+  visibly unanswered, receive zero credit, and count as incorrect without backend evaluation. That
+  auto-submission produces a grade like any other submission.
 - If grading cannot complete, submission cannot complete. The system is broken, and that is an
   operations problem for the sysadmin (renderer down, database down). It is not a product state
   and not something a student or teacher is asked to interpret or act on.
@@ -132,7 +133,8 @@ What was built and is still right:
 
 - A grade, once recorded, is permanent.
 - Attempt expiry automatically submits the whole Attempt, finalizes its saved responses, and leaves
-  other Questions unanswered.
+  other Questions visibly unanswered. Each receives zero credit and counts as incorrect without
+  backend evaluation.
 - The 3-second delay is gone.
 - No role has a grade, regrade, or retry action.
 
@@ -270,8 +272,10 @@ The whole grading model, four lines:
 2. The Assessment score = sum of (stored credit fraction x that Question's current point value).
 3. If a teacher changes a point value, the next read computes the new score from the stored
    fractions. No further interaction with the Question Backend, and no stored score to update.
-4. Attempt expiry submits the whole Attempt automatically, finalizing saved responses and leaving
-   other Questions unanswered.
+4. Attempt expiry submits the whole Attempt automatically, finalizing saved responses. Other
+   Questions remain visibly unanswered, receive zero credit, and count as incorrect without being
+   sent to a backend.
+5. When several Attempts are submitted, the highest Assessment Attempt score is used.
 
 > Changing points may change a Student's Assessment score. The stored credit fraction for each
 > response is untouched.
@@ -283,8 +287,10 @@ earlier when its interaction requires that work, but the Student sees no grading
 whole-Assessment submission.
 
 Starting design: do not store Assessment scores at all. Store the credit fractions. The Student
-result page, Gradebook, and any export calculate sum(fraction x current point value) when they
-read. A point-value edit then needs no recalculation operation, no queue, and cannot leave a
+result page and Gradebook calculate sum(fraction x current point value) when they read. Pilot grade
+export provides the same point-based scores as CSV or TSV for Course-level handling in the home
+LMS; it does not add weights, categories, percentages, or synchronization. A point-value edit then
+needs no recalculation operation, no queue, and cannot leave a
 stale score anywhere; the next read simply computes the new number. The immutable fraction is
 exactly the "evidence needed to interpret grading after teaching configuration changes" that
 HUMAN_GUIDANCE asks Student Work to retain. Store or recompute derived scores only if a measured
@@ -505,8 +511,10 @@ Added or clarified since the original plan; listed so no milestone drifts from t
   auto-submits saved answers.
 - Regular assignments default to unlimited attempts; teachers may restrict.
 - Assessment types: Regular Assignment, Practice Question Assignment, Bonus Assignment, Quiz,
-  Exam. Same engine, different defaults. Practice always shows the correct answer. Regular and
-  Bonus rarely do (student sees own answer and right/wrong; question feedback always shows).
+  Exam. Assignment is not an object or parent Type. Practice uses the same submission boundary and
+  shows the correct answer immediately after submission. Regular and Bonus rarely show the correct
+  answer (the Student sees their response and right/wrong). Optional Question Feedback is shown when
+  provided and does not use Assessment correct-answer disclosure settings.
   Quiz and Exam show the correct answer only after the whole class has finished. This affects
   what Phase 3's preview must strip and what the Properties Editor offers; it is not itself a
   milestone here.

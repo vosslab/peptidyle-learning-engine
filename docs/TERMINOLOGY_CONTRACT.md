@@ -9,9 +9,7 @@ and another document disagree. Product terms use Title Case as shown below.
 - Name the product object, not its current table, route, or component.
 - Use Account for a global login identity and relationship for scoped access.
 - Use Revision only for Published Questions, published Question Pools, and
-  Blueprint Courses. Human Guidance's general history summary omits Pools even
-  though its Pool rules explicitly require immutable Pool Revisions; preserve
-  that ambiguity rather than removing Pool Revision evidence.
+  Blueprint Courses.
 - Use Edit Number only for current-state concurrency; it is not history.
 - Use Assignment only inside the three Assessment Type names.
 - Do not create product terms from job, event, receipt, snapshot, recovery, or
@@ -25,10 +23,13 @@ more than one Product Role uses separate Accounts.
 
 **Account State** describes whether the Account can authenticate. Deactivation
 blocks access but preserves authorship, relationships, Student Work, and
-history. **Permanent Account Closure** is a separate process.
+history. Reactivation restores the same Account and Product Role. No permanent
+Account-closure workflow is currently defined.
 
 **Course relationship** binds one Account to one Course Instance in a scoped
 role. Current Student and Instructor relationships are not Product Roles.
+Instructors may bulk add Students through roster import. They remove Students
+individually; PLE has no bulk Student-removal workflow.
 
 **Co-Instructor** is any current Instructor relationship in a Course Instance.
 All co-Instructors are equal. Do not use Course Owner, primary Instructor, or
@@ -47,7 +48,9 @@ Role alone provides no ambient FERPA access.
 
 **Question Backend** is the component that owns Question rendering,
 interaction, response interpretation, grading, feedback, and backend-specific
-state. PLE treats backend presentation and state as opaque.
+state. PLE treats backend presentation and state as opaque. When PLE requests a
+grading outcome, the Question Backend returns it without a deferred grading
+state.
 
 **Question Format** identifies the source/adapter contract, such as native PLE
 Question JSON or WeBWorK PG/PGML.
@@ -164,7 +167,9 @@ neither is created automatically by adoption or forking.
 Students, equal co-Instructors, Course Instance Assessments, Attempts, and
 FERPA-protected records. It may adopt a Public Blueprint or start empty, must
 always have at least one assigned Instructor, and may be deliberately published
-as a new Blueprint Course.
+as a new Blueprint Course. It represents one teaching period and remains Active
+for at most six months from creation. A new academic term uses a new Course
+Instance; rollover is not a separate product model.
 
 Each Blueprint Course and Course Instance has its own deliberately entered
 **Short Name** and **Long Name**. The short name should remain under about 16
@@ -172,8 +177,9 @@ characters when practical. Course Instance names are not derived from the
 parent Blueprint names.
 
 **Active Course** and **Inactive Course** describe whether the Course is in
-ordinary teaching/record interfaces after the retention process. They are not
-Blueprint lifecycle states.
+current teaching or past-Course interfaces. A Course Instance becomes Inactive
+six months after creation. Inactivity is separate from FERPA archival or
+deletion and is not a Blueprint lifecycle state.
 
 ## Dates and time zones
 
@@ -187,6 +193,10 @@ deadline. Blueprints contain neither instants nor relative schedules.
 
 **Assessment** is the generic object that organizes Questions and Question
 Pools into graded or practice work.
+
+**Assignment** is not an object, category, or parent Type. It appears only in
+the names Regular Assignment, Practice Question Assignment, and Bonus
+Assignment.
 
 **Assessment Type** is one of:
 
@@ -226,10 +236,11 @@ change existing Assessments. Blueprint Assessments do not use Templates.
 
 **Assessment Release Validation** checks Questions, point values, timing order,
 reasonable dates, Attempt/time limits, and other required values. A due date is
-reasonable only when it is at least 24 hours in the future and less than six
-months away. Validation is automated and interactive, explains each correction,
-and can be rerun. A Course Instance Assessment can become **Released** only
-after validation passes. New Course Instance Assessments begin **Unreleased**.
+reasonable only when it is at least 24 hours in the future and no later than
+the Course Instance's six-month Active limit. Validation is automated and
+interactive, explains each correction, and can be rerun. A Course Instance
+Assessment can become **Released** only after validation passes. New Course
+Instance Assessments begin **Unreleased**.
 
 Unreleased and Released are the only stored Assessment lifecycle states defined
 here. Do not use Closed or Archived as Assessment states; date-derived access
@@ -242,20 +253,16 @@ Work for it.
 ## Assessment Types and disclosure
 
 Regular Assignments support regular learning and default to unlimited Attempts.
-Practice Question Assignments provide focused review and always show the
-correct answer after the Student responds. Bonus Assignments are worth zero
-points possible and add earned points directly to the grade. Quizzes and Exams
-may have more restrictive settings.
+Practice Question Assignments use the same whole-Attempt submission boundary as
+other Assessments and show the correct answer immediately after submission.
+Bonus Assignments are worth zero points possible and add earned points directly
+to the grade. Quizzes and Exams may have more restrictive settings.
 
 Regular and Bonus Assignments rarely show the correct answer but show the
 Student response and correctness. Quizzes and Exams withhold correct answers
-until all Students complete the Assessment. Question Feedback is shown whenever
-included.
-
-Human Guidance does not fully resolve the timing relationship between immediate
-Practice Question answer feedback and the rule that a Student sees no grading
-outcome until whole-Assessment submission. Do not define that boundary by
-inference.
+until all Students complete the Assessment. Optional Question Feedback is
+separate from the correct answer and grading outcome. It is shown when provided
+without its own delayed-release state.
 
 ## Attempts, responses, and scoring
 
@@ -267,14 +274,16 @@ is open. It is replaceable until whole-Assessment submission. An incomplete
 response is unsaved for product purposes and is not graded.
 
 **Assessment submission** is the whole-Attempt transition. It finalizes all
-saved responses together as Student Work and leaves other Questions unanswered.
-An internal row or ID must not be documented as another Student action or
-product lifecycle.
+saved responses together as Student Work. A Question without a complete saved
+response remains visibly unanswered, receives zero credit, and counts as
+incorrect without backend evaluation. An internal row or ID must not be
+documented as another Student action or product lifecycle.
 
 **Attempt expiration** uses a server-owned wall-clock deadline. Time continues
 while disconnected. Reconnect/resume does not pause or extend it. Expiration
-submits the whole Attempt, finalizes its saved responses, and leaves other
-Questions unanswered.
+submits the whole Attempt and applies the same saved-response and unanswered-
+Question rules as Student submission. Interaction checks expiration, and
+background processing ensures submission even after the Student leaves.
 
 **Credit fraction** is the immutable grading outcome returned by the Question
 Backend for a complete response it evaluates. PLE stores it unchanged.
@@ -283,13 +292,16 @@ Backend for a complete response it evaluates. PLE stores it unchanged.
 Assessment Question point values. A point change recalculates scores without
 backend interaction or regrading.
 
+When an Assessment has multiple submitted Attempts, the highest Assessment
+Attempt score is the Student's Assessment score. PLE uses Question points rather
+than Grade Categories, weighted categories, Course Grade Schemes, or Course
+percentage calculations. Pilot grade export is CSV or TSV only and carries
+point-based Assessment scores for Course-level handling in the Instructor's
+home LMS.
+
 **Student Work** is the FERPA-protected Course evidence needed to identify the
 exact Question/Pool Revision delivered, finalized saved response, backend
 credit outcome, and other minimum facts needed to interpret the work.
-
-Human Guidance does not define which Attempt contributes to a Course grade when
-multiple Attempts exist. It also does not define Course Grade Schemes or Grade
-Categories.
 
 ## Interface vocabulary
 
@@ -313,22 +325,30 @@ Work. **Profile menu** owns Sign Out.
 
 Required backed destinations remain visible with honest empty states.
 Unimplemented future capabilities are not shown as usable controls.
+The complete Student and Sysadmin Ribbon task layouts do not have locked-in
+designs yet.
 
 ## Retention
 
-**Course retention clock** begins at the final Assessment deadline and resets
-after later Student activity.
+**FERPA retention clock** begins at the latest Assessment deadline. Creating an
+Assessment with a later deadline or extending a deadline can move the clock,
+but not beyond the Course Instance's six-month Active limit. Starting the clock
+does not itself notify, archive, hide, or delete Student data. The configured
+retention policy determines those later transitions. The six-month limit keeps
+Course reuse or deadline extensions from indefinitely delaying FERPA retention
+and deletion. Becoming Inactive does not itself delete Student records.
 
 **FERPA archive** removes FERPA-protected Student records from normal Instructor
 and Student interfaces after Instructor notice while keeping the records
 recoverable during the configured retention period.
 
 **Permanent FERPA deletion** removes those archived records at the end of the
-retention period. The Course becomes inactive. Course metadata, Assessment
-definitions, Questions, and settings remain.
+retention period. It is separate from the Course Instance's six-month
+Active-to-Inactive transition. Course metadata, Assessment definitions,
+Questions, and settings remain.
 
 The background check is idempotent. Human Guidance does not define numeric
-durations or exact job/event/receipt/table shapes.
+FERPA retention durations or exact job, event, receipt, or table shapes.
 
 ## Implementation-only vocabulary
 

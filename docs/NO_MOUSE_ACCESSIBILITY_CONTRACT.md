@@ -213,7 +213,8 @@ moved focus elsewhere. A delayed focus helper never steals focus back from the s
   Attempt at most once according to the Assessment policy.
 - Before Attempt expiry, reauthentication keeps the current response available for the Student to
   save or edit without resetting the server clock. At expiry, the server automatically submits the
-  whole Attempt, finalizes its saved responses, and leaves other Questions unanswered.
+  whole Attempt and finalizes its saved responses. Other Questions remain visibly unanswered,
+  receive zero credit, and count as incorrect without being sent to a backend.
 - When Assessment policy allows another Attempt, its action is reachable through
   ordinary Tab and Space. A new Attempt receives its own server-owned
   randomization state; resuming the current Attempt preserves its state.

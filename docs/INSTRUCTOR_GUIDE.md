@@ -10,7 +10,9 @@ The current implementation exposes Question Library and authoring, Blueprint
 Courses, Course Instances, roster import, Assessment editing/release,
 answer-free Student Work inspection, Gradebook evidence, and protected Course
 Invitation export. Some current routes and labels still use `assignment`; that
-is an implementation gap, not current product vocabulary.
+is an implementation gap, not current product vocabulary. Roster import bulk
+adds Students to a Course Instance. Student removal is one Student at a time;
+PLE does not provide a bulk-removal workflow.
 
 Start the stack through [USAGE.md](USAGE.md). Current route evidence is in
 [API_CONTRACTS.md](API_CONTRACTS.md), and product intent is in
@@ -26,7 +28,7 @@ Start the stack through [USAGE.md](USAGE.md). Current route evidence is in
    automatically as Unreleased Assessments.
 4. Invite another Instructor as an equal co-Instructor when needed; the creator
    or first Instructor has no extra authority.
-5. Add Students through the Course roster relationship.
+5. Bulk add Students through roster import and make any removals individually.
 6. Create and edit Course Instance Assessments using Published Questions and
    Question Pools.
 7. Run Assessment Release Validation, correct every reported issue, and release
@@ -50,7 +52,11 @@ for that Assessment. It preserves the Assessment definition, Course
 relationships, and shared Published Questions and Pools.
 
 Changing a Question's point value recalculates scores from stored immutable
-credit fractions. It does not regrade responses.
+credit fractions. It does not regrade responses. An unanswered Question
+contributes zero and counts as incorrect, and the highest submitted Attempt
+score is used. PLE does not add separate weights, categories, Course Grade
+Schemes, or Course percentage calculations. Pilot export is CSV or TSV point
+data for Course-level handling in the Instructor's home LMS.
 
 ## Navigation
 

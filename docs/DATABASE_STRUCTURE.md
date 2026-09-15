@@ -65,8 +65,7 @@ Blueprint Course (Private, Public, or Archived)
 
 Published Questions, published Question Pools, and Blueprint Courses have
 immutable Revision families. Edit Numbers on other current aggregates are
-concurrency controls. Human Guidance's general history summary omits Pools,
-but its Pool rules explicitly require immutable Pool Revisions.
+concurrency controls.
 
 ## Questions and Pools
 
@@ -130,13 +129,16 @@ needed to interpret responses, saved responses, whole-Attempt submission state,
 immutable credit fractions, and protected feedback.
 
 A complete response is replaceable while the Attempt is open. Submitting the
-whole Assessment finalizes all saved responses together. An internal row named
-`question_submission` may currently store that evidence, but its name does not
-define another Student action or lifecycle.
+whole Assessment Attempt finalizes all saved responses together. Positions
+without a complete saved response remain visibly unanswered, contribute zero,
+and count as incorrect without backend evaluation. An internal row named
+`question_submission` may currently store finalized-response evidence, but its
+name does not define another Student action or lifecycle.
 
 Scores are derived from immutable credit fractions and current Assessment
-Question point values. The target model requires no regrading, mutable result,
-scoring generation, or score-rebuild worker.
+Question point values. The highest submitted Assessment Attempt score is used.
+The target model requires no regrading, mutable result, scoring generation,
+separate weighting model, or score-rebuild worker.
 
 ## Assessment Unrelease
 
@@ -151,15 +153,18 @@ a product requirement unless independently justified.
 
 ## Retention
 
-The final Assessment deadline starts the Course retention clock; later Student
-activity resets it. The database must support Instructor notice, archive from
-normal interfaces, recoverability during the configured period, permanent
-deletion of FERPA-protected Student records, and Course inactivity while
-preserving Course metadata, Assessments, Questions, and settings.
+The Course Instance creation time anchors a six-month maximum Active lifetime.
+That limit caps Assessment deadline movement so Course reuse cannot indefinitely
+delay FERPA retention and deletion, but becoming Inactive does not itself delete
+Student records. The latest Assessment deadline starts the FERPA retention
+clock. The database must support later Instructor notice, FERPA archive,
+recoverability during the configured period, and permanent deletion of
+FERPA-protected Student records while preserving Course metadata, Assessments,
+Questions, and settings.
 
-Human Guidance does not specify numeric durations or exact job/event/table
-shapes. Existing cleanup or job tables do not by themselves satisfy or redefine
-this contract.
+Human Guidance does not specify numeric FERPA retention durations or exact
+job/event/table shapes. Existing cleanup or job tables do not by themselves
+satisfy or redefine this contract.
 
 ## Structure and installation data
 

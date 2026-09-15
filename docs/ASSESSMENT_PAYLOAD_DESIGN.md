@@ -113,7 +113,9 @@ reservation, or grading action.
 
 Selecting the product action to submit the Assessment submits the entire open
 Attempt. Every saved complete response is finalized as Student Work in that one
-transition; positions without a complete saved response remain unanswered.
+transition. Positions without a complete saved response remain visibly
+unanswered, receive zero credit, and count as incorrect without being sent to a
+backend.
 
 At the deadline, the server performs the same whole-Attempt transition using
 the responses saved before expiry. Repeating an already-completed transition

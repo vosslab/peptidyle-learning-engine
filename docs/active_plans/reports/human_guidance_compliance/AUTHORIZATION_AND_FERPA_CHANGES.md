@@ -11,11 +11,14 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
   assigned Instructor.
 - A Student Account is global. Course membership and the Student Record scope access to one Course;
   removing or deactivating Course access preserves the Account and Student Work.
+- Instructors may bulk add Students through roster import. They remove Students individually; PLE
+  has no bulk Student-removal or roster-replacement workflow.
 - Students and Instructors use passkeys or email codes. Student institutional email is immutable,
   and an Instructor may reset Course login access and issue a new signup code without creating a new
   Student identity.
 - Instructor Account deactivation preserves authorship, Course relationships, and history;
-  reactivation restores the same Account and Product Role. Permanent closure remains separate.
+  reactivation restores the same Account and Product Role. No permanent Account-closure workflow is
+  currently defined.
 - Sysadmin has platform-administration capability but no ambient Course membership or FERPA access.
   Support access is deliberate, scoped to the task, and recorded.
 - Future Course Observer, Student Observer, and Grader are Course relationships rather than Product
@@ -37,6 +40,10 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
 Student Work includes Attempts, saved-response finalization evidence, immutable credit outcomes,
 and the minimum evidence needed to interpret them. Assessment Unrelease deletes the
 Assessment-owned Student Work only after equal co-Instructor authorization, Released state,
-current concurrency precondition, and typed Assessment-title confirmation. Normal retention uses
-notice, removal from normal interfaces, a recovery period, and permanent deletion while preserving
-teaching content and privacy-safe aggregate Question statistics.
+current concurrency precondition, and typed Assessment-title confirmation. A Course Instance becomes
+Inactive six months after creation. That limit prevents Course reuse or deadline extensions from
+indefinitely delaying FERPA retention, but inactivity does not itself delete Student records. The
+latest Assessment deadline starts the FERPA clock; starting it does not itself archive or remove
+Student data. The configured policy later determines notice, removal from normal interfaces,
+recovery, and permanent deletion while preserving teaching content and privacy-safe aggregate
+Question statistics.

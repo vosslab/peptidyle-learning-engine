@@ -39,8 +39,9 @@ can change settings without changing Type.
 
 - Regular Assignments are practice for current learning and default to unlimited
   Attempts.
-- Practice Question Assignments provide focused review and always show the
-  correct answer after the Student responds.
+- Practice Question Assignments provide focused review, use the same submission
+  boundary as other Assessments, and show the correct answer immediately after
+  the whole Assessment Attempt is submitted.
 - Bonus Assignments provide optional extra credit, are worth zero points
   possible, and add earned points directly to the grade.
 - Quizzes may use more restrictive Attempt and collaboration settings.
@@ -56,7 +57,9 @@ settings remain independent.
 Each Attempt has a server-owned wall-clock time limit. Reconnect, reload, or a
 different authenticated browser resumes the same open Attempt without pausing
 or extending the clock. At expiration, PLE submits the whole Attempt, finalizes
-saved complete responses, and leaves other Questions unanswered.
+saved complete responses, and leaves other Questions visibly unanswered. Each
+unanswered Question contributes zero credit and counts as incorrect without
+being sent to the Question Backend.
 
 A new Attempt may choose new randomized variants or Pool selections according
 to Assessment settings. An existing Attempt never changes its delivered
@@ -69,10 +72,11 @@ credit fraction. PLE calculates the Assessment score from that fraction and
 the current Question point value. A point-value change recalculates scores; it
 does not regrade or replace the credit outcome.
 
-Human Guidance does not decide which Attempt contributes to a Course grade when
-several Attempts exist. Older `Latest`, `Highest`, or `InstructorSelected`
-implementation policies do not establish the current product rule. Likewise,
-Human Guidance does not define Grade Categories or a Course Grade Scheme.
+When several Attempts are submitted, the highest Assessment Attempt score is
+the Student's Assessment score. PLE uses Question point values directly and
+does not add separate Question weights, Grade Categories, weighted categories,
+a Course Grade Scheme, or Course percentage calculations. Pilot grade export
+uses CSV or TSV point data.
 
 ## Feedback boundary
 
@@ -80,10 +84,10 @@ Saving a complete response changes only the working response and does not
 disclose a grading outcome. Whole-Assessment submission is the ordinary
 grading-disclosure boundary.
 
-Practice Question Assignments must also show the correct answer after the
-Student responds. Human Guidance does not fully specify how that immediate
-practice feedback relates to the whole-submission grading-outcome rule. Do not
-invent the timing; the issue is recorded in the compliance unresolved report.
+Practice Question Assignments show the correct answer immediately after the
+whole Assessment Attempt is submitted. Optional Question Feedback is shown
+when the Question Backend provides it and does not use Assessment correct-answer
+disclosure settings.
 
 ## Student View
 

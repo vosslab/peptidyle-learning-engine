@@ -100,8 +100,7 @@ Student Work.
 ## Published Questions, Question Pools, and Blueprint Courses
 
 Question Revisions, Pool Revisions, and Blueprint Revisions are immutable.
-Human Guidance's general history summary omits Pools while its Pool rules
-explicitly require Pool Revisions. A Published Question may be discoverable or archived.
+A Published Question may be discoverable or archived.
 A Blueprint Course is Private, Public, or Archived. Private is owner-only and
 cannot be adopted. Public is shared and adoptable. Archived remains visible to
 vetted Instructors through explicit historical discovery, can be forked, and

@@ -261,8 +261,12 @@ next step; a dashed placeholder alone is not a finished state.
 
 ## Course themes
 
-An Instructor may upload one small centered Course banner and choose the Course's three-color
-palette. Theme names use biomes and habitats such as Forest, Grassland, Ocean, and Desert.
+An Instructor may upload one Course banner and choose the Course's three-color palette. Course
+banners use a 5:1 aspect ratio, with 1280 by 256 pixels as the recommended authoring size.
+Higher-resolution 5:1 images are supported. PLE responsively scales the image while preserving its
+aspect ratio and presents it as a small centered banner rather than a full-width page hero. The same
+geometry applies within every supported viewport. Theme names use biomes and habitats such as
+Forest, Grassland, Ocean, and Desert.
 
 Each stored three-color palette is meaningful. Standard presentation uses the full canvas anchor for
 the course environment, then derives separate tinted work, grouping, and reading-card surfaces. The

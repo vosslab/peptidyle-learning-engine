@@ -54,8 +54,7 @@ for Instructor review and approval, and changes to existing Assessments are
 never applied silently. A newly added Blueprint Assessment is automatically
 copied as an Unreleased Course Instance Assessment. Published Questions,
 published Question Pools, and Blueprint Courses have immutable Revision
-families; Human Guidance's general history summary omits Pools even though its
-Pool rules explicitly require them.
+families.
 
 Forks retain their source Blueprint and Revision so later source changes can be
 discovered and selectively applied. Blueprint Course Change Proposals compare
@@ -76,8 +75,10 @@ Assessment fixes Question or Pool Revision selection
   -> backend renders one answer-free Question with opaque state
   -> Student saves complete responses and navigates all Questions
   -> Student or deadline submits the whole Assessment Attempt
+  -> unanswered Questions receive zero and count as incorrect without backend work
   -> backend credit fractions remain immutable
   -> PLE calculates scores from current Question point values
+  -> highest submitted Assessment Attempt score is used
   -> policy discloses permitted results and feedback
 ```
 
@@ -86,10 +87,9 @@ the whole Assessment Attempt. Current internal `question_submission` rows or
 `/assignment-attempts/` routes are implementation structures beneath this
 target product boundary; their names do not define product actions.
 
-The server-owned Attempt expiry path and the periodic expiry process converge
-on the same idempotent whole-Assessment submission operation. The periodic path
-exists so abandoned expired Attempts are submitted without another browser
-request.
+Student interaction checks Attempt expiration, and background processing
+ensures an expired Attempt is submitted even after the Student leaves. Both
+paths converge on the same idempotent whole-Assessment submission operation.
 
 ## Question Backend flow
 
@@ -165,11 +165,14 @@ Typed object records bind logical identity, data class, owner scope, media type,
 and checksum. The server constructs physical paths and authorized delivery;
 browsers do not name buckets or raw keys.
 
-The final Assessment deadline starts the Course retention clock; later Student
-activity resets it. An idempotent background pass supports notice, FERPA
-archive, recovery during the retention period, and permanent deletion while
-preserving Course metadata, Assessment definitions, Questions, and settings.
-Exact job/table shapes and numeric durations are not product decisions here.
+The Course Instance becomes Inactive six months after creation. That limit caps
+Assessment deadline movement so Course reuse cannot indefinitely delay FERPA
+retention and deletion, but becoming Inactive does not itself delete Student
+records. The latest Assessment deadline starts the FERPA retention clock. An
+idempotent background pass supports later notice, FERPA archive, recovery during
+the retention period, and permanent deletion while preserving Course metadata,
+Assessment definitions, Questions, and settings. Exact job/table shapes and
+FERPA retention durations are not product decisions here.
 
 ## Extension points
 

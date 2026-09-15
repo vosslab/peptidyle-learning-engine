@@ -46,8 +46,9 @@ reading or repeating that same Attempt transition.
 
 If the browser remains disconnected through the deadline, the server submits
 the whole Attempt, finalizes the complete responses saved before expiry, and
-leaves other positions unanswered. This ordinary deadline behavior is the
-Assessment recovery path;
+leaves other positions visibly unanswered. Each unanswered Question receives
+zero credit and counts as incorrect without being sent to a backend. This
+ordinary deadline behavior is the Assessment recovery path;
 there is no separate Student-visible recovery state machine.
 
 ## Question Backend failure
@@ -57,11 +58,11 @@ opaque state. PLE preserves the response and exact backend binding when an
 operation fails. It never converts unavailability to zero credit or lets the
 browser grade.
 
-Human Guidance does not define a public pending-grading status, Instructor
-Retry button, regrading operation, mutable result, or generic grading worker.
-If a real backend cannot return its immutable credit fraction in the ordinary
-operation, the required internal continuation and its failure semantics remain
-a backend-specific unresolved design until explicitly accepted.
+PLE has no public pending-grading status, Instructor Retry button, regrading
+operation, mutable result, or generic grading worker. When PLE requests a
+grading outcome, the Question Backend returns it without a deferred grading
+state. If it cannot return the immutable credit fraction, processing does not
+complete; PLE preserves the Student's saved work.
 
 ## Replica and cache continuity
 
@@ -85,10 +86,10 @@ Assessment Unrelease and Course retention own their exact deletion boundaries.
 
 ## Retention failure
 
-The retention process checks the stored final Assessment deadline and later
-Student activity, sends required Instructor notice, removes FERPA-protected
-records from normal interfaces, keeps them recoverable during the retention
-period, and permanently deletes them at expiry.
+The retention process checks the stored latest Assessment deadline, sends the
+required Instructor notice, removes FERPA-protected records from normal
+interfaces, keeps them recoverable during the retention period, and permanently
+deletes them at expiry.
 
 Each pass is idempotent. A partial failure must not advance the reported stage
 past completed work, shorten the clock, duplicate material notices, or expose

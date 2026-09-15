@@ -24,11 +24,18 @@ is Assessment, and Student work is collectively Coursework.
 6. Read results and feedback only when the Assessment policy allows them.
 7. Start another Attempt only when Assessment policy permits it.
 
-Incomplete responses are not saved as complete and are not graded. The server
-owns timing and Course access, and the Question Backend owns rendering,
-response interpretation, grading, feedback, and opaque backend state. The
-browser never receives private Question source, Answer Keys, credentials, or
-undisclosed results.
+Incomplete responses are not saved as complete. At submission, a Question with
+no complete saved response remains visibly unanswered, receives zero credit,
+and counts as incorrect without being sent to the Question Backend. When
+several Attempts are submitted, the highest score is used. Practice Question
+Assignments show the correct answer immediately after submission. Optional
+Question Feedback is shown when the backend provides it and does not use the
+Assessment's correct-answer disclosure setting.
+
+The server owns timing and Course access, and the Question Backend owns
+rendering, response interpretation, grading, feedback, and opaque backend
+state. The browser never receives private Question source, Answer Keys,
+credentials, or undisclosed results.
 
 Removing or deactivating the Student's Course access does not delete the global
 Student Account or Student Work. Course retention is a separate notified

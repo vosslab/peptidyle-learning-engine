@@ -23,18 +23,19 @@ finalization, or Instructor grading operations.
 | Assessment tasks | Assessments Due Soon and My Assessment Templates. |
 | Assessment editor | Use Assessment Question Editor for composition and Assessment Properties Editor for settings. An Edit Number is not a Revision. |
 | Student work | Use Coursework collectively and the specific Assessment Type for an item. Present one Question at a time with navigation to all Questions and saved status. |
-| Submission | Save complete responses without grading disclosure; submit the whole Assessment with one clear action. |
+| Submission | Save complete responses without grading disclosure; submit the whole Assessment Attempt with one clear action. |
 | Empty collections | Keep required backed destinations visible and explain how to create the first item. Do not offer unavailable future controls as usable. |
 | Student View | Keep Instructor identity and authority; show an answer-free preview and create no Student Work. |
-| Gradebook and roster | Show only authorized Course data; all current co-Instructors are equal. Human Guidance does not define weighted Grade Categories or a Course Grade Scheme. |
+| Gradebook and roster | Show authorized point-based Assessment scores, using the highest submitted Attempt. PLE has no separate Question weights, Grade Categories, weighted categories, Course Grade Scheme, or Course percentage calculation. |
 | High-consequence actions | Put Assessment Unrelease, Published Question Archive, and Blueprint Course Archive in a Danger Zone. Unrelease requires the typed Assessment title; archive actions explain their effect and require clear confirmation. |
 | Responsive layout | Preserve hierarchy, reading order, keyboard access, and visible saved/submission state without horizontal page overflow. |
 
 ## Assessment Type appearance
 
 The five Types are Regular Assignment, Practice Question Assignment, Bonus
-Assignment, Quiz, and Exam. Assignment is not the generic product noun. Type
-appearance can help scanning but must preserve text labels and contrast.
+Assignment, Quiz, and Exam. Assignment is not an object, category, or parent
+Type. Type appearance can help scanning but must preserve text labels and
+contrast.
 
 ## Historical visual evidence
 

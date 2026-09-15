@@ -99,11 +99,18 @@ At start, a timed Attempt retains one immutable expiry instant: the earlier of
 its retained close instant and start plus retained time limit. The Student's
 whole-Attempt action and server-owned expiry finalization use one ordinary
 submission path. It finalizes all complete saved Question responses together,
-leaves other Questions unanswered, and stores one immutable credit fraction for
-each complete saved response evaluated by its Question Backend. The retained
-per-position evidence does not define another Student action or lifecycle.
+leaves other Questions visibly unanswered, and stores one immutable credit
+fraction for each complete saved response evaluated by its Question Backend.
+Each unanswered Question contributes zero credit and counts as incorrect
+without being sent to a backend. The retained per-position evidence does not
+define another Student action or lifecycle.
 Repeated finalization is idempotent, and a late payload cannot replace accepted
 or saved work.
+
+Score reads calculate each Attempt from current Assessment Question point
+values and use the highest submitted Assessment Attempt score. PLE has no
+separate Question weights, Grade Categories, Course Grade Scheme, or Course
+percentage calculation. Pilot grade export is CSV or TSV point data.
 
 | Boundary                                             | Owner and evidence                                                                                                                                                                                                                                                                |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -124,8 +131,8 @@ changes. Reads remain reads: context, Gradebook, result-page, and export reads
 do not finalize Student Work or call a Question Backend. Context returns the
 exact expiry instant and Student display zone plus a remaining duration derived
 from the same row and evaluation instant. The browser's monotonic countdown is
-display-only. Background expiry finalization is the narrow completion path for
-Attempts abandoned without a later Student request.
+display-only. Student interaction checks expiration, and background processing
+ensures an expired Attempt is submitted even after the Student leaves.
 
 The Student presentation and submission routes expose answer-free,
 presentation-scoped state. Grading, source bytes, answer keys, private feedback

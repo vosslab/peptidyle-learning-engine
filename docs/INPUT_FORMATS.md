@@ -8,10 +8,10 @@ API contract.
 
 ## Browser and server boundary
 
-The browser may receive answer-free question presentation, safe import reports, normalized roster
-previews, and export status or downloadable artifacts. It never receives answer keys, expected
-values, hidden correct choices, private rubrics, grading code, provider credentials, raw provider
-results, Object Addresses, or source archives. The complete allowlist and privacy boundary are in
+The browser may receive answer-free question presentation, safe Question-import reports, and export
+status or downloadable artifacts. It never receives answer keys, expected values, hidden correct
+choices, private rubrics, grading code, provider credentials, raw provider results, Object
+Addresses, or source archives. The complete allowlist and privacy boundary are in
 [API_CONTRACTS.md](API_CONTRACTS.md).
 
 Authorized server operations and Question Backends may handle private payloads inside their
@@ -69,9 +69,10 @@ accepted.
 
 ## Roster CSV import contract
 
-An authorized course Instructor, or an audited Sysadmin support session, can preview and explicitly
-commit UTF-8 CSV at `/api/courses/{course}/roster-imports/preview`.
-Its exact grammar is:
+The current server can preview and commit UTF-8 CSV at
+`/api/courses/{course}/roster-imports/preview`. An authorized Course Instructor uses roster import
+to bulk add Students to a Course Instance. Student removal remains an individual operation; PLE
+does not provide bulk Student removal. The accepted grammar is:
 
 ```csv
 email,roster_id
@@ -80,19 +81,21 @@ student@example.edu,900123456
 
 - The media type is `text/csv`; the body is at most 1 MiB and 500 data rows.
 - Headers must be exactly `email,roster_id` in that order.
-- Preview normalizes and classifies rows; commit selects preview row numbers against the exact
-  current Course Roster Import state and its concurrency control. Raw CSV bytes are not retained
-  after normalized staging.
+- Preview normalizes and classifies rows; commit selects preview row numbers against the current
+  import state and its concurrency control. Raw CSV bytes are not retained after normalized
+  staging.
 - `roster_id` is course-scoped matching data, not an account key or authentication credential.
 
-The route follows the ownership rules in [ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md).
+Roster import adds or reconnects Student Course relationships according to
+[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md). It does not replace an existing roster or provide a
+bulk-removal path.
 
-## Grade export is not specified
+## Pilot grade export
 
-Human Guidance does not define a Gradebook export format, Course Grade Scheme, or Grade Category
-model. No CSV route, weighted-category representation, queued export state, or long-lived export
-artifact is approved by this page. A future export needs its own product decision, FERPA boundary,
-and current-state contract before it becomes an interface.
+Pilot grade export is a direct CSV or TSV download of point-based Assessment scores. It does not
+apply Grade Categories, weighted categories, a Course Grade Scheme, Course percentage calculations,
+LMS-specific mappings, synchronization, or a queued export lifecycle. The exact authorized route,
+columns, and FERPA-safe download contract remain implementation work until the export is built.
 
 ## Planned formats and routes
 

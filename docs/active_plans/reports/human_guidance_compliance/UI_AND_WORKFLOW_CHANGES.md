@@ -32,9 +32,11 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
 - Role cues use tomato red for Sysadmin, teal green for Instructor, and lavender/purple for Student,
   with visible labels so color never acts alone.
 - Assessment Types retain their exact labels and Font Awesome icons. Course themes use biome/habitat
-  names, a three-color palette, and an optional small centered banner.
-- The former 6:1 page-width Course hero and 5:2 card crop remain labeled implementation evidence;
-  they no longer prescribe the product geometry.
+  names, a three-color palette, and an optional small centered 5:1 banner. The recommended banner
+  authoring size is 1280 by 256 pixels; higher-resolution 5:1 images use the same responsive
+  geometry across supported viewports.
+- The former 6:1 page-width Course hero, 5:2 card crop, and dual-rendition design remain labeled
+  implementation evidence; they no longer prescribe the product geometry.
 
 ## Consequence and evidence
 

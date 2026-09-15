@@ -122,8 +122,9 @@ incomplete response is not saved as complete or graded. Saving changes only the
 working response and exposes no Student-visible grading outcome.
 
 The Student submits the whole Assessment Attempt, or the deadline submits it
-automatically. That action finalizes all saved responses together; unanswered
-positions remain unanswered. Repeating submission is idempotent. After
+automatically. That action finalizes all saved responses together. Other
+positions remain visibly unanswered, receive zero credit, and count as
+incorrect without being sent to a backend. Repeating submission is idempotent. After
 submission, responses and credit fractions are immutable.
 
 Protected Attempt routes return only the answer-free presentation, saved-state
@@ -183,10 +184,13 @@ remain in private scopes.
 
 ## Retention boundary
 
-The final Assessment deadline starts the Course retention clock; later Student
-activity resets it. Instructors receive notice before FERPA-protected records
-leave normal interfaces. Those records remain recoverable during the retention
-period and are then permanently deleted. Course metadata, Assessment
+The Course Instance becomes Inactive six months after creation. That limit
+prevents Course reuse or deadline extensions from indefinitely delaying FERPA
+retention and deletion, but becoming Inactive does not itself delete Student
+records. The latest Assessment deadline starts the FERPA retention clock; it
+does not itself archive or remove Student data. The configured policy later
+sends notice, removes FERPA-protected records from normal interfaces, preserves
+them during recovery, and permanently deletes them. Course metadata, Assessment
 definitions, Questions, and settings remain.
 
 The processing pass is idempotent and cannot report a stage that did not

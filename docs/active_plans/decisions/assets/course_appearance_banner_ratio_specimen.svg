@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2000" height="950" viewBox="0 0 2000 950" role="img" aria-labelledby="title desc">
   <title id="title">Historical Course Appearance banner candidate renderings</title>
-  <desc id="desc">Historical implementation evidence comparing four former page-width banner ratios. The highlighted 6 to 1 row is superseded by the current small centered Course banner guidance.</desc>
+  <desc id="desc">Historical implementation evidence comparing four former page-width banner ratios. Current Human Guidance selects one small centered 5 to 1 Course banner.</desc>
   <defs>
     <linearGradient id="art-bg" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#123d60"/><stop offset=".55" stop-color="#378c93"/><stop offset="1" stop-color="#e1b95b"/></linearGradient>
     <g id="art">
@@ -47,5 +47,5 @@
   <g transform="translate(1565 700)"><rect class="f" width="400" height="57"/><svg width="400" height="57" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice"><use href="#art"/></svg><text y="80" class="o">768 x 110px</text></g>
 
   <text x="36" y="850" class="h">Historical rendered result</text>
-  <text x="36" y="882" class="s"><tspan x="36" dy="0">This comparison records the implemented page-width candidates; it does not select the current product geometry.</tspan><tspan x="36" dy="28">Human Guidance now requires a small centered Course banner. Exact replacement dimensions and crop behavior remain unresolved.</tspan></text>
+  <text x="36" y="882" class="s"><tspan x="36" dy="0">This comparison records the implemented page-width candidates; it does not select the current product geometry.</tspan><tspan x="36" dy="28">Human Guidance selects one small centered 5:1 banner; 1280 by 256 pixels is the recommended authoring size.</tspan></text>
 </svg>

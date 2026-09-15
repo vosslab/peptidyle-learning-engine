@@ -146,14 +146,15 @@ combine Revisions. Statistics may survive Student-record deletion only after
 privacy thresholds ensure that individual Students cannot reasonably be
 identified. Course-local or small-cell analyses remain FERPA-protected.
 
+Unanswered remains a visible response status and is also counted as incorrect
+for scoring and aggregate correctness. It does not create a response or backend
+evaluation.
+
 ## Revision boundary
 
 Published Questions, published Question Pools, and Blueprint Courses have
-immutable Revisions. Human Guidance's general history summary names Published
-Questions and Blueprint Courses without mentioning Pools, while its Pool rules
-explicitly require Pool Revisions. This document preserves Pool Revisions and
-does not extend Revision families to Assessment current state, Attempts,
-responses, corrections, metadata, or retention.
+immutable Revisions. Revision families do not extend to Assessment current
+state, Attempts, responses, corrections, metadata, or retention.
 
 See [QUESTION_ID_SPEC.md](QUESTION_ID_SPEC.md),
 [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md),

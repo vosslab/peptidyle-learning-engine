@@ -16,11 +16,12 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
 - Assessment, Course Instance, Draft Question, Attempt, Student Work, metadata, and retention remain
   current state. Edit Numbers are concurrency counters, not history.
 - Published Question, published Question Pool, and Blueprint content use their explicit immutable
-  Revision evidence; the Pool wording mismatch remains recorded rather than guessed away.
+  Revision evidence. Human Guidance now includes Pool Revisions in its general history rule.
 - Browser/server, database, object, and service boundaries derive authority from the authenticated
   Account and exact stored relationship, never from a URL, ID, queue payload, or generated UI state.
 - A Question Backend may evaluate a complete saved response early when its interaction requires
   that work, but no Student-visible grading outcome appears before whole-Assessment submission.
+  When PLE requests a grading outcome, the backend returns it without a deferred grading state.
   Public grading queues, Retry/regrade workflows, mutable results, compatibility readers, generic
   recovery states, and speculative snapshot/receipt families were removed from target contracts.
 - Background processing is tied to exact needs: expired-Attempt submission and Course retention.
@@ -31,8 +32,9 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
 - Adapter guidance now retains only demonstrated source/Revision, opaque backend state, response,
   and outcome evidence. Current reproduction-detail, version, hash, and snapshot fields are legacy
   implementation evidence rather than a universal adapter requirement.
-- Existing Course Banner upload, rendition, and delivery routes remain implementation evidence, but
-  their former 6:1 hero and 5:2 card geometry no longer defines the product presentation.
+- Existing Course Banner upload, rendition, and delivery routes remain implementation evidence.
+  Their former 6:1 hero, 5:2 card crop, and dual-rendition design do not define the product. The
+  target is one responsively scaled 5:1 banner without alternate crop geometries.
 
 ## Implementation gaps preserved as evidence
 
@@ -42,6 +44,5 @@ so a later code migration can find them. None is a compatibility requirement.
 
 The generated screenshot atlas, Ribbon destination ledger, source graph, capture manifest, and image
 corpus cannot be durably corrected from docs alone because their generators or rendered product live
-outside `docs/`. They are classified in
-[COMPLIANCE_SUMMARY.md](COMPLIANCE_SUMMARY.md) and
-[UNRESOLVED_OR_AMBIGUOUS_ITEMS.md](UNRESOLVED_OR_AMBIGUOUS_ITEMS.md).
+outside `docs/`. They are source-owned follow-up work classified in
+[COMPLIANCE_SUMMARY.md](COMPLIANCE_SUMMARY.md), not unresolved product decisions.

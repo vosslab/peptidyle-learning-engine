@@ -7,7 +7,7 @@ Proposed specification for a supported PLE Email Delivery Backend.
 This document does not claim that Gmail delivery, email-code authentication, OAuth setup commands,
 or connected email acceptance exist today. [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remains the
 product authority, [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) owns PLE vocabulary, and
-[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) owns Account, Course Roster Import, and Course
+[ENROLLMENT_DESIGN.md](ENROLLMENT_DESIGN.md) owns Account, Course enrollment, roster import, and Course
 Invitation behavior.
 
 The Gmail API backend is intended to support small PLE installations without requiring a paid
@@ -41,8 +41,8 @@ PLE does not build infrastructure for hypothetical future providers. A provider-
 delivery boundary is sufficient to preserve that option.
 
 The backend does not create Accounts from arbitrary email addresses. Student Account creation and
-Student Authentication Email assignment remain part of Course Roster Import. Instructor Account
-creation remains a vetted Sysadmin operation.
+Student Authentication Email assignment remain part of Course enrollment. Instructor
+Account creation remains a vetted Sysadmin operation.
 
 ## Architectural boundary
 
@@ -122,11 +122,12 @@ Students do not need Gmail accounts and do not authorize PLE to access Google. A
 authenticate as `student@mail.roosevelt.edu` while the message is sent from a dedicated
 `@gmail.com` account.
 
-Course Roster Import permits exact configured domains such as `mail.roosevelt.edu`. A suffix such
-as `.edu` establishes the United States institutional-address eligibility rule but is not Course
-authorization. Student email is immutable after Account creation. The public authentication-start response must not reveal
-whether an address belongs to an Account, is inactive, is outside the permitted domain, or is
-currently rate-limited (ASVS 6.3.1, 6.6.2-6.6.3).
+Course enrollment, including roster import, permits exact configured domains such as
+`mail.roosevelt.edu`. A suffix such as `.edu` establishes the United States institutional-address
+eligibility rule but is not Course authorization. Student email is immutable after Account
+creation. The public authentication-start response must not reveal whether an address belongs to
+an Account, is inactive, is outside the permitted domain, or is currently rate-limited (ASVS
+6.3.1, 6.6.2-6.6.3).
 
 ## Authentication-message content
 

@@ -20,10 +20,10 @@ plans are evidence about implementation or history; they do not override it.
 
 ### Assessment is the generic activity object
 
-**Decision.** PLE calls the generic object an Assessment. Assignment appears
-only inside the Assessment Type names Regular Assignment, Practice Question
-Assignment, and Bonus Assignment. Quiz and Exam complete the five current
-Types.
+**Decision.** PLE calls the generic object an Assessment. Assignment is not an
+object, category, or parent Type; it appears only inside the Assessment Type
+names Regular Assignment, Practice Question Assignment, and Bonus Assignment.
+Quiz and Exam complete the five current Types.
 
 **Why.** A single generic noun keeps course content, attempts, navigation, and
 data relationships understandable while Types communicate teaching purpose.
@@ -51,12 +51,9 @@ copied as an Unreleased Course Instance Assessment.
 ### Current state is not a hidden revision family
 
 **Decision.** Published Questions, published Question Pools, and Blueprint
-Courses have immutable Revision families. Human Guidance's general history
-summary names Questions and Blueprints while its Pool section explicitly
-requires Pool Revisions; this document preserves the explicit Pool rule. Draft
-Questions, Course Instances, Assessments, Attempts, Student Work, names, and
-lifecycle metadata use current state. Edit Numbers are concurrency controls,
-not historical content.
+Courses have immutable Revision families. Draft Questions, Course Instances,
+Assessments, Attempts, Student Work, names, and lifecycle metadata use current
+state. Edit Numbers are concurrency controls, not historical content.
 
 **Why.** History is valuable only where the product needs exact reusable or
 submitted evidence. Universal snapshots create cost and a misleading object
@@ -125,7 +122,7 @@ membership merely by creating or supporting it.
 
 **Decision.** Deactivation blocks new access but preserves authorship, Course
 relationships, Student Work, and history. Reactivation restores eligible
-relationships. Permanent closure is a separate process.
+relationships. No permanent Account-closure workflow is currently defined.
 
 **Why.** Authentication state must not become accidental content or record
 deletion.
@@ -310,19 +307,21 @@ gave a different response or requiring regrading.
 or scoring-freshness lifecycle. A current point-value edit recalculates scores
 from stored fractions.
 
-### Attempt policy remains configurable without invented grade selection
+### Highest Attempt and point-only scoring
 
 **Decision.** Instructors control Attempt limits and Assessment behavior.
-Regular Assignment defaults support repeated work toward success. Human
-Guidance does not yet choose which Attempt contributes to a Course grade when
-several exist.
+Regular Assignment defaults support repeated work toward success. When several
+Attempts are submitted, the highest Assessment Attempt score is the Student's
+Assessment score. An unanswered Question remains visibly unanswered, receives
+zero credit, and counts as incorrect without backend evaluation.
 
-**Why.** A familiar default should not silently become a universal Gradebook
-formula.
+**Why.** Highest-score selection supports learning through repeated practice.
+Zero for unanswered work keeps the point calculation direct and predictable.
 
-**Consequence.** Do not document highest, latest, first, or average Attempt as
-the product rule until it is decided. Human Guidance also does not define a
-Course Grade Scheme or Grade Category model.
+**Consequence.** PLE uses Question points and does not add Grade Categories,
+weighted categories, Course Grade Schemes, or Course percentage calculations.
+Pilot grade export is CSV or TSV point data for Course-level handling in the
+Instructor's home LMS; it is not LMS synchronization.
 
 ### Evidence is minimal and purpose-bound
 
@@ -375,27 +374,33 @@ editing.
 
 ### Student Account and Course data have separate lifetimes
 
-**Decision.** Student Accounts are global. Course removal, account
-deactivation, or ordinary account closure does not delete Student Work.
+**Decision.** Student Accounts are global. Course relationship removal,
+Account deactivation, or Course inactivity does not delete Student Work.
 
 **Why.** Authentication, access, and educational-record retention are separate
 legal and product concerns.
 
-### Retention starts from the final Assessment deadline
+### Active lifetime and FERPA retention are separate
 
-**Decision.** The final Assessment deadline starts the Course retention clock;
-later Student activity resets it. Instructors receive notice before
-FERPA-protected records leave normal interfaces. Records remain recoverable
-during the retention period, are then permanently deleted, and the Course
-becomes inactive. Course metadata, Assessment definitions, Questions, and
-settings remain.
+**Decision.** A Course Instance represents one teaching period and becomes
+Inactive six months after creation, after an Instructor warning. Assessment
+deadlines may move the end of normal teaching only within that Active lifetime.
+The latest Assessment deadline starts the separate FERPA retention clock.
+Records later leave normal interfaces, remain recoverable during the configured
+retention period, and are permanently deleted. Course metadata, Assessment
+definitions, Questions, and settings remain.
 
-**Why.** The product must protect records while providing a predictable end to
-ordinary FERPA retention.
+**Why.** The fixed creation anchor prevents reuse of an old Course Instance for
+a later teaching period and prevents deadline extensions from indefinitely
+delaying FERPA retention and deletion. The deadline anchor keeps FERPA
+retention aligned with actual teaching dates. Becoming Inactive does not itself
+delete Student records.
 
-**Consequence.** The background check is idempotent. Numeric durations and
-table/job shapes are deployment and implementation decisions not specified by
-Human Guidance. See [RETENTION_POLICY.md](RETENTION_POLICY.md).
+**Consequence.** Assessment Release Validation rejects deadlines after the
+six-month limit. Instructors may bulk add Students through roster import but
+remove Students only one at a time. The background checks are idempotent. FERPA
+durations and table/job shapes are operational and implementation decisions not
+specified by Human Guidance. See [RETENTION_POLICY.md](RETENTION_POLICY.md).
 
 ### APIs remain stateless and durable state is shared
 
@@ -461,19 +466,11 @@ it as product authority perpetuates it.
 
 ## Unresolved decisions
 
-This compliance pass intentionally leaves the following for the product owner:
-
-- the precise timing relationship between Practice Question correct-answer
-  feedback and the rule that grading outcomes appear only after whole-Attempt
-  submission;
-- which Attempt contributes to a Course grade when multiple Attempts exist;
-- whether Course Grade Schemes or Grade Categories should exist;
-- exact Student and Sysadmin Ribbon slot composition beyond Human Guidance's
-  stated minimums;
-- numeric retention and notice durations;
-- whether Course copy/rollover/date-shift workflow is desired;
-- whether any real Question Backend needs deferred completion; and
-- exact route names for Blueprint lifecycle transitions.
+The complete Student Ribbon task layout and the complete Sysadmin Ribbon task
+layout do not have locked-in designs yet. Product documentation should not turn
+implementation choices, hypothetical capabilities, tunable FERPA retention
+intervals, or speculative failure machinery into additional unresolved product
+questions.
 
 See the temporary
 [COMPLIANCE_SUMMARY.md](active_plans/reports/human_guidance_compliance/COMPLIANCE_SUMMARY.md)

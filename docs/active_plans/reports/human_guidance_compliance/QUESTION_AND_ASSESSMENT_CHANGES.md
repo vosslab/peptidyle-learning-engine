@@ -33,19 +33,31 @@ Temporary working report for the corpus-wide Human Guidance compliance pass.
 - Blueprint and Course Instance Assessments use the same five Assessment Types. Assessment Templates
   contain settings only and no Questions or Pools.
 - Course Instance Assessments begin Unreleased. Automated, interactive Release Validation covers
-  Questions, point values, settings, date order, and the 24-hour-to-six-month due-date range.
+  Questions, point values, settings, date order, a due date at least 24 hours ahead, and the Course
+  Instance's six-month Active limit.
 - Complete Question responses save and remain editable while the Attempt is open. Incomplete input
   remains unsaved for product purposes. Submitting the whole Assessment Attempt finalizes all saved
   responses together.
 - A backend may evaluate a complete saved response early when its interaction requires it, but the
   Student sees no grading outcome until whole-Assessment submission.
-- Student submission and deadline submission use the same whole-Assessment boundary. A periodic
-  process submits abandoned expired Attempts.
+- When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
+  state.
+- Student submission and deadline submission use the same whole-Assessment boundary. Student
+  interaction checks expiration, and background processing ensures an expired Attempt is submitted
+  even after the Student leaves.
+- Practice Question Assignments use the same submission boundary and show the correct answer
+  immediately after submission. Optional Question Feedback is shown when the Question Backend
+  provides it and does not use Assessment correct-answer disclosure settings.
+- A Question without a complete saved response remains visibly unanswered, receives zero credit,
+  counts as incorrect, and is not sent to the Question Backend.
 - The backend returns an immutable credit fraction. PLE stores it and derives scores from current
   Question point values without regrading.
+- The highest submitted Assessment Attempt score is used. PLE has no separate Question weights,
+  Grade Categories, weighted categories, Course Grade Scheme, or Course percentage calculation.
+  Pilot grade export is CSV or TSV point data.
 - Regular Assignment defaults to unlimited Attempts; due-date submission/start limits and rejected
   late work are the defaults. Disclosure remains separately configurable.
 
-Practice-answer and Question Feedback timing, unanswered-position score treatment,
-multiple-Attempt grade selection, and the Pool Revision wording mismatch remain in
+All Question, Assessment, scoring, and Pool Revision issues found by this pass are resolved in Human
+Guidance. The remaining product decisions are listed in
 [UNRESOLVED_OR_AMBIGUOUS_ITEMS.md](UNRESOLVED_OR_AMBIGUOUS_ITEMS.md).

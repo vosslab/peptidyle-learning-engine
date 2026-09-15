@@ -15,15 +15,28 @@ teaching content.
 
 A Student Account is global and is separate from the Student's data in a Course
 Instance. Removing or deactivating the Student's Course access does not delete
-the Account or Course work. Instructor Account deactivation and permanent
-Account closure likewise remain separate from Course retention.
+the Account or Course work. Instructor Account deactivation likewise remains
+separate from Course retention. No permanent Account-closure workflow is
+currently defined.
 
-## Retention clock
+## Active lifetime and FERPA retention
 
-The final Assessment deadline in a Course Instance starts the retention clock.
-Later Student activity in that Course resets the clock. The retention duration
-and notice interval are deployment policy; Human Guidance does not assign
-numeric values, so this document does not invent them.
+A Course Instance represents one teaching period and remains Active for at most
+six months from creation. PLE warns its Instructors before that limit and makes
+the Course Instance Inactive when the limit is reached. An Assessment deadline
+cannot extend beyond the limit; teaching another period requires a new Course
+Instance.
+
+The latest Assessment deadline starts the FERPA retention clock. Creating an
+Assessment with a later deadline or extending a deadline can move that clock
+within the six-month Active lifetime. Starting the clock does not itself send a
+notice, archive records, remove them from normal interfaces, or delete them.
+The configured FERPA retention policy determines those later transitions.
+FERPA retention duration and notice intervals are operational configuration
+rather than separate product decisions. The six-month Active limit prevents
+Course reuse or deadline extensions from indefinitely postponing FERPA
+retention and deletion. Course inactivity remains a separate transition;
+becoming Inactive does not itself archive or delete Student records.
 
 Before FERPA-protected Student records leave normal product interfaces, the
 system notifies the Course's Instructors. At the archive point:
@@ -33,8 +46,6 @@ system notifies the Course's Instructors. At the archive point:
 - The records remain recoverable during the configured retention period.
 - Course metadata, Assessment definitions, Questions, and Course settings
   remain available to authorized Instructors.
-- The Course becomes inactive after its FERPA-protected Student records are
-  permanently deleted.
 
 At the end of the configured retention period, the archived FERPA-protected
 Student records are permanently deleted. Backup, deployment-log, and
@@ -57,7 +68,7 @@ this policy.
 
 Draft Question cleanup and generic object-storage cleanup are separate technical
 concerns. Neither is authority to delete FERPA-protected Student records or to
-change a Course Instance's retention clock.
+change a Course Instance's FERPA retention clock.
 
 See [AUTHORIZATION_CONTRACTS.md](AUTHORIZATION_CONTRACTS.md),
 [DATA_CLASSIFICATION.md](DATA_CLASSIFICATION.md), and

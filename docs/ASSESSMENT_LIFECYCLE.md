@@ -40,11 +40,9 @@ stored relationships.
 | Student Work | The Student's FERPA-protected Course record | Student, Assessment Attempt, and saved response identities |
 
 Published Questions, published Question Pools, and Blueprint Courses have
-immutable Revisions. Human Guidance's general history summary omits Pools while
-its Pool rules explicitly require them; this document preserves the Pool rule.
-Draft Questions, Course Instances, Assessments, Attempts, and Student Work use
-current state plus concurrency controls; an Edit Number is not historical
-content.
+immutable Revisions. Draft Questions, Course Instances, Assessments, Attempts,
+and Student Work use current state plus concurrency controls; an Edit Number is
+not historical content.
 
 ## Author and publish Questions
 
@@ -78,7 +76,8 @@ Assessment is the generic product object. Its Assessment Type is one of:
 - Quiz
 - Exam
 
-The word Assignment is used only inside those three Type names.
+Assignment is not an object, category, or parent Type; the word is used only
+inside those three Type names.
 
 A Blueprint Assessment belongs to a Blueprint Course and contains no Student
 work. Adoption copies it into a Course Instance as a Course Instance Assessment.
@@ -90,8 +89,9 @@ Questions, Pool selections, point values, instructions, timing, Attempt limit,
 late behavior, and feedback behavior, then runs the automated, interactive
 Assessment Release Validation. Validation explains missing, invalid, or
 unreasonable values; it checks Questions, point values, Attempt/time limits,
-date order, and a due date at least 24 hours in the future and less than six
-months away. Only a passing Assessment can be released. A released
+date order, a due date at least 24 hours in the future, and a due date no later
+than the Course Instance's six-month Active-lifetime boundary. Only a passing
+Assessment can be released. A released
 Assessment can be unreleased only through the high-consequence Unrelease action;
 the typed confirmation title is the Assessment title, and the action deletes
 all Student Work for that Assessment.
@@ -118,9 +118,8 @@ Attempt or extend its deadline. Attempt limits and whether another Attempt may
 start are Assessment policy.
 
 Regular Assignment defaults support repeated work toward success, including an
-unlimited-Attempt default. Human Guidance does not yet say which Attempt
-contributes to a Course grade when more than one Attempt exists; supporting
-documents must not invent highest/latest/average selection as a universal rule.
+unlimited-Attempt default. When more than one Attempt is submitted, the highest
+Assessment Attempt score is the Student's Assessment score.
 
 ## Select, render, and navigate Questions
 
@@ -162,8 +161,9 @@ submitted state and does not create another result.
 
 At the deadline, the system automatically submits the Attempt using the same
 product semantics: saved complete responses are finalized together as Student
-Work, and unsaved or incomplete positions remain unanswered. A late response
-cannot replace saved work after the Attempt has closed.
+Work. Unsaved or incomplete positions remain visibly unanswered, contribute
+zero credit, and count as incorrect without being sent to the Question Backend.
+A late response cannot replace saved work after the Attempt has closed.
 
 The Question Backend returns an immutable credit fraction for each complete
 response it evaluates. PLE stores that fraction without reinterpretation and
@@ -171,24 +171,20 @@ calculates points from the Assessment Question's current point value. Changing
 point values recalculates scores from the stored fractions; it does not regrade
 responses or change the fractions.
 
-Human Guidance does not establish a Student- or Instructor-visible asynchronous
+When PLE requests a grading outcome, the Question Backend returns it without a
+deferred grading state. PLE has no Student- or Instructor-visible asynchronous
 grading workflow, grading job state machine, retry button, regrading lifecycle,
-or generalized grading receipt. A backend-specific technical operation may be
-implemented when a real backend requires it, but it must remain behind the
-Question Backend boundary and cannot change the product lifecycle by itself.
+deferred-completion state, or generalized grading receipt.
 
 ## Disclose results and feedback
 
-After whole-Assessment submission, authorized readers may see only the result
-and feedback allowed by Assessment policy. Withheld feedback remains stored
-privately until its disclosure condition is satisfied. The browser never
-submits a score, correctness assertion, Answer Key, or component weight.
-
-For Practice Question Assignments, Human Guidance requires showing the correct
-answer after the Student responds and allowing repeated work. It separately
-says that Students do not see a grading outcome until the whole Attempt is
-submitted. The exact boundary between practice response feedback and a grading
-outcome is not resolved here; see the compliance unresolved report.
+After Assessment Attempt submission, authorized readers may see only the result
+and correct-answer material allowed by Assessment policy. Practice Question
+Assignments use the same submission boundary and show the correct answer
+immediately after submission. Optional Question Feedback is shown when the
+Question Backend provides it and does not use Assessment correct-answer
+disclosure settings. The browser never submits a score, correctness assertion,
+Answer Key, or component weight.
 
 ## Question Backend boundary
 
@@ -210,7 +206,7 @@ credentials, or backend authority tokens.
 | Concurrent start or resume | Return the one authoritative open Attempt. |
 | Render fails | Keep the Attempt resumable without changing its selected Question or state. |
 | Network loss during save | Let the Student retry the save while the Attempt remains open. |
-| Attempt reaches deadline | Automatically submit the whole Attempt, finalize its saved complete responses, and leave other positions unanswered. |
+| Attempt reaches deadline | Automatically submit the whole Attempt, finalize its saved complete responses, and leave other positions visibly unanswered with zero credit and no backend evaluation. |
 | Submission replay | Return the already-submitted Attempt without duplicating results. |
 | Backend fails | Preserve Student work and expose only a bounded product error; do not invent credit. |
 | Retention processing fails | Do not report an archive or permanent deletion that did not complete. |
@@ -220,11 +216,14 @@ the failing boundary. It is not a separate product recovery lifecycle.
 
 ## Retention
 
-The final Assessment deadline starts the Course retention clock, and later
-Student activity resets it. Instructors receive notice before FERPA-protected
-records leave normal interfaces. Records remain recoverable during the
-retention period, then are permanently deleted; Course metadata, Assessments,
-Questions, and settings remain. See [RETENTION_POLICY.md](RETENTION_POLICY.md).
+The Course Instance becomes Inactive six months after creation. That limit
+prevents Course reuse or deadline extensions from indefinitely delaying FERPA
+retention and deletion, but becoming Inactive does not itself delete Student
+records. The latest Assessment deadline starts the FERPA retention clock; it
+does not itself archive or remove Student data. The configured policy later
+determines notice, removal from normal interfaces, recovery, and permanent
+deletion. Course metadata, Assessments, Questions, and settings remain. See
+[RETENTION_POLICY.md](RETENTION_POLICY.md).
 
 ## Contract map
 

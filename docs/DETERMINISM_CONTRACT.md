@@ -84,8 +84,10 @@ Questions, saved responses, and deadline. They do not create a successor
 Question or reset time.
 
 At expiration, the server submits the whole Attempt, finalizes the complete
-responses saved before the deadline, and leaves other Questions unanswered.
-This is ordinary Assessment behavior, not a separate recovery state.
+responses saved before the deadline, and leaves other Questions visibly
+unanswered. Each unanswered Question receives zero credit and counts as
+incorrect without being sent to a backend. This is ordinary Assessment
+behavior, not a separate recovery state.
 
 ## Evidence
 

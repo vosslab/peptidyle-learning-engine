@@ -23,6 +23,10 @@ are in [ROADMAP.md](ROADMAP.md).
       authorization, and browser workflows.
 - [ ] Build reusable Assessment Templates as a bounded domain, Store, Server,
       authorization, and browser workflow capability.
+- [ ] Build pilot grade export as a direct authorized CSV or TSV download of
+      point-based Assessment scores. Do not add LMS synchronization, separate
+      Question weights, Grade Categories, weighted categories, Course Grade
+      Schemes, or Course percentage calculations.
 - [ ] Build Blueprint update review, source-fork update discovery and selective
       application, Blueprint Course Change Proposals, and canonical Blueprint
       JSON import/export as complete, authorized workflows. Existing Assessment
@@ -30,12 +34,17 @@ are in [ROADMAP.md](ROADMAP.md).
       Courses automatically as Unreleased Assessments.
 - [ ] Remove the generic Question Seed input from static PLE Question JSON
       issuance; static declarative sources do not vary and do not execute code.
+- [ ] Enforce the Course Instance six-month maximum Active lifetime from
+      creation: warn the Instructors, reject later Assessment deadlines, make
+      the Course Inactive at the limit, preserve bulk roster import for adding
+      Students, and prohibit bulk Student removal while preserving individual
+      enrollment corrections.
 - [ ] Implement the Course retention behavior already defined by Human
-      Guidance: final-Assessment-deadline clock, later-Student-activity reset,
-      Instructor notice, FERPA archive from normal interfaces, recoverability
-      during the retention period, permanent deletion, and Course inactivity.
-      Numeric durations and exact Store/worker shapes remain to be chosen; no
-      retention Revision family is required.
+      Guidance: latest-Assessment-deadline FERPA clock, Instructor notice, FERPA archive
+      from normal interfaces, recoverability during the retention period,
+      and permanent deletion. FERPA retention durations are tunable operational
+      configuration; exact Store/worker shapes remain implementation choices,
+      and no retention Revision family is required.
 
 ## Production release
 

@@ -44,7 +44,8 @@ Blueprint is owner-only until its owner makes it Public.
 Assessment is the generic object that organizes Questions and Question Pools
 into graded or practice work. The five Assessment Types are Regular Assignment,
 Practice Question Assignment, Bonus Assignment, Quiz, and Exam. Assignment is
-used only inside those three Type names.
+not an object, category, or parent Type; the word appears only inside those
+three Type names.
 
 Blueprint Assessments contain reusable content and teaching settings but no
 Students or delivery dates. Course Instance Assessments deliver work to
@@ -58,8 +59,8 @@ Assignments default to unlimited Attempts, and Students may practice toward a
 perfect score when settings allow it. Each Attempt retains its own exact
 Question/Pool Revision evidence and Student Work.
 
-Human Guidance does not yet say which Attempt contributes to a Course grade
-when several exist.
+When several Attempts are submitted, the highest Assessment Attempt score is
+the Student's Assessment score.
 
 ## How does submission work?
 
@@ -69,8 +70,9 @@ graded. Saving changes only the working response.
 
 The whole Assessment Attempt is submitted at once, either by the Student or
 automatically at its deadline. That action finalizes all saved responses
-together, and other positions remain unanswered. The server-owned wall clock
-continues while the browser is closed or disconnected.
+together. Other positions remain visibly unanswered, receive zero credit, and
+count as incorrect without being sent to the Question Backend. The server-owned
+wall clock continues while the browser is closed or disconnected.
 
 ## Who grades a Question?
 
@@ -125,15 +127,18 @@ deliberate, scoped, and recorded.
 
 New access stops, but authorship, Course relationships, Student Work, and
 history remain. Reactivation restores access through still-valid
-relationships. Permanent closure and Course-record retention are separate.
+relationships. Course-record retention remains separate, and no permanent
+Account-closure workflow is currently defined.
 
 ## What happens to old Student records?
 
-The final Assessment deadline starts the Course retention clock, and later
-Student activity resets it. Instructors receive notice before FERPA-protected
-records leave normal interfaces. Records remain recoverable during the
-retention period, are then permanently deleted, and the Course becomes
-inactive. Course metadata, Assessments, Questions, and settings remain.
+A Course Instance becomes Inactive six months after creation. That limit
+prevents Course reuse or deadline extensions from indefinitely delaying FERPA
+retention and deletion, but becoming Inactive does not itself delete Student
+records. The latest Assessment deadline starts the FERPA retention clock; it
+does not itself archive or remove Student data. The configured policy later
+determines notice, removal from normal interfaces, recovery, and permanent
+deletion. Course metadata, Assessments, Questions, and settings remain.
 
 ## What runs in Solid and Wasm?
 

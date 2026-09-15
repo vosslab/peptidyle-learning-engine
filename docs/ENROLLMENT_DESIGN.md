@@ -17,7 +17,8 @@ PLE keeps four concepts separate:
 
 Removing Course access or deactivating an Account changes authorization. It
 does not erase Student Work, Course history, authorship, or Instructor
-relationships. Retention and permanent Account closure are separate processes.
+relationships. Course retention remains separate from Account deactivation.
+No permanent Account-closure workflow is currently defined.
 
 ## Product roles
 
@@ -45,10 +46,15 @@ Student creates or reconnects the Course relationship to the Student record for
 that global Student Account. Rejoining must not create a second Student identity
 or orphan earlier Course work.
 
+Instructors may bulk add Students through roster import. They remove Students
+individually. PLE does not provide bulk Student removal from a Course Instance.
+Roster import supports efficient enrollment of a class; it is not a workflow
+for replacing the roster of an earlier teaching period.
+
 Students and Instructors authenticate with a passkey or email code. Student
 Accounts use the required university or institutional email address (`.edu` in
 the United States), and a Student email address is immutable. The exact
-invitation token, challenge, LMS, or roster-import ceremony is an implementation
+invitation token, challenge, or LMS ceremony is an implementation
 contract; Human Guidance does not require a particular invitation receipt
 model.
 
@@ -101,16 +107,20 @@ or Course relationship changes do not rewrite this evidence.
 - Deactivating a Student's Course access blocks that Course relationship while
   preserving the global Student Account and Student Work; it may be restored
   while retention permits it.
-- Permanent Account closure and FERPA record deletion are separate explicit
-  processes.
+- FERPA record deletion follows Course retention and does not delete the global
+  Account.
 
-## FERPA retention
+## Course lifetime and FERPA retention
 
-The final Assessment deadline starts the Course retention clock. Later Student
-activity resets it. Instructors receive notice before FERPA-protected records
-leave normal interfaces. The records remain recoverable during the retention
-period, are then permanently deleted, and the Course becomes inactive. Course
-metadata, Assessment definitions, Questions, and settings remain.
+A Course Instance represents one teaching period and becomes Inactive six
+months after creation, after an Instructor warning. Assessment deadlines can
+move the end of normal teaching only within that Active lifetime, preventing
+Course reuse or deadline extensions from delaying FERPA retention indefinitely.
+The latest Assessment deadline starts the FERPA retention clock; it does not
+itself archive or remove Student data. The configured policy later determines
+notice, removal from normal interfaces, recovery, and permanent deletion.
+Becoming Inactive does not itself delete Student records. Course metadata,
+Assessment definitions, Questions, and settings remain.
 
 Course-specific responses, scores, timing, and even small-cell aggregates are
 protected educational records. Anonymous statistics may survive only when they

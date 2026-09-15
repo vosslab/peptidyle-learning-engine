@@ -17,10 +17,10 @@ Assessment Types:
 - Quiz
 - Exam
 
-Assignment is used only inside those three Type names. Assessment Type states
-the pedagogical purpose and supplies defaults. An Instructor may change
-Assessment settings without changing the Type and cannot create additional
-Types.
+Assignment is not an object, category, or parent Type; it appears only inside
+those three Type names. Assessment Type states the pedagogical purpose and
+supplies defaults. An Instructor may change Assessment settings without
+changing the Type and cannot create additional Types.
 
 Blueprint Assessments and Course Instance Assessments use the same Types.
 Assessment Templates are Instructor-owned reusable settings with one Type and
@@ -44,9 +44,11 @@ become another public action or lifecycle.
 ## Scoring boundary
 
 Question Backends return immutable credit fractions. PLE calculates scores from
-those fractions and current Question point values. Human Guidance does not
-define a universal multiple-Attempt grade-selection rule, Grade Categories, or
-a Course Grade Scheme.
+those fractions and current Question point values. Unanswered Questions receive
+zero credit and count as incorrect without being sent to a backend. The highest
+submitted Assessment Attempt score is used. PLE does not use separate Question
+weights, Grade Categories, weighted categories, a Course Grade Scheme, or Course
+percentage calculations. Pilot grade export uses CSV or TSV point data.
 
 ## Interface
 

@@ -86,8 +86,8 @@ lease; a stale lease cannot commit.
 
 Job infrastructure alone does not authorize grading queues, regrading,
 recovery-state machines, generalized audit streams, snapshots, or compatibility
-work. Backend-specific deferred completion remains unresolved until a real
-backend requires it.
+work. When PLE requests a grading outcome, the Question Backend returns it
+without a deferred grading state.
 
 ## Cross-system writes
 

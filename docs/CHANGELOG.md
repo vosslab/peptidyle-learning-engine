@@ -32,16 +32,26 @@
   Current specifications, contracts, guides, and active plans now use the same Assessment,
   Blueprint, Question, role, authorization, retention, grading, and interface models. Temporary
   reports inventory all 295 documentation files, preserve compatible detail and dated evidence,
-  and record unresolved product questions and generated artifacts without inventing answers or
-  editing their source-owned generators. The submission language now names only the whole
-  Assessment Attempt as the submission target; saved Question responses are finalized together by
-  that action. Six fresh independent Plan, Test, Style, Documentation, Legacy, and Comment reviews
-  then corrected stale authentication status, unsupported unanswered-score and retry behavior,
-  overbroad backend evaluation and score-retention claims, universal adapter snapshot machinery,
-  and ambiguous report references and statuses. The reports retain the unresolved generated-artifact
-  refreshes, their current naming/placement style issue, and the limits of structural inventory as
-  semantic proof. This was a documentation-only change; source code, schemas, tests, configuration,
-  and migrations were not modified.
+  and separate the two unlocked UI designs from source-owned generated-artifact refreshes. The
+  submission language now names only the whole Assessment Attempt as the submission target; saved
+  Question responses are finalized together by that action. Assessment is the generic object with
+  five Types, while Assignment is not an object or parent category. Practice uses the ordinary
+  whole-Attempt boundary, Question Feedback is independent of correct-answer disclosure, unanswered
+  Questions receive zero without backend evaluation, and the highest submitted Attempt score is
+  used. Scoring uses Question points directly; pilot export is CSV or TSV without a Course-grade
+  model. The KISS reconciliation also removed invented rollover, deferred grading, and permanent
+  Account-closure models; connected the six-month maximum Active Course lifetime to FERPA retention
+  by capping deadline movement while keeping inactivity and deletion as separate transitions;
+  clarified that the latest Assessment deadline only starts the FERPA clock while configured policy
+  controls later record transitions; and preserved bulk roster import for adding Students while
+  limiting removal to one Student at a time. Course banners now use one responsive
+  5:1 geometry, recommend 1280 by 256 pixels for authoring, and do not preserve the former 6:1 hero,
+  5:2 card crop, or dual-rendition subsystem. Six fresh independent Plan, Test, Style,
+  Documentation, Legacy, and Comment reviews
+  corrected additional stale authentication, submission, scoring, adapter, and report claims. The
+  reports retain their current naming/placement style issue and the limits of structural inventory
+  as semantic proof. This was a documentation-only change; source code, schemas, tests,
+  configuration, and migrations were not modified.
 
 - Reorganized Human Guidance under the approved Development, vocabulary, Accounts and roles,
   Interface, Data and history, Questions, Courses, and Assessments hierarchy. A temporary exact

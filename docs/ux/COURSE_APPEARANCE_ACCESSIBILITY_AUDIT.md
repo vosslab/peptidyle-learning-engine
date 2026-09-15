@@ -34,7 +34,7 @@ full geometry snapshots do not remain in the suite. Retained checks cover user-v
 - The then-current 6:1 Banner preview transferred its preferred width into the grid's minimum
   sizing, which widened the document to 720 px at the phone profile. The form, preview group, and
   image received explicit zero minimum inline sizing. This is retained implementation evidence;
-  the 6:1 page-width geometry is not the current product target.
+  the current product target is one responsive 5:1 banner shown small and centered.
 - Several raw decorative accent anchors did not support their palette-role label at normal text
   contrast. The Accent role now uses a recognizable low-strength accent tint with the derived ink
   color; the named checked native radio remains the actual selection state.

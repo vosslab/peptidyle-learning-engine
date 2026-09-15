@@ -52,14 +52,16 @@ An Assessment Attempt is the submission boundary.
 | Save response | Save a complete response while the Attempt is open | Validate ownership and shape, replace the working response, and retain the minimum evidence needed to interpret it. |
 | Incomplete response | Leave a response incomplete | Do not save it as a complete response and do not grade it. |
 | Submit Assessment | Submit the whole Attempt | Close the Attempt and finalize all saved responses together as Student Work. |
-| Read result | Request a permitted result after submission | Apply disclosure policy to the immutable credit fraction and feedback; calculate score from current Question point values. |
+| Unanswered at submission | Submit with no complete saved response at a position | Keep the position visibly unanswered; assign zero credit and incorrect status without sending it to a backend. |
+| Read result | Request a permitted result after submission | Apply disclosure policy to immutable credit and feedback; calculate each Attempt from current Question points and use the highest submitted Attempt score. |
 
 The Question Backend owns rendering, response interpretation, grading,
 feedback, and backend-specific state. PLE treats the rendered presentation and
 state as opaque, stores the returned credit fraction without changing it, and
 must not add a second parser for backend controls. Backend evaluation may occur
 before whole-Assessment submission, but no Student-visible grading outcome is
-created by saving a Question response.
+created by saving a Question response. When PLE requests a grading outcome, the
+Question Backend returns it without a deferred grading state.
 
 The native PLE Question JSON format is private, unpublished, unversioned, and
 strictly validated. Author JavaScript is isolated and untrusted; server grading
@@ -73,9 +75,13 @@ saved response, immutable credit fraction, and disclosure state. Human Guidance
 does not require rendered-page snapshots, software-version snapshots, a public
 grading-receipt model, or a general historical replay service.
 
-The final Assessment deadline starts the Course retention clock; later Student
-activity resets it. Archive, recovery during the retention period, permanent
-deletion, and Course inactivity follow [RETENTION_POLICY.md](RETENTION_POLICY.md).
+The latest Assessment deadline starts the FERPA retention clock; it does not
+itself archive or remove Student data. The configured policy determines later
+notice, archive, recovery, and permanent deletion. The Course Instance's
+six-month Active limit caps deadline movement so Course reuse cannot delay
+FERPA retention indefinitely. Active-to-Inactive remains a separate transition
+and does not itself delete Student records. See
+[RETENTION_POLICY.md](RETENTION_POLICY.md).
 
 Background processing is limited to product behavior Human Guidance actually
 requires, including expired-Attempt submission and idempotent retention checks,

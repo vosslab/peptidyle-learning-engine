@@ -87,8 +87,9 @@ is not graded.
 
 Saving changes only the working response. The whole Assessment Attempt is
 submitted in one Student action or automatically at its deadline. That action
-finalizes all saved complete responses together; other positions remain
-unanswered. After submission, Student responses are immutable.
+finalizes all saved complete responses together. Other positions remain visibly
+unanswered, contribute zero credit, and count as incorrect without backend
+evaluation. After submission, Student responses are immutable.
 
 The Question Backend may evaluate a complete saved response early, but PLE does
 not expose a Student-visible grading outcome until the whole Attempt is
@@ -96,9 +97,10 @@ submitted. The backend's credit fraction is immutable. Score readers multiply
 that fraction by the Assessment Question's current point value, so changing
 point values recalculates scores without regrading.
 
-Human Guidance allows multiple Attempts according to Assessment policy but does
-not define which Attempt contributes to a Course grade. This model therefore
-does not impose highest, latest, first, or average selection.
+When several Attempts are submitted, the highest Assessment Attempt score is
+the Student's Assessment score. PLE uses current Question point values rather
+than Grade Categories, weighted categories, a Course Grade Scheme, or Course
+percentage calculations. Pilot grade export uses CSV or TSV point data.
 
 ## Authorization and concurrency
 
@@ -131,7 +133,7 @@ support boundary, not invented here.
 
 ## Retention
 
-Student Work follows the Course retention clock. Removing or deactivating the
+Student Work follows the FERPA retention clock. Removing or deactivating the
 Student's Course access does not delete the global Account or Student Work. See
 [RETENTION_POLICY.md](RETENTION_POLICY.md) for notice, archive, recovery-period,
 and permanent-deletion rules.

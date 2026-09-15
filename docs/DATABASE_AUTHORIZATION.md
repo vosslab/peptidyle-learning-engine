@@ -60,8 +60,9 @@ compatibility workflow merely because job infrastructure exists.
 
 Account deactivation closes new access while preserving authorship, Course
 relationships, Student Work, and history. Course membership removal does not
-delete Student records. Retention and permanent closure are separate
-operations.
+delete Student records. FERPA record deletion follows Course retention and does
+not delete the global Account. No permanent Account-closure workflow is
+currently defined.
 
 ## Revision and current-state boundaries
 
@@ -102,17 +103,19 @@ product definition.
 
 ## Retention authorization
 
-The final Assessment deadline starts the Course retention clock and later
-Student activity resets it. An idempotent background process can send the
-Instructor notice, remove FERPA-protected records from normal interfaces,
-preserve recoverability during the retention period, and permanently delete
-them at expiry.
+Course Instance creation anchors the six-month Active lifetime and caps how far
+Assessment deadlines can move, preventing indefinite delay of FERPA retention.
+The latest Assessment deadline starts the FERPA retention clock; it does not
+itself archive or remove Student data. The configured policy determines later
+notice, archive, recovery, and permanent deletion. Becoming Inactive does not
+itself delete Student records. An idempotent background process executes those
+transitions without redefining their timing.
 
 Database enforcement must prevent Student and ordinary Instructor routes from
 bypassing the archive stage. Course metadata, Assessment definitions,
 Questions, and settings remain after FERPA-protected Student records are
-deleted. Numeric durations and exact job/event/table shapes are not decided in
-Human Guidance.
+deleted. Numeric FERPA retention durations and exact job/event/table shapes are
+not decided in Human Guidance.
 
 ## Trusted function seams
 

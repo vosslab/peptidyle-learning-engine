@@ -4,5 +4,6 @@
 docs/CHANGELOG-2026-08a.md
 
 # These long-form canonical Markdown authorities retain intentional single-document ownership.
+docs/HUMAN_GUIDANCE.md
 docs/DESIGN_DECISIONS.md
 docs/TERMINOLOGY_CONTRACT.md
