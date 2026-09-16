@@ -216,6 +216,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Avoid scattering related actions across page headers, menus, navigation, and content areas.
 - Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
+- Buttons should look intentionally designed rather than like native browser controls.
+
+### Rounded rectangles preference
+
+- Rounded rectangles are preferred for all interface objects, especially buttons, input fields, cards, avatars, tags, and interactive controls.
+- Rounded corners generally feel softer, friendlier, and more contemporary.
+- Rounding also helps users visually distinguish discrete objects from the surrounding page.
+- Use corner radius to reinforce interface hierarchy.
+- Interactive and self-contained objects should generally be more rounded than structural containers.
+- Use moderate rounding for buttons, input fields, answer choices, dialogs, and similar interactive controls.
+- Use subtle rounding for cards, tables, panels, and other content containers.
+- Keep large page regions, navigation bars, breadcrumbs, and other structural layout elements square or nearly square.
+- Pills and fully rounded shapes should be reserved for compact objects such as tags, badges, timers, and avatars.
+- Apply corner radii consistently to objects that serve the same purpose.
+- Use the application's typography, spacing, corner radius, borders, and interaction states consistently.
+- Primary, secondary, and low-emphasis actions should be visually distinct.
 
 ### Information density and layout
 
