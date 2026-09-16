@@ -29,6 +29,67 @@
 - [ ] Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
   - Mismatch: Published Question IDs use `AAAA-ZBBB`, but published Question Pool identities are not complete.
 
+### Content classification
+
+- [ ] PLE uses one global content classification hierarchy across **Courses**, **Assessments**, and **Library Objects**.
+  - Mismatch: Partial SQL foundation defines four vocabulary tables and Subject-Discipline associations, but no commands, content attachments, selection, normalization, or discovery exist.
+- [ ] Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
+  - Mismatch: Partial SQL foundation gives Subject-Discipline associations and one-parent Topic/Subtopic relationships, but no complete content classification behavior exists.
+- [ ] **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
+  - Mismatch: `content_discipline` exists as an owner-only SQL vocabulary table, but authenticated management and content use remain absent.
+- [ ] **Subject** identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+  - Mismatch: `content_subject` and its association table exist, but Subject management and content use remain absent.
+- [ ] **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
+  - Mismatch: `content_topic.subject_uuid` has a mandatory parent foreign key, but Topic management and content use remain absent.
+- [ ] **Subtopic** provides a narrower classification within a Topic, such as Enzyme Catalysis Mechanisms or X-Linked Recessive Crosses.
+  - Mismatch: `content_subtopic.topic_uuid` has a mandatory parent foreign key, but Subtopic management and content use remain absent.
+- [ ] Subjects have a global identity across PLE.
+  - Mismatch: `content_subject` has UUID identity, but global Subject-name uniqueness and product-wide use are absent.
+- [ ] A Subject may belong to one or more Disciplines, with Discipline associations managed by **Sysadmins**.
+  - Mismatch: `content_subject_discipline` permits real, unique associations, but it does not enforce at least one association per Subject and has no Sysadmin commands.
+- [ ] A Topic belongs to one Subject.
+  - Mismatch: The SQL foreign key enforces one Topic parent, but authenticated management and complete product behavior remain open.
+- [ ] A Subtopic belongs to one Topic.
+  - Mismatch: The SQL foreign key enforces one Subtopic parent, but authenticated management and complete product behavior remain open.
+- [ ] Every Course, Assessment, and Library Object has exactly one **Discipline**.
+  - Mismatch: No content attachment schema or writer enforces exactly one Discipline for Courses, Assessments, or Library Objects.
+- [ ] **Subject**, **Topic**, and **Subtopic** are optional.
+  - Mismatch: No content attachment schema or writer establishes optional narrower selections.
+- [ ] Classification selection begins with Discipline and follows the hierarchy from Discipline to Subject to Topic to Subtopic, progressively narrowing the available choices at each level.
+  - Mismatch: No authenticated reader or selector implements progressive narrowing.
+- [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
+  - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
+- [ ] After selecting a Subject, search interfaces may allow users to include content associated with that Subject across its other Disciplines.
+  - Mismatch: No authenticated search interface or content attachment supports cross-Discipline Subject use.
+- [ ] Courses, Assessments, and Library Objects select from the same shared global hierarchy.
+  - Mismatch: The shared SQL vocabulary is not attached to or selectable by any content owner.
+- [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
+- [ ] Content may have any number of Tags, including none.
+  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
+- [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
+  - Mismatch: No classification reader, query, or product discovery behavior exists.
+- [ ] **Sysadmins** exclusively manage the Discipline vocabulary and its lifecycle.
+  - Mismatch: Owner-only SQL access is not ProductRole-aware Sysadmin management; no commands or lifecycle exist.
+- [ ] Discipline is a stable vocabulary expected to change infrequently.
+  - Mismatch: `content_discipline` is a bounded foundation table, but no managed lifecycle establishes its stable vocabulary behavior.
+- [ ] **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
+  - Mismatch: No Instructor reader, selector, or content attachment exists.
+- [ ] **Instructors** may create new Subjects within a Discipline.
+  - Mismatch: No Instructor Subject writer or atomic association-maintenance command exists.
+- [ ] **Instructors** may create new Topics within a Subject.
+  - Mismatch: No Instructor Topic writer exists.
+- [ ] **Instructors** may create new Subtopics within a Topic.
+  - Mismatch: No Instructor Subtopic writer exists.
+- [ ] Subject names are unique across PLE.
+  - Mismatch: `content_subject.name` is not globally unique.
+- [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
+  - Mismatch: The SQL tables bound and reject untrimmed/control-character names, but trusted strip-before-validate writers are absent.
+- [ ] Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
+  - Mismatch: SQL bounds increase from Subject to Topic to Subtopic, but authenticated vocabulary management remains absent.
+- [ ] Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the resulting names consistently.
+  - Mismatch: The SQL tables reject untrimmed storage; no writer strips input before validation.
+
 ### Student and FERPA data
 
 - [x] **Student** course data falls under FERPA; treat it as radioactive.
@@ -37,7 +98,7 @@
   - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
   - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
-  - Owner: Accounts and roles > Account rules > Student role (first identical Human Guidance occurrence).
+  - Owner: 02_accounts.md / Student role (first occurrence; identical requirement and status).
 - [x] FERPA access should be scoped through exact Course membership and **Student** ownership.
   - Evidence (source): `schemas/base_schema/authorization.sql` `current_session_account_owns_student_record` requires the exact Course, Student Record, authenticated Student Account, and active Student membership before Student Work access is allowed.
   - Evidence (test): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` uses a real `ple_auth` to `ple_app` session to allow the owner and deny a same-Course other Student, nonmember, same Account with another Course record, and ordinary Sysadmin.
@@ -109,8 +170,8 @@
 - [ ] FERPA-sensitive Student data should be permanently deleted when its retention period expires.
   - Mismatch: No retention-period expiry deletion exists.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-  - Mismatch: No Student-data deletion transition exists to establish this preservation behavior.
-  - Owner: Data and history > Human-facing reference IDs > Student and FERPA data (first identical Human Guidance occurrence).
+  - Mismatch: Student-data deletion and its preservation boundary are not implemented.
+  - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.
 

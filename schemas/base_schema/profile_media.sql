@@ -156,6 +156,33 @@ CREATE POLICY account_avatar_private_owner_access ON ple_private.account_avatar
 CREATE POLICY profile_image_work_private_owner_access ON ple_private.profile_image_work
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
+-- ASVS 2.3.1/2.3.3: all Account creation paths persist the initial avatar
+-- atomically; an unavailable gallery rolls back Account creation altogether.
+CREATE FUNCTION ple_private.record_initial_account_avatar()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_private, ple_data, pg_temp
+AS $$
+DECLARE v_provided_avatar_id text;
+BEGIN
+    SELECT avatar.provided_avatar_id INTO v_provided_avatar_id
+      FROM ple_data.provided_avatar AS avatar
+     WHERE avatar.is_selectable
+     ORDER BY pg_catalog.random()
+     LIMIT 1;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Account creation requires a selectable PLE gallery avatar';
+    END IF;
+    INSERT INTO ple_private.account_avatar (account_id, avatar_kind, provided_avatar_id)
+    VALUES (NEW.account_id, 'provided', v_provided_avatar_id);
+    RETURN NEW;
+END
+$$;
+REVOKE ALL ON FUNCTION ple_private.record_initial_account_avatar() FROM PUBLIC;
+CREATE TRIGGER account_creation_records_initial_avatar
+AFTER INSERT ON ple_private.account
+FOR EACH ROW EXECUTE FUNCTION ple_private.record_initial_account_avatar();
+
 SET LOCAL ROLE ple_data_owner;
 GRANT SELECT, INSERT, UPDATE ON ple_data.object_delivery, ple_data.profile_image_delivery TO ple_api_owner;
 GRANT SELECT ON ple_data.provided_avatar TO ple_api_owner;

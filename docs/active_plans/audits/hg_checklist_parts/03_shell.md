@@ -198,23 +198,44 @@
 - [x] Sign Out belongs in the Profile menu rather than the main top bar.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `data-ribbon-action={props.model.context.signOutAction.id}` renders Sign Out as a Profile-menu item and closes that menu after dispatch.
   - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Ribbon Profile menu contract: PASS` verifies no top-bar Sign Out button and one dispatched Profile-menu Sign Out action.
-- [x] The Profile avatar uses a generic user avatar until the user selects another avatar.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `renderProfileAvatar` defaults to the generic `RibbonIcon` and records `data-ribbon-profile-avatar="generic"`; `src/application_shell.tsx` `renderProfileAvatar` supplies the selected-avatar renderer only when the application shell has one.
-  - Evidence (test): `tests/test_ribbon_contract.mjs` `every signed-in Product Role has one accessible generic Profile end control` verifies the generic circle-user fallback for all signed-in Product Roles.
-- [ ] **Students** select avatars from a PLE-provided collection and cannot upload Profile images.
-  - Mismatch: No Student avatar collection or selection UI was found.
-- [ ] Student avatar selection should be visual and playful, similar to choosing a LEGO avatar.
-  - Mismatch: No Student avatar selection UI was found.
-- [ ] **Instructors** and **Sysadmins** may select a provided avatar or add their own Profile image.
-  - Mismatch: Instructor image upload exists, but Sysadmin profile/avatar support and provided-avatar selection were not found.
-- [ ] The current avatar appears consistently anywhere PLE represents that user.
-  - Mismatch: No cross-surface all-role avatar consistency evidence was found.
-- [x] Instructor Profile includes the Instructor's time zone and profile image.
-  - Evidence (source): `src/pages/profile_page.tsx` `ProfilePage` renders the time-zone value and Profile image controls.
-- [x] Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
-  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__profile img` uses `object-fit: cover` within the fixed rounded profile box.
 - [x] See **Ribbon and page layout** for the overall navigation and page-position rules.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` is the shared shell that composes the top bar and content region.
+
+### Profile avatar interface
+
+- [ ] Every Account is randomly assigned an avatar from the PLE avatar gallery when the Account is created.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+- [ ] The same avatar gallery collection is available to all Product Roles.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+- [ ] The current avatar or Profile image appears consistently anywhere PLE represents that user.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+
+#### Student avatars
+
+- [ ] **Students** select avatars from the PLE-provided avatar gallery collection and cannot upload Profile images.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+- [ ] Student avatar selection should be visual and playful.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+- [ ] All avatars in the gallery are available for selection.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+- [ ] Students may select another avatar at any time.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+
+#### Instructor and Sysadmin Profile images
+
+- [ ] **Instructors** and **Sysadmins** share the same Profile backend and functionality.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] **Instructors** and **Sysadmins** may select from the PLE avatar gallery or upload their own Profile image.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] Image upload accepts any aspect ratio with a minimum of 128 pixels in both dimensions.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] After upload, Instructors and Sysadmins can position and crop the image within a square Profile preview.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] Instructors and Sysadmins may replace their Profile image or select a provided avatar at any time.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] The current avatar or Profile image appears consistently anywhere PLE represents that user.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+  - Owner: 03_shell.md / Profile avatar interface (first occurrence; identical requirement and status).
 
 ### Breadcrumbs interface
 

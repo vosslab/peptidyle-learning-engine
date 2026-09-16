@@ -59,11 +59,9 @@
 - [ ] An **Instructor** can reset Student login access and send a new signup code when needed.
   - Mismatch: `crates/server/src/course_roster.rs` has invitation claim and revocation routes but no Instructor Student-login reset or code-delivery route.
 - [x] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-  - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` retains Course-local roster ID and Account link without duplicating Student email.
-  - Evidence (source): `schemas/base_schema/course_operations.sql` `list_course_roster` is direct-Instructor-only, while `export_pending_course_invitations` is the sole pending-delivery email projection.
-  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes Course-scoped identifiable records but preserves the global Account and Course teaching material.
-  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 probe on 2026-09-15: the dedicated executor purged Student record, membership, and roster profile while preserving the Account and Course and recording deletion.
-  - Decision: Existing category and operation boundaries are the simplest HG-consistent implementation; no field-policy engine is needed.
+  - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
 - [ ] Student Course data falls under FERPA; treat it as radioactive.
   - Mismatch: `crates/server/src/support_capability.rs` `read_roster` and `tests/e2e/e2e_live_demo_support_capability.sh` establish scoped support access for roster data, not repository-wide FERPA handling for Student Course data.
 - [x] Student email addresses are immutable.

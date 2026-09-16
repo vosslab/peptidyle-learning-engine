@@ -31,10 +31,10 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
   - Reason: agent instruction, not implemented PLE product behavior.
-- [ ] Prefer the smallest coherent design that meets actual requirements and known failure modes.
-  - Mismatch: Current implementation choices have not been audited against this KISS constraint.
-- [ ] Complexity must earn its place.
-  - Mismatch: Current implementation choices have not been audited against this KISS constraint.
+- N/A Prefer the smallest coherent design that meets actual requirements and known failure modes.
+  - Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint.
+- N/A Complexity must earn its place.
+  - Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint.
 - N/A Time should be used efficiently. Agents and tokens are cheap; wall time is not.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Hard work should be broken into small, independently completable tasks.
@@ -142,34 +142,93 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `launchers/run_live_demo.sh` launcher delegates the normal Live Demo start to `local_stack.py`.
   - Evidence (source): `local_stack.py` `main` is the direct local-stack controller entry point.
 
-## Product vocabulary
+## Product vocabulary and glossary
 
-- [ ] **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
-  - Mismatch: `schemas/base_schema/blueprints.sql` `ple_data.blueprint_course` establishes reusable Blueprint storage, but direct evidence has not established every stated absence or Course Instance creation behavior together.
-- [x] **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its content cannot change.
-  - Evidence (source): `schemas/base_schema/blueprint_revision_integrity.sql` `blueprint_course_revision_is_immutable` invokes `reject_blueprint_revision_change`.
-- [ ] **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may be created from a Blueprint Course or started empty.
-  - Evidence (source): `schemas/base_schema/course_core.sql` `ple_data.course_instance` stores teaching Courses, and `crates/learning-data-access/src/course_instance.rs` accepts Empty or exact Adopted creation sources.
-  - Evidence (runtime): Bounded private actual HTTP and exact-main browser proof created and read an Empty Instructor Course Instance without Blueprint discovery; Student creation was denied and successful API responses were `no-store`.
-  - Mismatch: The combined Student membership, deadline, release, Adopted content, and direct started-empty Assessment delivery lifecycle has not been verified.
-- [ ] **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
-  - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `ple_api.list_question_library_entries` lists published entries, but the audited evidence does not establish validation and vetted-Instructor availability together.
-- [ ] **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
-  - Mismatch: `crates/server/src/question_publication.rs` `QuestionPublicationService::publish` verifies the stored Draft Question source record, but no cited direct evidence establishes content validation before publication; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` alone does not establish private Instructor-only persistence.
-- [ ] **Question Library**: The global collection of Published Questions and Question Pools available to vetted **Instructors**.
-  - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `question_library_entries` and `src/api/question_library_repository.ts` `QuestionLibraryRepository` establish published Question Library entries and their search contract, but do not establish published Question Pool inclusion or availability only to vetted Instructors.
-- [x] **User Roles**:
-  - Evidence (source): `schemas/base_schema/accounts.sql` `product_role` limits the product role to student, instructor, or sysadmin.
-  - [ ] **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
-    - Mismatch: `schemas/base_schema/accounts.sql` `ple_api.create_instructor_account` proves a Sysadmin actor can create an Instructor account, but it does not establish system management, Instructor approval or identity vetting, or course-management help.
-  - [ ] **Instructor**: An approved user who teaches courses and can browse, reuse, create, fork, and publish Questions.
-    - Mismatch: `crates/server/src/question_publication.rs` `publish_new_question` proves only the authorized publication boundary; it does not directly verify the approved Instructor's browse, reuse, create, and fork capabilities.
-  - [ ] **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
-    - Mismatch: browser routes and DTOs still call the graded object `assignment`, rather than the required Assessment terminology.
+- [ ] **Account**: A global PLE user account with exactly one Product Role.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Product Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates Accounts, and provides scoped administrative support.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Instructor**: An approved user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Student**: A user who enrolls in **Course Instances** and completes Coursework.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+
+### Course vocabulary
+
+- [ ] **Course**: The general term covering both **Blueprint Courses** and **Course Instances**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Blueprint Course**: A reusable Course used to create **Course Instances**. It has no enrolled **Students**, deadlines, or other teaching-specific delivery settings.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its reusable content cannot change.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Course Instance**: A Course used for teaching. It has **Students**, deadlines, releases, and other delivery settings. It may be created from a Blueprint Course or started empty.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Adoption**: Connecting a **Course Instance** to a **Blueprint Course**. Adoption may occur when the Course Instance is created or later.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+
+### Assessment vocabulary
+
+- [ ] **Assessment**: The PLE object that organizes Questions into a graded or practice activity.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Blueprint Assessment**: An Assessment in a **Blueprint Course** containing reusable content and teaching settings without Students, dates, or other Course Instance delivery settings.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Course Instance Assessment**: An Assessment in a **Course Instance** that can be released and delivered to **Students**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Assessment Type**: The pedagogical type of an Assessment: **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, or **Exam**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Coursework**: The Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Assessment Attempt**: One **Student** attempt at a Course Instance Assessment.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Assessment Template**: A reusable set of settings for creating Course Instance Assessments. It contains settings rather than Questions.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
 - [ ] **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` and its routes call this an Assignment workspace, not the required Assessment Question Editor.
-- [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` `AssignmentWorkspacePoliciesPage` presents the editor as `Policies`, not Assessment Properties Editor.
+- [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, Attempts, late work, and what **Students** can see.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+
+### Question vocabulary
+
+- [ ] **Question**: The general PLE object representing one automatically evaluated question, regardless of its Question Backend.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Draft Question**: A private Question being developed by an **Instructor**. It must pass publication validation before becoming a Published Question.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Published Question**: An immutable-revision Question available for reuse through the global **Question Library**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Revision**: A fixed version of a **Published Question** preserved so Assessments and Student Work can refer to the exact Question delivered.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Pool**: A published **Library Object** containing interchangeable **Published Questions** from which PLE selects Questions for a **Student**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Backend**: The component responsible for a Question's rendering, interaction, response handling, grading, feedback, and backend-specific state.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Type**: Author-declared educational metadata describing the Question's interaction type, such as MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Library**: The global collection of **Published Questions** and **Question Pools** available to vetted **Instructors**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Library Object**: A **Published Question** or **Question Pool** in the **Question Library**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+
+### Student Work vocabulary
+
+- [ ] **Student Work**: The collective term for FERPA-sensitive records created by a **Student** in a **Course Instance**, including Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret submitted work.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student Work vocabulary boundary.
+- [ ] **Grading Outcome**: The immutable credit fraction returned by a **Question Backend** for a complete evaluated response and stored by PLE.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student Work vocabulary boundary.
+
+### Content classification vocabulary
+
+- [ ] **Discipline**: The broadest academic classification, such as Biology, Chemistry, or Mathematics.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Subject**: An area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Topic**: A major area within a Subject.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Subtopic**: A narrower classification within a Topic.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Tag**: An optional label attached to PLE content. Content may have any number of Tags.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
 ## Accounts and roles
 
 ### Account rules
@@ -231,11 +290,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] An **Instructor** can reset Student login access and send a new signup code when needed.
   - Mismatch: `crates/server/src/course_roster.rs` has invitation claim and revocation routes but no Instructor Student-login reset or code-delivery route.
 - [x] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-  - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` retains Course-local roster ID and Account link without duplicating Student email.
-  - Evidence (source): `schemas/base_schema/course_operations.sql` `list_course_roster` is direct-Instructor-only, while `export_pending_course_invitations` is the sole pending-delivery email projection.
-  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes Course-scoped identifiable records but preserves the global Account and Course teaching material.
-  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 probe on 2026-09-15: the dedicated executor purged Student record, membership, and roster profile while preserving the Account and Course and recording deletion.
-  - Decision: Existing category and operation boundaries are the simplest HG-consistent implementation; no field-policy engine is needed.
+  - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
 - [ ] Student Course data falls under FERPA; treat it as radioactive.
   - Mismatch: `crates/server/src/support_capability.rs` `read_roster` and `tests/e2e/e2e_live_demo_support_capability.sh` establish scoped support access for roster data, not repository-wide FERPA handling for Student Course data.
 - [x] Student email addresses are immutable.
@@ -503,23 +560,44 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Sign Out belongs in the Profile menu rather than the main top bar.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `data-ribbon-action={props.model.context.signOutAction.id}` renders Sign Out as a Profile-menu item and closes that menu after dispatch.
   - Evidence (test): `tests/playwright/ribbon_profile_menu_contract.mjs` `Ribbon Profile menu contract: PASS` verifies no top-bar Sign Out button and one dispatched Profile-menu Sign Out action.
-- [x] The Profile avatar uses a generic user avatar until the user selects another avatar.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `renderProfileAvatar` defaults to the generic `RibbonIcon` and records `data-ribbon-profile-avatar="generic"`; `src/application_shell.tsx` `renderProfileAvatar` supplies the selected-avatar renderer only when the application shell has one.
-  - Evidence (test): `tests/test_ribbon_contract.mjs` `every signed-in Product Role has one accessible generic Profile end control` verifies the generic circle-user fallback for all signed-in Product Roles.
-- [ ] **Students** select avatars from a PLE-provided collection and cannot upload Profile images.
-  - Mismatch: No Student avatar collection or selection UI was found.
-- [ ] Student avatar selection should be visual and playful, similar to choosing a LEGO avatar.
-  - Mismatch: No Student avatar selection UI was found.
-- [ ] **Instructors** and **Sysadmins** may select a provided avatar or add their own Profile image.
-  - Mismatch: Instructor image upload exists, but Sysadmin profile/avatar support and provided-avatar selection were not found.
-- [ ] The current avatar appears consistently anywhere PLE represents that user.
-  - Mismatch: No cross-surface all-role avatar consistency evidence was found.
-- [x] Instructor Profile includes the Instructor's time zone and profile image.
-  - Evidence (source): `src/pages/profile_page.tsx` `ProfilePage` renders the time-zone value and Profile image controls.
-- [x] Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
-  - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-app-ribbon__profile img` uses `object-fit: cover` within the fixed rounded profile box.
 - [x] See **Ribbon and page layout** for the overall navigation and page-position rules.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` is the shared shell that composes the top bar and content region.
+
+### Profile avatar interface
+
+- [ ] Every Account is randomly assigned an avatar from the PLE avatar gallery when the Account is created.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+- [ ] The same avatar gallery collection is available to all Product Roles.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+- [ ] The current avatar or Profile image appears consistently anywhere PLE represents that user.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+
+#### Student avatars
+
+- [ ] **Students** select avatars from the PLE-provided avatar gallery collection and cannot upload Profile images.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+- [ ] Student avatar selection should be visual and playful.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+- [ ] All avatars in the gallery are available for selection.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+- [ ] Students may select another avatar at any time.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student avatars boundary.
+
+#### Instructor and Sysadmin Profile images
+
+- [ ] **Instructors** and **Sysadmins** share the same Profile backend and functionality.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] **Instructors** and **Sysadmins** may select from the PLE avatar gallery or upload their own Profile image.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] Image upload accepts any aspect ratio with a minimum of 128 pixels in both dimensions.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] After upload, Instructors and Sysadmins can position and crop the image within a square Profile preview.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] Instructors and Sysadmins may replace their Profile image or select a provided avatar at any time.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Instructor and Sysadmin Profile images boundary.
+- [ ] The current avatar or Profile image appears consistently anywhere PLE represents that user.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Profile avatar interface boundary.
+  - Owner: 03_shell.md / Profile avatar interface (first occurrence; identical requirement and status).
 
 ### Breadcrumbs interface
 
@@ -658,9 +736,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Course Instance Assessments have two editors:
   - Mismatch: the UI names the object Assignment, not Assessment.
   - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Questions in an Assessment.
-    - Mismatch: the implemented `AssignmentWorkspaceQuestionsPage` is not an Assessment-named editor.
+  - Mismatch: the implemented `AssignmentWorkspaceQuestionsPage` is not an Assessment-named editor.
   - [ ] **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
-    - Mismatch: the implemented `AssignmentWorkspacePoliciesPage` is not an Assessment-named properties editor.
+  - Mismatch: the implemented `AssignmentWorkspacePoliciesPage` is not an Assessment-named properties editor.
 
 #### Question interface
 
@@ -782,11 +860,11 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `src/route_contract.ts` `assessmentWorkspaceQuestions` and `assessmentWorkspacePolicies` declare distinct Assessment Question and Properties routes; the Ribbon tasks and breadcrumb use the same names.
   - Evidence (runtime): accepted private exact-main browser evidence navigated from `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` into the independently rendered Properties Editor.
   - [x] **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
-    - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` provides Add, Move, Remove, and Save controls.
-    - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage`, adding two exact Questions, moving, removing, re-adding, saving, and reloading them in the persisted visible order.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` provides Add, Move, Remove, and Save controls.
+  - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage`, adding two exact Questions, moving, removing, re-adding, saving, and reloading them in the persisted visible order.
   - [x] **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings.
-    - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` provides dates, instructions, Attempt/time limits, late work, order, disclosure, and focused fixed-Question point-value editing through `AssessmentFixedQuestionPointsEditor`.
-    - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_fixed_question_points_editor.tsx` `AssessmentFixedQuestionPointsEditor`: it saved `2.5` and `1` for two ordered exact Questions, reloaded the persisted values, preserved the other full-Assessment fields, exercised Cancel and Stay/Discard, and recovered from a real concurrent-write conflict by explicitly reloading and discarding the retained point draft.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` provides dates, instructions, Attempt/time limits, late work, order, disclosure, and focused fixed-Question point-value editing through `AssessmentFixedQuestionPointsEditor`.
+  - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_fixed_question_points_editor.tsx` `AssessmentFixedQuestionPointsEditor`: it saved `2.5` and `1` for two ordered exact Questions, reloaded the persisted values, preserved the other full-Assessment fields, exercised Cancel and Stay/Discard, and recovered from a real concurrent-write conflict by explicitly reloading and discarding the retained point draft.
 - [x] The two Assessment editors should remain clearly distinct.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` and the Properties page have separate canonical routes, headings, Ribbon tasks, state models, and save operations.
   - Evidence (runtime): accepted private exact-main browser evidence showed `src/ribbon/ribbon_catalog.ts` `assessmentPolicies` as a distinct selected task, with Question order and Properties instructions each surviving their own actual-HTTP reload.
@@ -895,7 +973,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
-  - Owner: Interface design > General interface design (first identical Human Guidance occurrence).
+  - Owner: 03_shell.md / General interface design (first occurrence; identical requirement and status).
 - [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
@@ -954,10 +1032,11 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `activatePosition` saves before changing position; `src/pages/assessment_attempt_page.tsx` `loadPresentation` restores the persisted `savedResponse` when the Student returns.
-- [ ] The current Question and overall progress should remain easy to see.
+- [x] The current Question and overall progress should remain easy to see.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` owns the visible current/total Question and saved-count summary; `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders this component without the retired duplicate eyebrow.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, accepted supplied `/private/tmp/ple-compact-student-navigation.md` and independent `/private/tmp/ple-compact-navigation-independent-review.md` show visible current/total progress at 1280 and 390 pixels.
-  - Verification pending: supplied parent actual submitted R-4 navigation shows disabled controls with misleading `Question - of 4` and `0 saved`, despite one retained correct MATCH response in history. Active-Attempt current/progress proof remains accepted; truthful submitted-state summary needs the separately queued source correction and rendered verification. The five bounded active navigation closures are unchanged.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders active Question navigation and its loading state only while the Attempt is active; submitted and expired states retain the terminal message without current/saved navigation.
+  - Evidence (runtime): `src/pages/assessment_attempt_page.tsx` `AttemptExperience`, accepted authenticated Avery R-4 browser receipt `/private/tmp/ple-attempt-finished-nav-fixed.png`, shows the terminal heading with no active Question navigation, no misleading `Question - of 4`, and no `0 saved` summary. Independent `/root/terminal_attempt_ui_review` accepted the rendered terminal state with no findings.
 - [x] The timer should be subtle and keep the focus on the Questions.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` places the `calm-status` timer in the Assessment Attempt header, outside the Question card.
 - [x] For timed Coursework, the remaining time should stay visible while moving between Questions.
@@ -979,13 +1058,15 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   title, timing summary, and Question navigation only the space needed to orient Students.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
-- [ ] Use consistent PLE styling for native Question navigation and response actions, with readable
-  labels and clear selected, saved, and keyboard-focus states.
-  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
-- [x] Style Question navigation controls with PLE typography, deliberate spacing, restrained corner
-  rounding, and theme-aware borders and backgrounds.
+- [ ] Make the current Question, saved-response status, and keyboard-focused control visually distinct
+  so Students can recognize where they are, what work is saved, and which action they will activate.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
+  - Verification pending: accepted active-navigation current/saved/focus cues are partial proof; meaningful saved-response and keyboard-focus distinction across native response controls/actions and submitted-state presentation still need scoped rendered verification. The prior styling-only row is not acceptance of this changed whole wording.
+- [ ] Label response actions by their effect, such as "Save response" and "Clear response", so Students
+  can distinguish recording their work from changing it or submitting the whole Coursework.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` supplies prompt Clear controls and delegates response actions to the shared submission controller.
+  - Verification pending: existing MATCH Tab/Space/Enter assignment/change/Clear/Save receipts establish those actions operate, not that response-effect labels consistently distinguish save, change, Clear and whole-Coursework submission across native controls. Current wording needs a scoped label/state audit and rendered action distinction proof.
 - [ ] Group response feedback near the response controls and keep routine saved-status messages brief.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
@@ -1071,6 +1152,67 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
   - Mismatch: Published Question IDs use `AAAA-ZBBB`, but published Question Pool identities are not complete.
 
+### Content classification
+
+- [ ] PLE uses one global content classification hierarchy across **Courses**, **Assessments**, and **Library Objects**.
+  - Mismatch: Partial SQL foundation defines four vocabulary tables and Subject-Discipline associations, but no commands, content attachments, selection, normalization, or discovery exist.
+- [ ] Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
+  - Mismatch: Partial SQL foundation gives Subject-Discipline associations and one-parent Topic/Subtopic relationships, but no complete content classification behavior exists.
+- [ ] **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
+  - Mismatch: `content_discipline` exists as an owner-only SQL vocabulary table, but authenticated management and content use remain absent.
+- [ ] **Subject** identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+  - Mismatch: `content_subject` and its association table exist, but Subject management and content use remain absent.
+- [ ] **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
+  - Mismatch: `content_topic.subject_uuid` has a mandatory parent foreign key, but Topic management and content use remain absent.
+- [ ] **Subtopic** provides a narrower classification within a Topic, such as Enzyme Catalysis Mechanisms or X-Linked Recessive Crosses.
+  - Mismatch: `content_subtopic.topic_uuid` has a mandatory parent foreign key, but Subtopic management and content use remain absent.
+- [ ] Subjects have a global identity across PLE.
+  - Mismatch: `content_subject` has UUID identity, but global Subject-name uniqueness and product-wide use are absent.
+- [ ] A Subject may belong to one or more Disciplines, with Discipline associations managed by **Sysadmins**.
+  - Mismatch: `content_subject_discipline` permits real, unique associations, but it does not enforce at least one association per Subject and has no Sysadmin commands.
+- [ ] A Topic belongs to one Subject.
+  - Mismatch: The SQL foreign key enforces one Topic parent, but authenticated management and complete product behavior remain open.
+- [ ] A Subtopic belongs to one Topic.
+  - Mismatch: The SQL foreign key enforces one Subtopic parent, but authenticated management and complete product behavior remain open.
+- [ ] Every Course, Assessment, and Library Object has exactly one **Discipline**.
+  - Mismatch: No content attachment schema or writer enforces exactly one Discipline for Courses, Assessments, or Library Objects.
+- [ ] **Subject**, **Topic**, and **Subtopic** are optional.
+  - Mismatch: No content attachment schema or writer establishes optional narrower selections.
+- [ ] Classification selection begins with Discipline and follows the hierarchy from Discipline to Subject to Topic to Subtopic, progressively narrowing the available choices at each level.
+  - Mismatch: No authenticated reader or selector implements progressive narrowing.
+- [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
+  - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
+- [ ] After selecting a Subject, search interfaces may allow users to include content associated with that Subject across its other Disciplines.
+  - Mismatch: No authenticated search interface or content attachment supports cross-Discipline Subject use.
+- [ ] Courses, Assessments, and Library Objects select from the same shared global hierarchy.
+  - Mismatch: The shared SQL vocabulary is not attached to or selectable by any content owner.
+- [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
+- [ ] Content may have any number of Tags, including none.
+  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
+- [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
+  - Mismatch: No classification reader, query, or product discovery behavior exists.
+- [ ] **Sysadmins** exclusively manage the Discipline vocabulary and its lifecycle.
+  - Mismatch: Owner-only SQL access is not ProductRole-aware Sysadmin management; no commands or lifecycle exist.
+- [ ] Discipline is a stable vocabulary expected to change infrequently.
+  - Mismatch: `content_discipline` is a bounded foundation table, but no managed lifecycle establishes its stable vocabulary behavior.
+- [ ] **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
+  - Mismatch: No Instructor reader, selector, or content attachment exists.
+- [ ] **Instructors** may create new Subjects within a Discipline.
+  - Mismatch: No Instructor Subject writer or atomic association-maintenance command exists.
+- [ ] **Instructors** may create new Topics within a Subject.
+  - Mismatch: No Instructor Topic writer exists.
+- [ ] **Instructors** may create new Subtopics within a Topic.
+  - Mismatch: No Instructor Subtopic writer exists.
+- [ ] Subject names are unique across PLE.
+  - Mismatch: `content_subject.name` is not globally unique.
+- [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
+  - Mismatch: The SQL tables bound and reject untrimmed/control-character names, but trusted strip-before-validate writers are absent.
+- [ ] Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
+  - Mismatch: SQL bounds increase from Subject to Topic to Subtopic, but authenticated vocabulary management remains absent.
+- [ ] Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the resulting names consistently.
+  - Mismatch: The SQL tables reject untrimmed storage; no writer strips input before validation.
+
 ### Student and FERPA data
 
 - [x] **Student** course data falls under FERPA; treat it as radioactive.
@@ -1079,7 +1221,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
   - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
-  - Owner: Accounts and roles > Account rules > Student role (first identical Human Guidance occurrence).
+  - Owner: 02_accounts.md / Student role (first occurrence; identical requirement and status).
 - [x] FERPA access should be scoped through exact Course membership and **Student** ownership.
   - Evidence (source): `schemas/base_schema/authorization.sql` `current_session_account_owns_student_record` requires the exact Course, Student Record, authenticated Student Account, and active Student membership before Student Work access is allowed.
   - Evidence (test): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` uses a real `ple_auth` to `ple_app` session to allow the owner and deny a same-Course other Student, nonmember, same Account with another Course record, and ordinary Sysadmin.
@@ -1151,8 +1293,8 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] FERPA-sensitive Student data should be permanently deleted when its retention period expires.
   - Mismatch: No retention-period expiry deletion exists.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-  - Mismatch: No Student-data deletion transition exists to establish this preservation behavior.
-  - Owner: Data and history > Human-facing reference IDs > Student and FERPA data (first identical Human Guidance occurrence).
+  - Mismatch: Student-data deletion and its preservation boundary are not implemented.
+  - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.
 
@@ -1542,7 +1684,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-  - Owner: Question specifications > Draft Question specifications > Published Question specifications > Published Question metadata (first identical Human Guidance occurrence).
+  - Owner: 07_questions.md / Published Question metadata (first occurrence; identical requirement and status).
 - [ ] PLE-managed Hints, Question Feedback, and Worked Solutions are separate from Question Backend-generated content.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
@@ -1652,7 +1794,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Draft Questions are not part of the Question Library.
   - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
   - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
-  - Owner: Question specifications > Draft Question specifications (first identical Human Guidance occurrence).
+  - Owner: 07_questions.md / Draft Question specifications (first occurrence; identical requirement and status).
 - [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
@@ -1673,58 +1815,23 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 #### Question Library metadata
 
-- [ ] Published Questions and Question Pools use shared metadata for organization, search, filtering,
-  and discovery.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Required Question Library metadata must be complete before content enters the Question Library.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Library metadata should describe the Published Question or Question Pool rather than its location
-  in a Course or textbook.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Library classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its
-  primary hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Discipline is the broad academic field, such as Biology, Chemistry, or Mathematics.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Sysadmins exclusively manage the Discipline vocabulary and its lifecycle.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Discipline is a stable vocabulary expected to change infrequently.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Instructors classify Library objects by selecting from the Sysadmin-managed Disciplines.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Subject identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Sysadmins can edit Subjects.
-  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
-- [ ] Topic identifies a major area within the Subject.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subtopic provides a narrower classification within the Topic.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
-- [ ] Length allowances should generally increase from Subject to Topic to Subtopic, supporting more
-  specific names as classification becomes narrower.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
-- [ ] Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the
-  resulting names consistently.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
-- [ ] Discipline, Subject, Topic, and Subtopic should support consistent classification across the
-  Question Library.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Published Questions and Question Pools may also have Tags for useful classifications outside the
-  Discipline, Subject, Topic, and Subtopic hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Tags are flexible and may overlap across Disciplines, Subjects, and Topics.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Library metadata should support searching, filtering, sorting, and bulk editing.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
-  **Worked Solutions**.
+- [ ] **Library Objects** use shared metadata for organization, search, filtering, and discovery.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Required Question Library metadata must be complete before a Library Object enters the Question Library.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag** classification system.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library Object classification belongs to the Library Object rather than to one use of that object in an Assessment.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library classification supports searching, filtering, sorting, and bulk editing.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-- [ ] Support content may be attached at the level where it applies rather than duplicated across
-  individual Questions.
+- [ ] Support content may be attached at the level where it applies rather than duplicated across individual Questions.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 
 #### Question Library object statistics
@@ -1738,7 +1845,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
 - [x] Eligible Question Types may also retain aggregate answer-choice counts.
   - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
-  - Owner: Data and history > Human-facing reference IDs > Student and FERPA data (first identical Human Guidance occurrence).
+  - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
   - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
 - [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and
@@ -1812,8 +1919,8 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: The current Course model does not establish the complete stated product boundary.
 - [ ] PLE has two Course forms: **Blueprint Courses** and **Course Instances**.
   - Mismatch: The current paths implement related records but do not verify the complete product distinction.
-- [ ] **Blueprint Courses** provide reusable course designs for creating Course Instances.
-  - Mismatch: Adoption is implemented only for the current stored Blueprint shape.
+- [ ] **Blueprint Courses** provide reusable course designs for **Course Instances**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
 - [x] Course Instances may be created from a Blueprint Course or started empty.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CourseInstanceCreationSource` and `src/api/decoders/course_instance.ts` `decodeCreateCourseInstanceInput` accept strict Empty or exact Adopted source forms.
   - Evidence (runtime): `src/pages/course_list_page.tsx` `TeachingCourseListPage` was exercised against the actual server in bounded exact-main browser proof: Empty creation persisted without Blueprint-list requests; separate Public Blueprint exact-Revision adoption created a daughter Course and Unreleased Practice Assessment. Successful API responses were `no-store`. This creation-only row does not establish direct started-empty Assessment authoring or the full teaching lifecycle.
@@ -1825,6 +1932,27 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/course_membership.sql` `assert_assigned_instructor_membership` rejects a Course Instance without a current assigned Instructor membership.
 - [ ] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
   - Mismatch: `CourseInstanceView.is_assigned_instructor` exposes a special authority distinction.
+- [ ] **Adoption** connects a Course Instance to a Blueprint Course.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
+- [ ] Adoption may occur when the Course Instance is created or later.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
+- [ ] A Course Instance connected to a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
+
+### Course classification specifications
+
+- [ ] **Blueprint Courses** and **Course Instances** use the shared content classification system.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Course classification describes the Course as a whole.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Courses use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Courses may have any number of **Tags**, including none.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Course classification supports Course search, filtering, organization, and discovery where applicable.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] A Course Instance may have classification that differs from its Blueprint Course.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
 
 ### Blueprint Course specifications
 
@@ -2103,7 +2231,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Blueprint Assessments contain only reusable teaching settings.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `ple_data.blueprint_content_is_closed` allowlists reusable Assessment content and defaults without Course delivery dates or release state.
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
-  - Mismatch: Current stored content pins Questions but does not verify published Pool support.
+  - Mismatch: Ordered entries exist, but published Question and Pool Assessment behavior is not verified.
 - [x] Blueprint Assessments have no deadlines, release dates, Student data, or other Course Instance settings.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `blueprint_course_revision` and its children have no Student or delivery-date fields.
 - [ ] Blueprint Revisions can be compared through their canonical JSON representations.
@@ -2163,26 +2291,29 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: each Course-summary read returned five coherent rows (changed, matching, removed, Type mismatch, automatically added) after lazy open/reopen at 1280 by 900 and 390 by 844. The changed Assessment then reviewed and applied with exact source Revision 2 and daughter Edit CAS; the Course refresh showed the applied match. Student and unrelated reads returned `404 no-store`; a private parent was concealed from another Instructor in the privileged-availability fixture; Archived review remained available and new adoption was denied. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
 - [x] Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` supplies one Course-level Review action, clear per-Assessment status labels, Refresh, and links to the existing Assessment detail Review/Apply workflow.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in compiled-main browser proof at 1280 by 900 and 390 by 844: lazy open/reopen GET behavior produced the five-row Course summary and the Course-to-Assessment detail review. Cancel issued zero POST requests; Apply used exact source Revision 2 plus daughter Edit CAS and a returning Course refresh showed the match. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
 - [x] It should be obvious when a daughter Course Instance is based on an older Blueprint Revision.
   - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_api.load_course_instance`, `crates/learning-data-access/src/postgres/course_instance.rs` `decode_view`, `src/api/decoders/course_instance.ts` `decodeCourseInstanceView`, and `src/pages/course_instance_page.tsx` `CourseInstancePage` use the authorized parent origin and exact adopted/current Revision projection for the same visible notice.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` was covered by independently accepted actual-server/exact-main proof across empty, current, newer, and explicit synthetic Private-origin states; the visually inspected newer capture showed both Revision values and the stale notice. It preserved the original adoption pin, Assessment, and entries; its Work tables were empty, so this proof makes no populated-Student-Work claim. Unauthorized Student and unrelated-Instructor reads returned `404 no-store`. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`.
   - Decision: This duplicate course-view indication does not implement the separate Blueprint update offer, review, approval, or apply workflow.
 - [ ] The **Instructor** decides which changes to existing Assessments to incorporate.
   - Verification pending: source-audit this changed requirement against its current parent section and the existing implementation; no full current-scope proof is claimed by the prior wording.
-  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
 - [x] Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
-  - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` and the PostgreSQL Blueprint Store Save implement the same automatic-new append boundary documented in the earlier identical row.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` accepted connected proof and existing adoption lifecycle regression preserve exact pins/settings, distinct daughter Pool IDs, existing Student Work, original adoption pin, Unreleased state, and unset dates. Artifacts: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8` and `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
+  - Evidence (source): `crates/learning-data-access/src/postgres/blueprint_course.rs` Save and `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` atomically append only newly added Assessments to daughters with fresh Course-owned Pool identities and unset dates.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` passed connected PostgreSQL 17 proof, preserving exact pins/settings, existing Assessment content and actual Student Work, and the original adoption Revision pin across two daughters including an inactive Course; an unrelated empty Course remained unchanged. Replay/no-op/stale saves made no duplicate append. Artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8` also accepted temporary bad-payload rollback proof. Existing connected adoption lifecycle regression passed 1 test with 0 ignored: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
+  - Decision: Only automatic-new Assessment propagation is verified, not C410 existing-Assessment update offers or the whole Course milestone.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` now invokes the `append.rs` helper `assert_new_assessment_save_preserves_daughter_work`; the existing permanent lifecycle regression passed 1 test with 0 ignored in `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`. No separate seed-sharing test was retained.
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
 - [x] Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
-  - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` inserts only validated newly added Assessments and does not update existing daughter Assessments.
-  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` proves the same negative invariant after changing retained source content, preserving daughter content/entries/actual Student Work through Save/replay/no-op/stale operations. Artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
+  - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` validates the new-reference delta and inserts only new Assessments; it does not update existing daughter Assessments.
+  - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` changes a retained source Assessment title and proves existing daughter Assessment content, entries, and actual Student Work unchanged through Save/replay/no-op/stale operations. Accepted artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
+  - Decision: This negative invariant remains separate from the verified Course-review workflow; it does not claim direct-Assessments or all Student Work.
+  - Owner: 08_courses.md / Blueprint adoption and incorporation specifications (first occurrence; identical requirement and status).
 
 ### Course short and long name specifications
 
@@ -2219,6 +2350,21 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
   - Evidence (source): `schemas/base_schema/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
   - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
+
+### Assessment classification specifications
+
+- [ ] **Blueprint Assessments** and **Course Instance Assessments** use the shared content classification system.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessment classification describes the Assessment as a whole.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessments use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessments may have any number of **Tags**, including none.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessment classification supports Assessment search, filtering, organization, and discovery where applicable.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessment classification is independent of the classifications of the Questions and Question Pools it contains.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
 
 ### Assessment content specifications
 
@@ -2304,14 +2450,14 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] A **Blueprint Assessment** is an Assessment in a **Blueprint Course**.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintCourseModuleContent` contains ordered `BlueprintAssessmentContent`; `schemas/base_schema/blueprints.sql` `blueprint_revision_assessment` records each stable Blueprint Assessment member of a Blueprint Course Revision.
 - [x] Blueprint Assessments define reusable Assessment content and teaching settings.
-  - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` validates reusable content and `BlueprintAssessmentDefaults` before a Blueprint Course Revision is constructed.
-  - Owner: Assessment specifications (first identical Human Guidance occurrence).
+  - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` contains Type, title, instructions, ordered entries, and validated `BlueprintAssessmentDefaults`; `BlueprintCourseModuleContent` owns those Assessments in Blueprint Course content.
+  - Owner: 09_assessments.md / Assessment specifications (first occurrence; identical requirement and status).
 - [x] Blueprint Assessments have an Assessment Type.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `assessment_type` requires the closed five-Type value; `src/api/decoders/blueprint_course.ts` `assessmentType` strictly requires it in both reusable-content input and view decoding without fallback.
   - Evidence (test): `tests/test_blueprint_course_client.mjs` `B1 client sends Revision and metadata validators to their separate routes` covers create/save/view Type round trips plus missing and unknown rejection; the focused Blueprint client lane passed 16/16.
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
   - Mismatch: Ordered entries exist, but published Question and Pool Assessment behavior is not verified.
-  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint Course JSON specifications (first identical Human Guidance occurrence).
+  - Owner: 08_courses.md / Blueprint Course JSON specifications (first occurrence; identical requirement and status).
 - [ ] Blueprint Assessments define Question point values and points possible.
   - Mismatch: Point values exist in Assignment source, but Blueprint Assessment behavior is not verified.
 - [ ] Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
@@ -2375,9 +2521,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines identity, owner, Type, and reusable settings with no Question, Pool, content, point, or source field.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template creation and empty direct Course Assessment copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
 - [x] Blueprint Assessments do not use Assessment Templates.
-  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates outside Courses and Blueprints; the by-value path creates only direct Course Assessments.
-  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy to a direct Course Assessment without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
-  - Owner: Assessment specifications > Assessment content specifications > Blueprint Assessment specifications (first identical Human Guidance occurrence).
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates as Instructor-owned private state outside Courses and Blueprints with no Blueprint or source field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Template create, save, read, and direct Course Assessment copy without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+  - Owner: 09_assessments.md / Blueprint Assessment specifications (first occurrence; identical requirement and status).
 
 ### Course Instance Assessment release and defaults
 
@@ -2547,8 +2693,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
   - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
-- [ ] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
-  - Mismatch: supplied parent actual Avery R-4 submitted/expired summary shows unanswered Q1/Q3/Q4 as `This question is closed.`, `Marked not correct.`, `0 of 1 points`, and `Your response is not available.`, not explicitly Unanswered. `src/pages/assessment_attempt_summary_page.tsx` renders the closed/no-response wording. This is observed presentation mismatch, not missing observation; the separate source correction and rendered proof remain pending.
+- [x] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
+  - Evidence (source): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` labels closed issued Questions with no submission as **Unanswered** and reserves unavailable-response wording for submitted Questions whose saved response is not released.
+  - Evidence (runtime): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent`, accepted authenticated Avery R-4 submitted/expired history at `/private/tmp/ple-unanswered-history-fixed-1280.png` and `/private/tmp/ple-unanswered-history-fixed-390.png`, shows Q1, Q3, and Q4 as **Unanswered**, incorrect `0 / 1`; Q2 retains all four exact MATCH pairs and correct `1 / 1`; total is `1 / 4`.
 - [x] An unanswered Question receives zero credit and counts as incorrect without being sent to the
   Question Backend.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` treats null retained credit as unanswered zero earned points while retaining current points possible; evaluated zero credit remains a distinct grading outcome.
@@ -2560,7 +2707,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
   state.
   - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
-  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
+  - Owner: 07_questions.md / Question Backend grading and feedback (first occurrence; identical requirement and status).
 - [ ] The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
   - Mismatch: Student grading-outcome timing needs runtime evidence.
 
@@ -2617,9 +2764,10 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_expired_student_assessment_attempt_finalization` delegates deadline whole-Attempt finalization to `ple_private.commit_assessment_attempt_finalization`, which closes missing responses as `closed_unanswered`.
   - Evidence (runtime): Accepted fresh PostgreSQL 17 `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log` exercises real elapsed expiry and real expiry-worker-role prepare/commit for one Attempt with two issued Questions: one unanswered, one saved. Prepare excludes the unanswered Question; commit with an explicitly simulated synchronous Backend zero-credit outcome returns `8 / 16` under FullCredit. The unanswered Question is `closed_unanswered`, has no submission/grading evidence, and history is incorrect `0 / 8`; the saved Question has immutable submission/grading evidence, `normalized_credit=0`, and incorrect `8 / 8` history. No expired prepared work remains.
   - Verification pending: The accepted SQL boundary does not establish rendered presentation or actual Backend transport.
-- [ ] Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
-  - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof retains an unanswered Question without submission/grading evidence and reports it incorrect at `0 / 8`. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
-  - Mismatch: supplied parent actual expired Avery R-4 summary renders Q1/Q3/Q4 as Closed and response unavailable, rather than explicitly Unanswered, with incorrect `0 / 1` each. Q2 retains all four exact MATCH pairs, permitted feedback, and correct `1 / 1`; total is `1 / 4`. `src/pages/assessment_attempt_summary_page.tsx` supplies this closed/no-response wording. SQL zero-credit proof remains accepted; queued presentation correction and rendered recheck are separate.
+- [x] Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
+  - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` assigns unanswered work zero earned points while retaining its current denominator.
+  - Evidence (runtime): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_expired_student_assessment_attempt_finalization`, accepted fresh PostgreSQL 17 expiry proof, retains an unanswered Question without submission/grading evidence and reports it incorrect at `0 / 8`. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
+  - Evidence (runtime): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent`, accepted authenticated Avery R-4 expired history at `/private/tmp/ple-unanswered-history-fixed-1280.png` and `/private/tmp/ple-unanswered-history-fixed-390.png`, visibly labels Q1, Q3, and Q4 **Unanswered** and incorrect `0 / 1`; Q2 retains four exact MATCH pairs and correct `1 / 1`; total is `1 / 4`.
 - [ ] Unanswered Questions are not sent to the Question Backend.
   - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof excludes the unanswered Question from the prepared backend work set. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
   - Verification pending: Actual Backend transport exclusion remains unobserved.
@@ -2643,8 +2791,8 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Blueprint Assessments and Course Instance Assessments assign point values to Questions.
   - Mismatch: Assignment point values exist, but the HG Assessment model is not implemented.
 - [ ] A Question Backend returns an immutable credit fraction for each complete response it evaluates.
-  - Mismatch: The live WeBWorK submission check observes stored credit, but no direct adapter test proves a Question Backend returns that fraction as an immutable outcome.
-  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
+  - Mismatch: needs test or runtime evidence for backend evaluation and immutable outcome creation.
+  - Owner: 07_questions.md / Question Backend grading and feedback (first occurrence; identical requirement and status).
 - [x] PLE stores the credit fraction as the Question grading outcome.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` inserts the supplied credit fraction into `ple_private.grading_result.normalized_credit`, constrained to the inclusive unit interval and retained under `grading_result_is_immutable`.
   - Evidence (runtime): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` is invoked by the accepted private PostgreSQL 17 production-SQL lifecycle fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the submitted `0.5` fraction while rescoring current points from `8` to `13`. This SQL-only fixture simulates the initial synchronous Backend credit and does not establish Backend transport or HTTP.

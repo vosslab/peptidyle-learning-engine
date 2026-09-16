@@ -14,9 +14,9 @@ use axum::{
     routing::get,
 };
 use learning_data_access::{
-    AccountAvatar, AccountAvatarStore, AccountProfileImageDeleteWork, SelectableProvidedAvatarId,
+    AccountAvatar, AccountAvatarGallery, AccountProfileImageDeleteWork, SelectableProvidedAvatarId,
     SessionTokenHash, StoreError,
-    postgres::{PostgresAccountAvatarStore, PostgresSessionStore},
+    postgres::{PostgresAccountAvatarGallery, PostgresSessionStore},
 };
 use objects::{
     ObjectAddress, ObjectStore, PutObject, Sha256Checksum,
@@ -34,14 +34,14 @@ const PROFILE_IMAGE_SIDE_PIXELS: u32 = 256;
 #[derive(Clone)]
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
-    avatars: PostgresAccountAvatarStore,
+    avatars: PostgresAccountAvatarGallery,
     objects: S3ObjectStore,
 }
 
 /// Builds the authenticated Account's role-neutral avatar route surface.
 pub fn profile_avatar_router(
     sessions: Arc<PostgresSessionStore>,
-    avatars: PostgresAccountAvatarStore,
+    avatars: PostgresAccountAvatarGallery,
     objects: S3ObjectStore,
 ) -> Router {
     Router::new()

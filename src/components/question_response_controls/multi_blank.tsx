@@ -63,8 +63,7 @@ export function MultiBlankResponse(
       >
         <legend>Complete each blank</legend>
         <p class="keyboard-instructions" id={`${props.attemptId}-multi-blank-help`}>
-          Use Tab and Shift+Tab to move between blanks. Type each response, then use the Submit
-          answer button. Enter is an optional submit shortcut.
+          Use Tab and Shift+Tab to move between blanks. Type a response in each blank.
         </p>
         <p
           class="completion-progress"

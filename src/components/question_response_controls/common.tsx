@@ -184,7 +184,7 @@ function responseFormatMessageForIssue(issue: StudentResponseFormatIssue): strin
 function responseFormatMessage(check: StudentResponseFormatCheck): string {
   const first = check.issues[0];
   return first === undefined
-    ? "Student Response Format is ready to submit."
+    ? "Student Response Format is ready."
     : responseFormatMessageForIssue(first);
 }
 
@@ -202,23 +202,42 @@ export function numericResponseFromInput(input: string): StudentResponse {
   return { kind: "numeric", value: input.trim() === "" ? Number.NaN : Number(input) };
 }
 
-function phaseMessage(phase: QuestionResponseControlPhase): string {
+function phaseMessage(mode: ResponseControlMode, phase: QuestionResponseControlPhase): string {
+  if (mode === "save") {
+    switch (phase.kind) {
+      case "idle":
+        return "Complete the response, then save it.";
+      case "validating":
+        return "Checking response format...";
+      case "ready":
+        return "Response format is ready to save.";
+      case "restored":
+        return "Review the response before saving changes.";
+      case "invalid":
+      case "failed":
+        return phase.message;
+      case "submitting":
+        return "Saving your response. Please wait.";
+      case "submitted":
+        return "Response saved.";
+    }
+  }
   switch (phase.kind) {
     case "idle":
-      return "Complete the response, then submit it.";
+      return "Complete the response, then use the action below.";
     case "validating":
       return "Checking response format...";
     case "ready":
-      return "Response format is ready to submit.";
+      return "Response format is ready.";
     case "restored":
-      return "Response restored. Check it, then submit when you are ready.";
+      return "Response restored. Review it before using the action below.";
     case "invalid":
     case "failed":
       return phase.message;
     case "submitting":
-      return "Submitting your response. Please wait.";
+      return "Processing your response. Please wait.";
     case "submitted":
-      return "Answer submitted. Student Feedback will appear when it is released.";
+      return "Response accepted.";
   }
 }
 
@@ -422,7 +441,7 @@ export function Status(props: {
     >
       {mode === "formatOnly"
         ? formatOnlyPhaseMessage(props.controller.phase())
-        : phaseMessage(props.controller.phase())}
+        : phaseMessage(mode, props.controller.phase())}
     </p>
   );
 }

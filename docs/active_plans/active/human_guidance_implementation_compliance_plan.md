@@ -2,36 +2,65 @@
 
 ## Current heading reconciliation
 
-The current untouched Human Guidance snapshot is SHA256
-`00a3b9480b1c0ef5031caf10d0cec78c083ccbe96896f184a5de37083836ac50`.
-943 bullets, 452 verified, 443 open (435 owning), and 48 N/A.
-Current wording, status, evidence limitations, and first-owner pointers belong to the implementation
-checklist. Unchanged accepted scoring, timing, Blueprint, and bounded runtime evidence is retained.
-Five new compact Attempt-navigation rows are verified from accepted source and supplied rendered
-receipts: numbered current/saved cues, long-set pagination, width adaptation, compact orientation,
-and PLE typography/theme-aware navigation styling. The 250-Question harness and 200% enlargement
-receipt prove only this bounded navigation workflow; complete Student keyboard/responsive coverage,
-before-start/review density, narrow Ribbon, and full theme-state contrast remain open. The desktop shared-bank and drag/keyboard assigning/changing/clearing MATCH rows are verified.
-Fresh normal Tab/Space/Enter swap, Clear, exact original restoration and accepted Save proof
-is recorded in `/private/tmp/ple-latest-hg-checklist-reconciliation.md` (session 87294, exit 0).
-The remaining two MATCH rows retain bounded receipts while adapted grading and full pointer/touch
-bank reachability remain pending. New Discipline hierarchy, Sysadmin vocabulary ownership/lifecycle,
-Instructor classification, and consistent Subject/Topic/Subtopic validation are binding gaps,
-not N/A or inherited Question-only metadata acceptance. Agent prompting rewrites are audited N/A.
-Fresh default installation and shipped Genetics remain open pending connected installation/replay
-acceptance; existing current-demo Public discovery and installation-source receipts are retained.
-Blueprint lifecycle/forks/comparison belong to Part 08; Assessment type appearance to Part 04;
-Native Question response presentation to Part 07. All nine part gates, identity diff, and
-consistency pass. Historical topical inventories and correction IDs below are provenance, not
-a current ordered projection. The product-compliance goal remains unfinished.
+The prior reconciled Human Guidance snapshot was 998 bullets: 449 verified, 499 open
+(490 owning), and 50 N/A, at SHA256
+`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
+The generated checklist owns occurrence status and first-owner pointers. All nine part gates,
+identity diff, and consistency passed for that snapshot. Unchanged scoring, timing, Blueprint,
+terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains unfinished;
+those gates establish inventory fidelity, not acceptance of the open requirements.
 
-Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
-Blueprint Promoted and exclusive Sysadmin control are binding open
-gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
-disabled navigation says `Question - of 4` and `0 saved`; the five active-navigation closures
-remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
-pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-
-unavailable wording is an observed visibly-unanswered mismatch, not unobserved behavior.
+Part 01 now owns Product vocabulary and glossary, including its five topical subheadings;
+new product definitions remain open absent independently accepted evidence. Part 03 owns Profile
+avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
+avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
+all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
+owns Library metadata, Part 08 Course classification, and Part 09 Assessment classification.
+The shared system requires exactly one Discipline per content object, optional narrower levels,
+and globally identified Subjects associated with one or more Disciplines. The accepted association
+storage correction does not establish global Subject-name uniqueness, role-aware commands,
+normalization, content attachments, hierarchical selection, or discovery. Those gaps remain open.
+KISS/design constraints are audited N/A where not independently closable, but still bind reviews.
+
+Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
+no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
+`1 / 1`, total `1 / 4`. Native diagnostic `AZA01TD` / `R-5` follow-up saved/reloaded FIB, MA,
+MULTI-FIB, NUM, and ORDER, then submitted the whole Attempt: four correct `1 / 1` responses,
+deliberately partial-reordered ORDER incorrect `0 / 1`, total `4 / 5`. Practice-default permitted
+correct answers are displayed separately from retained responses. The supplied ledgers and
+`submitted-review-1280.png` / `submitted-review-390.png` under
+`/private/tmp/ple-student-types-proof/` are bounded receipts, not all-eight-type, complete keyboard,
+touch, or contrast acceptance. HOTSPOT and WeBWorK coverage remain open. Earlier topical
+inventories/correction IDs and superseded contradictions below are historical provenance.
+
+## Current classification prerequisite
+
+The shared global vocabulary foundation is installed in
+[`schemas/base_schema/content_classification.sql`](../../../schemas/base_schema/content_classification.sql).
+It has four UUID vocabulary tables. `content_subject_discipline` gives Subjects real, unique
+Discipline associations through its composite primary key and foreign keys; Topics and Subtopics
+retain mandatory one-parent foreign keys. Name limits are 120, 120, 240, and 480 characters.
+`FORCE ROW LEVEL SECURITY` makes every vocabulary table owner-only, with no runtime grants. It
+installs after authorization.
+
+Fresh PostgreSQL 17 proof passed in sibling `install.log` and `proof.log` artifacts under
+`/private/tmp/ple-global-classification-artifacts.nAoIIo`. It establishes one Subject associated
+with two Disciplines, rejects duplicate and orphan associations, and denies
+deleting a referenced parent. It also establishes one-parent Topic/Subtopic relationships, runtime
+ACL denial, and independent association-table RLS `SELECT`/`INSERT` denial. Independent review
+accepted this bounded association correction. No live database was modified.
+
+This prerequisite is not global feature closure. Authenticated ProductRole-aware readers and
+writers, including Instructor creation at the permitted hierarchy levels and Sysadmin association
+maintenance, remain open, as do strip-before-validate behavior, Discipline lifecycle, content
+attachments, editors, and search; existing Question free text is unchanged. The schema does not
+enforce at least one association per Subject. A future authenticated writer must atomically maintain
+that invariant and serialize association replacement on the Subject row. The current HG source hash
+is `a020bdda98e2c628eb5b6f431f56a83bb00ecdb759ceeae97f0c91c72f6bc297`; this bounded receipt
+does not reconcile its other classification additions. Continue in this small dependency sequence:
+vocabulary commands, one Published Question vertical slice, then other object consumers.
+Independent consumers may proceed in parallel only after the shared contracts are accepted. No
+inheritance or synchronization behavior is implied.
 
 ## Context
 
@@ -1889,3 +1918,8 @@ human-facing label unless a real workflow needs one. Published Question and Ques
 | B | Fresh reports cover every `[ ]` once; links test passes; counts match the checklist summary |
 | R2 | Re-audit complete; every remaining `[ ]` carries `HG: no locked-in design` or `product decision still unclear`; reports refreshed |
 | R3 | `all_test.sh` green; cleanup done; summary block; plan archived |
+
+Latest Student response distinction rewrite: live HG requires visually distinct current Question,
+saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
+change from whole Coursework submission. Both rows are open; earlier navigation styling receipts
+are retained as partial proof, not blanket acceptance of native response controls/actions.

@@ -19,10 +19,10 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Apply the Keep It Simple, Stupid (KISS) philosophy aggressively.
   - Reason: agent instruction, not implemented PLE product behavior.
-- [ ] Prefer the smallest coherent design that meets actual requirements and known failure modes.
-  - Mismatch: Current implementation choices have not been audited against this KISS constraint.
-- [ ] Complexity must earn its place.
-  - Mismatch: Current implementation choices have not been audited against this KISS constraint.
+- N/A Prefer the smallest coherent design that meets actual requirements and known failure modes.
+  - Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint.
+- N/A Complexity must earn its place.
+  - Reason: Not separately testable or independently closable product behavior; this remains a binding design and implementation-review constraint.
 - N/A Time should be used efficiently. Agents and tokens are cheap; wall time is not.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Hard work should be broken into small, independently completable tasks.
@@ -130,31 +130,90 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `launchers/run_live_demo.sh` launcher delegates the normal Live Demo start to `local_stack.py`.
   - Evidence (source): `local_stack.py` `main` is the direct local-stack controller entry point.
 
-## Product vocabulary
+## Product vocabulary and glossary
 
-- [ ] **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
-  - Mismatch: `schemas/base_schema/blueprints.sql` `ple_data.blueprint_course` establishes reusable Blueprint storage, but direct evidence has not established every stated absence or Course Instance creation behavior together.
-- [x] **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its content cannot change.
-  - Evidence (source): `schemas/base_schema/blueprint_revision_integrity.sql` `blueprint_course_revision_is_immutable` invokes `reject_blueprint_revision_change`.
-- [ ] **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may be created from a Blueprint Course or started empty.
-  - Evidence (source): `schemas/base_schema/course_core.sql` `ple_data.course_instance` stores teaching Courses, and `crates/learning-data-access/src/course_instance.rs` accepts Empty or exact Adopted creation sources.
-  - Evidence (runtime): Bounded private actual HTTP and exact-main browser proof created and read an Empty Instructor Course Instance without Blueprint discovery; Student creation was denied and successful API responses were `no-store`.
-  - Mismatch: The combined Student membership, deadline, release, Adopted content, and direct started-empty Assessment delivery lifecycle has not been verified.
-- [ ] **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
-  - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `ple_api.list_question_library_entries` lists published entries, but the audited evidence does not establish validation and vetted-Instructor availability together.
-- [ ] **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
-  - Mismatch: `crates/server/src/question_publication.rs` `QuestionPublicationService::publish` verifies the stored Draft Question source record, but no cited direct evidence establishes content validation before publication; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` alone does not establish private Instructor-only persistence.
-- [ ] **Question Library**: The global collection of Published Questions and Question Pools available to vetted **Instructors**.
-  - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `question_library_entries` and `src/api/question_library_repository.ts` `QuestionLibraryRepository` establish published Question Library entries and their search contract, but do not establish published Question Pool inclusion or availability only to vetted Instructors.
-- [x] **User Roles**:
-  - Evidence (source): `schemas/base_schema/accounts.sql` `product_role` limits the product role to student, instructor, or sysadmin.
-  - [ ] **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
-    - Mismatch: `schemas/base_schema/accounts.sql` `ple_api.create_instructor_account` proves a Sysadmin actor can create an Instructor account, but it does not establish system management, Instructor approval or identity vetting, or course-management help.
-  - [ ] **Instructor**: An approved user who teaches courses and can browse, reuse, create, fork, and publish Questions.
-    - Mismatch: `crates/server/src/question_publication.rs` `publish_new_question` proves only the authorized publication boundary; it does not directly verify the approved Instructor's browse, reuse, create, and fork capabilities.
-  - [ ] **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
-    - Mismatch: browser routes and DTOs still call the graded object `assignment`, rather than the required Assessment terminology.
+- [ ] **Account**: A global PLE user account with exactly one Product Role.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Product Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates Accounts, and provides scoped administrative support.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Instructor**: An approved user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+- [ ] **Student**: A user who enrolls in **Course Instances** and completes Coursework.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
+
+### Course vocabulary
+
+- [ ] **Course**: The general term covering both **Blueprint Courses** and **Course Instances**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Blueprint Course**: A reusable Course used to create **Course Instances**. It has no enrolled **Students**, deadlines, or other teaching-specific delivery settings.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its reusable content cannot change.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Course Instance**: A Course used for teaching. It has **Students**, deadlines, releases, and other delivery settings. It may be created from a Blueprint Course or started empty.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+- [ ] **Adoption**: Connecting a **Course Instance** to a **Blueprint Course**. Adoption may occur when the Course Instance is created or later.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
+
+### Assessment vocabulary
+
+- [ ] **Assessment**: The PLE object that organizes Questions into a graded or practice activity.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Blueprint Assessment**: An Assessment in a **Blueprint Course** containing reusable content and teaching settings without Students, dates, or other Course Instance delivery settings.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Course Instance Assessment**: An Assessment in a **Course Instance** that can be released and delivered to **Students**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Assessment Type**: The pedagogical type of an Assessment: **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, or **Exam**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Coursework**: The Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Assessment Attempt**: One **Student** attempt at a Course Instance Assessment.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+- [ ] **Assessment Template**: A reusable set of settings for creating Course Instance Assessments. It contains settings rather than Questions.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
 - [ ] **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` and its routes call this an Assignment workspace, not the required Assessment Question Editor.
-- [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` `AssignmentWorkspacePoliciesPage` presents the editor as `Policies`, not Assessment Properties Editor.
+- [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, Attempts, late work, and what **Students** can see.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
+
+### Question vocabulary
+
+- [ ] **Question**: The general PLE object representing one automatically evaluated question, regardless of its Question Backend.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Draft Question**: A private Question being developed by an **Instructor**. It must pass publication validation before becoming a Published Question.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Published Question**: An immutable-revision Question available for reuse through the global **Question Library**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Revision**: A fixed version of a **Published Question** preserved so Assessments and Student Work can refer to the exact Question delivered.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Pool**: A published **Library Object** containing interchangeable **Published Questions** from which PLE selects Questions for a **Student**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Backend**: The component responsible for a Question's rendering, interaction, response handling, grading, feedback, and backend-specific state.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Type**: Author-declared educational metadata describing the Question's interaction type, such as MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Question Library**: The global collection of **Published Questions** and **Question Pools** available to vetted **Instructors**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+- [ ] **Library Object**: A **Published Question** or **Question Pool** in the **Question Library**.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
+
+### Student Work vocabulary
+
+- [ ] **Student Work**: The collective term for FERPA-sensitive records created by a **Student** in a **Course Instance**, including Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret submitted work.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student Work vocabulary boundary.
+- [ ] **Grading Outcome**: The immutable credit fraction returned by a **Question Backend** for a complete evaluated response and stored by PLE.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student Work vocabulary boundary.
+
+### Content classification vocabulary
+
+- [ ] **Discipline**: The broadest academic classification, such as Biology, Chemistry, or Mathematics.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Subject**: An area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Topic**: A major area within a Subject.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Subtopic**: A narrower classification within a Topic.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Tag**: An optional label attached to PLE content. Content may have any number of Tags.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.

@@ -9,6 +9,8 @@
 \ir accounts.sql
 \ir authentication.sql
 \ir authorization.sql
+\ir content_classification.sql
+\ir content_classification_operations.sql
 \ir question_lineages.sql
 \ir question_pools.sql
 \ir question_stewardship.sql

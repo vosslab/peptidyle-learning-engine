@@ -2,28 +2,36 @@
 
 ## Current heading reconciliation
 
-The current untouched Human Guidance snapshot is SHA256
-`00a3b9480b1c0ef5031caf10d0cec78c083ccbe96896f184a5de37083836ac50`.
-943 bullets, 452 verified, 443 open (435 owning), and 48 N/A.
-Current wording, status, evidence limitations, and first-owner pointers belong to the implementation
-checklist. Unchanged accepted scoring, timing, Blueprint, and bounded runtime evidence is retained.
-Five new compact Attempt-navigation rows are verified from accepted source and supplied rendered
-receipts: numbered current/saved cues, long-set pagination, width adaptation, compact orientation,
-and PLE typography/theme-aware navigation styling. The 250-Question harness and 200% enlargement
-receipt prove only this bounded navigation workflow; complete Student keyboard/responsive coverage,
-before-start/review density, narrow Ribbon, and full theme-state contrast remain open. The desktop shared-bank and drag/keyboard assigning/changing/clearing MATCH rows are verified.
-Fresh normal Tab/Space/Enter swap, Clear, exact original restoration and accepted Save proof
-is recorded in `/private/tmp/ple-latest-hg-checklist-reconciliation.md` (session 87294, exit 0).
-The remaining two MATCH rows retain bounded receipts while adapted grading and full pointer/touch
-bank reachability remain pending. New Discipline hierarchy, Sysadmin vocabulary ownership/lifecycle,
-Instructor classification, and consistent Subject/Topic/Subtopic validation are binding gaps,
-not N/A or inherited Question-only metadata acceptance. Agent prompting rewrites are audited N/A.
-Fresh default installation and shipped Genetics remain open pending connected installation/replay
-acceptance; existing current-demo Public discovery and installation-source receipts are retained.
-Blueprint lifecycle/forks/comparison belong to Part 08; Assessment type appearance to Part 04;
-Native Question response presentation to Part 07. All nine part gates, identity diff, and
-consistency pass. Historical topical inventories and correction IDs below are provenance, not
-a current ordered projection. The product-compliance goal remains unfinished.
+The prior reconciled Human Guidance snapshot was 998 bullets: 449 verified, 499 open
+(490 owning), and 50 N/A, at SHA256
+`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
+The generated checklist owns occurrence status and first-owner pointers. All nine part gates,
+identity diff, and consistency passed for that snapshot. Unchanged scoring, timing, Blueprint,
+terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains unfinished;
+those gates establish inventory fidelity, not acceptance of the open requirements.
+
+Part 01 now owns Product vocabulary and glossary, including its five topical subheadings;
+new product definitions remain open absent independently accepted evidence. Part 03 owns Profile
+avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
+avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
+all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
+owns Library metadata, Part 08 Course classification, and Part 09 Assessment classification.
+The shared system requires exactly one Discipline per content object, optional narrower levels,
+and globally identified Subjects associated with one or more Disciplines. The accepted association
+storage correction does not establish global Subject-name uniqueness, role-aware commands,
+normalization, content attachments, hierarchical selection, or discovery. Those gaps remain open.
+KISS/design constraints are audited N/A where not independently closable, but still bind reviews.
+
+Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
+no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
+`1 / 1`, total `1 / 4`. Native diagnostic `AZA01TD` / `R-5` follow-up saved/reloaded FIB, MA,
+MULTI-FIB, NUM, and ORDER, then submitted the whole Attempt: four correct `1 / 1` responses,
+deliberately partial-reordered ORDER incorrect `0 / 1`, total `4 / 5`. Practice-default permitted
+correct answers are displayed separately from retained responses. The supplied ledgers and
+`submitted-review-1280.png` / `submitted-review-390.png` under
+`/private/tmp/ple-student-types-proof/` are bounded receipts, not all-eight-type, complete keyboard,
+touch, or contrast acceptance. HOTSPOT and WeBWorK coverage remain open. Earlier topical
+inventories/correction IDs and superseded contradictions below are historical provenance.
 
 Later bounded accommodation receipt: actual current-demo Elena controls saved Avery's 1.5X/2X
 as 2700/3600 seconds from base 1800, custom 100 as 86400 capped, then restored Standard 1800
@@ -33,15 +41,56 @@ restored state. Both accommodation rows remain open for independent source revie
 default/override, malformed-input, authorization-denial and race proof; earlier incomplete-slice
 notes below are historical context, not a rejection of these newly observed valid writes.
 
-Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
-Blueprint Promoted and exclusive Sysadmin control are binding open
-gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
-disabled navigation says `Question - of 4` and `0 saved`; the five active-navigation closures
-remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
-pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-
-unavailable wording is an observed visibly-unanswered mismatch, not unobserved behavior.
-
 ## Authority and method
+
+### September 16 shared classification finding
+
+Current HG requires one global Discipline -> Subject -> Topic -> Subtopic hierarchy for Courses,
+Assessments, and Library Objects. Current Subjects may belong to multiple Disciplines; Topics and
+Subtopics each have one parent. The partial SQL foundation exists
+in [`schemas/base_schema/content_classification.sql`](../../../../schemas/base_schema/content_classification.sql):
+four global UUID vocabulary tables, including `content_subject_discipline` with composite primary
+key and foreign keys, mandatory Topic/Subtopic parent foreign keys, name limits of 120, 120, 240,
+and 480 characters, owner-only `FORCE ROW LEVEL SECURITY`, and no runtime grants. It installs after
+authorization.
+
+Fresh PostgreSQL 17 proof passed in sibling `install.log` and `proof.log` artifacts under
+`/private/tmp/ple-global-classification-artifacts.nAoIIo`. It proves one Subject with two
+Disciplines, duplicate/orphan association rejection, referenced-parent deletion denial,
+one-parent Topic/Subtopic relationships, runtime ACL denial, and independent association-table RLS
+`SELECT`/`INSERT` denial. Independent review accepted the bounded association correction. No live
+database was modified.
+
+This is not global classification closure. Authenticated ProductRole-aware readers and writers,
+including Instructor creation at the permitted hierarchy levels and Sysadmin association maintenance,
+remain open, as do strip-before-validate behavior, Discipline lifecycle, content attachments,
+editors, and search. Existing Question free text is unchanged. At least one association per Subject
+is not enforced or proved; a future authenticated writer needs atomic maintenance and serialized
+Subject-association replacement. Current HG source hash
+`a020bdda98e2c628eb5b6f431f56a83bb00ecdb759ceeae97f0c91c72f6bc297` adds further classification
+requirements outside this bounded receipt. The next dependency sequence is vocabulary commands, one
+Published Question vertical slice, then other object consumers; independent consumers may proceed in
+parallel only after the shared contracts are accepted. No inheritance or synchronization behavior is
+implied.
+
+### September 16 native Student rendering receipt
+
+Ordinary fake-Instructor publication and Assessment creation produced diagnostic Assessment
+`AZA01TD` and Student Attempt `R-5`. Actual Student FIB, MA, MULTI-FIB, NUM, and ORDER responses
+were saved and restored through reload or a fresh session. Temporary ledgers and 1280/390 captures
+are under `/private/tmp/ple-student-types-proof/`; ORDER includes keyboard movement. These checks
+are one-time evidence, not permanent tests or complete keyboard/touch/contrast acceptance.
+This initial save/reload receipt did not establish whole-Attempt submission. The later `R-5`
+follow-up above adds bounded submission/review proof for these five types only. HOTSPOT and
+WeBWorK rendering coverage remain open.
+
+Observed per-Question submission wording was corrected without changing persistence or grading.
+Build `2bf1a166` and a fresh NUM save/reload capture show "ready to save" alongside the separate
+whole-Assessment Submit action. TypeScript, scoped formatting, and 14 existing response-control
+tests pass. Independent review identified three false claims in the first patch; corrections
+remove local-reset persistence claims, preview feedback promises, and unavailable preview-action
+instructions. Independent re-review accepted the corrected diff with no remaining bounded
+findings; broad UI checklist rows remain open.
 
 [Human Guidance](../../../HUMAN_GUIDANCE.md) is the product authority. This report summarizes the current
 statuses in the authoritative
@@ -62,15 +111,15 @@ checklist, gap map, and active plan.
 | Human Guidance section | Verified `[x]` | Open `[ ]` | N/A | Total |
 | --- | ---: | ---: | ---: | ---: |
 | How to use this guidance | 0 | 0 | 7 | 7 |
-| Development principles | 12 | 6 | 24 | 42 |
-| Product vocabulary | 2 | 10 | 0 | 12 |
+| Development principles | 12 | 4 | 26 | 42 |
+| Product vocabulary and glossary | 0 | 35 | 0 | 35 |
 | Accounts and roles | 25 | 18 | 8 | 51 |
-| Interface design | 139 | 130 | 2 | 271 |
-| Data and history | 33 | 38 | 0 | 71 |
-| Question specifications | 79 | 116 | 2 | 197 |
-| Course specifications | 75 | 65 | 4 | 144 |
-| Assessment specifications | 87 | 60 | 1 | 148 |
-| **Total** | **452** | **443** | **48** | **943** |
+| Interface design | 136 | 139 | 2 | 277 |
+| Data and history | 33 | 62 | 0 | 95 |
+| Question specifications | 79 | 103 | 2 | 184 |
+| Course specifications | 75 | 74 | 4 | 153 |
+| Assessment specifications | 89 | 64 | 1 | 154 |
+| **Total** | **449** | **499** | **50** | **998** |
 
 The Assessment part closes four exact current-rescore rows. Independent review accepted
 private PostgreSQL 17 production-SQL lifecycle proof at
@@ -414,3 +463,8 @@ Re-run the checklist consistency check after Human Guidance or checklist status 
 does not establish that the topical reports cover every owning-open record or that their mappings are
 current. Runtime/browser evidence remains a separate acceptance layer and is only used where the
 checklist records a valid current receipt.
+
+Latest Student response distinction rewrite: live HG requires visually distinct current Question,
+saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
+change from whole Coursework submission. Both rows are open; earlier navigation styling receipts
+are retained as partial proof, not blanket acceptance of native response controls/actions.

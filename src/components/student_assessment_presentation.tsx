@@ -62,7 +62,7 @@ export function StudentAssessmentStartFacts(props: {
       aria-labelledby="assessment-start-facts-heading"
     >
       <h2 id="assessment-start-facts-heading">Before you start</h2>
-      <dl class="assessment-facts">
+      <dl class="assessment-facts student-assessment-start-facts__work">
         <div>
           <dt>Questions</dt>
           <dd>{props.questionCount}</dd>
@@ -99,8 +99,9 @@ export function StudentAssessmentDecisionDetails(props: {
         </strong>
         <Show when={props.decision.publicReason}>{(publicReason) => <> - {publicReason()}</>}</Show>
       </p>
+      <p class="student-assessment-decision__heading">Timing and Attempt rules</p>
       <p class="student-assessment-decision__zone">
-        Times are shown in your time zone: {props.decision.displayTimeZone}.
+        Times shown in {props.decision.displayTimeZone}
       </p>
       <dl class="assessment-facts">
         <div>
@@ -109,19 +110,28 @@ export function StudentAssessmentDecisionDetails(props: {
             {formatAssessmentDeliveryTime(
               props.decision.availableAt,
               props.decision.displayTimeZone,
+              "No opening time",
             )}
           </dd>
         </div>
         <div>
           <dt>Due</dt>
           <dd data-assessment-decision-due>
-            {formatAssessmentDeliveryTime(props.decision.dueAt, props.decision.displayTimeZone)}
+            {formatAssessmentDeliveryTime(
+              props.decision.dueAt,
+              props.decision.displayTimeZone,
+              "No due time",
+            )}
           </dd>
         </div>
         <div>
           <dt>Closes</dt>
           <dd>
-            {formatAssessmentDeliveryTime(props.decision.closesAt, props.decision.displayTimeZone)}
+            {formatAssessmentDeliveryTime(
+              props.decision.closesAt,
+              props.decision.displayTimeZone,
+              "No closing time",
+            )}
           </dd>
         </div>
         <div>
@@ -179,8 +189,12 @@ export function formatAssessmentActivity(timestamp: number | null, timeZone: str
   }).format(new Date(timestamp));
 }
 
-export function formatAssessmentDeliveryTime(timestamp: number | null, timeZone: string): string {
-  if (timestamp === null) return "Not set";
+export function formatAssessmentDeliveryTime(
+  timestamp: number | null,
+  timeZone: string,
+  unsetLabel = "Not set",
+): string {
+  if (timestamp === null) return unsetLabel;
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
@@ -193,7 +207,7 @@ export function formatAssessmentLimit(
   singular: string,
   plural: string,
 ): string {
-  if (value === null) return `No ${plural} limit`;
+  if (value === null) return plural === "attempts" ? "Unlimited Attempts" : `No ${plural} limit`;
   return `${value} ${value === 1 ? singular : plural}`;
 }
 

@@ -18,6 +18,21 @@
   - Evidence (source): `schemas/base_schema/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
   - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
 
+### Assessment classification specifications
+
+- [ ] **Blueprint Assessments** and **Course Instance Assessments** use the shared content classification system.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessment classification describes the Assessment as a whole.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessments use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessments may have any number of **Tags**, including none.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessment classification supports Assessment search, filtering, organization, and discovery where applicable.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Assessment classification is independent of the classifications of the Questions and Question Pools it contains.
+  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+
 ### Assessment content specifications
 
 - [x] Assessments contain an ordered sequence of Published Questions and Question Pools.
@@ -102,14 +117,14 @@
 - [x] A **Blueprint Assessment** is an Assessment in a **Blueprint Course**.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintCourseModuleContent` contains ordered `BlueprintAssessmentContent`; `schemas/base_schema/blueprints.sql` `blueprint_revision_assessment` records each stable Blueprint Assessment member of a Blueprint Course Revision.
 - [x] Blueprint Assessments define reusable Assessment content and teaching settings.
-  - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` validates reusable content and `BlueprintAssessmentDefaults` before a Blueprint Course Revision is constructed.
-  - Owner: Assessment specifications (first identical Human Guidance occurrence).
+  - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` contains Type, title, instructions, ordered entries, and validated `BlueprintAssessmentDefaults`; `BlueprintCourseModuleContent` owns those Assessments in Blueprint Course content.
+  - Owner: 09_assessments.md / Assessment specifications (first occurrence; identical requirement and status).
 - [x] Blueprint Assessments have an Assessment Type.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `assessment_type` requires the closed five-Type value; `src/api/decoders/blueprint_course.ts` `assessmentType` strictly requires it in both reusable-content input and view decoding without fallback.
   - Evidence (test): `tests/test_blueprint_course_client.mjs` `B1 client sends Revision and metadata validators to their separate routes` covers create/save/view Type round trips plus missing and unknown rejection; the focused Blueprint client lane passed 16/16.
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
   - Mismatch: Ordered entries exist, but published Question and Pool Assessment behavior is not verified.
-  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint Course JSON specifications (first identical Human Guidance occurrence).
+  - Owner: 08_courses.md / Blueprint Course JSON specifications (first occurrence; identical requirement and status).
 - [ ] Blueprint Assessments define Question point values and points possible.
   - Mismatch: Point values exist in Assignment source, but Blueprint Assessment behavior is not verified.
 - [ ] Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
@@ -173,9 +188,9 @@
   - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines identity, owner, Type, and reusable settings with no Question, Pool, content, point, or source field.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template creation and empty direct Course Assessment copy through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
 - [x] Blueprint Assessments do not use Assessment Templates.
-  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates outside Courses and Blueprints; the by-value path creates only direct Course Assessments.
-  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy to a direct Course Assessment without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
-  - Owner: Assessment specifications > Assessment content specifications > Blueprint Assessment specifications (first identical Human Guidance occurrence).
+  - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates as Instructor-owned private state outside Courses and Blueprints with no Blueprint or source field.
+  - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Template create, save, read, and direct Course Assessment copy without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
+  - Owner: 09_assessments.md / Blueprint Assessment specifications (first occurrence; identical requirement and status).
 
 ### Course Instance Assessment release and defaults
 
@@ -345,8 +360,9 @@
 - [x] Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
   - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
-- [ ] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
-  - Mismatch: supplied parent actual Avery R-4 submitted/expired summary shows unanswered Q1/Q3/Q4 as `This question is closed.`, `Marked not correct.`, `0 of 1 points`, and `Your response is not available.`, not explicitly Unanswered. `src/pages/assessment_attempt_summary_page.tsx` renders the closed/no-response wording. This is observed presentation mismatch, not missing observation; the separate source correction and rendered proof remain pending.
+- [x] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
+  - Evidence (source): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` labels closed issued Questions with no submission as **Unanswered** and reserves unavailable-response wording for submitted Questions whose saved response is not released.
+  - Evidence (runtime): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent`, accepted authenticated Avery R-4 submitted/expired history at `/private/tmp/ple-unanswered-history-fixed-1280.png` and `/private/tmp/ple-unanswered-history-fixed-390.png`, shows Q1, Q3, and Q4 as **Unanswered**, incorrect `0 / 1`; Q2 retains all four exact MATCH pairs and correct `1 / 1`; total is `1 / 4`.
 - [x] An unanswered Question receives zero credit and counts as incorrect without being sent to the
   Question Backend.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` treats null retained credit as unanswered zero earned points while retaining current points possible; evaluated zero credit remains a distinct grading outcome.
@@ -358,7 +374,7 @@
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
   state.
   - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
-  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
+  - Owner: 07_questions.md / Question Backend grading and feedback (first occurrence; identical requirement and status).
 - [ ] The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
   - Mismatch: Student grading-outcome timing needs runtime evidence.
 
@@ -415,9 +431,10 @@
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_expired_student_assessment_attempt_finalization` delegates deadline whole-Attempt finalization to `ple_private.commit_assessment_attempt_finalization`, which closes missing responses as `closed_unanswered`.
   - Evidence (runtime): Accepted fresh PostgreSQL 17 `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log` exercises real elapsed expiry and real expiry-worker-role prepare/commit for one Attempt with two issued Questions: one unanswered, one saved. Prepare excludes the unanswered Question; commit with an explicitly simulated synchronous Backend zero-credit outcome returns `8 / 16` under FullCredit. The unanswered Question is `closed_unanswered`, has no submission/grading evidence, and history is incorrect `0 / 8`; the saved Question has immutable submission/grading evidence, `normalized_credit=0`, and incorrect `8 / 8` history. No expired prepared work remains.
   - Verification pending: The accepted SQL boundary does not establish rendered presentation or actual Backend transport.
-- [ ] Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
-  - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof retains an unanswered Question without submission/grading evidence and reports it incorrect at `0 / 8`. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
-  - Mismatch: supplied parent actual expired Avery R-4 summary renders Q1/Q3/Q4 as Closed and response unavailable, rather than explicitly Unanswered, with incorrect `0 / 1` each. Q2 retains all four exact MATCH pairs, permitted feedback, and correct `1 / 1`; total is `1 / 4`. `src/pages/assessment_attempt_summary_page.tsx` supplies this closed/no-response wording. SQL zero-credit proof remains accepted; queued presentation correction and rendered recheck are separate.
+- [x] Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
+  - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` assigns unanswered work zero earned points while retaining its current denominator.
+  - Evidence (runtime): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_expired_student_assessment_attempt_finalization`, accepted fresh PostgreSQL 17 expiry proof, retains an unanswered Question without submission/grading evidence and reports it incorrect at `0 / 8`. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
+  - Evidence (runtime): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent`, accepted authenticated Avery R-4 expired history at `/private/tmp/ple-unanswered-history-fixed-1280.png` and `/private/tmp/ple-unanswered-history-fixed-390.png`, visibly labels Q1, Q3, and Q4 **Unanswered** and incorrect `0 / 1`; Q2 retains four exact MATCH pairs and correct `1 / 1`; total is `1 / 4`.
 - [ ] Unanswered Questions are not sent to the Question Backend.
   - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof excludes the unanswered Question from the prepared backend work set. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
   - Verification pending: Actual Backend transport exclusion remains unobserved.
@@ -441,8 +458,8 @@
 - [ ] Blueprint Assessments and Course Instance Assessments assign point values to Questions.
   - Mismatch: Assignment point values exist, but the HG Assessment model is not implemented.
 - [ ] A Question Backend returns an immutable credit fraction for each complete response it evaluates.
-  - Mismatch: The live WeBWorK submission check observes stored credit, but no direct adapter test proves a Question Backend returns that fraction as an immutable outcome.
-  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
+  - Mismatch: needs test or runtime evidence for backend evaluation and immutable outcome creation.
+  - Owner: 07_questions.md / Question Backend grading and feedback (first occurrence; identical requirement and status).
 - [x] PLE stores the credit fraction as the Question grading outcome.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` inserts the supplied credit fraction into `ple_private.grading_result.normalized_credit`, constrained to the inclusive unit interval and retained under `grading_result_is_immutable`.
   - Evidence (runtime): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` is invoked by the accepted private PostgreSQL 17 production-SQL lifecycle fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the submitted `0.5` fraction while rescoring current points from `8` to `13`. This SQL-only fixture simulates the initial synchronous Backend credit and does not establish Backend transport or HTTP.

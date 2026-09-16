@@ -537,32 +537,6 @@ textarea:hover {
   border-color: var(--ple-accent);
 }
 
-.assignment-facts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
-  margin: 0.75rem 0;
-}
-
-.assignment-facts div {
-  padding: 0.7rem 0.8rem;
-  border-radius: var(--ple-radius-inset);
-  background: var(--ple-surface-soft);
-}
-
-.assignment-facts dt {
-  color: var(--ple-muted);
-  font-size: 0.75rem;
-  font-weight: 730;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.assignment-facts dd {
-  margin: 0.18rem 0 0;
-  font-weight: 620;
-}
-
 .gradebook-empty,
 .empty-state {
   padding: 1rem;
@@ -901,10 +875,6 @@ textarea:hover {
 
   .shell {
     width: min(calc(100% - 1rem), 96rem);
-  }
-
-  .assignment-facts {
-    grid-template-columns: 1fr;
   }
 
   .course-card {

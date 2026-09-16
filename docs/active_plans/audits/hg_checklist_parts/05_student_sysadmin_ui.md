@@ -34,7 +34,7 @@
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
-  - Owner: Interface design > General interface design (first identical Human Guidance occurrence).
+  - Owner: 03_shell.md / General interface design (first occurrence; identical requirement and status).
 - [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
@@ -93,10 +93,11 @@
   - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `activatePosition` saves before changing position; `src/pages/assessment_attempt_page.tsx` `loadPresentation` restores the persisted `savedResponse` when the Student returns.
-- [ ] The current Question and overall progress should remain easy to see.
+- [x] The current Question and overall progress should remain easy to see.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` owns the visible current/total Question and saved-count summary; `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders this component without the retired duplicate eyebrow.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, accepted supplied `/private/tmp/ple-compact-student-navigation.md` and independent `/private/tmp/ple-compact-navigation-independent-review.md` show visible current/total progress at 1280 and 390 pixels.
-  - Verification pending: supplied parent actual submitted R-4 navigation shows disabled controls with misleading `Question - of 4` and `0 saved`, despite one retained correct MATCH response in history. Active-Attempt current/progress proof remains accepted; truthful submitted-state summary needs the separately queued source correction and rendered verification. The five bounded active navigation closures are unchanged.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders active Question navigation and its loading state only while the Attempt is active; submitted and expired states retain the terminal message without current/saved navigation.
+  - Evidence (runtime): `src/pages/assessment_attempt_page.tsx` `AttemptExperience`, accepted authenticated Avery R-4 browser receipt `/private/tmp/ple-attempt-finished-nav-fixed.png`, shows the terminal heading with no active Question navigation, no misleading `Question - of 4`, and no `0 saved` summary. Independent `/root/terminal_attempt_ui_review` accepted the rendered terminal state with no findings.
 - [x] The timer should be subtle and keep the focus on the Questions.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` places the `calm-status` timer in the Assessment Attempt header, outside the Question card.
 - [x] For timed Coursework, the remaining time should stay visible while moving between Questions.
@@ -118,13 +119,15 @@
   title, timing summary, and Question navigation only the space needed to orient Students.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
-- [ ] Use consistent PLE styling for native Question navigation and response actions, with readable
-  labels and clear selected, saved, and keyboard-focus states.
-  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
-- [x] Style Question navigation controls with PLE typography, deliberate spacing, restrained corner
-  rounding, and theme-aware borders and backgrounds.
+- [ ] Make the current Question, saved-response status, and keyboard-focused control visually distinct
+  so Students can recognize where they are, what work is saved, and which action they will activate.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
+  - Verification pending: accepted active-navigation current/saved/focus cues are partial proof; meaningful saved-response and keyboard-focus distinction across native response controls/actions and submitted-state presentation still need scoped rendered verification. The prior styling-only row is not acceptance of this changed whole wording.
+- [ ] Label response actions by their effect, such as "Save response" and "Clear response", so Students
+  can distinguish recording their work from changing it or submitting the whole Coursework.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` supplies prompt Clear controls and delegates response actions to the shared submission controller.
+  - Verification pending: existing MATCH Tab/Space/Enter assignment/change/Clear/Save receipts establish those actions operate, not that response-effect labels consistently distinguish save, change, Clear and whole-Coursework submission across native controls. Current wording needs a scoped label/state audit and rendered action distinction proof.
 - [ ] Group response feedback near the response controls and keep routine saved-status messages brief.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 

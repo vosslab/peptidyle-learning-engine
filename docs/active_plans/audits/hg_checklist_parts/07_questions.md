@@ -309,7 +309,7 @@
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-  - Owner: Question specifications > Draft Question specifications > Published Question specifications > Published Question metadata (first identical Human Guidance occurrence).
+  - Owner: 07_questions.md / Published Question metadata (first occurrence; identical requirement and status).
 - [ ] PLE-managed Hints, Question Feedback, and Worked Solutions are separate from Question Backend-generated content.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
@@ -419,7 +419,7 @@
 - [ ] Draft Questions are not part of the Question Library.
   - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
   - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
-  - Owner: Question specifications > Draft Question specifications (first identical Human Guidance occurrence).
+  - Owner: 07_questions.md / Draft Question specifications (first occurrence; identical requirement and status).
 - [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
@@ -440,58 +440,23 @@
 
 #### Question Library metadata
 
-- [ ] Published Questions and Question Pools use shared metadata for organization, search, filtering,
-  and discovery.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Required Question Library metadata must be complete before content enters the Question Library.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Library metadata should describe the Published Question or Question Pool rather than its location
-  in a Course or textbook.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Library classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its
-  primary hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Discipline is the broad academic field, such as Biology, Chemistry, or Mathematics.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Sysadmins exclusively manage the Discipline vocabulary and its lifecycle.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Discipline is a stable vocabulary expected to change infrequently.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Instructors classify Library objects by selecting from the Sysadmin-managed Disciplines.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Subject identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Sysadmins can edit Subjects.
-  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
-- [ ] Topic identifies a major area within the Subject.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subtopic provides a narrower classification within the Topic.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
-- [ ] Length allowances should generally increase from Subject to Topic to Subtopic, supporting more
-  specific names as classification becomes narrower.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
-- [ ] Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the
-  resulting names consistently.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
-- [ ] Discipline, Subject, Topic, and Subtopic should support consistent classification across the
-  Question Library.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Published Questions and Question Pools may also have Tags for useful classifications outside the
-  Discipline, Subject, Topic, and Subtopic hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Tags are flexible and may overlap across Disciplines, Subjects, and Topics.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
-- [ ] Library metadata should support searching, filtering, sorting, and bulk editing.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
-  **Worked Solutions**.
+- [ ] **Library Objects** use shared metadata for organization, search, filtering, and discovery.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Required Question Library metadata must be complete before a Library Object enters the Question Library.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag** classification system.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library Object classification belongs to the Library Object rather than to one use of that object in an Assessment.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library classification supports searching, filtering, sorting, and bulk editing.
+  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-- [ ] Support content may be attached at the level where it applies rather than duplicated across
-  individual Questions.
+- [ ] Support content may be attached at the level where it applies rather than duplicated across individual Questions.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 
 #### Question Library object statistics
@@ -505,7 +470,7 @@
   - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
 - [x] Eligible Question Types may also retain aggregate answer-choice counts.
   - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
-  - Owner: Data and history > Human-facing reference IDs > Student and FERPA data (first identical Human Guidance occurrence).
+  - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
   - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
 - [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and

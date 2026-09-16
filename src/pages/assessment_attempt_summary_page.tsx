@@ -71,9 +71,7 @@ function AssessmentAttemptHistoryContent(props: {
           {(question) => (
             <article class="attempt-summary__question">
               <h3>Question {question.position}</h3>
-              <p>
-                {question.responseState === "closed" ? "This question is closed." : "Submitted."}
-              </p>
+              <p>{question.responseState === "closed" ? "Unanswered." : "Submitted."}</p>
               <Show when={question.correctness !== undefined}>
                 <p>{question.correctness ? "Marked correct." : "Marked not correct."}</p>
               </Show>
@@ -84,14 +82,16 @@ function AssessmentAttemptHistoryContent(props: {
                   {question.pointsEarned} of {question.pointsPossible} points
                 </p>
               </Show>
-              <Show when={question.response} fallback={<p>Your response is not available.</p>}>
-                {(response) => (
-                  <ContentBlockList
-                    blocks={response()}
-                    questionRevision={question.questionRevision}
-                    assetUrl={assetUrlForQuestion(question.questionRevision)}
-                  />
-                )}
+              <Show when={question.responseState === "submitted"}>
+                <Show when={question.response} fallback={<p>Your response is not available.</p>}>
+                  {(response) => (
+                    <ContentBlockList
+                      blocks={response()}
+                      questionRevision={question.questionRevision}
+                      assetUrl={assetUrlForQuestion(question.questionRevision)}
+                    />
+                  )}
+                </Show>
               </Show>
               <ReleasedBlocks
                 title="Feedback"

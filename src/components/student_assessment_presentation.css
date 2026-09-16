@@ -1,52 +1,88 @@
-/* Shared task-first action region for answer-free assignment landing surfaces. */
+/* Shared task-first action region for answer-free Assessment landing surfaces. */
 
-.student-assignment-action-region {
+.student-assessment-action-region {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--ple-space-3) var(--ple-space-5);
   align-items: center;
   margin: var(--ple-space-3) 0 var(--ple-space-2);
-  padding: var(--ple-space-3) var(--ple-space-4);
-  border: 1px solid color-mix(in srgb, var(--ple-accent) 28%, var(--ple-border));
-  border-inline-start: 0.3rem solid var(--ple-accent);
-  border-radius: var(--ple-radius-inset);
-  background: color-mix(in srgb, var(--ple-accent) 7%, var(--ple-card-surface));
 }
 
-.student-assignment-primary-action,
-.student-assignment-secondary-actions {
+.student-assessment-primary-action,
+.student-assessment-secondary-actions {
   display: grid;
   min-width: 0;
   gap: var(--ple-space-2);
 }
 
-.student-assignment-primary-action .wide-action {
+.student-assessment-primary-action .wide-action {
+  justify-self: start;
+  width: fit-content;
+  max-width: 100%;
   margin-top: 0;
 }
 
-.student-assignment-secondary-actions {
+.student-assessment-secondary-actions {
   justify-items: end;
 }
 
-.student-assignment-start-facts {
-  margin-block: var(--ple-space-5);
-  padding: var(--ple-space-4);
-  border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
-  background: var(--ple-surface-soft);
+.student-assessment-start-facts {
+  margin-block: var(--ple-space-3);
+  padding-block: var(--ple-space-3);
+  border-block: 1px solid var(--ple-border);
 }
 
-.student-assignment-start-facts h2 {
-  margin-top: 0;
+.student-assessment-start-facts h2 {
+  margin: 0 0 var(--ple-space-2);
 }
 
-.student-assignment-decision__status,
-.student-assignment-decision__zone {
+.student-assessment-start-facts .assessment-facts,
+.student-assessment-decision .assessment-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  gap: var(--ple-space-2) var(--ple-space-5);
   margin-block: var(--ple-space-2);
 }
 
-.student-assignment-decision__zone {
+.student-assessment-start-facts .assessment-facts > div,
+.student-assessment-decision .assessment-facts > div {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--ple-space-2);
+  min-width: 0;
+}
+
+.student-assessment-start-facts dt,
+.student-assessment-decision dt {
   color: var(--ple-muted);
+}
+
+.student-assessment-start-facts dd,
+.student-assessment-decision dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 620;
+}
+
+.student-assessment-start-facts__work {
+  padding-block-end: var(--ple-space-2);
+}
+
+.student-assessment-decision__heading {
+  margin-block: var(--ple-space-3) var(--ple-space-1);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.student-assessment-decision__status,
+.student-assessment-decision__zone {
+  margin-block: var(--ple-space-2);
+}
+
+.student-assessment-decision__zone {
+  color: var(--ple-muted);
+  font-size: 0.875rem;
 }
 
 .student-time-zone-control {
@@ -176,11 +212,11 @@
 }
 
 @media (max-width: 56rem) {
-  .student-assignment-action-region {
+  .student-assessment-action-region {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .student-assignment-secondary-actions {
+  .student-assessment-secondary-actions {
     justify-items: start;
   }
 }

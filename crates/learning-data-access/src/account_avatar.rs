@@ -157,7 +157,7 @@ impl FinalizedAccountProfileImage {
 /// The database derives the Account from `token`; callers never supply an
 /// Account id. Image work is role-gated by the database and provided-avatar
 /// selection is constrained to the closed PLE collection.
-pub trait AccountAvatarStore: Send + Sync {
+pub trait AccountAvatarGallery: Send + Sync {
     /// Returns the authenticated Account's selected avatar, if one exists.
     async fn read_current_account_avatar(
         &self,

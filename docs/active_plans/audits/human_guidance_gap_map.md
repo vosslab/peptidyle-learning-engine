@@ -6,13 +6,27 @@ no implemented-system claim, by the named audit-classification correction.
 
 ## Current ownership and expanded gaps
 
-The current ordered checklist has 943 bullets: 452 verified, 443 open
-(435 owning), and 48 N/A. The [implementation checklist](human_guidance_implementation_checklist.md)
-owns current wording, occurrence status, evidence limitations, and duplicate first-owner pointers.
-Existing A/C identifiers below remain correction provenance, not ordinal HG identities.
-A4-06 lifecycle and A4-07 fork records now route to Course specifications/Part 08;
-Assessment type appearance routes to Instructor interface/Part 04. Retired source occurrences
-are removed from the current checklist; historical correction context is not restored as a rule.
+The current ordered checklist has 998 bullets: 449 verified, 499 open (490 owning),
+and 50 N/A. The [implementation checklist](human_guidance_implementation_checklist.md) owns current
+verbatim wording, occurrence status, evidence limitations, and duplicate first-owner pointers.
+All existing identity/part/consistency gates pass at the snapshot recorded in the active plan.
+Existing A/C identifiers below are historical correction provenance, not ordinal HG identities.
+Unchanged accepted terminal/MATCH/scoring/timing/Blueprint evidence is retained.
+
+- Part 01 / Product vocabulary and glossary: new global and topical definitions remain open for
+  independent model/behavior evidence. Later adoption is an explicit current requirement, not
+  closed by create-time adoption proof. Non-closable KISS constraints remain binding audited N/A.
+- Part 03 / Profile avatar interface: current random assignment/gallery consistency, Student
+  collection/selection, and shared Instructor/Sysadmin upload/cropping requirements remain open
+  absent complete current browser/authorization acceptance. The bounded creation-trigger proof
+  does not close those workflows.
+- Part 06 / Content classification; Part 07 / Library metadata; Part 08 / Course classification;
+  Part 09 / Assessment classification: shared global taxonomy is a binding cross-owner gap.
+  Current Subjects support one or more Sysadmin-managed Discipline associations, while each
+  content object has exactly one Discipline and optional narrower levels. The older single-parent
+  four-table receipt does not satisfy this shape or establish commands, normalization, content
+  attachments, hierarchical choices, or cross-content discovery. Course Instance classification
+  may differ from Blueprint classification; Assessment classification is independent of members.
 
 - Part 03 / Role colors and themes: coordinated light/dark and specification cutover are missing;
   distinctness and actual-use accessibility need scoped rendered proof. Durable IDs have narrow
@@ -2376,7 +2390,12 @@ Then generator build/diff/consistency. Do not start, stop, replace, or clean up 
 Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
 Blueprint Promoted and exclusive Sysadmin control are binding open
 gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
-disabled navigation says `Question - of 4` and `0 saved`; the five active-navigation closures
+disabled navigation says `Question - of 4` and `0 saved`; the four current active-navigation closures
 remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
 pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-
 unavailable wording is an observed visibly-unanswered mismatch, not unobserved behavior.
+
+Latest Student response distinction rewrite: live HG requires visually distinct current Question,
+saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
+change from whole Coursework submission. Both rows are open; earlier navigation styling receipts
+are retained as partial proof, not blanket acceptance of native response controls/actions.

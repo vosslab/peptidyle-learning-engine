@@ -125,7 +125,7 @@ mod support_capability;
 mod sysadmin_totp;
 
 #[cfg(feature = "postgres")]
-pub use account_avatar::PostgresAccountAvatarStore;
+pub use account_avatar::PostgresAccountAvatarGallery;
 #[cfg(feature = "postgres")]
 pub use account_time_zone::PostgresAccountTimeZoneStore;
 #[cfg(feature = "postgres")]

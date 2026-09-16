@@ -427,19 +427,21 @@ function AttemptExperience(props: {
         </Show>
       </header>
 
-      <Show
-        when={progress()}
-        fallback={
-          <p class="loading-state" role="status">
-            Loading Questions...
-          </p>
-        }
-      >
-        <StudentAssessmentAttemptNavigation
-          positions={positions()}
-          currentPosition={currentPosition()}
-          onPositionActivate={(nextPosition) => void activatePosition(nextPosition)}
-        />
+      <Show when={!isSubmitted() && !isExpired()}>
+        <Show
+          when={progress()}
+          fallback={
+            <p class="loading-state" role="status">
+              Loading Questions...
+            </p>
+          }
+        >
+          <StudentAssessmentAttemptNavigation
+            positions={positions()}
+            currentPosition={currentPosition()}
+            onPositionActivate={(nextPosition) => void activatePosition(nextPosition)}
+          />
+        </Show>
       </Show>
 
       <Show when={loadError()}>

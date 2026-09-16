@@ -69,7 +69,7 @@ export function ProvidedAvatarPicker(props: ProvidedAvatarPickerProps): JSX.Elem
 
   return (
     <fieldset class="provided-avatar-picker">
-      <legend>Choose a provided avatar</legend>
+      <legend>Choose an avatar</legend>
       <p class="provided-avatar-picker-introduction">
         Pick a playful PLE avatar. Your choice is shown with your account where provided avatars are
         supported.

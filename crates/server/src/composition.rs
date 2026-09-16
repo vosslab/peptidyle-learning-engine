@@ -9,7 +9,7 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     SessionLifetime, SysadminTotpSeed, SysadminTotpStore,
     postgres::{
-        Pool, PostgresAccountAvatarStore, PostgresAccountTimeZoneStore,
+        Pool, PostgresAccountAvatarGallery, PostgresAccountTimeZoneStore,
         PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
         PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
@@ -103,7 +103,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let course_banners = PostgresCourseBannerStore::new(pool.clone());
     let course_roster = PostgresCourseRosterStore::new(pool.clone());
     let instructor_accounts = PostgresInstructorAccountStore::new(pool.clone());
-    let account_avatars = PostgresAccountAvatarStore::new(pool.clone());
+    let account_avatar_gallery = PostgresAccountAvatarGallery::new(pool.clone());
     let support_capabilities = PostgresSupportCapabilityStore::new(pool.clone());
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresCourseGradebookStore::new(pool.clone());
@@ -250,7 +250,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         ))
         .merge(crate::profile_avatar::profile_avatar_router(
             Arc::clone(&sessions),
-            account_avatars,
+            account_avatar_gallery,
             question_library_objects.clone(),
         ))
         .merge(crate::profile_settings::profile_settings_router(

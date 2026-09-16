@@ -2,22 +2,36 @@
 
 ## Current heading reconciliation
 
-Current status and retained evidence are recorded in [compliance_summary.md](compliance_summary.md)
-and the [implementation checklist](../../audits/human_guidance_implementation_checklist.md).
-943 bullets, 452 verified, 443 open (435 owning), and 48 N/A.
-New UI/MATCH requirements and Discipline classification are reconciled verbatim there. Accepted
-compact Attempt-navigation receipts close only their bounded rows; wider Student/theme/MATCH
-proof and fresh-install Genetics acceptance remain open. Native response presentation belongs
-to Part 07. Blueprint lifecycle/forks/comparison belong to Part 08 and Assessment type appearance
-to Part 04. Earlier inventories are historical context, not current wording or ordinal ownership.
+Current verbatim Human Guidance coverage is 998 bullets: 449 verified, 499 open
+(490 owning), and 50 N/A, at SHA256
+`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
+The generated checklist owns occurrence status and current first-owner pointers. All nine part
+gates, identity diff, and consistency pass for this snapshot. Unchanged scoring, timing,
+Blueprint, terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains
+unfinished; these gates establish inventory fidelity, not acceptance of the open requirements.
 
-Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
-Blueprint Promoted and exclusive Sysadmin control are binding open
-gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
-disabled navigation says `Question - of 4` and `0 saved`; the five active-navigation closures
-remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
-pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-
-unavailable wording is an observed visibly-unanswered mismatch, not unobserved behavior.
+Part 01 now owns Product vocabulary and glossary, including its five topical subheadings;
+new product definitions remain open absent independently accepted evidence. Part 03 owns Profile
+avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
+avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
+all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
+owns Library metadata, Part 08 Course classification, and Part 09 Assessment classification.
+The shared system requires exactly one Discipline per content object, optional narrower levels,
+and a Subject associated with one or more Sysadmin-managed Disciplines. The prior single-parent
+four-table foundation receipt does not satisfy this latest association shape or establish commands,
+normalization, content attachments, hierarchical selection, or discovery. Those gaps remain open.
+KISS/design constraints are audited N/A where not independently closable, but still bind reviews.
+
+Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
+no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
+`1 / 1`, total `1 / 4`. Native diagnostic `AZA01TD` / `R-5` follow-up saved/reloaded FIB, MA,
+MULTI-FIB, NUM, and ORDER, then submitted the whole Attempt: four correct `1 / 1` responses,
+deliberately partial-reordered ORDER incorrect `0 / 1`, total `4 / 5`. Practice-default permitted
+correct answers are displayed separately from retained responses. The supplied ledgers and
+`submitted-review-1280.png` / `submitted-review-390.png` under
+`/private/tmp/ple-student-types-proof/` are bounded receipts, not all-eight-type, complete keyboard,
+touch, or contrast acceptance. HOTSPOT and WeBWorK coverage remain open. Earlier topical
+inventories/correction IDs and superseded contradictions below are historical provenance.
 
 ## Scope
 
@@ -787,3 +801,8 @@ The authoritative exhaustive record is the
 
 - Short names are for compact navigation and should stay under about 16 characters when practical.
   - Source: `docs/HUMAN_GUIDANCE.md:819`
+
+Latest Student response distinction rewrite: live HG requires visually distinct current Question,
+saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
+change from whole Coursework submission. Both rows are open; earlier navigation styling receipts
+are retained as partial proof, not blanket acceptance of native response controls/actions.

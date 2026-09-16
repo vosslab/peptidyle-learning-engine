@@ -95,7 +95,7 @@ export function ProfilePage(): JSX.Element {
         </Switch>
       </section>
       <section aria-labelledby="profile-avatar-heading">
-        <h2 id="profile-avatar-heading">Avatar</h2>
+        <h2 id="profile-avatar-heading">Avatar Gallery</h2>
         <Switch>
           <Match when={avatar.loading}>
             <p class="calm-status" role="status">

@@ -11,6 +11,74 @@
 
 ### Behavior or Interface Changes
 
+- Corrected the Human Guidance classification evidence for the current Subject-Discipline
+  association schema. The bounded PostgreSQL 17 receipt proves multi-Discipline association,
+  association integrity, one-parent Topic/Subtopic relationships, and owner-only access. Commands,
+  content attachments, normalization, and the future atomic at-least-one association writer remain
+  open; no Human Guidance, production, or permanent-test changes were made.
+
+- Reconciled the current 998-bullet Human Guidance inventory and existing generator heading
+  mappings: 449 verified, 499 open, and 50 audited N/A. Preserved unchanged accepted evidence
+  and moved duplicate ownership to current headings. New glossary, Profile-avatar, and global
+  classification requirements remain open; latest Subject multi-Discipline associations supersede
+  the older single-parent foundation assumption. All nine part gates, identity diff, and consistency
+  pass. Focused formatting/link checks report 285 passes and four known missing/copied-link failures;
+  verbatim source trailing whitespace remains visible rather than silently changing Human Guidance.
+
+- Added the current-plan receipt for the installed global classification-vocabulary prerequisite:
+  four UUID vocabulary levels with mandatory parent references, owner-only forced RLS, no runtime
+  grants, and fresh PostgreSQL 17 proof. The 1,412 focused pytest gates cover tracked files; the
+  new SQL file separately passed source-size and ASCII checks. No live database changed and the
+  temporary proof containers were cleaned up. ProductRole-aware access, Discipline lifecycle,
+  attachments, editors, search, and global feature closure remain open.
+
+- Corrected native Question response-control copy so a saved individual response is described as
+  saved rather than submitted; the whole Assessment Attempt remains the Student submission
+  boundary. Local reset no longer implies successful persistence, and preview acceptance does not
+  promise feedback. MULTI-FIB instructions explain field navigation without a false per-Question
+  "Submit answer" action. Save behavior, validation, and backend boundaries are unchanged.
+
+- Added one atomic Account-creation trigger that randomly selects and persists a currently
+  selectable PLE gallery avatar for every Product Role. An empty selectable gallery rejects
+  Account creation; existing self-selection and Profile-image authorization are unchanged.
+  Shell syntax, diff checks, and the fresh PostgreSQL 17 persistence, explicit-selection,
+  replay, and empty-gallery rollback proof pass; independent review found no correctness
+  or security issue. The owned disposable container was cleaned up. No HTTP or deployed
+  acceptance is claimed, and no live database, migration, or backfill was changed.
+
+- Made Student "Before you start" compact with aligned labels and values, grouped Questions/points
+  and timing/Attempt rules, one timing-zone label, and clear "No closing time" / "Unlimited Attempts"
+  wording. Canonical component selectors now apply; the nearby Start control is content-sized.
+  Actual Avery overview receipts at 1280/768/600/390 pixels show no horizontal overflow and a
+  keyboard-reachable Start control without creating an Attempt. The laptop Start moved from about
+  y720 to y443, with previous Attempts visible at y494. Previous-Attempt score projection and the
+  broader Coursework/Ribbon findings remain separate open work.
+
+- Closed the narrowly evidenced Student terminal-Attempt findings: submitted and expired Attempts
+  hide active navigation rather than showing false current/saved progress, and history visibly labels
+  closed no-response records **Unanswered**. Accepted 1280/390 Avery R-4 history retains Q2's four
+  MATCH pairs and `1 / 1`, three unanswered `0 / 1` records, and total `1 / 4`; the prior SQL
+  evidence remains the no-submission/no-grading proof. Before-start density, narrow Ribbon,
+  all-types presentation, and previous-Attempt score projection remain open.
+
+- Student Assessment Attempt review now labels Question records closed without a saved response
+  as **Unanswered**. The unavailable-response message remains reserved for submitted Questions
+  whose saved response is not released.
+
+- Renamed the Profile Avatar Store/Shop surface to **Avatar Gallery** throughout the direct
+  data-access and PostgreSQL adapter APIs and the Profile picker. Routes, schema, stored data,
+  and generic `StoreError` behavior are unchanged; no compatibility aliases were added.
+
+- Hide active Question navigation and its loading state after an Assessment Attempt is submitted
+  or expires. The terminal accepted/automatic-submission messages remain unchanged, so closed
+  Question positions no longer present as current/saved navigation.
+
+- Reconciled the two latest Student Coursework wording changes at HG `ab1bced1` (943 bullets).
+  Visual current/saved/focus distinction and response-effect labels remain open across native
+  response controls; accepted navigation styling receipts remain partial evidence. Current totals
+  are 451 verified, 444 open (436 owning), and 48 audited N/A. Part 05 gate/splice, diff and
+  consistency pass; no source, runtime, permanent-test or Human Guidance changes were made.
+
 - Extended the accepted 940-bullet reconciliation to current Human Guidance's 943 bullets
   (`00a3b948` SHA256 prefix): Sysadmin work priority is audited N/A; searchable Blueprint Promoted
   and exclusive Sysadmin control remain binding gaps. Preserved earlier evidence and reopened only

@@ -55,9 +55,9 @@ mod store_error;
 mod support_capability;
 
 pub use account_avatar::{
-    AccountAvatar, AccountAvatarStore, AccountProfileImageDeleteWork, FinalizedAccountProfileImage,
-    PreparedAccountProfileImage, ProfileImageReference, ProvidedAvatarId,
-    SelectableProvidedAvatarId,
+    AccountAvatar, AccountAvatarGallery, AccountProfileImageDeleteWork,
+    FinalizedAccountProfileImage, PreparedAccountProfileImage, ProfileImageReference,
+    ProvidedAvatarId, SelectableProvidedAvatarId,
 };
 pub use account_time_zone::AccountTimeZoneStore;
 pub use assessment_attempt::{

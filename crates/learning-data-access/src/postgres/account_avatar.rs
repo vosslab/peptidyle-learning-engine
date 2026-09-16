@@ -8,20 +8,20 @@ use uuid::Uuid;
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    AccountAvatar, AccountAvatarStore, AccountProfileImageDeleteWork, FinalizedAccountProfileImage,
-    PreparedAccountProfileImage, ProfileImageReference, ProvidedAvatarId,
-    SelectableProvidedAvatarId, SessionTokenHash, StoreError,
+    AccountAvatar, AccountAvatarGallery, AccountProfileImageDeleteWork,
+    FinalizedAccountProfileImage, PreparedAccountProfileImage, ProfileImageReference,
+    ProvidedAvatarId, SelectableProvidedAvatarId, SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
-/// PostgreSQL store for the authenticated Account's avatar choice and image saga.
-pub struct PostgresAccountAvatarStore {
+/// PostgreSQL gallery for the authenticated Account's avatar choice and image saga.
+pub struct PostgresAccountAvatarGallery {
     pool: Pool,
 }
 
-impl PostgresAccountAvatarStore {
+impl PostgresAccountAvatarGallery {
     #[must_use]
-    /// Creates the store bound to the supplied PostgreSQL connection pool.
+    /// Creates the gallery bound to the supplied PostgreSQL connection pool.
     pub fn new(pool: Pool) -> Self {
         Self { pool }
     }
@@ -105,7 +105,7 @@ enum ProfileImageWorkOperation {
 }
 
 #[async_trait]
-impl AccountAvatarStore for PostgresAccountAvatarStore {
+impl AccountAvatarGallery for PostgresAccountAvatarGallery {
     async fn read_current_account_avatar(
         &self,
         token: SessionTokenHash,
