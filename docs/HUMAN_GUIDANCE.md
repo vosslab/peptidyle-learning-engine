@@ -74,6 +74,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Project images and simulated live-stack data are disposable acceptance infrastructure.
 - `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
   diagnostics, use `source source_me.sh && python3 local_stack.py`.
+
 ## Product vocabulary and glossary
 
 - **Account**: A global PLE user account with exactly one Product Role.
@@ -314,7 +315,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The current avatar or Profile image appears consistently anywhere PLE represents that user.
 
 #### Student avatars
- 
+
 - **Students** select avatars from the PLE-provided avatar gallery collection and cannot upload Profile images.
 - Student avatar selection should be visual and playful.
 - All avatars in the gallery are available for selection.
