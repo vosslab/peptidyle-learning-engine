@@ -38,9 +38,9 @@ interface CourseThemePalette {
 /* Theme color-derivation recipe. These percentages are the single tuning point for
  * normal presentation; the stored three-color palettes remain unchanged. */
 const THEME_MIX = {
-  surfaceCanvas: 58,
-  softSurfaceCanvas: 78,
-  cardCanvas: 30,
+  surfaceCanvas: 12,
+  softSurfaceCanvas: 22,
+  cardCanvas: 5,
   inkAction: 22,
   mutedAction: 10,
   linkAction: 57,

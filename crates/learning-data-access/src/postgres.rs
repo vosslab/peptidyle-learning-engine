@@ -30,9 +30,9 @@ mod assessment_delivery_start;
 mod assessment_pool_fork;
 #[cfg(feature = "postgres")]
 mod assessment_pool_selection_count;
-mod assessment_student_time_accommodation;
 #[cfg(feature = "postgres")]
 mod assessment_release;
+mod assessment_student_time_accommodation;
 #[cfg(feature = "postgres")]
 mod assessment_student_view;
 #[cfg(feature = "postgres")]
@@ -136,9 +136,9 @@ pub use assessment_delivery::PostgresLiveAssessmentDeliveryStore;
 pub use assessment_pool_fork::PostgresAssessmentPoolForkStore;
 #[cfg(feature = "postgres")]
 pub use assessment_pool_selection_count::PostgresAssessmentPoolSelectionCountStore;
-pub use assessment_student_time_accommodation::PostgresAssessmentStudentTimeAccommodationStore;
 #[cfg(feature = "postgres")]
 pub use assessment_release::PostgresLiveAssessmentStore;
+pub use assessment_student_time_accommodation::PostgresAssessmentStudentTimeAccommodationStore;
 #[cfg(feature = "postgres")]
 pub use assessment_student_view::PostgresInstructorStudentViewStore;
 #[cfg(feature = "postgres")]

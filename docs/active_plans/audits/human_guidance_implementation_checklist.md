@@ -41,10 +41,14 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Write plans in plain, concrete language. Use technical terms when they add precision.
   - Reason: agent instruction, not implemented PLE product behavior.
-- N/A Prioritize positive prompting. Avoid naming unneeded tools. Positive prompting plus omission is better.
-  - Reason: agent instruction, not implemented PLE product behavior.
-- N/A Small LMs mishandle negative prompting and flip negative instructions producing poor code and egregious results.
-  - Reason: agent instruction, not implemented PLE product behavior.
+- N/A Prioritize positive prompting. Phrase instructions as concrete actions such as "Do X" or "Use Y".
+  - Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior.
+- N/A Name only the tools and responsibilities needed for the assigned task. Positive prompting plus
+  omission keeps agent instructions focused on the intended actions.
+  - Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior.
+- N/A Small LMs may interpret negative instructions as actions to perform. State the desired behavior
+  directly, including when assigning responsibilities to agents.
+  - Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior.
 - N/A Classify one-time checks separately from permanent tests.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
@@ -108,16 +112,21 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 ### PLE development rules
 
-- [x] A fresh production installation includes the complete Live Demo by default.
+- [ ] A fresh production installation includes the complete Live Demo by default.
   - Evidence (source): `local_stack_control/lifecycle.py` `provision_ready_installation_data` provisions installation data after readiness.
   - Evidence (test): `tests/test_local_stack_demo_provisioning.py` `test_ready_installation_data_uses_one_canonical_migrator_command_after_readiness` verifies default provisioning.
+  - Verification pending: installation source is implemented, but fresh default installation acceptance of the complete current Live Demo and retained Public Genetics example remains required.
 - [x] Treat the initial course content as shipped examples.
   - Evidence (source): `schemas/installation_data/live_demo.sql` `ple_data.course_instance` is seeded as installation-owned Live Demo teaching data.
 - [x] BiologyProblems.org content is free and open source.
   - Evidence (source): `content/genetics/ATTRIBUTION.md` `CC BY 4.0` records the bundled Biology Problems OER content license.
-- [x] The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
+- [ ] The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
   - Evidence (source): `content/genetics/manifest.yaml` `short_name` and `long_name` define the bundled Genetics Blueprint.
-  - Evidence (source): `local_stack_control/lifecycle.py` `require_bundled_genetics_without_live_demo` verifies bundled Genetics installation data.
+  - Evidence (runtime): 2026-09-16, ordinary discovery through `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` confirms the current Live Demo has `BPSPXHX6` (`Genetics` / `Fall Genetics`) owned by the Example Content Account (`00000000-0000-0000-0000-000000000106`) and Public, with nine Assessments and 42 distinct Questions. Elena's ordinary Instructor discovery returns it as Public and not owned by her; its live detail route is `https://localhost:8269/blueprint-courses/BPSPXHX6`. The only teaching Course Instance remains `BCHM301`; no Course Instance was created for this correction.
+  - Decision: the ordinary owner API published only `BPSPXHX6` using its current ETag. This confirms current-demo discoverability without changing the normal Private-at-creation rule for new Blueprint Courses.
+  - Evidence (source): `crates/project-tools/src/installation_data.rs` `publish_bundled_genetics` resolves the validated receipt, requires Example Content owner access, publishes only a Private retained example with its current metadata ETag, and skips an already-Public replay. Reload requires Public, unchanged ownership, and unchanged content Revision; generic `curriculum_content/publication.rs` imports remain Private.
+  - Evidence (test): `tests/test_local_stack_demo_provisioning.py` `test_explicit_demo_opt_out_keeps_bundled_content_provisioning` passes with five other focused controller checks. The parent reports `cargo check -p project-tools` passed in 18.03 seconds; both changed Rust files pass rustfmt, the controller passes Pyflakes, and the temporary fixed-shell generation probe passes. These checks do not establish fresh-install behavior.
+  - Verification pending: fresh default and opt-out installation, unchanged-Revision replay, and ordinary non-owner Instructor discovery/adoption need connected disposable proof. `local_stack_control/lifecycle.py` `require_bundled_genetics_without_live_demo` now uses the current six-argument Public-only discovery call and checks `availability = 'public'` plus `is_owner`; the separate `read_course_theme(uuid)` check is unchanged. The corrected connected oracle was not run. Independent review of the installation fix remains pending.
 - N/A All Podman content on the Mac-Studio-36G machine belongs to this project.
   - Reason: human ownership statement about a named machine, not implemented PLE behavior.
 - N/A Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.
@@ -161,7 +170,6 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` and its routes call this an Assignment workspace, not the required Assessment Question Editor.
 - [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` `AssignmentWorkspacePoliciesPage` presents the editor as `Policies`, not Assessment Properties Editor.
-
 ## Accounts and roles
 
 ### Account rules
@@ -295,9 +303,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: explicitly current product-scope decision, not an implementation behavior claim.
 - N/A Course authorization should remain adaptable enough to add these relationships later.
   - Reason: explicitly future design flexibility, not a current implementation behavior claim.
-
 ## Interface design
-
 ### General interface design
 
 - [ ] Design around what users need to find and do.
@@ -308,8 +314,19 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: No repository-wide visual audit verifies this across PLE pages.
 - [ ] Similar pages should place similar controls in consistent locations.
   - Mismatch: No cross-page implementation evidence verifies the whole-product requirement.
+- [ ] Use headings and action labels that reflect the current state and next useful step.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Match feedback wording and visual emphasis to the outcome: success, information, warning, or
+  error. Make the result and any next action easy to recognize.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Primary actions should be easy to find and appear near the content or workflow they affect.
   - Mismatch: No whole-product browser or usability evidence verifies this broad requirement.
+- [ ] Identify the object and relevant context before an action that changes membership or stored
+  settings, so users can recognize what they are accepting or changing.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Use concise helper text near the control it explains. Present shared explanations once per
+  relevant group and keep the main task information easy to scan.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Avoid scattering related actions across page headers, menus, navigation, and content areas.
   - Mismatch: Current top-bar Sign Out contradicts the specified Profile-menu location.
 - [ ] Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
@@ -319,11 +336,12 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 ### Information density and layout
 
-- [x] Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
+- [x] Design Instructor and **Sysadmin** workflows for laptop browsers, using a 1280 by 800 viewport
+  as the layout target.
   - Evidence (source): `tests/playwright/ui_corpus_manifest.ts` `RIBBON_RESPONSIVE_PROFILES` and `SYSADMIN_DESKTOP_CONTEXT_OPTIONS` declare 1280 by 800 desktop contexts for both staff roles.
   - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` verifies the Instructor desktop shell and `assertSysadminDesktopRibbon` verifies the Sysadmin Ribbon has no overflow with Instructor Accounts and Scoped Support visible.
   - Evidence (source): `src/pages/role_home_pages.tsx` `SysadminHomePage` presents the backed Instructor Accounts and Scoped Support operations reached by the checked Sysadmin desktop model.
-  - Decision: A one-time real-shell keyboard/page probe for Sysadmin Instructor Accounts and Scoped Support passed and was removed rather than retained as a permanent page-script test. The permanent responsive evidence is role/viewport behavior, not a fixed page sequence.
+  - Decision: retained viewport-target evidence supports this equivalent design-target rewrite, not whole-product usability or all staff workflows.
 - [x] PLE often presents large collections where users need to find a few relevant items.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders the Question Library collection surface.
 - [ ] Optimize large collections for scanning, searching, filtering, and comparison.
@@ -350,9 +368,29 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 - [ ] Keep the visual design compact, flat, information dense, and consistent across PLE.
   - Mismatch: No complete rendered-product audit verifies all four whole-product attributes.
+- [ ] Use compact rows, restrained corner rounding, and controls sized to their task.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Present short labels and values in aligned rows or compact grids, adapting to stacked groups
+  when the available width requires them.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Give each object one clear title within its list entry. Group its metadata and actions beneath
+  or alongside that title.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Preserve readable text and reachable controls as users enlarge text or zoom the page.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 ### Interaction design
 
+- [ ] Use progressive disclosure to keep common tasks compact while making supporting details easy
+  to find.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Use tooltips for brief supplementary explanations, available on hover and keyboard focus.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Use clearly labeled expandable sections with chevrons for longer details and secondary settings,
+  supporting keyboard, pointer, and touch interaction.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Keep essential information, primary actions, and current status visible in the main interface.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Use drag-and-drop where it makes reordering faster and more natural.
   - Mismatch: No implemented drag-and-drop reordering surface was found in the audited shell evidence.
 - [x] Reordering must also have a precise keyboard-accessible method.
@@ -381,6 +419,18 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: `src/features/course_appearance/course_theme_registry.ts` `theme` derives one appearance from three anchors using white surfaces; there is no coordinated light/dark mode registry or selector.
 - [ ] Course Theme colors should remain accessible in their actual interface uses.
   - Verification pending: `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` provides the existing 15-theme registry, not acceptance of the expanded palette specification. Current rendered distinctness and actual-use accessibility, coordinated light/dark behavior, and the specification cutover require separate proof.
+- [ ] Light themes should use clearly light page backgrounds; dark themes should use clearly dark page
+  backgrounds. Use theme colors as accents on surfaces with readable contrast.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Check text, controls, borders, and interaction states against their actual rendered backgrounds.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Apply the contrast requirements for text, controls, and other semantic uses in
+  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md)
+  to rendered components in both light and dark themes, including gradients and state backgrounds.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain
+  recognizable across themes and color-vision differences.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [x] Course Theme IDs are durable; changing a theme's display name or colors should not require a new ID.
   - Evidence (source): `crates/question_model/src/course_appearance.rs` `CourseTheme` and `as_str` own durable serialized IDs; `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` keys display names and colors separately by those IDs, including stored `grass` displayed as Grassland. Name/palette changes do not change the identity field.
 - [ ] Follow `docs/BIOME_THEME_PALETTES.md` for Course Theme names, palettes, accessibility, and implementation.
@@ -419,6 +469,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (test): `tests/playwright/ribbon_geometry_evidence.mjs` `chromeAboveContent` verifies reserved row tokens and shell track geometry.
 - [x] Page actions should appear near the content they affect rather than changing the Ribbon layout.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` renders only catalog navigation and Sign Out in `AppRibbon`; task content stays in `ApplicationShell` content.
+- [ ] On narrow Student screens, use a compact navigation arrangement that keeps the product identity,
+  current location, navigation controls, and Profile readable and reachable.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [x] See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` composes `AppRibbon` and `BreadcrumbPrelude`.
 
@@ -486,11 +539,16 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (test): `tests/playwright/ribbon_m10_shell_evidence.mjs` `label resolution preserves the reserved breadcrumb-prelude geometry` verifies stable shell geometry through deferred resolution.
 - [x] See **Ribbon and page layout** for the overall page-position rules.
   - Evidence (source): `src/ribbon/app_ribbon.css` `.ple-shell__breadcrumb-prelude` documents and implements the shell-owned stable prelude.
-
 ### Instructor interface
 
 - [ ] The Instructor interface should make frequent teaching tasks fast and easy to find.
   - Mismatch: the main Instructor task areas still contain deferred destinations and no end-to-end usability evidence establishes this broad workflow claim.
+- [ ] Keep the teaching content central in authoring and inspection workflows, with metadata and
+  supporting explanations arranged compactly around it.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Gradebook rows should identify Students by their Course roster names and Coursework by title,
+  with reference IDs as supporting information where useful.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` labels the third tab "Assignments," not the required "Assessments."
 - [x] Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
@@ -745,6 +803,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Assessment Properties should group related settings so important settings are easy to find.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` groups Assessment and delivery controls separately from Student feedback, and the owning CSS uses a two-column desktop grid that collapses to one column below 60rem.
   - Evidence (runtime): accepted private exact-main browser evidence rendered `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` at 1280 by 800; computed-style checks verified the two-column desktop and one-column 720px layouts, restored panel/control styling, and persisted edited instructions through actual HTTP and reload.
+- [ ] Present timing settings in familiar units such as minutes, with explicit units and clear
+  meanings for optional or unlimited values.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [x] Instructors can randomize Question order for an Assessment.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `updateOrder` binds the current Assessment Properties checkbox to authored or shuffled Question order. The Student start transaction persists that rule with the Attempt and shuffles the complete fixed-and-Pool issued vector only for `shuffled`.
   - Evidence (runtime): accepted private actual-HTTP evidence exercised `crates/learning-data-access/src/postgres/assessment_delivery_start.rs` `start_current_assessment_attempt`: it persisted authored and shuffled rules, observed a concurrent Instructor save blocked behind the Student-start lock, issued exact fixed-and-Pool pins, and resumed the immutable shuffled Attempt after a current-rule edit. Accepted exact-main browser evidence saved and reloaded `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage`'s visible **Randomize question order** checkbox through actual HTTP.
@@ -798,7 +859,6 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `Archive Blueprint Course` explains removal from new selection and requires the long name, but no current Archive Published Question interface provides the corresponding explanation and confirmation; `src/api/question_availability.ts` `archiveQuestion` is only a browser transport contract.
 - [x] Restore actions should use ordinary availability controls.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `restore` is presented under Course names and availability rather than the archive confirmation control.
-
 ### Student interface
 
 #### General Student interface
@@ -822,6 +882,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: `src/ribbon/ribbon_catalog.ts` `RIBBON_TASK_CATALOG` does not define a complete Student menu for comparison.
 - [ ] Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
   - Mismatch: needs runtime evidence for the four required Student viewport classes; `tests/playwright/student_course_entry_m6_evidence.mjs` does not cover them.
+- [ ] Student layouts should adapt smoothly at intermediate widths, with readable long titles and
+  controls that wrap or rearrange in the task's reading order.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Every Student browser action should be usable with the keyboard alone.
   - Mismatch: needs keyboard-only journey evidence; `src/pages/assignment_attempt_page.tsx` has keyboard-operable controls but no complete Student journey test.
 - [x] Student pages should use names meaningful to Students.
@@ -832,7 +895,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
-  - Owner: 03_shell.md > Interface design > General interface design (first current-source occurrence).
+  - Owner: Interface design > General interface design (first identical Human Guidance occurrence).
 - [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
@@ -843,6 +906,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` redirects the one-entry `courses()` result to its Course reference.
 - [x] Students should be able to see their active Courses and Coursework from the main navigation.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` provides the current-Course index; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` provides its work.
+- [ ] Course invitations should show the Course name and relevant Instructor and term information
+  before the Student accepts the invitation.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [x] Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
   - Evidence (source): `src/pages/student_coursework_presentation.ts` `studentCourseworkDisplay` maps the server-owned start decision, completion, and resumability to upcoming, available, in-progress, completed, or missed learner states.
   - Evidence (test): `tests/test_student_coursework_presentation.mjs` `Coursework display distinguishes resumable, non-resumable unfinished, and completed work` exercises the pure state projection.
@@ -850,6 +916,11 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Coursework lists should make due dates, Type, and completion status easy to scan.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents visible Type, due, completion, and state fields from the typed Student projection.
   - Evidence (runtime): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` passed on a fresh PostgreSQL 17 database and projected the Regular Assignment Type, due/availability facts, completion, and resumability through the actual landing Store; accepted compiled SolidJS/mock-API browser evidence proved the fields are scannable. This does not claim a connected HTTP-server run.
+- [ ] Keep Coursework entries compact in height so Students can scan several items at once.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Keep essential Coursework information and the main action visible, with fuller access and timing
+  details available through progressive disclosure.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
   **Bonus Assignments**, **Quizzes**, and **Exams**.
   - Reason: Optional permission does not require current product behavior.
@@ -860,25 +931,63 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` presents the title, specific Type, Question count, points possible, time limit, and previous Attempts before start.
   - Evidence (source): `src/components/student_assessment_presentation.tsx` `StudentAssessmentStartFacts` owns the compact Question, points, and time-limit facts.
   - Evidence (runtime): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` was exercised by accepted isolated actual-server/exact-main Student proof `/private/tmp/ple-course-empty-artifacts.JCFLm9` after a real roster import/claim. It opened a Released direct Practice Assessment before Start and showed title, Practice Type, one Question, one point, the exact one-hour limit, and an explicit zero-previous-Attempt state; an Unreleased sibling was omitted and an outsider received 404. A separate accepted native Student HTTP/browser run `/private/tmp/ple-course-empty-artifacts.ONrLSK` whole-submitted a real graded 1/1 Attempt, then reopened the overview before starting another. The same six facts included an actual "Previous attempts" Attempt 1 Submitted link; its clicked history showed recorded PKU response and 1/1 score. The overview's previous-Attempt score is optional under the current DTO, so this row does not require that optional value or claim every Student viewport.
+- [ ] Present the "Before you start" settings as a compact summary. Keep each label beside its value
+  in aligned rows, using a compact grid when width permits.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Group Question count and points together, and group availability, deadlines, and Attempt rules
+  into clearly readable sections with concise spacing.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Express unset or unlimited settings in Student language, such as "No closing time" or
+  "Unlimited Attempts", and show the time zone once beside the timing group.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Keep the start action close to this summary so Students can review the rules and begin with
+  minimal scrolling.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 #### Student Coursework interface
 
 - [x] Students see one Question at a time while completing Coursework.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders one keyed current presentation in one `article.question-card`.
-- [x] While completing Coursework, navigation should show every Question, its saved status, and allow
-  Students to jump directly between Questions.
+- [x] While completing Coursework, navigation should provide access to every Question and its saved
+  status, with direct jumps between Questions.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` renders every position, saved-status label, and position button.
   - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `activatePosition` saves before changing position; `src/pages/assessment_attempt_page.tsx` `loadPresentation` restores the persisted `savedResponse` when the Student returns.
-- [x] The current Question and overall progress should remain easy to see.
-  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Question" with the current position and overall question count immediately before the Question navigation.
+- [ ] The current Question and overall progress should remain easy to see.
+  - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` owns the visible current/total Question and saved-count summary; `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders this component without the retired duplicate eyebrow.
+  - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, accepted supplied `/private/tmp/ple-compact-student-navigation.md` and independent `/private/tmp/ple-compact-navigation-independent-review.md` show visible current/total progress at 1280 and 390 pixels.
+  - Verification pending: supplied parent actual submitted R-4 navigation shows disabled controls with misleading `Question - of 4` and `0 saved`, despite one retained correct MATCH response in history. Active-Attempt current/progress proof remains accepted; truthful submitted-state summary needs the separately queued source correction and rendered verification. The five bounded active navigation closures are unchanged.
 - [x] The timer should be subtle and keep the focus on the Questions.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` places the `calm-status` timer in the Assessment Attempt header, outside the Question card.
 - [x] For timed Coursework, the remaining time should stay visible while moving between Questions.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders `remainingMilliseconds` in the persistent header while keyed Question presentations change below it.
 - [x] Submission status should be obvious and use plain language.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Submitting Assessment...", "Your answers were accepted", and plain-language save or submission errors from the submission state.
+- [x] Present Question navigation as a compact horizontal row of numbered controls, with distinct
+  current-Question and saved-status cues.
+  - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
+  - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
+- [x] For long Question sets, use forum-style pagination with Previous and Next controls, the first
+  and last Question numbers, a range around the current Question, and ellipses for omitted ranges.
+  - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
+  - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
+- [x] Adapt the visible number range to the available width while keeping every Question reachable.
+  - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
+  - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
+- [x] Keep the Question prompt and response controls near the top of the working area. Give the
+  title, timing summary, and Question navigation only the space needed to orient Students.
+  - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
+  - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
+- [ ] Use consistent PLE styling for native Question navigation and response actions, with readable
+  labels and clear selected, saved, and keyboard-focus states.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [x] Style Question navigation controls with PLE typography, deliberate spacing, restrained corner
+  rounding, and theme-aware borders and backgrounds.
+  - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
+  - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
+- [ ] Group response feedback near the response controls and keep routine saved-status messages brief.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 #### Student Coursework review interface
 
@@ -886,9 +995,14 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_history` applies the server-owned feedback-release decision before projecting scores and per-Question feedback; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` renders only the released fields present in that projection.
 - [x] Completed Coursework should remain easy to find and review.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` lists and links previous Attempts; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` presents the selected Attempt's score and recorded work.
+- [ ] Group each reviewed Question's number, result, points, recorded response, and permitted feedback
+  into a compact, clearly separated unit.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 ### Sysadmin interface
 
+- N/A Sysadmin interface work is LOW, LOW priority and can be done on an as-needed basis.
+  - Reason: audited human-owned work priority and scheduling guidance, not a claim about implemented PLE behavior. The following Sysadmin capability requirements remain binding.
 - [x] The Sysadmin interface should focus on system administration.
   - Evidence (source): `src/pages/instructor_accounts_page.tsx` `InstructorAccountsPage` labels its workspace "System administration" and manages Instructor Accounts.
 - [ ] The Sysadmin menu should make Accounts, Instructors, Courses, and system configuration easy to find.
@@ -926,7 +1040,6 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] The complete Sysadmin Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Sysadmin Ribbon task layout can be verified until the design is locked.
-
 ## Data and history
 
 - [ ] Answers, keys, grading, and correctness decisions should stay on the server, out of reach of **Students**.
@@ -966,7 +1079,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
   - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
-  - Owner: 02_accounts.md > Accounts and roles > Student role (first current-source occurrence).
+  - Owner: Accounts and roles > Account rules > Student role (first identical Human Guidance occurrence).
 - [x] FERPA access should be scoped through exact Course membership and **Student** ownership.
   - Evidence (source): `schemas/base_schema/authorization.sql` `current_session_account_owns_student_record` requires the exact Course, Student Record, authenticated Student Account, and active Student membership before Student Work access is allowed.
   - Evidence (test): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` uses a real `ple_auth` to `ple_app` session to allow the owner and deny a same-Course other Student, nonmember, same Account with another Course record, and ordinary Sysadmin.
@@ -1039,7 +1152,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: No retention-period expiry deletion exists.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
   - Mismatch: No Student-data deletion transition exists to establish this preservation behavior.
-  - Owner: 06_data.md > Data and history > Student and FERPA data (first current-source occurrence).
+  - Owner: Data and history > Human-facing reference IDs > Student and FERPA data (first identical Human Guidance occurrence).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.
 
@@ -1118,7 +1231,6 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_student_assessment_access` returns stored deadlines and separately reads `display_time_zone`.
 - [x] Changing a display time zone changes how a deadline is shown, not the deadline itself.
   - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_student_assessment_attempt_context` returns `display_time_zone` separately from `expires_at_millis`.
-
 ## Question specifications
 
 - [x] Questions are subject agnostic. Properly classified Published Questions from all subjects belong in
@@ -1197,6 +1309,25 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Recorded external URLs include links, images, scripts, stylesheets, and other resources.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonExternalResourceKind` is the closed Link, Image, Script, Stylesheet, and Other category set for every `externalResources` entry.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonExternalResource` binds each recorded URL to exactly one reviewed category under `deny_unknown_fields` parsing.
+
+#### Native Question response presentation
+
+- [x] Native MATCH Questions should present prompts with a shared choice bank on laptop and desktop
+  screens. Display the full set of choices once alongside the prompts.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Evidence (runtime): `src/components/question_response_controls/matching.tsx` `MatchingResponse`, supplied `/private/tmp/ple-matching-saved-1280.png` and `/private/tmp/ple-attempt-compact-1280.png` show all four bank choices once beside the prompt slots. Independent source review `/private/tmp/ple-demo-ui-source-review.md` and bounded acceptance `/private/tmp/ple-ui-bounded-acceptance.md` support this shared-bank laptop/desktop presentation only; keyboard changing/clearing and whole-Attempt grading are separate requirements.
+- [x] MATCH Questions should support drag-and-drop and an equally capable keyboard-only method for
+  assigning, changing, and clearing matches.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Evidence (runtime): `src/components/question_response_controls/matching.tsx` `MatchingResponse`, supplied parent 2026-09-16 actual current-demo Avery R-4 laptop proof (session 87294, exit 0): normal Tab traversal without programmatic focus plus Space/Enter cleared the first two saved matches, selected bank choices, swapped both assignments, then cleared/reassigned the original choices. All four original choice strings were restored exactly, and Tab/Enter Save was accepted. The existing native mouse drag and accepted Save receipt is independently accepted in `/private/tmp/ple-ui-bounded-acceptance.md`; fresh keyboard evidence is recorded in `/private/tmp/ple-latest-hg-checklist-reconciliation.md`. This closes assigning/changing/clearing parity only, not adapted grading or full pointer/touch bank reachability.
+- [ ] Question response layouts may adapt to available screen space while preserving the same content,
+  response meaning, and grading behavior. Narrow layouts may repeat choices when that improves use.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Verification pending: bounded partial/reset and exact Save/reload receipts retain response identity; adapted narrow response layouts still need proof of preserved content, response meaning, and grading behavior. No particular choice-repetition design is imposed.
+- [ ] MATCH Questions should make each prompt's assigned choice easy to recognize and keep the choice
+  bank reachable while Students assign, change, and clear matches using keyboard, pointer, or touch.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Verification pending: supplied desktop captures show assigned choice text, and bounded receipts show keyboard/click assignment and mouse drag. Bank reachability throughout changing/clearing with keyboard, pointer, and touch remains unobserved. Grading is not an acceptance prerequisite for this interaction-reachability row.
 
 #### Native PLE JSON Questions and JavaScript
 
@@ -1411,7 +1542,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-  - Owner: 07_questions.md > Question specifications > Published Question specifications > Published Question metadata (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications > Published Question specifications > Published Question metadata (first identical Human Guidance occurrence).
 - [ ] PLE-managed Hints, Question Feedback, and Worked Solutions are separate from Question Backend-generated content.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
@@ -1521,7 +1652,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Draft Questions are not part of the Question Library.
   - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
   - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
-  - Owner: 07_questions.md > Question specifications > Draft Question specifications (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications (first identical Human Guidance occurrence).
 - [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
@@ -1550,21 +1681,41 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Library metadata should describe the Published Question or Question Pool rather than its location
   in a Course or textbook.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Library classification uses **Subject**, **Topic**, and **Subtopic** as its primary hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subject is the broad academic area, such as Genetics, Biochemistry, or Ecology.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its
+  primary hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Discipline is the broad academic field, such as Biology, Chemistry, or Mathematics.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Sysadmins exclusively manage the Discipline vocabulary and its lifecycle.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Discipline is a stable vocabulary expected to change infrequently.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Instructors classify Library objects by selecting from the Sysadmin-managed Disciplines.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Subject identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Sysadmins can edit Subjects.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Topic identifies a major area within the Subject.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Subtopic provides a narrower classification within the Topic.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subject, Topic, and Subtopic should support consistent classification across the Question Library.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
+- [ ] Length allowances should generally increase from Subject to Topic to Subtopic, supporting more
+  specific names as classification becomes narrower.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
+- [ ] Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the
+  resulting names consistently.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
+- [ ] Discipline, Subject, Topic, and Subtopic should support consistent classification across the
+  Question Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
 - [ ] Published Questions and Question Pools may also have Tags for useful classifications outside the
-  Subject, Topic, and Subtopic hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Tags are flexible and may overlap across Subjects and Topics.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  Discipline, Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Tags are flexible and may overlap across Disciplines, Subjects, and Topics.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
 - [ ] Library metadata should support searching, filtering, sorting, and bulk editing.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
@@ -1587,7 +1738,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
 - [x] Eligible Question Types may also retain aggregate answer-choice counts.
   - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
-  - Owner: 06_data.md > Data and history > Student and FERPA data (first current-source occurrence).
+  - Owner: Data and history > Human-facing reference IDs > Student and FERPA data (first identical Human Guidance occurrence).
 - [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
   - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
 - [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and
@@ -1655,7 +1806,6 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: Question watches are not implemented.
 - [ ] **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
   - Mismatch: Question watch access controls are not implemented.
-
 ## Course specifications
 
 - [ ] **Courses** organize reusable teaching content and its delivery to **Students**.
@@ -1774,6 +1924,10 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 #### Blueprint Course stewardship specifications
 
+- [ ] Blueprint Courses have a searchable boolean Promoted flag.
+  - Mismatch: `schemas/base_schema/blueprints.sql` has no Promoted boolean and `schemas/base_schema/blueprint_operations.sql` Blueprint discovery has no Promoted filter. Current Blueprint schema, server/list Store and browser search contain no implemented promotion contract.
+- [ ] Sysadmins exclusively control the Promoted flag.
+  - Mismatch: the Promoted flag and mutation/search boundary are absent from current Blueprint schema, API and browser implementation. Exclusive Sysadmin mutation authority therefore lacks implementation; existing owner-specific content/lifecycle authority does not establish promotion privileges. The concurrently removed equal-Instructor-standing clause is not a current requirement.
 - [ ] **Instructors** can Star or Watch Public and Archived Blueprint Courses.
   - Mismatch: No Blueprint Star or Watch model, route, or store operation was found.
 - [ ] A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
@@ -2009,26 +2163,26 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: each Course-summary read returned five coherent rows (changed, matching, removed, Type mismatch, automatically added) after lazy open/reopen at 1280 by 900 and 390 by 844. The changed Assessment then reviewed and applied with exact source Revision 2 and daughter Edit CAS; the Course refresh showed the applied match. Student and unrelated reads returned `404 no-store`; a private parent was concealed from another Instructor in the privileged-availability fixture; Archived review remained available and new adoption was denied. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` supplies one Course-level Review action, clear per-Assessment status labels, Refresh, and links to the existing Assessment detail Review/Apply workflow.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in compiled-main browser proof at 1280 by 900 and 390 by 844: lazy open/reopen GET behavior produced the five-row Course summary and the Course-to-Assessment detail review. Cancel issued zero POST requests; Apply used exact source Revision 2 plus daughter Edit CAS and a returning Course refresh showed the match. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] It should be obvious when a daughter Course Instance is based on an older Blueprint Revision.
   - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_api.load_course_instance`, `crates/learning-data-access/src/postgres/course_instance.rs` `decode_view`, `src/api/decoders/course_instance.ts` `decodeCourseInstanceView`, and `src/pages/course_instance_page.tsx` `CourseInstancePage` use the authorized parent origin and exact adopted/current Revision projection for the same visible notice.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` was covered by independently accepted actual-server/exact-main proof across empty, current, newer, and explicit synthetic Private-origin states; the visually inspected newer capture showed both Revision values and the stale notice. It preserved the original adoption pin, Assessment, and entries; its Work tables were empty, so this proof makes no populated-Student-Work claim. Unauthorized Student and unrelated-Instructor reads returned `404 no-store`. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`.
   - Decision: This duplicate course-view indication does not implement the separate Blueprint update offer, review, approval, or apply workflow.
 - [ ] The **Instructor** decides which changes to existing Assessments to incorporate.
   - Verification pending: source-audit this changed requirement against its current parent section and the existing implementation; no full current-scope proof is claimed by the prior wording.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` and the PostgreSQL Blueprint Store Save implement the same automatic-new append boundary documented in the earlier identical row.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` accepted connected proof and existing adoption lifecycle regression preserve exact pins/settings, distinct daughter Pool IDs, existing Student Work, original adoption pin, Unreleased state, and unset dates. Artifacts: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8` and `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` inserts only validated newly added Assessments and does not update existing daughter Assessments.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` proves the same negative invariant after changing retained source content, preserving daughter content/entries/actual Student Work through Save/replay/no-op/stale operations. Artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 
 ### Course short and long name specifications
 
@@ -2046,7 +2200,6 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: This is an illustrative name example, not an implementation requirement.
 - [x] Course Instance names are properties of the Course Instance and are not derived from Blueprint Course names.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` requires independently supplied `short_name` and `long_name`.
-
 ## Assessment specifications
 
 - [ ] **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
@@ -2152,13 +2305,13 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintCourseModuleContent` contains ordered `BlueprintAssessmentContent`; `schemas/base_schema/blueprints.sql` `blueprint_revision_assessment` records each stable Blueprint Assessment member of a Blueprint Course Revision.
 - [x] Blueprint Assessments define reusable Assessment content and teaching settings.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` validates reusable content and `BlueprintAssessmentDefaults` before a Blueprint Course Revision is constructed.
-  - Owner: 09_assessments.md > Assessment specifications (first current-source occurrence).
+  - Owner: Assessment specifications (first identical Human Guidance occurrence).
 - [x] Blueprint Assessments have an Assessment Type.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `assessment_type` requires the closed five-Type value; `src/api/decoders/blueprint_course.ts` `assessmentType` strictly requires it in both reusable-content input and view decoding without fallback.
   - Evidence (test): `tests/test_blueprint_course_client.mjs` `B1 client sends Revision and metadata validators to their separate routes` covers create/save/view Type round trips plus missing and unknown rejection; the focused Blueprint client lane passed 16/16.
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
   - Mismatch: Ordered entries exist, but published Question and Pool Assessment behavior is not verified.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint Course JSON specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint Course JSON specifications (first identical Human Guidance occurrence).
 - [ ] Blueprint Assessments define Question point values and points possible.
   - Mismatch: Point values exist in Assignment source, but Blueprint Assessment behavior is not verified.
 - [ ] Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
@@ -2224,7 +2377,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Blueprint Assessments do not use Assessment Templates.
   - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates outside Courses and Blueprints; the by-value path creates only direct Course Assessments.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy to a direct Course Assessment without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
-  - Owner: 09_assessments.md > Assessment specifications > Blueprint Assessment specifications (first current-source occurrence).
+  - Owner: Assessment specifications > Assessment content specifications > Blueprint Assessment specifications (first identical Human Guidance occurrence).
 
 ### Course Instance Assessment release and defaults
 
@@ -2395,7 +2548,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
   - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
-  - Mismatch: Visible unanswered-state behavior needs runtime evidence.
+  - Mismatch: supplied parent actual Avery R-4 submitted/expired summary shows unanswered Q1/Q3/Q4 as `This question is closed.`, `Marked not correct.`, `0 of 1 points`, and `Your response is not available.`, not explicitly Unanswered. `src/pages/assessment_attempt_summary_page.tsx` renders the closed/no-response wording. This is observed presentation mismatch, not missing observation; the separate source correction and rendered proof remain pending.
 - [x] An unanswered Question receives zero credit and counts as incorrect without being sent to the
   Question Backend.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` treats null retained credit as unanswered zero earned points while retaining current points possible; evaluated zero credit remains a distinct grading outcome.
@@ -2407,7 +2560,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
   state.
   - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
-  - Owner: 07_questions.md > Question specifications > Question Backend specifications > Question Backend grading and feedback (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
 - [ ] The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
   - Mismatch: Student grading-outcome timing needs runtime evidence.
 
@@ -2415,25 +2568,34 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 - [ ] Each Assessment Attempt has a time limit.
   - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_effective_base_duration_seconds` resolves a finite default or positive Instructor override for current deliverable content.
-  - Mismatch: Fresh SQL release of two Questions resolves the NULL default to 180 seconds, but the subsequent Student start currently fails `Assessment Attempt requires 1 to 250 Questions`. Artifact: `/private/tmp/ple-finite-default-start.WF7OmA/proof.log`. Connected default delivery is therefore not accepted.
+  - Evidence (runtime): accepted independent PostgreSQL 17 SQL evidence reproduced the former role-order failure, then released a two-fixed-Question NULL-default Assessment and started it as the ordinary Student with a snapshotted 180-second duration and deadline. Resume returned the same Attempt with unchanged start and expiration. Artifact: `/private/tmp/ple-finite-duration-role-artifacts.TABP74/proof.log`. This is SQL-only, uses synthetic trusted fixture records, and does not establish HTTP, renderer, browser, or broad delivery acceptance.
+  - Verification pending: Real delivery, authentication, HTTP, renderer, and browser acceptance remain required.
 - [x] Each Assessment may contain at most 250 Questions.
-  - Evidence (source): `schemas/base_schema/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork` counts delivered fixed entries and Pool selections before advancing the parent Assessment Edit Number.
-  - Evidence (runtime): `schemas/base_schema/assessment_pool_forks.sql` `ple_data.assessment_delivered_question_count` is exercised by accepted fresh PostgreSQL 17 proof that imported to 250, rejected 251 with `23514`, and verified atomic rollback of the child Pool, Revision, Entry, ownership association, and parent Edit Number. Artifact: `/private/tmp/ple-finite-pool-bound-artifacts.hoI0on/proof.log`. This does not establish browser or general timing behavior.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` defines `ple_data.assessment_delivered_question_count`; `schemas/base_schema/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork` calls it before advancing the parent Assessment Edit Number.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 proof exercised `schemas/base_schema/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork`, imported to 250, rejected 251 with `23514`, and verified atomic rollback of the child Pool, Revision, Entry, ownership association, and parent Edit Number. Artifact: `/private/tmp/ple-finite-pool-bound-artifacts.hoI0on/proof.log`. This does not establish browser or general timing behavior.
+- [ ] A Question Pool counts as the number of Questions selected from it for the Assessment Question
+  limit and default time calculation; selecting 3 of 199 Questions counts as 3.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_delivered_question_count` sums `selection_count` for available Pool entries; `schemas/base_schema/assessment_pool_forks.sql` supplies that positive selected count on import.
+  - Verification pending: No accepted connected multi-selection Pool timing proof establishes the new exact Human Guidance identity. The existing 250 import receipt is retained for the overall bound only.
 - [ ] The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
   - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_effective_base_duration_seconds` implements the current calculated default.
-  - Mismatch: The connected NULL-default start fails after release despite the two-Question default resolving to 180 seconds; arithmetic and delivery acceptance remain open. Artifact: `/private/tmp/ple-finite-default-start.WF7OmA/proof.log`.
+  - Evidence (runtime): accepted independent PostgreSQL 17 boundary SQL resolved 120, 180, 300, and 22500 seconds for 1, 2, 3, and 250 available fixed Questions, and refused empty or 251-Question content. Artifact: `/private/tmp/ple-finite-duration-role-artifacts.TABP74/boundaries.log`. The accepted two-Question SQL start/resume receipt is separate; neither receipt establishes browser or broad delivery acceptance.
+  - Verification pending: Multi-selection Pool arithmetic and browser or broad delivery acceptance remain required.
 - [ ] Instructors can override the default time limit up to 12 hours.
-  - Evidence (source): `crates/question_model/src/assessment.rs` `AssessmentAttemptTimeLimit` bounds a positive explicit override at 43200 seconds.
-  - Verification pending: Accepted Instructor override save/read and delivery evidence remain required.
+  - Evidence (source): `crates/question_model/src/assessment.rs` `MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS` bounds a positive explicit override at 43200 seconds.
+  - Evidence (runtime): accepted independent PostgreSQL 17 boundary SQL accepts 43200 seconds and rejects 43201 with `check_violation`. Artifact: `/private/tmp/ple-finite-duration-role-artifacts.TABP74/boundaries.log`. This is not an accepted real Instructor override save/read or delivery workflow.
+  - Verification pending: Accepted real Instructor override save/read and delivery evidence remain required.
 - [ ] The interface should show the calculated default time limit and provide a specific Instructor override.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` renders calculated default and explicit override controls.
   - Verification pending: Actual browser acceptance of display, save, clear-to-default, and reload remains required.
 - [ ] Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
-  - Evidence (source): Existing private SQL accommodation settings supply absolute seconds, not a 1.5X/2X ratio model or Instructor accommodation interface.
-  - Mismatch: Individual ratio accommodations and their interface/default interactions are not implemented or verified.
+  - Evidence (source): the in-progress `assessment_student_time_accommodation` slice is not accepted implementation evidence; its handoff is `/private/tmp/ple-student-time-accommodation-slice.md`.
+  - Evidence (runtime): `src/pages/assessment_workspace/assessment_student_time_accommodations.tsx` `AssessmentStudentTimeAccommodations`, supplied parent 2026-09-16 current-demo browser/HTTP receipt: Elena selected active-roster Avery, saved 1.5X and 2X, and authenticated GET confirmed effective 2700 and 3600 seconds from base 1800. Custom 100 saved at the 86400-second cap; Standard restored 1800. Actual controls and accepted writes were observed; `/private/tmp/ple-accommodation-live-restored.png` records restored state.
+  - Verification pending: independent source review and remaining calculated-default/override, malformed-input, authorization-denial, and concurrency boundaries are not established by this bounded supplied receipt.
 - [ ] Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit
   up to 24 hours.
-  - Mismatch: Existing absolute-second accommodations are neither a ratio model nor an enforced effective 24-hour cap.
+  - Evidence (runtime): `src/pages/assessment_workspace/assessment_student_time_accommodations.tsx` `AssessmentStudentTimeAccommodations`, supplied parent 2026-09-16 actual current-demo controls/HTTP proof: base 1800 resolves to 2700 at 1.5X, 3600 at 2X, and 86400 with capped=true at custom 100. Standard restores 1800 uncapped. Avery's authenticated `/api/assessment-attempts/R-4/context` reads before and after retain expiresAt=1789577036608 exactly; original null multiplier was restored. Artifact `/private/tmp/ple-accommodation-live-restored.png`. This is valid-write, effective-cap, and active-clock-nonextension evidence only.
+  - Verification pending: independent source review plus remaining calculated-default/override, malformed-input, authorization-denial, and race boundaries are required before whole-row acceptance.
 - N/A Attempt time limits help **Students** develop an accurate sense of expected working speed.
   - Reason: audited pedagogical purpose, not a separately testable PLE behavior or demonstrated learning effect. The preceding time-limit/default/override/accommodation requirements remain binding implementation requirements.
 - [x] Assessment Attempts use wall-clock time.
@@ -2457,7 +2619,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Verification pending: The accepted SQL boundary does not establish rendered presentation or actual Backend transport.
 - [ ] Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
   - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof retains an unanswered Question without submission/grading evidence and reports it incorrect at `0 / 8`. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
-  - Verification pending: Rendered visibly-unanswered presentation remains unobserved.
+  - Mismatch: supplied parent actual expired Avery R-4 summary renders Q1/Q3/Q4 as Closed and response unavailable, rather than explicitly Unanswered, with incorrect `0 / 1` each. Q2 retains all four exact MATCH pairs, permitted feedback, and correct `1 / 1`; total is `1 / 4`. `src/pages/assessment_attempt_summary_page.tsx` supplies this closed/no-response wording. SQL zero-credit proof remains accepted; queued presentation correction and rendered recheck are separate.
 - [ ] Unanswered Questions are not sent to the Question Backend.
   - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof excludes the unanswered Question from the prepared backend work set. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
   - Verification pending: Actual Backend transport exclusion remains unobserved.
@@ -2482,7 +2644,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: Assignment point values exist, but the HG Assessment model is not implemented.
 - [ ] A Question Backend returns an immutable credit fraction for each complete response it evaluates.
   - Mismatch: The live WeBWorK submission check observes stored credit, but no direct adapter test proves a Question Backend returns that fraction as an immutable outcome.
-  - Owner: 07_questions.md > Question specifications > Question Backend specifications > Question Backend grading and feedback (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
 - [x] PLE stores the credit fraction as the Question grading outcome.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` inserts the supplied credit fraction into `ple_private.grading_result.normalized_credit`, constrained to the inclusive unit interval and retained under `grading_result_is_immutable`.
   - Evidence (runtime): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` is invoked by the accepted private PostgreSQL 17 production-SQL lifecycle fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the submitted `0.5` fraction while rescoring current points from `8` to `13`. This SQL-only fixture simulates the initial synchronous Backend credit and does not establish Backend transport or HTTP.

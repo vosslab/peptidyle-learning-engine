@@ -35,6 +35,10 @@ pub(super) struct ReceiptQuestion {
 }
 
 impl Receipt {
+    pub(crate) fn blueprint_reference(&self) -> &str {
+        &self.blueprint_reference
+    }
+
     pub(crate) fn installation_summary(&self) -> String {
         let question_count = self
             .topics

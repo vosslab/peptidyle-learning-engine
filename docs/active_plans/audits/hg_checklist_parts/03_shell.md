@@ -9,8 +9,19 @@
   - Mismatch: No repository-wide visual audit verifies this across PLE pages.
 - [ ] Similar pages should place similar controls in consistent locations.
   - Mismatch: No cross-page implementation evidence verifies the whole-product requirement.
+- [ ] Use headings and action labels that reflect the current state and next useful step.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Match feedback wording and visual emphasis to the outcome: success, information, warning, or
+  error. Make the result and any next action easy to recognize.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Primary actions should be easy to find and appear near the content or workflow they affect.
   - Mismatch: No whole-product browser or usability evidence verifies this broad requirement.
+- [ ] Identify the object and relevant context before an action that changes membership or stored
+  settings, so users can recognize what they are accepting or changing.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Use concise helper text near the control it explains. Present shared explanations once per
+  relevant group and keep the main task information easy to scan.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Avoid scattering related actions across page headers, menus, navigation, and content areas.
   - Mismatch: Current top-bar Sign Out contradicts the specified Profile-menu location.
 - [ ] Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
@@ -20,11 +31,12 @@
 
 ### Information density and layout
 
-- [x] Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
+- [x] Design Instructor and **Sysadmin** workflows for laptop browsers, using a 1280 by 800 viewport
+  as the layout target.
   - Evidence (source): `tests/playwright/ui_corpus_manifest.ts` `RIBBON_RESPONSIVE_PROFILES` and `SYSADMIN_DESKTOP_CONTEXT_OPTIONS` declare 1280 by 800 desktop contexts for both staff roles.
   - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` verifies the Instructor desktop shell and `assertSysadminDesktopRibbon` verifies the Sysadmin Ribbon has no overflow with Instructor Accounts and Scoped Support visible.
   - Evidence (source): `src/pages/role_home_pages.tsx` `SysadminHomePage` presents the backed Instructor Accounts and Scoped Support operations reached by the checked Sysadmin desktop model.
-  - Decision: A one-time real-shell keyboard/page probe for Sysadmin Instructor Accounts and Scoped Support passed and was removed rather than retained as a permanent page-script test. The permanent responsive evidence is role/viewport behavior, not a fixed page sequence.
+  - Decision: retained viewport-target evidence supports this equivalent design-target rewrite, not whole-product usability or all staff workflows.
 - [x] PLE often presents large collections where users need to find a few relevant items.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders the Question Library collection surface.
 - [ ] Optimize large collections for scanning, searching, filtering, and comparison.
@@ -51,9 +63,29 @@
   - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 - [ ] Keep the visual design compact, flat, information dense, and consistent across PLE.
   - Mismatch: No complete rendered-product audit verifies all four whole-product attributes.
+- [ ] Use compact rows, restrained corner rounding, and controls sized to their task.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Present short labels and values in aligned rows or compact grids, adapting to stacked groups
+  when the available width requires them.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Give each object one clear title within its list entry. Group its metadata and actions beneath
+  or alongside that title.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Preserve readable text and reachable controls as users enlarge text or zoom the page.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 ### Interaction design
 
+- [ ] Use progressive disclosure to keep common tasks compact while making supporting details easy
+  to find.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Use tooltips for brief supplementary explanations, available on hover and keyboard focus.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Use clearly labeled expandable sections with chevrons for longer details and secondary settings,
+  supporting keyboard, pointer, and touch interaction.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Keep essential information, primary actions, and current status visible in the main interface.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Use drag-and-drop where it makes reordering faster and more natural.
   - Mismatch: No implemented drag-and-drop reordering surface was found in the audited shell evidence.
 - [x] Reordering must also have a precise keyboard-accessible method.
@@ -82,6 +114,18 @@
   - Mismatch: `src/features/course_appearance/course_theme_registry.ts` `theme` derives one appearance from three anchors using white surfaces; there is no coordinated light/dark mode registry or selector.
 - [ ] Course Theme colors should remain accessible in their actual interface uses.
   - Verification pending: `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` provides the existing 15-theme registry, not acceptance of the expanded palette specification. Current rendered distinctness and actual-use accessibility, coordinated light/dark behavior, and the specification cutover require separate proof.
+- [ ] Light themes should use clearly light page backgrounds; dark themes should use clearly dark page
+  backgrounds. Use theme colors as accents on surfaces with readable contrast.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Check text, controls, borders, and interaction states against their actual rendered backgrounds.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Apply the contrast requirements for text, controls, and other semantic uses in
+  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md)
+  to rendered components in both light and dark themes, including gradients and state backgrounds.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+- [ ] Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain
+  recognizable across themes and color-vision differences.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [x] Course Theme IDs are durable; changing a theme's display name or colors should not require a new ID.
   - Evidence (source): `crates/question_model/src/course_appearance.rs` `CourseTheme` and `as_str` own durable serialized IDs; `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` keys display names and colors separately by those IDs, including stored `grass` displayed as Grassland. Name/palette changes do not change the identity field.
 - [ ] Follow `docs/BIOME_THEME_PALETTES.md` for Course Theme names, palettes, accessibility, and implementation.
@@ -120,6 +164,9 @@
   - Evidence (test): `tests/playwright/ribbon_geometry_evidence.mjs` `chromeAboveContent` verifies reserved row tokens and shell track geometry.
 - [x] Page actions should appear near the content they affect rather than changing the Ribbon layout.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` renders only catalog navigation and Sign Out in `AppRibbon`; task content stays in `ApplicationShell` content.
+- [ ] On narrow Student screens, use a compact navigation arrangement that keeps the product identity,
+  current location, navigation controls, and Profile readable and reachable.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [x] See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` composes `AppRibbon` and `BreadcrumbPrelude`.
 

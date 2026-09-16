@@ -116,9 +116,9 @@ async fn make_attempt(
         .expect("private fixture role");
     sqlx::query(
         "INSERT INTO ple_private.student_assessment_accommodation (accommodation_id, student_record_id, \
-         assessment_id, available_at, due_at, closes_at, assessment_attempt_time_limit_seconds, \
+         assessment_id, available_at, due_at, closes_at, time_multiplier, \
          assessment_attempt_limit, created_at) VALUES ($1, $2, $3, clock_timestamp() - interval '1 hour', \
-         clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', 60, 1, clock_timestamp())",
+         clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', 1, 1, clock_timestamp())",
     ).bind(Uuid::from_u128(assessment_id.as_u128() + 0x100)).bind(Uuid::parse_str(STUDENT_RECORD).unwrap()).bind(assessment_id)
         .execute(&mut *tx).await.expect("Student accommodation");
     set_student(&mut tx).await.expect("Student API session");

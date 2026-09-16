@@ -6,8 +6,8 @@ no implemented-system claim, by the named audit-classification correction.
 
 ## Current ownership and expanded gaps
 
-The current ordered checklist has 890 bullets: 448 verified, 396 open
-(388 owning), and 46 N/A. The [implementation checklist](human_guidance_implementation_checklist.md)
+The current ordered checklist has 943 bullets: 452 verified, 443 open
+(435 owning), and 48 N/A. The [implementation checklist](human_guidance_implementation_checklist.md)
 owns current wording, occurrence status, evidence limitations, and duplicate first-owner pointers.
 Existing A/C identifiers below remain correction provenance, not ordinal HG identities.
 A4-06 lifecycle and A4-07 fork records now route to Course specifications/Part 08;
@@ -17,9 +17,25 @@ are removed from the current checklist; historical correction context is not res
 - Part 03 / Role colors and themes: coordinated light/dark and specification cutover are missing;
   distinctness and actual-use accessibility need scoped rendered proof. Durable IDs have narrow
   source proof, not whole-palette acceptance.
+- Part 03-05 / expanded interface guidance: five compact Attempt-navigation rows have bounded
+  source/rendered acceptance, including the 250-Question harness and 200% enlargement. Full
+  before-start/review density, intermediate-width Student layouts, narrow Ribbon, global feedback,
+  progressive disclosure, and actual light/dark theme-state contrast remain open.
+- Part 01 / installation: current-demo Public Genetics discovery and the ordinary retained-example
+  publisher source are accepted context. Fresh default/opt-out installation, unchanged-Revision
+  replay, and connected discovery/adoption remain pending, so shipped-example/default-installation
+  requirements are open rather than inferred from the existing demo.
+- Part 07 / Native Question response presentation: shared bank, partial/reset validation, exact
+  four-choice Save/reload, and native mouse drag receipts are retained. Shared-bank desktop
+  presentation and keyboard assigning/changing/clearing parity are verified; the latter uses
+  normal Tab/Space/Enter swap/Clear/restore/Save. The remaining two rows stay open for adapted
+  content/meaning/grading and full bank pointer/touch reachability.
 - Part 07 / Draft publication, Published Question and Question Pool metadata, Library metadata:
   required shared metadata, Pool metadata/support, and Subject/Topic/Subtopic hierarchy are not
   established by Question-only nullable Subject/Topic and Title/Description fields.
+  The new Discipline hierarchy and Sysadmin-managed vocabulary/lifecycle, Instructor selection,
+  editable Subjects, progressively allowed name lengths, and consistent trim/validation are
+  binding implementation requirements; current Question-only metadata does not satisfy them.
 - Part 07 / PLE support: accepted C910 general-feedback receipts remain partial context; independent
   Hints/Worked Solutions, disclosure, Pool attachment, coexistence, and Revision behavior remain open.
 - Part 07 / Library object statistics and Bloom metadata: Pool statistics and the two independent
@@ -30,15 +46,17 @@ are removed from the current checklist; historical correction context is not res
 - Part 09 / Assessment Unrelease: current deletion/reset source is partial proof; re-audit explicit
   deletion scope, Student unavailability, teaching-definition retention, normal editing/revalidation,
   and empty later-release work. Preserve accepted unchanged scoring closures and their limitations.
-- Part 09 / Attempt timing: finite duration, 250 delivered Questions, calculated default, explicit
-  override, and accommodation rows are reconciled to current Human Guidance. The accepted Pool
-  import proof closes the 250 bound only. A fresh two-Question NULL-default release resolves 180
-  seconds, but Student start fails `Assessment Attempt requires 1 to 250 Questions`; default and
-  delivery acceptance remain open. Ratio/UI accommodations and the effective 24-hour cap remain
-  unimplemented. The working-speed rationale is audited N/A as pedagogical purpose, not a
-  demonstrated learning effect. Exact unchanged same-identity SQL resume is verified; cross-browser
-  session resume remains open. Mixed expiry-worker SQL finalization is proven, but rendered
-  unanswered presentation and actual Backend transport exclusion remain pending.
+- Part 09 / Attempt timing: finite duration, 250 delivered Questions, Pool selection count,
+  calculated default, explicit override, and accommodation rows are reconciled to current Human
+  Guidance. The accepted Pool import proof closes the 250 bound only; multi-selection Pool timing
+  proof remains open. Accepted independent SQL reproduces the former role-order failure, then proves
+  1/2/3/250 default arithmetic, empty/251 refusal, the 12-hour constraint, and ordinary
+  Instructor-release/Student-start/resume with a 180-second snapshot. It is not browser, HTTP,
+  renderer, real Instructor override-save, or broad delivery acceptance. Ratio/UI accommodations
+  and the effective 24-hour cap remain incomplete and unverified. The working-speed rationale is
+  audited N/A as pedagogical purpose, not a demonstrated learning effect. Cross-browser session
+  resume remains open. Mixed expiry-worker SQL finalization is proven, but rendered unanswered
+  presentation and actual Backend transport exclusion remain pending.
 
 ## A1: Development principles and product vocabulary
 
@@ -2354,3 +2372,11 @@ After dependency-closed tranche, use only existing Browser Suite lease:
     source source_me.sh && ./launchers/all_test.sh
 
 Then generator build/diff/consistency. Do not start, stop, replace, or clean up the shared Browser Suite.
+
+Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
+Blueprint Promoted and exclusive Sysadmin control are binding open
+gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
+disabled navigation says `Question - of 4` and `0 saved`; the five active-navigation closures
+remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
+pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-
+unavailable wording is an observed visibly-unanswered mismatch, not unobserved behavior.

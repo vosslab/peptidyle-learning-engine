@@ -13,6 +13,7 @@ import { useApplicationApi } from "../../api/application_api";
 import { ApiRequestError } from "../../api/http_client/error";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { AssessmentFixedQuestionPointsEditor } from "./assessment_fixed_question_points_editor";
+import { AssessmentStudentTimeAccommodations } from "./assessment_student_time_accommodations";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
@@ -839,6 +840,9 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
           )}
         </Show>
       </fieldset>
+      <AssessmentStudentTimeAccommodations
+        ready={!busy() && !needsReload() && allBaseAssessmentPolicyEditsPersisted(policyState())}
+      />
     </section>
   );
 }

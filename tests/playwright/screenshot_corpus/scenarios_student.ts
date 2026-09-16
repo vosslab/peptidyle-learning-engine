@@ -217,17 +217,19 @@ function attemptQuestion(session: CaptureSession, name: string): Locator {
 
 async function saveCurrentResponse(session: CaptureSession): Promise<void> {
   const responseControl = attemptSurface(session).locator("section.question-response-control");
-  const responseChoices = responseControl.locator(
-    'input[type="radio"], input[type="checkbox"], button[role="radio"]',
-  );
-  await responseChoices.first().waitFor();
-  const matchingGroups = responseControl.locator('[role="group"]');
-  const matchingGroupCount = await matchingGroups.count();
-  if (matchingGroupCount > 0) {
-    for (let index = 0; index < matchingGroupCount; index += 1) {
-      const matchingGroup = matchingGroups.nth(index);
-      await matchingGroup.locator('button[role="radio"][aria-disabled="false"]').first().click();
-      await matchingGroup.locator('button[role="radio"][aria-checked="true"]').waitFor();
+  const matchingSlots = responseControl.locator(".matching-slot[data-prompt-id]:not(:disabled)");
+  if ((await matchingSlots.count()) > 0) {
+    const slotCount = await matchingSlots.count();
+    for (let index = 0; index < slotCount; index += 1) {
+      const choice = responseControl
+        .locator(".matching-bank button[data-choice-id]:not(:disabled)")
+        .first();
+      const slot = matchingSlots.nth(index);
+      await choice.click();
+      await slot.click();
+      await slot
+        .getByText("Assign selected choice", { exact: true })
+        .waitFor({ state: "detached" });
     }
   } else {
     const nativeChoices = responseControl.locator('input[type="radio"], input[type="checkbox"]');
@@ -239,9 +241,12 @@ async function saveCurrentResponse(session: CaptureSession): Promise<void> {
 
 async function waitForRestoredResponse(session: CaptureSession): Promise<void> {
   const responseControl = attemptSurface(session).locator("section.question-response-control");
-  const matchingGroups = responseControl.locator('[role="group"]');
-  if ((await matchingGroups.count()) > 0) {
-    await responseControl.locator('button[role="radio"][aria-checked="true"]').first().waitFor();
+  const matchingSlots = responseControl.locator(".matching-slot[data-prompt-id]");
+  if ((await matchingSlots.count()) > 0) {
+    await matchingSlots
+      .first()
+      .getByText("Assign selected choice", { exact: true })
+      .waitFor({ state: "detached" });
     return;
   }
   await responseControl

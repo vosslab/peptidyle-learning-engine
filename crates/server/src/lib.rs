@@ -11,9 +11,9 @@ pub(crate) mod assessment_delivery;
 mod assessment_pool_fork;
 /// Count-only Instructor command for an Assessment-owned Question Pool entry.
 mod assessment_pool_selection_count;
-mod assessment_student_time_accommodation;
 /// Direct-Instructor Assessment Workspace and immutable release routes.
 pub(crate) mod assessment_release;
+mod assessment_student_time_accommodation;
 /// Answer-free, no-write Instructor Student View delivery routes.
 pub(crate) mod assessment_student_view;
 /// Private owner-only Assessment Template CRUD subset.

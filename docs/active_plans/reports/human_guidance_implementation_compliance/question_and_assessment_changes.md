@@ -4,9 +4,20 @@
 
 Current status and retained evidence are recorded in [compliance_summary.md](compliance_summary.md)
 and the [implementation checklist](../../audits/human_guidance_implementation_checklist.md).
-Blueprint lifecycle/forks/comparison now belong to Course specifications (Part 08); Assessment
-type appearance belongs to Instructor interface (Part 04). Earlier topical inventories are
-historical context, not current wording, counts, source-line pointers, or ownership.
+943 bullets, 452 verified, 443 open (435 owning), and 48 N/A.
+New UI/MATCH requirements and Discipline classification are reconciled verbatim there. Accepted
+compact Attempt-navigation receipts close only their bounded rows; wider Student/theme/MATCH
+proof and fresh-install Genetics acceptance remain open. Native response presentation belongs
+to Part 07. Blueprint lifecycle/forks/comparison belong to Part 08 and Assessment type appearance
+to Part 04. Earlier inventories are historical context, not current wording or ordinal ownership.
+
+Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
+Blueprint Promoted and exclusive Sysadmin control are binding open
+gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
+disabled navigation says `Question - of 4` and `0 saved`; the five active-navigation closures
+remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
+pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-
+unavailable wording is an observed visibly-unanswered mismatch, not unobserved behavior.
 
 ## Scope
 
@@ -22,12 +33,14 @@ The authoritative exhaustive record is the
 ## Evidence updates
 
 - Current timing integration uses Human Guidance SHA256
-  `6f64d0bb877de5a8be3951dd5514fe0eb2fd5c5f3060b21940230b03a2fde481` and preserves prior
+  `e1bff34982563f3e3100aa23e3744134ff004b382984bb65a3bb27d5fe74db6b` and preserves prior
   reconciliation and scoring evidence. The accepted 250 delivered-Question import bound closes
-  only that row. A fresh two-Question NULL-default release resolves 180 seconds, but the subsequent
-  Student start fails `Assessment Attempt requires 1 to 250 Questions`; no default/delivery,
-  override, or browser acceptance follows. Individual 1.5X/2X ratio/UI accommodations and the
-  effective 24-hour cap remain unimplemented; existing private absolute-second SQL is not closure.
+  only that row; the new Pool-selection-count identity remains open pending connected multi-selection
+  timing proof. Accepted independent SQL reproduces the former role-order failure, then proves
+  fixed-entry 1/2/3/250 default arithmetic, empty/251 refusal, the 12-hour constraint, and an
+  ordinary Instructor-release/Student-start/resume 180-second lifecycle. It does not establish
+  browser, HTTP, renderer, real Instructor override save, or broad delivery acceptance. The
+  incomplete accommodation slice is not ratio/UI or effective-24-hour-cap acceptance.
 - Accepted fresh PostgreSQL 17 `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`
   (exit 0) closes only unchanged resume: the same Student's second start SQL call returns the
   original Attempt, exactly one Attempt exists, and original start/expiry stay exactly eight
@@ -764,29 +777,35 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Each Assessment Attempt has a time limit.
   - Source: `docs/HUMAN_GUIDANCE.md:1200`
 
+- Each Assessment may contain at most 250 Questions.
+  - Source: `docs/HUMAN_GUIDANCE.md:1201`
+
+- A Question Pool counts as the number of Questions selected from it for the Assessment Question limit and default time calculation; selecting 3 of 199 Questions counts as 3.
+  - Source: `docs/HUMAN_GUIDANCE.md:1202-1203`
+
 - The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
-  - Source: `docs/HUMAN_GUIDANCE.md:1202`
-
-- Instructors can override the default time limit up to 12 hours.
-  - Source: `docs/HUMAN_GUIDANCE.md:1203`
-
-- The interface should show the calculated default time limit and provide a specific Instructor override.
   - Source: `docs/HUMAN_GUIDANCE.md:1204`
 
-- Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
+- Instructors can override the default time limit up to 12 hours.
   - Source: `docs/HUMAN_GUIDANCE.md:1205`
 
+- The interface should show the calculated default time limit and provide a specific Instructor override.
+  - Source: `docs/HUMAN_GUIDANCE.md:1206`
+
+- Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
+  - Source: `docs/HUMAN_GUIDANCE.md:1207`
+
 - Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit up to 24 hours.
-  - Source: `docs/HUMAN_GUIDANCE.md:1206-1207`
+  - Source: `docs/HUMAN_GUIDANCE.md:1208-1209`
 
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
-  - Source: `docs/HUMAN_GUIDANCE.md:1208`
+  - Source: `docs/HUMAN_GUIDANCE.md:1210`
 
 - A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
-  - Source: `docs/HUMAN_GUIDANCE.md:1212`
+  - Source: `docs/HUMAN_GUIDANCE.md:1214`
 
 - Resuming an Attempt does not reset or extend its expiration time.
-  - Source: `docs/HUMAN_GUIDANCE.md:1213`
+  - Source: `docs/HUMAN_GUIDANCE.md:1215`
 
 - When an Attempt expires, PLE submits the whole Attempt and finalizes its saved responses.
   - Source: `docs/HUMAN_GUIDANCE.md:1216`

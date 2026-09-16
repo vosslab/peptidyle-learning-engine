@@ -435,20 +435,11 @@ function AttemptExperience(props: {
           </p>
         }
       >
-        {(currentProgress) => (
-          <>
-            <Show when={currentPosition() !== null}>
-              <p class="eyebrow">
-                Question {currentPosition()} of {currentProgress().questionCount}
-              </p>
-            </Show>
-            <StudentAssessmentAttemptNavigation
-              positions={positions()}
-              currentPosition={currentPosition()}
-              onPositionActivate={(nextPosition) => void activatePosition(nextPosition)}
-            />
-          </>
-        )}
+        <StudentAssessmentAttemptNavigation
+          positions={positions()}
+          currentPosition={currentPosition()}
+          onPositionActivate={(nextPosition) => void activatePosition(nextPosition)}
+        />
       </Show>
 
       <Show when={loadError()}>

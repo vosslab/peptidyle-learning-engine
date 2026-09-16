@@ -29,10 +29,14 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Write plans in plain, concrete language. Use technical terms when they add precision.
   - Reason: agent instruction, not implemented PLE product behavior.
-- N/A Prioritize positive prompting. Avoid naming unneeded tools. Positive prompting plus omission is better.
-  - Reason: agent instruction, not implemented PLE product behavior.
-- N/A Small LMs mishandle negative prompting and flip negative instructions producing poor code and egregious results.
-  - Reason: agent instruction, not implemented PLE product behavior.
+- N/A Prioritize positive prompting. Phrase instructions as concrete actions such as "Do X" or "Use Y".
+  - Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior.
+- N/A Name only the tools and responsibilities needed for the assigned task. Positive prompting plus
+  omission keeps agent instructions focused on the intended actions.
+  - Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior.
+- N/A Small LMs may interpret negative instructions as actions to perform. State the desired behavior
+  directly, including when assigning responsibilities to agents.
+  - Reason: audited agent workflow guidance; it makes no claim about implemented PLE behavior.
 - N/A Classify one-time checks separately from permanent tests.
   - Reason: agent instruction, not implemented PLE product behavior.
 - N/A Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
@@ -96,16 +100,21 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 ### PLE development rules
 
-- [x] A fresh production installation includes the complete Live Demo by default.
+- [ ] A fresh production installation includes the complete Live Demo by default.
   - Evidence (source): `local_stack_control/lifecycle.py` `provision_ready_installation_data` provisions installation data after readiness.
   - Evidence (test): `tests/test_local_stack_demo_provisioning.py` `test_ready_installation_data_uses_one_canonical_migrator_command_after_readiness` verifies default provisioning.
+  - Verification pending: installation source is implemented, but fresh default installation acceptance of the complete current Live Demo and retained Public Genetics example remains required.
 - [x] Treat the initial course content as shipped examples.
   - Evidence (source): `schemas/installation_data/live_demo.sql` `ple_data.course_instance` is seeded as installation-owned Live Demo teaching data.
 - [x] BiologyProblems.org content is free and open source.
   - Evidence (source): `content/genetics/ATTRIBUTION.md` `CC BY 4.0` records the bundled Biology Problems OER content license.
-- [x] The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
+- [ ] The Genetics Blueprint Course from BiologyProblems.org ships as the example course.
   - Evidence (source): `content/genetics/manifest.yaml` `short_name` and `long_name` define the bundled Genetics Blueprint.
-  - Evidence (source): `local_stack_control/lifecycle.py` `require_bundled_genetics_without_live_demo` verifies bundled Genetics installation data.
+  - Evidence (runtime): 2026-09-16, ordinary discovery through `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` confirms the current Live Demo has `BPSPXHX6` (`Genetics` / `Fall Genetics`) owned by the Example Content Account (`00000000-0000-0000-0000-000000000106`) and Public, with nine Assessments and 42 distinct Questions. Elena's ordinary Instructor discovery returns it as Public and not owned by her; its live detail route is `https://localhost:8269/blueprint-courses/BPSPXHX6`. The only teaching Course Instance remains `BCHM301`; no Course Instance was created for this correction.
+  - Decision: the ordinary owner API published only `BPSPXHX6` using its current ETag. This confirms current-demo discoverability without changing the normal Private-at-creation rule for new Blueprint Courses.
+  - Evidence (source): `crates/project-tools/src/installation_data.rs` `publish_bundled_genetics` resolves the validated receipt, requires Example Content owner access, publishes only a Private retained example with its current metadata ETag, and skips an already-Public replay. Reload requires Public, unchanged ownership, and unchanged content Revision; generic `curriculum_content/publication.rs` imports remain Private.
+  - Evidence (test): `tests/test_local_stack_demo_provisioning.py` `test_explicit_demo_opt_out_keeps_bundled_content_provisioning` passes with five other focused controller checks. The parent reports `cargo check -p project-tools` passed in 18.03 seconds; both changed Rust files pass rustfmt, the controller passes Pyflakes, and the temporary fixed-shell generation probe passes. These checks do not establish fresh-install behavior.
+  - Verification pending: fresh default and opt-out installation, unchanged-Revision replay, and ordinary non-owner Instructor discovery/adoption need connected disposable proof. `local_stack_control/lifecycle.py` `require_bundled_genetics_without_live_demo` now uses the current six-argument Public-only discovery call and checks `availability = 'public'` plus `is_owner`; the separate `read_course_theme(uuid)` check is unchanged. The corrected connected oracle was not run. Independent review of the installation fix remains pending.
 - N/A All Podman content on the Mac-Studio-36G machine belongs to this project.
   - Reason: human ownership statement about a named machine, not implemented PLE behavior.
 - N/A Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.

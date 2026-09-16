@@ -29,8 +29,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Time should be used efficiently. Agents and tokens are cheap; wall time is not.
 - Hard work should be broken into small, independently completable tasks.
 - Write plans in plain, concrete language. Use technical terms when they add precision.
-- Prioritize positive prompting. Avoid naming unneeded tools. Positive prompting plus omission is better.
-- Small LMs mishandle negative prompting and flip negative instructions producing poor code and egregious results.
+- Prioritize positive prompting. Phrase instructions as concrete actions such as "Do X" or "Use Y".
+- Name only the tools and responsibilities needed for the assigned task. Positive prompting plus
+  omission keeps agent instructions focused on the intended actions.
+- Small LMs may interpret negative instructions as actions to perform. State the desired behavior
+  directly, including when assigning responsibilities to agents.
 - Classify one-time checks separately from permanent tests.
 - Finish the obvious. Continue while the next safe step is defined by the plan, implied by the current task.
 - Robust means the software continues to function despite imperfect inputs, data, state, or behavior.
@@ -163,14 +166,22 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Important information should stand out from supporting information.
 - Related information should be visually grouped and aligned.
 - Similar pages should place similar controls in consistent locations.
+- Use headings and action labels that reflect the current state and next useful step.
+- Match feedback wording and visual emphasis to the outcome: success, information, warning, or
+  error. Make the result and any next action easy to recognize.
 - Primary actions should be easy to find and appear near the content or workflow they affect.
+- Identify the object and relevant context before an action that changes membership or stored
+  settings, so users can recognize what they are accepting or changing.
+- Use concise helper text near the control it explains. Present shared explanations once per
+  relevant group and keep the main task information easy to scan.
 - Avoid scattering related actions across page headers, menus, navigation, and content areas.
 - Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
 
 ### Information density and layout
 
-- Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
+- Design Instructor and **Sysadmin** workflows for laptop browsers, using a 1280 by 800 viewport
+  as the layout target.
 - PLE often presents large collections where users need to find a few relevant items.
 - Optimize large collections for scanning, searching, filtering, and comparison.
 - Show enough useful information at once to support comparison without excessive scrolling.
@@ -184,9 +195,21 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Use horizontal and vertical space efficiently without crowding information together. Related information should form clearly readable rows, columns, or groups.
 - Size controls and content regions for their contents and task. Avoid unnecessarily tall panels, empty states, Question previews, and other fixed-height regions.
 - Keep the visual design compact, flat, information dense, and consistent across PLE.
+- Use compact rows, restrained corner rounding, and controls sized to their task.
+- Present short labels and values in aligned rows or compact grids, adapting to stacked groups
+  when the available width requires them.
+- Give each object one clear title within its list entry. Group its metadata and actions beneath
+  or alongside that title.
+- Preserve readable text and reachable controls as users enlarge text or zoom the page.
 
 ### Interaction design
 
+- Use progressive disclosure to keep common tasks compact while making supporting details easy
+  to find.
+- Use tooltips for brief supplementary explanations, available on hover and keyboard focus.
+- Use clearly labeled expandable sections with chevrons for longer details and secondary settings,
+  supporting keyboard, pointer, and touch interaction.
+- Keep essential information, primary actions, and current status visible in the main interface.
 - Use drag-and-drop where it makes reordering faster and more natural.
 - Reordering must also have a precise keyboard-accessible method.
 - UUIDs should never appear in visible content, navigation URLs, or copyable links.
@@ -201,6 +224,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Courses use a fixed set of visually distinct biome and habitat themes.
 - Course Themes should have coordinated light and dark appearances.
 - Course Theme colors should remain accessible in their actual interface uses.
+- Light themes should use clearly light page backgrounds; dark themes should use clearly dark page
+  backgrounds. Use theme colors as accents on surfaces with readable contrast.
+- Check text, controls, borders, and interaction states against their actual rendered backgrounds.
+- Apply the contrast requirements for text, controls, and other semantic uses in
+  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md)
+  to rendered components in both light and dark themes, including gradients and state backgrounds.
+- Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain
+  recognizable across themes and color-vision differences.
 - Course Theme IDs are durable; changing a theme's display name or colors should not require a new ID.
 - Follow `docs/BIOME_THEME_PALETTES.md` for Course Theme names, palettes, accessibility, and implementation.
 
@@ -221,6 +252,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Changing a Ribbon selection changes the content below the Ribbon without moving the main content area up or down.
 - Ribbon rows should keep their space when needed so changing selections does not make the content area jump.
 - Page actions should appear near the content they affect rather than changing the Ribbon layout.
+- On narrow Student screens, use a compact navigation arrangement that keeps the product identity,
+  current location, navigation controls, and Profile readable and reachable.
 - See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
 
 ### User top bar interface
@@ -258,6 +291,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Instructor interface
 
 - The Instructor interface should make frequent teaching tasks fast and easy to find.
+- Keep the teaching content central in authoring and inspection workflows, with metadata and
+  supporting explanations arranged compactly around it.
+- Gradebook rows should identify Students by their Course roster names and Coursework by title,
+  with reference IDs as supporting information where useful.
 - The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
 - Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
 - All required ribbon choices remain visible even when their collection is empty.
@@ -375,6 +412,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Adding Questions should provide direct paths to Search and Browse Question Library.
 - Instructors should be able to inspect a Question before adding it to an Assessment.
 - Assessment Properties should group related settings so important settings are easy to find.
+- Present timing settings in familiar units such as minutes, with explicit units and clear
+  meanings for optional or unlimited values.
 - Instructors can randomize Question order for an Assessment.
 - Answer-choice randomization belongs to the Question, not the Assessment.
 - **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
@@ -415,6 +454,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Student interface should make the next useful action easy to find.
 - The Student menu is simpler than the Instructor menu.
 - Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
+- Student layouts should adapt smoothly at intermediate widths, with readable long titles and
+  controls that wrap or rearrange in the task's reading order.
 - Every Student browser action should be usable with the keyboard alone.
 - Student pages should use names meaningful to Students.
 - Student navigation and pages should contain only Student interfaces and capabilities.
@@ -426,32 +467,60 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Students enrolled in one active Course should go directly into that Course.
 - Students should be able to see their active Courses and Coursework from the main navigation.
+- Course invitations should show the Course name and relevant Instructor and term information
+  before the Student accepts the invitation.
 - Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
 - Coursework lists should make due dates, Type, and completion status easy to scan.
+- Keep Coursework entries compact in height so Students can scan several items at once.
+- Keep essential Coursework information and the main action visible, with fuller access and timing
+  details available through progressive disclosure.
 - Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
   **Bonus Assignments**, **Quizzes**, and **Exams**.
 - Each Coursework item should clearly show its Assessment Type using its label and Type icon.
 - Before starting Coursework, Students should see its title, Type, Question count, points possible,
   time limit, and previous Attempts.
+- Present the "Before you start" settings as a compact summary. Keep each label beside its value
+  in aligned rows, using a compact grid when width permits.
+- Group Question count and points together, and group availability, deadlines, and Attempt rules
+  into clearly readable sections with concise spacing.
+- Express unset or unlimited settings in Student language, such as "No closing time" or
+  "Unlimited Attempts", and show the time zone once beside the timing group.
+- Keep the start action close to this summary so Students can review the rules and begin with
+  minimal scrolling.
 
 #### Student Coursework interface
 
 - Students see one Question at a time while completing Coursework.
-- While completing Coursework, navigation should show every Question, its saved status, and allow
-  Students to jump directly between Questions.
+- While completing Coursework, navigation should provide access to every Question and its saved
+  status, with direct jumps between Questions.
 - Leaving a Question and returning should preserve its saved response.
 - The current Question and overall progress should remain easy to see.
 - The timer should be subtle and keep the focus on the Questions.
 - For timed Coursework, the remaining time should stay visible while moving between Questions.
 - Submission status should be obvious and use plain language.
+- Present Question navigation as a compact horizontal row of numbered controls, with distinct
+  current-Question and saved-status cues.
+- For long Question sets, use forum-style pagination with Previous and Next controls, the first
+  and last Question numbers, a range around the current Question, and ellipses for omitted ranges.
+- Adapt the visible number range to the available width while keeping every Question reachable.
+- Keep the Question prompt and response controls near the top of the working area. Give the
+  title, timing summary, and Question navigation only the space needed to orient Students.
+- Make the current Question, saved-response status, and keyboard-focused control visually distinct
+  so Students can recognize where they are, what work is saved, and which action they will activate.
+- Label response actions by their effect, such as "Save response" and "Clear response", so Students
+  can distinguish recording their work from changing it or submitting the whole Coursework.
+- Group response feedback near the response controls and keep routine saved-status messages brief.
 
 #### Student Coursework review interface
 
 - Scores and feedback should appear where the Coursework settings allow them.
 - Completed Coursework should remain easy to find and review.
+- Group each reviewed Question's number, result, points, recorded response, and permitted feedback
+  into a compact, clearly separated unit.
 
 ### Sysadmin interface
 
+- Sysadmin interface work is LOW, LOW priority and can be done on an as-needed basis.
 - The Sysadmin interface should focus on system administration.
 - The Sysadmin menu should make Accounts, Instructors, Courses, and system configuration easy to find.
 - Sysadmins should be able to find users quickly by name or email.
@@ -610,6 +679,17 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Native PLE JSON supports MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
 - External URLs used by native JSON Questions are explicitly recorded and reviewable.
 - Recorded external URLs include links, images, scripts, stylesheets, and other resources.
+
+#### Native Question response presentation
+
+- Native MATCH Questions should present prompts with a shared choice bank on laptop and desktop
+  screens. Display the full set of choices once alongside the prompts.
+- MATCH Questions should support drag-and-drop and an equally capable keyboard-only method for
+  assigning, changing, and clearing matches.
+- Question response layouts may adapt to available screen space while preserving the same content,
+  response meaning, and grading behavior. Narrow layouts may repeat choices when that improves use.
+- MATCH Questions should make each prompt's assigned choice easy to recognize and keep the choice
+  bank reachable while Students assign, change, and clear matches using keyboard, pointer, or touch.
 
 #### Native PLE JSON Questions and JavaScript
 
@@ -785,14 +865,26 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Required Question Library metadata must be complete before content enters the Question Library.
 - Library metadata should describe the Published Question or Question Pool rather than its location
   in a Course or textbook.
-- Library classification uses **Subject**, **Topic**, and **Subtopic** as its primary hierarchy.
-- Subject is the broad academic area, such as Genetics, Biochemistry, or Ecology.
+- Library classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its
+  primary hierarchy.
+- Discipline is the broad academic field, such as Biology, Chemistry, or Mathematics.
+- Sysadmins exclusively manage the Discipline vocabulary and its lifecycle.
+- Discipline is a stable vocabulary expected to change infrequently.
+- Instructors classify Library objects by selecting from the Sysadmin-managed Disciplines.
+- Subject identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+- Sysadmins can edit Subjects.
 - Topic identifies a major area within the Subject.
 - Subtopic provides a narrower classification within the Topic.
-- Subject, Topic, and Subtopic should support consistent classification across the Question Library.
+- Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
+- Length allowances should generally increase from Subject to Topic to Subtopic, supporting more
+  specific names as classification becomes narrower.
+- Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the
+  resulting names consistently.
+- Discipline, Subject, Topic, and Subtopic should support consistent classification across the
+  Question Library.
 - Published Questions and Question Pools may also have Tags for useful classifications outside the
-  Subject, Topic, and Subtopic hierarchy.
-- Tags are flexible and may overlap across Subjects and Topics.
+  Discipline, Subject, Topic, and Subtopic hierarchy.
+- Tags are flexible and may overlap across Disciplines, Subjects, and Topics.
 - Library metadata should support searching, filtering, sorting, and bulk editing.
 - Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
@@ -906,6 +998,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Blueprint Course stewardship specifications
 
+- Blueprint Courses have a searchable boolean Promoted flag.
+- Sysadmins exclusively control the Promoted flag.
 - **Instructors** can Star or Watch Public and Archived Blueprint Courses.
 - A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
 - Vetted **Instructors** can see who Starred a Blueprint Course and its Star count.

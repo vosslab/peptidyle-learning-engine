@@ -11,6 +11,69 @@
 
 ### Behavior or Interface Changes
 
+- Extended the accepted 940-bullet reconciliation to current Human Guidance's 943 bullets
+  (`00a3b948` SHA256 prefix): Sysadmin work priority is audited N/A; searchable Blueprint Promoted
+  and exclusive Sysadmin control remain binding gaps. Preserved earlier evidence and reopened only
+  current/progress visibility for observed misleading submitted-Attempt summary; active navigation
+  closures remain accepted. Actual expired R-4 history retains correct MATCH `1 / 1` and total
+  `1 / 4`, but unanswered Questions say Closed/response unavailable rather than Unanswered. Current
+  counts are 452 verified, 443 open (435 owning), 48 N/A; no HG or source correction was made.
+
+- Reconciled the evidence-bearing Human Guidance checklist to the current 940-bullet snapshot
+  (`c12b5d45` SHA256 prefix), preserving unchanged evidence and current first-owner pointers.
+  Five compact Attempt-navigation rows have bounded acceptance; broader UI/MATCH and the new
+  Discipline classification/name-validation contract remain open. Existing Public Genetics and
+  installation-source receipts do not close fresh-install acceptance. Current totals are 453
+  verified, 440 open (432 owning), and 47 audited N/A. All nine part gates, diff, and consistency
+  pass; no Human Guidance, production, permanent-test, runtime, build, or Git state was changed.
+
+- Made Student Attempt navigation a compact numbered row with current/saved cues, width-adaptive
+  first/last pagination, ellipses, and Previous/Next; corrected its stylesheet selectors, flattened
+  the Attempt header, and removed duplicate progress text. Strict frontend checks and all three
+  existing navigation regressions pass. Supplied desktop/phone evidence preserves exact saved
+  responses; a temporary 250-Question harness proves keyboard reachability, direct first/last
+  jumps, no phone document overflow, and reachable local scrolling at 200% enlargement.
+  Independent review accepts this bounded change; broader Human Guidance closure remains open.
+
+- Added ordinary owner publication of only the installation-owned retained Genetics example;
+  already-Public replay skips mutation and generic curriculum imports remain Private. Corrected
+  the opt-out oracle to current Public-only discovery and ownership checks. Narrow Cargo check,
+  formatting, lint, six controller tests, and temporary shell-generation checks pass; fresh-install,
+  replay, connected oracle, and independent review remain pending. No runtime change was made.
+
+- Quieted the existing Course theme reading surfaces and flattened Course Teaching Team and action
+  presentation without changing durable theme IDs. Supplied Live Demo Course captures at 1280 and
+  390 pixels show the bounded presentation; the narrow document remains 390 pixels wide.
+
+- Replaced repeated matching choices with one bank and prompt slots, supporting keyboard and
+  click/tap assignment, replacement, Clear, optional same-bank drag, and Native choice-reuse rules.
+  Initial, edit, submit, and Reset serialization now omit unanswered slot values, preserving strict
+  validation of actual unknown and duplicate choice IDs. Independent temporary native/presentation
+  partial-response and reset checks pass. Supplied live evidence proves keyboard assignment, normal
+  incomplete feedback after Reset, and click assignment plus Save/reload of all four exact choice
+  texts; real mouse drag restores a cleared slot's exact prior choice and Save succeeds. Assessment
+  submission, full accessibility, and global Human Guidance closure remain unestablished.
+
+- Changed frontend build cleanup to preserve the `dist` output root for existing directory bind
+  mounts. Independent source/probe review accepts the inode-preserving cleanup; the runtime owner
+  reports HTTP 200 after rebuilding without restart and a passing post-Reset frontend build
+  (`dd97c93a`). Narrow Ribbon density remains a separate presentation gap.
+
+- Confirmed the current Live Demo Genetics example Blueprint is Public with nine Assessments and
+  42 distinct Questions through ordinary owner publication, without a restart. Fresh-install setup
+  still needs to publish only the installation-owned retained example; generic imports stay Private.
+  The non-executed `assert-live-demo-absent` Genetics oracle remains pending correction because its
+  no-argument Blueprint list call and `available` assertion are obsolete.
+
+- Reconciled finite Attempt-timing documentation to the new Question-Pool selection-count guidance.
+  The checklist now has 891 bullets: 448 verified, 397 open (389 owning), and 46 N/A. Accepted
+  independent SQL evidence at `/private/tmp/ple-finite-duration-role-artifacts.TABP74` reproduces
+  the former role-order failure and proves fixed-entry arithmetic, empty/251 refusal, the 12-hour
+  constraint, and ordinary Instructor-release/Student-start/resume. It does not establish browser,
+  HTTP, renderer, real Instructor override-save, accommodation, or multi-selection Pool timing
+  acceptance. No authority, production, runtime, generated-code, permanent-test, Cargo, Podman,
+  or browser change was made.
+
 - Clarified Human Guidance: Question Pools count by the number selected for the Assessment Question
   limit and default time calculation; selecting 3 of 199 counts as 3.
 

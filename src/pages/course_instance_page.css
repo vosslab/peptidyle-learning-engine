@@ -1,5 +1,50 @@
 /* Course Instance owns the presentation of its semantic Course actions nav. */
 
+.course-theme-scope section.course-card[aria-labelledby="teaching-team-heading"] {
+  grid-template-areas: "kicker membership" "title count";
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--ple-space-1) var(--ple-space-5);
+  min-height: 0;
+  margin-block: var(--ple-space-3);
+  padding: var(--ple-space-3) 0;
+  border: 0;
+  border-block: 1px solid var(--ple-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.course-theme-scope section.course-card[aria-labelledby="teaching-team-heading"] > p {
+  margin: 0;
+}
+
+.course-theme-scope
+  section.course-card[aria-labelledby="teaching-team-heading"]
+  > p:nth-of-type(2) {
+  grid-area: membership;
+}
+
+.course-theme-scope
+  section.course-card[aria-labelledby="teaching-team-heading"]
+  > p:nth-of-type(3) {
+  grid-area: count;
+}
+
+.course-instance-page__actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ple-space-2);
+  margin-block-start: var(--ple-space-3);
+}
+
+@media (max-width: 48rem) {
+  .course-theme-scope section.course-card[aria-labelledby="teaching-team-heading"] {
+    grid-template-areas: "kicker" "title" "membership" "count";
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .course-blueprint-update-review {
   margin-block: var(--ple-space-3);
 }

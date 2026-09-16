@@ -39,35 +39,11 @@ const COURSE_THEME_VARIABLE_SHELL_STYLES = `
   inline-size: 100%;
   margin: 0;
   padding: var(--ple-course-scope-padding, 1rem);
-  border-radius: var(--ple-radius-surface, 0.9rem);
-  background-color: var(--ple-theme-canvas);
-  background-image:
-    radial-gradient(
-      circle at 8% 0%,
-      color-mix(
-        in srgb,
-        var(--ple-theme-secondary) var(--ple-course-theme-secondary-wash, 18%),
-        transparent
-      ),
-      transparent 26rem
-    ),
-    radial-gradient(
-      circle at 92% 0%,
-      color-mix(
-        in srgb,
-        var(--ple-theme-accent) var(--ple-course-theme-accent-wash, 16%),
-        transparent
-      ),
-      transparent 24rem
-    ),
-    linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent)),
-    linear-gradient(
-      180deg,
-      transparent var(--ple-course-theme-fade-start, 18rem),
-      var(--ple-surface) 100%
-    );
-  background-position: center, center, top, center;
-  background-size: auto, auto, 100% var(--ple-course-theme-rail-size, 0.32rem), 100% 100%;
+  border-radius: 0;
+  background-color: var(--ple-surface);
+  background-image: linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent));
+  background-position: top;
+  background-size: 100% var(--ple-course-theme-rail-size, 0.32rem);
   background-repeat: no-repeat;
   color: var(--ple-ink);
 }

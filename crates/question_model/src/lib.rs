@@ -111,6 +111,9 @@ pub use crate::assessment_activity_rules::{
     QuestionAttemptLimit, QuestionAttemptTimeLimit, StudentFeedbackReleaseRule,
     StudentFeedbackReleaseTiming,
 };
+pub use crate::assessment_student_time_accommodation::{
+    AssessmentStudentTimeAccommodation, SaveAssessmentStudentTimeAccommodationInput,
+};
 pub use crate::assessment_student_view::{
     InstructorStudentView, InstructorStudentViewDelivery, InstructorStudentViewEntry,
     InstructorStudentViewNotShownReason, InstructorStudentViewQuestionReference,
@@ -240,9 +243,6 @@ pub use crate::question_library::{
     QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
-pub use crate::assessment_student_time_accommodation::{
-    AssessmentStudentTimeAccommodation, SaveAssessmentStudentTimeAccommodationInput,
-};
 pub use crate::question_pool_library::{
     AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
     QuestionPoolLibrarySummary, QuestionPoolRevisionMemberView, QuestionPoolRevisionView,

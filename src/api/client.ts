@@ -51,6 +51,7 @@ import type { LiveCourseRosterClient } from "./course_roster";
 import type { LiveInvitationExportClient } from "./invitation_export";
 import type { LiveAssessmentReleaseClient } from "./assessment_release";
 import type { AssessmentPoolForkClient } from "./assessment_pool_fork";
+import type { AssessmentStudentTimeAccommodationClient } from "./assessment_student_time_accommodation";
 import type { LiveAssessmentAttemptIssuanceClient } from "./assessment_attempt_issuance";
 import type { StudentAssessmentAttemptHistoryClient } from "./assessment_attempt_history";
 import type { StudentAssessmentAttemptNavigationClient } from "./assessment_attempt_navigation";
@@ -74,6 +75,7 @@ export interface ApiClient
     LiveInvitationExportClient,
     LiveAssessmentReleaseClient,
     AssessmentPoolForkClient,
+    AssessmentStudentTimeAccommodationClient,
     LiveAssessmentAttemptIssuanceClient,
     StudentAssessmentAttemptHistoryClient,
     StudentAssessmentAttemptNavigationClient,

@@ -113,7 +113,9 @@ pub async fn production_router_from_env() -> Result<Router> {
     let assessment_pool_selection_counts =
         PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
     let assessment_student_time_accommodations =
-        learning_data_access::postgres::PostgresAssessmentStudentTimeAccommodationStore::new(pool.clone());
+        learning_data_access::postgres::PostgresAssessmentStudentTimeAccommodationStore::new(
+            pool.clone(),
+        );
     let assessment_templates = PostgresAssessmentTemplateStore::new(pool.clone());
     let assessment_delivery = PostgresLiveAssessmentDeliveryStore::new(pool.clone());
     let assessment_student_view = PostgresInstructorStudentViewStore::new(pool.clone());

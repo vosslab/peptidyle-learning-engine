@@ -64,10 +64,9 @@ test("Student Question navigation renders ordered, answer-free states with one c
   assert.ok(html.indexOf("Question 2") < html.indexOf("Question 1"));
   assert.ok(html.indexOf("Question 1") < html.indexOf("Question 3"));
   assert.match(html, /Question 2[\s\S]*Saved/u);
-  assert.match(html, /Question 1[\s\S]*Not answered[\s\S]*Current/u);
+  assert.match(html, /aria-label="Question 1: Not answered, current"/u);
   assert.match(html, /Question 3[\s\S]*Closed/u);
   assert.equal((html.match(/aria-current="step"/gu) ?? []).length, 1);
-  assert.equal((html.match(/Current/gu) ?? []).length, 1);
   assert.match(html, /Question 3: Closed/u);
   assert.match(html, /disabled(?:\s|>)/u);
   assert.doesNotMatch(html, /Private title|AAAA-ZBBB|private answer|private data/u);

@@ -103,13 +103,13 @@
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintCourseModuleContent` contains ordered `BlueprintAssessmentContent`; `schemas/base_schema/blueprints.sql` `blueprint_revision_assessment` records each stable Blueprint Assessment member of a Blueprint Course Revision.
 - [x] Blueprint Assessments define reusable Assessment content and teaching settings.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` validates reusable content and `BlueprintAssessmentDefaults` before a Blueprint Course Revision is constructed.
-  - Owner: 09_assessments.md > Assessment specifications (first current-source occurrence).
+  - Owner: Assessment specifications (first identical Human Guidance occurrence).
 - [x] Blueprint Assessments have an Assessment Type.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `assessment_type` requires the closed five-Type value; `src/api/decoders/blueprint_course.ts` `assessmentType` strictly requires it in both reusable-content input and view decoding without fallback.
   - Evidence (test): `tests/test_blueprint_course_client.mjs` `B1 client sends Revision and metadata validators to their separate routes` covers create/save/view Type round trips plus missing and unknown rejection; the focused Blueprint client lane passed 16/16.
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
   - Mismatch: Ordered entries exist, but published Question and Pool Assessment behavior is not verified.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint Course JSON specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint Course JSON specifications (first identical Human Guidance occurrence).
 - [ ] Blueprint Assessments define Question point values and points possible.
   - Mismatch: Point values exist in Assignment source, but Blueprint Assessment behavior is not verified.
 - [ ] Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
@@ -175,7 +175,7 @@
 - [x] Blueprint Assessments do not use Assessment Templates.
   - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates outside Courses and Blueprints; the by-value path creates only direct Course Assessments.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy to a direct Course Assessment without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
-  - Owner: 09_assessments.md > Assessment specifications > Blueprint Assessment specifications (first current-source occurrence).
+  - Owner: Assessment specifications > Assessment content specifications > Blueprint Assessment specifications (first identical Human Guidance occurrence).
 
 ### Course Instance Assessment release and defaults
 
@@ -346,7 +346,7 @@
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
   - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [ ] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
-  - Mismatch: Visible unanswered-state behavior needs runtime evidence.
+  - Mismatch: supplied parent actual Avery R-4 submitted/expired summary shows unanswered Q1/Q3/Q4 as `This question is closed.`, `Marked not correct.`, `0 of 1 points`, and `Your response is not available.`, not explicitly Unanswered. `src/pages/assessment_attempt_summary_page.tsx` renders the closed/no-response wording. This is observed presentation mismatch, not missing observation; the separate source correction and rendered proof remain pending.
 - [x] An unanswered Question receives zero credit and counts as incorrect without being sent to the
   Question Backend.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` treats null retained credit as unanswered zero earned points while retaining current points possible; evaluated zero credit remains a distinct grading outcome.
@@ -358,7 +358,7 @@
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
   state.
   - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
-  - Owner: 07_questions.md > Question specifications > Question Backend specifications > Question Backend grading and feedback (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
 - [ ] The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
   - Mismatch: Student grading-outcome timing needs runtime evidence.
 
@@ -366,25 +366,34 @@
 
 - [ ] Each Assessment Attempt has a time limit.
   - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_effective_base_duration_seconds` resolves a finite default or positive Instructor override for current deliverable content.
-  - Mismatch: Fresh SQL release of two Questions resolves the NULL default to 180 seconds, but the subsequent Student start currently fails `Assessment Attempt requires 1 to 250 Questions`. Artifact: `/private/tmp/ple-finite-default-start.WF7OmA/proof.log`. Connected default delivery is therefore not accepted.
+  - Evidence (runtime): accepted independent PostgreSQL 17 SQL evidence reproduced the former role-order failure, then released a two-fixed-Question NULL-default Assessment and started it as the ordinary Student with a snapshotted 180-second duration and deadline. Resume returned the same Attempt with unchanged start and expiration. Artifact: `/private/tmp/ple-finite-duration-role-artifacts.TABP74/proof.log`. This is SQL-only, uses synthetic trusted fixture records, and does not establish HTTP, renderer, browser, or broad delivery acceptance.
+  - Verification pending: Real delivery, authentication, HTTP, renderer, and browser acceptance remain required.
 - [x] Each Assessment may contain at most 250 Questions.
-  - Evidence (source): `schemas/base_schema/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork` counts delivered fixed entries and Pool selections before advancing the parent Assessment Edit Number.
-  - Evidence (runtime): `schemas/base_schema/assessment_pool_forks.sql` `ple_data.assessment_delivered_question_count` is exercised by accepted fresh PostgreSQL 17 proof that imported to 250, rejected 251 with `23514`, and verified atomic rollback of the child Pool, Revision, Entry, ownership association, and parent Edit Number. Artifact: `/private/tmp/ple-finite-pool-bound-artifacts.hoI0on/proof.log`. This does not establish browser or general timing behavior.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` defines `ple_data.assessment_delivered_question_count`; `schemas/base_schema/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork` calls it before advancing the parent Assessment Edit Number.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 proof exercised `schemas/base_schema/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork`, imported to 250, rejected 251 with `23514`, and verified atomic rollback of the child Pool, Revision, Entry, ownership association, and parent Edit Number. Artifact: `/private/tmp/ple-finite-pool-bound-artifacts.hoI0on/proof.log`. This does not establish browser or general timing behavior.
+- [ ] A Question Pool counts as the number of Questions selected from it for the Assessment Question
+  limit and default time calculation; selecting 3 of 199 Questions counts as 3.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_delivered_question_count` sums `selection_count` for available Pool entries; `schemas/base_schema/assessment_pool_forks.sql` supplies that positive selected count on import.
+  - Verification pending: No accepted connected multi-selection Pool timing proof establishes the new exact Human Guidance identity. The existing 250 import receipt is retained for the overall bound only.
 - [ ] The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
   - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_effective_base_duration_seconds` implements the current calculated default.
-  - Mismatch: The connected NULL-default start fails after release despite the two-Question default resolving to 180 seconds; arithmetic and delivery acceptance remain open. Artifact: `/private/tmp/ple-finite-default-start.WF7OmA/proof.log`.
+  - Evidence (runtime): accepted independent PostgreSQL 17 boundary SQL resolved 120, 180, 300, and 22500 seconds for 1, 2, 3, and 250 available fixed Questions, and refused empty or 251-Question content. Artifact: `/private/tmp/ple-finite-duration-role-artifacts.TABP74/boundaries.log`. The accepted two-Question SQL start/resume receipt is separate; neither receipt establishes browser or broad delivery acceptance.
+  - Verification pending: Multi-selection Pool arithmetic and browser or broad delivery acceptance remain required.
 - [ ] Instructors can override the default time limit up to 12 hours.
-  - Evidence (source): `crates/question_model/src/assessment.rs` `AssessmentAttemptTimeLimit` bounds a positive explicit override at 43200 seconds.
-  - Verification pending: Accepted Instructor override save/read and delivery evidence remain required.
+  - Evidence (source): `crates/question_model/src/assessment.rs` `MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS` bounds a positive explicit override at 43200 seconds.
+  - Evidence (runtime): accepted independent PostgreSQL 17 boundary SQL accepts 43200 seconds and rejects 43201 with `check_violation`. Artifact: `/private/tmp/ple-finite-duration-role-artifacts.TABP74/boundaries.log`. This is not an accepted real Instructor override save/read or delivery workflow.
+  - Verification pending: Accepted real Instructor override save/read and delivery evidence remain required.
 - [ ] The interface should show the calculated default time limit and provide a specific Instructor override.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` renders calculated default and explicit override controls.
   - Verification pending: Actual browser acceptance of display, save, clear-to-default, and reload remains required.
 - [ ] Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
-  - Evidence (source): Existing private SQL accommodation settings supply absolute seconds, not a 1.5X/2X ratio model or Instructor accommodation interface.
-  - Mismatch: Individual ratio accommodations and their interface/default interactions are not implemented or verified.
+  - Evidence (source): the in-progress `assessment_student_time_accommodation` slice is not accepted implementation evidence; its handoff is `/private/tmp/ple-student-time-accommodation-slice.md`.
+  - Evidence (runtime): `src/pages/assessment_workspace/assessment_student_time_accommodations.tsx` `AssessmentStudentTimeAccommodations`, supplied parent 2026-09-16 current-demo browser/HTTP receipt: Elena selected active-roster Avery, saved 1.5X and 2X, and authenticated GET confirmed effective 2700 and 3600 seconds from base 1800. Custom 100 saved at the 86400-second cap; Standard restored 1800. Actual controls and accepted writes were observed; `/private/tmp/ple-accommodation-live-restored.png` records restored state.
+  - Verification pending: independent source review and remaining calculated-default/override, malformed-input, authorization-denial, and concurrency boundaries are not established by this bounded supplied receipt.
 - [ ] Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit
   up to 24 hours.
-  - Mismatch: Existing absolute-second accommodations are neither a ratio model nor an enforced effective 24-hour cap.
+  - Evidence (runtime): `src/pages/assessment_workspace/assessment_student_time_accommodations.tsx` `AssessmentStudentTimeAccommodations`, supplied parent 2026-09-16 actual current-demo controls/HTTP proof: base 1800 resolves to 2700 at 1.5X, 3600 at 2X, and 86400 with capped=true at custom 100. Standard restores 1800 uncapped. Avery's authenticated `/api/assessment-attempts/R-4/context` reads before and after retain expiresAt=1789577036608 exactly; original null multiplier was restored. Artifact `/private/tmp/ple-accommodation-live-restored.png`. This is valid-write, effective-cap, and active-clock-nonextension evidence only.
+  - Verification pending: independent source review plus remaining calculated-default/override, malformed-input, authorization-denial, and race boundaries are required before whole-row acceptance.
 - N/A Attempt time limits help **Students** develop an accurate sense of expected working speed.
   - Reason: audited pedagogical purpose, not a separately testable PLE behavior or demonstrated learning effect. The preceding time-limit/default/override/accommodation requirements remain binding implementation requirements.
 - [x] Assessment Attempts use wall-clock time.
@@ -408,7 +417,7 @@
   - Verification pending: The accepted SQL boundary does not establish rendered presentation or actual Backend transport.
 - [ ] Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
   - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof retains an unanswered Question without submission/grading evidence and reports it incorrect at `0 / 8`. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
-  - Verification pending: Rendered visibly-unanswered presentation remains unobserved.
+  - Mismatch: supplied parent actual expired Avery R-4 summary renders Q1/Q3/Q4 as Closed and response unavailable, rather than explicitly Unanswered, with incorrect `0 / 1` each. Q2 retains all four exact MATCH pairs, permitted feedback, and correct `1 / 1`; total is `1 / 4`. `src/pages/assessment_attempt_summary_page.tsx` supplies this closed/no-response wording. SQL zero-credit proof remains accepted; queued presentation correction and rendered recheck are separate.
 - [ ] Unanswered Questions are not sent to the Question Backend.
   - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof excludes the unanswered Question from the prepared backend work set. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
   - Verification pending: Actual Backend transport exclusion remains unobserved.
@@ -433,7 +442,7 @@
   - Mismatch: Assignment point values exist, but the HG Assessment model is not implemented.
 - [ ] A Question Backend returns an immutable credit fraction for each complete response it evaluates.
   - Mismatch: The live WeBWorK submission check observes stored credit, but no direct adapter test proves a Question Backend returns that fraction as an immutable outcome.
-  - Owner: 07_questions.md > Question specifications > Question Backend specifications > Question Backend grading and feedback (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications > Question Backend specifications > Question Backend grading and feedback (first identical Human Guidance occurrence).
 - [x] PLE stores the credit fraction as the Question grading outcome.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` inserts the supplied credit fraction into `ple_private.grading_result.normalized_credit`, constrained to the inclusive unit interval and retained under `grading_result_is_immutable`.
   - Evidence (runtime): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` is invoked by the accepted private PostgreSQL 17 production-SQL lifecycle fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the submitted `0.5` fraction while rescoring current points from `8` to `13`. This SQL-only fixture simulates the initial synchronous Backend credit and does not establish Backend transport or HTTP.

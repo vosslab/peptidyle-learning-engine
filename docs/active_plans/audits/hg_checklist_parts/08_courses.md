@@ -116,6 +116,10 @@
 
 #### Blueprint Course stewardship specifications
 
+- [ ] Blueprint Courses have a searchable boolean Promoted flag.
+  - Mismatch: `schemas/base_schema/blueprints.sql` has no Promoted boolean and `schemas/base_schema/blueprint_operations.sql` Blueprint discovery has no Promoted filter. Current Blueprint schema, server/list Store and browser search contain no implemented promotion contract.
+- [ ] Sysadmins exclusively control the Promoted flag.
+  - Mismatch: the Promoted flag and mutation/search boundary are absent from current Blueprint schema, API and browser implementation. Exclusive Sysadmin mutation authority therefore lacks implementation; existing owner-specific content/lifecycle authority does not establish promotion privileges. The concurrently removed equal-Instructor-standing clause is not a current requirement.
 - [ ] **Instructors** can Star or Watch Public and Archived Blueprint Courses.
   - Mismatch: No Blueprint Star or Watch model, route, or store operation was found.
 - [ ] A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.
@@ -351,26 +355,26 @@
 - [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: each Course-summary read returned five coherent rows (changed, matching, removed, Type mismatch, automatically added) after lazy open/reopen at 1280 by 900 and 390 by 844. The changed Assessment then reviewed and applied with exact source Revision 2 and daughter Edit CAS; the Course refresh showed the applied match. Student and unrelated reads returned `404 no-store`; a private parent was concealed from another Instructor in the privileged-availability fixture; Archived review remained available and new adoption was denied. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` supplies one Course-level Review action, clear per-Assessment status labels, Refresh, and links to the existing Assessment detail Review/Apply workflow.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in compiled-main browser proof at 1280 by 900 and 390 by 844: lazy open/reopen GET behavior produced the five-row Course summary and the Course-to-Assessment detail review. Cancel issued zero POST requests; Apply used exact source Revision 2 plus daughter Edit CAS and a returning Course refresh showed the match. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] It should be obvious when a daughter Course Instance is based on an older Blueprint Revision.
   - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_api.load_course_instance`, `crates/learning-data-access/src/postgres/course_instance.rs` `decode_view`, `src/api/decoders/course_instance.ts` `decodeCourseInstanceView`, and `src/pages/course_instance_page.tsx` `CourseInstancePage` use the authorized parent origin and exact adopted/current Revision projection for the same visible notice.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` was covered by independently accepted actual-server/exact-main proof across empty, current, newer, and explicit synthetic Private-origin states; the visually inspected newer capture showed both Revision values and the stale notice. It preserved the original adoption pin, Assessment, and entries; its Work tables were empty, so this proof makes no populated-Student-Work claim. Unauthorized Student and unrelated-Instructor reads returned `404 no-store`. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`.
   - Decision: This duplicate course-view indication does not implement the separate Blueprint update offer, review, approval, or apply workflow.
 - [ ] The **Instructor** decides which changes to existing Assessments to incorporate.
   - Verification pending: source-audit this changed requirement against its current parent section and the existing implementation; no full current-scope proof is claimed by the prior wording.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` and the PostgreSQL Blueprint Store Save implement the same automatic-new append boundary documented in the earlier identical row.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` accepted connected proof and existing adoption lifecycle regression preserve exact pins/settings, distinct daughter Pool IDs, existing Student Work, original adoption pin, Unreleased state, and unset dates. Artifacts: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8` and `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 - [x] Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` inserts only validated newly added Assessments and does not update existing daughter Assessments.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` proves the same negative invariant after changing retained source content, preserving daughter content/entries/actual Student Work through Save/replay/no-op/stale operations. Artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+  - Owner: Course specifications > Blueprint Course specifications > Blueprint Course lifecycle specifications > Blueprint adoption and incorporation specifications (first identical Human Guidance occurrence).
 
 ### Course short and long name specifications
 

@@ -77,6 +77,25 @@
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonExternalResourceKind` is the closed Link, Image, Script, Stylesheet, and Other category set for every `externalResources` entry.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonExternalResource` binds each recorded URL to exactly one reviewed category under `deny_unknown_fields` parsing.
 
+#### Native Question response presentation
+
+- [x] Native MATCH Questions should present prompts with a shared choice bank on laptop and desktop
+  screens. Display the full set of choices once alongside the prompts.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Evidence (runtime): `src/components/question_response_controls/matching.tsx` `MatchingResponse`, supplied `/private/tmp/ple-matching-saved-1280.png` and `/private/tmp/ple-attempt-compact-1280.png` show all four bank choices once beside the prompt slots. Independent source review `/private/tmp/ple-demo-ui-source-review.md` and bounded acceptance `/private/tmp/ple-ui-bounded-acceptance.md` support this shared-bank laptop/desktop presentation only; keyboard changing/clearing and whole-Attempt grading are separate requirements.
+- [x] MATCH Questions should support drag-and-drop and an equally capable keyboard-only method for
+  assigning, changing, and clearing matches.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Evidence (runtime): `src/components/question_response_controls/matching.tsx` `MatchingResponse`, supplied parent 2026-09-16 actual current-demo Avery R-4 laptop proof (session 87294, exit 0): normal Tab traversal without programmatic focus plus Space/Enter cleared the first two saved matches, selected bank choices, swapped both assignments, then cleared/reassigned the original choices. All four original choice strings were restored exactly, and Tab/Enter Save was accepted. The existing native mouse drag and accepted Save receipt is independently accepted in `/private/tmp/ple-ui-bounded-acceptance.md`; fresh keyboard evidence is recorded in `/private/tmp/ple-latest-hg-checklist-reconciliation.md`. This closes assigning/changing/clearing parity only, not adapted grading or full pointer/touch bank reachability.
+- [ ] Question response layouts may adapt to available screen space while preserving the same content,
+  response meaning, and grading behavior. Narrow layouts may repeat choices when that improves use.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Verification pending: bounded partial/reset and exact Save/reload receipts retain response identity; adapted narrow response layouts still need proof of preserved content, response meaning, and grading behavior. No particular choice-repetition design is imposed.
+- [ ] MATCH Questions should make each prompt's assigned choice easy to recognize and keep the choice
+  bank reachable while Students assign, change, and clear matches using keyboard, pointer, or touch.
+  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` has one bank, prompt slots, assignment/replacement/Clear controls, same-bank drag, and filtered partial/reset serialization.
+  - Verification pending: supplied desktop captures show assigned choice text, and bounded receipts show keyboard/click assignment and mouse drag. Bank reachability throughout changing/clearing with keyboard, pointer, and touch remains unobserved. Grading is not an acceptance prerequisite for this interaction-reachability row.
+
 #### Native PLE JSON Questions and JavaScript
 
 - [ ] Native JSON Questions may contain author-supplied JavaScript, including chemistry content using RDKit.
@@ -290,7 +309,7 @@
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-  - Owner: 07_questions.md > Question specifications > Published Question specifications > Published Question metadata (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications > Published Question specifications > Published Question metadata (first identical Human Guidance occurrence).
 - [ ] PLE-managed Hints, Question Feedback, and Worked Solutions are separate from Question Backend-generated content.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
@@ -400,7 +419,7 @@
 - [ ] Draft Questions are not part of the Question Library.
   - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
   - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
-  - Owner: 07_questions.md > Question specifications > Draft Question specifications (first current-source occurrence).
+  - Owner: Question specifications > Draft Question specifications (first identical Human Guidance occurrence).
 - [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
@@ -429,21 +448,41 @@
 - [ ] Library metadata should describe the Published Question or Question Pool rather than its location
   in a Course or textbook.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Library classification uses **Subject**, **Topic**, and **Subtopic** as its primary hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subject is the broad academic area, such as Genetics, Biochemistry, or Ecology.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its
+  primary hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Discipline is the broad academic field, such as Biology, Chemistry, or Mathematics.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Sysadmins exclusively manage the Discipline vocabulary and its lifecycle.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Discipline is a stable vocabulary expected to change infrequently.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Instructors classify Library objects by selecting from the Sysadmin-managed Disciplines.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Subject identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Sysadmins can edit Subjects.
+  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Topic identifies a major area within the Subject.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Subtopic provides a narrower classification within the Topic.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Subject, Topic, and Subtopic should support consistent classification across the Question Library.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
+- [ ] Length allowances should generally increase from Subject to Topic to Subtopic, supporting more
+  specific names as classification becomes narrower.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
+- [ ] Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the
+  resulting names consistently.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` has bounded trimmed Subject/Topic checks only; consistent Subject/Topic/Subtopic validation, progressive allowances, and trim-before-validation are not established.
+- [ ] Discipline, Subject, Topic, and Subtopic should support consistent classification across the
+  Question Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
 - [ ] Published Questions and Question Pools may also have Tags for useful classifications outside the
-  Subject, Topic, and Subtopic hierarchy.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Tags are flexible and may overlap across Subjects and Topics.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  Discipline, Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
+- [ ] Tags are flexible and may overlap across Disciplines, Subjects, and Topics.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` stores Question-only nullable Subject/Topic metadata; a managed Discipline vocabulary/lifecycle, Instructor selection, shared Pool classification, and Subtopic contract are not implemented.
 - [ ] Library metadata should support searching, filtering, sorting, and bulk editing.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
@@ -466,7 +505,7 @@
   - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
 - [x] Eligible Question Types may also retain aggregate answer-choice counts.
   - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
-  - Owner: 06_data.md > Data and history > Student and FERPA data (first current-source occurrence).
+  - Owner: Data and history > Human-facing reference IDs > Student and FERPA data (first identical Human Guidance occurrence).
 - [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
   - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
 - [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and

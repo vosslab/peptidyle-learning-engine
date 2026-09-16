@@ -18,9 +18,19 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control .choice-card input:focus-visible { outline: 0; }
   .question-response-control .choice-number { display: inline-grid; width: 1.45rem; height: 1.45rem; place-items: center; border-radius: 999px; background: color-mix(in srgb, var(--ple-accent) 10%, white); color: var(--ple-accent-strong); font-size: 0.76rem; font-weight: 760; }
   .question-response-control .matching-progress { margin: 0; font-weight: 700; }
+  .question-response-control .matching-selection-status { margin: 0; min-height: 1.4em; font-size: 0.9rem; }
+  .question-response-control .matching-layout { display: grid; grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); align-items: start; gap: var(--ple-space-3, 0.75rem); }
+  .question-response-control .matching-bank, .question-response-control .matching-prompts { min-width: 0; }
+  .question-response-control .matching-layout h3 { margin: 0 0 0.3rem; font-size: 0.95rem; }
+  .question-response-control .matching-group { display: grid; gap: 0.2rem; margin-bottom: 0.5rem; }
+  .question-response-control .matching-prompt { margin: 0; overflow-wrap: anywhere; font-weight: 650; }
+  .question-response-control .matching-slot-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.25rem; align-items: start; }
+  .question-response-control .matching-slot { min-height: 44px; width: 100%; min-width: 0; box-sizing: border-box; padding: 0.35rem 0.65rem; border: 1px solid var(--ple-muted); border-radius: var(--ple-radius-control, 0.45rem); background: var(--ple-surface-soft); color: inherit; font: inherit; text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
+  .question-response-control .matching-slot:focus-visible, .question-response-control .matching-clear:focus-visible { outline: 2px solid var(--ple-focus); outline-offset: 2px; }
+  .question-response-control .matching-clear { min-width: 44px; min-height: 44px; }
   .question-response-control .matching-choice-content { display: grid; gap: 0.2rem; }
   .question-response-control .matching-choice-state { font-size: 0.875rem; font-weight: 700; }
-  .question-response-control .matching-choice-card { width: 100%; color: inherit; font: inherit; text-align: left; }
+  .question-response-control .matching-choice-card { width: 100%; min-width: 0; min-height: 44px; color: inherit; font: inherit; text-align: left; white-space: normal; overflow-wrap: anywhere; }
   .question-response-control .matching-choice-card:focus-visible { outline: 2px solid var(--ple-focus); outline-offset: 2px; }
   .question-response-control .choice-card.unavailable { cursor: not-allowed; opacity: 0.7; }
   .question-response-control .ordering-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.25rem; }
@@ -32,6 +42,9 @@ export const QUESTION_RESPONSE_CONTROL_STYLES = `
   .question-response-control .status-spinner { display: inline-block; width: 0.9rem; height: 0.9rem; margin-right: 0.35rem; border: 2px solid currentcolor; border-right-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
   .question-response-control .response-actions, .question-response-control .imathas-question-backend-actions { display: flex; flex-wrap: wrap; gap: 0.25rem; }
   .question-response-control .imathas-question-backend-frame, .question-response-control .backend-owned-document__frame { width: 100%; min-height: 24rem; border: 1px solid currentColor; }
+  @media (max-width: 640px) {
+    .question-response-control .matching-layout { grid-template-columns: minmax(0, 1fr); }
+  }
   @media (max-width: 360px) {
     .question-response-control .ordering-row { grid-template-columns: minmax(0, 1fr) 44px 44px; }
     .question-response-control .choice-card { padding-inline: 0.4rem; }

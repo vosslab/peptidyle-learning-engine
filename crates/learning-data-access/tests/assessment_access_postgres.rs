@@ -376,11 +376,11 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_private.student_assessment_accommodation( \
              accommodation_id, student_record_id, assessment_id, available_at, due_at, \
-             closes_at, assessment_attempt_time_limit_seconds, assessment_attempt_limit, created_at \
+             closes_at, time_multiplier, assessment_attempt_limit, created_at \
          ) VALUES ( \
              $1, $2, $3, clock_timestamp() - interval '1 hour', \
              clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', \
-             60, 1, clock_timestamp() \
+             1.5, 1, clock_timestamp() \
          )",
     )
     .bind(id(OTHER_STUDENT_ACCOMMODATION))

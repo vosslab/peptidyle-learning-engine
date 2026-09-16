@@ -17,6 +17,7 @@ import { createLiveCourseRosterClient } from "./http_client/course_roster";
 import { createLiveInvitationExportClient } from "./http_client/invitation_export";
 import { createLiveAssessmentReleaseClient } from "./http_client/assessment_release";
 import { createAssessmentPoolForkClient } from "./http_client/assessment_pool_fork";
+import { createAssessmentStudentTimeAccommodationClient } from "./http_client/assessment_student_time_accommodation";
 import { createLiveAssessmentAttemptIssuanceClient } from "./http_client/assessment_attempt_issuance";
 import { createStudentAssessmentAttemptHistoryClient } from "./http_client/assessment_attempt_history";
 import { createStudentAssessmentAttemptNavigationClient } from "./http_client/assessment_attempt_navigation";
@@ -59,6 +60,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createLiveInvitationExportClient(fetchImplementation, basePath),
     createLiveAssessmentReleaseClient(fetchImplementation, basePath),
     createAssessmentPoolForkClient(fetchImplementation, basePath),
+    createAssessmentStudentTimeAccommodationClient(fetchImplementation, basePath),
     createLiveAssessmentAttemptIssuanceClient(fetchImplementation, basePath),
     createStudentAssessmentAttemptHistoryClient(fetchImplementation, basePath),
     createStudentAssessmentAttemptNavigationClient(fetchImplementation, basePath),

@@ -3,28 +3,43 @@
 ## Current heading reconciliation
 
 The current untouched Human Guidance snapshot is SHA256
-`6f64d0bb877de5a8be3951dd5514fe0eb2fd5c5f3060b21940230b03a2fde481`.
-Current status comes from the [implementation checklist](../../audits/human_guidance_implementation_checklist.md):
-890 bullets, 448 verified, 396 open (388 owning), and 46 N/A.
-Unchanged contextual evidence, including accepted scoring and bounded runtime receipts, is retained.
-The finite timing rows now require a calculated default, explicit override, and accommodation
-handling. The 250 delivered-Question bound is verified; exact unchanged same-identity SQL resume
-is verified. A fresh two-Question NULL-default release resolves 180 seconds, but Student start
-fails `Assessment Attempt requires 1 to 250 Questions`, so default/delivery acceptance remains
-open. Ratio/UI accommodations and the effective 24-hour cap are unimplemented. Fresh mixed
-expiry-worker SQL evidence retains rendered unanswered and actual transport limitations.
-Blueprint lifecycle, forks, Change Proposals, and comparison now belong to Course specifications
-(Part 08), not Instructor interface (Part 04). Assessment type appearance belongs to Instructor
-interface (Part 04). Student/backend/history subheadings route through their existing parts.
-Equivalent rewrites were evaluated against their cited evidence; expanded requirements are open
-unless current source or accepted receipts establish their whole scope. Themes/light-dark use,
-Library Question/Pool metadata, PLE support and disclosure, Pool statistics, Bloom classification,
-Change Proposal persistence/acceptance, expanded comparison, selected daughter incorporation, and
-expanded Unrelease behavior retain scoped mismatches or named pending proof.
-The topical inventories and earlier receipts below retain historical evidence context; old
-counts, source-line numbers, and correction IDs are not a current ordered HG projection. Retired
-one-way lifecycle, imposed Assessment-matching algorithm, and Blueprint Question-content-change
-claims are not current requirements. All nine part gates, identity diff, and consistency pass.
+`00a3b9480b1c0ef5031caf10d0cec78c083ccbe96896f184a5de37083836ac50`.
+943 bullets, 452 verified, 443 open (435 owning), and 48 N/A.
+Current wording, status, evidence limitations, and first-owner pointers belong to the implementation
+checklist. Unchanged accepted scoring, timing, Blueprint, and bounded runtime evidence is retained.
+Five new compact Attempt-navigation rows are verified from accepted source and supplied rendered
+receipts: numbered current/saved cues, long-set pagination, width adaptation, compact orientation,
+and PLE typography/theme-aware navigation styling. The 250-Question harness and 200% enlargement
+receipt prove only this bounded navigation workflow; complete Student keyboard/responsive coverage,
+before-start/review density, narrow Ribbon, and full theme-state contrast remain open. The desktop shared-bank and drag/keyboard assigning/changing/clearing MATCH rows are verified.
+Fresh normal Tab/Space/Enter swap, Clear, exact original restoration and accepted Save proof
+is recorded in `/private/tmp/ple-latest-hg-checklist-reconciliation.md` (session 87294, exit 0).
+The remaining two MATCH rows retain bounded receipts while adapted grading and full pointer/touch
+bank reachability remain pending. New Discipline hierarchy, Sysadmin vocabulary ownership/lifecycle,
+Instructor classification, and consistent Subject/Topic/Subtopic validation are binding gaps,
+not N/A or inherited Question-only metadata acceptance. Agent prompting rewrites are audited N/A.
+Fresh default installation and shipped Genetics remain open pending connected installation/replay
+acceptance; existing current-demo Public discovery and installation-source receipts are retained.
+Blueprint lifecycle/forks/comparison belong to Part 08; Assessment type appearance to Part 04;
+Native Question response presentation to Part 07. All nine part gates, identity diff, and
+consistency pass. Historical topical inventories and correction IDs below are provenance, not
+a current ordered projection. The product-compliance goal remains unfinished.
+
+Later bounded accommodation receipt: actual current-demo Elena controls saved Avery's 1.5X/2X
+as 2700/3600 seconds from base 1800, custom 100 as 86400 capped, then restored Standard 1800
+uncapped and the original null multiplier. Authenticated Avery Attempt-context reads retained
+expiresAt=1789577036608 before/after. `/private/tmp/ple-accommodation-live-restored.png` records
+restored state. Both accommodation rows remain open for independent source review and remaining
+default/override, malformed-input, authorization-denial and race proof; earlier incomplete-slice
+notes below are historical context, not a rejection of these newly observed valid writes.
+
+Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
+Blueprint Promoted and exclusive Sysadmin control are binding open
+gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
+disabled navigation says `Question - of 4` and `0 saved`; the five active-navigation closures
+remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
+pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-
+unavailable wording is an observed visibly-unanswered mismatch, not unobserved behavior.
 
 ## Authority and method
 
@@ -44,18 +59,18 @@ checklist, gap map, and active plan.
 
 ## Checklist status by section
 
-| Human Guidance section | Verified `[x]` | Open `[ ]` | Owning open | N/A | Total |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| How to use this guidance | 0 | 0 | 0 | 7 | 7 |
-| Development principles | 14 | 4 | 4 | 23 | 41 |
-| Product vocabulary | 2 | 10 | 10 | 0 | 12 |
-| Accounts and roles | 25 | 18 | 18 | 8 | 51 |
-| Interface design | 135 | 98 | 97 | 1 | 234 |
-| Data and history | 33 | 38 | 37 | 0 | 71 |
-| Question specifications | 77 | 106 | 104 | 2 | 185 |
-| Course specifications | 75 | 63 | 62 | 4 | 142 |
-| Assessment specifications | 87 | 59 | 56 | 1 | 147 |
-| **Total** | **448** | **396** | **388** | **46** | **890** |
+| Human Guidance section | Verified `[x]` | Open `[ ]` | N/A | Total |
+| --- | ---: | ---: | ---: | ---: |
+| How to use this guidance | 0 | 0 | 7 | 7 |
+| Development principles | 12 | 6 | 24 | 42 |
+| Product vocabulary | 2 | 10 | 0 | 12 |
+| Accounts and roles | 25 | 18 | 8 | 51 |
+| Interface design | 139 | 130 | 2 | 271 |
+| Data and history | 33 | 38 | 0 | 71 |
+| Question specifications | 79 | 116 | 2 | 197 |
+| Course specifications | 75 | 65 | 4 | 144 |
+| Assessment specifications | 87 | 60 | 1 | 148 |
+| **Total** | **452** | **443** | **48** | **943** |
 
 The Assessment part closes four exact current-rescore rows. Independent review accepted
 private PostgreSQL 17 production-SQL lifecycle proof at

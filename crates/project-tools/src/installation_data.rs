@@ -6,8 +6,13 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, bail, ensure};
-use learning_data_access::{SessionId, SessionTokenHash};
-use question_model::WorkspaceId;
+use learning_data_access::{
+    BlueprintCourseStore, SessionId, SessionTokenHash,
+    postgres::{PostgresBlueprintCourseStore, lazy_pool},
+};
+use question_model::{
+    BlueprintAvailability, BlueprintCourseReadAccess, BlueprintCourseReference, WorkspaceId,
+};
 use uuid::Uuid;
 
 use crate::libpq_environment::LibpqEnvironment;
@@ -193,11 +198,54 @@ fn publish_bundled_genetics(
         .enable_all()
         .build()
         .context("creating the bundled Genetics publication runtime")?;
-    runtime
-        .block_on(curriculum_content::publication::publish_with_context(
+    runtime.block_on(async move {
+        let receipt = curriculum_content::publication::publish_with_context(
             session, workspace, manifest, &root,
-        ))
-        .context("publishing the bundled Genetics Blueprint through the ordinary publisher")
+        )
+        .await
+        .context("publishing the bundled Genetics Blueprint through the ordinary publisher")?;
+        let reference = BlueprintCourseReference::new(receipt.blueprint_reference())
+            .map_err(anyhow::Error::msg)
+            .context("resolving the bundled Genetics Blueprint receipt")?;
+        let database_url = required_environment("DATABASE_URL")?;
+        let pool = lazy_pool(&database_url)
+            .context("bundled Genetics Blueprint database URL is invalid")?;
+        let store = PostgresBlueprintCourseStore::new(pool);
+        let blueprint = store
+            .load_blueprint_course(session, reference)
+            .await
+            .context("loading the retained bundled Genetics Blueprint")?;
+        // ASVS 8.2.2, 2.3.1: only the installation publisher's validated
+        // retained example is made Public, through its ordinary owner API.
+        ensure!(
+            blueprint.read_access == BlueprintCourseReadAccess::BlueprintCourseOwner,
+            "bundled Genetics Blueprint is not owned by the installation publisher"
+        );
+        ensure!(
+            matches!(
+                blueprint.availability,
+                BlueprintAvailability::Private | BlueprintAvailability::Public
+            ),
+            "bundled Genetics Blueprint is neither Private nor Public"
+        );
+        if blueprint.availability == BlueprintAvailability::Private {
+            store
+                .publish_blueprint(session, reference, blueprint.metadata_etag)
+                .await
+                .context("making the bundled Genetics example Blueprint Public")?;
+        }
+        let published = store
+            .load_blueprint_course(session, reference)
+            .await
+            .context("reloading the Public bundled Genetics Blueprint")?;
+        ensure!(
+            published.availability == BlueprintAvailability::Public
+                && published.read_access == BlueprintCourseReadAccess::BlueprintCourseOwner
+                && published.current_revision == blueprint.current_revision,
+            "bundled Genetics publication changed ownership or Revision, or is not Public"
+        );
+        Ok(receipt)
+    })
 }
 
 fn fixed_genetics_content_root() -> Result<PathBuf> {
@@ -446,9 +494,7 @@ mod tests {
         .unwrap();
         assert!(script.contains("\\set pilot_publication_session_id"));
         assert!(script.contains("\\set pilot_question_publications"));
-        assert!(script.contains(
-            "\\set live_demo_blueprint_public_reference 'BP00000C'"
-        ));
+        assert!(script.contains("\\set live_demo_blueprint_public_reference 'BP00000C'"));
         assert!(script.contains(
             "\\set live_demo_blueprint_assessment_reference '00000000-0000-0000-0000-000000000012'"
         ));

@@ -4,35 +4,11 @@ export const COURSE_THEME_SCOPE_STYLES = `
 .course-theme-scope {
   margin: var(--ple-course-scope-edge-offset, -0.25rem);
   padding: var(--ple-course-scope-padding, 1rem);
-  border-radius: var(--ple-radius-surface, 0.9rem);
-  background-color: var(--ple-theme-canvas);
-  background-image:
-    radial-gradient(
-      circle at 8% 0%,
-      color-mix(
-        in srgb,
-        var(--ple-theme-secondary) var(--ple-course-theme-secondary-wash, 18%),
-        transparent
-      ),
-      transparent 26rem
-    ),
-    radial-gradient(
-      circle at 92% 0%,
-      color-mix(
-        in srgb,
-        var(--ple-theme-accent) var(--ple-course-theme-accent-wash, 16%),
-        transparent
-      ),
-      transparent 24rem
-    ),
-    linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent)),
-    linear-gradient(
-      180deg,
-      transparent var(--ple-course-theme-fade-start, 18rem),
-      var(--ple-surface) 100%
-    );
-  background-position: center, center, top, center;
-  background-size: auto, auto, 100% var(--ple-course-theme-rail-size, 0.32rem), 100% 100%;
+  border-radius: 0;
+  background-color: var(--ple-surface);
+  background-image: linear-gradient(90deg, var(--ple-theme-secondary), var(--ple-theme-accent));
+  background-position: top;
+  background-size: 100% var(--ple-course-theme-rail-size, 0.32rem);
   background-repeat: no-repeat;
   color: var(--ple-ink);
 }
@@ -44,7 +20,7 @@ export const COURSE_THEME_SCOPE_STYLES = `
 
 .course-theme-scope .course-card {
   border-inline-start: 0.28rem solid var(--ple-theme-accent);
-  background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
+  background: var(--ple-card-surface);
 }
 
 .course-theme-scope .course-card:hover {
@@ -54,8 +30,6 @@ export const COURSE_THEME_SCOPE_STYLES = `
 @media (max-width: 30rem) {
   .course-theme-scope {
     --ple-course-scope-padding: 0.75rem;
-    --ple-course-theme-secondary-wash: 12%;
-    --ple-course-theme-accent-wash: 12%;
   }
 }
 

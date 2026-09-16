@@ -357,8 +357,10 @@ async function main() {
   console.log("==> Ribbon icon sprite");
   checkRibbonIconSprite();
 
-  fs.rmSync(distDir, { recursive: true, force: true });
   fs.mkdirSync(distDir, { recursive: true });
+  for (const child of fs.readdirSync(distDir)) {
+    fs.rmSync(path.join(distDir, child), { recursive: true, force: true });
+  }
 
   console.log("==> bundle");
   await esbuild.build({

@@ -11,8 +11,8 @@ mod assessment_attempt;
 mod assessment_delivery;
 mod assessment_pool_fork;
 mod assessment_pool_selection_count;
-mod assessment_student_time_accommodation;
 mod assessment_release;
+mod assessment_student_time_accommodation;
 mod assessment_student_view;
 mod assessment_template;
 mod attempt_expiry;
@@ -85,7 +85,6 @@ pub use assessment_pool_fork::{
     AppendAssessmentPoolForkRevisionInput, AppendedAssessmentPoolForkRevision,
     AssessmentPoolForkStore, ImportAssessmentPoolForkInput, ImportedAssessmentPoolFork,
 };
-pub use assessment_student_time_accommodation::AssessmentStudentTimeAccommodationStore;
 pub use assessment_pool_selection_count::{
     AssessmentPoolSelectionCountInput, AssessmentPoolSelectionCountStore,
 };
@@ -99,6 +98,7 @@ pub use assessment_release::{
     LiveAssessmentWorkspace, SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput,
     SaveLiveAssessmentInput, UnreleasedLiveAssessment,
 };
+pub use assessment_student_time_accommodation::AssessmentStudentTimeAccommodationStore;
 pub use assessment_student_view::{
     InstructorStudentViewSnapshot, InstructorStudentViewSnapshotEntry, InstructorStudentViewSource,
     InstructorStudentViewStore,
