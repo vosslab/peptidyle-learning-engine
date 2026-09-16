@@ -373,8 +373,17 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ##### Blueprint Course interface
 
 - **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
-- **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
-- Public Blueprint Course search should support quickly narrowing a large collection.
+- **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
+- Public Blueprint Course search should combine ordinary text search with filters using the shared content classification hierarchy.
+- Classification filters should follow Discipline -> Subject -> Topic -> Subtopic.
+- Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
+- After selecting a Subject, Instructors should have the option to include Blueprint Courses associated with that Subject across its other Disciplines.
+- Search results should use a compact, information-rich layout that supports scanning and comparison.
+- Results should show useful Course information such as Course name, classification, author, institution, and relevant usage or stewardship signals without requiring the Instructor to open each Course.
+- Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.
+- Search terms, active filters, and the selected sort should remain visible while reviewing results.
+- Clearing or changing part of a search should be quick.
+- Opening a result and returning should preserve the Instructor's search, filters, sort, and position.
 - A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
 
 ##### Blueprint Course editing interface
@@ -425,13 +434,16 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Results should make it easy to scan many Questions quickly.
 - Results should show the information needed to judge relevance without opening each Question.
 - Search results should support filters for narrowing the Question Library.
+- Classification filters should follow the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
+- Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
+- After selecting a Subject, Instructors should have the option to include Questions associated with that Subject across its other Disciplines.
 - Filters should update the current search rather than start a separate workflow.
 - Search should support Google-like syntax for more precise queries.
 - Quoted text should search for an exact phrase.
 - A minus sign should exclude matching terms.
-- Search should support PubMed-like field tags such as `topic:genetics`.
+- Search should support PubMed-like field tags such as `subject:genetics`.
 - Field tags should use PLE concepts and vocabulary.
-- Useful fields may include subject, topic, tags, Question Type, and author.
+- Useful fields may include Discipline, Subject, Topic, Subtopic, Tags, Question Type, and author.
 - Simple and advanced searches should use the same search box.
 - Instructors should not need to learn search syntax to use Search Question Library.
 - The interface should make useful search syntax discoverable when needed.
@@ -611,23 +623,35 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Content classification
 
-- PLE uses one shared content classification system across **Course**, **Assessment**, and **Question** content.
-- Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its primary hierarchy.
+- PLE uses one global content classification hierarchy across **Courses**, **Assessments**, and **Library Objects**.
+- Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
 - **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
 - **Subject** identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-- **Topic** identifies a major area within a Subject.
-- **Subtopic** provides a narrower classification within a Topic.
-- Content uses the levels of the hierarchy that meaningfully describe it.
-- **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
-- Content may have any number of Tags, including none.
-- Courses, Assessments, and Questions use the same classification vocabulary rather than separate classification systems.
-- Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
-- **Sysadmins** exclusively manage the Discipline vocabulary and its lifecycle.
+- **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
+- **Subtopic** provides a narrower classification within a Topic, such as Enzyme Catalysis Mechanisms or X-Linked Recessive Crosses.
+- Subjects have a global identity across PLE, and Subject names are unique across PLE.
+- A Subject may belong to one or more Disciplines.
+- A Topic belongs to one Subject.
+- A Subtopic belongs to one Topic.
+- Every Course, Assessment, and Library Object has exactly one **Discipline**.
+- **Subject**, **Topic**, and **Subtopic** are optional.
+- Courses, Assessments, and Library Objects select from the same shared global hierarchy.
+- **Sysadmins** exclusively create and manage the Discipline vocabulary and its lifecycle.
 - Discipline is a stable vocabulary expected to change infrequently.
 - **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
-- Sysadmins can edit Subjects.
+- **Instructors** may create new Subjects within a Discipline.
+- When a Subject already exists, Instructors select the existing global Subject rather than creating another Subject with the same name.
+- Selecting an existing Subject within another Discipline associates that Subject with the selected Discipline.
+- **Instructors** may create new Topics within a Subject.
+- **Instructors** may create new Subtopics within a Topic.
+- Classification selection begins with Discipline and follows the hierarchy from Discipline to Subject to Topic to Subtopic, progressively narrowing the available choices at each level.
+- Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
+- After selecting a Subject, search interfaces may allow users to include content associated with that Subject across its other Disciplines.
+- **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
+- Content may have any number of Tags, including none.
+- Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
 - Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
-- Length allowances should generally increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
+- Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
 - Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the resulting names consistently.
 
 ### Student and FERPA data
