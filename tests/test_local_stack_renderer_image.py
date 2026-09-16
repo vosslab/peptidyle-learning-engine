@@ -14,6 +14,7 @@ class RendererImageRunner(local_stack_control.process.CommandRunner):
 		"""Store the selected initial image state."""
 		self.exists = exists
 		self.streamed: list[tuple[str, ...]] = []
+		self.inspected: list[list[str]] = []
 
 	#============================================
 	def run(
@@ -25,6 +26,7 @@ class RendererImageRunner(local_stack_control.process.CommandRunner):
 	) -> local_stack_control.models.CommandResult:
 		"""Answer only image-existence and identity observations."""
 		del environment, cwd, stdin
+		self.inspected.append(argv)
 		if argv[:3] == ["podman", "image", "exists"]:
 			return local_stack_control.models.CommandResult(
 				tuple(argv), 0 if self.exists else 1, "", ""
@@ -57,6 +59,7 @@ def test_missing_selected_renderer_builds_from_the_maintained_sibling(
 	repo_root = tmp_path / "peptidyle-learning-engine"
 	source = tmp_path / "webwork-pg-renderer"
 	repo_root.mkdir()
+	(repo_root / "containers").mkdir()
 	source.mkdir()
 	(source / "Dockerfile").write_text("FROM scratch\n", encoding="ascii")
 	runner = RendererImageRunner(False)
@@ -70,6 +73,7 @@ def test_missing_selected_renderer_builds_from_the_maintained_sibling(
 		"podman", "build", "--tag", "localhost/pg-renderer:reviewed", "--file",
 		str(source / "Dockerfile"), str(source),
 	)]
+	assert [call[2] for call in runner.inspected] == ["exists", "inspect"]
 
 
 #============================================

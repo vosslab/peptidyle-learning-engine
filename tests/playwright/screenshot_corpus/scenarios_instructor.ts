@@ -181,6 +181,12 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
     await session.page.getByLabel("Question Authors").waitFor();
     await captureCheckpoint(runtime, scenario, "publication_review", session);
     await session.page.getByLabel("Question Authors").fill("Live Demo Instructor");
+    await session.page
+      .getByRole("combobox", { name: "Discipline (required)", exact: true })
+      .selectOption({ label: "Biology" });
+    await session.page
+      .getByRole("combobox", { name: "Subject (required)", exact: true })
+      .selectOption({ label: "Biochemistry" });
     await session.page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
     await session.page.getByRole("heading", { name: "Published", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "published_result", session);
@@ -223,6 +229,9 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .getByLabel("Blueprint Course long name", { exact: true })
       .fill(BLUEPRINT_PICKER_TITLE);
     await session.page
+      .getByRole("combobox", { name: "Discipline (required)", exact: true })
+      .selectOption({ label: "Biology" });
+    await session.page
       .getByRole("combobox", { name: /^First Assessment Type/u })
       .selectOption("practice_question_assignment");
     await session.page
@@ -231,6 +240,37 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
     await session.page.getByRole("button", { name: "Search questions", exact: true }).click();
     await session.page.locator(".question-picker-result input").first().waitFor();
     await captureCheckpoint(runtime, scenario, "blueprint_question_picker", session);
+  } finally {
+    await runtime.close(session);
+  }
+}
+
+async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promise<void> {
+  const scenario = "instructor_public_blueprint_search";
+  const session = await runtime.open(runtime.record(scenario, "filtered_results"));
+  try {
+    await enterInstructor(session.page);
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tabs", exact: true })
+      .getByRole("link", { name: "Courses", exact: true })
+      .click();
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+      .getByRole("link", { name: "Search Public Blueprint Courses", exact: true })
+      .click();
+    await session.page
+      .getByRole("heading", { level: 1, name: "Search Public Blueprint Courses", exact: true })
+      .waitFor();
+    await session.page.getByLabel("Blueprint Course name", { exact: true }).fill("Biochemistry");
+    await session.page.getByRole("button", { name: "Search", exact: true }).click();
+    await session.page
+      .getByRole("status")
+      .filter({ hasText: /Public Blueprint Courses? shown for "Biochemistry"\./u })
+      .waitFor();
+    await session.page
+      .getByRole("heading", { level: 3, name: COURSE_TITLE, exact: true })
+      .waitFor();
+    await captureCheckpoint(runtime, scenario, "filtered_results", session);
   } finally {
     await runtime.close(session);
   }
@@ -332,6 +372,11 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     id: "instructor_blueprint",
     checkpoints: ["blueprint_list", "blueprint_detail", "blueprint_question_picker"],
     run: instructorBlueprint,
+  },
+  {
+    id: "instructor_public_blueprint_search",
+    checkpoints: ["filtered_results"],
+    run: instructorPublicBlueprintSearch,
   },
   {
     id: "instructor_assignment",

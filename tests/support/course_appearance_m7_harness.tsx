@@ -6,6 +6,7 @@ import { render } from "solid-js/web";
 import type { CourseAppearanceView } from "../../generated/api/CourseAppearanceView";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { ApplicationApi } from "../../src/api/application_api";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import type { CourseRouteView } from "../../src/api/contracts";
@@ -16,6 +17,13 @@ import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 
 const COURSE_REFERENCE: CourseInstanceReference = "CI7K3M2Q";
 const COURSE_PATH = "/instructor/courses/CI7K3M2Q/appearance";
+const FIXTURE_CLASSIFICATION = {
+  disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+  subjectUuid: null,
+  topicUuid: null,
+  subtopicUuid: null,
+  tags: [],
+} satisfies CourseClassification;
 
 function initialCourse(): CourseRouteView {
   return {
@@ -23,6 +31,7 @@ function initialCourse(): CourseRouteView {
       reference: COURSE_REFERENCE,
       shortName: "BCHM 301",
       longName: "Biochemistry 301: Proteins and Peptides",
+      classification: FIXTURE_CLASSIFICATION,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
     },

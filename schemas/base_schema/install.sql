@@ -17,6 +17,7 @@
 \ir question_watch_notifications.sql
 \ir object_records.sql
 \ir question_authoring_state.sql
+\ir draft_question_assets.sql
 \ir question_publication_operations.sql
 \ir question_authoring_operations.sql
 \ir published_question_metadata_operations.sql
@@ -61,6 +62,7 @@
 \ir delivery.sql
 \ir jobs.sql
 \ir question_asset_operations.sql
+\ir draft_asset_publication_operations.sql
 \ir grading.sql
 \ir grading_access.sql
 \ir student_assessment_landing.sql

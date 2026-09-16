@@ -12,10 +12,11 @@ use axum::{
 use axum_extra::extract::Query;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
-    Cursor, PageRequest, PageSize, QuestionLibraryStore, QuestionPoolLibraryStore,
-    SessionTokenHash, StoreError,
+    ContentClassificationStore, Cursor, PageRequest, PageSize, QuestionLibraryStore,
+    QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore, SessionTokenHash, StoreError,
     postgres::{
-        PostgresQuestionLibraryStore, PostgresQuestionPoolLibraryStore, PostgresSessionStore,
+        PostgresContentClassificationStore, PostgresQuestionLibraryStore,
+        PostgresQuestionPoolLibraryStore, PostgresSessionStore,
     },
 };
 use objects::s3::S3ObjectStore;
@@ -33,13 +34,14 @@ use crate::{
 };
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
-const MAX_CURSOR_BYTES: usize = 256;
+const MAX_CURSOR_BYTES: usize = 1024;
 
 #[derive(Clone)]
 struct RouteState {
     sessions: Arc<PostgresSessionStore>,
     pools: PostgresQuestionPoolLibraryStore,
     questions: PostgresQuestionLibraryStore,
+    classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
     issuer: HmacQuestionIdIssuer,
 }
@@ -48,6 +50,7 @@ pub fn question_pool_library_router(
     sessions: Arc<PostgresSessionStore>,
     pools: PostgresQuestionPoolLibraryStore,
     questions: PostgresQuestionLibraryStore,
+    classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
     issuer: HmacQuestionIdIssuer,
 ) -> Router {
@@ -62,6 +65,7 @@ pub fn question_pool_library_router(
             sessions,
             pools,
             questions,
+            classifications,
             objects,
             issuer,
         })
@@ -74,6 +78,16 @@ struct ListQuery {
     cursor: Option<String>,
     #[serde(default)]
     page_size: Option<u16>,
+    #[serde(default)]
+    discipline_uuid: Option<uuid::Uuid>,
+    #[serde(default)]
+    subject_uuid: Option<uuid::Uuid>,
+    #[serde(default)]
+    topic_uuid: Option<uuid::Uuid>,
+    #[serde(default)]
+    subtopic_uuid: Option<uuid::Uuid>,
+    #[serde(default)]
+    cross_discipline: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -89,6 +103,11 @@ struct PoolCursor {
     version: u8,
     after: String,
     page_size: u16,
+    discipline_uuid: Option<uuid::Uuid>,
+    subject_uuid: Option<uuid::Uuid>,
+    topic_uuid: Option<uuid::Uuid>,
+    subtopic_uuid: Option<uuid::Uuid>,
+    cross_discipline: bool,
 }
 
 async fn list_pools(
@@ -104,8 +123,24 @@ async fn list_pools(
         Ok(value) => value,
         Err(response) => return *response,
     };
+    let filter = QuestionPoolDiscoveryFilter {
+        discipline_uuid: query.discipline_uuid,
+        subject_uuid: query.subject_uuid,
+        topic_uuid: query.topic_uuid,
+        subtopic_uuid: query.subtopic_uuid,
+        cross_discipline: query.cross_discipline,
+    };
+    // ASVS 2.2.2, 2.2.3: validate the hierarchy at the trusted service boundary.
+    if !filter.has_valid_structure() {
+        return bad_request("Question Pool classification hierarchy is invalid");
+    }
+    match valid_classification(&state.classifications, token.clone(), filter).await {
+        Ok(true) => {}
+        Ok(false) => return bad_request("Question Pool classification is invalid"),
+        Err(error) => return store_error(error),
+    }
     let after = match query.cursor {
-        Some(value) => match decode_cursor(&state.issuer, &value, page_size.get()) {
+        Some(value) => match decode_cursor(&state.issuer, &value, page_size.get(), filter) {
             Some(value) => Some(value),
             None => return bad_request("Question Pool continuation is invalid"),
         },
@@ -119,6 +154,7 @@ async fn list_pools(
                 after,
                 size: page_size,
             },
+            filter,
         )
         .await
     {
@@ -133,7 +169,7 @@ async fn list_pools(
         return unavailable();
     }
     let next_cursor = match page.next_cursor {
-        Some(value) => match encode_cursor(value.as_str(), page_size.get()) {
+        Some(value) => match encode_cursor(value.as_str(), page_size.get(), filter) {
             Some(value) => Some(value),
             None => return unavailable(),
         },
@@ -173,6 +209,7 @@ async fn current_pool(
         &state,
         token,
         revision.question_pool_revision,
+        revision.metadata,
         revision.members,
     )
     .await
@@ -221,6 +258,7 @@ async fn assessment_fork(
         &state,
         token,
         record.question_pool_revision.clone(),
+        record.metadata,
         record.members,
     )
     .await
@@ -230,6 +268,7 @@ async fn assessment_fork(
     };
     crate::auth::no_store(
         Json(AssessmentQuestionPoolForkView {
+            metadata: revision.metadata,
             assessment_entry_id: record.assessment_entry_id,
             question_pool_revision: record.question_pool_revision,
             pool_metadata_etag: record.pool_metadata_etag,
@@ -244,6 +283,7 @@ async fn revision_view(
     state: &RouteState,
     token: SessionTokenHash,
     question_pool_revision: question_model::QuestionPoolRevisionReference,
+    metadata: question_model::QuestionPoolMetadata,
     members: Vec<question_model::QuestionRevisionReference>,
 ) -> Result<QuestionPoolRevisionView, Response> {
     let mut views = Vec::with_capacity(members.len());
@@ -266,9 +306,59 @@ async fn revision_view(
         });
     }
     Ok(QuestionPoolRevisionView {
+        metadata,
         question_pool_revision,
         members: views,
     })
+}
+
+async fn valid_classification(
+    store: &impl ContentClassificationStore,
+    token: SessionTokenHash,
+    filter: QuestionPoolDiscoveryFilter,
+) -> Result<bool, StoreError> {
+    let Some(discipline) = filter.discipline_uuid else {
+        return Ok(true);
+    };
+    if !store
+        .list_disciplines(token.clone())
+        .await?
+        .iter()
+        .any(|item| item.uuid == discipline)
+    {
+        return Ok(false);
+    }
+    let Some(subject) = filter.subject_uuid else {
+        return Ok(true);
+    };
+    // Cross-Discipline mode still validates the selected Discipline/Subject edge.
+    if !store
+        .list_subjects(token.clone(), discipline)
+        .await?
+        .iter()
+        .any(|item| item.uuid == subject)
+    {
+        return Ok(false);
+    }
+    let Some(topic) = filter.topic_uuid else {
+        return Ok(true);
+    };
+    if !store
+        .list_topics(token.clone(), subject)
+        .await?
+        .iter()
+        .any(|item| item.uuid == topic)
+    {
+        return Ok(false);
+    }
+    let Some(subtopic) = filter.subtopic_uuid else {
+        return Ok(true);
+    };
+    Ok(store
+        .list_subtopics(token, topic)
+        .await?
+        .iter()
+        .any(|item| item.uuid == subtopic))
 }
 
 fn verified_id(issuer: &HmacQuestionIdIssuer, value: &str) -> Option<QuestionId> {
@@ -276,23 +366,44 @@ fn verified_id(issuer: &HmacQuestionIdIssuer, value: &str) -> Option<QuestionId>
     issuer.validates_question_id(&id).then_some(id)
 }
 
-fn encode_cursor(after: &str, page_size: u16) -> Option<String> {
+fn encode_cursor(
+    after: &str,
+    page_size: u16,
+    filter: QuestionPoolDiscoveryFilter,
+) -> Option<String> {
     serde_json::to_vec(&PoolCursor {
-        version: 1,
+        version: 2,
         after: after.to_owned(),
         page_size,
+        discipline_uuid: filter.discipline_uuid,
+        subject_uuid: filter.subject_uuid,
+        topic_uuid: filter.topic_uuid,
+        subtopic_uuid: filter.subtopic_uuid,
+        cross_discipline: filter.cross_discipline,
     })
     .ok()
     .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
 }
 
-fn decode_cursor(issuer: &HmacQuestionIdIssuer, value: &str, page_size: u16) -> Option<Cursor> {
+fn decode_cursor(
+    issuer: &HmacQuestionIdIssuer,
+    value: &str,
+    page_size: u16,
+    filter: QuestionPoolDiscoveryFilter,
+) -> Option<Cursor> {
     if value.len() > MAX_CURSOR_BYTES {
         return None;
     }
     let decoded = URL_SAFE_NO_PAD.decode(value).ok()?;
     let cursor: PoolCursor = serde_json::from_slice(&decoded).ok()?;
-    if cursor.version != 1 || cursor.page_size != page_size {
+    if cursor.version != 2
+        || cursor.page_size != page_size
+        || cursor.discipline_uuid != filter.discipline_uuid
+        || cursor.subject_uuid != filter.subject_uuid
+        || cursor.topic_uuid != filter.topic_uuid
+        || cursor.subtopic_uuid != filter.subtopic_uuid
+        || cursor.cross_discipline != filter.cross_discipline
+    {
         return None;
     }
     let id = cursor.after.parse::<QuestionId>().ok()?;
@@ -356,14 +467,15 @@ mod tests {
     fn continuation_is_opaque_query_bound_and_hmac_validated() {
         let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
         let id = issuer.issue_question_id().expect("Pool ID");
-        let encoded = encode_cursor(&id.to_string(), 25).expect("cursor encodes");
+        let filter = QuestionPoolDiscoveryFilter::default();
+        let encoded = encode_cursor(&id.to_string(), 25, filter).expect("cursor encodes");
         assert_eq!(
-            decode_cursor(&issuer, &encoded, 25)
+            decode_cursor(&issuer, &encoded, 25, filter)
                 .expect("matching query cursor")
                 .as_str(),
             id.to_string()
         );
-        assert!(decode_cursor(&issuer, &encoded, 50).is_none());
+        assert!(decode_cursor(&issuer, &encoded, 50, filter).is_none());
 
         let wrong = QuestionId::from_canonical_parts(
             id.identifier_compact(),
@@ -374,7 +486,53 @@ mod tests {
             },
         )
         .expect("syntax-valid alternate HMAC character");
-        let forged = encode_cursor(&wrong.to_string(), 25).expect("forged cursor encodes");
-        assert!(decode_cursor(&issuer, &forged, 25).is_none());
+        let forged = encode_cursor(&wrong.to_string(), 25, filter).expect("forged cursor encodes");
+        assert!(decode_cursor(&issuer, &forged, 25, filter).is_none());
+    }
+
+    #[test]
+    fn continuation_rejects_changed_classification_and_old_format() {
+        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
+        let id = issuer.issue_question_id().expect("Pool ID");
+        let filter = QuestionPoolDiscoveryFilter {
+            discipline_uuid: Some(uuid::Uuid::from_u128(1)),
+            subject_uuid: Some(uuid::Uuid::from_u128(2)),
+            topic_uuid: Some(uuid::Uuid::from_u128(3)),
+            subtopic_uuid: Some(uuid::Uuid::from_u128(4)),
+            cross_discipline: true,
+        };
+        let encoded = encode_cursor(&id.to_string(), 25, filter).expect("cursor encodes");
+        assert!(decode_cursor(&issuer, &encoded, 25, filter).is_some());
+        for changed in [
+            QuestionPoolDiscoveryFilter {
+                discipline_uuid: Some(uuid::Uuid::from_u128(5)),
+                ..filter
+            },
+            QuestionPoolDiscoveryFilter {
+                subject_uuid: Some(uuid::Uuid::from_u128(5)),
+                ..filter
+            },
+            QuestionPoolDiscoveryFilter {
+                topic_uuid: None,
+                ..filter
+            },
+            QuestionPoolDiscoveryFilter {
+                subtopic_uuid: None,
+                ..filter
+            },
+            QuestionPoolDiscoveryFilter {
+                cross_discipline: false,
+                ..filter
+            },
+        ] {
+            assert!(decode_cursor(&issuer, &encoded, 25, changed).is_none());
+        }
+        let old = URL_SAFE_NO_PAD.encode(
+            serde_json::to_vec(&serde_json::json!({
+                "version": 1, "after": id.to_string(), "pageSize": 25,
+            }))
+            .expect("old cursor JSON"),
+        );
+        assert!(decode_cursor(&issuer, &old, 25, QuestionPoolDiscoveryFilter::default()).is_none());
     }
 }

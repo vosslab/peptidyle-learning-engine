@@ -670,7 +670,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
               <For each={availablePools()}>
                 {(pool) => (
                   <option value={pool.questionPoolRevision.questionPoolId}>
-                    {pool.questionPoolRevision.questionPoolId} Revision{" "}
+                    {pool.metadata.title} - {pool.questionPoolRevision.questionPoolId} Revision{" "}
                     {pool.questionPoolRevision.revisionNumber} ({pool.memberCount} Questions)
                   </option>
                 )}

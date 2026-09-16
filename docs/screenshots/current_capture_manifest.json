@@ -289,7 +289,10 @@
       "checkpoint": "dna_structure_laptop",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
-      "gallery": { "order": 1240, "caption": "True/False Statements About DNA Structure generated example" }
+      "gallery": {
+        "order": 1240,
+        "caption": "True/False Statements About DNA Structure generated example"
+      }
     },
     {
       "id": "instructor_webwork_meiosis_prophase_laptop",
@@ -303,7 +306,10 @@
       "checkpoint": "meiosis_prophase_laptop",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
-      "gallery": { "order": 1250, "caption": "Matching Meiosis Prophase I Stages to Descriptions generated example" }
+      "gallery": {
+        "order": 1250,
+        "caption": "Matching Meiosis Prophase I Stages to Descriptions generated example"
+      }
     },
     {
       "id": "instructor_webwork_chi_square_laptop",
@@ -317,7 +323,10 @@
       "checkpoint": "chi_square_laptop",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
-      "gallery": { "order": 1260, "caption": "True/False Statements About Chi-Square Tests generated example" }
+      "gallery": {
+        "order": 1260,
+        "caption": "True/False Statements About Chi-Square Tests generated example"
+      }
     },
     {
       "id": "instructor_webwork_chromosome_shapes_laptop",
@@ -331,7 +340,10 @@
       "checkpoint": "chromosome_shapes_laptop",
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
-      "gallery": { "order": 1270, "caption": "Matching Chromosome Shapes to Descriptions generated example" }
+      "gallery": {
+        "order": 1270,
+        "caption": "Matching Chromosome Shapes to Descriptions generated example"
+      }
     },
 
     {
@@ -404,6 +416,20 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": { "order": 410, "caption": "Blueprint Courses" }
+    },
+    {
+      "id": "instructor_public_blueprint_search_laptop",
+      "path": "instructor/public_blueprint_search.png",
+      "role": "instructor",
+      "routeId": "publicBlueprintSearch",
+      "area": "blueprint courses",
+      "workflow": "public blueprint discovery",
+      "state": "filtered results",
+      "scenario": "instructor_public_blueprint_search",
+      "checkpoint": "filtered_results",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 415, "caption": "Search Public Blueprint Courses" }
     },
     {
       "id": "instructor_blueprint_course_detail_laptop",
@@ -829,6 +855,278 @@
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
       "gallery": { "order": 1215, "caption": "Instructor Account creation validation" }
+    },
+    {
+      "id": "student_question_mc_laptop",
+      "path": "student/question_mc_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MC question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_mc_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2100,
+        "caption": "Student MC response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_mc_phone",
+      "path": "student/question_mc_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MC question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_mc_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2110,
+        "caption": "Student MC response controls on a phone"
+      }
+    },
+    {
+      "id": "student_question_ma_laptop",
+      "path": "student/question_ma_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MA question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_ma_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2120,
+        "caption": "Student MA response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_ma_phone",
+      "path": "student/question_ma_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MA question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_ma_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2130,
+        "caption": "Student MA response controls on a phone"
+      }
+    },
+    {
+      "id": "student_question_fib_laptop",
+      "path": "student/question_fib_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_fib_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2140,
+        "caption": "Student FIB response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_fib_phone",
+      "path": "student/question_fib_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_fib_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2150,
+        "caption": "Student FIB response controls on a phone"
+      }
+    },
+    {
+      "id": "student_question_multi_fib_laptop",
+      "path": "student/question_multi_fib_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MULTI-FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_multi_fib_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2160,
+        "caption": "Student MULTI-FIB response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_multi_fib_phone",
+      "path": "student/question_multi_fib_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MULTI-FIB question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_multi_fib_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2170,
+        "caption": "Student MULTI-FIB response controls on a phone"
+      }
+    },
+    {
+      "id": "student_question_num_laptop",
+      "path": "student/question_num_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered NUM question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_num_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2180,
+        "caption": "Student NUM response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_num_phone",
+      "path": "student/question_num_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered NUM question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_num_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2190,
+        "caption": "Student NUM response controls on a phone"
+      }
+    },
+    {
+      "id": "student_question_match_laptop",
+      "path": "student/question_match_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MATCH question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_match_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2200,
+        "caption": "Student MATCH response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_match_phone",
+      "path": "student/question_match_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered MATCH question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_match_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2210,
+        "caption": "Student MATCH response controls on a phone"
+      }
+    },
+    {
+      "id": "student_question_order_laptop",
+      "path": "student/question_order_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered ORDER question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_order_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2220,
+        "caption": "Student ORDER response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_order_phone",
+      "path": "student/question_order_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered ORDER question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_order_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2230,
+        "caption": "Student ORDER response controls on a phone"
+      }
+    },
+    {
+      "id": "student_question_webwork_laptop",
+      "path": "student/question_webwork_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered WeBWorK question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_webwork_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2240,
+        "caption": "Student WeBWorK response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_webwork_phone",
+      "path": "student/question_webwork_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered WeBWorK question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_webwork_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2250,
+        "caption": "Student WeBWorK response controls on a phone"
+      }
     }
   ],
   "coverage": {
@@ -941,6 +1239,11 @@
           "instructor_blueprint_courses_laptop",
           "instructor_blueprint_question_picker_laptop"
         ]
+      },
+      {
+        "routeId": "publicBlueprintSearch",
+        "status": "captured",
+        "captureIds": ["instructor_public_blueprint_search_laptop"]
       },
       {
         "routeId": "blueprintCourseDetail",
@@ -1133,8 +1436,8 @@
       },
       {
         "id": "task:searchPublicBlueprintCourses",
-        "status": "deferred",
-        "reason": "Public Blueprint search is a plan non-goal without a backed route."
+        "status": "captured",
+        "captureIds": ["instructor_public_blueprint_search_laptop"]
       },
       {
         "id": "task:myQuestions",

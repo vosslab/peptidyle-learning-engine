@@ -120,7 +120,7 @@ test("decision presentation renders one server instant differently in two suppli
   assert.ok(newYorkHtml.includes(newYorkDue));
   assert.ok(losAngelesHtml.includes(losAngelesDue));
   assert.match(newYorkHtml, /Can start/u);
-  assert.match(newYorkHtml, /Times are shown in your time zone: America\/New_York\./u);
+  assert.match(newYorkHtml, /Times shown in America\/New_York/u);
   assert.doesNotMatch(newYorkHtml, /Cannot start/u);
 
   const closedReason = "This Assessment is closed for new work.";

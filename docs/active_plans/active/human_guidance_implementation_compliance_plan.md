@@ -20,16 +20,100 @@ Residual audit work remains for Course/Pool classification, Bloom, Change Propos
 and resource-specific support authority. The current reconciliation receipt below supersedes the
 former generator-drift statement; it changes inventory accounting only, not product acceptance.
 
-## Current heading reconciliation
+## Current connected acceptance
 
-Current Human Guidance SHA256 is
-`9e92c864a019d89ef9952cfb6e3b9c05a4f45d6055b6c3f49520c400f4dc7055`.
+Current local Blueprint classification-search source is implemented but not connected acceptance.
+Public Blueprint Search accepts ordinary text plus optional Discipline, Subject, Topic, Subtopic,
+and a Subject-across-Disciplines flag. The server validates hierarchy identities and associations,
+binds the complete submitted tuple into its version-3 cursor, and retains existing visibility and
+Public-only rules. Root Cargo session 31251, focused Rust session 56442, strict TypeScript plus 21
+Node tests session 19414, and full pytest session 39220 (7,462 passed) passed; canonical
+PostgreSQL 17 bootstrap/install and an isolated actual-role proof also passed with rollback. The
+actual-component selector proof covers progressive hierarchy, keyboard input, cascades, applied
+retry/pagination state, Clear, stale suppression, and 390px overflow only. Live `8147` predates
+this source, so connected HTTP/browser, actual vocabulary-parent, and authorization acceptance
+remain pending. This does not close the broad Blueprint search rows, alter the 450/503/43
+inventory, or extend to Question Library search, which remains name-based. Tags, sorting, result
+metadata, and return-state work remain separate. Receipt:
+`/private/tmp/ple-classification-search-pool-receipt-20260916.md`.
+
+Root's canonical build session 51649 terminally exited 0 and reached `Ready` at
+`https://localhost:8147/sign-in`, including Pool metadata and the classification-selector fix.
+Root-supplied `/private/tmp/ple-pool-metadata-connected-report.md` records ordinary Elena login,
+required Title/Description denials, mixed-Subject `422` with unchanged public list, exact ordered
+pins and independent list/current metadata, Student/anonymous concealed `404`, and actual Library
+UI denied-create draft preservation, picker reselection, and successful creation. Browser errors
+were empty. Current Revision 1 is proved; no historical Pool HTTP endpoint or journey is claimed.
+Accepted actual-role SQL/concurrency and independently reviewed source remain complementary proof.
+
+Root's no-workaround script `/private/tmp/ple-course-classification-no-workaround-20260916.mjs`
+(session 85118, exit 0) uses normal Elena login and ordinary Course/Blueprint creation/editors:
+saved Biology hydrates without reselection, Tags-only saves pass, both unsaved Blueprint names
+survive, and browser errors are empty. Earlier broader Course browser proof remains historical
+and explicitly used a reselection workaround; its independent-metadata/adoption evidence is not
+represented as a newly rerun journey.
+
+Nine narrow owning rows now close: four independent Pool metadata/Title/Description/first-member/
+nonduplicated-metadata obligations and five Course-wide/exactly-one-Discipline/optional-hierarchy/
+Tags/Instance-independence obligations. Current generated inventory has 996 occurrences: 450
+verified, 503 open, and 43 N/A. The excluded How-to-use and Product vocabulary/glossary metadata
+subtrees remain Human Guidance interpretation authority, not implementation-checklist items. Broad
+shared classification, discovery, additional-member connected append, attribution, support-content,
+Bloom, and Student delivery obligations remain open. No blanket Pool/Course closure.
+
+Current local Blueprint Promoted implementation adds the searchable lineage flag, promoted-only
+cursor-bound discovery, Sysadmin-only ETag/CAS mutation boundary, and a Public Blueprint Search
+filter. Canonical PostgreSQL 17 bootstrap/install as `ple_migrator` and the isolated actual-role
+script passed (`BEGIN`, `PASS`, `DO`, `ROLLBACK`, exit 0); its exact labelled disposable container
+was removed. Root Cargo session 60804 passed `cargo check -p server_core -p project-tools --tests`
+in 7.74 seconds, stricter TypeScript plus 11 Blueprint-client Node tests session 65918 passed, and
+pytest session 36484 passed 7,462 tests in 5.55 seconds. These source, isolated SQL, and offline
+gates do not close either Promoted row: deployed HTTP/browser integration remains unverified, and
+live `8147` predates this source. No connected-current-source claim follows.
+
+Current parallel-batch receipt (2026-09-16): root's stricter `npx tsc --noEmit -p
+tsconfig.lint.json` gate and 16 focused history/disclosure/navigation Node tests passed. After the
+temporary review-density harness was moved out of `tests/`, root's full
+`source source_me.sh && python3 -m pytest tests/ -q` session 60790 terminally exited 0 with
+7,462 passed in 5.42 seconds. The current Bloom guide was also corrected to match Human Guidance:
+AI assigns both dimensions before a Question or Pool Revision enters the Library, and a Pool is
+classified as a whole. This preserves the current 450 verified, 503 open, and 43 N/A inventory;
+it does not establish deployed demo `8147`, connected Student proof, or global Human Guidance
+closure. Receipt: `/private/tmp/ple-parallel-batch-receipt-20260916.md`.
+
+HOTSPOT now has a reviewed raster-first implementation: owner/CAS Draft upload and source binding,
+publication preparation, numeric region authoring, and a PLE-owned Student image pointer/keyboard
+control. Root `cargo check -p server_core -p project-tools --tests` session 32160 passed in 2.77
+seconds; root full pytest session 36235 passed 7,462 tests in 5.62 seconds; and `npx tsc --noEmit`
+session 35906 passed. The 353-test Node receipt predates the final geometry/readiness fixes, though
+their focused checks passed independently. Fresh canonical PostgreSQL 17 install and the isolated
+actual-role `ple_auth`/`ple_app` proof passed after the helper correction, with genuine changed
+successor source and exact `PQR01` stale handling. The isolated actual-component dot proof then
+passed at 1280 and 390 pixels: intrinsic geometry, pointer and keyboard selection, clear and
+fresh-mount restoration, saving lock, and image-replacement readiness/error reset. This is
+rendered component evidence, not connected acceptance: `8147` remains pre-HOTSPOT; normal
+author/save/publish, worker Pending-to-Ready activation, Student grading, connected delivery, and
+published screenshot-corpus proof remain unproved. SVG remains unimplemented; its repository
+fixtures are not SVG ingestion support. Receipt: `/private/tmp/ple-hotspot-isolated-dot-render-proof.md`.
+The corrected screenshot scenario heading did not authorize author/publish/release activity, so no
+browser rerun or PNG was published. New live support TLS acceptance also remains pending.
+
+## Historical heading reconciliation
+
+Pre-build cleanup receipt: root executed exactly `podman image prune -a -f`; image usage fell
+from 36.84 GB to 2.712 GB, with no containers or volumes removed. Source now invokes that exact
+command once before each complete managed image-build cycle, under its checkout lease, and
+blocks the cycle on failure. `/private/tmp/ple-simple-prebuild-prune.md` records 78 focused
+passing checks. Canonical runtime rebuild acceptance remains pending.
+
+Historical reconciliation snapshot before the metadata exclusion used Human Guidance SHA256
+`950d2712abc154e9d7591983aeaed7bb696a0c7b60a49b8d28518d59bdfad191`.
 All nine existing generator part gates, identity diff, and consistency passed. The generator and
-checklist now agree on 1,038 occurrences: 441 verified, 547 open, and 50 N/A. The first-owner
+checklist then agreed on 1,038 occurrences: 441 verified, 547 open, and 50 N/A. The first-owner
 inventory is 432 verified, 533 open, and 50 N/A across 1,015 distinct identities; 23 are later
 duplicates. Sixty-nine new or changed requirements remain explicitly pending independent audit.
-This receipt establishes current inventory fidelity only. It does not close any new Human Guidance
-row, alter a product status, or establish global compliance.
+This historical receipt does not close any Human Guidance row, alter a product status, or establish
+global compliance.
 
 The prior 998-bullet snapshot (449 verified, 499 open, 490 owning-open, and 50 N/A at
 `e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`) is historical evidence,
@@ -59,13 +143,65 @@ The self-contained actual-role Course-classification proof passed at
 no-op/stale/history behavior, no Revision change, exact pins, 65 hierarchy tags, and fork/Instance
 independence were exercised. The corrected actual-role support proof passed its constraints and
 rollback at `/private/tmp/ple-support-exact-authority-result.log`; independent review accepted its
-source and corrected proof. Neither receipt is browser, deployed, durable HTTP-support-E2E, or
-whole-feature acceptance.
+source and corrected proof. Neither SQL receipt is browser, deployed, or whole-feature acceptance.
+The later frozen-source full support `--issue` run (session 38897) terminally exited 0; accepted
+bounded exact-Student-scope authority, unsupported-class denial, concealment, and revocation
+evidence is recorded at `/private/tmp/ple-course-support-e2e-prerequisite.md`. Current Course
+fixtures and ordinary Morgan MFA were repaired without weakening authority expectations. This
+prerequisite does not establish all-resource support, rebuilt Pool, or global HG acceptance.
+
+Current connected-progress checkpoint (2026-09-16): canonical Live Demo `2914` reached `Ready`
+and the old projection failure is fixed. Actual-role Course browser proof passed create/history,
+exact metadata, unchanged Revision, name drafts, and Course-Instance source independence, with an
+explicit Biology reselection workaround. Tags-only asynchronous selection remains defective in the
+old `8075` bundle. `/private/tmp/ple-classification-async-selection-fix.md` records four blank
+selections before and four correct Tags-only selections after the source correction; Tags-only
+save, parent-clear, and blank validation passed. Shared-selector independent review passed with
+TypeScript check, lint, and format. The next canonical rebuild remains pending.
+
+Pool metadata source work is complete through SQL, Rust, API, and browser metadata boundaries,
+but is not in running `8075`; HTTP/browser acceptance remains pending. SQL review, final Rust/API
+review after the trim fix, and browser re-review after the trim/hierarchy fix passed. Fresh
+PostgreSQL 17 `ple_migrator` install, `/private/tmp/ple-pool-metadata-proof.sql`, and
+`/private/tmp/ple-pool-concurrency-proof.py` passed their stated install, role/rollback,
+concurrent-wait, and dual-commit cases. Actual `ple_app` metadata accepted 65 Tags; the arbitrary
+64-Tag cap was removed from SQL and Rust while per-Tag bounds remain. The exact disposable proof
+container was stopped with `--rm` after label verification; its fixture database is gone and its
+logs/tool receipts remain. Root Cargo check passed in 9.61 seconds, `cargo tsgen` generated 370
+types and 348 Node tests passed. After correcting three narrower test-lane failures, root's full
+`python3 -m pytest tests/ -q` run (session 22889) terminally exited 0: 7,462 passed in 6.69 seconds.
+Live TLS acceptance and canonical runtime rebuild remain pending. No Pool
+creation, selection, delivery, HTTP, browser, deployed, or global Human Guidance acceptance follows.
+
+The screenshot manifest has 75 entries (the old 59 plus 16 native/WeBWorK laptop/phone scenarios)
+and publishes no PNG. HOTSPOT raster asset ingest, authoring, publication preparation, and Student
+control source now exist; isolated actual-component rendering passes at 1280 and 390 pixels, but
+connected authoring/publication/Ready delivery, Student grading, and screenshot-corpus proof remain
+absent. SVG remains an implementation gap, not a product-decision blocker; fixture SVGs do not
+establish SVG ingestion support. Support E2E and new live TLS acceptance remain pending.
 
 Student S04/S05 compact-details work has accepted independent source/render review at
 `/private/tmp/ple-student-rules-disclosure-review.md`; root
 `node /private/tmp/ple-student-rules-proof.mjs` exited 0 at 1280 and 390 pixels. This component
 receipt does not establish the full shell, theme, zoom, or all-Student-interface acceptance.
+
+Historical runtime/capture context (2026-09-16): the Draft classification-name component proof
+and Public owner-editability source/SQL/HG review remain accepted bounded evidence. The malformed
+`DO $` Live Demo/oracle repair and extracted provisioned-vocabulary `ple_migrator` block also
+passed. The earlier pre-`Ready` canonical attempt, retry process 23160 projection failure, and
+345-Node/7,443-pytest receipts are superseded by the current checkpoint above. The Public Blueprint
+Search PNG remains absent. The 75-entry manifest contains no *new* published PNG; no stale or
+retired image is represented as current evidence. No Human Guidance status or SQL-lockdown claim
+follows. Historical receipt: `/private/tmp/ple-runtime-full-capture-receipt.md`.
+
+Pre-build checkpoint (2026-09-16): scoped cleanup removed 86 untagged, undigested,
+project-source-labeled images not referenced by containers (169 to 83 images; 34.16 GB to
+33.03 GB), with all exact non-forcing removals returning status 0. Builder cache, named inputs,
+unknown-ownership images, 49 containers, and 39 volumes were retained. The four build boundaries
+share a checkout-directory lease; broad post-ready pruning is removed. Root `pytest` passed 7,448
+tests in 5.47 seconds, `git diff --check` passed, and `cargo check -p project-tools --tests` passed
+in 3.32 seconds. No new build has started, so this establishes no runtime Ready state, Human
+Guidance status, checklist closure, or SQL-lockdown claim.
 
 Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
 no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
@@ -1936,6 +2072,16 @@ After the last correction milestone closes: regenerate screenshots and capture m
 Remove `Generated evidence stale:` notes. Gate: regeneration commands exit 0; screenshot contract
 tests pass; changelog entry.
 
+### Interim full-corpus refresh checkpoint
+
+Before final R1 acceptance, run one fresh Live Demo replay that captures every current manifest
+entry for Public, Instructor, Student, and Sysadmin, then regenerate and validate the manifest and
+atlas together. The Student portion explicitly includes all eight native Question Types and a
+WeBWorK delivery/review scenario. A required scenario without a newly captured PNG keeps the
+corpus unrefreshed; a static-only check cannot substitute for replay. Keep stale or retired images
+outside the current corpus and record them as such. This checkpoint adds no alternate release
+path, status bookkeeping, or dependency graph; R1 remains the final derived-evidence gate.
+
 ## Milestone R2: Re-audit the checklist
 
 Nine fresh subagents repeat A1-A9 against the corrected system; the manager repeats the per-part
@@ -2011,5 +2157,8 @@ human-facing label unless a real workflow needs one. Published Question and Ques
 
 Latest Student response distinction rewrite: live HG requires visually distinct current Question,
 saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/
-change from whole Coursework submission. Both rows are open; earlier navigation styling receipts
-are retained as partial proof, not blanket acceptance of native response controls/actions.
+change from whole Coursework submission. The shared native control now labels its default action
+`Restore initial response`; isolated actual-component evidence shows mount-baseline restoration,
+not a clear/delete operation or Student workflow persistence. Both rows remain open; earlier
+navigation styling receipts are retained as partial proof, not blanket acceptance of native
+response controls/actions.

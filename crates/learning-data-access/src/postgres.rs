@@ -48,6 +48,8 @@ mod attempt_expiry;
 #[cfg(feature = "postgres")]
 mod authoring;
 #[cfg(feature = "postgres")]
+mod authoring_assets;
+#[cfg(feature = "postgres")]
 mod blueprint_course;
 #[cfg(feature = "postgres")]
 mod blueprint_fork_apply;
@@ -151,6 +153,8 @@ pub use assessment_template::PostgresAssessmentTemplateStore;
 pub use attempt_expiry::PostgresAssessmentAttemptExpirySweepStore;
 #[cfg(feature = "postgres")]
 pub use authoring::PostgresAuthoringDraftStore;
+#[cfg(feature = "postgres")]
+pub use authoring_assets::PostgresAuthoringAssetsStore;
 #[cfg(feature = "postgres")]
 pub use blueprint_course::PostgresBlueprintCourseStore;
 #[cfg(feature = "postgres")]

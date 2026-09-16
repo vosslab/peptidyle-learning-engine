@@ -375,7 +375,15 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         .map(|item| {
             let object = closed_object(
                 item,
-                &["reference", "shortName", "longName", "term", "theme"],
+                &[
+                    "classification",
+                    "metadataEtag",
+                    "reference",
+                    "shortName",
+                    "longName",
+                    "term",
+                    "theme",
+                ],
                 "Course",
             )?;
             Ok((object.get("shortName").and_then(Value::as_str)

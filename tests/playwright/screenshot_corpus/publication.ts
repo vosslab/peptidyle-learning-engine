@@ -190,7 +190,7 @@ function titleCase(value: string): string {
 
 function imageTile(capture: CaptureRecord, imagePrefix: string): string {
   const source = `${imagePrefix}${capture.path}`;
-  const alt = `Screenshot preview of ${capture.gallery.caption.replaceAll("/", " or ")}`;
+  const alt = `Screenshot preview of ${capture.gallery.caption.replace(/\//gu, " or ")}`;
   const featured = capture.gallery.featured ? "<br>Featured" : "";
   return `[![${alt}](${source})](${source})<br>${capture.gallery.caption}<br>${capture.state} - ${capture.viewport}${featured}`;
 }

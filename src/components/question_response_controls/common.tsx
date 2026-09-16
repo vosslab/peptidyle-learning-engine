@@ -15,6 +15,9 @@ import type {
   StudentResponseFormatIssue,
 } from "../../api/decoders/student_response_format_check";
 import type { ResponseFormatValidator } from "../../wasm/index";
+import type { AssetUrlResolver } from "../question_renderer";
+import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 
 export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
 /**
@@ -71,6 +74,14 @@ export interface StudentWorkRouteScope {
 
 export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
+  /** Exact publication identity and authorized resolver for image-backed controls. */
+  readonly questionRevision?: QuestionRevisionReference;
+  readonly assetUrl?: AssetUrlResolver;
+  /** Authorized private Draft route; local author preview only. */
+  readonly hotspotDraftAsset?: {
+    readonly draftQuestion: DraftQuestionReference;
+    readonly assetUrl: AssetUrlResolver;
+  };
   /** Format-only controls have no Student Response save capability. */
   readonly mode?: ResponseControlMode;
   /** Question Response Controls require only the key-free local format validation capability. */
@@ -433,7 +444,7 @@ export function Actions(props: {
   readonly onSave: () => void;
   readonly saveLabel?: string;
   readonly onReset?: () => void;
-  readonly resetLabel?: "Clear response" | "Reset order";
+  readonly resetLabel?: "Restore initial response" | "Reset order";
   readonly onEscape: () => void;
 }): JSX.Element {
   const mode = useContext(ResponseControlModeContext);
@@ -456,7 +467,7 @@ export function Actions(props: {
           disabled={props.resetDisabled ?? props.disabled}
           onClick={props.onReset}
         >
-          {props.resetLabel ?? "Clear response"}
+          {props.resetLabel ?? "Restore initial response"}
         </button>
       )}
       <button class="quiet-action" type="button" onClick={props.onEscape}>

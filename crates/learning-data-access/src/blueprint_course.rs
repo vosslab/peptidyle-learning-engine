@@ -27,6 +27,20 @@ pub struct BlueprintCourseListRequest {
     pub query: String,
     pub include_archived: bool,
     pub public_only: bool,
+    pub promoted_only: bool,
+    pub discipline_uuid: Option<uuid::Uuid>,
+    pub subject_uuid: Option<uuid::Uuid>,
+    pub topic_uuid: Option<uuid::Uuid>,
+    pub subtopic_uuid: Option<uuid::Uuid>,
+    pub cross_discipline: bool,
+}
+
+/// Sysadmin-only projection; promotion is lineage metadata, not Revision content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredBlueprintPromotion {
+    pub promoted: bool,
+    pub metadata_etag: BlueprintMetadataEtag,
 }
 
 /// Explicit reviewed choices; content and names are always read by the Store.
@@ -446,6 +460,22 @@ impl StoredBlueprintAssessment {
 pub struct StoredBlueprintPoolMembers {
     pub question_pool_revision: question_model::QuestionPoolRevisionReference,
     pub members: Vec<QuestionRevisionReference>,
+}
+
+#[async_trait]
+pub trait BlueprintPromotionStore: Send + Sync {
+    async fn load_blueprint_promotion(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+    ) -> Result<StoredBlueprintPromotion, StoreError>;
+    async fn set_blueprint_promotion(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+        expected_metadata_etag: BlueprintMetadataEtag,
+        promoted: bool,
+    ) -> Result<StoredBlueprintPromotion, StoreError>;
 }
 
 #[async_trait]

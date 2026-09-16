@@ -17,6 +17,7 @@ import { StudentCoursesPage } from "../../src/pages/student_courses_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
 import type { RouteScopeQueries } from "../../src/ribbon/route_scope_controller";
 import type { CourseRouteView } from "../../src/api/contracts";
+import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { StudentAssessmentAttemptContext } from "../../src/api/assessment_attempt_navigation";
 import type { StudentAssessmentAttemptHistory } from "../../src/api/assessment_attempt_history";
 import type {
@@ -25,6 +26,14 @@ import type {
 } from "../../src/navigation/public_route";
 
 type StudentCourseEntryCase = "zero" | "one" | "choose" | "many" | "landing";
+
+const FIXTURE_CLASSIFICATION = {
+  disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+  subjectUuid: null,
+  topicUuid: null,
+  subtopicUuid: null,
+  tags: [],
+} satisfies CourseClassification;
 
 const COURSE_ONE: LiveStudentCourseLandingSummary = {
   reference: "CI7K3M2Q",
@@ -196,6 +205,7 @@ export function mountStudentCourseEntryM6Harness(
               reference: COURSE_ONE.reference,
               shortName: COURSE_ONE.shortName,
               longName: COURSE_ONE.longName,
+              classification: FIXTURE_CLASSIFICATION,
               term: { startDate: "2026-08-31", endDate: "2026-12-12" },
               role: "student",
             },

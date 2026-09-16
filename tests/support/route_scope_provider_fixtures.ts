@@ -2,8 +2,17 @@
 // RouteScopeProvider tests.
 
 import type { CourseRouteView } from "../../src/api/contracts";
+import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { StudentAssessmentAttemptContext } from "../../src/api/assessment_attempt_navigation";
 import type { StudentAssessmentAttemptHistory } from "../../src/api/assessment_attempt_history";
+
+const FIXTURE_CLASSIFICATION = {
+  disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+  subjectUuid: null,
+  topicUuid: null,
+  subtopicUuid: null,
+  tags: [],
+} satisfies CourseClassification;
 
 export function courseRouteData(reference: string): CourseRouteView {
   return {
@@ -11,6 +20,7 @@ export function courseRouteData(reference: string): CourseRouteView {
       reference,
       shortName: `CRS ${reference}`,
       longName: `Course ${reference}: Molecular Biology`,
+      classification: FIXTURE_CLASSIFICATION,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "student",
     },

@@ -42,16 +42,9 @@ mod blueprint_course_postgres_adoption;
 #[path = "blueprint_course_postgres/append.rs"]
 mod blueprint_course_postgres_append;
 
-fn discovery(include_archived: bool) -> learning_data_access::BlueprintCourseListRequest {
-    learning_data_access::BlueprintCourseListRequest {
-        page: learning_data_access::PageRequest::first(
-            learning_data_access::PageSize::new(100).expect("bounded fixture discovery"),
-        ),
-        query: String::new(),
-        include_archived,
-        public_only: false,
-    }
-}
+#[path = "blueprint_course_postgres/promotion.rs"]
+mod blueprint_course_postgres_promotion;
+use blueprint_course_postgres_promotion::{discovery, promotion_boundary};
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
@@ -87,6 +80,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let application_pool = lazy_pool(&application_url).expect("application fixture pool");
     let owner_store = PostgresBlueprintCourseStore::new(application_pool.clone());
     let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
+    promotion_boundary(&owner_store, blueprint_reference).await;
     // Regression: a refactor could disclose Private immutable content or let
     // an adoption hide its source. These owner/non-owner lifecycle rules are
     // deliberate product and authorization contracts, so this connected

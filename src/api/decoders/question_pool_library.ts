@@ -2,6 +2,7 @@
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
+import type { QuestionPoolMetadata } from "../../../generated/api/QuestionPoolMetadata";
 import type { QuestionPoolRevisionMemberView } from "../../../generated/api/QuestionPoolRevisionMemberView";
 import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
@@ -9,11 +10,14 @@ import type { ReusableQuestionView } from "../../../generated/api/ReusableQuesti
 import type { QuestionPoolLibraryPage } from "../question_pool_library";
 import {
   DecodeError,
+  decodeArray,
   decodeNonnegativeInteger,
   decodeNullable,
   decodePositiveInteger,
   decodeRecord,
   decodeStringEnum,
+  decodeString,
+  decodeUuid,
 } from "../decoder";
 import { decodeQuestionSearchResult } from "./question_library";
 import {
@@ -26,6 +30,73 @@ import {
 } from "./shared";
 
 const MAX_PAGE_SIZE = 100;
+
+/** ASVS 2.2.1: match canonical server-owned Pool text constraints. */
+export function decodeQuestionPoolText(value: unknown, path: string, maximum: number): string {
+  const text = decodeString(value, path);
+  if (
+    text.length === 0 ||
+    text.startsWith(" ") ||
+    text.endsWith(" ") ||
+    Array.from(text).length > maximum ||
+    Array.from(text).some((character) => {
+      const code = character.codePointAt(0)!;
+      return code < 32 || (code >= 127 && code <= 159);
+    })
+  ) {
+    throw new DecodeError(
+      path,
+      `ASCII-space-trimmed, control-free Pool text of 1 to ${maximum} Unicode scalars`,
+    );
+  }
+  return text;
+}
+
+/** ASVS 1.5.2: Pool metadata is independent of member Question metadata. */
+export function decodeQuestionPoolMetadata(value: unknown, path: string): QuestionPoolMetadata {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, [
+    "title",
+    "description",
+    "disciplineUuid",
+    "subjectUuid",
+    "topicUuid",
+    "subtopicUuid",
+    "tags",
+  ]);
+  const tags = decodeArray(field(record, "tags", path), `${path}.tags`, (value, tagPath) =>
+    decodeQuestionPoolText(value, tagPath, 120),
+  );
+  if (new Set(tags).size !== tags.length) {
+    throw new DecodeError(`${path}.tags`, "unique Pool Tags");
+  }
+  const topicUuid = decodeNullable(
+    field(record, "topicUuid", path),
+    `${path}.topicUuid`,
+    decodeUuid,
+  );
+  const subtopicUuid = decodeNullable(
+    field(record, "subtopicUuid", path),
+    `${path}.subtopicUuid`,
+    decodeUuid,
+  );
+  if (subtopicUuid !== null && topicUuid === null) {
+    throw new DecodeError(path, "descendants with their selected parents");
+  }
+  return {
+    title: decodeQuestionPoolText(field(record, "title", path), `${path}.title`, 512),
+    description: decodeQuestionPoolText(
+      field(record, "description", path),
+      `${path}.description`,
+      4000,
+    ),
+    disciplineUuid: decodeUuid(field(record, "disciplineUuid", path), `${path}.disciplineUuid`),
+    subjectUuid: decodeUuid(field(record, "subjectUuid", path), `${path}.subjectUuid`),
+    topicUuid,
+    subtopicUuid,
+    tags,
+  };
+}
 
 function decodeQuestionPoolRevisionReference(
   value: unknown,
@@ -50,8 +121,9 @@ function decodeQuestionPoolLibrarySummary(
   path: string,
 ): QuestionPoolLibrarySummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "memberCount"]);
+  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "memberCount"]);
   return {
+    metadata: decodeQuestionPoolMetadata(field(record, "metadata", path), `${path}.metadata`),
     questionPoolRevision: decodeQuestionPoolRevisionReference(
       field(record, "questionPoolRevision", path),
       `${path}.questionPoolRevision`,
@@ -64,7 +136,10 @@ function decodeReusableQuestionView(value: unknown, path: string): ReusableQuest
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["reference", "question_library", "selection_availability"]);
   return {
-    reference: decodeQuestionRevisionReference(field(record, "reference", path), `${path}.reference`),
+    reference: decodeQuestionRevisionReference(
+      field(record, "reference", path),
+      `${path}.reference`,
+    ),
     question_library: decodeQuestionSearchResult(
       field(record, "question_library", path),
       `${path}.question_library`,
@@ -126,7 +201,7 @@ export function decodeQuestionPoolRevisionView(
   path = "response",
 ): QuestionPoolRevisionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "members"]);
+  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "members"]);
   const members = decodeBoundedArray(
     field(record, "members", path),
     `${path}.members`,
@@ -145,6 +220,7 @@ export function decodeQuestionPoolRevisionView(
     }
   }
   return {
+    metadata: decodeQuestionPoolMetadata(field(record, "metadata", path), `${path}.metadata`),
     questionPoolRevision: decodeQuestionPoolRevisionReference(
       field(record, "questionPoolRevision", path),
       `${path}.questionPoolRevision`,

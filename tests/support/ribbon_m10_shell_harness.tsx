@@ -14,6 +14,7 @@ import {
 } from "../../src/features/course_appearance/course_theme_context";
 import type { OrdinaryBrowserApiClient } from "../../src/api/client";
 import type { CourseInstanceSummary, CourseInstanceView } from "../../src/api/course_instance";
+import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { ProfileAvatarView } from "../../src/api/profile_avatar";
 import type { CourseAssessmentSummary } from "../../src/api/assessment_release";
@@ -65,6 +66,14 @@ interface DeferredSession {
   readonly release: () => void;
   readonly waitForSession: () => Promise<AuthenticatedSession>;
 }
+
+const FIXTURE_CLASSIFICATION = {
+  disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+  subjectUuid: null,
+  topicUuid: null,
+  subtopicUuid: null,
+  tags: [],
+} satisfies CourseClassification;
 
 function deferredSession(): DeferredSession {
   let resolveSession: (() => void) | undefined;
@@ -165,6 +174,8 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
           reference,
           shortName: `Course ${reference}`,
           longName: `Course ${reference}`,
+          classification: FIXTURE_CLASSIFICATION,
+          metadataEtag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
           theme: "grass",
           term: {
             startDate: "2026-01-12",

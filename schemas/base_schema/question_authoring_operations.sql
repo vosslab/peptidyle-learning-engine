@@ -246,7 +246,8 @@ BEGIN
        OR p_question_type NOT IN ('multipleChoice', 'multipleAnswer', 'fillInBlank', 'multipleFillInBlank',
            'numeric', 'matching', 'ordering', 'hotspot')
        OR NOT ple_api.current_session_account_is_instructor()
-       OR NOT ple_api.current_session_account_is_authoring_workspace_owner(p_workspace_id) THEN
+       OR NOT ple_api.current_session_account_is_authoring_workspace_owner(p_workspace_id)
+       OR (p_question_format = 'pleQuestionJson' AND p_question_type = 'hotspot') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question creation arguments are invalid';
     END IF;
@@ -290,7 +291,7 @@ CREATE FUNCTION ple_private.save_authoring_draft(
     p_reference_number bigint, p_expected_edit_number bigint, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text, p_question_type text
+    p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
@@ -334,6 +335,20 @@ BEGIN
       FROM ple_private.draft_question_source_binding
      WHERE draft_question_uuid = v_draft_question_uuid
      FOR UPDATE;
+    -- ASVS 8.2.2, 15.4.2: source binding and exact Draft-owned image are accepted under one CAS.
+    IF v_binding.backend = 'ple' AND p_question_type = 'hotspot' THEN
+        IF p_hotspot_asset_id IS NULL OR p_hotspot_checksum IS NULL OR NOT EXISTS (
+            SELECT 1 FROM ple_private.draft_question_asset AS asset
+            JOIN ple_private.object_record AS record ON record.object_id = asset.source_object_id
+            WHERE asset.draft_question_uuid = v_draft_question_uuid AND asset.workspace_id = v_workspace_id
+              AND asset.asset_id = p_hotspot_asset_id AND encode(record.sha256, 'hex') = p_hotspot_checksum
+              AND ple_private.current_session_is_authoring_workspace_owner(v_workspace_id)
+        ) THEN
+            RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Native HOTSPOT requires its exact Draft-owned surface';
+        END IF;
+    ELSIF p_hotspot_asset_id IS NOT NULL OR p_hotspot_checksum IS NOT NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Only native HOTSPOT accepts a Draft image surface';
+    END IF;
     IF NOT (
         (v_binding.backend = 'ple' AND v_binding.question_format = 'pleQuestionJson'
             AND v_binding.webwork_pg_path IS NULL
@@ -484,7 +499,7 @@ REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.current_session_account_owns_draft_question(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
+    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
     ple_private.save_authoring_draft_general_feedback(bigint, bigint, text),
     ple_private.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
@@ -493,7 +508,7 @@ GRANT EXECUTE ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.current_session_account_owns_draft_question(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
+    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
     ple_private.save_authoring_draft_general_feedback(bigint, bigint, text),
     ple_private.delete_draft_question(bigint, bigint)
     TO ple_api_owner;
@@ -563,13 +578,13 @@ CREATE FUNCTION ple_api.save_authoring_draft(
     p_reference_number bigint, p_expected_edit_number bigint, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
-    p_language text, p_question_type text
+    p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.save_authoring_draft(
         p_reference_number, p_expected_edit_number, p_object_id, p_object_address, p_sha256,
         p_size_bytes, p_media_type, p_created_at_millis, p_question_title,
-        p_question_description, p_language, p_question_type)
+        p_question_description, p_language, p_question_type, p_hotspot_asset_id, p_hotspot_checksum)
 $$;
 CREATE FUNCTION ple_api.save_authoring_draft_general_feedback(
     p_reference_number bigint, p_expected_edit_number bigint, p_general_feedback text
@@ -591,7 +606,7 @@ REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.current_session_account_owns_draft_question(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
+    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
     ple_api.save_authoring_draft_general_feedback(bigint, bigint, text),
     ple_api.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
@@ -600,7 +615,7 @@ GRANT EXECUTE ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.current_session_account_owns_draft_question(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
+    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
     ple_api.save_authoring_draft_general_feedback(bigint, bigint, text),
     ple_api.delete_draft_question(bigint, bigint)
     TO ple_app;

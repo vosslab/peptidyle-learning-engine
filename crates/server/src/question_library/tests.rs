@@ -179,6 +179,9 @@ fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields()
         "page_size=10&page_size=20",
         "backends=unknown",
         "unexpected=value",
+        "discipline_uuid=bad",
+        "cross_discipline=yes",
+        "cross_discipline=false&cross_discipline=true",
     ] {
         let uri: Uri = format!("/api/questions/search?{query}")
             .parse()
@@ -186,6 +189,39 @@ fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields()
         assert!(
             Query::<QuestionSearchQuery>::try_from_uri(&uri).is_err(),
             "query must reject: {query}"
+        );
+    }
+}
+
+#[test]
+fn hierarchy_http_transport_preserves_the_tuple_and_rejects_incomplete_chains() {
+    let uri: Uri = "/api/questions/search?discipline_uuid=00000000-0000-0000-0000-000000000001&subject_uuid=00000000-0000-0000-0000-000000000002&topic_uuid=00000000-0000-0000-0000-000000000003&subtopic_uuid=00000000-0000-0000-0000-000000000004&cross_discipline=true&tags=review".parse().expect("URI");
+    let request = QuestionSearchRequest::try_from(
+        Query::<QuestionSearchQuery>::try_from_uri(&uri)
+            .expect("transport")
+            .0,
+    )
+    .expect("chain");
+    assert_eq!(request.discipline_uuid, Some(uuid::Uuid::from_u128(1)));
+    assert_eq!(request.subject_uuid, Some(uuid::Uuid::from_u128(2)));
+    assert_eq!(request.topic_uuid, Some(uuid::Uuid::from_u128(3)));
+    assert_eq!(request.subtopic_uuid, Some(uuid::Uuid::from_u128(4)));
+    assert!(request.cross_discipline);
+    assert_eq!(request.tags, vec!["review"]);
+    for suffix in [
+        "subject_uuid=00000000-0000-0000-0000-000000000002",
+        "cross_discipline=true",
+    ] {
+        let uri: Uri = format!("/api/questions/search?{suffix}")
+            .parse()
+            .expect("URI");
+        assert!(
+            QuestionSearchRequest::try_from(
+                Query::<QuestionSearchQuery>::try_from_uri(&uri)
+                    .expect("transport")
+                    .0
+            )
+            .is_err()
         );
     }
 }

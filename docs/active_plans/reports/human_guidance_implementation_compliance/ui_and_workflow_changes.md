@@ -46,6 +46,34 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- Public Blueprint classification search is implemented locally without a checklist closure.
+  `PublicBlueprintSearchPage` now submits ordinary text, Promoted, and optional shared
+  Discipline -> Subject -> Topic -> Subtopic identities as one applied snapshot; its optional
+  cross-Discipline Subject checkbox is explicit and hierarchy parent changes clear descendants.
+  The server and cursor bind/validate the same filters. Root Cargo session 31251, focused Rust
+  session 56442, strict TypeScript plus 21 Node tests session 19414, full pytest session 39220
+  (7,462 passed), and fresh PostgreSQL 17 actual-role rollback proof passed. The reviewed
+  actual-component proof uses a fake read-only client, so live `8147` still provides no connected
+  current-source HTTP/browser or real vocabulary-parent/authorization acceptance. This is only
+  Blueprint search: Question Library remains name-based; Tags, sorting, result metadata, and
+  route-return restoration are not part of the slice. Receipt:
+  `/private/tmp/ple-classification-search-pool-receipt-20260916.md`.
+
+- Question Pool review metadata controls now fill their review fieldset while retaining visible
+  required labels. An isolated actual `QuestionPoolCreateDialog` plus parent-host fixture passed
+  at 1280px with ordered selection, Title/Description preservation after picker return, focused
+  review heading, and no horizontal overflow. This is not a full authenticated `LibraryPage` mount
+  and does not close I09. Receipt: `/private/tmp/ple-classification-search-pool-receipt-20260916.md`.
+
+- Blueprint Promoted implementation is local source evidence, not a closed workflow. The Public
+  Blueprint Search can submit `promotedOnly=true`, retain that applied filter for retry and
+  pagination, and clear it with the search. The server adds cursor-bound discovery and a
+  Sysadmin-only metadata-ETag/CAS promotion boundary. Canonical PostgreSQL 17 bootstrap/install
+  as `ple_migrator` and the isolated actual-role SQL proof passed; root Cargo session 60804,
+  stricter TypeScript plus 11 Blueprint-client Node tests session 65918, and pytest session 36484
+  passed. The proof container was removed. Deployed HTTP/browser integration remains unverified
+  because live `8147` predates the source, so neither Promoted checklist row is closed.
+
 - Current bounded UI evidence: `/private/tmp/ple-compact-student-navigation.md` and
   `/private/tmp/ple-compact-navigation-independent-review.md` accept five compact Attempt-navigation
   rows, with current/saved cues, first/last/range/ellipsis pagination, width adaptation, compact

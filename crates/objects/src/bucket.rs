@@ -76,6 +76,17 @@ pub enum ObjectDataClass {
     rename_all_fields = "camelCase"
 )]
 pub enum ObjectAddress {
+    /// Immutable raster staged for one real private Draft Question.
+    DraftQuestionAsset {
+        /// Private authoring workspace.
+        workspace: WorkspaceId,
+        /// Internal Draft identity, never its browser reference.
+        draft_question_uuid: uuid::Uuid,
+        /// Stable logical asset identity.
+        asset: QuestionAssetId,
+        /// Fresh physical object identity.
+        object: ObjectId,
+    },
     /// Original bytes for a private workspace import.
     ///
     /// This intentionally uses the private-content Object Storage Area for immutable
@@ -275,6 +286,7 @@ impl ObjectAddress {
     pub fn storage_area(&self) -> ObjectStorageArea {
         match self {
             Self::WorkspaceImportSource { .. }
+            | Self::DraftQuestionAsset { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceImportAsset { .. }
             | Self::QuestionSource { .. }
@@ -295,6 +307,7 @@ impl ObjectAddress {
     pub fn data_class(&self) -> ObjectDataClass {
         match self {
             Self::WorkspaceImportSource { .. }
+            | Self::DraftQuestionAsset { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceImportAsset { .. } => ObjectDataClass::AuthoringContent,
             Self::QuestionSource { .. } | Self::PublishedImportArchive { .. } => {
@@ -316,6 +329,17 @@ impl ObjectAddress {
     /// Immutable path derived only from typed identity components.
     pub fn path(&self) -> String {
         match self {
+            Self::DraftQuestionAsset {
+                workspace,
+                draft_question_uuid,
+                asset,
+                object,
+            } => {
+                // ASVS 5.3.2: only server-owned identities determine the key.
+                format!(
+                    "workspaces/{workspace}/questions/drafts/{draft_question_uuid}/assets/{asset}/{object}"
+                )
+            }
             Self::WorkspaceImportSource {
                 workspace,
                 import,
@@ -414,6 +438,7 @@ impl ObjectAddress {
     pub fn object_id(&self) -> ObjectId {
         match self {
             Self::WorkspaceImportSource { object, .. }
+            | Self::DraftQuestionAsset { object, .. }
             | Self::WorkspaceQuestionSource { object, .. }
             | Self::WorkspaceImportAsset { object, .. }
             | Self::QuestionSource { object, .. }
@@ -457,6 +482,7 @@ impl ObjectAddress {
                 question_revision, ..
             } => Some(question_revision),
             Self::WorkspaceImportSource { .. }
+            | Self::DraftQuestionAsset { .. }
             | Self::WorkspaceQuestionSource { .. }
             | Self::WorkspaceImportAsset { .. }
             | Self::CourseBannerUpload { .. }

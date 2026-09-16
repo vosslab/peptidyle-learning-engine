@@ -15,6 +15,7 @@ import local_stack_control.browser_suite_lease
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
+import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_commands
 import local_stack_control.lifecycle_database
 import local_stack_control.lifecycle_migrations
@@ -135,9 +136,17 @@ def _postgres_container_id(
 
 #============================================
 def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: int) -> None:
+	"""Own pruning and the complete baseline image build/run cycle."""
+	with local_stack_control.image_cleanup.image_build_lease(repository_root):
+		_run_oracle_with_image_lease(repository_root, workspace, port)
+
+
+#============================================
+def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathlib.Path, port: int) -> None:
 	"""Build, replay, and verify the one ordinary disposable database lifecycle."""
 	runtime = local_stack_control.runtime_manifest.write_database_baseline_runtime(workspace, port)
 	runner = local_stack_control.process.SubprocessRunner()
+	local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repository_root)
 	disposable = _baseline_target(repository_root, workspace, runner)
 	compose_environment = local_stack_control.disposable_stack_adapter.compose_environment(disposable)
 	private_values = local_stack_control.disposable_stack_adapter.private_environment_values(

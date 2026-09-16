@@ -47,6 +47,14 @@ reset that also removes `node_modules`, generated outputs, and Cargo's `target/`
 `devel/reset_podman.sh --dry-run` to preview the fixed disposable Podman resources; its unqualified
 form is destructive and follows the explicit fixed-project confirmation owned by `local_stack.py`.
 
+Before a local-stack start, database-baseline, or course-appearance cross-store image cycle, the controller runs
+`podman image prune -a -f` once. This removes all images not referenced by any running or stopped
+container, including unused named images, base images, renderer images, and build-cache images;
+they can be rebuilt or pulled again. One checkout-directory lease covers pruning, the complete
+build sequence, and container attachment, so pruning never runs between newly built outputs and
+their use. Direct manual Podman builds must follow the same prune-before-sequence ordering and
+must not overlap a controller image cycle. This does not clean host Cargo/compiler caches.
+
 `./build.sh` builds the Rust workspace, WebAssembly bridge, Rust-owned TypeScript definitions,
 fixture projection, and Solid browser bundle in dependency order. Use `./build.sh --release` for
 optimized host artifacts. `npm run build` and `npm run check` are aliases for the build and check

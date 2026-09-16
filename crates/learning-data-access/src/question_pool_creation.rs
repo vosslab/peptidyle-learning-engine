@@ -17,6 +17,9 @@ use crate::{SessionTokenHash, StoreError};
 /// Complete server-owned create input for the first immutable Pool Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateQuestionPoolInput {
+    /// Deliberate Pool-specific lineage Title and Description.
+    pub title: String,
+    pub description: String,
     /// Private stable storage identity minted by the trusted server operation.
     pub question_pool_id: Uuid,
     /// Fresh HMAC-validated public Pool identity minted by the server issuer.
@@ -30,6 +33,23 @@ pub struct CreateQuestionPoolInput {
 impl CreateQuestionPoolInput {
     /// Refuses malformed or speculative Pool content before opening a transaction.
     pub fn validate(&self) -> Result<(), StoreError> {
+        // ASVS 2.2.1/2.2.2: enforce canonical bounded text at the trusted boundary.
+        if !(1..=question_model::MAX_QUESTION_TITLE_UNICODE_SCALARS)
+            .contains(&self.title.chars().count())
+            || !(1..=question_model::MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS)
+                .contains(&self.description.chars().count())
+            || [&self.title, &self.description]
+                .iter()
+                // SQL btrim removes ASCII spaces, not all Unicode whitespace.
+                .any(|text| {
+                    text.as_str() != text.trim_matches(' ') || text.chars().any(char::is_control)
+                })
+        {
+            return Err(StoreError::InvalidRecord(
+                "Question Pool Title and Description must be canonical bounded nonempty text"
+                    .to_owned(),
+            ));
+        }
         if self.members.is_empty()
             || self.members.len() > MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
             || !self.interchangeability_attested

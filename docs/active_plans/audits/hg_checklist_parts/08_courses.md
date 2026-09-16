@@ -27,15 +27,15 @@
 ### Course classification specifications
 
 - [ ] **Blueprint Courses** and **Course Instances** use the shared content classification system.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Course classification describes the Course as a whole.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Every Blueprint Course and Course Instance has exactly one **Discipline**.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
-- [ ] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
-- [ ] Courses may have any number of **Tags**, including none.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+  - Verification pending: Course-owned classification has accepted source, actual-role SQL, and connected browser evidence, but the complete shared system across all content owners, vocabulary management, normalization, and discovery remains open.
+- [x] Course classification describes the Course as a whole.
+  - Evidence (runtime): Accepted Course metadata SQL/Store/browser reviews and `/private/tmp/ple-course-classification-actual-role-result.log` establish independent Course-owned metadata without changing content Revisions or Question pins. Root's rebuilt `8147` ordinary Course/Blueprint editor proof (script `/private/tmp/ple-course-classification-no-workaround-20260916.mjs`, session 85118 exit 0) saves Tags-only metadata and preserves unsaved Blueprint names. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+- [x] Every Blueprint Course and Course Instance has exactly one **Discipline**.
+  - Evidence (runtime): Accepted required `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` reject missing/nonexistent Discipline. Rebuilt `8147` ordinary Course and Blueprint creation/editor proof selects Biology explicitly and hydrates it without reselection; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+- [x] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
+  - Evidence (runtime): Accepted `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` validate optional hierarchy and parent constraints. Root's rebuilt `8147` ordinary Course/Blueprint creation and Tags-only saves succeed with only Biology and no narrower levels; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+- [x] Courses may have any number of **Tags**, including none.
+  - Evidence (runtime): Accepted actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` exercises empty Tags and 65 Tags without a count cap. Rebuilt `8147` ordinary Course/Blueprint Tags-only browser saves pass without Discipline reselection; session 85118 exited 0. Per-Tag validation remains bounded. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
 - [ ] Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
@@ -46,8 +46,8 @@
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course classification supports Course search, filtering, organization, and discovery where applicable.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] A Course Instance may have classification that differs from its Blueprint Course.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [x] A Course Instance may have classification that differs from its Blueprint Course.
+  - Evidence (runtime): Accepted actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` verifies fork/Instance classification independence. The earlier connected Course browser receipt verifies explicit daughter classification and source independence; its selector workaround is superseded only by rebuilt `8147` ordinary editor hydration/Tags-only proof (session 85118 exit 0), not by a new adoption journey. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
 
 ### Blueprint Course specifications
 
@@ -107,7 +107,7 @@
   - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Archived Revision and metadata facts. Accepted Archived-history and discovery proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json` and `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json`.
 - [x] Archived Blueprint Courses do not appear in normal discovery unless explicitly included.
   - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` filters Public, owning Private, and only explicitly requested Archived records; `crates/server/src/blueprint_course.rs` `BlueprintCourseListQuery` accepts only the typed `includeArchived` boolean.
-  - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `changeIncludeArchived`; `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-browser-proof.json` records the actual compiled-main default-off, Include Archived, read-only Archived-detail, and return-to-off workflow with eight GETs and zero writes. Its companion HTTP receipt records default/false/true membership and strict invalid-query `400` results.
+  - Evidence (runtime): `src/features/blueprint_course/blueprint_courses_workspace.tsx` `changeIncludeArchived`; `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-browser-proof.json` records the actual compiled-main default-off, Include Archived, read-only Archived-detail, and return-to-off workflow with eight GETs and zero writes. Its companion HTTP receipt records default/false/true membership and strict invalid-query `400` results.
 - [x] Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Blueprint availability `public` for exact-Revision adoption.
 - [ ] Archived Blueprint Courses can be forked.
@@ -148,9 +148,9 @@
 #### Blueprint Course stewardship specifications
 
 - [ ] Blueprint Courses have a searchable boolean Promoted flag.
-  - Mismatch: `schemas/base_schema/blueprints.sql` has no Promoted boolean and `schemas/base_schema/blueprint_operations.sql` Blueprint discovery has no Promoted filter. Current Blueprint schema, server/list Store and browser search contain no implemented promotion contract.
+  - Verification pending: implemented source adds a lineage `promoted` boolean, authorized `promotedOnly` discovery/filter cursor binding, and the Public Blueprint Search checkbox; root PostgreSQL 17 `ple_migrator` install and isolated actual-role SQL proof passed; root Cargo session 60804, 11 Blueprint-client Node tests (65918), and pytest session 36484 passed; deployed HTTP/browser integration is unverified because live `8147` predates this source.
 - [ ] Sysadmins exclusively control the Promoted flag.
-  - Mismatch: the Promoted flag and mutation/search boundary are absent from current Blueprint schema, API and browser implementation. Exclusive Sysadmin mutation authority therefore lacks implementation; existing owner-specific content/lifecycle authority does not establish promotion privileges. The concurrently removed equal-Instructor-standing clause is not a current requirement.
+  - Verification pending: implemented source supplies Sysadmin-only session-bound promotion load/set operations and concealed HTTP GET/PUT handling with metadata-ETag CAS; the isolated actual-role SQL proof passed Sysadmin authority, Instructor/Student denial, no-op/stale ETag, Revision independence, visibility filtering, and fork-default cases; named deployed HTTP/browser integration is still unverified because live `8147` predates this source.
 - [ ] **Instructors** can Star or Watch Public and Archived Blueprint Courses.
   - Mismatch: No Blueprint Star or Watch model, route, or store operation was found.
 - [ ] A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.

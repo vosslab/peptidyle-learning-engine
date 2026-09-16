@@ -12,7 +12,7 @@ use std::{
 use axum::{
     Json, Router,
     body::Bytes,
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{CONTENT_TYPE, COOKIE, ETAG, IF_MATCH},
@@ -21,39 +21,43 @@ use axum::{
     routing::{delete, get, post},
 };
 use learning_data_access::{
-    AuthoringDraft, AuthoringDraftStore, CreateAuthoringDraftInput, DeleteAuthoringDraftInput,
+    AuthoringDraftStore, CreateAuthoringDraftInput, DeleteAuthoringDraftInput,
     DraftQuestionEditNumber, DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput,
     SaveAuthoringDraftInput, SessionTokenHash, StoreError,
     postgres::{
-        PostgresAuthoringDraftStore, PostgresDraftQuestionSourceBindingStore, PostgresSessionStore,
+        PostgresAuthoringAssetsStore, PostgresAuthoringDraftStore,
+        PostgresDraftQuestionSourceBindingStore, PostgresSessionStore,
     },
 };
-use objects::{ObjectAddress, ObjectStore, PutObject, s3::S3ObjectStore};
+use objects::s3::S3ObjectStore;
 use question_model::{
-    DraftQuestionReference, ObjectId, QuestionAuthor, QuestionAuthorDisplayName,
-    QuestionAuthorship, QuestionFormat, QuestionId, QuestionLicense, QuestionRevisionNumber,
-    QuestionRevisionReason, QuestionRevisionReference, QuestionType, Tag, Timestamp,
+    DraftQuestionReference, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
+    QuestionFormat, QuestionId, QuestionRevisionNumber, QuestionRevisionReason,
+    QuestionRevisionReference, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     auth::{AuthError, resolve_session},
+    authoring_source::{load_verified_source, put_workspace_source, validated_source},
     question_publication::{
-        ExistingQuestionRevisionPublicationCommand, ExistingQuestionRevisionPublisher,
-        HmacQuestionIdIssuer, NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
+        AuthoringAssetContext, ExistingQuestionRevisionPublicationCommand,
+        ExistingQuestionRevisionPublisher, HmacQuestionIdIssuer,
+        NewQuestionLineagePublicationCommand, NewQuestionLineagePublisher,
     },
 };
 
-const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
+pub(crate) const PLE_QUESTION_JSON_MEDIA_TYPE: &str = "application/vnd.peptidyle.question+json";
 const INITIAL_PUBLICATION_REASON: &str = "Initial publication from Authoring Workspace";
 
 #[derive(Clone)]
-struct AuthoringRouteState {
-    sessions: Arc<PostgresSessionStore>,
-    drafts: PostgresAuthoringDraftStore,
+pub(crate) struct AuthoringRouteState {
+    pub(crate) sessions: Arc<PostgresSessionStore>,
+    pub(crate) drafts: PostgresAuthoringDraftStore,
+    pub(crate) assets: Arc<PostgresAuthoringAssetsStore>,
     publication: PostgresDraftQuestionSourceBindingStore,
-    objects: S3ObjectStore,
+    pub(crate) objects: S3ObjectStore,
     question_id_issuer: HmacQuestionIdIssuer,
 }
 
@@ -61,6 +65,7 @@ struct AuthoringRouteState {
 pub fn authoring_router(
     sessions: Arc<PostgresSessionStore>,
     drafts: PostgresAuthoringDraftStore,
+    assets: PostgresAuthoringAssetsStore,
     publication: PostgresDraftQuestionSourceBindingStore,
     objects: S3ObjectStore,
     question_id_issuer: HmacQuestionIdIssuer,
@@ -68,6 +73,16 @@ pub fn authoring_router(
     Router::new()
         .route("/api/authoring/drafts", get(list_drafts).post(create_draft))
         .route("/api/authoring/drafts/{reference}", delete(delete_draft))
+        .route(
+            "/api/authoring/drafts/{reference}/assets",
+            post(crate::authoring_assets::upload).layer(DefaultBodyLimit::max(
+                objects::image_validation::MAX_STILL_IMAGE_BYTES,
+            )),
+        )
+        .route(
+            "/api/authoring/drafts/{reference}/assets/{asset}",
+            get(crate::authoring_assets::preview),
+        )
         .route(
             "/api/authoring/drafts/{reference}/source",
             get(load_source).put(save_source),
@@ -87,6 +102,7 @@ pub fn authoring_router(
         .with_state(AuthoringRouteState {
             sessions,
             drafts,
+            assets: Arc::new(assets),
             publication,
             objects,
             question_id_issuer,
@@ -198,6 +214,12 @@ async fn create_draft(
         Ok(source) => source,
         Err(response) => return *response,
     };
+    if source.hotspot_surface.is_some() {
+        return private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Create a Draft Question before uploading its HOTSPOT image",
+        );
+    }
     let workspace = match state
         .drafts
         .ensure_own_authoring_workspace(session_hash, Uuid::now_v7())
@@ -368,6 +390,24 @@ async fn save_source(
         Ok(draft) => draft,
         Err(error) => return private_store_error(error),
     };
+    if current.edit_number != expected_edit_number {
+        return private_error(
+            StatusCode::PRECONDITION_FAILED,
+            "Draft Question changed before this save",
+        );
+    }
+    if let Some(surface) = &source.hotspot_surface {
+        if let Err(error) = crate::authoring_assets::require_surface(
+            state.assets.as_ref(),
+            session_hash,
+            reference,
+            surface,
+        )
+        .await
+        {
+            return private_store_error(error);
+        }
+    }
     let source_record =
         match put_workspace_source(&state.objects, current.workspace, source.bytes.clone()).await {
             Ok(record) => record,
@@ -390,6 +430,7 @@ async fn save_source(
                 title: source.title,
                 description: source.description,
                 language: source.language,
+                hotspot_surface: source.hotspot_surface,
             },
         )
         .await
@@ -590,6 +631,10 @@ async fn publish_draft(
         state.objects.clone(),
         state.publication.clone(),
         state.question_id_issuer.clone(),
+        Some(AuthoringAssetContext {
+            store: state.assets.clone(),
+            reference,
+        }),
     );
     match publisher.publish(session_hash, command, now()).await {
         Ok(revision) => crate::auth::no_store(
@@ -669,8 +714,14 @@ async fn publish_revision_draft(
             "Draft Question type declaration does not match its PLE source",
         );
     }
-    let publisher =
-        ExistingQuestionRevisionPublisher::new(state.objects.clone(), state.publication.clone());
+    let publisher = ExistingQuestionRevisionPublisher::new(
+        state.objects.clone(),
+        state.publication.clone(),
+        Some(AuthoringAssetContext {
+            store: state.assets.clone(),
+            reference,
+        }),
+    );
     match publisher
         .publish(
             session_hash,
@@ -708,83 +759,6 @@ fn existing_parent_question_revision(
     })
 }
 
-struct ValidatedSource {
-    bytes: Vec<u8>,
-    title: String,
-    description: String,
-    language: String,
-    license: Option<QuestionLicense>,
-    tags: Vec<Tag>,
-    question_type: QuestionType,
-}
-
-fn validated_source(bytes: &[u8]) -> Result<ValidatedSource, Box<Response>> {
-    let document =
-        adapter_ple::question_json::PleQuestionJsonDocument::parse(bytes).map_err(|_| {
-            Box::new(private_error(
-                StatusCode::UNPROCESSABLE_ENTITY,
-                "Draft Question source is invalid",
-            ))
-        })?;
-    let compiled = document.compile().map_err(|_| {
-        Box::new(private_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Draft Question source is invalid",
-        ))
-    })?;
-    let metadata = compiled.presentation().metadata();
-    let bytes = document.canonical_bytes().map_err(|_| {
-        Box::new(private_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Draft Question source is invalid",
-        ))
-    })?;
-    Ok(ValidatedSource {
-        bytes,
-        title: metadata.question_title.clone(),
-        description: metadata.question_description.clone(),
-        language: metadata.language.clone(),
-        license: metadata.question_license.clone(),
-        tags: metadata.tags.clone(),
-        question_type: compiled.presentation().question_type(),
-    })
-}
-
-async fn put_workspace_source(
-    objects: &S3ObjectStore,
-    workspace: question_model::WorkspaceId,
-    bytes: Vec<u8>,
-) -> Result<objects::ObjectRecord, ()> {
-    objects
-        .put(PutObject {
-            address: ObjectAddress::WorkspaceQuestionSource {
-                workspace,
-                object: ObjectId::generate(),
-            },
-            bytes,
-            media_type: PLE_QUESTION_JSON_MEDIA_TYPE.to_string(),
-            created_at: now(),
-        })
-        .await
-        .map_err(|_| ())
-}
-
-async fn load_verified_source(
-    objects: &S3ObjectStore,
-    draft: &AuthoringDraft,
-) -> Result<Bytes, ()> {
-    let source = objects
-        .get(&draft.source_record.address)
-        .await
-        .map_err(|_| ())?;
-    if source.record != draft.source_record
-        || source.record.media_type != PLE_QUESTION_JSON_MEDIA_TYPE
-    {
-        return Err(());
-    }
-    Ok(Bytes::from(source.bytes))
-}
-
 fn question_authorship(authors: Vec<String>) -> Result<QuestionAuthorship, ()> {
     let authors = authors
         .into_iter()
@@ -796,16 +770,28 @@ fn question_authorship(authors: Vec<String>) -> Result<QuestionAuthorship, ()> {
     QuestionAuthorship::new(authors).map_err(|_| ())
 }
 
-fn parse_reference(value: &str) -> Result<DraftQuestionReference, Box<Response>> {
+pub(crate) fn parse_reference(value: &str) -> Result<DraftQuestionReference, Box<Response>> {
     value.parse().map_err(|_| Box::new(concealed()))
 }
 
-fn expected_edit_number(headers: &HeaderMap) -> Result<DraftQuestionEditNumber, Box<Response>> {
-    let Some(value) = headers.get(IF_MATCH).and_then(|value| value.to_str().ok()) else {
+pub(crate) fn expected_edit_number(
+    headers: &HeaderMap,
+) -> Result<DraftQuestionEditNumber, Box<Response>> {
+    let mut values = headers.get_all(IF_MATCH).iter();
+    let Some(header) = values.next() else {
         return Err(Box::new(private_error(
             StatusCode::PRECONDITION_REQUIRED,
             "Draft Question Edit Number is required",
         )));
+    };
+    let value = match (header.to_str(), values.next()) {
+        (Ok(value), None) => value,
+        _ => {
+            return Err(Box::new(private_error(
+                StatusCode::BAD_REQUEST,
+                "Draft Question Edit Number is invalid",
+            )));
+        }
     };
     let Some(number) = value
         .strip_prefix('"')
@@ -858,7 +844,7 @@ fn is_ple_question_json_request(headers: &HeaderMap) -> bool {
         })
 }
 
-async fn instructor_session_hash(
+pub(crate) async fn instructor_session_hash(
     state: &AuthoringRouteState,
     headers: &HeaderMap,
 ) -> Result<SessionTokenHash, Box<Response>> {
@@ -888,7 +874,7 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
     (!values.is_empty()).then(|| values.join("; "))
 }
 
-fn private_store_error(error: StoreError) -> Response {
+pub(crate) fn private_store_error(error: StoreError) -> Response {
     match error {
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
         StoreError::Conflict | StoreError::RetryableTransaction => private_error(
@@ -949,7 +935,7 @@ fn publication_error(error: crate::question_publication::QuestionPublicationErro
     }
 }
 
-fn concealed() -> Response {
+pub(crate) fn concealed() -> Response {
     crate::auth::no_store(
         (
             StatusCode::NOT_FOUND,
@@ -959,11 +945,11 @@ fn concealed() -> Response {
     )
 }
 
-fn private_error(status: StatusCode, message: &'static str) -> Response {
+pub(crate) fn private_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, Json(serde_json::json!({ "error": message }))).into_response())
 }
 
-fn now() -> Timestamp {
+pub(crate) fn now() -> Timestamp {
     let milliseconds = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())

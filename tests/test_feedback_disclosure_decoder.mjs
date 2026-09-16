@@ -19,10 +19,9 @@ function currentStudentQuestionAttempt(index = 0) {
 }
 
 function currentStudentIssuedQuestion(index = 0) {
-  const {
-    sourceSelection: _sourceSelection,
-    ...issuedQuestion
-  } = structuredClone(publishedQuestionFixture.issuedQuestions[index]);
+  const { sourceSelection: _sourceSelection, ...issuedQuestion } = structuredClone(
+    publishedQuestionFixture.issuedQuestions[index],
+  );
   return issuedQuestion;
 }
 
@@ -52,7 +51,10 @@ test("Student attempts require score freshness and redact stale numeric results"
       () =>
         decodeStudentQuestionAttempt({
           ...redacted,
-          finalizedResponse: { ...redacted.finalizedResponse, gradingResult: current.finalizedResponse.gradingResult },
+          finalizedResponse: {
+            ...redacted.finalizedResponse,
+            gradingResult: current.finalizedResponse.gradingResult,
+          },
         }),
       DecodeError,
       `${assessmentScoringState} must reject a numeric result`,

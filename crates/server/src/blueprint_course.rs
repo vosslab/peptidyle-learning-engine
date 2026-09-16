@@ -50,6 +50,7 @@ mod known_forks;
 mod list;
 mod pool_members;
 mod responses;
+mod promotion;
 
 use responses::{
     blueprint_response, blueprint_save_response, concealed, metadata_response, route_error,
@@ -81,6 +82,10 @@ pub fn blueprint_course_router(
     question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
+        .route(
+            "/api/sysadmin/course-blueprints/{reference}/promotion",
+            get(promotion::load_promotion).put(promotion::set_promotion),
+        )
         .route(
             "/api/course-blueprints",
             get(list::list_blueprints).post(create_blueprint),

@@ -20,6 +20,8 @@ import { useSessionBootstrap } from "../auth/session_context";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
 import "./library_page.css";
 import { LibraryBrowseControls } from "./library_browse_controls";
+import { LibraryClassificationSearch } from "../components/library_classification_search";
+import { searchHandoffQuery, hasExactBrowseFilters, searchWithinResultsPath } from "./library_search_parameters";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   NO_QUESTION_LIBRARY_FACET_TRUNCATION,
@@ -103,42 +105,6 @@ export interface LibraryPageProps {
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
 }
 
-function queryParameterValues(value: string | ReadonlyArray<string> | undefined): Array<string> {
-  if (value === undefined) return [];
-  const values = typeof value === "string" ? [value] : value;
-  return values.filter((item) => item.trim().length > 0 && Array.from(item).length <= 256);
-}
-
-function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
-  const parameters = new URLSearchParams(search);
-  return {
-    ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
-    subjects: queryParameterValues(parameters.getAll("subjects")),
-    topics: queryParameterValues(parameters.getAll("topics")),
-    tag: queryParameterValues(parameters.getAll("tag"))[0] ?? null,
-    questionType: queryParameterValues(parameters.getAll("questionType"))[0] ?? null,
-  };
-}
-
-function hasExactBrowseFilters(query: QuestionLibraryBrowseQuery): boolean {
-  return (
-    query.subjects.length > 0 ||
-    query.topics.length > 0 ||
-    query.tag !== null ||
-    query.questionType !== null
-  );
-}
-
-function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): string {
-  const parameters = new URLSearchParams();
-  for (const subject of query.subjects) parameters.append("subjects", subject);
-  for (const topic of query.topics) parameters.append("topics", topic);
-  if (query.tag !== null) parameters.set("tag", query.tag);
-  if (query.questionType !== null) parameters.set("questionType", query.questionType);
-  const serialized = parameters.toString();
-  return serialized.length === 0 ? "/library" : `/library?${serialized}`;
-}
-
 /** Question Library UI with the production repository injected by the route composition. */
 export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const sessionBootstrapState = useSessionBootstrap().state();
@@ -180,6 +146,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [updateResults, setUpdateResults] =
     createSignal<ReadonlyArray<QuestionBulkMetadataUpdateResult> | null>(null);
   const [questionPoolCreateOpen, setQuestionPoolCreateOpen] = createSignal(false);
+  const [questionPoolTaskActive, setQuestionPoolTaskActive] = createSignal(false);
   let pendingScrollRestore = returnState?.scrollTop ?? null;
   const questionReturnTokens = new Map<string, string>();
   const session = new QuestionLibraryBrowseSession(props.repository, setState);
@@ -414,6 +381,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   return (
     <section
       class="page library-page"
+      classList={{ "question-pool-task-active": questionPoolTaskActive() }}
       data-route-surface={props.mode === "browse" ? "library-browse" : "library"}
     >
       <p class="eyebrow">Shared educational content</p>
@@ -454,6 +422,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               disabled={editorBusy()}
             />
           </label>
+          <LibraryClassificationSearch value={query()} client={props.classificationClient}
+            disabled={editorBusy()} onChange={changeQuery} />
           <details class="question-library-search-tips">
             <summary>Search tips</summary>
             <div>
@@ -462,7 +432,8 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                 exclude.
               </p>
               <p>
-                Fields: <code>subject:</code>, <code>topic:</code>, <code>tags:</code>,{" "}
+                Fields: <code>discipline:</code>, <code>subject:</code>, <code>topic:</code>,{" "}
+                <code>subtopic:</code>, <code>tags:</code>,{" "}
                 <code>type:</code>, and <code>author:</code>.
               </p>
               <ul aria-label="Search examples">
@@ -553,7 +524,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               </Show>
             </label>
             <label>
-              Subject
+              Subject name (additional filter)
               <select
                 value={query().subjects[0] ?? ""}
                 onChange={(event) =>
@@ -581,7 +552,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
               </Show>
             </label>
             <label>
-              Topic
+              Topic name (additional filter)
               <select
                 value={query().topics[0] ?? ""}
                 onChange={(event) =>
@@ -700,6 +671,10 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         </form>
       </Show>
       <Show when={props.mode === "browse"}>
+        <div class="question-library-controls" role="group" aria-label="Classification filters">
+          <LibraryClassificationSearch value={query()} client={props.classificationClient}
+            disabled={editorBusy()} onChange={changeQuery} />
+        </div>
         <LibraryBrowseControls
           query={query}
           hasExactBrowseFilters={() => hasExactBrowseFilters(query())}
@@ -752,12 +727,18 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         </section>
       </Show>
       <Show when={questionPoolCreateOpen()}>
-        <QuestionPoolCreateDialog
-          questionPoolClient={props.questionPoolClient}
-          questionLibrary={props.repository}
-          getQuestionDetails={props.getQuestionDetails}
-          onClose={() => setQuestionPoolCreateOpen(false)}
-        />
+        <div class="question-pool-create-host">
+          <QuestionPoolCreateDialog
+            questionPoolClient={props.questionPoolClient}
+            questionLibrary={props.repository}
+            getQuestionDetails={props.getQuestionDetails}
+            onTaskPhaseChange={setQuestionPoolTaskActive}
+            onClose={() => {
+              setQuestionPoolTaskActive(false);
+              setQuestionPoolCreateOpen(false);
+            }}
+          />
+        </div>
       </Show>
       <Show when={selectionNotice()}>{(notice) => <p role="status">{notice()}</p>}</Show>
       <Show when={editorLoading()}>

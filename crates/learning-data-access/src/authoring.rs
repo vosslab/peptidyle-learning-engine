@@ -6,7 +6,9 @@
 
 use async_trait::async_trait;
 use objects::ObjectRecord;
-use question_model::{DraftQuestionReference, QuestionFormat, QuestionType, WorkspaceId};
+use question_model::{
+    DraftQuestionReference, QuestionAssetReference, QuestionFormat, QuestionType, WorkspaceId,
+};
 use uuid::Uuid;
 
 use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreError};
@@ -70,6 +72,8 @@ pub struct CreateAuthoringDraftInput {
 /// Complete server-validated replacement for a saved Draft Question Source.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveAuthoringDraftInput {
+    /// Exact native HOTSPOT surface derived from validated source, not browser metadata.
+    pub hotspot_surface: Option<QuestionAssetReference>,
     /// Draft Question selected from the authorized opaque reference.
     pub reference: DraftQuestionReference,
     /// Current browser concurrency token.

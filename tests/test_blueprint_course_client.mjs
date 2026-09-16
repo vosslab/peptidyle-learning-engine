@@ -226,8 +226,8 @@ test("B1 Blueprint Course decoder exposes one current Revision and opaque metada
   assert.throws(() => decodeBlueprintCourseView(retired), DecodeError);
 });
 
-// Protect the explicit history choice; failure means repair request encoding, not normal discovery.
-test("Blueprint discovery requests Archived history only when explicitly included", async () => {
+// Protect optional discovery request shape; failure means repair request encoding, not normal discovery.
+test("Blueprint discovery encodes only active optional discovery filters", async () => {
   const paths = [];
   const client = createHttpApiClient({
     fetch: async (input) => {
@@ -239,6 +239,8 @@ test("Blueprint discovery requests Archived history only when explicitly include
   await client.listBlueprintCourses(undefined, 50, false);
   await client.listBlueprintCourses(undefined, 50, true);
   await client.listBlueprintCourses(undefined, 50, false, "Biochem & %_+?", true);
+  await client.listBlueprintCourses(undefined, 50, false, "Genetics", true, true);
+  await client.listBlueprintCourses(undefined, 50, false, "Genetics", true, false);
   assert.equal(paths[0].searchParams.has("includeArchived"), false);
   assert.equal(paths[1].searchParams.has("includeArchived"), false);
   assert.equal(paths[2].searchParams.get("includeArchived"), "true");
@@ -246,6 +248,8 @@ test("Blueprint discovery requests Archived history only when explicitly include
   assert.equal(paths[3].searchParams.get("query"), "Biochem & %_+?");
   assert.equal(paths[3].searchParams.get("publicOnly"), "true");
   assert.equal(paths[3].searchParams.has("includeArchived"), false);
+  assert.equal(paths[4].searchParams.get("promotedOnly"), "true");
+  assert.equal(paths[5].searchParams.has("promotedOnly"), false);
   assert.equal(paths[0].searchParams.has("publicOnly"), false);
   await assert.rejects(
     client.listBlueprintCourses(undefined, 50, true, "", true),
@@ -259,7 +263,59 @@ test("Blueprint discovery requests Archived history only when explicitly include
     client.listBlueprintCourses(undefined, 50, false, "bad\u0000query", true),
     ApiProtocolError,
   );
-  assert.equal(paths.length, 4);
+  assert.equal(paths.length, 6);
+});
+
+test("Blueprint classification discovery encodes identity filters and rejects incomplete chains before fetching", async () => {
+  const paths = [];
+  const client = createHttpApiClient({
+    fetch: async (input) => {
+      paths.push(new URL(input.toString(), "https://ple.example"));
+      return noStoreJson({ items: [], nextCursor: null });
+    },
+  });
+  const empty = {
+    disciplineUuid: null,
+    subjectUuid: null,
+    topicUuid: null,
+    subtopicUuid: null,
+    crossDiscipline: false,
+  };
+  const filters = {
+    disciplineUuid: metadataEtag,
+    subjectUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
+    topicUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6f",
+    subtopicUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d70",
+    crossDiscipline: true,
+  };
+  await client.listBlueprintCourses(undefined, 50, false, "Biochem & %_+?", true, true, filters);
+  assert.deepEqual(Object.fromEntries(paths[0].searchParams), {
+    pageSize: "50",
+    query: "Biochem & %_+?",
+    publicOnly: "true",
+    promotedOnly: "true",
+    ...filters,
+    crossDiscipline: "true",
+  });
+  await client.listBlueprintCourses(undefined, 50, false, "", true, false, empty);
+  assert.deepEqual(Object.fromEntries(paths[1].searchParams), {
+    pageSize: "50",
+    query: "",
+    publicOnly: "true",
+  });
+  for (const invalid of [
+    { ...filters, disciplineUuid: "bad" },
+    { ...filters, disciplineUuid: null },
+    { ...filters, subjectUuid: null },
+    { ...filters, topicUuid: null },
+    { ...empty, crossDiscipline: true },
+    { ...empty, crossDiscipline: "true" },
+  ]) {
+    await assert.rejects(
+      client.listBlueprintCourses(undefined, 50, false, "", true, false, invalid),
+    );
+  }
+  assert.equal(paths.length, 2);
 });
 
 test("B1 client sends Revision and metadata validators to their separate routes", async () => {

@@ -7,6 +7,7 @@ import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
+import { decodeQuestionPoolText } from "../api/decoders/question_pool_library";
 import { normalizeQuestionIdSyntax } from "../question_id";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import {
@@ -18,10 +19,16 @@ import {
 
 type CreationState = "choosing" | "reviewing" | "creating" | "created";
 
+// Match PostgreSQL btrim and Rust trim_matches(' '), not JavaScript Unicode trim.
+function trimPoolDraft(value: string): string {
+  return value.replace(/^ +| +$/gu, "");
+}
+
 export interface QuestionPoolCreateDialogProps {
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly questionLibrary: QuestionLibraryBrowseRepository;
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
+  readonly onTaskPhaseChange: (active: boolean) => void;
   readonly onClose: () => void;
 }
 
@@ -55,11 +62,14 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
   const [state, setState] = createSignal<CreationState>("choosing");
   const [selection, setSelection] = createSignal<QuestionPickerSelection>();
   const [attested, setAttested] = createSignal(false);
+  const [title, setTitle] = createSignal("");
+  const [description, setDescription] = createSignal("");
   const [error, setError] = createSignal<string>();
   const [createdPool, setCreatedPool] = createSignal<{
     readonly questionPoolId: string;
     readonly revisionNumber: number;
   }>();
+  let reviewHeading: HTMLHeadingElement | undefined;
   const pickerRepository = questionLibraryPickerRepository(
     props.questionLibrary,
     props.questionLibrary,
@@ -70,6 +80,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     setAttested(false);
     setError(undefined);
     setState("choosing");
+    props.onTaskPhaseChange(false);
   }
 
   function acceptSelection(next: QuestionPickerSelection): void {
@@ -77,16 +88,29 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     setAttested(false);
     setError(undefined);
     setState("reviewing");
+    props.onTaskPhaseChange(true);
+    queueMicrotask(() => reviewHeading?.focus());
   }
 
   async function createPool(): Promise<void> {
     const selected = selection();
     if (selected === undefined || !attested() || state() === "creating") return;
+    try {
+      decodeQuestionPoolText(trimPoolDraft(title()), "Title", 512);
+      decodeQuestionPoolText(trimPoolDraft(description()), "Description", 4000);
+    } catch {
+      setError(
+        "Enter a Title (1-512 characters) and Description (1-4000 characters), without control characters.",
+      );
+      return;
+    }
     setState("creating");
     setError(undefined);
     try {
       const members = await latestSelectedRevisions(selected, props.getQuestionDetails);
       const created = await props.questionPoolClient.createQuestionPool({
+        title: trimPoolDraft(title()),
+        description: trimPoolDraft(description()),
         members,
         interchangeabilityAttested: true,
       });
@@ -94,7 +118,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
       setState("created");
     } catch {
       setError(
-        "Question Pool could not be created. Your ordered selection is still here; review it and try again.",
+        "Question Pool could not be created. Your metadata and ordered selection are still here. Check that every Question has the same Discipline and Subject, then try again.",
       );
       setState("reviewing");
     }
@@ -108,6 +132,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
           sources={pickerSources}
           mode="many"
           maximumSelection={MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY}
+          initialSelection={selection()}
           title="Choose published Questions for this Pool"
           instructions="Select interchangeable published Questions and arrange their order before you attest to creating a reusable Pool."
           confirmLabel="Review selected Questions"
@@ -118,34 +143,76 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
       </Show>
       <Show when={state() === "choosing" ? undefined : selection()}>
         {(selected) => (
-          <>
+          <section
+            class="question-pool-create-review"
+            aria-labelledby="question-pool-create-heading"
+          >
             <p class="eyebrow">Reusable published content</p>
-            <h2 id="question-pool-create-heading">Create Question Pool</h2>
-            <p>
-              Create a reusable published Pool from these Questions. Their current Revisions are
-              resolved when you create the Pool.
+            <h1
+              id="question-pool-create-heading"
+              ref={(element) => (reviewHeading = element)}
+              tabindex="-1"
+            >
+              Create Question Pool
+            </h1>
+            <p class="question-pool-create-introduction">
+              Review the ordered Questions and describe the reusable Pool. Their current Revisions
+              are resolved when you create it.
             </p>
-            <ol>
-              <For each={selected().questions}>
-                {(question) => (
-                  <li>
-                    <strong>{question.row.questionTitle}</strong> ({question.questionId})
-                  </li>
-                )}
-              </For>
-            </ol>
+            <div class="question-pool-create-review-grid">
+              <section aria-labelledby="question-pool-selected-heading">
+                <h3 id="question-pool-selected-heading">Selected Questions in order</h3>
+                <ol class="question-pool-member-list">
+                  <For each={selected().questions}>
+                    {(question) => (
+                      <li>
+                        <strong>{question.row.questionTitle}</strong> ({question.questionId})
+                      </li>
+                    )}
+                  </For>
+                </ol>
+              </section>
+              <Show when={state() !== "created"}>
+                <fieldset disabled={state() === "creating"}>
+                  <legend>Pool metadata</legend>
+                  <label class="assessment-editor-field">
+                    Title (required)
+                    <input
+                      required
+                      value={title()}
+                      onInput={(event) => setTitle(event.currentTarget.value)}
+                    />
+                  </label>
+                  <label class="assessment-editor-field">
+                    Description (required)
+                    <textarea
+                      required
+                      value={description()}
+                      onInput={(event) => setDescription(event.currentTarget.value)}
+                    />
+                  </label>
+                  <p>
+                    The first Question, {selected().questions[0]?.row.questionTitle}, establishes
+                    this Pool's Discipline and Subject. Every additional Question must share both.
+                    The server checks this when you create the Pool.
+                  </p>
+                </fieldset>
+              </Show>
+            </div>
             <Show when={state() !== "created"}>
-              <label>
+              <label class="question-pool-attestation">
                 <input
                   type="checkbox"
                   checked={attested()}
                   disabled={state() === "creating"}
                   onChange={(event) => setAttested(event.currentTarget.checked)}
                 />{" "}
-                I attest that these Published Questions are interchangeable for this Pool.
+                I attest that these Published Questions assess the same intended learning and can
+                reasonably substitute for one another. This lets PLE select among them without
+                changing what the Pool assesses.
               </label>
               <Show when={error()}>{(message) => <p role="alert">{message()}</p>}</Show>
-              <p>
+              <p class="question-pool-create-actions">
                 <button
                   class="quiet-action"
                   type="button"
@@ -157,7 +224,12 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                 <button
                   class="primary-action"
                   type="button"
-                  disabled={!attested() || state() === "creating"}
+                  disabled={
+                    !attested() ||
+                    trimPoolDraft(title()).length === 0 ||
+                    trimPoolDraft(description()).length === 0 ||
+                    state() === "creating"
+                  }
                   onClick={() => void createPool()}
                 >
                   {state() === "creating"
@@ -171,6 +243,10 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                 <section role="status">
                   <h3>Published Question Pool created</h3>
                   <p>
+                    <strong>{trimPoolDraft(title())}</strong>
+                  </p>
+                  <p>{trimPoolDraft(description())}</p>
+                  <p>
                     {created().questionPoolId}, Revision {created().revisionNumber}
                   </p>
                   <button class="quiet-action" type="button" onClick={props.onClose}>
@@ -179,7 +255,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                 </section>
               )}
             </Show>
-          </>
+          </section>
         )}
       </Show>
     </>

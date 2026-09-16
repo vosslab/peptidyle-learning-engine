@@ -12,10 +12,10 @@ use learning_data_access::{
         Pool, PostgresAccountAvatarGallery, PostgresAccountTimeZoneStore,
         PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
         PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
-        PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
-        PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
-        PostgresContentClassificationStore, PostgresCourseBannerStore,
-        PostgresCourseGradebookStore, PostgresCourseInstanceStore,
+        PostgresAuthoringAssetsStore, PostgresAuthoringDraftStore, PostgresBlueprintCourseStore,
+        PostgresBlueprintLineageStore, PostgresBlueprintStewardshipStore,
+        PostgresBulkPublishedQuestionMetadataStore, PostgresContentClassificationStore,
+        PostgresCourseBannerStore, PostgresCourseGradebookStore, PostgresCourseInstanceStore,
         PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
         PostgresCourseRosterStore, PostgresCourseThemeStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
@@ -123,6 +123,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let assessment_student_view = PostgresInstructorStudentViewStore::new(pool.clone());
     let question_asset_delivery = PostgresQuestionAssetDeliveryStore::new(pool.clone());
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
+    let authoring_assets = PostgresAuthoringAssetsStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
     let question_library_objects = question_library_object_store_from_env().await?;
     let webwork_adapter = webwork_adapter_from_env()?;
@@ -166,12 +167,13 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(authentication_router)
         .merge(crate::content_classification::content_classification_router(
             Arc::clone(&sessions),
-            content_classification,
+            content_classification.clone(),
         ))
         .merge(crate::author_content_dependency_assets::author_content_dependency_asset_router())
         .merge(crate::question_library::question_library_router(
             Arc::clone(&sessions),
             question_library_store.clone(),
+            content_classification.clone(),
             question_library_objects.clone(),
             Arc::clone(&webwork_adapter),
             question_id_issuer.clone(),
@@ -180,6 +182,7 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             question_pool_library,
             question_library_store.clone(),
+            content_classification.clone(),
             question_library_objects.clone(),
             question_id_issuer.clone(),
         ))
@@ -215,6 +218,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::authoring::authoring_router(
             Arc::clone(&sessions),
             authoring_drafts,
+            authoring_assets,
             authoring_publication,
             question_library_objects.clone(),
             question_id_issuer.clone(),

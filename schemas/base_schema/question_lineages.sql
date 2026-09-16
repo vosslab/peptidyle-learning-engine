@@ -47,7 +47,6 @@ CREATE FUNCTION ple_data.question_metadata_tags_are_valid(p_tags text[])
 RETURNS boolean LANGUAGE sql IMMUTABLE
 SET search_path = pg_catalog AS $$
     SELECT p_tags IS NOT NULL
-       AND cardinality(p_tags) <= 64
        AND NOT EXISTS (
            SELECT 1 FROM unnest(p_tags) AS tag(value)
             WHERE value IS NULL

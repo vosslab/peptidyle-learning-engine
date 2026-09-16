@@ -1,8 +1,9 @@
 //! Active-Instructor creation of one reusable Published Question Pool.
 //!
 //! This route owns no Pool selection policy, backend behavior, Pool UI, or
-//! client-chosen identifier. It accepts only ordered exact Published Question
-//! Revision references and the Instructor's interchangeability attestation.
+//! client-chosen identifier. It accepts deliberate Pool Title/Description,
+//! ordered exact Published Question Revision references, and the Instructor's
+//! interchangeability attestation; classification remains database-derived.
 
 use std::sync::Arc;
 
@@ -101,9 +102,12 @@ struct QuestionPoolMemberRequest {
 }
 
 /// Closed browser request for one new reusable Question Pool.
+/// ASVS 1.5.2: explicit fields exclude browser-issued identities/classification.
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct CreateQuestionPoolRequest {
+    title: String,
+    description: String,
     members: Vec<QuestionPoolMemberRequest>,
     interchangeability_attested: bool,
 }
@@ -157,11 +161,16 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
             }
         };
         let input = CreateQuestionPoolInput {
+            title: request.title.clone(),
+            description: request.description.clone(),
             question_pool_id: Uuid::now_v7(),
             public_question_pool_id,
             members: members.clone(),
             interchangeability_attested: true,
         };
+        if input.validate().is_err() {
+            return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Question Pool is invalid");
+        }
         match state
             .pools
             .create_question_pool(session.clone(), input)
@@ -277,4 +286,34 @@ fn concealed() -> Response {
 
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CreateQuestionPoolRequest;
+
+    #[test]
+    fn creation_requires_deliberate_pool_text_and_refuses_client_classification() {
+        let request = serde_json::json!({
+            "title": "Interchangeable enzyme Questions",
+            "description": "Questions assessing enzyme inhibition.",
+            "members": [],
+            "interchangeabilityAttested": true
+        });
+        let parsed: CreateQuestionPoolRequest =
+            serde_json::from_value(request.clone()).expect("closed creation request");
+        assert_eq!(parsed.title, "Interchangeable enzyme Questions");
+        assert_eq!(parsed.description, "Questions assessing enzyme inhibition.");
+        for field in ["title", "description"] {
+            let mut missing = request.clone();
+            missing
+                .as_object_mut()
+                .expect("request object")
+                .remove(field);
+            assert!(serde_json::from_value::<CreateQuestionPoolRequest>(missing).is_err());
+        }
+        let mut classified = request;
+        classified["disciplineUuid"] = serde_json::json!(uuid::Uuid::nil());
+        assert!(serde_json::from_value::<CreateQuestionPoolRequest>(classified).is_err());
+    }
 }

@@ -5,6 +5,8 @@ import type { QuestionRevisionReference } from "../../generated/api/QuestionRevi
 
 /** Browser-supplied content for a server-issued Published Question Pool Revision 1. */
 export interface CreateQuestionPoolInput {
+  readonly title: string;
+  readonly description: string;
   readonly members: ReadonlyArray<QuestionRevisionReference>;
   readonly interchangeabilityAttested: true;
 }

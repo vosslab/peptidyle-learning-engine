@@ -1,6 +1,7 @@
 //! Bounded browser-safe Question Type and facet contracts.
 
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::Capability;
 use crate::question_library::{QuestionBackend, QuestionId};
@@ -147,6 +148,23 @@ pub struct QuestionSearchRequest {
     pub subjects: Vec<String>,
     /// Structured topics; any normalized exact topic may match.
     pub topics: Vec<String>,
+    /// Optional global Discipline identity; unrestricted when absent.
+    #[serde(default)]
+    pub discipline_uuid: Option<Uuid>,
+    /// Optional global Subject identity; requires a selected Discipline.
+    #[serde(default)]
+    pub subject_uuid: Option<Uuid>,
+    /// Optional global Topic identity; requires a selected Subject.
+    #[serde(default)]
+    pub topic_uuid: Option<Uuid>,
+    /// Optional global Subtopic identity; requires a selected Topic.
+    #[serde(default)]
+    pub subtopic_uuid: Option<Uuid>,
+    /// Includes the selected Subject across Disciplines, omitting only Discipline equality.
+    ///
+    /// Requires Discipline and Subject. Text and name filters remain additional predicates.
+    #[serde(default)]
+    pub cross_discipline: bool,
     /// Immutable Question Types; any supplied type may match.
     pub question_types: Vec<QuestionType>,
     /// Required adapter capabilities; every supplied capability must be present.
@@ -180,6 +198,16 @@ pub struct QuestionSearchFilter {
     pub tags: Vec<String>,
     pub subjects: Vec<String>,
     pub topics: Vec<String>,
+    #[serde(default)]
+    pub discipline_uuid: Option<Uuid>,
+    #[serde(default)]
+    pub subject_uuid: Option<Uuid>,
+    #[serde(default)]
+    pub topic_uuid: Option<Uuid>,
+    #[serde(default)]
+    pub subtopic_uuid: Option<Uuid>,
+    #[serde(default)]
+    pub cross_discipline: bool,
     pub question_types: Vec<QuestionType>,
     pub capabilities: Vec<Capability>,
     pub question_licenses: Vec<QuestionLicense>,
@@ -203,6 +231,11 @@ impl QuestionSearchFilter {
             tags: query.tags,
             subjects: query.subjects,
             topics: query.topics,
+            discipline_uuid: query.discipline_uuid,
+            subject_uuid: query.subject_uuid,
+            topic_uuid: query.topic_uuid,
+            subtopic_uuid: query.subtopic_uuid,
+            cross_discipline: query.cross_discipline,
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
@@ -226,6 +259,11 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             tags: filter.tags,
             subjects: filter.subjects,
             topics: filter.topics,
+            discipline_uuid: filter.discipline_uuid,
+            subject_uuid: filter.subject_uuid,
+            topic_uuid: filter.topic_uuid,
+            subtopic_uuid: filter.subtopic_uuid,
+            cross_discipline: filter.cross_discipline,
             question_types: filter.question_types,
             capabilities: filter.capabilities,
             question_licenses: filter.question_licenses,
@@ -246,6 +284,11 @@ impl Default for QuestionSearchRequest {
             tags: Vec::new(),
             subjects: Vec::new(),
             topics: Vec::new(),
+            discipline_uuid: None,
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            cross_discipline: false,
             question_types: Vec::new(),
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
@@ -266,6 +309,10 @@ pub enum QuestionSearchRequestError {
     TooLarge,
     /// An opaque continuation token was empty.
     EmptyCursor,
+    /// A selected classification identity omitted its required parent selection.
+    IncompleteClassificationChain,
+    /// Cross-Discipline inclusion omitted Discipline or Subject.
+    InvalidCrossDiscipline,
 }
 
 impl std::fmt::Display for QuestionSearchRequestError {
@@ -276,6 +323,12 @@ impl std::fmt::Display for QuestionSearchRequestError {
                 formatter.write_str("Question Search filter exceeds its bounded limit")
             }
             Self::EmptyCursor => formatter.write_str("Question Search cursor must not be empty"),
+            Self::IncompleteClassificationChain => {
+                formatter.write_str("Question Search classification requires its parent selections")
+            }
+            Self::InvalidCrossDiscipline => formatter.write_str(
+                "Question Search cross-Discipline inclusion requires Discipline and Subject",
+            ),
         }
     }
 }
@@ -298,6 +351,18 @@ impl QuestionSearchRequest {
     /// backends, tags, Question Types, and Question Licenses, values combine using
     /// OR. Capabilities retain every-value-matches semantics.
     pub fn normalized(mut self) -> Result<Self, QuestionSearchRequestError> {
+        // ASVS 2.2.1 and 2.2.3: validate the selection structure without inferring parents.
+        // The trusted service must additionally validate vocabulary identities and associations.
+        if (self.subject_uuid.is_some() && self.discipline_uuid.is_none())
+            || (self.topic_uuid.is_some() && self.subject_uuid.is_none())
+            || (self.subtopic_uuid.is_some() && self.topic_uuid.is_none())
+        {
+            return Err(QuestionSearchRequestError::IncompleteClassificationChain);
+        }
+        if self.cross_discipline && (self.discipline_uuid.is_none() || self.subject_uuid.is_none())
+        {
+            return Err(QuestionSearchRequestError::InvalidCrossDiscipline);
+        }
         self.text = self
             .text
             .map(|text| normalize_text(text, 256))
@@ -480,6 +545,89 @@ mod tests {
     }
 
     #[test]
+    fn classification_identity_survives_normalization_and_saved_search_round_trip() {
+        let query = QuestionSearchRequest {
+            discipline_uuid: Some(Uuid::from_u128(1)),
+            subject_uuid: Some(Uuid::from_u128(2)),
+            topic_uuid: Some(Uuid::from_u128(3)),
+            subtopic_uuid: Some(Uuid::from_u128(4)),
+            cross_discipline: true,
+            text: Some("  subject:Genetics -review  ".to_string()),
+            subjects: vec![" Genetics ".to_string()],
+            topics: vec![" Inheritance ".to_string()],
+            cursor: Some("continuation".to_string()),
+            page_size: Some(25),
+            ..QuestionSearchRequest::default()
+        }
+        .normalized()
+        .expect("complete classification selection normalizes");
+        let filter = QuestionSearchFilter::from_query(query.clone()).expect("selection retained");
+        let restored: QuestionSearchFilter =
+            serde_json::from_value(serde_json::to_value(&filter).expect("filter serializes"))
+                .expect("filter deserializes");
+        assert_eq!(restored.normalized().expect("filter normalizes"), filter);
+        let mut fresh = query;
+        fresh.cursor = None;
+        fresh.page_size = None;
+        assert_eq!(filter.fresh_query(), fresh);
+        assert_eq!(fresh.text.as_deref(), Some("subject:genetics -review"));
+        assert_eq!(fresh.subjects, vec!["genetics"]);
+        assert_eq!(fresh.topics, vec!["inheritance"]);
+    }
+
+    #[test]
+    fn classification_selection_requires_parent_chain_and_explicit_cross_subject() {
+        for query in [
+            QuestionSearchRequest {
+                subject_uuid: Some(Uuid::from_u128(2)),
+                ..QuestionSearchRequest::default()
+            },
+            QuestionSearchRequest {
+                discipline_uuid: Some(Uuid::from_u128(1)),
+                topic_uuid: Some(Uuid::from_u128(3)),
+                ..QuestionSearchRequest::default()
+            },
+            QuestionSearchRequest {
+                discipline_uuid: Some(Uuid::from_u128(1)),
+                subject_uuid: Some(Uuid::from_u128(2)),
+                subtopic_uuid: Some(Uuid::from_u128(4)),
+                ..QuestionSearchRequest::default()
+            },
+        ] {
+            assert_eq!(
+                query.normalized(),
+                Err(QuestionSearchRequestError::IncompleteClassificationChain)
+            );
+        }
+        for discipline_uuid in [None, Some(Uuid::from_u128(1))] {
+            assert_eq!(
+                QuestionSearchRequest {
+                    discipline_uuid,
+                    cross_discipline: true,
+                    ..QuestionSearchRequest::default()
+                }
+                .normalized(),
+                Err(QuestionSearchRequestError::InvalidCrossDiscipline)
+            );
+        }
+        for query in [
+            QuestionSearchRequest::default(),
+            QuestionSearchRequest {
+                discipline_uuid: Some(Uuid::from_u128(1)),
+                ..QuestionSearchRequest::default()
+            },
+            QuestionSearchRequest {
+                discipline_uuid: Some(Uuid::from_u128(1)),
+                subject_uuid: Some(Uuid::from_u128(2)),
+                cross_discipline: true,
+                ..QuestionSearchRequest::default()
+            },
+        ] {
+            assert!(query.normalized().is_ok());
+        }
+    }
+
+    #[test]
     fn question_search_roots_use_strict_snake_case_without_scope_or_paging_state() {
         let query = QuestionSearchRequest {
             question_types: vec![QuestionType::FillInBlank],
@@ -509,6 +657,48 @@ mod tests {
         assert!(filter_json.get("page_size").is_none());
         assert_eq!(filter.fresh_query().cursor, None);
         assert_eq!(filter.fresh_query().page_size, None);
+
+        let mut empty_selection_query = query_json.clone();
+        let mut empty_selection_filter = filter_json.clone();
+        for field in [
+            "discipline_uuid",
+            "subject_uuid",
+            "topic_uuid",
+            "subtopic_uuid",
+            "cross_discipline",
+        ] {
+            empty_selection_query
+                .as_object_mut()
+                .expect("query object")
+                .remove(field);
+            empty_selection_filter
+                .as_object_mut()
+                .expect("filter object")
+                .remove(field);
+        }
+        assert_eq!(
+            serde_json::from_value::<QuestionSearchRequest>(empty_selection_query)
+                .expect("omitted optional selection means unrestricted"),
+            serde_json::from_value::<QuestionSearchRequest>(query_json.clone())
+                .expect("explicit empty selection deserializes")
+        );
+        assert_eq!(
+            serde_json::from_value::<QuestionSearchFilter>(empty_selection_filter)
+                .expect("omitted optional selection means unrestricted"),
+            filter
+        );
+        for (field, value) in [
+            ("discipline_uuid", serde_json::json!("not-a-uuid")),
+            ("cross_discipline", serde_json::json!("true")),
+            ("subjectUuid", serde_json::json!(Uuid::from_u128(2))),
+        ] {
+            let mut rejected_query = query_json.clone();
+            rejected_query[field] = value.clone();
+            assert!(serde_json::from_value::<QuestionSearchRequest>(rejected_query).is_err());
+            let mut rejected_filter = filter_json.clone();
+            rejected_filter[field] = value;
+            assert!(serde_json::from_value::<QuestionSearchFilter>(rejected_filter).is_err());
+        }
 
         for retired_field in ["publication_scopes", "publicationScopes"] {
             let mut rejected_query = query_json.clone();

@@ -22,8 +22,16 @@ import {
   PleQuestionJsonStaleConflictError,
 } from "../src/features/ple_question_json_authoring/question_json_repository.ts";
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../src/features/ple_question_json_authoring/question_json_source.ts";
+import { setPleQuestionJsonHotspotAsset } from "../src/features/ple_question_json_authoring/question_json_hotspot_model.ts";
 
 const draftQuestion = "D-1";
+const uploadedImage = {
+  questionAsset: "01234567-89ab-4cde-8f01-23456789abcd",
+  checksum: "a".repeat(64),
+  mediaType: "image/png",
+  intrinsicWidth: 480,
+  intrinsicHeight: 240,
+};
 const publicationClassification = {
   disciplineUuid: "00000000-0000-4000-8000-000000000001",
   subjectUuid: "00000000-0000-4000-8000-000000000002",
@@ -34,6 +42,103 @@ const publicationClassification = {
 function publicationRequest(authors = [{ displayName: "Fixture Instructor" }]) {
   return { authorship: { authors }, ...publicationClassification };
 }
+
+test("image upload sends raw raster bytes and a source precondition, accepting only measured closed facts", async () => {
+  const image = new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" });
+  let result = uploadedImage;
+  const client = createPleQuestionJsonClient({
+    fetch: async (path, init) => {
+      assert.equal(path, "/api/authoring/drafts/D-1/assets");
+      assert.equal(init.method, "POST");
+      assert.equal(init.body, image);
+      assert.equal(init.credentials, "same-origin");
+      assert.equal(init.cache, "no-store");
+      assert.equal(init.headers["if-match"], '"3"');
+      assert.equal(init.headers["content-type"], "image/png");
+      return jsonResponse(result, 201);
+    },
+  });
+  assert.deepEqual(await client.uploadAsset(draftQuestion, image, '"3"'), uploadedImage);
+  assert.equal(
+    client.assetPreviewPath(draftQuestion, uploadedImage.questionAsset),
+    `/api/authoring/drafts/D-1/assets/${uploadedImage.questionAsset}`,
+  );
+  for (const malformed of [
+    { ...uploadedImage, url: "https://external.invalid/image.png" },
+    { ...uploadedImage, questionAsset: uploadedImage.questionAsset.toUpperCase() },
+    { ...uploadedImage, checksum: "A".repeat(64) },
+    { ...uploadedImage, mediaType: "image/svg+xml" },
+    { ...uploadedImage, intrinsicWidth: 0 },
+    { ...uploadedImage, intrinsicHeight: 0.5 },
+    { ...uploadedImage, intrinsicWidth: 20_000_001 },
+  ]) {
+    result = malformed;
+    await assert.rejects(client.uploadAsset(draftQuestion, image, '"3"'));
+  }
+});
+
+test("image failures and canceled upload never replace the caller source; 412 source saves retain it for recovery", async () => {
+  const original = source();
+  const before = serializePleQuestionJsonSource(original);
+  let status = 412;
+  const client = createPleQuestionJsonClient({
+    fetch: async (_path, init) => {
+      if (init.method === "GET")
+        return new Response(before, {
+          headers: { "content-type": PLE_QUESTION_JSON_MEDIA_TYPE, etag: '"1"' },
+        });
+      if (status === 0) throw new DOMException("Canceled", "AbortError");
+      return new Response(null, { status });
+    },
+  });
+  const image = new Blob(["raster"], { type: "image/png" });
+  for (const failure of [412, 413, 415, 400, 503, 0]) {
+    status = failure;
+    await assert.rejects(client.uploadAsset(draftQuestion, image, '"1"'));
+    assert.equal(serializePleQuestionJsonSource(original), before);
+  }
+  status = 412;
+  const repository = createPleQuestionJsonRepository(client);
+  await repository.load(draftQuestion);
+  await assert.rejects(
+    repository.save(draftQuestion, original),
+    (error) =>
+      error instanceof PleQuestionJsonStaleConflictError &&
+      error.status === 412 &&
+      error.source === original,
+  );
+});
+
+test("a real image descriptor creates the starter region and replacement preserves authored HOTSPOT content", () => {
+  const initial = setPleQuestionJsonHotspotAsset(source(), uploadedImage);
+  assert.equal(decodePleQuestionJsonSource(initial).response.kind, "hotspot");
+  assert.deepEqual(initial.response.regions, [
+    { id: "region_1", label: "Region 1", x: 0, y: 0, width: 10000, height: 10000 },
+  ]);
+  assert.deepEqual(initial.response.correctRegions, ["region_1"]);
+  const authored = {
+    ...initial,
+    response: {
+      ...initial.response,
+      surface: { ...initial.response.surface, description: "One dot in the image." },
+      regions: [{ id: "dot", label: "Dot", x: 4500, y: 4500, width: 1000, height: 1000 }],
+      correctRegions: ["dot"],
+    },
+  };
+  const replacement = setPleQuestionJsonHotspotAsset(authored, {
+    ...uploadedImage,
+    questionAsset: "01234567-89ab-4cde-8f01-23456789abce",
+    checksum: "b".repeat(64),
+  });
+  assert.deepEqual(replacement.response.regions, authored.response.regions);
+  assert.deepEqual(replacement.response.correctRegions, ["dot"]);
+  assert.equal(replacement.response.surface.description, "One dot in the image.");
+  assert.notEqual(
+    replacement.response.surface.questionAsset,
+    authored.response.surface.questionAsset,
+  );
+  assert.equal(decodePleQuestionJsonSource(replacement).response.kind, "hotspot");
+});
 
 function source() {
   return {
@@ -770,11 +875,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
         : jsonResponse({ summary: publicationSummary("webwork"), viewerMayArchive: true }),
   });
   await assert.rejects(
-    wrongPublication.publish(
-      draftQuestion,
-      publicationRequest(),
-      '"1"',
-    ),
+    wrongPublication.publish(draftQuestion, publicationRequest(), '"1"'),
     /available PLE Question Library summary/u,
   );
 
@@ -788,11 +889,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
           }),
   });
   await assert.rejects(
-    staleScope.publish(
-      draftQuestion,
-      publicationRequest(),
-      '"1"',
-    ),
+    staleScope.publish(draftQuestion, publicationRequest(), '"1"'),
     /scope must be a field allowed/u,
   );
 
@@ -804,11 +901,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
           : jsonResponse({ summary, viewerMayArchive: true }),
     });
     await assert.rejects(
-      wrongLifecycleOrScope.publish(
-        draftQuestion,
-        publicationRequest(),
-        '"1"',
-      ),
+      wrongLifecycleOrScope.publish(draftQuestion, publicationRequest(), '"1"'),
       /available PLE Question Library summary/u,
     );
   }

@@ -505,13 +505,48 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .await
     .expect("Question Revision");
     sqlx::query(
+        "INSERT INTO ple_data.content_subject (subject_uuid, name) \
+         VALUES ($1, 'Blueprint fixture Subject') ON CONFLICT (subject_uuid) DO NOTHING",
+    )
+    .bind(id(0xcc02))
+    .execute(&mut *transaction)
+    .await
+    .expect("explicit fixture Subject");
+    sqlx::query(
+        "INSERT INTO ple_data.content_subject_discipline (subject_uuid, discipline_uuid) \
+         VALUES ($1, $2) ON CONFLICT DO NOTHING",
+    )
+    .bind(id(0xcc02))
+    .bind(id(0xcc01))
+    .execute(&mut *transaction)
+    .await
+    .expect("explicit fixture Subject Discipline association");
+    sqlx::query(
+        "INSERT INTO ple_data.published_question_metadata (\
+             question_id, question_title, question_description, language, \
+             discipline_uuid, subject_uuid, created_at, updated_at\
+         ) VALUES ($1, 'Blueprint fixture Question', 'Blueprint fixture Question description', \
+                   'en', $2, $3, clock_timestamp(), clock_timestamp())",
+    )
+    .bind(QUESTION)
+    .bind(id(0xcc01))
+    .bind(id(0xcc02))
+    .execute(&mut *transaction)
+    .await
+    .expect("explicit first Question metadata");
+    sqlx::query(
         "INSERT INTO ple_data.question_pool (\
-             question_pool_id, public_question_pool_id, metadata_etag, current_revision_number, created_at\
-         ) VALUES ($1, $2, $3, 1, clock_timestamp())",
+             question_pool_id, public_question_pool_id, metadata_etag, current_revision_number, created_at, \
+             title, description, discipline_uuid, subject_uuid\
+         ) SELECT $1, $2, $3, 1, clock_timestamp(), \
+                  'Blueprint fixture Pool', 'Blueprint fixture Pool description', \
+                  metadata.discipline_uuid, metadata.subject_uuid \
+             FROM ple_data.published_question_metadata AS metadata WHERE metadata.question_id = $4",
     )
     .bind(id(0xb105))
     .bind(QUESTION_POOL)
     .bind(id(0xb106))
+    .bind(QUESTION)
     .execute(&mut *transaction)
     .await
     .expect("Published Question Pool");

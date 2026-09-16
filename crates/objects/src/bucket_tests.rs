@@ -30,6 +30,36 @@ fn source_objects_are_never_direct_delivery_targets() {
 }
 
 #[test]
+fn draft_asset_binds_private_workspace_draft_and_immutable_object_without_delivery() {
+    let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
+    let draft = Uuid::from_u128(3);
+    let asset = QuestionAssetId::from_uuid(Uuid::from_u128(4));
+    let object = ObjectId::from_uuid(Uuid::from_u128(5));
+    let address = ObjectAddress::DraftQuestionAsset {
+        workspace,
+        draft_question_uuid: draft,
+        asset,
+        object,
+    };
+    assert_eq!(
+        address.path(),
+        format!("workspaces/{workspace}/questions/drafts/{draft}/assets/{asset}/{object}")
+    );
+    assert_eq!(address.storage_area(), ObjectStorageArea::PrivateContent);
+    assert_eq!(address.data_class(), ObjectDataClass::AuthoringContent);
+    assert_eq!(address.object_id(), object);
+    assert!(address.question_revision().is_none());
+    assert!(!address.may_issue_signed_url());
+    let encoded = serde_json::to_value(&address).expect("internal address serializes");
+    assert_eq!(encoded["kind"], "draftQuestionAsset");
+    assert_eq!(encoded["draftQuestionUuid"], draft.to_string());
+    assert_eq!(
+        serde_json::from_value::<ObjectAddress>(encoded).expect("roundtrip"),
+        address
+    );
+}
+
+#[test]
 fn only_immutable_question_assets_enter_the_public_delivery_domain() {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(2));
     let question_revision = question_revision(4);

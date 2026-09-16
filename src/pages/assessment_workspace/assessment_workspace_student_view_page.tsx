@@ -224,6 +224,8 @@ function NativeQuestionPreview(props: {
         <div inert aria-disabled="true">
           <QuestionPresentationResponseControl
             attemptId={`student-view-${props.position}`}
+            questionRevision={props.presentation.questionRevision}
+            assetUrl={props.assetUrl}
             mode="formatOnly"
             responseFormat={props.presentation.response}
             validator={PREVIEW_VALIDATOR}

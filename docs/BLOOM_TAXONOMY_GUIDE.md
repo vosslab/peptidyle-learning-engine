@@ -1,13 +1,13 @@
 # Bloom taxonomy guide
 
 This guide translates the Iowa State University Center for Excellence in Learning and Teaching
-(CELT) Bloom's Taxonomy guide into the Question classification used by PLE. It helps Instructors
+(CELT) Bloom's Taxonomy guide into the Bloom classification used by PLE. It helps Instructors
 understand and correct the AI-assigned cognitive classification of one exact Published Question
-Revision.
+Revision or Question Pool Revision.
 
 [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md#content-and-delivery-relationships) owns the
-canonical names. [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the Question data
-contract. This guide owns the practical teaching interpretation.
+canonical names. [QUESTION_MODEL.md](QUESTION_MODEL.md#bloom-classification) owns the classification
+data contract. This guide owns the practical teaching interpretation.
 
 ## Why use it
 
@@ -15,35 +15,40 @@ The revised Bloom taxonomy gives Instructors a shared language for aligning lear
 instruction, and assessment. CELT recommends using it to sequence learning, align assessments with
 the cognitive work students should perform, and track objectives across courses and programs.
 
-PLE applies that purpose narrowly to Questions:
+PLE applies that purpose narrowly to Questions and Question Pools:
 
-- Classify the work required for full credit on one exact Question Revision.
+- Classify the work required for full credit on one exact Question Revision or the intended work of
+  one exact Question Pool Revision.
 - Search the Question Library by either dimension or by their intersection.
 - Review the balance of cognitive work across an Assessment or Course.
 - Keep intended cognitive demand separate from observed Question Difficulty.
 
-The classification describes the Question's assessed task in its teaching context. It does not
-rank the Student, the Instructor, the Question Type, or the value of the Question.
+The classification describes a Question's assessed task or a Pool's intended work in its teaching
+context. It does not rank the Student, the Instructor, the Question Type, or the value of an object.
 
 ## Two independent dimensions
 
-The revised taxonomy has two independent dimensions. A Question receives one value from each.
+The revised taxonomy has two independent dimensions. A Question or Question Pool receives one value
+from each.
 
-| Dimension                   | Question answered                                  |
+| Dimension                   | Classification question                             |
 | --------------------------- | -------------------------------------------------- |
 | Cognitive Process Dimension | What cognitive work must the Student perform?      |
 | Knowledge Dimension         | What kind of knowledge must the Student work with? |
 
-The two selected enum values determine one derived Question Bloom Classification:
+The two selected enum values determine one derived Bloom Classification:
 
 ```text
-Question Bloom Classification =
+Bloom Classification =
   (Bloom Cognitive Process, Bloom Knowledge Dimension)
 ```
 
 For example, Analyze and Conceptual Knowledge determine the classification commonly written as
 "analyze conceptual knowledge." PLE stores the two enum values. Their ordered pair determines the
 combined label and one position in the 4 by 6 Bloom Classification Matrix.
+
+For a Question Pool, classify the intended cognitive work of the Pool as a whole. Do not use the
+highest classification of a member Question or copy a member classification without that judgment.
 
 The phrases inside CELT's three-dimensional chart are example learning objectives. They illustrate
 what a task in a matrix position might look like. Many different learning objectives and Questions
@@ -166,14 +171,15 @@ learning.
 
 ## AI assignment and correction
 
-Publishing creates the exact Question Revision with Bloom classification unassigned and completes
-immediately. AI classification work searches for unassigned Published Question Revisions, evaluates
-each exact revision, and assigns the initial Cognitive Process Dimension and Knowledge Dimension
-values. The Question remains Published and discoverable while unassigned.
+Before a Published Question Revision or Question Pool Revision enters the Question Library, AI
+assigns its initial Cognitive Process Dimension and Knowledge Dimension values as part of
+publication. Both values are required for Library entry; an unassigned Question or Pool is not
+discoverable in the Library.
 
 An Instructor can later edit either value when teaching context or expert judgment supports a
-different pair. The correction targets the same exact Question Revision. It changes classification
-metadata while leaving immutable Question content and its Reason for Edit history unchanged.
+different pair. The correction targets the same exact Question or Pool Revision. It changes
+classification metadata while retaining the other value and without creating a new immutable
+Revision or changing Question content, Pool member pins, or Question Reason for Edit history.
 
 This guide defines the expected result and timing. A separate AI integration plan will select the
 model execution environment, protected Question inputs, scheduling, concurrent work claims, retry
@@ -181,14 +187,14 @@ behavior, and operational validation.
 
 ## Search and reporting
 
-Question Search exposes two independent facets:
+Question Library search exposes two independent facets:
 
 - Cognitive Process Dimension;
 - Knowledge Dimension.
 
 The interface may also show a 4 by 6 matrix. A matrix selection applies both facets together. The
 matrix position, combined label, and result count are derived from the same two values rather than
-maintained as separate Question metadata.
+maintained as separate object metadata.
 
 Report both dimensions when precision matters. "Analyze / Conceptual Knowledge" communicates more
 than a one-dimensional phrase such as "Bloom level 4." The pair also prevents the cognitive process
@@ -217,8 +223,8 @@ color does not represent correctness, Question Difficulty, point value, or maste
 
 ## Review checklist
 
-- [ ] Publication creates the exact Question Revision with Bloom classification unassigned.
-- [ ] AI classification work searches for unassigned Published Question Revisions.
+- [ ] AI assigns both Bloom dimensions as part of Question or Pool publication.
+- [ ] A Question or Pool enters the Question Library only after both dimensions are assigned.
 - [ ] The completed classification has one Cognitive Process value.
 - [ ] The completed classification has one Knowledge Dimension value.
 - [ ] The combined classification and matrix position are derived from that ordered pair.
@@ -226,7 +232,7 @@ color does not represent correctness, Question Difficulty, point value, or maste
 - [ ] Expected prior learning and course context support the selected cognitive process.
 - [ ] The classification remains separate from Question Difficulty and Question Type.
 - [ ] Every color-coded presentation also displays both dimension labels.
-- [ ] An Instructor can edit either assigned value later without creating a Question Revision.
+- [ ] An Instructor can edit either assigned value later without creating a Question or Pool Revision.
 
 ## Sources
 

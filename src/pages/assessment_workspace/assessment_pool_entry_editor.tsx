@@ -7,6 +7,7 @@ import type { AssessmentQuestionPoolForkView } from "../../../generated/api/Asse
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
 import { questionRevisionKey } from "./assessment_workspace_questions_model";
+import { CourseClassificationSummary } from "../../components/course_classification_summary";
 
 export interface AssessmentPoolEntryEditorProps {
   readonly entry: Extract<AssessmentEntry, { readonly kind: "questionPool" }>;
@@ -83,6 +84,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
       >
         {(fork) => (
           <>
+            <h4>{fork().metadata.title}</h4>
+            <p>{fork().metadata.description}</p>
+            <CourseClassificationSummary value={fork().metadata} />
             <p>
               This Assessment owns this imported Pool fork. It selects {props.entry.selectionCount}{" "}
               of {fork().members.length} exact pinned Questions.

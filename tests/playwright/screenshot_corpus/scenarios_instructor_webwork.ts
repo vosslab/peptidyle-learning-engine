@@ -101,9 +101,11 @@ async function renderedAnswerFreePreview(page: Page, example: GeneratedExample):
   if ((await document.locator("input[type=radio]:checked").count()) !== 0) {
     throw new Error("WeBWorK generated example has a selected response");
   }
-  const selected = await document.locator("select").evaluateAll((controls) =>
-    controls.some((control) => control.selectedIndex > 0),
-  );
+  const selected = await document
+    .locator("select")
+    .evaluateAll((controls) =>
+      controls.some((control) => control instanceof HTMLSelectElement && control.selectedIndex > 0),
+    );
   if (selected) {
     throw new Error("WeBWorK generated example has a selected response");
   }

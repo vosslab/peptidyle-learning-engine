@@ -1,7 +1,8 @@
 # Human Guidance implementation compliance checklist
 
 Source: `docs/HUMAN_GUIDANCE.md`. Human Guidance remains authoritative. This file records
-implementation status only.
+implementation status only. `How to use this guidance` and `Product vocabulary and glossary`
+remain interpretive authority, but are not checklist items.
 
 - [x] Verified: implemented behavior matches the bullet. Evidence follows.
 - [ ] Unverified: Mismatch identifies missing or incorrect behavior; Verification pending identifies implemented behavior awaiting named proof.
@@ -9,19 +10,6 @@ implementation status only.
 
 # Human guidance
 
-
-## How to use this guidance
-
-Implementation status: N/A
-Reason: This section gives rules for writing and maintaining Human Guidance. It does not specify PLE product or code behavior.
-
-- N/A Guidance bullets should start with the subject when practical, making them easier to scan.
-- N/A Guidance should stay terse and in my own words.
-- N/A Uncertainty should remain when I have not made a final decision.
-- N/A This document uses GitHub Flavored Markdown (GFM).
-- N/A Bullet duplication is acceptable because many agents only skim read one section at a time.
-- N/A Headings should identify their broader section when practical so they remain clear in isolation.
-- N/A Avoid repeating that context when the immediate parent heading already makes it clear.
 
 ## Development principles
 
@@ -92,7 +80,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] PLE is pre-production with no users or durable production data. Improve the design directly.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` makes direct base-schema correction the pre-production path.
   - Mismatch: this database-only guard does not prove that every live alternate reader, writer, route, parser, DTO, client, fallback, alias, or migration path has been removed. The obsolete Assessment route layer and tsgen retired-header migration are gone, but live CI/A/U/BP client guards and receipt formats remain under audit. One Unrelease mutation path was found; no duplicate-current-path claim is made.
-- [x] Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](../../NAMING_CONVENTIONS.md) for details.
+- [x] Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
   - Evidence (source): `devel/development_conformance_audit.py` `current_source_paths` inventories tracked and untracked current-worktree source files without opening deleted paths; `source_name_violations` enforces readable snake_case names.
   - Evidence (source): `devel/development_conformance_audit.py` `load_allowlist` permits only exact documented external-name exceptions owned by approved authority sections.
   - Decision: The one-time adversarial and current-worktree proof was removed after validation; the durable audit command is the regression boundary.
@@ -131,7 +119,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: human ownership statement about a named machine, not implemented PLE behavior.
 - N/A Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.
   - Reason: human authorization statement, not implemented PLE behavior.
-- N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md).
+- N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
   - Reason: human-owned project priority, not implemented PLE behavior.
 - [x] PLE should use one global installation with no institution boundaries.
   - Evidence (source): `schemas/base_schema/accounts.sql` `ple_private.account` has no institution column or foreign key; product roles are global account data.
@@ -142,94 +130,6 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `launchers/run_live_demo.sh` launcher delegates the normal Live Demo start to `local_stack.py`.
   - Evidence (source): `local_stack.py` `main` is the direct local-stack controller entry point.
 
-## Product vocabulary and glossary
-
-- [ ] **Account**: A global PLE user account with exactly one Product Role.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
-- [ ] **Product Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
-- [ ] **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates Accounts, and provides scoped administrative support.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
-- [ ] **Instructor**: An approved user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
-- [ ] **Student**: A user who enrolls in **Course Instances** and completes Coursework.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Product vocabulary and glossary boundary.
-
-### Course vocabulary
-
-- [ ] **Course**: The general term covering both **Blueprint Courses** and **Course Instances**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
-- [ ] **Blueprint Course**: A reusable Course used to create **Course Instances**. It has no enrolled **Students**, deadlines, or other teaching-specific delivery settings.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
-- [ ] **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its reusable content cannot change.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
-- [ ] **Course Instance**: A Course used for teaching. It has **Students**, deadlines, releases, and other delivery settings. It may be created from a Blueprint Course or started empty.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
-- [ ] **Adoption**: Connecting a **Course Instance** to a **Blueprint Course**. Adoption may occur when the Course Instance is created or later.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course vocabulary boundary.
-
-### Assessment vocabulary
-
-- [ ] **Assessment**: The PLE object that organizes Questions into a graded or practice activity.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-- [ ] **Blueprint Assessment**: An Assessment in a **Blueprint Course** containing reusable content and teaching settings without Students, dates, or other Course Instance delivery settings.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-- [ ] **Course Instance Assessment**: An Assessment in a **Course Instance** that can be released and delivered to **Students**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-- [ ] **Assessment Type**: The pedagogical type of an Assessment: **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, or **Exam**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-- [ ] **Coursework**: The Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-- [ ] **Assessment Attempt**: One **Student** attempt at a Course Instance Assessment.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-- [ ] **Assessment Template**: A reusable set of settings for creating Course Instance Assessments. It contains settings rather than Questions.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-- [ ] **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` and its routes call this an Assignment workspace, not the required Assessment Question Editor.
-- [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, Attempts, late work, and what **Students** can see.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Assessment vocabulary boundary.
-
-### Question vocabulary
-
-- [ ] **Question**: The general PLE object representing one automatically evaluated question, regardless of its Question Backend.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Draft Question**: A private Question being developed by an **Instructor**. It must pass publication validation before becoming a Published Question.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Published Question**: An immutable-revision Question available for reuse through the global **Question Library**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Question Revision**: A fixed version of a **Published Question** preserved so Assessments and Student Work can refer to the exact Question delivered.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Question Pool**: A published **Library Object** containing interchangeable **Published Questions** from which PLE selects Questions for a **Student**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Question Backend**: The component responsible for a Question's rendering, interaction, response handling, grading, feedback, and backend-specific state.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Question Type**: Author-declared educational metadata describing the Question's interaction type, such as MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Question Library**: The global collection of **Published Questions** and **Question Pools** available to vetted **Instructors**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-- [ ] **Library Object**: A **Published Question** or **Question Pool** in the **Question Library**.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question vocabulary boundary.
-
-### Student Work vocabulary
-
-- [ ] **Student Work**: The collective term for FERPA-sensitive records created by a **Student** in a **Course Instance**, including Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret submitted work.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student Work vocabulary boundary.
-- [ ] **Grading Outcome**: The immutable credit fraction returned by a **Question Backend** for a complete evaluated response and stored by PLE.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Student Work vocabulary boundary.
-
-### Content classification vocabulary
-
-- [ ] **Discipline**: The broadest academic classification, such as Biology, Chemistry, or Mathematics.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
-- [ ] **Subject**: A globally named area associated with one or more Disciplines, such as Genetics,
-  Biochemistry, or Ecology.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
-- [ ] **Topic**: A major area within a Subject.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
-- [ ] **Subtopic**: A narrower classification within a Topic.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
-- [ ] **Tag**: An optional label attached to a Course or Library Object. Each may have any number of Tags.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 ## Accounts and roles
 
 ### Account rules
@@ -483,7 +383,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Check text, controls, borders, and interaction states against their actual rendered backgrounds.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Apply the contrast requirements for text, controls, and other semantic uses in
-  [BIOME_THEME_PALETTES.md](../../BIOME_THEME_PALETTES.md)
+  [BIOME_THEME_PALETTES.md](/docs/BIOME_THEME_PALETTES.md)
   to rendered components in both light and dark themes, including gradients and state backgrounds.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain
@@ -682,15 +582,19 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
 - [ ] **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` supplies the existing Public-only search workflow; the current source adds optional submitted classification filters without changing its result or lifecycle scope.
+  - Verification pending: source, isolated actual-role SQL, and actual-component evidence are accepted at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; live `8147` predates this source, so connected HTTP/browser and real authorization acceptance remain pending.
 - [ ] Public Blueprint Course search should combine ordinary text search with shared classification
   filters beginning with Discipline and following Discipline -> Subject -> Topic -> Subtopic.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_classification.tsx` composes the read-only shared selector; `src/api/http_client/blueprint_course.ts` validates and encodes optional UUID filters; `crates/server/src/blueprint_course/list.rs` and `schemas/base_schema/blueprint_operations.sql` validate and apply the hierarchy.
+  - Verification pending: isolated SQL and actual-component proof are accepted at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; connected current-source HTTP/browser proof remains pending.
 - [ ] Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_classification.tsx` `BlueprintCourseSearchClassification` loads Subjects against the selected Discipline and clears dependent draft state; the service independently rejects a supplied Subject outside the selected Discipline.
+  - Verification pending: the accepted isolated proof is named at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; real vocabulary-parent and connected-browser acceptance remain pending.
 - [ ] After selecting a Subject, Instructors should have an explicit option to include Blueprint Courses
   associated with that Subject across its other Disciplines.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_classification.tsx` `BlueprintCourseSearchClassification` exposes `Include this Subject across Disciplines` only after Subject selection; the server relaxes only Course Discipline equality while retaining Subject/Topic/Subtopic equality.
+  - Verification pending: isolated SQL/component evidence is accepted at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; connected current-source acceptance remains pending.
 - [ ] Tags should provide additional filters outside the hierarchy.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Search results should use a compact, information-rich layout that supports scanning and comparison.
@@ -987,7 +891,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Archive actions should explain the effect on shared availability and require a clear confirmation.
   - Mismatch: `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `Archive Blueprint Course` explains removal from new selection and requires the long name, but no current Archive Published Question interface provides the corresponding explanation and confirmation; `src/api/question_availability.ts` `archiveQuestion` is only a browser transport contract.
 - [x] Restore actions should use ordinary availability controls.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `restore` is presented under Course names and availability rather than the archive confirmation control.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `BlueprintCourseLifecycleControls` presents Restore alongside ordinary availability actions, without the Archive name-confirmation input; `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `restore` performs the existing authorized availability change.
 ### Student interface
 
 #### General Student interface
@@ -1116,8 +1020,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Verification pending: accepted active-navigation current/saved/focus cues are partial proof; meaningful saved-response and keyboard-focus distinction across native response controls/actions and submitted-state presentation still need scoped rendered verification. The prior styling-only row is not acceptance of this changed whole wording.
 - [ ] Label response actions by their effect, such as "Save response" and "Clear response", so Students
   can distinguish recording their work from changing it or submitting the whole Coursework.
-  - Evidence (source): `src/components/question_response_controls/matching.tsx` `MatchingResponse` supplies prompt Clear controls and delegates response actions to the shared submission controller.
-  - Verification pending: existing MATCH Tab/Space/Enter assignment/change/Clear/Save receipts establish those actions operate, not that response-effect labels consistently distinguish save, change, Clear and whole-Coursework submission across native controls. Current wording needs a scoped label/state audit and rendered action distinction proof.
+  - Evidence (source): `src/components/question_response_controls/common.tsx` `Actions` labels its shared reset action `Restore initial response`, matching the mount-captured response restored by each native control; `src/components/question_response_controls/ordering.tsx` `OrderingResponse` retains its distinct `Reset order` label.
+  - Evidence (runtime): temporary isolated native-control proof `/private/tmp/ple-response-restore-label.md` edits a nonempty mount baseline, activates `Restore initial response`, and observes the initial response again without an application backend. This bounded component proof does not establish a full Student workflow or persistence behavior.
+  - Verification pending: this correction establishes the shared reset label's local effect, but rendered save/change/submission distinction across the whole Student Coursework workflow, including saved-status and submitted-state presentation, remains unverified.
 - [ ] Group response feedback near the response controls and keep routine saved-status messages brief.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
@@ -1562,9 +1467,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Author-supplied JavaScript operates independently of PLE application APIs and privileged state.
   - Mismatch: author-supplied JavaScript is not implemented.
 - [ ] Native interactive Question Types such as HOTSPOT use PLE-owned interaction code.
-  - Mismatch: HOTSPOT source editing exists, but delivered interaction evidence was not found.
+  - Verification pending: Raster upload, authoring, publication preparation, and PLE-owned controls exist; connected author/save/publish, worker Ready, Student grading, rendered evidence, and SVG remain unproved or absent.
 - [ ] HOTSPOT content uses supported static assets such as images and SVG.
-  - Mismatch: no delivery validation for HOTSPOT static assets was found.
+  - Verification pending: Bounded PNG/JPEG/WebP Draft assets have validation and prepared delivery; connected Ready/rendered Student evidence is unproved, and SVG is not implemented.
 - [ ] Grading and correctness decisions remain server-owned and independent of author-supplied JavaScript.
   - Mismatch: author JavaScript is absent; no runtime proof covers this interaction boundary.
 - [ ] External JavaScript dependencies and CDN domains are explicitly recorded and reviewable.
@@ -1840,43 +1745,43 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 #### Question Pool metadata
 
-- [ ] Question Pools have metadata specific to the individual Question Pool.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Question Pool metadata includes Title and Description.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] The first Published Question establishes the Question Pool's Discipline and Subject.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [x] Question Pools have metadata specific to the individual Question Pool.
+  - Evidence (runtime): `schemas/base_schema/question_pools.sql` `question_pool` owns independent metadata. Accepted SQL/rollback/concurrency and final SQL, Rust/API, and browser reviews combine with root-supplied rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md`: independent metadata survives list/current reads and real Library UI creation/retry. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
+- [x] Question Pool metadata includes Title and Description.
+  - Evidence (runtime): Required independent Title/Description in `schemas/base_schema/question_pools.sql` have accepted SQL and source review. Rebuilt `8147` proof at `/private/tmp/ple-pool-metadata-connected-report.md` rejects missing fields, retains exact list/current text, and preserves both fields after denied mixed-member UI creation. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
+- [x] The first Published Question establishes the Question Pool's Discipline and Subject.
+  - Evidence (runtime): Accepted actual-role SQL creation proof and final source reviews establish first-member classification. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` retains exact ordered pins and first-member Discipline/Subject, rejects mixed Subject with `422` and unchanged public list, then creates after ordinary picker reselection. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
 - [ ] Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Verification pending: Accepted actual-role Blueprint-owned append proof rejects classification mismatch atomically, and witnessed two-connection admission/reclassification wait and dual commit preserve Pool classification. Rebuilt connected append acceptance remains pending.
 - [ ] Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
   when included in a Question Pool.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Pools may have their own authorship, attribution, license, and source information where
   appropriate.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Question Pool metadata describes the Pool rather than duplicating metadata from its member
+  - Mismatch: The accepted Pool Title/Description/classification/Tags slice does not establish Pool-owned authorship, attribution, license, or source information; audit these separate fields and their authoring/read boundaries.
+- [x] Question Pool metadata describes the Pool rather than duplicating metadata from its member
   Published Questions.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Evidence (runtime): Accepted SQL/source proof establishes independent Title/Description, empty creation Tags, optional narrower hierarchy, classification retention after Question reclassification, and historical fork preservation. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` confirms separately authored Pool text through creation, retry, list, and current reads. No historical Pool HTTP route is claimed. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
 - [ ] Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 - [ ] Question Pools also use the shared Question Library metadata required for publication.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Verification pending: Pool-owned required Title/Description and Discipline/Subject, optional Topic/Subtopic and unbounded-count Tags have accepted source/SQL proof and rebuilt `8147` connected creation/list/current-read proof. Complete shared publication metadata remains open, including the separately unproved authorship/attribution/license/source and Bloom boundaries; this slice does not establish optional teaching support.
 
 ### Question Library specifications
 
 - [x] Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
   - Evidence (source): `src/pages/library_route_page.tsx` `LibraryRoutePage` is the production Instructor Library surface.
 - [ ] The Question Library is one global collection of Published Questions and Question Pools.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Verification pending: Pool metadata source and actual-role SQL proof now exist alongside Published Question metadata. Audit the complete global collection/discovery boundary on rebuilt connected HTTP/browser surfaces; independent metadata proof does not establish the whole collection.
 - [ ] Draft Questions are not part of the Question Library.
   - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
   - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
   - Owner: 07_questions.md / Draft Question specifications (first occurrence; identical requirement and status).
 - [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Verification pending: Accepted Pool SQL proof covers stated vetted-Instructor operations and concealed Student/nonowner denials; prior Published Question evidence remains bounded. Rebuilt connected availability across all vetted Instructors and both Library Object kinds remains pending.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` reserves both Question Library routes for Instructors, and `src/route_access_boundary.tsx` `withRouteAccessBoundary` fail-closes every protected route before its page component mounts.
   - Evidence (runtime): `src/route_access_boundary.tsx` `withRouteAccessBoundary` passed accepted actual-main Student proof that denied three Library routes without any Question Library API request, while the Student Ribbon allowed Coursework navigation to a Released Assessment. Earlier accepted native Student Attempt proof delivered Question content through that Assessment. Artifacts: `/private/tmp/ple-course-empty-artifacts.9s89JA` and `/private/tmp/ple-course-empty-artifacts.ZquNiI`.
@@ -2035,15 +1940,15 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 ### Course classification specifications
 
 - [ ] **Blueprint Courses** and **Course Instances** use the shared content classification system.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Course classification describes the Course as a whole.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Every Blueprint Course and Course Instance has exactly one **Discipline**.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
-- [ ] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
-- [ ] Courses may have any number of **Tags**, including none.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+  - Verification pending: Course-owned classification has accepted source, actual-role SQL, and connected browser evidence, but the complete shared system across all content owners, vocabulary management, normalization, and discovery remains open.
+- [x] Course classification describes the Course as a whole.
+  - Evidence (runtime): Accepted Course metadata SQL/Store/browser reviews and `/private/tmp/ple-course-classification-actual-role-result.log` establish independent Course-owned metadata without changing content Revisions or Question pins. Root's rebuilt `8147` ordinary Course/Blueprint editor proof (script `/private/tmp/ple-course-classification-no-workaround-20260916.mjs`, session 85118 exit 0) saves Tags-only metadata and preserves unsaved Blueprint names. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+- [x] Every Blueprint Course and Course Instance has exactly one **Discipline**.
+  - Evidence (runtime): Accepted required `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` reject missing/nonexistent Discipline. Rebuilt `8147` ordinary Course and Blueprint creation/editor proof selects Biology explicitly and hydrates it without reselection; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+- [x] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
+  - Evidence (runtime): Accepted `CourseClassification` source and actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` validate optional hierarchy and parent constraints. Root's rebuilt `8147` ordinary Course/Blueprint creation and Tags-only saves succeed with only Biology and no narrower levels; session 85118 exited 0. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
+- [x] Courses may have any number of **Tags**, including none.
+  - Evidence (runtime): Accepted actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` exercises empty Tags and 65 Tags without a count cap. Rebuilt `8147` ordinary Course/Blueprint Tags-only browser saves pass without Discipline reselection; session 85118 exited 0. Per-Tag validation remains bounded. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
 - [ ] Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
@@ -2054,8 +1959,8 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course classification supports Course search, filtering, organization, and discovery where applicable.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] A Course Instance may have classification that differs from its Blueprint Course.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [x] A Course Instance may have classification that differs from its Blueprint Course.
+  - Evidence (runtime): Accepted actual-role SQL proof at `/private/tmp/ple-course-classification-actual-role-result.log` verifies fork/Instance classification independence. The earlier connected Course browser receipt verifies explicit daughter classification and source independence; its selector workaround is superseded only by rebuilt `8147` ordinary editor hydration/Tags-only proof (session 85118 exit 0), not by a new adoption journey. Source owner: `crates/question_model/src/course_classification.rs` `CourseClassification`.
 
 ### Blueprint Course specifications
 
@@ -2115,7 +2020,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Archived Revision and metadata facts. Accepted Archived-history and discovery proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json` and `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json`.
 - [x] Archived Blueprint Courses do not appear in normal discovery unless explicitly included.
   - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` filters Public, owning Private, and only explicitly requested Archived records; `crates/server/src/blueprint_course.rs` `BlueprintCourseListQuery` accepts only the typed `includeArchived` boolean.
-  - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `changeIncludeArchived`; `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-browser-proof.json` records the actual compiled-main default-off, Include Archived, read-only Archived-detail, and return-to-off workflow with eight GETs and zero writes. Its companion HTTP receipt records default/false/true membership and strict invalid-query `400` results.
+  - Evidence (runtime): `src/features/blueprint_course/blueprint_courses_workspace.tsx` `changeIncludeArchived`; `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-browser-proof.json` records the actual compiled-main default-off, Include Archived, read-only Archived-detail, and return-to-off workflow with eight GETs and zero writes. Its companion HTTP receipt records default/false/true membership and strict invalid-query `400` results.
 - [x] Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Blueprint availability `public` for exact-Revision adoption.
 - [ ] Archived Blueprint Courses can be forked.
@@ -2156,9 +2061,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 #### Blueprint Course stewardship specifications
 
 - [ ] Blueprint Courses have a searchable boolean Promoted flag.
-  - Mismatch: `schemas/base_schema/blueprints.sql` has no Promoted boolean and `schemas/base_schema/blueprint_operations.sql` Blueprint discovery has no Promoted filter. Current Blueprint schema, server/list Store and browser search contain no implemented promotion contract.
+  - Verification pending: implemented source adds a lineage `promoted` boolean, authorized `promotedOnly` discovery/filter cursor binding, and the Public Blueprint Search checkbox; root PostgreSQL 17 `ple_migrator` install and isolated actual-role SQL proof passed; root Cargo session 60804, 11 Blueprint-client Node tests (65918), and pytest session 36484 passed; deployed HTTP/browser integration is unverified because live `8147` predates this source.
 - [ ] Sysadmins exclusively control the Promoted flag.
-  - Mismatch: the Promoted flag and mutation/search boundary are absent from current Blueprint schema, API and browser implementation. Exclusive Sysadmin mutation authority therefore lacks implementation; existing owner-specific content/lifecycle authority does not establish promotion privileges. The concurrently removed equal-Instructor-standing clause is not a current requirement.
+  - Verification pending: implemented source supplies Sysadmin-only session-bound promotion load/set operations and concealed HTTP GET/PUT handling with metadata-ETag CAS; the isolated actual-role SQL proof passed Sysadmin authority, Instructor/Student denial, no-op/stale ETag, Revision independence, visibility filtering, and fork-default cases; named deployed HTTP/browser integration is still unverified because live `8147` predates this source.
 - [ ] **Instructors** can Star or Watch Public and Archived Blueprint Courses.
   - Mismatch: No Blueprint Star or Watch model, route, or store operation was found.
 - [ ] A Star is a visible endorsement and helps **Instructors** save useful Blueprint Courses.

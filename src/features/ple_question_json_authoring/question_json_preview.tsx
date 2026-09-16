@@ -3,6 +3,7 @@
 import { For, Show, type JSX } from "solid-js";
 
 import { QuestionResponseControl } from "../../components/question_response_controls/question_response_control";
+import type { QuestionResponseControlBaseProps } from "../../components/question_response_controls/common";
 import type { WasmFacade } from "../../wasm/index";
 import type { PleQuestionJsonPublicPreview } from "./question_json_public_preview";
 import type {
@@ -43,6 +44,7 @@ export type PleQuestionJsonInstructorAnswerCheck =
     };
 
 export interface PleQuestionJsonPreviewProps {
+  readonly hotspotDraftAsset?: QuestionResponseControlBaseProps["hotspotDraftAsset"];
   /** This PLE Question JSON Public Preview contains no correct answer and is safe for the student-equivalent preview. */
   readonly preview: PleQuestionJsonPublicPreview;
   readonly validator: Pick<WasmFacade, "validateResponseFormat">;
@@ -187,6 +189,7 @@ export function PleQuestionJsonPreview(props: PleQuestionJsonPreviewProps): JSX.
         <p>{props.preview.prompt}</p>
         <QuestionResponseControl
           attemptId="ple-question-json-author-preview"
+          hotspotDraftAsset={props.hotspotDraftAsset}
           responseFormat={props.preview.response}
           mode="formatOnly"
           validator={props.validator}

@@ -51,6 +51,7 @@ test("Blueprint lifecycle choices expose only the server-directed state transiti
   assert.equal(publicReader.canArchive, false);
 
   const publicOwner = blueprintLifecyclePresentation("public", "blueprint_course_owner");
+  assert.equal(publicOwner.canEdit, true);
   assert.equal(publicOwner.canArchive, true);
   assert.equal(publicOwner.canReturnToPrivate, true);
 
@@ -58,6 +59,9 @@ test("Blueprint lifecycle choices expose only the server-directed state transiti
   assert.equal(archivedOwner.canRestore, true);
   assert.equal(archivedOwner.canAdopt, false);
   assert.equal(archivedOwner.canEdit, false);
+
+  const archivedReader = blueprintLifecyclePresentation("archived", "active_instructor");
+  assert.equal(archivedReader.canEdit, false);
 });
 
 test("new Blueprint Assessment working state uses the Assessment delivery defaults", () => {

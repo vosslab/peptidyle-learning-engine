@@ -38,6 +38,7 @@ import {
 } from "../decoders/blueprint_course";
 import type {
   BlueprintCourseClient,
+  BlueprintCourseClassificationSearch,
   BlueprintIdempotencyKey,
   BlueprintMetadataTransition,
   LoadedBlueprintCourse,
@@ -59,6 +60,8 @@ function pagePath(
   includeArchived: boolean,
   searchQuery?: string,
   publicOnly = false,
+  promotedOnly = false,
+  classification?: BlueprintCourseClassificationSearch,
 ): string {
   if (
     pageSize !== undefined &&
@@ -85,6 +88,32 @@ function pagePath(
   // ASVS 1.2.2: encode literal search text as a query value, never URL syntax.
   if (searchQuery !== undefined) query.set("query", searchQuery);
   if (publicOnly) query.set("publicOnly", "true");
+  if (promotedOnly) query.set("promotedOnly", "true");
+  if (classification !== undefined) {
+    // ASVS 2.2.1-2.2.3: validate UUIDs and complete chains; service validates real parents.
+    const { disciplineUuid, subjectUuid, topicUuid, subtopicUuid, crossDiscipline } =
+      classification;
+    if (
+      typeof crossDiscipline !== "boolean" ||
+      (subjectUuid !== null && disciplineUuid === null) ||
+      (topicUuid !== null && subjectUuid === null) ||
+      (subtopicUuid !== null && topicUuid === null) ||
+      (crossDiscipline && (disciplineUuid === null || subjectUuid === null))
+    )
+      throw new ApiProtocolError(
+        "Blueprint classification search requires a complete parent chain",
+      );
+    for (const [key, value] of Object.entries({
+      disciplineUuid,
+      subjectUuid,
+      topicUuid,
+      subtopicUuid,
+    })) {
+      // ASVS 1.2.2: validated identities still use query-context encoding.
+      if (value !== null) query.set(key, decodeUuid(value, key));
+    }
+    if (crossDiscipline) query.set("crossDiscipline", "true");
+  }
   const suffix = query.size === 0 ? "" : `?${query.toString()}`;
   return `${path}${suffix}`;
 }
@@ -337,6 +366,8 @@ export function createBlueprintCourseClient(
       includeArchived = false,
       query,
       publicOnly = false,
+      promotedOnly = false,
+      classification,
     ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
       const path = pagePath(
         "/api/course-blueprints",
@@ -345,6 +376,8 @@ export function createBlueprintCourseClient(
         includeArchived,
         query,
         publicOnly,
+        promotedOnly,
+        classification,
       );
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintCoursePage))
         .body;

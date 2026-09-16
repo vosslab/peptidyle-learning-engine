@@ -20,7 +20,7 @@ SELECT set_config(
 ) AS ignored \gset
 
 SET LOCAL ROLE ple_data_owner;
-DO $
+DO $$
 DECLARE
     selected_discipline uuid;
     selected_subject uuid;
@@ -34,7 +34,7 @@ BEGIN
     PERFORM set_config('ple.installation_live_demo_discipline_uuid', selected_discipline::text, true);
     PERFORM set_config('ple.installation_live_demo_subject_uuid', selected_subject::text, true);
 END
-$;
+$$;
 
 SET LOCAL ROLE ple_private_owner;
 

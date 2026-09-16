@@ -23,7 +23,7 @@ EVIDENCE_PATTERN = re.compile(r"^\s*- Evidence \((source|test|runtime)\): (.+)$"
 
 # Named source roots make missing, added, substituted, and reordered audit content a hard failure.
 PART_MANIFEST: dict[str, tuple[str, ...]] = {
-	"01_development.md": ("How to use this guidance", "Development principles", "Product vocabulary and glossary"),
+	"01_development.md": ("Development principles",),
 	"02_accounts.md": ("Accounts and roles",),
 	"03_shell.md": ("General interface design", "Information density and layout", "Interaction design", "Role colors and themes", "Typography", "Ribbon and page layout", "User top bar interface", "Profile avatar interface", "Breadcrumbs interface"),
 	"04_instructor_ui.md": ("Instructor interface",),
@@ -34,18 +34,18 @@ PART_MANIFEST: dict[str, tuple[str, ...]] = {
 	"09_assessments.md": ("Assessment specifications",),
 }
 PART_ROOT_LEVELS: dict[str, tuple[int, ...]] = {
-	"01_development.md": (2, 2, 2), "02_accounts.md": (2,), "03_shell.md": (3, 3, 3, 3, 3, 3, 3, 3, 3),
+	"01_development.md": (2,), "02_accounts.md": (2,), "03_shell.md": (3, 3, 3, 3, 3, 3, 3, 3, 3),
 	"04_instructor_ui.md": (3,), "05_student_sysadmin_ui.md": (3, 3), "06_data.md": (2,),
 	"07_questions.md": (2,), "08_courses.md": (2,), "09_assessments.md": (2,),
 }
 PART_CONTEXT_HEADINGS: dict[str, tuple[str, ...]] = {
 	"03_shell.md": ("## Interface design",),
 }
-HOW_TO_USE_HEADING = "How to use this guidance"
-HOW_TO_USE_REASON = (
-	"This section gives rules for writing and maintaining Human Guidance. "
-	"It does not specify PLE product or code behavior."
-)
+CHECKLIST_EXCLUDED_ROOT_HEADINGS = frozenset({
+	"How to use this guidance",
+	"Product vocabulary and glossary",
+})
+CHECKLIST_EXCLUDED_ROOT_LEVEL = 2
 RUNTIME_REQUIRED_IDENTITIES = {
 	# Authorization denials and access restrictions.
 	"Course membership determines which private Course records an Instructor may use.",
@@ -169,24 +169,35 @@ def source_lines() -> list[str]:
 
 
 #============================================
-def build_checklist_body() -> str:
-	"""Convert Human Guidance to the verbatim status-bearing checklist form."""
-	body: list[str] = []
-	in_how_to_use = False
+def checklist_source_lines() -> list[str]:
+	"""Return Human Guidance lines that belong in the implementation checklist."""
+	selected: list[str] = []
+	excluded_level: int | None = None
 	for line in source_lines():
 		heading = HEADING_PATTERN.match(line)
 		if heading is not None:
-			in_how_to_use = heading.group(2) == HOW_TO_USE_HEADING
-			body.append(line)
-			if in_how_to_use:
-				body.extend(("", "Implementation status: N/A", f"Reason: {HOW_TO_USE_REASON}"))
-			continue
+			level = len(heading.group(1))
+			if excluded_level is not None and level <= excluded_level:
+				excluded_level = None
+			if (level == CHECKLIST_EXCLUDED_ROOT_LEVEL and
+				heading.group(2) in CHECKLIST_EXCLUDED_ROOT_HEADINGS):
+				excluded_level = level
+				continue
+		if excluded_level is None:
+			selected.append(line)
+	return selected
+
+
+#============================================
+def build_checklist_body() -> str:
+	"""Convert Human Guidance to the verbatim status-bearing checklist form."""
+	body: list[str] = []
+	for line in checklist_source_lines():
 		bullet = SOURCE_BULLET_PATTERN.match(line)
 		if bullet is None:
 			body.append(line)
 		else:
-			marker = "N/A" if in_how_to_use else "[ ]"
-			body.append(f"{bullet.group(1)}- {marker} {bullet.group(2)}")
+			body.append(f"{bullet.group(1)}- [ ] {bullet.group(2)}")
 	return "\n".join(body).strip() + "\n"
 
 
@@ -195,7 +206,8 @@ def checklist_header() -> str:
 	"""Return the fixed status legend."""
 	return ("# Human Guidance implementation compliance checklist\n\n"
 		"Source: `docs/HUMAN_GUIDANCE.md`. Human Guidance remains authoritative. This file records\n"
-		"implementation status only.\n\n"
+		"implementation status only. `How to use this guidance` and `Product vocabulary and glossary`\n"
+		"remain interpretive authority, but are not checklist items.\n\n"
 		"- [x] Verified: implemented behavior matches the bullet. Evidence follows.\n"
 		"- [ ] Unverified: Mismatch identifies missing or incorrect behavior; Verification pending identifies implemented behavior awaiting named proof.\n"
 		"- N/A: audited and not an implementation requirement. Reason follows.\n\n")
@@ -238,7 +250,7 @@ def logical_records(lines: list[str]) -> tuple[list[str], list[str]]:
 #============================================
 def source_records() -> tuple[list[str], list[str]]:
 	"""Read authoritative heading and bullet identities in document order."""
-	return logical_records(source_lines())
+	return logical_records(checklist_source_lines())
 
 
 #============================================
@@ -253,7 +265,7 @@ def checklist_records(checklist_path: pathlib.Path) -> tuple[list[str], list[str
 #============================================
 def part_records(part_name: str) -> tuple[list[str], list[str]]:
 	"""Return the exact ordered Human Guidance subtrees assigned to an audit part."""
-	lines = source_lines()
+	lines = checklist_source_lines()
 	selected: list[str] = []
 	for root_name, root_level in zip(PART_MANIFEST[part_name], PART_ROOT_LEVELS[part_name], strict=True):
 		start = next((i for i, line in enumerate(lines)
@@ -389,62 +401,6 @@ def trusted_part_path(part_name: str) -> pathlib.Path:
 
 
 #============================================
-def how_to_use_bullets() -> tuple[str, ...]:
-	"""Return the five exact source records permitted to inherit the section reason."""
-	lines = source_lines()
-	start = next((index for index, line in enumerate(lines) if line == f"## {HOW_TO_USE_HEADING}"), None)
-	if start is None:
-		return ()
-	end = next((index for index in range(start + 1, len(lines)) if lines[index].startswith("## ")), len(lines))
-	return tuple(logical_records(lines[start:end])[1])
-
-
-#============================================
-def how_to_use_is_valid(
-	part_path: pathlib.Path,
-	statuses: list[tuple[str, str, list[str]]],
-) -> bool:
-	"""Validate the one explicit meta-guidance N/A convention."""
-	lines = part_path.read_text(encoding="utf-8").splitlines()
-	start = next((index for index, line in enumerate(lines) if line == "## How to use this guidance"), None)
-	if start is None:
-		return True
-	end = next((index for index in range(start + 1, len(lines)) if lines[index].startswith("## ")), len(lines))
-	section = lines[start:end]
-	section_statuses = checklist_statuses_for_lines(section)
-	reason = section_reason(section)
-	return ("Implementation status: N/A" in section and
-		normalize_whitespace(reason) == normalize_whitespace(HOW_TO_USE_REASON) and
-		len(section_statuses) == len(how_to_use_bullets()) and
-		all(status == "N/A" for status, _text, _lines in section_statuses))
-
-
-#============================================
-def normalize_whitespace(value: str) -> str:
-	"""Compare prose without making Markdown line wrapping significant."""
-	return " ".join(value.split())
-
-
-#============================================
-def section_reason(lines: list[str]) -> str:
-	"""Return a section-level Reason value, including wrapped continuation lines."""
-	for index, line in enumerate(lines):
-		if not line.startswith("Reason:"):
-			continue
-		parts = [line.partition(":")[2].strip()]
-		for continuation in lines[index + 1:]:
-			if not continuation.strip() or HEADING_PATTERN.match(continuation) is not None:
-				break
-			if (CHECKLIST_BULLET_PATTERN.match(continuation) is not None or
-					NOT_APPLICABLE_PATTERN.match(continuation) is not None or
-					STATUS_LINE_PATTERN.match(continuation) is not None):
-				break
-			parts.append(continuation.strip())
-		return " ".join(parts)
-	return ""
-
-
-#============================================
 def checklist_statuses_for_lines(lines: list[str]) -> list[tuple[str, str, list[str]]]:
 	"""Read status records from already-loaded checklist lines."""
 	statuses: list[tuple[str, str, list[str]]] = []
@@ -540,14 +496,7 @@ def gate(part_name: str) -> None:
 	statuses = checklist_statuses(part_path)
 	if len(statuses) != len(expected_bullets):
 		problems.append("Every Human Guidance bullet must carry exactly one [x], [ ], or N/A status.")
-	is_how_to_use = part_name == "01_development.md" and any(heading.endswith(HOW_TO_USE_HEADING) for heading in headings)
-	if is_how_to_use and not how_to_use_is_valid(part_path, statuses):
-		problems.append("How to use this guidance requires section-level N/A status and Reason with only N/A bullets.")
-	inherited_how_to = how_to_use_bullets()
 	for index, (status, bullet_text, status_lines) in enumerate(statuses):
-		# The exception belongs only to the source records at this assigned position.
-		inherits_reason = (part_name == "01_development.md" and index < len(inherited_how_to) and
-			expected_bullets[index:index + 1] == [inherited_how_to[index]])
 		if status == "x":
 			evidence = [line for line in status_lines if EVIDENCE_PATTERN.match(line)]
 			if not evidence:
@@ -562,7 +511,7 @@ def gate(part_name: str) -> None:
 			for line in status_lines
 		):
 			problems.append(f"Unverified bullet lacks nonempty Mismatch or Verification pending: {bullet_text}")
-		if status == "N/A" and not inherits_reason and not any(line.startswith("- Reason:") and line[9:].strip() for line in status_lines):
+		if status == "N/A" and not any(line.startswith("- Reason:") and line[9:].strip() for line in status_lines):
 			problems.append(f"N/A bullet lacks Reason: {bullet_text}")
 	part_offset = sum(len(part_records(name)[1]) for name in PART_MANIFEST if name != part_name and
 		list(PART_MANIFEST).index(name) < list(PART_MANIFEST).index(part_name))

@@ -435,7 +435,7 @@ async fn publish_source(
         )
         .await
         .context("binding ordinary parameterized curriculum Draft source evidence")?;
-    NewQuestionLineagePublisher::new(objects.clone(), bindings.clone(), issuer.clone())
+    NewQuestionLineagePublisher::new(objects.clone(), bindings.clone(), issuer.clone(), None)
         .publish(
             session,
             NewQuestionLineagePublicationCommand {

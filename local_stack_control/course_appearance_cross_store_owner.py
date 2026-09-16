@@ -15,6 +15,7 @@ import local_stack_control.browser_suite_lease
 import local_stack_control.compose
 import local_stack_control.disposable_stack_adapter
 import local_stack_control.env_file
+import local_stack_control.image_cleanup
 import local_stack_control.lifecycle_commands
 import local_stack_control.lifecycle_database
 import local_stack_control.lifecycle_migrations
@@ -104,6 +105,13 @@ def _e2e_child_environment(
 
 #============================================
 def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, ports: tuple[int, ...]) -> None:
+	"""Own pruning and the complete cross-store image build/run cycle."""
+	with local_stack_control.image_cleanup.image_build_lease(repository_root):
+		_run_oracle_with_image_lease(repository_root, workspace, ports)
+
+
+#============================================
+def _run_oracle_with_image_lease(repository_root: pathlib.Path, workspace: pathlib.Path, ports: tuple[int, ...]) -> None:
 	"""Prepare the ordinary database boundary before the focused cross-store checks."""
 	if len(ports) != 2:
 		raise local_stack_control.models.ControllerError("course appearance cross-store ports are invalid")
@@ -111,6 +119,7 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, ports: t
 		workspace, ports[0], ports[1]
 	)
 	runner = local_stack_control.process.SubprocessRunner()
+	local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repository_root)
 	manifest = local_stack_control.disposable_stack_adapter.load_manifest(
 		repository_root, runtime.manifest_path
 	)

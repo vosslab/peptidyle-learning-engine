@@ -1,6 +1,7 @@
 // question_json_response_fields.tsx - response-format controls for ple-question-json authoring.
 
 import { Show, type JSX } from "solid-js";
+import { PleQuestionJsonHotspotEditor } from "./question_json_hotspot_editor";
 
 import { PleQuestionJsonChoiceList } from "./question_json_choice_list";
 import { PleQuestionJsonMatchingEditor } from "./question_json_matching_editor";
@@ -57,12 +58,20 @@ export function PleQuestionJsonResponseFields(props: {
   readonly onMoveChoice: (choiceId: string, direction: "up" | "down") => void;
   readonly onStatus: (message: string) => void;
   readonly selectedKind: () => PleQuestionJsonDocument["response"]["kind"];
+  readonly onHotspotPendingChange: (pending: boolean) => void;
+  readonly hotspotPending: () => boolean;
+  readonly onHotspotLiteralValidityChange: (valid: boolean) => void;
+  readonly onUpload: (file: File, signal: AbortSignal) => Promise<void>;
+  readonly assetPreviewPath: (asset: string) => string;
 }): JSX.Element {
-  const responseKind = props.selectedKind;
+  const responseKind = (): PleQuestionJsonDocument["response"]["kind"] =>
+    props.hotspotPending() ? "hotspot" : props.selectedKind();
 
   function chooseFormat(
     kind: Exclude<PleQuestionJsonDocument["response"]["kind"], "hotspot">,
   ): void {
+    props.onHotspotPendingChange(false);
+    props.onHotspotLiteralValidityChange(true);
     props.onEdit(setPleQuestionJsonResponseKind(props.source(), kind));
   }
 
@@ -75,6 +84,9 @@ export function PleQuestionJsonResponseFields(props: {
           disabled={props.disabled}
           onChange={(event) => {
             const kind = event.currentTarget.value;
+            if (kind === "hotspot") {
+              props.onHotspotPendingChange(props.source().response.kind !== "hotspot");
+            }
             if (isEditableResponseKind(kind)) chooseFormat(kind);
           }}
         >
@@ -85,12 +97,30 @@ export function PleQuestionJsonResponseFields(props: {
           <option value="numeric">Numerical entry</option>
           <option value="matching">Matching pairs</option>
           <option value="ordering">Ordered list</option>
+          <option value="hotspot">Image regions (HOTSPOT)</option>
         </select>
         <span class="ple-question-json-authoring__help">
           Choose the student task first. Changing the format starts a valid private draft for that
           format.
         </span>
       </label>
+      <Show when={responseKind() === "hotspot"}>
+        <PleQuestionJsonHotspotEditor
+          source={props.source}
+          disabled={props.disabled}
+          fieldErrors={props.fieldErrors}
+          previewPath={props.assetPreviewPath}
+          onEdit={props.onEdit}
+          onStatus={props.onStatus}
+          onLiteralValidityChange={props.onHotspotLiteralValidityChange}
+          onUpload={async (file, signal) => {
+            await props.onUpload(file, signal);
+            if (props.source().response.kind === "hotspot" && !signal.aborted) {
+              props.onHotspotPendingChange(false);
+            }
+          }}
+        />
+      </Show>
       <Show when={responseKind() === "singleChoice"}>
         {(_isSingleChoice) => (
           <PleQuestionJsonChoiceList

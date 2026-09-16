@@ -23,8 +23,9 @@ use axum::{
 };
 use axum_extra::extract::Query;
 use learning_data_access::{
-    PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash, StoreError,
-    postgres::PostgresQuestionLibraryStore,
+    ContentClassificationStore, PublishedQuestionLibraryEntry, QuestionLibraryStore,
+    SessionTokenHash, StoreError,
+    postgres::{PostgresContentClassificationStore, PostgresQuestionLibraryStore},
 };
 use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
 use question_model::{
@@ -46,8 +47,10 @@ const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_PAGE_SIZE: u16 = 100;
 const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
+mod classification;
 mod facets;
 mod paging;
+mod query;
 mod search_query;
 mod shared_metadata;
 
@@ -55,6 +58,7 @@ mod shared_metadata;
 struct QuestionLibraryRouteState {
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     store: PostgresQuestionLibraryStore,
+    classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
     question_id_issuer: HmacQuestionIdIssuer,
@@ -64,6 +68,7 @@ struct QuestionLibraryRouteState {
 pub fn question_library_router(
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     store: PostgresQuestionLibraryStore,
+    classifications: PostgresContentClassificationStore,
     objects: S3ObjectStore,
     webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
     question_id_issuer: HmacQuestionIdIssuer,
@@ -98,6 +103,7 @@ pub fn question_library_router(
         .with_state(QuestionLibraryRouteState {
             sessions,
             store,
+            classifications,
             objects,
             webwork,
             question_id_issuer,
@@ -117,77 +123,7 @@ struct QuestionAvailabilityResponse {
     edit_number: question_model::QuestionAvailabilityEditNumber,
 }
 
-/// URL form of the current Question Search request.
-///
-/// The model's transport form intentionally has no defaults because saved
-/// searches must record every field. HTTP uses defaults for omitted filters,
-/// then immediately constructs the same strict model value.
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct QuestionSearchQuery {
-    #[serde(default)]
-    text: Option<String>,
-    #[serde(default)]
-    author_names: Vec<String>,
-    #[serde(default)]
-    backends: Vec<QuestionBackend>,
-    #[serde(default)]
-    tags: Vec<String>,
-    #[serde(default)]
-    subjects: Vec<String>,
-    #[serde(default)]
-    topics: Vec<String>,
-    #[serde(default)]
-    question_types: Vec<question_model::QuestionType>,
-    #[serde(default)]
-    capabilities: Vec<Capability>,
-    #[serde(default)]
-    question_licenses: Vec<question_model::QuestionLicense>,
-    #[serde(default)]
-    used_in_my_courses: QuestionSearchCourseUse,
-    #[serde(default)]
-    authorship: QuestionSearchAuthorship,
-    #[serde(default)]
-    cursor: Option<String>,
-    #[serde(default)]
-    page_size: Option<u16>,
-}
-
-impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
-    type Error = (StatusCode, &'static str);
-
-    /// ASVS 2.2.1 and 2.2.2: applies the model's positive limits and
-    /// normalization again at the trusted service boundary.
-    fn try_from(query: QuestionSearchQuery) -> Result<Self, Self::Error> {
-        if query
-            .page_size
-            .is_some_and(|size| size == 0 || size > MAX_PAGE_SIZE)
-        {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Question Library page size is invalid",
-            ));
-        }
-        QuestionSearchRequest {
-            text: query.text,
-            author_names: query.author_names,
-            backends: query.backends,
-            tags: query.tags,
-            subjects: query.subjects,
-            topics: query.topics,
-            question_types: query.question_types,
-            capabilities: query.capabilities,
-            question_licenses: query.question_licenses,
-            used_in_my_courses: query.used_in_my_courses,
-            authorship: query.authorship,
-            cursor: query.cursor,
-            page_size: query.page_size.or(Some(DEFAULT_PAGE_SIZE)),
-        }
-        .normalized()
-        .map_err(|_| (StatusCode::BAD_REQUEST, "Question Library query is invalid"))
-    }
-}
-
+use query::QuestionSearchQuery;
 async fn search_questions(
     State(state): State<QuestionLibraryRouteState>,
     headers: HeaderMap,
@@ -201,6 +137,11 @@ async fn search_questions(
         Ok(value) => value,
         Err(response) => return *response,
     };
+    if let Err(response) =
+        classification::validate(&state.classifications, session_hash, &query).await
+    {
+        return response;
+    }
     let entries = match state
         .store
         .list_published_question_library_entries(session_hash)
@@ -627,6 +568,9 @@ struct ResolvedQuestionLibraryEntry {
     used_in_current_account_courses: bool,
     subject: Option<String>,
     topic: Option<String>,
+    discipline: Option<String>,
+    subtopic: Option<String>,
+    classification: question_model::PublishedQuestionSharedMetadata,
 }
 
 async fn entries_to_summaries(
@@ -743,6 +687,9 @@ fn webwork_question_library_entry(
         used_in_current_account_courses,
         subject,
         topic,
+        discipline: Some(entry.discipline_name),
+        subtopic: entry.subtopic_name,
+        classification: entry.shared_metadata,
     })
 }
 
@@ -804,6 +751,9 @@ async fn resolved_ple_question(
         used_in_current_account_courses,
         subject,
         topic,
+        discipline: Some(entry.discipline_name),
+        subtopic: entry.subtopic_name,
+        classification: entry.shared_metadata,
     })
 }
 
@@ -813,6 +763,9 @@ fn matches_query(
     text_query: &search_query::QuestionTextQuery,
 ) -> bool {
     let summary = &entry.summary;
+    if !classification::matches(&entry.classification, query) {
+        return false;
+    }
     if !text_query.matches(entry) {
         return false;
     }

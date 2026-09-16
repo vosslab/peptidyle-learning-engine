@@ -55,6 +55,7 @@ export type PleQuestionJsonEditorAction =
   | { readonly kind: "saveSucceeded" }
   | { readonly kind: "saveFailed"; readonly message: string }
   | { readonly kind: "saveConflict" }
+  | { readonly kind: "assetConflict" }
   | { readonly kind: "reloadStarted" }
   | { readonly kind: "reloadSucceeded"; readonly source: PleQuestionJsonDocument }
   | { readonly kind: "reloadFailed"; readonly message: string }
@@ -144,6 +145,7 @@ export function reducePleQuestionJsonEditor(
   }
   if (state.kind === "published") return state;
   if (state.kind === "ready") {
+    if (action.kind === "assetConflict") return { kind: "conflict", localSource: state.source };
     if (action.kind === "edit" && state.status !== "saving")
       return ready(action.source, state.savedSource);
     if (action.kind === "saveStarted" && state.status === "dirty")
@@ -165,6 +167,7 @@ export function reducePleQuestionJsonEditor(
     return state;
   }
   if (state.kind === "publishReview") {
+    if (action.kind === "assetConflict") return { kind: "conflict", localSource: state.source };
     if (action.kind === "edit") return ready(action.source, state.savedSource);
     if (action.kind === "publishStarted") return { ...state, kind: "publishing" };
     if (action.kind === "instructorPreviewLoaded")
@@ -648,6 +651,10 @@ function nextChoiceId(choices: ReadonlyArray<PleQuestionJsonChoice>): string {
 }
 
 function validationMessage(field: string): string {
+  if (field.startsWith("response.regions"))
+    return "Give each region a label and whole-number coordinates from 0 to 10000. Use nonempty rectangles inside the image that do not overlap.";
+  if (field.startsWith("response.correctRegions")) return "Select at least one correct region.";
+  if (field.startsWith("response.surface.description")) return "Describe the image for Students.";
   if (field.startsWith("response.choices"))
     return "Check the choices and select one correct answer.";
   if (field.startsWith("questionTitle")) return "Add a short Question Title.";

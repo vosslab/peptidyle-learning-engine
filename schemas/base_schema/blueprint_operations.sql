@@ -416,8 +416,10 @@ REVOKE ALL ON FUNCTION ple_api.update_blueprint_classification(text, uuid, uuid,
 GRANT EXECUTE ON FUNCTION ple_api.update_blueprint_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) TO ple_app;
 
 CREATE FUNCTION ple_api.list_blueprint_courses(
-    p_include_archived boolean, p_public_only boolean, p_query text,
-    p_after_long_name text, p_after_reference text, p_limit integer
+    p_include_archived boolean, p_public_only boolean, p_promoted_only boolean, p_query text,
+    p_after_long_name text, p_after_reference text, p_limit integer,
+    p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
+    p_subtopic_uuid uuid, p_cross_discipline boolean
 )
 RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
@@ -435,6 +437,27 @@ BEGIN
        OR (p_after_long_name IS NULL) <> (p_after_reference IS NULL) THEN
         RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
     END IF;
+    -- ASVS 2.2.2/8.3.1: validate identity and actual parents through authenticated reads.
+    IF (p_subject_uuid IS NOT NULL AND p_discipline_uuid IS NULL)
+       OR (p_topic_uuid IS NOT NULL AND p_subject_uuid IS NULL)
+       OR (p_subtopic_uuid IS NOT NULL AND p_topic_uuid IS NULL)
+       OR (p_cross_discipline AND (p_discipline_uuid IS NULL OR p_subject_uuid IS NULL)) THEN
+        RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
+    END IF;
+    IF (p_discipline_uuid IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM ple_api.list_content_disciplines() AS item
+             WHERE item.discipline_uuid = p_discipline_uuid))
+       OR (p_subject_uuid IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM ple_api.list_content_subjects(p_discipline_uuid) AS item
+             WHERE item.subject_uuid = p_subject_uuid))
+       OR (p_topic_uuid IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM ple_api.list_content_topics(p_subject_uuid) AS item
+             WHERE item.topic_uuid = p_topic_uuid))
+       OR (p_subtopic_uuid IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM ple_api.list_content_subtopics(p_topic_uuid) AS item
+             WHERE item.subtopic_uuid = p_subtopic_uuid)) THEN
+        RAISE EXCEPTION 'invalid Blueprint classification filter' USING ERRCODE = '22023';
+    END IF;
     RETURN QUERY SELECT course.public_reference, course.short_name, course.long_name,
            course.availability, course.metadata_etag,
            course.current_blueprint_revision_number,
@@ -451,6 +474,12 @@ BEGIN
       FROM ple_data.blueprint_course AS course
      WHERE ple_api.current_session_account_is_instructor()
        AND (NOT p_public_only OR course.availability = 'public')
+       AND (NOT p_promoted_only OR course.promoted)
+       AND (p_cross_discipline OR p_discipline_uuid IS NULL
+            OR course.discipline_uuid = p_discipline_uuid)
+       AND (p_subject_uuid IS NULL OR course.subject_uuid = p_subject_uuid)
+       AND (p_topic_uuid IS NULL OR course.topic_uuid = p_topic_uuid)
+       AND (p_subtopic_uuid IS NULL OR course.subtopic_uuid = p_subtopic_uuid)
        -- ASVS 1.2.4: parameters remain literal text, including LIKE metacharacters.
        AND (p_query = '' OR course.short_name ILIKE
             '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'
@@ -543,14 +572,71 @@ REVOKE ALL PRIVILEGES ON FUNCTION
     ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
-    ple_api.list_blueprint_courses(boolean, boolean, text, text, text, integer), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean, boolean, boolean, text, text, text, integer, uuid, uuid, uuid, uuid, boolean), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
     ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
-    ple_api.list_blueprint_courses(boolean, boolean, text, text, text, integer), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean, boolean, boolean, text, text, text, integer, uuid, uuid, uuid, uuid, boolean), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) TO ple_app;
+
+-- ASVS 8.2.1/8.2.3/8.3.1: only the authenticated active Sysadmin may inspect
+-- or mutate promotion, regardless of lineage ownership or availability.
+CREATE FUNCTION ple_api.load_blueprint_promotion(p_reference text)
+RETURNS TABLE(promoted boolean, metadata_etag uuid)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+    SELECT course.promoted, course.metadata_etag
+      FROM ple_data.blueprint_course AS course
+     WHERE course.public_reference = p_reference
+       AND ple_api.current_session_account_is_sysadmin()
+$$;
+
+CREATE FUNCTION ple_api.set_blueprint_promotion(
+    p_reference text, p_expected_metadata_etag uuid, p_promoted boolean
+)
+RETURNS TABLE(promoted boolean, metadata_etag uuid)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private
+AS $$
+DECLARE
+    v_course ple_data.blueprint_course%ROWTYPE;
+    v_next uuid;
+BEGIN
+    IF NOT ple_api.current_session_account_is_sysadmin() THEN
+        RAISE EXCEPTION 'Blueprint promotion forbidden' USING ERRCODE = '42501';
+    END IF;
+    IF p_reference IS NULL OR p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR p_expected_metadata_etag IS NULL OR p_promoted IS NULL THEN
+        RAISE EXCEPTION 'invalid Blueprint promotion' USING ERRCODE = '22023';
+    END IF;
+    -- ASVS 15.4.2: the row lock covers the metadata comparison and flag write.
+    SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
+     WHERE course.public_reference = p_reference FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    IF v_course.metadata_etag <> p_expected_metadata_etag THEN
+        RAISE EXCEPTION 'Blueprint Course changed' USING ERRCODE = '40001';
+    END IF;
+    IF v_course.promoted = p_promoted THEN
+        RETURN QUERY SELECT v_course.promoted, v_course.metadata_etag;
+        RETURN;
+    END IF;
+    v_next := pg_catalog.gen_random_uuid();
+    UPDATE ple_data.blueprint_course AS course
+       SET promoted = p_promoted, metadata_etag = v_next
+     WHERE course.blueprint_id = v_course.blueprint_id;
+    RETURN QUERY SELECT p_promoted, v_next;
+END
+$$;
+
+REVOKE ALL ON FUNCTION ple_api.load_blueprint_promotion(text),
+    ple_api.set_blueprint_promotion(text, uuid, boolean) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_promotion(text),
+    ple_api.set_blueprint_promotion(text, uuid, boolean) TO ple_app;
 
 SET LOCAL ROLE ple_data_owner;
 

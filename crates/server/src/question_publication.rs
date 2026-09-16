@@ -4,25 +4,35 @@
 //! verifies and copies its bytes to the immutable Question Revision Object
 //! Address, then asks persistence to commit the complete publication.
 
+use std::sync::Arc;
+
 use hmac::{Hmac, KeyInit, Mac};
 use learning_data_access::{
-    DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionUuid,
-    ExistingQuestionRevisionPublicationError, ExistingQuestionRevisionPublicationInput,
-    ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationError,
-    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore, SessionTokenHash,
-    StoreError, validate_workspace_question_source_object_record,
+    AuthoringAssetsStore, DraftQuestionEditNumber, DraftQuestionPublicationSourceStore,
+    DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
+    ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
+    NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
+    NewQuestionLineagePublicationStore, SessionTokenHash, StoreError,
+    validate_workspace_question_source_object_record,
 };
 use objects::{ObjectAddress, ObjectStore, ObjectStoreError, PutObject};
 use question_model::{
-    ObjectId, QUESTION_ID_ALPHABET, QUESTION_ID_IDENTIFIER_LENGTH, QuestionAuthorship, QuestionId,
-    QuestionLicense, QuestionRevisionNumber, QuestionRevisionReason, QuestionRevisionReference,
-    Tag, Timestamp, WorkspaceId,
+    DraftQuestionReference, ObjectId, QUESTION_ID_ALPHABET, QUESTION_ID_IDENTIFIER_LENGTH,
+    QuestionAuthorship, QuestionId, QuestionLicense, QuestionRevisionNumber,
+    QuestionRevisionReason, QuestionRevisionReference, Tag, Timestamp, WorkspaceId,
 };
 use sha2::Sha256;
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 const PUBLICATION_IDENTITY_ATTEMPTS: usize = 8;
+
+/// Explicit current private Authoring boundary for native image publication.
+/// Non-image server publication workflows have no Draft image context.
+pub struct AuthoringAssetContext {
+    pub store: Arc<dyn AuthoringAssetsStore>,
+    pub reference: DraftQuestionReference,
+}
 
 /// Server-held HMAC-SHA-256 key for Question ID validation characters.
 #[derive(Clone)]
@@ -191,6 +201,7 @@ pub struct NewQuestionLineagePublisher<O, S, I> {
     object_store: O,
     publication_store: S,
     question_id_issuer: I,
+    authoring_assets: Option<AuthoringAssetContext>,
 }
 
 impl<O, S, I> NewQuestionLineagePublisher<O, S, I>
@@ -200,11 +211,17 @@ where
     I: QuestionIdIssuer,
 {
     /// Creates the server-only coordinator from its exact three owners.
-    pub const fn new(object_store: O, publication_store: S, question_id_issuer: I) -> Self {
+    pub const fn new(
+        object_store: O,
+        publication_store: S,
+        question_id_issuer: I,
+        authoring_assets: Option<AuthoringAssetContext>,
+    ) -> Self {
         Self {
             object_store,
             publication_store,
             question_id_issuer,
+            authoring_assets,
         }
     }
 
@@ -239,6 +256,16 @@ where
         if source.record != source_record {
             return Err(QuestionPublicationError::SourceObjectRecordMismatch);
         }
+        let hotspot_asset = crate::question_publication_assets::load_hotspot_asset(
+            &self.object_store,
+            self.authoring_assets.as_ref(),
+            session_token_hash,
+            command.workspace,
+            command.draft_question_uuid,
+            &source.bytes,
+            &source_record.media_type,
+        )
+        .await?;
 
         for _ in 0..PUBLICATION_IDENTITY_ATTEMPTS {
             let question_id = self
@@ -251,7 +278,7 @@ where
                     .expect("first Question Revision Number is positive"),
             };
             let target_address = ObjectAddress::QuestionSource {
-                question_revision: revision,
+                question_revision: revision.clone(),
                 object: ObjectId::generate(),
             };
             // ASVS 5.3.2, 8.2.2, 14.2.4, and 15.4.2: typed server-created
@@ -268,12 +295,23 @@ where
                 .await
                 .map_err(QuestionPublicationError::ObjectStore)?;
             let target_object_address = target_record.address.clone();
+            let prepared_asset = crate::question_publication_assets::prepare_hotspot_asset(
+                &self.object_store,
+                hotspot_asset.as_ref(),
+                &revision,
+                stored_at,
+            )
+            .await?;
+            let target_image_address = prepared_asset
+                .as_ref()
+                .map(|asset| asset.restricted_source_record.address.clone());
             let input = NewQuestionLineagePublicationInput {
                 draft_question_uuid: command.draft_question_uuid,
                 expected_draft_question_edit_number: command.expected_draft_question_edit_number,
                 workspace: command.workspace,
                 question_id,
                 question_source_object_record: target_record,
+                hotspot_asset: prepared_asset,
                 question_authorship: command.question_authorship.clone(),
                 initial_shared_tags: command.initial_shared_tags.clone(),
                 discipline_uuid: command.discipline_uuid,
@@ -298,10 +336,12 @@ where
                 // unregistered, so delete that exact target before retrying.
                 // Any other store outcome is ambiguous and retains its object.
                 Err(NewQuestionLineagePublicationError::IdentityCollision) => {
-                    self.object_store
-                        .delete(&target_object_address)
-                        .await
-                        .map_err(QuestionPublicationError::ObjectStore)?;
+                    crate::question_publication_assets::cleanup_targets(
+                        &self.object_store,
+                        &target_object_address,
+                        target_image_address.as_ref(),
+                    )
+                    .await?;
                     continue;
                 }
                 Err(NewQuestionLineagePublicationError::Store(error)) => {
@@ -320,6 +360,7 @@ where
 pub struct ExistingQuestionRevisionPublisher<O, S> {
     object_store: O,
     publication_store: S,
+    authoring_assets: Option<AuthoringAssetContext>,
 }
 
 impl<O, S> ExistingQuestionRevisionPublisher<O, S>
@@ -328,10 +369,15 @@ where
     S: DraftQuestionPublicationSourceStore + ExistingQuestionRevisionPublicationStore,
 {
     /// Creates the server-only coordinator from object storage and persistence.
-    pub const fn new(object_store: O, publication_store: S) -> Self {
+    pub const fn new(
+        object_store: O,
+        publication_store: S,
+        authoring_assets: Option<AuthoringAssetContext>,
+    ) -> Self {
         Self {
             object_store,
             publication_store,
+            authoring_assets,
         }
     }
 
@@ -367,6 +413,16 @@ where
         if source.record != source_record {
             return Err(QuestionPublicationError::SourceObjectRecordMismatch);
         }
+        let hotspot_asset = crate::question_publication_assets::load_hotspot_asset(
+            &self.object_store,
+            self.authoring_assets.as_ref(),
+            session_token_hash,
+            command.workspace,
+            command.draft_question_uuid,
+            &source.bytes,
+            &source_record.media_type,
+        )
+        .await?;
         let target_address = ObjectAddress::QuestionSource {
             question_revision: successor_revision.clone(),
             object: ObjectId::generate(),
@@ -382,12 +438,23 @@ where
             .await
             .map_err(QuestionPublicationError::ObjectStore)?;
         let target_address = target_record.address.clone();
+        let prepared_asset = crate::question_publication_assets::prepare_hotspot_asset(
+            &self.object_store,
+            hotspot_asset.as_ref(),
+            &successor_revision,
+            stored_at,
+        )
+        .await?;
+        let target_image_address = prepared_asset
+            .as_ref()
+            .map(|asset| asset.restricted_source_record.address.clone());
         let input = ExistingQuestionRevisionPublicationInput {
             draft_question_uuid: command.draft_question_uuid,
             expected_draft_question_edit_number: command.expected_draft_question_edit_number,
             workspace: command.workspace,
             parent_question_revision: command.parent_question_revision,
             question_source_object_record: target_record,
+            hotspot_asset: prepared_asset,
             question_revision_reason: command.question_revision_reason,
             question_publication_event_id: Uuid::now_v7(),
         };
@@ -403,10 +470,12 @@ where
             // store failure retains bytes for investigation rather than risking
             // deletion of evidence from a committed operation.
             Err(ExistingQuestionRevisionPublicationError::Stale) => {
-                self.object_store
-                    .delete(&target_address)
-                    .await
-                    .map_err(QuestionPublicationError::ObjectStore)?;
+                crate::question_publication_assets::cleanup_targets(
+                    &self.object_store,
+                    &target_address,
+                    target_image_address.as_ref(),
+                )
+                .await?;
                 Err(QuestionPublicationError::StaleQuestionRevision)
             }
             Err(ExistingQuestionRevisionPublicationError::Store(error)) => {

@@ -328,6 +328,82 @@
   align-self: start;
 }
 
+.library-page .question-pool-create-review {
+  display: grid;
+  gap: 1rem;
+  max-inline-size: 72rem;
+}
+
+.library-page.question-pool-task-active > :not(.question-pool-create-host) {
+  display: none;
+}
+
+.library-page .question-pool-create-review > :is(h1, p) {
+  margin: 0;
+}
+
+.library-page .question-pool-create-introduction {
+  color: var(--ple-muted);
+}
+
+.library-page .question-pool-create-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ple-layout-gap);
+  align-items: start;
+}
+
+.library-page .question-pool-create-review-grid > section,
+.library-page .question-pool-create-review-grid fieldset {
+  display: grid;
+  gap: 0.7rem;
+  min-inline-size: 0;
+  margin: 0;
+  padding: calc(var(--ple-panel-padding) - 0.2rem);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
+}
+
+.library-page .question-pool-create-review-grid fieldset .assessment-editor-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.library-page .question-pool-create-review-grid fieldset .assessment-editor-field :is(input, textarea) {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.library-page .question-pool-create-review-grid h3,
+.library-page .question-pool-create-review-grid p {
+  margin: 0;
+}
+
+.library-page .question-pool-member-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-inline-start: 1.4rem;
+}
+
+.library-page .question-pool-member-list li {
+  overflow-wrap: anywhere;
+}
+
+.library-page .question-pool-attestation {
+  max-inline-size: 68rem;
+}
+
+.library-page .question-pool-create-actions {
+  margin: 0;
+}
+
 @media (max-width: 68rem) {
   .library-page .question-library-search-control {
     grid-column: 1 / -1;
@@ -345,6 +421,10 @@
   }
 
   .library-page .question-library-search-tips ul {
+    grid-template-columns: 1fr;
+  }
+
+  .library-page .question-pool-create-review-grid {
     grid-template-columns: 1fr;
   }
 

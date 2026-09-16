@@ -10,7 +10,10 @@ import {
   decodeString,
   decodeUuid,
 } from "../decoder";
-import { decodeQuestionPoolRevisionMemberView } from "./question_pool_library";
+import {
+  decodeQuestionPoolMetadata,
+  decodeQuestionPoolRevisionMemberView,
+} from "./question_pool_library";
 import { decodeBoundedArray, decodeQuestionId, field, requireOnlyFields } from "./shared";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { ImportedAssessmentQuestionPoolFork } from "../assessment_pool_fork";
@@ -49,6 +52,7 @@ export function decodeAssessmentQuestionPoolForkView(
     "questionPoolRevision",
     "poolMetadataEtag",
     "selectionCount",
+    "metadata",
     "members",
   ]);
   const members = decodeBoundedArray(
@@ -66,6 +70,7 @@ export function decodeAssessmentQuestionPoolForkView(
     }
   }
   return {
+    metadata: decodeQuestionPoolMetadata(field(record, "metadata", path), `${path}.metadata`),
     assessmentEntryId: decodeUuid(
       field(record, "assessmentEntryId", path),
       `${path}.assessmentEntryId`,

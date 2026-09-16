@@ -18,6 +18,8 @@ use question_model::{QuestionAuthor, QuestionAuthorDisplayName, QuestionRevision
 use super::*;
 use objects::memory::MemoryObjectStore;
 
+mod hotspot;
+
 #[derive(Clone)]
 struct RecordingPublicationStore {
     source_record: ObjectRecord,
@@ -314,7 +316,7 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
     };
     let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
     let publisher =
-        NewQuestionLineagePublisher::new(object_store.clone(), publication_store, issuer);
+        NewQuestionLineagePublisher::new(object_store.clone(), publication_store, issuer, None);
 
     let published = publisher
         .publish(
@@ -353,6 +355,7 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
         object_store,
         publication_store,
         HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32])),
+        None,
     );
 
     let result = publisher
@@ -403,6 +406,7 @@ async fn exact_question_id_collision_deletes_this_candidates_object_before_retry
         object_store.clone(),
         publication_store,
         fixed_issuer(&["0000000", "0000001"]),
+        None,
     );
 
     let published = publisher
@@ -448,6 +452,7 @@ async fn conditional_object_already_exists_is_reported_without_retry_or_delete()
         },
         publication_store,
         fixed_issuer(&["0000000"]),
+        None,
     );
 
     let result = publisher
@@ -491,6 +496,7 @@ async fn noncollision_store_failure_retains_its_unregistered_publication_object(
         object_store.clone(),
         publication_store,
         fixed_issuer(&["0000000"]),
+        None,
     );
 
     let result = publisher
@@ -533,6 +539,7 @@ async fn failed_collision_cleanup_fails_closed_without_another_publication_attem
         },
         publication_store,
         fixed_issuer(&["0000000", "0000001"]),
+        None,
     );
 
     let result = publisher
@@ -574,6 +581,7 @@ async fn exhausted_question_id_collisions_leave_no_unregistered_publication_obje
         object_store.clone(),
         publication_store,
         fixed_issuer(&candidate_references),
+        None,
     );
 
     let result = publisher
@@ -613,6 +621,7 @@ async fn same_lineage_publication_copies_to_the_exact_successor_revision() {
             publications: Arc::clone(&publications),
             outcome: Ok(()),
         },
+        None,
     );
 
     let published = publisher
@@ -657,6 +666,7 @@ async fn stale_same_lineage_publication_removes_only_its_unregistered_target() {
             publications: Arc::clone(&publications),
             outcome: Err(ExistingQuestionRevisionPublicationError::Stale),
         },
+        None,
     );
 
     let result = publisher
@@ -696,6 +706,7 @@ async fn ambiguous_same_lineage_failure_retains_its_target_evidence() {
                 StoreError::RetryableTransaction,
             )),
         },
+        None,
     );
 
     let result = publisher

@@ -98,7 +98,10 @@ def build_local_renderer(
 	# ASVS 13.3.2: the fixed sibling path and selected local tag form the complete
 	# build authority; private stack state and caller-provided build contexts stay out.
 	result = runner.stream(
-		["podman", "build", "--tag", reference, "--file", str(dockerfile), str(source)],
+		[
+			"podman", "build", "--tag", reference,
+			"--file", str(dockerfile), str(source),
+		],
 		environment,
 		repo_root,
 	)

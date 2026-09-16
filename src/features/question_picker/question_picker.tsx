@@ -26,6 +26,8 @@ export interface QuestionPickerProps {
   readonly mode: QuestionPickerSelectionMode;
   /** Required per destination: each caller supplies its explicit selection cap. */
   readonly maximumSelection: number;
+  /** Reopened destination drafts retain their ordered selection. */
+  readonly initialSelection?: QuestionPickerSelection;
   readonly onConfirm: (selection: QuestionPickerSelection) => void;
   readonly onCancel: () => void;
   readonly trigger: HTMLButtonElement | undefined;
@@ -95,7 +97,11 @@ export function QuestionPicker(props: QuestionPickerProps): JSX.Element {
     nextCursor: null,
   });
   const [selection, setSelection] = createSignal<QuestionPickerSelection>(
-    questionPickerSelection(props.mode, props.maximumSelection, []),
+    questionPickerSelection(
+      props.mode,
+      props.maximumSelection,
+      props.initialSelection?.questions.map((question) => question.row) ?? [],
+    ),
   );
   const [selectionMessage, setSelectionMessage] = createSignal(
     selectedCopy(selection(), props.mode),

@@ -144,6 +144,17 @@ mod tests {
             used_in_current_account_courses: false,
             subject: None,
             topic: None,
+            discipline: None,
+            subtopic: None,
+            classification: question_model::PublishedQuestionSharedMetadata {
+                question_id: "0000-X00N".parse().expect("Question ID"),
+                metadata_edit_number: 1,
+                tags: Vec::new(),
+                discipline_uuid: uuid::Uuid::from_u128(1),
+                subject_uuid: uuid::Uuid::from_u128(2),
+                topic_uuid: None,
+                subtopic_uuid: None,
+            },
         }
     }
 
@@ -235,5 +246,62 @@ mod tests {
         let value = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("cursor serializes"));
 
         assert!(decode_cursor(&value, &changed).is_err());
+    }
+
+    #[test]
+    fn continuation_binds_each_classification_identity_and_cross_mode() {
+        let original = QuestionSearchRequest {
+            discipline_uuid: Some(uuid::Uuid::from_u128(1)),
+            subject_uuid: Some(uuid::Uuid::from_u128(2)),
+            topic_uuid: Some(uuid::Uuid::from_u128(3)),
+            subtopic_uuid: Some(uuid::Uuid::from_u128(4)),
+            ..QuestionSearchRequest::default()
+        }
+        .normalized()
+        .expect("valid full hierarchy");
+        let value = encode_cursor(&entry("Gene", "0000-X00N"), &original);
+        assert!(decode_cursor(&value, &original).is_ok());
+        for field in 0..5 {
+            let mut changed = original.clone();
+            match field {
+                0 => changed.discipline_uuid = Some(uuid::Uuid::from_u128(10)),
+                1 => changed.subject_uuid = Some(uuid::Uuid::from_u128(20)),
+                2 => changed.topic_uuid = Some(uuid::Uuid::from_u128(30)),
+                3 => changed.subtopic_uuid = Some(uuid::Uuid::from_u128(40)),
+                _ => changed.cross_discipline = true,
+            }
+            assert!(decode_cursor(&value, &changed).is_err());
+        }
+    }
+
+    #[test]
+    fn classification_fields_keep_phrases_exclusions_exact_id_and_cross_intersection() {
+        use crate::question_library::{matches_query, search_query::QuestionTextQuery};
+        let mut row = entry("Gene", "0000-X00N");
+        row.discipline = Some("Biology".into());
+        row.subtopic = Some("X-linked recessive crosses".into());
+        let query = QuestionSearchRequest {
+            discipline_uuid: Some(uuid::Uuid::from_u128(10)),
+            subject_uuid: Some(row.classification.subject_uuid),
+            cross_discipline: true,
+            ..QuestionSearchRequest::default()
+        };
+        for (text, expected) in [
+            (
+                "discipline:biology subtopic:\"x-linked recessive crosses\"",
+                true,
+            ),
+            ("discipline:chemistry", false),
+            ("-subtopic:\"x-linked recessive crosses\"", false),
+            ("subtopic:\"recessive x-linked\"", false),
+            ("0000-X00N", true),
+            ("0000-X01P", false),
+        ] {
+            assert_eq!(
+                matches_query(&&row, &query, &QuestionTextQuery::parse(Some(text))),
+                expected,
+                "{text}"
+            );
+        }
     }
 }

@@ -28,6 +28,9 @@ mod author_content_dependency_registry_generated;
 pub(crate) mod author_content_document_route;
 /// Private Authoring Workspace and Draft Question routes.
 pub mod authoring;
+mod authoring_assets;
+mod authoring_source;
+mod question_publication_assets;
 /// Instructor-owned reusable Blueprint Course routes.
 pub(crate) mod blueprint_course;
 /// Vetted-Instructor Blueprint Course Star and private Watch routes.

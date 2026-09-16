@@ -19,6 +19,7 @@ mod attempt_expiry;
 mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
+mod authoring_assets;
 mod blueprint_course;
 mod blueprint_history;
 mod blueprint_lineage;
@@ -125,12 +126,15 @@ pub use authoring::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
     DeleteAuthoringDraftInput, SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
 };
+pub use authoring_assets::{
+    AuthoringAssetsStore, OwnedDraftQuestionAsset, RegisterDraftQuestionAssetInput,
+};
 pub use blueprint_course::{
     ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseListRequest,
-    BlueprintCourseStore, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
-    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
-    StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintPoolMembers,
-    StoredBlueprintRevision,
+    BlueprintCourseStore, BlueprintPromotionStore, StoredBlueprintAssessment,
+    StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
+    StoredBlueprintCourseContent, StoredBlueprintCourseSummary, StoredBlueprintModule,
+    StoredBlueprintPoolMembers, StoredBlueprintPromotion, StoredBlueprintRevision,
 };
 pub use blueprint_history::{BlueprintHistoryKind, BlueprintHistoryStore};
 pub use blueprint_lineage::{
@@ -152,10 +156,9 @@ pub use course_banner::{
     StageCourseBannerUpload, StagedCourseBannerUpload,
 };
 pub use course_instance::{
-    CourseClassificationUpdate,
-    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
-    CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput,
-    CreatedCourseInstance,
+    CourseClassificationUpdate, CourseCreationInstructor, CourseInstanceCreationSource,
+    CourseInstancePoolIdIssuer, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
+    CreateCourseInstanceInput, CreatedCourseInstance,
 };
 pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
@@ -219,14 +222,15 @@ pub use question_pool_creation::{
     QuestionPoolCreationStore,
 };
 pub use question_pool_library::{
-    AssessmentQuestionPoolForkRecord, PublishedQuestionPoolRevision, QuestionPoolLibraryStore,
+    AssessmentQuestionPoolForkRecord, PublishedQuestionPoolRevision, QuestionPoolDiscoveryFilter,
+    QuestionPoolLibraryStore,
 };
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
     DraftQuestionSourceBindingStore, DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
     ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
     NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
-    NewQuestionLineagePublicationStore,
+    NewQuestionLineagePublicationStore, PreparedQuestionAssetPublication,
 };
 pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
 pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};

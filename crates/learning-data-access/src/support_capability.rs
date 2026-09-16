@@ -122,9 +122,12 @@ mod tests {
     #[test]
     fn support_repair_request_bounds_clean_fields_before_database_resolution() {
         assert!(
-            input("course-instance/CI7K3M2Q/roster/student-42", "Correct a roster mismatch")
-                .validate()
-                .is_ok()
+            input(
+                "course-instance/CI7K3M2Q/roster/student-42",
+                "Correct a roster mismatch"
+            )
+            .validate()
+            .is_ok()
         );
         assert!(
             input(" resource", "Correct a roster mismatch")
@@ -146,8 +149,10 @@ mod tests {
     #[test]
     fn unsupported_repair_classes_fail_deserialization() {
         for class in ["course", "content"] {
-            assert!(serde_json::from_str::<SupportRepairResourceClass>(&format!("\"{class}\""))
-                .is_err());
+            assert!(
+                serde_json::from_str::<SupportRepairResourceClass>(&format!("\"{class}\""))
+                    .is_err()
+            );
         }
     }
 }

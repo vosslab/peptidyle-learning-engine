@@ -72,6 +72,9 @@ async function prepareStudentInvitation(
     await page
       .getByRole("combobox", { name: "Blueprint Course", exact: true })
       .selectOption({ label: `${COURSE_TITLE} · Revision 1` });
+    await page
+      .getByRole("combobox", { name: "Discipline (required)", exact: true })
+      .selectOption({ label: "Biology" });
     await page.getByLabel("Course short name").fill(INVITATION_COURSE_SHORT_NAME);
     await page.getByLabel("Course long name").fill(INVITATION_COURSE_LONG_NAME);
     await page.getByLabel("Course Term start date").fill("2026-09-01");

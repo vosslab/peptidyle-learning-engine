@@ -5,15 +5,15 @@ use std::num::NonZeroU32;
 use async_trait::async_trait;
 use question_model::{
     AssessmentEntryId, AssessmentReference, CourseInstanceReference, QuestionId,
-    QuestionPoolLibrarySummary, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
-    QuestionRevisionNumber, QuestionRevisionReference,
+    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolRevisionNumber,
+    QuestionPoolRevisionReference, QuestionRevisionNumber, QuestionRevisionReference,
 };
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     AssessmentQuestionPoolForkRecord, Cursor, Page, PageRequest, PublishedQuestionPoolRevision,
-    QuestionPoolLibraryStore, SessionTokenHash, StoreError,
+    QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore, SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -59,14 +59,28 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         &self,
         session_token_hash: SessionTokenHash,
         page: PageRequest,
+        filter: QuestionPoolDiscoveryFilter,
     ) -> Result<Page<QuestionPoolLibrarySummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
-        let rows = sqlx::query("SELECT * FROM ple_api.list_published_question_pools($1, $2)")
-            .bind(page.after.as_ref().map(Cursor::as_str))
-            .bind(i32::from(page.size.get()))
-            .fetch_all(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
+        if !filter.has_valid_structure() {
+            return Err(StoreError::InvalidRecord(
+                "Pool discovery hierarchy is invalid".into(),
+            ));
+        }
+        // ASVS 1.2.4: identity predicates remain typed SQL bind parameters.
+        let rows = sqlx::query(
+            "SELECT * FROM ple_api.list_published_question_pools($1, $2, $3, $4, $5, $6, $7)",
+        )
+        .bind(page.after.as_ref().map(Cursor::as_str))
+        .bind(i32::from(page.size.get()))
+        .bind(filter.discipline_uuid)
+        .bind(filter.subject_uuid)
+        .bind(filter.topic_uuid)
+        .bind(filter.subtopic_uuid)
+        .bind(filter.cross_discipline)
+        .fetch_all(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
         let mut items = rows
             .iter()
             .map(decode_summary)
@@ -168,6 +182,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         .ok_or_else(|| invalid("Assessment Pool selection count"))?;
         let members = decode_member_rows(&rows, &pool_id, revision_number)?;
         let result = AssessmentQuestionPoolForkRecord {
+            metadata: decode_metadata(first)?,
             assessment_entry_id: stored_entry,
             question_pool_revision: QuestionPoolRevisionReference {
                 question_pool_id: pool_id,
@@ -195,6 +210,7 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolLibrarySumm
     .and_then(NonZeroU32::new)
     .ok_or_else(|| invalid("Question Pool member count"))?;
     Ok(QuestionPoolLibrarySummary {
+        metadata: decode_metadata(row)?,
         question_pool_revision: QuestionPoolRevisionReference {
             question_pool_id,
             revision_number,
@@ -219,6 +235,7 @@ fn decode_revision_rows(
         return Err(invalid("Question Pool identity"));
     }
     Ok(Some(PublishedQuestionPoolRevision {
+        metadata: decode_metadata(first)?,
         members: decode_member_rows(rows, &pool_id, revision_number)?,
         question_pool_revision: QuestionPoolRevisionReference {
             question_pool_id: pool_id,
@@ -232,9 +249,13 @@ fn decode_member_rows(
     pool_id: &QuestionId,
     revision_number: QuestionPoolRevisionNumber,
 ) -> Result<Vec<QuestionRevisionReference>, StoreError> {
+    let metadata = rows.first().map(decode_metadata).transpose()?;
     rows.iter()
         .enumerate()
         .map(|(index, row)| {
+            if metadata.as_ref() != Some(&decode_metadata(row)?) {
+                return Err(invalid("Question Pool lineage metadata"));
+            }
             if decode_question_id(row, "public_question_pool_id")? != *pool_id
                 || decode_pool_revision(row, "revision_number")? != revision_number
                 || row
@@ -258,6 +279,45 @@ fn decode_member_rows(
             })
         })
         .collect()
+}
+
+fn decode_metadata(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolMetadata, StoreError> {
+    let metadata = QuestionPoolMetadata {
+        title: row.try_get("title").map_err(map_sqlx_error)?,
+        description: row.try_get("description").map_err(map_sqlx_error)?,
+        discipline_uuid: row.try_get("discipline_uuid").map_err(map_sqlx_error)?,
+        subject_uuid: row.try_get("subject_uuid").map_err(map_sqlx_error)?,
+        topic_uuid: row.try_get("topic_uuid").map_err(map_sqlx_error)?,
+        subtopic_uuid: row.try_get("subtopic_uuid").map_err(map_sqlx_error)?,
+        tags: row.try_get("tags").map_err(map_sqlx_error)?,
+    };
+    if !(1..=question_model::MAX_QUESTION_TITLE_UNICODE_SCALARS)
+        .contains(&metadata.title.chars().count())
+        || !(1..=question_model::MAX_QUESTION_DESCRIPTION_UNICODE_SCALARS)
+            .contains(&metadata.description.chars().count())
+        || [&metadata.title, &metadata.description]
+            .iter()
+            // Match PostgreSQL btrim's ASCII-space canonicalization.
+            .any(|text| {
+                text.as_str() != text.trim_matches(' ') || text.chars().any(char::is_control)
+            })
+        || (metadata.subtopic_uuid.is_some() && metadata.topic_uuid.is_none())
+        || metadata.tags.iter().any(|tag| {
+            tag.is_empty()
+                || tag.chars().count() > 120
+                || tag != tag.trim_matches(' ')
+                || tag.chars().any(char::is_control)
+        })
+        || metadata
+            .tags
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            != metadata.tags.len()
+    {
+        return Err(invalid("Question Pool lineage metadata"));
+    }
+    Ok(metadata)
 }
 
 fn decode_question_id(row: &sqlx::postgres::PgRow, column: &str) -> Result<QuestionId, StoreError> {

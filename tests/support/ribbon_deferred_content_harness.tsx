@@ -10,6 +10,7 @@ import { SessionProvider } from "../../src/auth/session_context";
 import { App } from "../../src/app";
 import { routeScopeKey } from "../../src/navigation/route_params";
 import { appRoutes, notFoundRoute } from "../../src/routes";
+import type { CourseClassification } from "../../generated/api/CourseClassification";
 
 type EvidenceCase = "policies" | "studentView" | "workspace" | "roster";
 
@@ -51,6 +52,13 @@ const COURSE_REFERENCE: Readonly<Record<EvidenceCase, string>> = {
   workspace: "CI2N7H5X",
   roster: "CI9P6R4V",
 };
+const FIXTURE_CLASSIFICATION = {
+  disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+  subjectUuid: null,
+  topicUuid: null,
+  subtopicUuid: null,
+  tags: [],
+} satisfies CourseClassification;
 
 function instructorCourse(reference: string): CourseRouteView {
   return {
@@ -58,6 +66,7 @@ function instructorCourse(reference: string): CourseRouteView {
       reference,
       shortName: `Course ${reference}`,
       longName: `Deferred content evidence course ${reference}`,
+      classification: FIXTURE_CLASSIFICATION,
       term: { startDate: "2026-01-12", endDate: "2026-05-08" },
       role: "instructor",
     },

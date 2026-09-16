@@ -7,6 +7,7 @@ import { INSTRUCTOR_WEBWORK_SCENARIOS } from "./scenarios_instructor_webwork";
 import { PUBLIC_SCENARIOS } from "./scenarios_public";
 import type { ScenarioDefinition } from "./scenario_types";
 import { STUDENT_SCENARIOS } from "./scenarios_student";
+import { STUDENT_TYPE_SCENARIOS } from "./scenarios_student_types";
 import { SYSADMIN_SCENARIOS } from "./scenarios_sysadmin";
 
 export const SCREENSHOT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
@@ -16,5 +17,6 @@ export const SCREENSHOT_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   ...INSTRUCTOR_TEMPLATE_SCENARIOS,
   ...INSTRUCTOR_WEBWORK_SCENARIOS,
   ...STUDENT_SCENARIOS,
+  ...STUDENT_TYPE_SCENARIOS,
   ...SYSADMIN_SCENARIOS,
 ];

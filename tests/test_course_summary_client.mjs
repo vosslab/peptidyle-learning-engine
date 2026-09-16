@@ -17,6 +17,13 @@ function courseSummary() {
     longName: "Molecular Biology 301: Gene Expression",
     term: { startDate: "2026-01-01", endDate: "2026-05-01" },
     role: "student",
+    classification: {
+      disciplineUuid: "00000000-0000-4000-8000-000000000001",
+      subjectUuid: null,
+      topicUuid: null,
+      subtopicUuid: null,
+      tags: ["Molecular biology"],
+    },
   };
 }
 

@@ -1,6 +1,8 @@
 // library_page_model.ts - bounded, transport-validated Question Library browse state.
 
 import { normalizeQuestionIdSyntax } from "../question_id";
+import { EMPTY_LIBRARY_CLASSIFICATION_FILTER, libraryClassificationFilter,
+  type LibraryClassificationFilter } from "../api/library_classification_filter";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
@@ -61,7 +63,7 @@ export interface QuestionLibraryBrowseFacetAggregate {
   readonly count: number;
 }
 
-export interface QuestionLibraryBrowseQuery {
+export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter {
   readonly search: string;
   readonly authorName: string | null;
   readonly backend: string | null;
@@ -476,6 +478,7 @@ export function decodeQuestionLibraryBrowsePage(value: unknown): QuestionLibrary
 }
 
 export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
+  ...EMPTY_LIBRARY_CLASSIFICATION_FILTER,
   search: "",
   authorName: null,
   backend: null,
@@ -493,6 +496,7 @@ export function normalizeQuestionLibraryBrowseQuery(
   query: QuestionLibraryBrowseQuery,
 ): QuestionLibraryBrowseQuery {
   return {
+    ...libraryClassificationFilter(query),
     search: query.search.trim().replace(/\s+/g, " "),
     authorName: query.authorName,
     backend: query.backend,

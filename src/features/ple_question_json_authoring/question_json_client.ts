@@ -41,9 +41,9 @@ export class PleQuestionJsonRequestError extends Error {
 }
 
 export class PleQuestionJsonConflictError extends PleQuestionJsonRequestError {
-  declare public readonly status: 409 | 428;
+  declare public readonly status: 409 | 412 | 428;
 
-  public constructor(status: 409 | 428, path: string) {
+  public constructor(status: 409 | 412 | 428, path: string) {
     super(status, path);
   }
 }
@@ -60,6 +60,13 @@ export type PleQuestionJsonSave = {
 };
 
 export interface PleQuestionJsonClient {
+  uploadAsset(
+    draftQuestion: DraftQuestionReference,
+    image: Blob,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<PleQuestionJsonAssetDescriptor>;
+  assetPreviewPath(draftQuestion: DraftQuestionReference, asset: string): string;
   load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
   save(
     draftQuestion: DraftQuestionReference,
@@ -71,6 +78,52 @@ export interface PleQuestionJsonClient {
     request: PleQuestionJsonPublicationRequest,
     revision: string,
   ): Promise<QuestionSummary>;
+}
+
+export type PleQuestionJsonAssetDescriptor = {
+  readonly questionAsset: string;
+  readonly checksum: string;
+  readonly mediaType: "image/png" | "image/jpeg" | "image/webp";
+  readonly intrinsicWidth: number;
+  readonly intrinsicHeight: number;
+};
+
+/** ASVS 2.2.1: closed measured server facts, never caller-provided source or URLs. */
+export function decodePleQuestionJsonAssetDescriptor(
+  value: unknown,
+): PleQuestionJsonAssetDescriptor {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new PleQuestionJsonProtocolError("The image upload returned an invalid descriptor.");
+  const record = value as Record<string, unknown>;
+  const keys = ["questionAsset", "checksum", "mediaType", "intrinsicWidth", "intrinsicHeight"];
+  if (
+    Object.keys(record).length !== keys.length ||
+    keys.some((key) => !Object.prototype.hasOwnProperty.call(record, key))
+  )
+    throw new PleQuestionJsonProtocolError(
+      "The image upload returned unexpected descriptor fields.",
+    );
+  const questionAsset = publicationUuid(record.questionAsset, "asset.questionAsset");
+  const checksum = record.checksum;
+  const mediaType = record.mediaType;
+  const intrinsicWidth = record.intrinsicWidth;
+  const intrinsicHeight = record.intrinsicHeight;
+  if (
+    typeof checksum !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(checksum) ||
+    (mediaType !== "image/png" && mediaType !== "image/jpeg" && mediaType !== "image/webp") ||
+    typeof intrinsicWidth !== "number" ||
+    !Number.isSafeInteger(intrinsicWidth) ||
+    intrinsicWidth < 1 ||
+    typeof intrinsicHeight !== "number" ||
+    !Number.isSafeInteger(intrinsicHeight) ||
+    intrinsicHeight < 1 ||
+    intrinsicWidth * intrinsicHeight > 20_000_000
+  )
+    throw new PleQuestionJsonProtocolError(
+      "The image upload returned invalid measured image facts.",
+    );
+  return { questionAsset, checksum, mediaType, intrinsicWidth, intrinsicHeight };
 }
 
 function browserFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -205,6 +258,51 @@ export function createPleQuestionJsonClient(
   const fetchImplementation = config.fetch ?? browserFetch;
   const basePath = normalizeBasePath(config.basePath);
 
+  function assetPreviewPath(draftQuestion: DraftQuestionReference, asset: string): string {
+    const canonicalAsset = publicationUuid(asset, "asset.questionAsset");
+    return sameOriginPath(
+      basePath,
+      `/api/authoring/drafts/${encodedId(draftQuestion)}/assets/${encodedId(canonicalAsset)}`,
+    );
+  }
+
+  async function uploadAsset(
+    draftQuestion: DraftQuestionReference,
+    image: Blob,
+    revision: string,
+    signal?: AbortSignal,
+  ): Promise<PleQuestionJsonAssetDescriptor> {
+    if (image.size < 1 || image.size > 8 * 1024 * 1024)
+      throw new PleQuestionJsonProtocolError("Choose an image no larger than 8 MiB.");
+    if (!["image/png", "image/jpeg", "image/webp"].includes(image.type))
+      throw new PleQuestionJsonProtocolError(
+        "Choose a PNG, JPEG, or WebP image. SVG is not yet supported.",
+      );
+    const path = `/api/authoring/drafts/${encodedId(draftQuestion)}/assets`;
+    // ASVS 2.2.2: browser checks aid usability; the server verifies the actual raster bytes.
+    const response = await fetchImplementation(sameOriginPath(basePath, path), {
+      method: "POST",
+      credentials: "same-origin",
+      cache: "no-store",
+      signal,
+      body: image,
+      headers: {
+        accept: "application/json",
+        "content-type": image.type,
+        "if-match": validRevision(revision),
+      },
+    });
+    if (response.status === 409 || response.status === 412 || response.status === 428)
+      throw new PleQuestionJsonConflictError(response.status, path);
+    if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
+    if (response.status !== 201)
+      throw new PleQuestionJsonProtocolError("The image upload must return a created asset.");
+    requireJson(response, path);
+    return decodePleQuestionJsonAssetDescriptor(
+      decodeJson(await boundedText(response, path), path),
+    );
+  }
+
   async function load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead> {
     const path = sourcePath(draftQuestion);
     const requestPath = sameOriginPath(basePath, path);
@@ -214,7 +312,7 @@ export function createPleQuestionJsonClient(
         accept: PLE_QUESTION_JSON_MEDIA_TYPE,
       }),
     );
-    if (response.status === 409 || response.status === 428)
+    if (response.status === 409 || response.status === 412 || response.status === 428)
       throw new PleQuestionJsonConflictError(response.status, path);
     if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
     if (!isFlatMediaType(response)) {
@@ -242,7 +340,7 @@ export function createPleQuestionJsonClient(
       requestPath,
       requestInit("PUT", headers, serializePleQuestionJsonSource(source)),
     );
-    if (response.status === 409 || response.status === 428)
+    if (response.status === 409 || response.status === 412 || response.status === 428)
       throw new PleQuestionJsonConflictError(response.status, path);
     if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
     if (response.status !== 204) {
@@ -294,7 +392,7 @@ export function createPleQuestionJsonClient(
         }),
       ),
     );
-    if (response.status === 409 || response.status === 428)
+    if (response.status === 409 || response.status === 412 || response.status === 428)
       throw new PleQuestionJsonConflictError(response.status, path);
     if (!response.ok) throw new PleQuestionJsonRequestError(response.status, path);
     requireJson(response, path);
@@ -322,7 +420,7 @@ export function createPleQuestionJsonClient(
     return summary;
   }
 
-  return { load, save, publish };
+  return { load, save, publish, uploadAsset, assetPreviewPath };
 }
 
 function publishedQuestionId(value: unknown, path: string): string {

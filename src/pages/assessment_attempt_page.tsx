@@ -492,6 +492,16 @@ function AttemptExperience(props: {
               <div class="attempt-response">
                 <QuestionPresentationResponseControl
                   attemptId={`${props.context.assessmentAttempt}-${currentPresentation.position}`}
+                  questionRevision={currentPresentation.presentation.questionRevision}
+                  assetUrl={(asset) =>
+                    new URL(
+                      runtime.client.assetUrl(
+                        currentPresentation.presentation.questionRevision,
+                        asset.questionAsset,
+                      ),
+                      window.location.origin,
+                    )
+                  }
                   assessmentAttempt={props.context.assessmentAttempt}
                   position={currentPresentation.position}
                   registerBackendOwnedCapture={(capture) => {

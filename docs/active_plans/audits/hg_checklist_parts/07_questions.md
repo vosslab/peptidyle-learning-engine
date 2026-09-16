@@ -114,9 +114,9 @@
 - [ ] Author-supplied JavaScript operates independently of PLE application APIs and privileged state.
   - Mismatch: author-supplied JavaScript is not implemented.
 - [ ] Native interactive Question Types such as HOTSPOT use PLE-owned interaction code.
-  - Mismatch: HOTSPOT source editing exists, but delivered interaction evidence was not found.
+  - Verification pending: Raster upload, authoring, publication preparation, and PLE-owned controls exist; connected author/save/publish, worker Ready, Student grading, rendered evidence, and SVG remain unproved or absent.
 - [ ] HOTSPOT content uses supported static assets such as images and SVG.
-  - Mismatch: no delivery validation for HOTSPOT static assets was found.
+  - Verification pending: Bounded PNG/JPEG/WebP Draft assets have validation and prepared delivery; connected Ready/rendered Student evidence is unproved, and SVG is not implemented.
 - [ ] Grading and correctness decisions remain server-owned and independent of author-supplied JavaScript.
   - Mismatch: author JavaScript is absent; no runtime proof covers this interaction boundary.
 - [ ] External JavaScript dependencies and CDN domains are explicitly recorded and reviewable.
@@ -392,43 +392,43 @@
 
 #### Question Pool metadata
 
-- [ ] Question Pools have metadata specific to the individual Question Pool.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Question Pool metadata includes Title and Description.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] The first Published Question establishes the Question Pool's Discipline and Subject.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [x] Question Pools have metadata specific to the individual Question Pool.
+  - Evidence (runtime): `schemas/base_schema/question_pools.sql` `question_pool` owns independent metadata. Accepted SQL/rollback/concurrency and final SQL, Rust/API, and browser reviews combine with root-supplied rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md`: independent metadata survives list/current reads and real Library UI creation/retry. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
+- [x] Question Pool metadata includes Title and Description.
+  - Evidence (runtime): Required independent Title/Description in `schemas/base_schema/question_pools.sql` have accepted SQL and source review. Rebuilt `8147` proof at `/private/tmp/ple-pool-metadata-connected-report.md` rejects missing fields, retains exact list/current text, and preserves both fields after denied mixed-member UI creation. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
+- [x] The first Published Question establishes the Question Pool's Discipline and Subject.
+  - Evidence (runtime): Accepted actual-role SQL creation proof and final source reviews establish first-member classification. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` retains exact ordered pins and first-member Discipline/Subject, rejects mixed Subject with `422` and unchanged public list, then creates after ordinary picker reselection. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
 - [ ] Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Verification pending: Accepted actual-role Blueprint-owned append proof rejects classification mismatch atomically, and witnessed two-connection admission/reclassification wait and dual commit preserve Pool classification. Rebuilt connected append acceptance remains pending.
 - [ ] Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
   when included in a Question Pool.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Pools may have their own authorship, attribution, license, and source information where
   appropriate.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
-- [ ] Question Pool metadata describes the Pool rather than duplicating metadata from its member
+  - Mismatch: The accepted Pool Title/Description/classification/Tags slice does not establish Pool-owned authorship, attribution, license, or source information; audit these separate fields and their authoring/read boundaries.
+- [x] Question Pool metadata describes the Pool rather than duplicating metadata from its member
   Published Questions.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Evidence (runtime): Accepted SQL/source proof establishes independent Title/Description, empty creation Tags, optional narrower hierarchy, classification retention after Question reclassification, and historical fork preservation. Rebuilt `8147` HTTP/browser proof at `/private/tmp/ple-pool-metadata-connected-report.md` confirms separately authored Pool text through creation, retry, list, and current reads. No historical Pool HTTP route is claimed. Source owner: `schemas/base_schema/question_pools.sql` `question_pool`.
 - [ ] Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
   **Worked Solutions**.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 - [ ] Question Pools also use the shared Question Library metadata required for publication.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Verification pending: Pool-owned required Title/Description and Discipline/Subject, optional Topic/Subtopic and unbounded-count Tags have accepted source/SQL proof and rebuilt `8147` connected creation/list/current-read proof. Complete shared publication metadata remains open, including the separately unproved authorship/attribution/license/source and Bloom boundaries; this slice does not establish optional teaching support.
 
 ### Question Library specifications
 
 - [x] Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
   - Evidence (source): `src/pages/library_route_page.tsx` `LibraryRoutePage` is the production Instructor Library surface.
 - [ ] The Question Library is one global collection of Published Questions and Question Pools.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Verification pending: Pool metadata source and actual-role SQL proof now exist alongside Published Question metadata. Audit the complete global collection/discovery boundary on rebuilt connected HTTP/browser surfaces; independent metadata proof does not establish the whole collection.
 - [ ] Draft Questions are not part of the Question Library.
   - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
   - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
   - Owner: 07_questions.md / Draft Question specifications (first occurrence; identical requirement and status).
 - [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  - Verification pending: Accepted Pool SQL proof covers stated vetted-Instructor operations and concealed Student/nonowner denials; prior Published Question evidence remains bounded. Rebuilt connected availability across all vetted Instructors and both Library Object kinds remains pending.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` reserves both Question Library routes for Instructors, and `src/route_access_boundary.tsx` `withRouteAccessBoundary` fail-closes every protected route before its page component mounts.
   - Evidence (runtime): `src/route_access_boundary.tsx` `withRouteAccessBoundary` passed accepted actual-main Student proof that denied three Library routes without any Question Library API request, while the Student Ribbon allowed Coursework navigation to a Released Assessment. Earlier accepted native Student Attempt proof delivered Question content through that Assessment. Artifacts: `/private/tmp/ple-course-empty-artifacts.9s89JA` and `/private/tmp/ple-course-empty-artifacts.ZquNiI`.

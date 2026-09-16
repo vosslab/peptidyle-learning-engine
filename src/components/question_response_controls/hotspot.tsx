@@ -1,12 +1,14 @@
 // hotspot.tsx - accessible labeled-region control for image hotspots.
 
-import { createSignal, For, type JSX } from "solid-js";
+import { createSignal, For, Show, type JSX } from "solid-js";
 
 import type { ResponseItemReference } from "../../../generated/api/ResponseItemReference";
 import type { StudentHotspotSelection } from "../../../generated/api/StudentHotspotSelection";
 import type { StudentResponse } from "../../../generated/api/StudentResponse";
+import type { HotspotRegion } from "../../../generated/api/HotspotRegion";
 
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
+import { QuestionContentError, resolveSameOriginAssetUrl } from "../question_renderer";
 import {
   Actions,
   createResponseController,
@@ -42,6 +44,52 @@ function selectionProgress(responseFormat: HotspotResponseFormat, count: number)
   }
 }
 
+/** Public Hotspot coordinates use the inclusive 0..10000 normalized image scale. */
+export function hotspotRegionStyle(
+  region: Pick<HotspotRegion, "x" | "y" | "width" | "height">,
+): JSX.CSSProperties {
+  return {
+    left: `${region.x / 100}%`,
+    top: `${region.y / 100}%`,
+    width: `${region.width / 100}%`,
+    height: `${region.height / 100}%`,
+  };
+}
+
+/** Resolve the one answer-free surface through its publication or private preview identity. */
+export function resolveHotspotImageUrl(
+  props: Pick<
+    QuestionResponseControlBodyProps<HotspotResponseFormat>,
+    "responseFormat" | "questionRevision" | "assetUrl" | "hotspotDraftAsset" | "mode"
+  >,
+): string | undefined {
+  const asset =
+    "regions" in props.responseFormat
+      ? props.responseFormat.surface
+      : props.responseFormat.surface.questionAsset;
+  // ASVS 1.2.2: reuse the exact same-origin asset boundary, never author-provided URLs.
+  if (props.questionRevision !== undefined && props.assetUrl !== undefined) {
+    return resolveSameOriginAssetUrl(asset, props.questionRevision, props.assetUrl);
+  }
+  const draft = props.hotspotDraftAsset;
+  if (props.mode !== "formatOnly" || draft === undefined) return undefined;
+  const url = draft.assetUrl(asset);
+  const path = `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}/assets/${encodeURIComponent(asset.questionAsset)}`;
+  if (
+    url.origin !== globalThis.location.origin ||
+    url.pathname !== path ||
+    url.search !== "" ||
+    url.hash !== "" ||
+    url.username !== "" ||
+    url.password !== ""
+  ) {
+    throw new QuestionContentError(
+      "Draft images must use their authorized exact Draft asset route.",
+    );
+  }
+  return url.href;
+}
+
 export function HotspotResponse(
   props: QuestionResponseControlBodyProps<HotspotResponseFormat>,
 ): JSX.Element {
@@ -49,6 +97,15 @@ export function HotspotResponse(
     props.initialResponse?.kind === "hotspot" ? props.initialResponse.selections : [];
   const restoredIds = restored.map((selection) => selection.region);
   const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemReference>>(restoredIds);
+  const regions = (): ReadonlyArray<HotspotRegion> =>
+    "regions" in props.responseFormat
+      ? props.responseFormat.regions
+      : props.responseFormat.surface.regions;
+  const description = (): string =>
+    "description" in props.responseFormat
+      ? props.responseFormat.description
+      : props.responseFormat.surface.description;
+  const imageUrl = (): string | undefined => resolveHotspotImageUrl(props);
   let firstRegion!: HTMLInputElement;
   const selections = (): Array<StudentHotspotSelection> => selected().map((region) => ({ region }));
   const response = (): StudentResponse => ({ kind: "hotspot", selections: selections() });
@@ -79,7 +136,7 @@ export function HotspotResponse(
       kind: "hotspot",
       selections: next.map((region) => ({ region })),
     });
-    queueMicrotask(() => firstRegion.focus());
+    queueMicrotask(() => firstRegion?.focus());
   }
   return (
     <section
@@ -96,12 +153,65 @@ export function HotspotResponse(
       >
         <legend>Choose the labeled image region{required === 1 ? "" : "s"}</legend>
         <p class="keyboard-instructions" id={`${props.attemptId}-hotspot-help`}>
-          {"description" in props.responseFormat
-            ? props.responseFormat.description
-            : props.responseFormat.surface.description}
-          . Tab to a region and press Space to select it. This list is the primary no-mouse
-          alternative to selecting the image.
+          {description()}. Click or tap a region on the image, or Tab to a labeled region below and
+          press Space to select it.
         </p>
+        <Show
+          when={imageUrl()}
+          keyed
+          fallback={
+            <p class="field-help">The image is unavailable. Use the labeled regions below.</p>
+          }
+        >
+          {(url) => {
+            // Each exact image owns its readiness: replacement cannot reuse old load/error state.
+            const [imageFailed, setImageFailed] = createSignal(false);
+            const [imageLoaded, setImageLoaded] = createSignal(false);
+            return (
+              <>
+                <div class="hotspot-image-surface">
+                  <img
+                    src={url}
+                    alt={description()}
+                    draggable={false}
+                    onLoad={() => {
+                      if (imageUrl() !== url) return;
+                      setImageLoaded(true);
+                      setImageFailed(false);
+                    }}
+                    onError={() => {
+                      if (imageUrl() !== url) return;
+                      setImageLoaded(false);
+                      setImageFailed(true);
+                    }}
+                  />
+                  <Show when={imageLoaded() && !imageFailed()}>
+                    <For each={regions()}>
+                      {(region) => (
+                        <button
+                          type="button"
+                          class="hotspot-image-region"
+                          classList={{ selected: selected().includes(region.id) }}
+                          style={hotspotRegionStyle(region)}
+                          aria-label={textFromBlocks(region.label)}
+                          aria-pressed={selected().includes(region.id)}
+                          disabled={controller.locked()}
+                          tabIndex={-1}
+                          onClick={() => choose(region.id)}
+                        />
+                      )}
+                    </For>
+                  </Show>
+                </div>
+                <Show when={imageFailed()}>
+                  <p class="inline-error" role="alert">
+                    The image could not load. Use the labeled regions below.
+                  </p>
+                </Show>
+              </>
+            );
+          }}
+        </Show>
         {progress() === null ? null : (
           <p
             class="completion-progress"
@@ -113,13 +223,7 @@ export function HotspotResponse(
           </p>
         )}
         <div class="choice-list">
-          <For
-            each={
-              "regions" in props.responseFormat
-                ? props.responseFormat.regions
-                : props.responseFormat.surface.regions
-            }
-          >
+          <For each={regions()}>
             {(region, index) => (
               <label class="choice-card" classList={{ selected: selected().includes(region.id) }}>
                 <input

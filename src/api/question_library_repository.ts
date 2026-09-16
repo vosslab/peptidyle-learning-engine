@@ -9,6 +9,7 @@ import type { QuestionType } from "../../generated/api/QuestionType";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
 import { normalizeQuestionIdSyntax } from "../question_id";
+import { libraryClassificationFilter } from "./library_classification_filter";
 import type {
   QuestionLibraryBrowseQuery,
   QuestionLibraryBrowseRepository,
@@ -181,6 +182,7 @@ export function questionSearchRequest(
 ): QuestionSearchRequest {
   return {
     text: query.search === "" ? null : query.search,
+    ...libraryClassificationFilter(query),
     author_names: selectedPublicText(query.authorName),
     backends: selectedBackend(query.backend),
     tags: selectedPublicText(query.tag),

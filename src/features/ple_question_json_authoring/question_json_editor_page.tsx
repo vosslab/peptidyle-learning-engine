@@ -28,10 +28,12 @@ import { PLE_QUESTION_JSON_EDITOR_STYLES } from "./question_json_editor_styles";
 import { PleQuestionJsonMetadataFields } from "./question_json_metadata_fields";
 import { parseNumericLiteral } from "./question_json_numeric_model";
 import { pleQuestionJsonPublicPreview } from "./question_json_public_preview";
-import { PleQuestionJsonPreview } from "./question_json_preview";
+import { PleQuestionJsonPreview, type PleQuestionJsonPreviewProps } from "./question_json_preview";
 import { PleQuestionJsonResponseFields } from "./question_json_response_fields";
 import type { PleQuestionJsonEditorPageProps } from "./question_json_editor_types";
 import { PleQuestionJsonStaleConflictError } from "./question_json_repository";
+import { PleQuestionJsonConflictError } from "./question_json_client";
+import { setPleQuestionJsonHotspotAsset } from "./question_json_hotspot_model";
 import { PleQuestionGeneralFeedbackConflictError } from "./question_general_feedback_client";
 import type { PleQuestionJsonDocument, PleQuestionJsonOrderingItem } from "./question_json_source";
 import type { PleQuestionJsonInstructorAnswerCheck } from "./question_json_preview";
@@ -144,6 +146,19 @@ function hasLocalDraftChanges(state: PleQuestionJsonEditorState): boolean {
  * does not write Draft Question Content to URLs, browser storage, or diagnostics.
  */
 export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps): JSX.Element {
+  function hotspotDraftAsset(): PleQuestionJsonPreviewProps["hotspotDraftAsset"] {
+    const draftQuestion = props.draftQuestion;
+    const client = props.assetClient;
+    if (draftQuestion === undefined || client === undefined) return undefined;
+    return {
+      draftQuestion,
+      assetUrl: (asset) =>
+        new URL(
+          client.assetPreviewPath(draftQuestion, asset.questionAsset),
+          window.location.origin,
+        ),
+    };
+  }
   const [state, setState] = createSignal<PleQuestionJsonEditorState>(
     initialPleQuestionJsonEditorState(),
   );
@@ -157,6 +172,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const [publishedSummary, setPublishedSummary] = createSignal<QuestionSummary>();
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
+  const [assetUploading, setAssetUploading] = createSignal(false);
+  const [hotspotPending, setHotspotPending] = createSignal(false);
+  const [hotspotLiteralsValid, setHotspotLiteralsValid] = createSignal(true);
   const [generalFeedback, setGeneralFeedback] = createSignal<string | null>(
     props.initialGeneralFeedback.generalFeedback,
   );
@@ -220,6 +238,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     return (
       current.kind === "reloading" ||
       current.kind === "publishing" ||
+      assetUploading() ||
       generalFeedbackSaving() ||
       (current.kind === "ready" && current.status === "saving")
     );
@@ -233,6 +252,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       current.kind === "ready" &&
       current.status === "dirty" &&
       numericLiteralError() === undefined &&
+      !hotspotPending() &&
+      hotspotLiteralsValid() &&
+      !assetUploading() &&
       !hasUnsavedGeneralFeedback()
     );
   };
@@ -243,6 +265,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
         current.kind === "publishReview" ||
         current.kind === "publishing") &&
       numericLiteralError() === undefined &&
+      !hotspotPending() &&
+      hotspotLiteralsValid() &&
+      !assetUploading() &&
       !hasUnsavedGeneralFeedback()
     );
   };
@@ -259,7 +284,12 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   createEffect(() => {
     props.onDraftDisplayStateChange?.({
       revision: latestRevision(),
-      dirty: hasLocalDraftChanges(state()) || hasUnsavedGeneralFeedback(),
+      dirty:
+        hasLocalDraftChanges(state()) ||
+        hasUnsavedGeneralFeedback() ||
+        hotspotPending() ||
+        !hotspotLiteralsValid() ||
+        assetUploading(),
     });
   });
 
@@ -305,6 +335,40 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     applyEdit({ ...current, response: { ...current.response, answer } });
   }
 
+  async function uploadAsset(file: File, signal: AbortSignal): Promise<void> {
+    const client = props.assetClient;
+    if (client === undefined || isLocked()) {
+      setStatus("Image upload is unavailable. Your draft is unchanged.");
+      return;
+    }
+    setAssetUploading(true);
+    setStatus("Uploading private image...");
+    try {
+      const asset = await client.uploadAsset(props.draftQuestion, file, latestRevision(), signal);
+      if (signal.aborted) {
+        setStatus("Upload canceled. Your previous draft is unchanged.");
+        return;
+      }
+      setReview(null);
+      setShowInstructorCheck(false);
+      transition({ kind: "edit", source: setPleQuestionJsonHotspotAsset(currentSource(), asset) });
+      setStatus("Image uploaded. Edit the description and regions, then save before publishing.");
+    } catch (error: unknown) {
+      if (signal.aborted) {
+        setStatus("Upload canceled. Your previous draft is unchanged.");
+      } else if (error instanceof PleQuestionJsonConflictError) {
+        transition({ kind: "assetConflict" });
+        setStatus("A newer draft exists. Your local edits and previous image are retained.");
+      } else {
+        setStatus(
+          authorSafeMessage(error, "Image upload failed. Your previous draft is unchanged."),
+        );
+      }
+    } finally {
+      setAssetUploading(false);
+    }
+  }
+
   async function save(): Promise<void> {
     const current = source();
     if (current === null || !canSave() || isLocked()) return;
@@ -339,8 +403,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     }
   }
 
-  async function reload(): Promise<void> {
+  async function reload(preserveLocal = false): Promise<void> {
     if (!isConflict()) return;
+    const local = source();
     transition({ kind: "reloadStarted" });
     setStatus("Loading the newest private draft...");
     try {
@@ -355,7 +420,16 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       setReview(null);
       setShowInstructorCheck(false);
       transition({ kind: "reloadSucceeded", source: newest.source });
-      setStatus("Loaded the newest saved draft. Review it before editing.");
+      if (preserveLocal && local !== null) transition({ kind: "edit", source: local });
+      if (!preserveLocal) {
+        setHotspotPending(false);
+        setHotspotLiteralsValid(true);
+      }
+      setStatus(
+        preserveLocal
+          ? "Your local edits are restored over the newest saved draft. Review and save them before publishing."
+          : "Loaded the newest saved draft. Review it before editing.",
+      );
       queueMicrotask(() => heading?.focus());
     } catch (error: unknown) {
       const message = authorSafeMessage(error, "The newest draft could not load.");
@@ -438,7 +512,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   }
 
   async function publish(): Promise<void> {
-    if (state().kind !== "publishReview" || isLocked()) return;
+    if (state().kind !== "publishReview" || !isSaved() || isLocked()) return;
     const activeReview = review();
     if (activeReview === null || activeReview.revision !== latestRevision()) {
       setStatus("Refresh the publication review before publishing.");
@@ -542,8 +616,11 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       <Show when={isConflict()}>
         <section class="ple-question-json-authoring__error" role="alert">
           <p>A newer saved draft exists. Your local edits remain visible for comparison.</p>
+          <button type="button" class="primary-action" onClick={() => void reload(true)}>
+            Keep local edits and load newest edit number
+          </button>
           <button type="button" class="primary-action" onClick={() => void reload()}>
-            Reload newest draft
+            Discard local edits and reload newest draft
           </button>
         </section>
       </Show>
@@ -585,6 +662,15 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                 onMoveChoice={moveChoice}
                 onStatus={setStatus}
                 selectedKind={() => currentSource().response.kind}
+                onHotspotPendingChange={setHotspotPending}
+                hotspotPending={hotspotPending}
+                onHotspotLiteralValidityChange={setHotspotLiteralsValid}
+                onUpload={uploadAsset}
+                assetPreviewPath={(asset) =>
+                  asset === ""
+                    ? ""
+                    : (props.assetClient?.assetPreviewPath(props.draftQuestion, asset) ?? "")
+                }
               />
               <PleQuestionJsonHintField
                 value={currentSource().questionHint}
@@ -687,6 +773,7 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                   {(draft) => (
                     <PleQuestionJsonPreview
                       preview={pleQuestionJsonPublicPreview(draft)}
+                      hotspotDraftAsset={hotspotDraftAsset()}
                       validator={props.responseValidator}
                       instructorAnswerCheck={
                         showInstructorCheck() && isSaved()
@@ -800,7 +887,12 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                       <button
                         type="button"
                         class="primary-action"
-                        disabled={isLocked() || disciplineUuid() === null || subjectUuid() === null}
+                        disabled={
+                          !isSaved() ||
+                          isLocked() ||
+                          disciplineUuid() === null ||
+                          subjectUuid() === null
+                        }
                         onClick={() => void publish()}
                       >
                         Confirm and publish

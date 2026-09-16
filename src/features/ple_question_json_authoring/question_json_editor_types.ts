@@ -3,7 +3,7 @@
 import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import type { WasmFacade } from "../../wasm/index";
 import type { ContentClassificationClient } from "../../api/content_classification";
-import type { PleQuestionJsonRead } from "./question_json_client";
+import type { PleQuestionJsonRead, PleQuestionJsonClient } from "./question_json_client";
 import type {
   PleQuestionGeneralFeedbackClient,
   PleQuestionGeneralFeedbackRead,
@@ -42,6 +42,7 @@ export interface PleQuestionJsonEditorPageProps {
   readonly initialGeneralFeedback: PleQuestionGeneralFeedbackRead;
   readonly generalFeedbackClient: PleQuestionGeneralFeedbackClient;
   readonly repository: PleQuestionJsonRepository;
+  readonly assetClient?: Pick<PleQuestionJsonClient, "uploadAsset" | "assetPreviewPath">;
   readonly classificationClient: ContentClassificationClient;
   /** Injected browser-safe validator keeps preview on the same student QuestionResponseControl path. */
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;

@@ -66,8 +66,10 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows = sqlx::query(
-            "SELECT q.*, s.name AS subject_name, t.name AS topic_name \
+            "SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, st.name AS subtopic_name \
              FROM ple_api.list_question_library_entries() q \
+             JOIN LATERAL ple_api.list_content_disciplines() d ON d.discipline_uuid = q.discipline_uuid \
+             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.topic_uuid) st ON st.subtopic_uuid = q.subtopic_uuid \
              JOIN LATERAL ple_api.list_content_subjects(q.discipline_uuid) s ON s.subject_uuid = q.subject_uuid \
              LEFT JOIN LATERAL ple_api.list_content_topics(q.subject_uuid) t ON t.topic_uuid = q.topic_uuid \
              WHERE q.availability = 'available'",
@@ -92,8 +94,10 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query(
-            "SELECT q.*, s.name AS subject_name, t.name AS topic_name \
+            "SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, st.name AS subtopic_name \
              FROM ple_api.list_question_library_entries() q \
+             JOIN LATERAL ple_api.list_content_disciplines() d ON d.discipline_uuid = q.discipline_uuid \
+             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.topic_uuid) st ON st.subtopic_uuid = q.subtopic_uuid \
              JOIN LATERAL ple_api.list_content_subjects(q.discipline_uuid) s ON s.subject_uuid = q.subject_uuid \
              LEFT JOIN LATERAL ple_api.list_content_topics(q.subject_uuid) t ON t.topic_uuid = q.topic_uuid \
              WHERE q.question_id = $1 AND q.availability = 'available'",
@@ -122,8 +126,10 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         // This projection resolves an existing immutable pin. Unlike ordinary
         // library discovery, its result intentionally remains available after
         // the Question lineage is archived.
-        let row = sqlx::query("SELECT q.*, s.name AS subject_name, t.name AS topic_name \
+        let row = sqlx::query("SELECT q.*, s.name AS subject_name, t.name AS topic_name, d.name AS discipline_name, st.name AS subtopic_name \
              FROM ple_api.load_question_library_revision($1, $2) q \
+             JOIN LATERAL ple_api.list_content_disciplines() d ON d.discipline_uuid = q.discipline_uuid \
+             LEFT JOIN LATERAL ple_api.list_content_subtopics(q.topic_uuid) st ON st.subtopic_uuid = q.subtopic_uuid \
              JOIN LATERAL ple_api.list_content_subjects(q.discipline_uuid) s ON s.subject_uuid = q.subject_uuid \
              LEFT JOIN LATERAL ple_api.list_content_topics(q.subject_uuid) t ON t.topic_uuid = q.topic_uuid")
             .bind(question_revision.question_id.as_compact_str())
@@ -325,6 +331,8 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
             .try_get("question_description")
             .map_err(map_sqlx_error)?,
         shared_metadata,
+        discipline_name: row.try_get("discipline_name").map_err(map_sqlx_error)?,
+        subtopic_name: row.try_get("subtopic_name").map_err(map_sqlx_error)?,
         subject_name: row.try_get("subject_name").map_err(map_sqlx_error)?,
         topic_name: row.try_get("topic_name").map_err(map_sqlx_error)?,
         used_in_current_account_courses: row

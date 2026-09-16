@@ -7,6 +7,7 @@ import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPo
 import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import "./question_pool_picker.css";
+import { CourseClassificationSummary } from "../../components/course_classification_summary";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 
@@ -24,7 +25,7 @@ export interface QuestionPoolPickerProps {
 
 function poolLabel(summary: QuestionPoolLibrarySummary): string {
   const revision = summary.questionPoolRevision;
-  return `${revision.questionPoolId}, Revision ${revision.revisionNumber}`;
+  return `${summary.metadata.title} (${revision.questionPoolId}, Revision ${revision.revisionNumber})`;
 }
 
 /** One dialog that selects a published Pool lineage and previews its current exact Revision. */
@@ -157,8 +158,8 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
           <p class="eyebrow">Question Pool selection</p>
           <h2 id="question-pool-picker-heading">Choose a published Question Pool</h2>
           <p id="question-pool-picker-instructions">
-            Select an existing Pool by its public ID. Saving the Blueprint records the exact Pool
-            Revision resolved by the server.
+            Select an existing Pool by its Title and inspect its Description. Saving the Blueprint
+            records the exact Pool Revision resolved by the server.
           </p>
         </div>
         <button class="quiet-action" type="button" onClick={cancel}>
@@ -201,9 +202,11 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
                           onInput={() => void selectPool(item)}
                         />
                         <span>
-                          <strong>{item.questionPoolRevision.questionPoolId}</strong>
+                          <strong>{item.metadata.title}</strong>
+                          <small>{item.metadata.description}</small>
                           <small>
-                            Revision {item.questionPoolRevision.revisionNumber}; {item.memberCount}{" "}
+                            {item.questionPoolRevision.questionPoolId}, Revision{" "}
+                            {item.questionPoolRevision.revisionNumber}; {item.memberCount}{" "}
                             {item.memberCount === 1 ? "member" : "members"}
                           </small>
                         </span>
@@ -242,6 +245,9 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
                   </button>
                 </Match>
                 <Match when={detail() !== undefined}>
+                  <h4>{detail()!.metadata.title}</h4>
+                  <p>{detail()!.metadata.description}</p>
+                  <CourseClassificationSummary value={detail()!.metadata} />
                   <ol class="question-pool-picker-members">
                     <For each={detail()?.members ?? []}>
                       {(member) => (

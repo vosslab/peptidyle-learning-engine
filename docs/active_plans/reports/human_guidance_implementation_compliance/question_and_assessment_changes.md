@@ -1,12 +1,61 @@
 # Question And Assessment Changes
 
-## Current heading reconciliation
+## Current connected acceptance
 
-Current verbatim Human Guidance coverage is 998 bullets: 449 verified, 499 open
-(490 owning), and 50 N/A, at SHA256
-`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
+Root's canonical build session 51649 terminally exited 0 and reached `Ready` at
+`https://localhost:8147/sign-in`, including Pool metadata and the classification-selector fix.
+Root-supplied `/private/tmp/ple-pool-metadata-connected-report.md` records ordinary Elena login,
+required Title/Description denials, mixed-Subject `422` with unchanged public list, exact ordered
+pins and independent list/current metadata, Student/anonymous concealed `404`, and actual Library
+UI denied-create draft preservation, picker reselection, and successful creation. Browser errors
+were empty. Current Revision 1 is proved; no historical Pool HTTP endpoint or journey is claimed.
+Accepted actual-role SQL/concurrency and independently reviewed source remain complementary proof.
+
+Root's no-workaround script `/private/tmp/ple-course-classification-no-workaround-20260916.mjs`
+(session 85118, exit 0) uses normal Elena login and ordinary Course/Blueprint creation/editors:
+saved Biology hydrates without reselection, Tags-only saves pass, both unsaved Blueprint names
+survive, and browser errors are empty. Earlier broader Course browser proof remains historical
+and explicitly used a reselection workaround; its independent-metadata/adoption evidence is not
+represented as a newly rerun journey.
+
+Nine narrow owning rows now close: four independent Pool metadata/Title/Description/first-member/
+nonduplicated-metadata obligations and five Course-wide/exactly-one-Discipline/optional-hierarchy/
+Tags/Instance-independence obligations. Current generated inventory has 996 occurrences: 450
+verified, 503 open, and 43 N/A. The excluded How-to-use and Product vocabulary/glossary metadata
+subtrees remain Human Guidance interpretation authority, not implementation-checklist items. Broad
+shared classification, discovery, additional-member connected append, attribution, support-content,
+Bloom, and Student delivery obligations remain open. No blanket Pool/Course closure.
+
+HOTSPOT now has a reviewed raster-first implementation: owner/CAS Draft upload and source binding,
+publication preparation, numeric region authoring, and a PLE-owned Student image pointer/keyboard
+control. Root `cargo check -p server_core -p project-tools --tests` session 32160 passed in 2.77
+seconds; root full pytest session 36235 passed 7,462 tests in 5.62 seconds; and `npx tsc --noEmit`
+session 35906 passed. The 353-test Node receipt predates the final geometry/readiness fixes, though
+their focused checks passed independently. Fresh canonical PostgreSQL 17 install and the isolated
+actual-role `ple_auth`/`ple_app` proof passed after the helper correction, with genuine changed
+successor source and exact `PQR01` stale handling. The isolated actual-component dot proof then
+passed at 1280 and 390 pixels: intrinsic geometry, pointer and keyboard selection, clear and
+fresh-mount restoration, saving lock, and image-replacement readiness/error reset. This is
+rendered component evidence, not connected acceptance: `8147` remains pre-HOTSPOT; normal
+author/save/publish, worker Pending-to-Ready activation, Student grading, connected delivery, and
+published screenshot-corpus proof remain unproved. SVG remains unimplemented; its repository
+fixtures are not SVG ingestion support. Receipt: `/private/tmp/ple-hotspot-isolated-dot-render-proof.md`.
+The corrected screenshot scenario heading did not authorize author/publish/release activity, so no
+browser rerun or PNG was published. New live support TLS acceptance also remains pending.
+
+## Historical heading reconciliation
+
+Pre-build cleanup receipt: root executed exactly `podman image prune -a -f`; image usage fell
+from 36.84 GB to 2.712 GB, with no containers or volumes removed. Source now invokes that exact
+command once before each complete managed image-build cycle, under its checkout lease, and
+blocks the cycle on failure. `/private/tmp/ple-simple-prebuild-prune.md` records 78 focused
+passing checks. Canonical runtime rebuild acceptance remains pending.
+
+Historical reconciliation snapshot before the metadata exclusion had 1,038 occurrences: 441
+verified, 547 open, and 50 N/A, at SHA256
+`950d2712abc154e9d7591983aeaed7bb696a0c7b60a49b8d28518d59bdfad191`.
 The generated checklist owns occurrence status and current first-owner pointers. All nine part
-gates, identity diff, and consistency pass for this snapshot. Unchanged scoring, timing,
+gates, identity diff, and consistency passed for that snapshot. Unchanged scoring, timing,
 Blueprint, terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains
 unfinished; these gates establish inventory fidelity, not acceptance of the open requirements.
 
@@ -21,6 +70,27 @@ and a Subject associated with one or more Sysadmin-managed Disciplines. The prio
 four-table foundation receipt does not satisfy this latest association shape or establish commands,
 normalization, content attachments, hierarchical selection, or discovery. Those gaps remain open.
 KISS/design constraints are audited N/A where not independently closable, but still bind reviews.
+The older 998-bullet statements below are historical provenance, not current counts.
+
+Current Pool evidence is bounded. SQL, Rust, API, and browser metadata source work is complete,
+but is not in running `8075`; HTTP/browser acceptance remains pending. Fresh PostgreSQL 17
+installation through `ple_migrator`, `/private/tmp/ple-pool-metadata-proof.sql`, and
+`/private/tmp/ple-pool-concurrency-proof.py` passed their stated installation, role/rollback,
+concurrent-wait, and dual-commit cases. Actual `ple_app` metadata accepted 65 Tags; SQL and Rust
+removed the arbitrary 64-Tag cap while retaining per-Tag bounds. SQL, final Rust/API, and browser
+re-reviews passed. This does not close Pool creation, selection, delivery, HTTP, browser, or any
+checklist row.
+
+The 75-entry screenshot manifest has no published PNG. HOTSPOT raster asset ingest, authoring,
+publication preparation, and Student control source now exist; isolated actual-component rendering
+passes at 1280 and 390 pixels, but connected authoring/publication/Ready delivery, Student grading,
+and screenshot-corpus proof remain absent. SVG remains an implementation gap, not a product-decision
+blocker; fixture SVGs do not establish SVG ingestion support. The later frozen-source full support
+`--issue` run (session 38897) terminally exited 0 after current Course-fixture and ordinary Morgan
+MFA repairs. This accepts only
+the stated exact-Student-scope authority, unsupported-class denial, concealment, and revocation
+prerequisite; it does not close all-resource support, rebuilt Pool, browser, or global HG
+acceptance.
 
 Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
 no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct

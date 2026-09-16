@@ -18,6 +18,7 @@ import type {
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
+import { decodeQuestionPoolText } from "../decoders/question_pool_library";
 
 const CREATE_QUESTION_POOL_PATH = "/api/question-pools";
 
@@ -73,6 +74,8 @@ export function createQuestionPoolCreationClient(
 ): Pick<ApiClient, keyof QuestionPoolCreationClient> {
   return {
     createQuestionPool: async (input): Promise<CreatedQuestionPool> => {
+      const title = decodeQuestionPoolText(input.title, "request.title", 512);
+      const description = decodeQuestionPoolText(input.description, "request.description", 4000);
       const members = requestMembers(input);
       const response = await requestSameOrigin(
         fetchImplementation,
@@ -80,7 +83,7 @@ export function createQuestionPoolCreationClient(
         CREATE_QUESTION_POOL_PATH,
         {
           method: "POST",
-          body: { members, interchangeabilityAttested: true },
+          body: { title, description, members, interchangeabilityAttested: true },
         },
       );
       requireNoStore(response, CREATE_QUESTION_POOL_PATH);

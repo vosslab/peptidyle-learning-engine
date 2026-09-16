@@ -6,16 +6,38 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentEntryId, QuestionPoolLibrarySummary, QuestionPoolRevisionReference,
-    QuestionRevisionReference,
+    AssessmentEntryId, QuestionPoolLibrarySummary, QuestionPoolMetadata,
+    QuestionPoolRevisionReference, QuestionRevisionReference,
 };
 use uuid::Uuid;
 
 use crate::{Page, PageRequest, SessionTokenHash, StoreError};
 
+/// Identity predicates against current Pool-owned lineage metadata.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct QuestionPoolDiscoveryFilter {
+    pub discipline_uuid: Option<Uuid>,
+    pub subject_uuid: Option<Uuid>,
+    pub topic_uuid: Option<Uuid>,
+    pub subtopic_uuid: Option<Uuid>,
+    pub cross_discipline: bool,
+}
+
+impl QuestionPoolDiscoveryFilter {
+    /// Rejects skipped hierarchy levels and unanchored cross-Discipline searches.
+    pub fn has_valid_structure(&self) -> bool {
+        (self.subject_uuid.is_none() || self.discipline_uuid.is_some())
+            && (self.topic_uuid.is_none() || self.subject_uuid.is_some())
+            && (self.subtopic_uuid.is_none() || self.topic_uuid.is_some())
+            && (!self.cross_discipline
+                || (self.discipline_uuid.is_some() && self.subject_uuid.is_some()))
+    }
+}
+
 /// Exact immutable Pool content before answer-free Question projection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublishedQuestionPoolRevision {
+    pub metadata: QuestionPoolMetadata,
     pub question_pool_revision: QuestionPoolRevisionReference,
     pub members: Vec<QuestionRevisionReference>,
 }
@@ -23,6 +45,7 @@ pub struct PublishedQuestionPoolRevision {
 /// Assessment-owned exact fork facts before answer-free Question projection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssessmentQuestionPoolForkRecord {
+    pub metadata: QuestionPoolMetadata,
     pub assessment_entry_id: AssessmentEntryId,
     pub question_pool_revision: QuestionPoolRevisionReference,
     pub pool_metadata_etag: Uuid,
@@ -39,6 +62,7 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         page: PageRequest,
+        filter: QuestionPoolDiscoveryFilter,
     ) -> Result<Page<QuestionPoolLibrarySummary>, StoreError>;
 
     /// Resolves the current Revision of one published Pool lineage.
@@ -64,4 +88,49 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
         assessment: question_model::AssessmentReference,
         assessment_entry: AssessmentEntryId,
     ) -> Result<AssessmentQuestionPoolForkRecord, StoreError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn discovery_requires_an_unbroken_hierarchy_and_anchored_cross_discipline() {
+        let id = Some(Uuid::from_u128(1));
+        for filter in [
+            QuestionPoolDiscoveryFilter {
+                subject_uuid: id,
+                ..Default::default()
+            },
+            QuestionPoolDiscoveryFilter {
+                discipline_uuid: id,
+                topic_uuid: id,
+                ..Default::default()
+            },
+            QuestionPoolDiscoveryFilter {
+                discipline_uuid: id,
+                subject_uuid: id,
+                subtopic_uuid: id,
+                ..Default::default()
+            },
+            QuestionPoolDiscoveryFilter {
+                discipline_uuid: id,
+                cross_discipline: true,
+                ..Default::default()
+            },
+        ] {
+            assert!(!filter.has_valid_structure());
+        }
+        assert!(QuestionPoolDiscoveryFilter::default().has_valid_structure());
+        assert!(
+            QuestionPoolDiscoveryFilter {
+                discipline_uuid: id,
+                subject_uuid: id,
+                topic_uuid: id,
+                subtopic_uuid: id,
+                cross_discipline: true,
+            }
+            .has_valid_structure()
+        );
+    }
 }

@@ -38,6 +38,8 @@ pub struct PublishedQuestionLibraryEntry {
     /// Vocabulary-resolved names used by existing human-readable search facets.
     pub subject_name: String,
     pub topic_name: Option<String>,
+    pub discipline_name: String,
+    pub subtopic_name: Option<String>,
     /// Whether a current available entry in one of the viewer's Courses uses
     /// this stable Question lineage.
     pub used_in_current_account_courses: bool,

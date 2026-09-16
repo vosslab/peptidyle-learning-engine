@@ -50,6 +50,7 @@ CREATE TABLE ple_data.blueprint_course (
     -- Archived remains readable by exact historical Revision reference only.
     availability text NOT NULL DEFAULT 'private'
         CHECK (availability IN ('private', 'public', 'archived')),
+    promoted boolean NOT NULL DEFAULT false,
     metadata_etag uuid NOT NULL,
     current_blueprint_revision_number bigint NOT NULL DEFAULT 1
         CHECK (current_blueprint_revision_number > 0),

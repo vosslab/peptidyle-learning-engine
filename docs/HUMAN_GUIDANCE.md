@@ -267,7 +267,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   backgrounds. Use theme colors as accents on surfaces with readable contrast.
 - Check text, controls, borders, and interaction states against their actual rendered backgrounds.
 - Apply the contrast requirements for text, controls, and other semantic uses in
-  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md)
+  [BIOME_THEME_PALETTES.md](/docs/BIOME_THEME_PALETTES.md)
   to rendered components in both light and dark themes, including gradients and state backgrounds.
 - Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain
   recognizable across themes and color-vision differences.

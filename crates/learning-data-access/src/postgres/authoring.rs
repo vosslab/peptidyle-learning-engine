@@ -176,7 +176,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         sqlx::query(
-            "SELECT ple_api.save_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)",
+            "SELECT ple_api.save_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
         )
         .bind(i64::from(input.reference.number()))
         .bind(input.expected_edit_number.as_postgres_bigint())
@@ -190,6 +190,8 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         .bind(&input.description)
         .bind(&input.language)
         .bind(question_type_wire(input.question_type)?)
+        .bind(input.hotspot_surface.as_ref().map(|surface| surface.question_asset.as_uuid()))
+        .bind(input.hotspot_surface.as_ref().map(|surface| surface.checksum.as_str()))
         .execute(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;

@@ -63,7 +63,9 @@ export function blueprintLifecyclePresentation(
       meaning:
         "Instructors can browse and adopt this Blueprint Course. Its current Revision is reusable.",
       canAdopt: true,
-      canEdit: false,
+      // ASVS 8.2.2: Per-Blueprint owner access controls this edit affordance; the server
+      // independently authorizes every mutation.
+      canEdit: owner,
       canPublish: false,
       canArchive: owner,
       canRestore: false,

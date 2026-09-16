@@ -60,15 +60,19 @@
 - [x] **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
 - [ ] **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` supplies the existing Public-only search workflow; the current source adds optional submitted classification filters without changing its result or lifecycle scope.
+  - Verification pending: source, isolated actual-role SQL, and actual-component evidence are accepted at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; live `8147` predates this source, so connected HTTP/browser and real authorization acceptance remain pending.
 - [ ] Public Blueprint Course search should combine ordinary text search with shared classification
   filters beginning with Discipline and following Discipline -> Subject -> Topic -> Subtopic.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_classification.tsx` composes the read-only shared selector; `src/api/http_client/blueprint_course.ts` validates and encodes optional UUID filters; `crates/server/src/blueprint_course/list.rs` and `schemas/base_schema/blueprint_operations.sql` validate and apply the hierarchy.
+  - Verification pending: isolated SQL and actual-component proof are accepted at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; connected current-source HTTP/browser proof remains pending.
 - [ ] Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_classification.tsx` `BlueprintCourseSearchClassification` loads Subjects against the selected Discipline and clears dependent draft state; the service independently rejects a supplied Subject outside the selected Discipline.
+  - Verification pending: the accepted isolated proof is named at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; real vocabulary-parent and connected-browser acceptance remain pending.
 - [ ] After selecting a Subject, Instructors should have an explicit option to include Blueprint Courses
   associated with that Subject across its other Disciplines.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_classification.tsx` `BlueprintCourseSearchClassification` exposes `Include this Subject across Disciplines` only after Subject selection; the server relaxes only Course Discipline equality while retaining Subject/Topic/Subtopic equality.
+  - Verification pending: isolated SQL/component evidence is accepted at `/private/tmp/ple-classification-search-pool-receipt-20260916.md`; connected current-source acceptance remains pending.
 - [ ] Tags should provide additional filters outside the hierarchy.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Search results should use a compact, information-rich layout that supports scanning and comparison.
@@ -365,4 +369,4 @@
 - [ ] Archive actions should explain the effect on shared availability and require a clear confirmation.
   - Mismatch: `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `Archive Blueprint Course` explains removal from new selection and requires the long name, but no current Archive Published Question interface provides the corresponding explanation and confirmation; `src/api/question_availability.ts` `archiveQuestion` is only a browser transport contract.
 - [x] Restore actions should use ordinary availability controls.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `restore` is presented under Course names and availability rather than the archive confirmation control.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `BlueprintCourseLifecycleControls` presents Restore alongside ordinary availability actions, without the Archive name-confirmation input; `src/features/blueprint_course/blueprint_course_detail_workspace.tsx` `restore` performs the existing authorized availability change.

@@ -339,17 +339,31 @@ def start_lifecycle(
 	repo_root: pathlib.Path,
 	options: LifecycleOptions,
 ) -> LifecycleResult:
-	"""Start one selected stack in durable dependency order without reparsing CLI input."""
+	"""Serialize cleanup, every image build, and container attachment as one cycle."""
 	selected = target_of(target)
 	require_lifecycle_inputs(selected, repo_root, options)
 	require_disposable_ownership(target)
 	bootstrap_default_state(target, runner)
+	with local_stack_control.image_cleanup.image_build_lease(repo_root):
+		return _start_lifecycle(target, runner, repo_root, options)
+
+
+#============================================
+def _start_lifecycle(
+	target: local_stack_control.models.ComposeTarget | local_stack_control.models.DisposableComposeTarget,
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	options: LifecycleOptions,
+) -> LifecycleResult:
+	"""Start one selected stack in durable dependency order without reparsing CLI input."""
+	selected = target_of(target)
 	local_stack_control.env_file.require_mutation_env_file(selected.env_file)
 	values = validate_static(selected)
 	local_stack_control.lifecycle_validation.require_mutation_engine(runner, repo_root, True)
 	validate_compose(selected, runner, repo_root)
 	environment = child_environment(selected)
 	build_artifacts(runner, repo_root, options)
+	local_stack_control.image_cleanup.remove_obsolete_images_before_build(runner, repo_root)
 	if options.build:
 		# `api` owns the shared application image.  Rebuild it before any
 		# application service starts so the selected stack cannot reuse a stale
@@ -412,8 +426,6 @@ def start_lifecycle(
 		)
 	if retains_live_demo_persona_configuration(target, options):
 		provision_local_sysadmin_totp(target, runner)
-	if local_stack_control.lifecycle_profiles.is_default_target(selected):
-		local_stack_control.image_cleanup.prune_superseded_images(runner, repo_root)
 	if options.open_browser:
 		open_browser(runner, repo_root, gateway_url)
 	return LifecycleResult(selected.project, gateway_url, oci_id)

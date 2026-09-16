@@ -22,5 +22,9 @@ export const PLE_QUESTION_JSON_EDITOR_STYLES = `
 .ple-question-json-authoring__preview h3, .ple-question-json-authoring__preview h4 { margin-top:0; }
 .ple-question-json-authoring__preview-choice { display:flex; gap:.4rem; align-items:flex-start; min-height:var(--ple-control-min-height,2.25rem); margin:0; padding:.35rem 0; border:0; border-bottom:1px solid var(--ple-border); border-radius:0; }
 .ple-question-json-authoring__instructor-check { margin-top:.85rem; padding-top:.85rem; border-top:1px solid var(--ple-border); }
+.ple-question-json-hotspot__image { position:relative; width:100%; overflow:hidden; }
+.ple-question-json-hotspot__image img { display:block; width:100%; height:auto; image-orientation:from-image; }
+.ple-question-json-hotspot__rectangle { position:absolute; box-sizing:border-box; border:2px solid white; outline:2px solid black; color:white; text-shadow:0 1px 2px black,1px 0 2px black; font-weight:800; pointer-events:none; }
+.ple-question-json-hotspot__coordinates { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,8rem),1fr)); gap:.5rem; }
 @media (max-width: 42rem) { .ple-question-json-authoring__grid { grid-template-columns:1fr; } .ple-question-json-authoring__choice-header { align-items:flex-start; } }
 `;

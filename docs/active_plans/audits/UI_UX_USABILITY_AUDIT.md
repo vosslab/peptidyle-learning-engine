@@ -162,6 +162,15 @@ coverage gaps. Screenshots establish presentation; interaction receipts establis
   separate each Question's submission status, result, points, response, and feedback with repeated gaps.
 - Acceptance: group each reviewed response and its permitted result information into a compact,
   clearly separated unit. Verify feedback disclosure follows Coursework settings.
+- Receipt (2026-09-16): the accepted bounded implementation groups submitted Student history into
+  compact, separated Question units with wrapping submission/result/points metadata and a labeled
+  recorded response. Isolated actual-component browser proof at 1280 and 390 preserves permitted
+  result information, withholds protected grade and teaching fields, contains long prose and code,
+  retains Unanswered, and preserves keyboard Return access without document overflow. The source
+  review accepts the unchanged server-projected disclosure conditions. This is not deployed demo
+  `8147`, connected authorization or Coursework-settings acceptance, or global Human Guidance
+  closure. Receipts: `/private/tmp/ple-parallel-review-density-20260916.md` and
+  `/private/tmp/ple-parallel-summary-density-review-20260916.md`.
 
 ## Color evidence limitation
 
@@ -328,6 +337,13 @@ while correcting its presentation.
 - Acceptance: keep selected Questions, selection order, and the next action easy to find. Give
   Pool review its own clear task identity and briefly explain the interchangeability requirement.
   Preserve search/filter access and verify selection persistence, inspection, and keyboard flow.
+- Source corrected: review/create now has a focused primary Pool heading, compact ordered selection
+  and metadata, an educational interchangeability explanation, and no competing Library chrome.
+  The existing picker remains the search/filter access. Isolated actual-component plus parent-host
+  proof at 1280px verifies focus, ordered selection, Title/Description retention, required-label
+  widths, and no horizontal overflow; it is not an authenticated full `LibraryPage` mount.
+  Connected browser verification of selection persistence, inspection, and keyboard flow remains
+  pending. Receipt: `/private/tmp/ple-classification-search-pool-receipt-20260916.md`.
 
 ### I10: Blueprint state and availability messaging need reconciliation
 

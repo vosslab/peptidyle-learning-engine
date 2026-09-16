@@ -24,6 +24,15 @@ export type BlueprintRevisionEtag = string;
 export type BlueprintMetadataEtag = string;
 export type BlueprintIdempotencyKey = string;
 
+/** Optional identity-based discovery restrictions; Discipline remains the browsing anchor. */
+export interface BlueprintCourseClassificationSearch {
+  readonly disciplineUuid: string | null;
+  readonly subjectUuid: string | null;
+  readonly topicUuid: string | null;
+  readonly subtopicUuid: string | null;
+  readonly crossDiscipline: boolean;
+}
+
 export interface LoadedBlueprintCourse {
   readonly blueprintCourse: BlueprintCourseView;
   /** Strong validator for the exact current Blueprint Revision. */
@@ -76,6 +85,8 @@ export interface BlueprintCourseClient {
     includeArchived?: boolean,
     query?: string,
     publicOnly?: boolean,
+    promotedOnly?: boolean,
+    classification?: BlueprintCourseClassificationSearch,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
   readonly getBlueprintCourse: (
     reference: BlueprintCourseReference,

@@ -1,6 +1,11 @@
 // question_response_control_styles.ts - styles loaded only by the Question Response Control dispatcher.
 
 export const QUESTION_RESPONSE_CONTROL_STYLES = `
+  .question-response-control .hotspot-image-surface { position: relative; width: 100%; max-width: 48rem; }
+  .question-response-control .hotspot-image-surface img { display: block; width: 100%; height: auto; }
+  .question-response-control .hotspot-image-region { position: absolute; box-sizing: border-box; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 2px solid transparent; border-radius: 0; background: transparent; cursor: pointer; }
+  .question-response-control .hotspot-image-region.selected { border-color: white; outline: 2px solid black; outline-offset: 0; box-shadow: inset 0 0 0 2px black; }
+  .question-response-control .hotspot-image-region:disabled { cursor: default; }
   .question-response-control { display: grid; gap: var(--ple-space-2, 0.5rem); }
   .question-response-control fieldset { display: grid; gap: 0.15rem; min-width: 0; border: 0; margin: 0; padding: 0; }
   .question-response-control legend { padding: 0; font-size: 1rem; font-weight: 720; }

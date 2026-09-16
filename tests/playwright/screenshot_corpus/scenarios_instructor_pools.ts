@@ -35,7 +35,7 @@ async function instructorPools(runtime: ScenarioRuntime): Promise<void> {
     await results.getByRole("checkbox").nth(1).check();
     await page.getByRole("button", { name: "Review selected Questions", exact: true }).click();
     await page
-      .getByRole("heading", { level: 2, name: "Create Question Pool", exact: true })
+      .getByRole("heading", { level: 1, name: "Create Question Pool", exact: true })
       .waitFor();
     await runtime.capture(session, runtime.record(scenario, "pool_creation_review"));
   } finally {

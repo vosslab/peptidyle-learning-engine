@@ -248,7 +248,8 @@ pub use crate::question_library::{
 pub use crate::question_license::QuestionLicense;
 pub use crate::question_pool_library::{
     AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
-    QuestionPoolLibrarySummary, QuestionPoolRevisionMemberView, QuestionPoolRevisionView,
+    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolRevisionMemberView,
+    QuestionPoolRevisionView,
 };
 pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,

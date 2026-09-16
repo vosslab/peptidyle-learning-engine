@@ -34,7 +34,12 @@ export function ContentClassificationSelect(props: {
       >
         <option value="">{items.loading ? "Loading..." : `Select ${props.label}`}</option>
         <For each={items.error ? [] : items()}>
-          {(item) => <option value={item.uuid}>{item.name}</option>}
+          {(item) => (
+            // Apply the current UUID when async choices arrive, even if it has not changed.
+            <option value={item.uuid} selected={props.value === item.uuid}>
+              {item.name}
+            </option>
+          )}
         </For>
       </select>
       <Show when={Boolean(items.error)}>

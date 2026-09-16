@@ -6,6 +6,8 @@ use super::ResolvedQuestionLibraryEntry;
 
 #[derive(Clone, Copy)]
 enum SearchField {
+    Discipline,
+    Subtopic,
     Subject,
     Topic,
     Tags,
@@ -56,6 +58,10 @@ impl SearchTerm {
             return false;
         }
         let found = match self.field {
+            Some(SearchField::Discipline) => {
+                optional_value_contains(&entry.discipline, &self.value)
+            }
+            Some(SearchField::Subtopic) => optional_value_contains(&entry.subtopic, &self.value),
             Some(SearchField::Subject) => optional_value_contains(&entry.subject, &self.value),
             Some(SearchField::Topic) => optional_value_contains(&entry.topic, &self.value),
             Some(SearchField::Tags) => entry
@@ -135,6 +141,8 @@ fn field_prefix(text: &str, cursor: usize) -> (Option<SearchField>, usize) {
         return (None, cursor);
     }
     let field = match &remainder[..prefix_end] {
+        "discipline" => SearchField::Discipline,
+        "subtopic" => SearchField::Subtopic,
         "subject" => SearchField::Subject,
         "topic" => SearchField::Topic,
         "tags" => SearchField::Tags,

@@ -149,6 +149,12 @@ async fn matching_blueprint(
                     query: String::new(),
                     include_archived: true,
                     public_only: false,
+                    promoted_only: false,
+                    discipline_uuid: None,
+                    subject_uuid: None,
+                    topic_uuid: None,
+                    subtopic_uuid: None,
+                    cross_discipline: false,
                 },
             )
             .await

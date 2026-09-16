@@ -69,6 +69,48 @@ test("Question Hint editing remains separate from outcome feedback", () => {
   assert.equal(setQuestionHint(withHint, null).questionHint, null);
 });
 
+test("a stale image upload keeps the exact local draft and can recover against a new saved baseline", () => {
+  const initial = source();
+  const local = setPleQuestionJsonQuestionTitle(initial, "Local dot question");
+  const loaded = reducePleQuestionJsonEditor(initialPleQuestionJsonEditorState(), {
+    kind: "loaded",
+    source: initial,
+  });
+  const dirty = reducePleQuestionJsonEditor(loaded, { kind: "edit", source: local });
+  const conflict = reducePleQuestionJsonEditor(dirty, { kind: "assetConflict" });
+  assert.equal(conflict.kind, "conflict");
+  assert.equal(conflict.localSource, local);
+  const latest = setPleQuestionJsonQuestionTitle(initial, "Other Instructor edit");
+  const reloading = reducePleQuestionJsonEditor(conflict, { kind: "reloadStarted" });
+  const recovered = reducePleQuestionJsonEditor(
+    reducePleQuestionJsonEditor(reloading, { kind: "reloadSucceeded", source: latest }),
+    { kind: "edit", source: local },
+  );
+  assert.equal(recovered.kind, "ready");
+  assert.equal(recovered.status, "dirty");
+  assert.equal(recovered.source, local);
+  assert.equal(recovered.savedSource, latest);
+});
+
+test("a stale image upload during publication review clears the stale review and retains local source for recovery", () => {
+  const local = source();
+  const loaded = reducePleQuestionJsonEditor(initialPleQuestionJsonEditorState(), {
+    kind: "loaded",
+    source: local,
+  });
+  const review = reducePleQuestionJsonEditor(loaded, {
+    kind: "reviewOpened",
+    review: "Saved content ready for publication",
+  });
+  assert.equal(review.kind, "publishReview");
+  const conflict = reducePleQuestionJsonEditor(review, { kind: "assetConflict" });
+  assert.deepEqual(conflict, { kind: "conflict", localSource: local });
+  assert.equal(reducePleQuestionJsonEditor(conflict, { kind: "publishStarted" }), conflict);
+  const reloading = reducePleQuestionJsonEditor(conflict, { kind: "reloadStarted" });
+  assert.equal(reloading.kind, "reloading");
+  assert.equal(reloading.localSource, local);
+});
+
 test("conflict and reload preserve local source while clearing protected preview", () => {
   const loaded = reducePleQuestionJsonEditor(initialPleQuestionJsonEditorState(), {
     kind: "loaded",

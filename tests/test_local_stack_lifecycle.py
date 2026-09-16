@@ -192,6 +192,11 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 	events: list[str] = []
 	database_events: list[str] = []
 	values = {"PLE_WEBWORK_RENDERER_IMAGE": "localhost/renderer:tag"}
+	(tmp_path / "containers").mkdir()
+	monkeypatch.setattr(
+		local_stack_control.image_cleanup, "remove_obsolete_images_before_build",
+		lambda *args: events.append("image-cleanup"),
+	)
 
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_lifecycle_inputs", lambda *args: None)
 	monkeypatch.setattr(local_stack_control.lifecycle, "require_disposable_ownership", lambda *args: None)
@@ -236,8 +241,13 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 		_runner: local_stack_control.process.CommandRunner,
 		arguments: list[str],
 	) -> None:
+		with pytest.raises(local_stack_control.models.ControllerError, match="active"):
+			with local_stack_control.image_cleanup.image_build_lease(tmp_path):
+				raise AssertionError("lifecycle released its image lease before attachment")
 		if arguments == ["build", "api"]:
 			events.append("application-image-build")
+		elif arguments == ["build", "gateway"]:
+			events.append("gateway-image-build")
 		elif "api" in arguments:
 			events.append("application-start")
 
@@ -245,9 +255,9 @@ def test_teaching_stack_verifies_application_schema_before_application_start(
 
 	local_stack_control.lifecycle.start_lifecycle(target, UnexpectedRunner(), tmp_path, options)
 
-	expected = ["logins", "verify", "application-start", "provision"]
+	expected = ["image-cleanup", "logins", "verify", "gateway-image-build", "application-start", "provision"]
 	if expected_first is not None:
-		expected.insert(0, expected_first)
+		expected.insert(1, expected_first)
 	assert events == expected
 	assert database_events[:2] == ["operation", "synchronize"]
 

@@ -4,6 +4,7 @@ import type { QuestionSearchRequest } from "../../generated/api/QuestionSearchRe
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS";
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 import { normalizeQuestionIdSyntax } from "../question_id";
+import { appendLibraryClassificationParameters } from "./library_classification_filter";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
 const MAX_QUESTION_SEARCH_PAGE_SIZE = 100;
@@ -36,6 +37,11 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "tags",
   "subjects",
   "topics",
+  "discipline_uuid",
+  "subject_uuid",
+  "topic_uuid",
+  "subtopic_uuid",
+  "cross_discipline",
   "question_types",
   "capabilities",
   "question_licenses",
@@ -110,6 +116,7 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     }
   }
   const parameters = new URLSearchParams();
+  appendLibraryClassificationParameters(parameters, query);
   if (query.text !== null) {
     parameters.set(
       "text",

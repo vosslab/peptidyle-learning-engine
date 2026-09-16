@@ -279,7 +279,9 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
     selection_count integer,
     member_position integer,
     question_id text,
-    question_revision_number integer
+    question_revision_number integer,
+    title text, description text, discipline_uuid uuid, subject_uuid uuid,
+    topic_uuid uuid, subtopic_uuid uuid, tags text[]
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT entry.assessment_entry_id,
@@ -289,7 +291,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            entry.selection_count,
            member.member_position,
            ple_data.canonical_public_crockford_display(member.question_id),
-           member.question_revision_number
+           member.question_revision_number,
+           pool.title, pool.description, pool.discipline_uuid, pool.subject_uuid,
+           pool.topic_uuid, pool.subtopic_uuid, pool.tags
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
       JOIN ple_data.assessment_entry AS entry ON entry.assessment_id = assessment.assessment_id

@@ -14,10 +14,24 @@ use crate::{
     QuestionRevisionReference, ReusableQuestionView,
 };
 
+/// Current Pool lineage metadata, independent of immutable membership Revisions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionPoolMetadata {
+    pub title: String,
+    pub description: String,
+    pub discipline_uuid: Uuid,
+    pub subject_uuid: Uuid,
+    pub topic_uuid: Option<Uuid>,
+    pub subtopic_uuid: Option<Uuid>,
+    pub tags: Vec<String>,
+}
+
 /// One reusable published Question Pool available through the Question Library.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolLibrarySummary {
+    pub metadata: QuestionPoolMetadata,
     /// Current immutable published Pool Revision.
     pub question_pool_revision: QuestionPoolRevisionReference,
     /// Total members in that exact immutable Pool Revision.
@@ -40,6 +54,8 @@ pub struct QuestionPoolRevisionMemberView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct QuestionPoolRevisionView {
+    /// Current lineage metadata even when reading historical membership.
+    pub metadata: QuestionPoolMetadata,
     /// Exact immutable Pool Revision being read.
     pub question_pool_revision: QuestionPoolRevisionReference,
     /// Members in their immutable Pool Revision order.
@@ -50,6 +66,7 @@ pub struct QuestionPoolRevisionView {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssessmentQuestionPoolForkView {
+    pub metadata: QuestionPoolMetadata,
     /// Stable Assessment Entry that owns this fork.
     pub assessment_entry_id: AssessmentEntryId,
     /// Exact immutable fork Pool Revision.

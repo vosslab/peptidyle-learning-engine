@@ -46,6 +46,7 @@ def test_fresh_ordinary_database_uses_one_canonical_initialize_operation(
 ) -> None:
 	"""A fresh ordinary stack builds then initializes through the migrator."""
 	target = compose_target(tmp_path)
+	(tmp_path / "containers").mkdir()
 	runner = RecordingRunner()
 	monkeypatch.setattr(
 		local_stack_control.lifecycle_migrations,
@@ -71,6 +72,7 @@ def test_initialized_ordinary_database_uses_one_canonical_migrate_operation(
 ) -> None:
 	"""An ordinary stack with its existing lifecycle fact applies forwards."""
 	target = compose_target(tmp_path)
+	(tmp_path / "containers").mkdir()
 	target.env_file.write_text(
 		"POSTGRES_PASSWORD=very-secret\n"
 		"PLE_MIGRATION_DATABASE_URL=postgres://previous-private-url\n",

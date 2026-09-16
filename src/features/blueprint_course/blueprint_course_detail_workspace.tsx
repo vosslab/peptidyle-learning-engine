@@ -258,6 +258,7 @@ export function BlueprintCourseDetailWorkspace(
   function applyMetadata(
     metadata: Awaited<ReturnType<BlueprintCourseClient["renameBlueprintCourse"]>>,
   ): void {
+    if (current() === undefined) return;
     applyMetadataState(metadata);
     setShortName(metadata.metadata.short_name);
     setLongName(metadata.metadata.long_name);

@@ -250,6 +250,7 @@ async fn publish_plan(
             services.objects.clone(),
             services.publication.clone(),
             services.issuer.clone(),
+            None,
         );
         let revision = publisher
             .publish(

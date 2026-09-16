@@ -284,12 +284,18 @@ impl std::error::Error for BlueprintCourseValidationError {}
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU32;
+
     use super::*;
     use crate::{
+        AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
+        AssessmentPointValue, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
         QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionId, QuestionLicense,
-        QuestionMetadata, QuestionPoolRevisionNumber, QuestionRevisionNumber,
-        QuestionRevisionReference, QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
+        QuestionMetadata, QuestionPoolRevisionNumber, QuestionPoolRevisionReference,
+        QuestionPoolSelectionRule, QuestionRevisionNumber, QuestionRevisionReference,
+        QuestionSearchResult, QuestionStatistics, QuestionSummary, QuestionType,
+        StudentFeedbackReleaseRule, Timestamp,
     };
     use uuid::Uuid;
 
@@ -571,7 +577,11 @@ mod tests {
 #[cfg(test)]
 mod blueprint_course_tests {
     use super::*;
-    use crate::QuestionRevisionNumber;
+    use crate::{
+        AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
+        AssessmentPointValue, LateWorkRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
+        QuestionRevisionNumber, QuestionRevisionReference, StudentFeedbackReleaseRule,
+    };
     use uuid::Uuid;
 
     #[test]

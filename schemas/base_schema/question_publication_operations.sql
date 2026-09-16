@@ -84,7 +84,8 @@ CREATE FUNCTION ple_private.publish_question_revision(
     p_question_id text, p_expected_parent_revision_number integer,
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
-    p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid
+    p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
+    p_hotspot_asset jsonb
 ) RETURNS integer LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -230,13 +231,15 @@ BEGIN
      WHERE question_id = p_question_id;
     INSERT INTO ple_data.question_publication_event(event_id, question_id, revision_number, actor_account_id, occurred_at)
     VALUES (p_publication_event_id, p_question_id, next_revision_number, actor_id, published_at);
+    PERFORM ple_private.bind_draft_asset_publication(p_draft_question_uuid, p_workspace_id,
+        p_question_id, next_revision_number, binding.backend, binding.question_type, p_hotspot_asset, published_at);
     RETURN next_revision_number;
 END
 $$;
 REVOKE ALL ON FUNCTION ple_private.publish_question_revision(
-    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid) FROM PUBLIC;
+    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.publish_question_revision(
-    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid) TO ple_api_owner;
+    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
@@ -278,23 +281,24 @@ CREATE FUNCTION ple_api.publish_question_revision(
     p_question_id text, p_expected_parent_revision_number integer,
     p_target_object_id uuid, p_target_object_address jsonb,
     p_target_sha256 bytea, p_target_size_bytes bigint, p_target_media_type text,
-    p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid
+    p_target_created_at_millis bigint, p_reason_for_edit text, p_publication_event_id uuid,
+    p_hotspot_asset jsonb
 ) RETURNS integer LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_question_revision(
         p_draft_question_uuid, p_expected_edit_number, p_workspace_id, p_question_id,
         p_expected_parent_revision_number, p_target_object_id, p_target_object_address,
         p_target_sha256, p_target_size_bytes,
-        p_target_media_type, p_target_created_at_millis, p_reason_for_edit, p_publication_event_id)
+        p_target_media_type, p_target_created_at_millis, p_reason_for_edit, p_publication_event_id, p_hotspot_asset)
 $$;
 REVOKE ALL ON FUNCTION ple_api.bind_draft_question_source(
     uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_api.publish_question_revision(
-    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid) FROM PUBLIC;
+    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.bind_draft_question_source(
     uuid, bigint, uuid, text, text, text, text, text, text, text, uuid, text) TO ple_app;
 GRANT EXECUTE ON FUNCTION ple_api.publish_question_revision(
-    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid) TO ple_app;
+    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) TO ple_app;
 RESET ROLE;
 
 -- Publication reads one current Draft source record, then the server copies its
@@ -353,7 +357,7 @@ CREATE FUNCTION ple_private.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid
+    p_availability_event_id uuid, p_hotspot_asset jsonb
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -475,15 +479,17 @@ BEGIN
     INSERT INTO ple_data.question_availability_event(
         event_id, question_id, actor_account_id, availability, edit_number, reason, occurred_at
     ) VALUES (p_availability_event_id, p_question_id, actor_id, 'available', 1, NULL, published_at);
+    PERFORM ple_private.bind_draft_asset_publication(p_draft_question_uuid, p_workspace_id,
+        p_question_id, 1, binding.backend, binding.question_type, p_hotspot_asset, published_at);
 END
 $$;
 
 REVOKE ALL ON FUNCTION ple_private.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_private.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid) FROM PUBLIC;
+        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_private.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid) TO ple_api_owner;
+        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
@@ -503,7 +509,7 @@ CREATE FUNCTION ple_api.publish_new_question_lineage(
     p_initial_shared_tags text[], p_discipline_uuid uuid, p_subject_uuid uuid,
     p_topic_uuid uuid, p_subtopic_uuid uuid, p_license text,
     p_reason_for_edit text, p_ownership_event_id uuid, p_publication_event_id uuid,
-    p_availability_event_id uuid
+    p_availability_event_id uuid, p_hotspot_asset jsonb
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.publish_new_question_lineage(p_draft_question_uuid, p_expected_edit_number,
@@ -511,12 +517,12 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_target_size_bytes, p_target_media_type, p_target_created_at_millis, p_authorship,
         p_initial_shared_tags, p_discipline_uuid, p_subject_uuid,
         p_topic_uuid, p_subtopic_uuid, p_license,
-        p_reason_for_edit, p_ownership_event_id, p_publication_event_id, p_availability_event_id)
+        p_reason_for_edit, p_ownership_event_id, p_publication_event_id, p_availability_event_id, p_hotspot_asset)
 $$;
 REVOKE ALL ON FUNCTION ple_api.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_api.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid) FROM PUBLIC;
+        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.load_draft_question_publication_source(uuid, bigint, uuid),
     ple_api.publish_new_question_lineage(uuid, bigint, uuid, text, uuid, jsonb, bytea, bigint,
-        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid) TO ple_app;
+        text, bigint, jsonb, text[], uuid, uuid, uuid, uuid, text, text, uuid, uuid, uuid, jsonb) TO ple_app;
 RESET ROLE;
