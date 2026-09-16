@@ -1198,6 +1198,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Assessment Attempt timing and expiration specifications
 
 - Each Assessment Attempt has a time limit.
+- Instructors can set an Assessment Attempt time limit or choose Unlimited.
+- The default time limit is 1.5 minutes per question, rounded up to nearest whole minute.
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
 - Timed Assessment Attempts use wall-clock time.
 - The server owns the Attempt start and expiration times.
