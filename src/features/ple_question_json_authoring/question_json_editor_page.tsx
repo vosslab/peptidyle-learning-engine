@@ -4,6 +4,7 @@ import { For, Show, batch, createEffect, createSignal, onMount, type JSX } from 
 
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import { parseReviewedQuestionAuthorship } from "../../api/question_authorship";
+import { ContentClassificationSelect } from "../../components/content_classification_select";
 import { PleQuestionJsonFeedbackFields } from "./question_json_feedback_fields";
 import { PleQuestionJsonHintField } from "./question_json_hint_field";
 import {
@@ -149,6 +150,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
   const [latestRevision, setLatestRevision] = createSignal(props.initial.revision);
   const [review, setReview] = createSignal<Review | null>(null);
   const [authorshipText, setAuthorshipText] = createSignal("");
+  const [disciplineUuid, setDisciplineUuid] = createSignal<string | null>(null);
+  const [subjectUuid, setSubjectUuid] = createSignal<string | null>(null);
+  const [topicUuid, setTopicUuid] = createSignal<string | null>(null);
+  const [subtopicUuid, setSubtopicUuid] = createSignal<string | null>(null);
   const [publishedSummary, setPublishedSummary] = createSignal<QuestionSummary>();
   const [status, setStatus] = createSignal<string | null>(null);
   const [showInstructorCheck, setShowInstructorCheck] = createSignal(false);
@@ -448,7 +453,17 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     transition({ kind: "publishStarted" });
     setStatus("Publishing a new Question ID...");
     try {
-      const summary = await props.repository.publish(props.draftQuestion, { authorship });
+      const discipline = disciplineUuid();
+      const subject = subjectUuid();
+      if (discipline === null || subject === null)
+        throw new Error("Select a Discipline and Subject before publishing.");
+      const summary = await props.repository.publish(props.draftQuestion, {
+        authorship,
+        disciplineUuid: discipline,
+        subjectUuid: subject,
+        topicUuid: topicUuid(),
+        subtopicUuid: subtopicUuid(),
+      });
       setPublishedSummary(summary);
       transition({
         kind: "publishSucceeded",
@@ -721,11 +736,64 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                           account information, is published with the question.
                         </span>
                       </label>
+                      <div class="publication-classification-fields">
+                        <ContentClassificationSelect
+                          label="Discipline"
+                          required
+                          value={disciplineUuid()}
+                          disabled={isLocked()}
+                          load={() => props.classificationClient.listDisciplines()}
+                          onChange={(uuid) =>
+                            batch(() => {
+                              setDisciplineUuid(uuid);
+                              setSubjectUuid(null);
+                              setTopicUuid(null);
+                              setSubtopicUuid(null);
+                            })
+                          }
+                        />
+                        <ContentClassificationSelect
+                          label="Subject"
+                          required
+                          value={subjectUuid()}
+                          parentUuid={disciplineUuid()}
+                          disabled={isLocked()}
+                          load={(uuid) => props.classificationClient.listSubjects(uuid)}
+                          onChange={(uuid) =>
+                            batch(() => {
+                              setSubjectUuid(uuid);
+                              setTopicUuid(null);
+                              setSubtopicUuid(null);
+                            })
+                          }
+                        />
+                        <ContentClassificationSelect
+                          label="Topic"
+                          value={topicUuid()}
+                          parentUuid={subjectUuid()}
+                          disabled={isLocked()}
+                          load={(uuid) => props.classificationClient.listTopics(uuid)}
+                          onChange={(uuid) =>
+                            batch(() => {
+                              setTopicUuid(uuid);
+                              setSubtopicUuid(null);
+                            })
+                          }
+                        />
+                        <ContentClassificationSelect
+                          label="Subtopic"
+                          value={subtopicUuid()}
+                          parentUuid={topicUuid()}
+                          disabled={isLocked()}
+                          load={(uuid) => props.classificationClient.listSubtopics(uuid)}
+                          onChange={setSubtopicUuid}
+                        />
+                      </div>
                       <p>Confirming publishes this saved private draft with a new Question ID.</p>
                       <button
                         type="button"
                         class="primary-action"
-                        disabled={isLocked()}
+                        disabled={isLocked() || disciplineUuid() === null || subjectUuid() === null}
                         onClick={() => void publish()}
                       >
                         Confirm and publish

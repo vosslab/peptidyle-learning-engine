@@ -7,6 +7,7 @@ import {
   createSignal,
   ErrorBoundary,
   For,
+  onCleanup,
   Show,
   type Accessor,
   type JSX,
@@ -44,14 +45,75 @@ interface ContentErrorProps {
 function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): JSX.Element {
   const breadcrumbs = (): ReadonlyArray<RibbonBreadcrumbModel> => props.model?.breadcrumbs ?? [];
   const reserved = (): boolean => props.model?.breadcrumbPreludeReserved === true;
+  const [trail, setTrail] = createSignal<HTMLElement>();
+  const student = createMemo(() => props.model?.context.productLabel === "Student");
+  const location = createMemo(() =>
+    JSON.stringify(breadcrumbs().map(({ label, href, current }) => [label, href, current])),
+  );
+  let focusRevision = 0;
+  createEffect(() => {
+    const element = trail();
+    if (!student() || element === undefined) return;
+    let followingTail = element.scrollLeft + element.clientWidth >= element.scrollWidth - 1;
+    const updatePosition = (): void => {
+      followingTail = element.scrollLeft + element.clientWidth >= element.scrollWidth - 1;
+    };
+    const observer = new ResizeObserver(() => {
+      if (followingTail && !element.contains(document.activeElement)) {
+        element.scrollLeft = element.scrollWidth;
+      }
+    });
+    observer.observe(element);
+    element.addEventListener("scroll", updatePosition, { passive: true });
+    onCleanup(() => {
+      observer.disconnect();
+      element.removeEventListener("scroll", updatePosition);
+    });
+  });
+  createEffect(() => {
+    const element = trail();
+    const currentLocation = location();
+    if (!student() || element === undefined || currentLocation === "[]") return;
+    const focusVersion = focusRevision;
+    let cancelled = false;
+    onCleanup(() => {
+      cancelled = true;
+    });
+    // Reveal the resolved current location without moving the page vertically.
+    queueMicrotask(() => {
+      if (!cancelled && focusVersion === focusRevision && trail() === element) {
+        element.scrollLeft = element.scrollWidth;
+      }
+    });
+  });
   return (
     <Show when={reserved()}>
-      <div class="ple-shell__breadcrumb-prelude" aria-live="polite">
+      <div
+        class="ple-shell__breadcrumb-prelude"
+        aria-live="polite"
+        data-product-role={props.model?.context.productLabel.toLowerCase()}
+      >
         <Show
           when={breadcrumbs().length > 0}
           fallback={<span class="sr-only">Loading location</span>}
         >
-          <nav aria-label="Breadcrumb">
+          <nav
+            aria-label="Breadcrumb"
+            ref={setTrail}
+            onFocusIn={(event) => {
+              if (!student() || !(event.target instanceof HTMLAnchorElement)) return;
+              focusRevision += 1;
+              const viewport = event.currentTarget.getBoundingClientRect();
+              const link = event.target.getBoundingClientRect();
+              const delta =
+                link.left < viewport.left
+                  ? link.left - viewport.left
+                  : link.right > viewport.right
+                    ? link.right - viewport.right
+                    : 0;
+              event.currentTarget.scrollLeft += delta;
+            }}
+          >
             <ol>
               <For each={breadcrumbs()}>
                 {(breadcrumb) => (
@@ -192,6 +254,7 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
             "ple-ribbon-shell-grid": ribbonModel() !== undefined,
           }}
           data-ribbon-task-row={ribbonTaskRow()}
+          data-ribbon-product-role={ribbonModel()?.context.productLabel.toLowerCase()}
         >
           <Show
             when={ribbonModel()}

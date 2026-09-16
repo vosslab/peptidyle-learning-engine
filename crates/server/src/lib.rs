@@ -34,6 +34,7 @@ pub(crate) mod blueprint_course;
 mod blueprint_stewardship;
 /// Production database/session composition.
 pub mod composition;
+mod content_classification;
 /// Current Course Appearance reader for active Course Members.
 pub(crate) mod course_appearance;
 /// Course Instance creation and initial teaching-team routes.

@@ -102,6 +102,7 @@
 }
 
 .bulk-metadata-field input:not([type="radio"]),
-.bulk-metadata-field textarea {
+.bulk-metadata-field textarea,
+.bulk-metadata-field select {
   width: 100%;
 }

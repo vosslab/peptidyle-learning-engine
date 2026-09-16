@@ -13,6 +13,12 @@ fn reference(question_id: &str, revision_number: u32) -> QuestionRevisionReferen
 
 fn source(source_id: &str, topic_slug: &str) -> ParameterizedSource {
     ParameterizedSource {
+        classification: Some(crate::pilot_content::AuthoredClassification {
+            discipline: "Biology".to_owned(),
+            subject: "Genetics".to_owned(),
+            topic: None,
+            subtopic: None,
+        }),
         source_id: source_id.to_owned(),
         topic_slug: topic_slug.to_owned(),
         question_title: format!("Canonical {source_id}"),
@@ -55,6 +61,12 @@ fn manifest() -> Manifest {
 #[test]
 fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
     let manifest = manifest();
+    let mut unauthored = manifest.parameterized_sources[0].clone();
+    unauthored.classification = None;
+    let error = super::super::validate_parameterized_source_metadata(&unauthored, Path::new("."))
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("first requires explicit authored classification"));
     let first = reference("7K3M-X9QX", 1);
     let second = reference("8K3M-X9QX", 1);
     let revisions = BTreeMap::from([
@@ -64,19 +76,23 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
     let input = blueprint_input(&manifest, &revisions).expect("valid direct Fixed Blueprint");
     let entries = &input.modules[0].assessments[0].entries;
     assert_eq!(entries.len(), 2);
-    assert!(
-        entries
-            .iter()
-            .all(|entry| matches!(entry, BlueprintAssessmentEntryInput::Fixed(_)))
-    );
+    assert!(entries
+        .iter()
+        .all(|entry| matches!(entry, BlueprintAssessmentEntryInput::Fixed(_))));
     let BlueprintAssessmentEntryInput::Fixed(first_entry) = &entries[0] else {
         unreachable!();
     };
     let BlueprintAssessmentEntryInput::Fixed(second_entry) = &entries[1] else {
         unreachable!();
     };
-    assert_eq!(first_entry.question_id, first.question_id);
-    assert_eq!(second_entry.question_id, second.question_id);
+    assert_eq!(
+        first_entry.published_question.question_id,
+        first.question_id
+    );
+    assert_eq!(
+        second_entry.published_question.question_id,
+        second.question_id
+    );
 }
 
 #[test]
@@ -89,13 +105,8 @@ fn exact_replay_rejects_semantic_drift() {
         ("second".to_owned(), second.clone()),
     ]);
     let input = blueprint_input(&manifest, &revisions).expect("valid direct Fixed Blueprint");
-    let pins = BTreeMap::from([
-        (first.question_id.clone(), first),
-        (second.question_id.clone(), second),
-    ]);
-    let mut stored =
-        StoredBlueprintCourseContent::from_create(input.clone(), &pins, &BTreeMap::new())
-            .expect("stored canonical Blueprint content");
+    let mut stored = StoredBlueprintCourseContent::from_create(input.clone(), &BTreeMap::new())
+        .expect("stored canonical Blueprint content");
     validate_loaded_content(&stored, &input, &manifest, &revisions)
         .expect("exact canonical replay");
     let mut wrong_type = stored.clone();

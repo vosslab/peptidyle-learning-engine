@@ -169,10 +169,13 @@ fn decode_input(
 fn decode_patch(value: Value) -> Option<BulkPublishedQuestionMetadataPatch> {
     let fields = value.as_object()?;
     if fields.is_empty()
-        || fields.len() > 3
-        || fields
-            .keys()
-            .any(|key| !matches!(key.as_str(), "tags" | "subject" | "topic"))
+        || fields.len() > 5
+        || fields.keys().any(|key| {
+            !matches!(
+                key.as_str(),
+                "tags" | "disciplineUuid" | "subjectUuid" | "topicUuid" | "subtopicUuid"
+            )
+        })
     {
         return None;
     }
@@ -186,16 +189,28 @@ fn decode_patch(value: Value) -> Option<BulkPublishedQuestionMetadataPatch> {
         Some(_) => return None,
         None => None,
     };
-    let optional_text = |name: &str| match fields.get(name) {
+    let canonical_uuid = |value: &str| {
+        let uuid = uuid::Uuid::parse_str(value).ok()?;
+        (uuid.to_string() == value).then_some(uuid)
+    };
+    // ASVS 2.2.1/2.2.2: allow only canonical identifiers; required parents cannot clear.
+    let required_uuid = |name: &str| match fields.get(name) {
+        Some(Value::String(value)) => Some(Some(canonical_uuid(value)?)),
+        Some(_) => None,
+        None => Some(None),
+    };
+    let optional_uuid = |name: &str| match fields.get(name) {
         Some(Value::Null) => Some(Some(None)),
-        Some(Value::String(value)) => Some(Some(Some(value.clone()))),
+        Some(Value::String(value)) => Some(Some(Some(canonical_uuid(value)?))),
         Some(_) => None,
         None => Some(None),
     };
     Some(BulkPublishedQuestionMetadataPatch {
         tags,
-        subject: optional_text("subject")?,
-        topic: optional_text("topic")?,
+        discipline_uuid: required_uuid("disciplineUuid")?,
+        subject_uuid: required_uuid("subjectUuid")?,
+        topic_uuid: optional_uuid("topicUuid")?,
+        subtopic_uuid: optional_uuid("subtopicUuid")?,
     })
 }
 

@@ -93,7 +93,7 @@ function AssessmentCard(props: {
         class="primary-link"
         href={`/courses/${props.course.reference}/assessments/${props.assessment.reference}`}
       >
-        Open {typePresentation().label}
+        {display().actionVerb} {typePresentation().label}
       </A>
     </article>
   );

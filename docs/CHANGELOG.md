@@ -11,6 +11,69 @@
 
 ### Behavior or Interface Changes
 
+- Recorded a bounded isolated HTTP/SQL receipt for the shared classification hierarchy. A vetted
+  active Instructor and MFA-attested Sysadmin read all four hierarchy selectors; anonymous,
+  Student, and inactive-Instructor access remained identically concealed. One native Question was
+  published with Biology/Genetics metadata, then had only its Subject changed to Biochemistry;
+  exact Question Revision/source bindings and stale-`412` metadata behavior were preserved. The
+  fresh disposable PostgreSQL/MinIO proof used the current host binary and made no Live Demo
+  change. This is not browser HTTPS, provisioned full-Course, rendered selector-workflow,
+  deployment, or global Human Guidance acceptance.
+
+- Made Student Coursework action labels reflect the available next step: Resume in-progress work,
+  Review completed work, or Open otherwise. The accepted component-browser evidence at 1280 and
+  390 pixels keyboard-activates each label and retains existing axe/page-error checks; root
+  `node --import tsx tests/playwright/student_course_entry_m6_evidence.mjs` exited 0. This does
+  not claim live perfect-score behavior, complete Student UI acceptance, full HTTP/browser
+  coverage, or global UI closure.
+
+- Added the shared classification-hierarchy installation fixture with two Disciplines, six
+  Subjects, and six preserved Subject-Discipline links. Fresh-install and replay proof passed
+  without creating an Account or session; independent review accepted the fixture. `cargo check -p
+  project-tools` passed in 1.22 seconds and `cargo check -p project-tools --tests` passed in 8.06
+  seconds. This does not claim full HTTP/browser behavior, deployment, or project-tools test
+  execution.
+
+- Put the Question prompt before compact supporting metadata and stewardship controls on the
+  1280 by 800 inspection view, while retaining the backend-owned sandboxed WeBWorK preview. The
+  bounded I04 receipt accepts native keyboard reachability for Star and Watch without activation,
+  and reports no writes, protected-answer requests, or page errors. It does not establish native
+  response-control rendering beyond the existing stem-only capture, every Question Type, a
+  submission workflow, broader accessibility, or all UI closure.
+
+- Put Current roster before compact, initially closed native Roster tools; keyboard navigation
+  reaches roster actions and the disclosure controls. Import/export/revocation feedback now has
+  distinct success and error presentation, while actual successful and partial-success outcomes
+  remain unproven. Student narrow headers now keep compact identity, upper-right Profile, and
+  full-width navigation with full keyboard-reachable breadcrumbs. Focused gates and the bounded
+  browser receipt pass; the Profile breadcrumb reservation, awkward 200% overview wrapping, and
+  global responsive/Human Guidance closure remain open.
+
+- Recorded the independently accepted PostgreSQL 17 content-classification command prerequisite:
+  role-aware vocabulary creation and selectors, trim-before-validation, global Subject uniqueness,
+  Sysadmin-only nonempty association replacement, and two-session association serialization.
+  This bounded SQL receipt does not claim HTTP/editor integration, content attachments, search,
+  lifecycle, deployed state, Human Guidance closure, or permanent tests.
+
+- Recorded the bounded PostgreSQL 17 Published Question classification receipt. New Question
+  lineages and metadata bulk replacement require Discipline and Subject, with optional Topic and
+  Subtopic UUIDs that satisfy the stored hierarchy; exact Question Revision and source bindings
+  remain unchanged. Fresh-install proof passed valid publication, atomic invalid/stale refusal,
+  Student denial, and retained/referenced-association behavior; `cargo check -p server_core` also
+  passed. This does not establish HTTP, browser, producer/tool, or complete classification closure;
+  Projecttools input contracts and TypeScript generation/browser consumers remain pending.
+
+- Recorded source-level integration of shared classification-hierarchy selectors, Published Question
+  consumers, and Pilot/curriculum publishers. Selector consumers submit provisioned UUID
+  identities without defaults, automatic associations, or inferred classifications. All 42
+  curriculum sources and two Pilot chapters now provide explicit authored classification; the
+  supporting restriction-enzyme Genetics exercise uses Biology/Genetics. Publisher recovery
+  returns existing immutable publications without re-resolving mutable classification metadata.
+  `cargo check -p project-tools` passed after that recovery correction in 7.51 seconds; shared
+  `npx tsc --noEmit` passed earlier and `cargo tsgen` refreshed 367 types. Runtime HTTP/browser
+  integration, deployment, actual imports, new count-audit machinery, and global Human Guidance
+  checklist closure are not claimed.
+
 - Corrected the Human Guidance classification evidence for the current Subject-Discipline
   association schema. The bounded PostgreSQL 17 receipt proves multi-Discipline association,
   association integrity, one-parent Topic/Subtopic relationships, and owner-only access. Commands,

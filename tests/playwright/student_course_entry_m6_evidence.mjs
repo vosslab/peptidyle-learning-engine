@@ -109,7 +109,46 @@ try {
   assert.equal(await withheldCard.getByText(/Assessment score/u).count(), 0);
   assert.equal(await page.getByText(/Score so far/u).count(), 0);
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
-  await page.getByRole("link", { name: "Open Regular Assignment", exact: true }).click();
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const name of ["Resume Regular Assignment", "Review Bonus Assignment", "Open Quiz"]) {
+      await page.getByRole("link", { name, exact: true }).waitFor({ state: "visible" });
+    }
+    assert.equal(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      true,
+    );
+  }
+  await page.getByRole("link", { name: "Resume Regular Assignment", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await page
+    .getByText("Active Attempt destination", { exact: true })
+    .waitFor({ state: "visible", timeout: 5_000 })
+    .catch(async (error) => {
+      throw new Error(
+        `Resume destination failed: location=${await page.locator("[data-m6-location]").textContent()}; errors=${pageErrors.join(" | ")}; body=${await page.locator("body").innerText()}`,
+        { cause: error },
+      );
+    });
+  assert.equal(await page.locator("[data-m6-location]").textContent(), "/assessment-attempts/R-6");
+
+  await page.goto(`${origin}/?mode=landing`);
+  await page.getByRole("link", { name: "Review Bonus Assignment", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await page
+    .getByRole("heading", { name: "Previous attempts", exact: true })
+    .waitFor({ state: "visible" });
+  await page
+    .getByRole("button", { name: "Start Bonus Assignment", exact: true })
+    .waitFor({ state: "visible" });
+  assert.equal(
+    await page.getByRole("link", { name: "Attempt 1", exact: true }).getAttribute("href"),
+    "/assessment-attempts/R-5/summary",
+  );
+
+  await page.goto(`${origin}/?mode=landing`);
+  await page.getByRole("link", { name: "Open Quiz", exact: true }).focus();
+  await page.keyboard.press("Enter");
   await page.locator('[data-route-surface="assessmentOverview"]').waitFor({ state: "visible" });
   assert.deepEqual(await criticalOrSeriousViolations(page), []);
   const overviewDueText = await page.locator("[data-assessment-decision-due]").textContent();
@@ -117,7 +156,7 @@ try {
   await page.getByText("Can start", { exact: true }).waitFor({ state: "visible" });
   const timeLimit = page.getByText("1 hour per attempt", { exact: true });
   const startButton = page.getByRole("button", {
-    name: "Start Regular Assignment",
+    name: "Start Quiz",
     exact: true,
   });
   assert.equal(

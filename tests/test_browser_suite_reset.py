@@ -77,7 +77,7 @@ def test_reset_uses_podman_dependency_order_for_exact_verified_resources(
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(lease, runner, tmp_path)
 	assert runner.commands == [
-		("podman", "rm", "-f", "--depend", "container-one"),
+		("podman", "rm", "-f", "--volumes", "--depend", "container-one"),
 		("podman", "volume", "rm", "ple-live-demo-browser_ple_pgdata"),
 		("podman", "network", "rm", "ple-live-demo-browser_default"),
 	]
@@ -108,7 +108,7 @@ def test_reset_reinventories_after_dependency_cleanup(
 	monkeypatch.setattr(local_stack_control.browser_suite_reset, "_browser_snapshot", lambda *args: next(values))
 	with local_stack_control.browser_suite_lease.BrowserSuiteLease.acquire(tmp_path) as lease:
 		local_stack_control.browser_suite_reset.reset_live_demo_browser(lease, runner, tmp_path)
-	assert runner.commands[0] == ("podman", "rm", "-f", "--depend", "container-one")
+	assert runner.commands[0] == ("podman", "rm", "-f", "--volumes", "--depend", "container-one")
 	assert all("container-two" not in command for command in runner.commands)
 
 

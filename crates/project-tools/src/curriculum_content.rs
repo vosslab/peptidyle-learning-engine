@@ -34,6 +34,7 @@ pub(crate) struct Manifest {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct ParameterizedSource {
+    pub(crate) classification: Option<crate::pilot_content::AuthoredClassification>,
     pub(crate) source_id: String,
     pub(crate) topic_slug: String,
     pub(crate) question_title: String,
@@ -359,6 +360,17 @@ fn validate_source_set<'a>(
 }
 
 fn validate_parameterized_source_metadata(source: &ParameterizedSource, root: &Path) -> Result<()> {
+    source
+        .classification
+        .as_ref()
+        .with_context(|| {
+            format!(
+                "{} requires explicit authored classification before publication",
+                source.source_id
+            )
+        })?
+        .validate()
+        .with_context(|| format!("classification for {}", source.source_id))?;
     for value in [
         &source.source_id,
         &source.topic_slug,

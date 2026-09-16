@@ -20,8 +20,11 @@ DECLARE
     current_availability text;
     normalized_tags text[];
     set_tags boolean := false;
+    classification_key text;
+    set_discipline boolean := false;
     set_subject boolean := false;
     set_topic boolean := false;
+    set_subtopic boolean := false;
 BEGIN
     IF p_selection IS NULL OR jsonb_typeof(p_selection) <> 'array'
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -67,9 +70,9 @@ BEGIN
       FROM jsonb_array_elements(p_selection) AS element(value);
 
     IF p_patch IS NULL OR jsonb_typeof(p_patch) <> 'object'
-       OR (SELECT count(*) FROM jsonb_object_keys(p_patch)) NOT BETWEEN 1 AND 3
+       OR (SELECT count(*) FROM jsonb_object_keys(p_patch)) NOT BETWEEN 1 AND 5
        OR EXISTS (SELECT 1 FROM jsonb_object_keys(p_patch) AS key(name)
-                  WHERE name NOT IN ('tags', 'subject', 'topic'))
+                  WHERE name NOT IN ('tags', 'disciplineUuid', 'subjectUuid', 'topicUuid', 'subtopicUuid'))
        OR (p_patch ? 'tags' AND jsonb_typeof(p_patch -> 'tags') <> 'array')
        OR (p_patch ? 'tags' AND EXISTS (
            SELECT 1 FROM jsonb_array_elements(p_patch -> 'tags') AS tag(value)
@@ -84,22 +87,30 @@ BEGIN
            SELECT count(DISTINCT value)
              FROM jsonb_array_elements_text(p_patch -> 'tags') AS tag(value)
        ))
-       OR (p_patch ? 'subject' AND p_patch -> 'subject' <> 'null'::jsonb
-           AND (jsonb_typeof(p_patch -> 'subject') <> 'string'
-                OR p_patch ->> 'subject' <> btrim(p_patch ->> 'subject')
-                OR char_length(p_patch ->> 'subject') NOT BETWEEN 1 AND 120
-                OR p_patch ->> 'subject' ~ '[[:cntrl:]]'))
-       OR (p_patch ? 'topic' AND p_patch -> 'topic' <> 'null'::jsonb
-           AND (jsonb_typeof(p_patch -> 'topic') <> 'string'
-                OR p_patch ->> 'topic' <> btrim(p_patch ->> 'topic')
-                OR char_length(p_patch ->> 'topic') NOT BETWEEN 1 AND 120
-                OR p_patch ->> 'topic' ~ '[[:cntrl:]]')) THEN
+       THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Bulk Published Question metadata patch is invalid';
     END IF;
     set_tags := p_patch ? 'tags';
-    set_subject := p_patch ? 'subject';
-    set_topic := p_patch ? 'topic';
+    -- ASVS 2.2.1/2.2.2: UUID selections are data, not vocabulary names.
+    FOREACH classification_key IN ARRAY ARRAY['disciplineUuid', 'subjectUuid', 'topicUuid', 'subtopicUuid']
+    LOOP
+        IF p_patch ? classification_key AND (
+            (p_patch -> classification_key = 'null'::jsonb
+             AND classification_key IN ('disciplineUuid', 'subjectUuid'))
+            OR (p_patch -> classification_key <> 'null'::jsonb AND (
+                jsonb_typeof(p_patch -> classification_key) <> 'string'
+                OR p_patch ->> classification_key !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+            ))
+        ) THEN
+            RAISE EXCEPTION USING ERRCODE = '22023',
+                MESSAGE = 'Bulk Published Question classification selection is invalid';
+        END IF;
+    END LOOP;
+    set_discipline := p_patch ? 'disciplineUuid';
+    set_subject := p_patch ? 'subjectUuid';
+    set_topic := p_patch ? 'topicUuid';
+    set_subtopic := p_patch ? 'subtopicUuid';
     IF set_tags THEN
         SELECT array_agg(value ORDER BY value) INTO normalized_tags
           FROM jsonb_array_elements_text(p_patch -> 'tags') AS tag(value);
@@ -140,8 +151,10 @@ BEGIN
     WITH updated AS (
         UPDATE ple_data.published_question_metadata AS metadata
            SET tags = CASE WHEN set_tags THEN normalized_tags ELSE metadata.tags END,
-               subject = CASE WHEN set_subject THEN normalized_patch ->> 'subject' ELSE metadata.subject END,
-               topic = CASE WHEN set_topic THEN normalized_patch ->> 'topic' ELSE metadata.topic END,
+               discipline_uuid = CASE WHEN set_discipline THEN (normalized_patch ->> 'disciplineUuid')::uuid ELSE metadata.discipline_uuid END,
+               subject_uuid = CASE WHEN set_subject THEN (normalized_patch ->> 'subjectUuid')::uuid ELSE metadata.subject_uuid END,
+               topic_uuid = CASE WHEN set_topic THEN (normalized_patch ->> 'topicUuid')::uuid ELSE metadata.topic_uuid END,
+               subtopic_uuid = CASE WHEN set_subtopic THEN (normalized_patch ->> 'subtopicUuid')::uuid ELSE metadata.subtopic_uuid END,
                metadata_edit_number = metadata.metadata_edit_number + 1,
                updated_at = pg_catalog.clock_timestamp()
          WHERE metadata.question_id IN (

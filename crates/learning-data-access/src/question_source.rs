@@ -170,6 +170,11 @@ pub struct NewQuestionLineagePublicationInput {
     pub question_authorship: QuestionAuthorship,
     /// Initial shared search tags for the new Published Question lineage.
     pub initial_shared_tags: Vec<Tag>,
+    /// Required canonical lineage classification, independent of Revisions.
+    pub discipline_uuid: Uuid,
+    pub subject_uuid: Uuid,
+    pub topic_uuid: Option<Uuid>,
+    pub subtopic_uuid: Option<Uuid>,
     /// Compatible Question License for the immutable first revision.
     pub question_license: QuestionLicense,
     /// Reviewed Question Revision Reason recorded with first-revision acceptance.
@@ -477,6 +482,10 @@ mod tests {
             }])
             .expect("bounded Question Authorship"),
             initial_shared_tags: Vec::new(),
+            discipline_uuid: Uuid::from_u128(100),
+            subject_uuid: Uuid::from_u128(101),
+            topic_uuid: None,
+            subtopic_uuid: None,
             question_license: QuestionLicense::CcBy4_0,
             question_revision_reason: QuestionRevisionReason::new(
                 "Initial reviewed publication".to_string(),

@@ -19,7 +19,7 @@ cleanup() {
         kill "$server_pid" >/dev/null 2>&1 || true
         wait "$server_pid" 2>/dev/null || true
     fi
-    podman rm --force "$postgres_name" "$minio_name" >/dev/null 2>&1 || true
+    podman rm --force --volumes "$postgres_name" "$minio_name" >/dev/null 2>&1 || true
     rm -rf "$work"
     return "$status"
 }

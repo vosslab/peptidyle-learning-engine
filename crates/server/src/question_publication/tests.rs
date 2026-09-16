@@ -259,6 +259,10 @@ fn command(workspace: WorkspaceId) -> NewQuestionLineagePublicationCommand {
         }])
         .expect("bounded Question Authorship"),
         initial_shared_tags: Vec::new(),
+        discipline_uuid: Uuid::from_u128(100),
+        subject_uuid: Uuid::from_u128(101),
+        topic_uuid: None,
+        subtopic_uuid: None,
         question_license: QuestionLicense::CcBy4_0,
         question_revision_reason: QuestionRevisionReason::new(
             "Initial reviewed publication".to_string(),

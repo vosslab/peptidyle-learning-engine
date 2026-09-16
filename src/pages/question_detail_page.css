@@ -1,17 +1,91 @@
 /* question_detail_page.css - Question Library detail presentation-specific styles. */
 
+.question-detail-description {
+  margin-block-end: var(--ple-space-3);
+}
+
+.question-detail-description h2 {
+  margin-block: var(--ple-space-2) var(--ple-space-1);
+  font-size: 1rem;
+}
+
+.question-detail-description p {
+  margin: 0;
+}
+
+.question-detail-support {
+  display: grid;
+  gap: var(--ple-space-2);
+  margin-block: var(--ple-space-3);
+  padding-block-start: var(--ple-space-3);
+  border-block-start: 1px solid var(--ple-border);
+}
+
+/* The page title already identifies this Question; keep its copyable reference. */
+.question-detail-support .copyable-question-id > span:first-child {
+  display: none;
+}
+
+.question-detail-metadata,
+.question-detail-metadata > div,
+.question-detail-support-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ple-space-2) var(--ple-space-4);
+}
+
+.question-detail-metadata {
+  margin: 0;
+}
+
+.question-detail-metadata > div {
+  gap: var(--ple-space-1) var(--ple-space-2);
+  min-width: 0;
+}
+
+.question-detail-metadata dt {
+  color: var(--ple-muted);
+}
+
+.question-detail-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.question-detail-support-actions {
+  align-items: flex-start;
+}
+
+.question-detail-support-actions .question-star-control,
+.question-detail-support-actions .question-watch-control {
+  margin: 0;
+}
+
+.question-detail-support-actions .question-star-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ple-space-1) var(--ple-space-2);
+}
+
+.question-detail-support-actions .question-star-control p {
+  margin: 0;
+}
+
+.question-detail-support-actions .question-star-control > section {
+  flex-basis: 100%;
+}
+
 .question-library-generated-example {
-  padding: 0.65rem 0.8rem;
-  border-left: 3px solid var(--ple-accent);
-  border-radius: 0 var(--ple-radius-control) var(--ple-radius-control) 0;
-  background: var(--ple-surface-soft);
-  color: var(--ple-accent-strong);
-  max-width: 72ch;
-  margin-block: var(--ple-space-4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-1) var(--ple-space-2);
 }
 
 .question-library-generated-example p {
-  margin: var(--ple-space-1) 0 0;
+  flex: 1 1 36ch;
+  margin: 0;
   color: var(--ple-muted);
 }
 

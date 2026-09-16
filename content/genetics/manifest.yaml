@@ -10,6 +10,9 @@ course:
   content_license: CC-BY-4.0
 parameterized_sources:
 - source_id: topic02-dna-structure-biol-351
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About DNA Structure (BIOL 351)
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -24,6 +27,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic02-dna-structure
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About DNA Structure
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -38,6 +44,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic02-melting-tm-type-1
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About DNA Melting Temperature (Tm)
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -52,6 +61,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic02-melting-tm-type-2a
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About Factors That Increase DNA Melting Temperature (Tm)
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -66,6 +78,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic02-melting-tm-type-2b
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About Factors That Decrease DNA Melting Temperature (Tm)
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -80,6 +95,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic02-nucleotide-components
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About Nucleotide Components
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -94,6 +112,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic02-rna-v-dna-biol-301
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About RNA and DNA Differences (BIOL 301)
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -108,6 +129,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic02-rna-v-dna
+  classification:
+    discipline: Biology
+    subject: Molecular Biology
   topic_slug: topic02
   question_title: True/False Statements About RNA and DNA Differences
   question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
@@ -122,6 +146,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic03-english-palindromes
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic03
   question_title: True/False Statements About English Palindromes
   question_description: Students use blood typing agglutination tests, HLA genotyping, gel electrophoresis
@@ -137,6 +164,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-mitosis-and-meiosis
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic06
   question_title: True/False Statements About Mitosis and Meiosis
   question_description: Students trace inheritance of X-linked genes through meiosis, predict progeny
@@ -151,6 +181,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic07-chi-square
+  classification:
+    discipline: Mathematics
+    subject: Biostatistics
   topic_slug: topic07
   question_title: True/False Statements About Chi-Square Tests
   question_description: Students perform chi-square tests on genetic cross data to evaluate whether observed
@@ -165,6 +198,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic10-h-w-non-evolve-criteria
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic10
   question_title: True/False Statements About Hardy-Weinberg Equilibrium Conditions
   question_description: Students calculate allele and genotype frequencies in populations, apply the Hardy-Weinberg
@@ -179,6 +215,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic03-hla-genotype-2-markers-black
+  classification:
+    discipline: Biology
+    subject: DNA Profiling
   topic_slug: topic03
   question_title: Offspring HLA Genotypes (2 Markers, Black)
   question_description: Seed-driven HLA inheritance MC problem; canonical biologyproblems.org source replaces
@@ -193,6 +232,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic01-genetic-disorders-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic01
   question_title: Matching Genetic Disorders to Descriptions
   question_description: Match each of the following genetic disorders with their corresponding descriptions.
@@ -206,6 +248,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic01-genetic-disorders-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic01
   question_title: Genetic Disorders from Descriptions
   question_description: Select the genetic disorder that corresponds to the given description.
@@ -219,6 +264,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-genetics-terminology-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Matching Genetic Terms to Definitions
   question_description: Match each of the following genetic terms with their corresponding definitions.
@@ -232,6 +280,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-genetics-terminology-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Genetic Terms from Definitions
   question_description: Select the genetic term that corresponds to the given definition.
@@ -245,6 +296,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-mendel-cross-terminology-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Matching Mendelian Cross Generations to Descriptions
   question_description: Match each of the following Mendelian crosses and generational stages with their
@@ -259,6 +313,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-mendel-cross-terminology-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Mendelian Cross Types from Generational Descriptions
   question_description: Select the Mendelian cross or generational stage that corresponds to the given
@@ -273,6 +330,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-mendel-four-principles-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Matching Mendel's Principles to Descriptions
   question_description: Match each of the following Mendel's Foundational Principles of Genetics with
@@ -287,6 +347,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-mendel-four-principles-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Mendel's Principles from Descriptions
   question_description: Select the Mendel's Foundational Principle of Genetics that corresponds to the
@@ -301,6 +364,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-mendelian-genetics-terms-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Matching Mendelian Genetics Terms to Definitions
   question_description: Match each of the following Mendelian genetics terms with their corresponding
@@ -315,6 +381,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-mendelian-genetics-terms-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Mendelian Genetics Terms from Definitions
   question_description: Select the Mendelian genetics term that corresponds to the given definition.
@@ -328,6 +397,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-monohybrid-cross-genotype-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Matching Monohybrid Cross Genotypes to Phenotypes
   question_description: Match each of the following parental genotypes in monohybrid crosses with their
@@ -342,6 +414,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic04-monohybrid-cross-genotype-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic04
   question_title: Parental Genotypes in Monohybrid Crosses from Offspring Outcomes
   question_description: Select the parental genotypes in a monohybrid cross that corresponds to the given
@@ -356,6 +431,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic05-degrees-of-dominance-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic05
   question_title: Matching Inheritance Patterns to Definitions
   question_description: Match each of the following inheritance patterns with their corresponding definitions.
@@ -369,6 +447,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic05-degrees-of-dominance-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic05
   question_title: Inheritance Patterns from Allele-Expression Descriptions
   question_description: Select the inheritance pattern that corresponds to the given definition.
@@ -382,6 +463,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-meiosis-prophase-1-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic06
   question_title: Matching Meiosis Prophase I Stages to Descriptions
   question_description: Match each of the following stages of meiosis prophase I with their corresponding
@@ -396,6 +480,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-meiosis-prophase-1-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic06
   question_title: Meiosis Prophase I Stages from Descriptions
   question_description: Select the stage of meiosis prophase I that corresponds to the given partial description.
@@ -409,6 +496,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-meiosis-terms-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic06
   question_title: Matching Meiosis Terms to Definitions
   question_description: Match each of the following Meiosis terms with their corresponding definitions.
@@ -422,6 +512,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-meiosis-terms-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic06
   question_title: Meiosis Terms from Definitions
   question_description: Select the Meiosis term that corresponds to the given definition.
@@ -435,6 +528,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-poisson-flies
+  classification:
+    discipline: Biology
+    subject: Inheritance Genetics
   topic_slug: topic06
   question_title: Parent Genotypes in X-Linked Recessive Crosses
   question_description: Determine parental genotypes from an X-linked recessive fly cross using offspring
@@ -450,6 +546,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-sex-determination-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic06
   question_title: Matching Sex Determination Systems to Descriptions
   question_description: Match each of the following sex determination systems with their corresponding
@@ -464,6 +563,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic06-sex-determination-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic06
   question_title: Sex Determination Systems from Descriptions
   question_description: Select the sex determination system that corresponds to the given description.
@@ -477,6 +579,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic07-chi-square-terms-matching
+  classification:
+    discipline: Mathematics
+    subject: Biostatistics
   topic_slug: topic07
   question_title: Matching Chi-Square Terms to Definitions
   question_description: Match each of the following chi2 terms with their corresponding definitions.
@@ -490,6 +595,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic07-chi-square-terms-which-one
+  classification:
+    discipline: Mathematics
+    subject: Biostatistics
   topic_slug: topic07
   question_title: Chi-Square Terms from Definitions
   question_description: Select the chi2 term that corresponds to the given definition.
@@ -503,6 +611,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic09-chromosome-alterations-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic09
   question_title: Matching Chromosome Structure Alterations to Descriptions
   question_description: Match each of the following alterations to chromosome structure with their corresponding
@@ -517,6 +628,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic09-chromosome-alterations-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic09
   question_title: Types of Chromosomal Alterations
   question_description: Select the alteration of chromosome structure that corresponds to the given description.
@@ -530,6 +644,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic09-chromosome-shapes-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic09
   question_title: Matching Chromosome Shapes to Descriptions
   question_description: Match each of the following categories of chromosome shape with their corresponding
@@ -544,6 +661,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic09-chromosome-shapes-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic09
   question_title: Chromosome Shape Categories Based on Descriptions
   question_description: Select the category of chromosome shape that corresponds to the given shape description.
@@ -557,6 +677,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic10-population-genetics-terms-matching
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic10
   question_title: Matching Population Genetic Terms
   question_description: Match each of the following population genetic terms with their corresponding
@@ -571,6 +694,9 @@ parameterized_sources:
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
 - source_id: topic10-population-genetics-terms-which-one
+  classification:
+    discipline: Biology
+    subject: Genetics
   topic_slug: topic10
   question_title: Population Genetics Terms from Definitions
   question_description: Select the population genetic term that corresponds to the given definition.

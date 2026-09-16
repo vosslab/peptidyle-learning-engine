@@ -121,9 +121,18 @@ struct DraftGeneralFeedbackRequest {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct PublishDraftRequest {
     authors: Vec<String>,
+    discipline_uuid: String,
+    subject_uuid: String,
+    topic_uuid: Option<String>,
+    subtopic_uuid: Option<String>,
+}
+
+fn canonical_classification_uuid(value: &str) -> Result<uuid::Uuid, ()> {
+    let parsed = uuid::Uuid::parse_str(value).map_err(|_| ())?;
+    (parsed.to_string() == value).then_some(parsed).ok_or(())
 }
 
 #[derive(Debug, Serialize)]
@@ -480,6 +489,28 @@ async fn publish_draft(
     Path(reference): Path<String>,
     Json(request): Json<PublishDraftRequest>,
 ) -> Response {
+    // ASVS 2.2.1/2.2.2: canonical UUID input is checked at the trusted boundary.
+    let classification = (|| {
+        let discipline = canonical_classification_uuid(&request.discipline_uuid)?;
+        let subject = canonical_classification_uuid(&request.subject_uuid)?;
+        let topic = request
+            .topic_uuid
+            .as_deref()
+            .map(canonical_classification_uuid)
+            .transpose()?;
+        let subtopic = request
+            .subtopic_uuid
+            .as_deref()
+            .map(canonical_classification_uuid)
+            .transpose()?;
+        Ok::<_, ()>((discipline, subject, topic, subtopic))
+    })();
+    let Ok((discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid)) = classification else {
+        return private_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Question classification is invalid",
+        );
+    };
     let reference = match parse_reference(&reference) {
         Ok(reference) => reference,
         Err(response) => return *response,
@@ -545,6 +576,10 @@ async fn publish_draft(
         workspace: draft.workspace,
         question_authorship: authorship,
         initial_shared_tags: source.tags,
+        discipline_uuid,
+        subject_uuid,
+        topic_uuid,
+        subtopic_uuid,
         question_license,
         question_revision_reason: QuestionRevisionReason::new(
             INITIAL_PUBLICATION_REASON.to_string(),

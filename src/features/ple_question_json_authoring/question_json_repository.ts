@@ -8,6 +8,14 @@ import {
 } from "./question_json_client";
 import type { PleQuestionJsonDocument } from "./question_json_source";
 
+export type PleQuestionJsonPublicationRequest = {
+  readonly authorship: QuestionAuthorship;
+  readonly disciplineUuid: string;
+  readonly subjectUuid: string;
+  readonly topicUuid: string | null;
+  readonly subtopicUuid: string | null;
+};
+
 export interface PleQuestionJsonAuthoringClient {
   load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
   save(
@@ -17,7 +25,7 @@ export interface PleQuestionJsonAuthoringClient {
   ): Promise<PleQuestionJsonSave>;
   publish(
     draftQuestion: DraftQuestionReference,
-    request: { readonly authorship: QuestionAuthorship },
+    request: PleQuestionJsonPublicationRequest,
     revision: string,
   ): Promise<QuestionSummary>;
 }
@@ -31,7 +39,7 @@ export interface PleQuestionJsonRepository {
   reload(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
   publish(
     draftQuestion: DraftQuestionReference,
-    request: { readonly authorship: QuestionAuthorship },
+    request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary>;
   /** A separately saved Draft metadata field advances the same server edit number. */
   synchronizeRevision(draftQuestion: DraftQuestionReference, revision: string): void;
@@ -100,7 +108,7 @@ export function createPleQuestionJsonRepository(
 
   async function publish(
     draftQuestion: DraftQuestionReference,
-    request: { readonly authorship: QuestionAuthorship },
+    request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary> {
     const revision = revisions.get(draftQuestion);
     if (revision === undefined) {

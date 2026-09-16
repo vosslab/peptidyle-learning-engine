@@ -182,9 +182,15 @@ BEGIN
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Subject Discipline selection is invalid';
     END IF;
-    DELETE FROM ple_data.content_subject_discipline WHERE subject_uuid = p_subject_uuid;
+    -- Retain unchanged associations: their identity may be referenced by
+    -- Published Questions. Immediate foreign keys refuse referenced removals
+    -- and roll back the entire replacement, including concurrent writers.
+    DELETE FROM ple_data.content_subject_discipline
+     WHERE subject_uuid = p_subject_uuid
+       AND NOT (discipline_uuid = ANY(p_discipline_uuids));
     INSERT INTO ple_data.content_subject_discipline (subject_uuid, discipline_uuid)
-    SELECT p_subject_uuid, id FROM unnest(p_discipline_uuids) AS selected(id) ORDER BY id;
+    SELECT p_subject_uuid, id FROM unnest(p_discipline_uuids) AS selected(id) ORDER BY id
+    ON CONFLICT DO NOTHING;
 END
 $$;
 

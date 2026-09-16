@@ -82,16 +82,19 @@ CREATE TABLE ple_data.published_question_metadata (
     metadata_edit_number bigint NOT NULL DEFAULT 1 CHECK (metadata_edit_number > 0),
     tags text[] NOT NULL DEFAULT ARRAY[]::text[]
         CHECK (ple_data.question_metadata_tags_are_valid(tags)),
-    subject text CHECK (
-        subject = btrim(subject)
-        AND char_length(subject) BETWEEN 1 AND 120
-        AND subject !~ '[[:cntrl:]]'
-    ),
-    topic text CHECK (
-        topic = btrim(topic)
-        AND char_length(topic) BETWEEN 1 AND 120
-        AND topic !~ '[[:cntrl:]]'
-    ),
+    -- ASVS 2.2.2/2.3.3: real vocabulary references preserve the hierarchy
+    -- even during concurrent vocabulary repairs; no free-text bridge exists.
+    discipline_uuid uuid NOT NULL,
+    subject_uuid uuid NOT NULL,
+    topic_uuid uuid,
+    subtopic_uuid uuid,
+    FOREIGN KEY (subject_uuid, discipline_uuid)
+        REFERENCES ple_data.content_subject_discipline(subject_uuid, discipline_uuid),
+    FOREIGN KEY (subject_uuid, topic_uuid)
+        REFERENCES ple_data.content_topic(subject_uuid, topic_uuid),
+    FOREIGN KEY (topic_uuid, subtopic_uuid)
+        REFERENCES ple_data.content_subtopic(topic_uuid, subtopic_uuid),
+    CHECK (subtopic_uuid IS NULL OR topic_uuid IS NOT NULL),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL CHECK (updated_at >= created_at)
 );
@@ -189,8 +192,6 @@ CREATE INDEX published_question_available_discovery_idx
     ON ple_data.published_question(question_id) WHERE availability = 'available';
 CREATE INDEX published_question_metadata_search_idx ON ple_data.published_question_metadata
     USING gin (to_tsvector('simple', question_title || ' ' || question_description));
-CREATE INDEX published_question_metadata_subject_topic_idx
-    ON ple_data.published_question_metadata(subject, topic);
 
 ALTER TABLE ple_data.published_question ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_data.published_question FORCE ROW LEVEL SECURITY;

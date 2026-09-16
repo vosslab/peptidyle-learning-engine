@@ -326,43 +326,10 @@ export function QuestionDetailPage(): JSX.Element {
             <article>
               <p class="eyebrow">Published question</p>
               <h1>{record().summary.metadata.questionTitle}</h1>
-              <section aria-label="Question Description">
+              <section class="question-detail-description" aria-label="Question Description">
                 <h2>Question Description</h2>
                 <p>{record().summary.metadata.questionDescription}</p>
               </section>
-              <CopyableQuestionId
-                questionTitle={record().summary.metadata.questionTitle}
-                displayId={record().summary.questionId}
-              />
-              <QuestionStarControl questionId={record().summary.questionId} />
-              <QuestionWatchControl questionId={record().summary.questionId} />
-              <p aria-label="Question Authors">
-                Authors:{" "}
-                {record()
-                  .summary.authorship.authors.map((author) => author.displayName)
-                  .join(", ")}
-              </p>
-              <p>
-                {`Backend: ${record().summary.backend}`}
-                <Show when={webworkFormatLabel(record().summary.questionFormat)}>
-                  {(format) => ` · Format: ${format()}`}
-                </Show>
-              </p>
-              <p>Revision {record().summary.latestQuestionRevision.revisionNumber}</p>
-              <Show
-                when={
-                  record().summary.backend === "webwork" ||
-                  record().prompt.kind === "generatedExample"
-                }
-              >
-                <aside class="question-library-generated-example" aria-label="Generated example">
-                  <strong>Generated example</strong>
-                  <p>
-                    This example uses resolved values for Question Library viewing. Assigned
-                    versions may use different values.
-                  </p>
-                </aside>
-              </Show>
               <section aria-label="Question prompt">
                 <Show
                   when={record().summary.backend === "webwork"}
@@ -393,6 +360,56 @@ export function QuestionDetailPage(): JSX.Element {
                     allow=""
                   />
                 </Show>
+              </section>
+              <section class="question-detail-support" aria-label="Question details and actions">
+                <CopyableQuestionId
+                  questionTitle={record().summary.metadata.questionTitle}
+                  displayId={record().summary.questionId}
+                />
+                <dl class="question-detail-metadata">
+                  <div>
+                    <dt>Authors</dt>
+                    <dd>
+                      {record()
+                        .summary.authorship.authors.map((author) => author.displayName)
+                        .join(", ")}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Backend</dt>
+                    <dd>{record().summary.backend}</dd>
+                  </div>
+                  <Show when={webworkFormatLabel(record().summary.questionFormat)}>
+                    {(format) => (
+                      <div>
+                        <dt>Format</dt>
+                        <dd>{format()}</dd>
+                      </div>
+                    )}
+                  </Show>
+                  <div>
+                    <dt>Revision</dt>
+                    <dd>{record().summary.latestQuestionRevision.revisionNumber}</dd>
+                  </div>
+                </dl>
+                <Show
+                  when={
+                    record().summary.backend === "webwork" ||
+                    record().prompt.kind === "generatedExample"
+                  }
+                >
+                  <aside class="question-library-generated-example" aria-label="Generated example">
+                    <strong>Generated example</strong>
+                    <p>
+                      This example uses resolved values for Question Library viewing. Assigned
+                      versions may use different values.
+                    </p>
+                  </aside>
+                </Show>
+                <div class="question-detail-support-actions">
+                  <QuestionStarControl questionId={record().summary.questionId} />
+                  <QuestionWatchControl questionId={record().summary.questionId} />
+                </div>
               </section>
               <QuestionStatisticsPanel evidence={record().evidence} />
               <QuestionUsePanel usage={record().usage} />

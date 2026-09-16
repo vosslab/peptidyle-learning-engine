@@ -98,6 +98,7 @@ export interface LibraryPageProps {
   readonly mode: "search" | "browse";
   readonly repository: QuestionLibraryBrowseRepository;
   readonly metadataClient: QuestionBulkMetadataClient;
+  readonly classificationClient: import("../api/content_classification").ContentClassificationClient;
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
 }
@@ -777,6 +778,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         {(metadata) => (
           <QuestionBulkMetadataEditor
             client={props.metadataClient}
+            classificationClient={props.classificationClient}
             initialMetadata={metadata()}
             onBusyChange={setEditorBusy}
             onCancel={() => setEditorMetadata(null)}

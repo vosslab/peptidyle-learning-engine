@@ -4,6 +4,7 @@ import { A, useParams } from "@solidjs/router";
 import { Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
 import { createPleQuestionJsonClient } from "../features/ple_question_json_authoring/question_json_client";
+import { useApplicationApi } from "../api/application_api";
 import {
   PleQuestionGeneralFeedbackConflictError,
   createPleQuestionGeneralFeedbackClient,
@@ -146,6 +147,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
   const params = useParams();
   const wasm = useWasmFacade();
   const client = createPleQuestionJsonClient();
+  const classificationClient = useApplicationApi().client;
   const generalFeedbackClient = createPleQuestionGeneralFeedbackClient();
   const repository = createPleQuestionJsonRepository(client);
   const reference = createMemo(() => parseDraftQuestionReference(params.draftQuestionRef ?? ""));
@@ -235,6 +237,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
             initialGeneralFeedback={loaded().generalFeedback}
             generalFeedbackClient={generalFeedbackClient}
             repository={repository}
+            classificationClient={classificationClient}
             responseValidator={wasm}
           />
         )}

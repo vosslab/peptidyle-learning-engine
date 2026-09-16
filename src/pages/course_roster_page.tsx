@@ -39,6 +39,8 @@ function stateLabel(state: "invitationPending" | "activeStudent"): string {
   return state === "activeStudent" ? "Active Student" : "Invitation pending";
 }
 
+type RosterFeedback = Readonly<{ kind: "success" | "error"; text: string }>;
+
 /** Current Active Instructor surface for an exact Course Instance's roster. */
 export function CourseRosterPage(): JSX.Element {
   const applicationApi = useApplicationApi();
@@ -50,31 +52,38 @@ export function CourseRosterPage(): JSX.Element {
     return applicationApi.client.getLiveCourseRoster(course);
   });
   const [importText, setImportText] = createSignal("");
-  const [message, setMessage] = createSignal("");
+  const [message, setMessage] = createSignal<RosterFeedback>();
+  const [toolMessage, setToolMessage] = createSignal<RosterFeedback>();
   const [busy, setBusy] = createSignal(false);
+  let rosterTools: HTMLDetailsElement | undefined;
 
   async function importRoster(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     const course = reference();
     if (course === null) return;
     setBusy(true);
-    setMessage("");
+    setMessage(undefined);
+    setToolMessage(undefined);
     try {
       const entries = parseImportRows(importText());
       await applicationApi.client.importLiveCourseRoster(course, { entries });
       setImportText("");
-      setMessage(
-        "Roster import recorded. Students remain pending until they claim their Course Invitation.",
-      );
+      setToolMessage({
+        kind: "success",
+        text: "Roster import recorded. Students remain pending until they claim their Course Invitation.",
+      });
       await refetch();
     } catch (error) {
-      setMessage(
-        error instanceof Error && error.message.startsWith("Use ")
-          ? error.message
-          : "The roster import could not be recorded. Check each email and roster ID.",
-      );
+      setToolMessage({
+        kind: "error",
+        text:
+          error instanceof Error && error.message.startsWith("Use ")
+            ? error.message
+            : "The roster import could not be recorded. Check each email and roster ID.",
+      });
     } finally {
       setBusy(false);
+      if (rosterTools !== undefined) rosterTools.open = true;
     }
   }
 
@@ -82,15 +91,20 @@ export function CourseRosterPage(): JSX.Element {
     const course = reference();
     if (course === null) return;
     setBusy(true);
-    setMessage("");
+    setMessage(undefined);
+    setToolMessage(undefined);
     try {
       await applicationApi.client.revokeLiveCourseRosterEntry(course, rosterId);
-      setMessage(
-        "Course access was removed. Protected educational records remain under retention.",
-      );
+      setMessage({
+        kind: "success",
+        text: "Course access was removed. Protected educational records remain under retention.",
+      });
       await refetch();
     } catch {
-      setMessage("This roster entry could not be changed. Reload and try again.");
+      setMessage({
+        kind: "error",
+        text: "This roster entry could not be changed. Reload and try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -100,7 +114,8 @@ export function CourseRosterPage(): JSX.Element {
     const course = reference();
     if (course === null) return;
     setBusy(true);
-    setMessage("");
+    setMessage(undefined);
+    setToolMessage(undefined);
     try {
       const exportBlob = await applicationApi.client.downloadLiveInvitationExport(course);
       const downloadUrl = URL.createObjectURL(exportBlob);
@@ -111,11 +126,18 @@ export function CourseRosterPage(): JSX.Element {
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
-      setMessage("Pending Course Invitations downloaded for the attended mailer.");
+      setToolMessage({
+        kind: "success",
+        text: "Pending Course Invitations downloaded for the attended mailer.",
+      });
     } catch {
-      setMessage("Pending Course Invitations could not be downloaded.");
+      setToolMessage({
+        kind: "error",
+        text: "Pending Course Invitations could not be downloaded.",
+      });
     } finally {
       setBusy(false);
+      if (rosterTools !== undefined) rosterTools.open = true;
     }
   }
 
@@ -123,57 +145,16 @@ export function CourseRosterPage(): JSX.Element {
     <section class="page roster-page" data-route-surface="courseRoster">
       <p class="eyebrow">Course Instance roster</p>
       <h1>Students</h1>
-      <p class="page-lede">
-        Import reviewed Student Authentication Email and course roster ID pairs. An import creates a
-        pending Course Invitation; it does not create Assessment or Student-work records.
-      </p>
       <Show when={message()}>
-        {(text) => (
-          <p class="inline-error" role="status" aria-live="polite">
-            {text()}
+        {(feedback) => (
+          <p
+            class={feedback().kind === "error" ? "inline-error" : "roster-feedback-success"}
+            role={feedback().kind === "error" ? "alert" : "status"}
+          >
+            {feedback().text}
           </p>
         )}
       </Show>
-
-      <form
-        class="auth-panel auth-form roster-section"
-        onSubmit={(event) => void importRoster(event)}
-      >
-        <h2>Import roster</h2>
-        <label for="live-course-roster-import">Email, roster ID</label>
-        <textarea
-          id="live-course-roster-import"
-          rows={6}
-          required
-          placeholder="student@example.edu,900123456"
-          value={importText()}
-          onInput={(event) => setImportText(event.currentTarget.value)}
-          aria-describedby="live-course-roster-import-help"
-        />
-        <p id="live-course-roster-import-help" class="field-help">
-          One comma-separated pair per line, up to 50 rows. Roster IDs remain course-scoped and are
-          not sign-in credentials.
-        </p>
-        <button class="primary-action" type="submit" disabled={busy()}>
-          Import roster
-        </button>
-      </form>
-
-      <section class="roster-section" aria-labelledby="invitation-export-heading">
-        <h2 id="invitation-export-heading">Pending Course Invitations</h2>
-        <p class="field-help">
-          Download the protected mailer input for pending Course Invitations. This page does not
-          send email.
-        </p>
-        <button
-          class="quiet-action"
-          type="button"
-          disabled={busy()}
-          onClick={() => void downloadPendingInvitations()}
-        >
-          Download pending invitations
-        </button>
-      </section>
 
       <Show when={roster.loading}>
         <p class="loading-state" role="status">
@@ -234,6 +215,60 @@ export function CourseRosterPage(): JSX.Element {
           </section>
         )}
       </Show>
+      <details class="roster-tools" ref={(element) => (rosterTools = element)}>
+        <summary>Roster tools</summary>
+        <p class="field-help roster-tools-help">
+          Import reviewed Student Authentication Email and course roster ID pairs. An import creates
+          a pending Course Invitation; it does not create Assessment or Student-work records.
+        </p>
+        <div class="roster-tools-grid">
+          <form class="auth-form" onSubmit={(event) => void importRoster(event)}>
+            <h2>Import roster</h2>
+            <label for="live-course-roster-import">Email, roster ID</label>
+            <textarea
+              id="live-course-roster-import"
+              rows={4}
+              required
+              placeholder="student@example.edu,900123456"
+              value={importText()}
+              onInput={(event) => setImportText(event.currentTarget.value)}
+              aria-describedby="live-course-roster-import-help"
+            />
+            <p id="live-course-roster-import-help" class="field-help">
+              One comma-separated pair per line, up to 50 rows. Roster IDs remain course-scoped and
+              are not sign-in credentials.
+            </p>
+            <button class="primary-action" type="submit" disabled={busy()}>
+              Import roster
+            </button>
+          </form>
+          <section aria-labelledby="invitation-export-heading">
+            <h2 id="invitation-export-heading">Pending Course Invitations</h2>
+            <p class="field-help">
+              Download the protected mailer input for pending Course Invitations. This page does not
+              send email.
+            </p>
+            <button
+              class="quiet-action"
+              type="button"
+              disabled={busy()}
+              onClick={() => void downloadPendingInvitations()}
+            >
+              Download pending invitations
+            </button>
+          </section>
+        </div>
+        <Show when={toolMessage()}>
+          {(feedback) => (
+            <p
+              class={feedback().kind === "error" ? "inline-error" : "roster-feedback-success"}
+              role={feedback().kind === "error" ? "alert" : "status"}
+            >
+              {feedback().text}
+            </p>
+          )}
+        </Show>
+      </details>
       <p>
         <A href="/">Return to Course Instances</A>
       </p>

@@ -62,6 +62,10 @@ mod blueprint_stewardship;
 #[cfg(feature = "postgres")]
 mod connection;
 #[cfg(feature = "postgres")]
+mod content_classification;
+#[cfg(feature = "postgres")]
+pub use content_classification::PostgresContentClassificationStore;
+#[cfg(feature = "postgres")]
 mod course_banner;
 #[cfg(feature = "postgres")]
 mod course_blueprint_adoption;

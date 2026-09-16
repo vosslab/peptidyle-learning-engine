@@ -2,6 +2,7 @@
 
 export const PLE_QUESTION_JSON_EDITOR_STYLES = `
 .ple-question-json-authoring { display:grid; gap:.85rem; min-width:0; }
+.ple-question-json-authoring .publication-classification-fields { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr)); gap:.75rem; margin-block:.75rem; }
 .ple-question-json-authoring fieldset { min-width:0; margin:0; padding:.8rem 0 0; border:0; border-top:1px solid var(--ple-border); }
 .ple-question-json-authoring legend { padding:0 .35rem; font-weight:780; }
 .ple-question-json-authoring__field { display:grid; gap:.35rem; margin:.7rem 0; font-weight:700; }

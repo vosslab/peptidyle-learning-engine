@@ -32,6 +32,7 @@ import { createQuestionPoolCreationClient } from "./http_client/question_pool_cr
 import { createAssessmentStudentViewClient } from "./http_client/assessment_student_view";
 import { createAssessmentTemplateClient } from "./http_client/assessment_template";
 import { createQuestionBulkMetadataClient } from "./http_client/question_bulk_metadata";
+import { createContentClassificationClient } from "./http_client/content_classification";
 
 export {
   ApiProtocolError,
@@ -75,6 +76,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createAssessmentStudentViewClient(fetchImplementation, basePath),
     createAssessmentTemplateClient(fetchImplementation, basePath),
     createQuestionBulkMetadataClient(fetchImplementation, basePath),
+    createContentClassificationClient(fetchImplementation, basePath),
     responses,
     requests,
   );

@@ -213,10 +213,14 @@ pub struct PublishedQuestionSharedMetadata {
     pub metadata_edit_number: u64,
     /// Current complete tag set.
     pub tags: Vec<Tag>,
-    /// Current optional subject.
-    pub subject: Option<String>,
-    /// Current optional topic.
-    pub topic: Option<String>,
+    /// Current canonical Discipline identity.
+    pub discipline_uuid: uuid::Uuid,
+    /// Current canonical Subject identity.
+    pub subject_uuid: uuid::Uuid,
+    /// Current optional Topic identity.
+    pub topic_uuid: Option<uuid::Uuid>,
+    /// Current optional Subtopic identity.
+    pub subtopic_uuid: Option<uuid::Uuid>,
 }
 
 /// Current selection availability for a stable Published Question lineage.
@@ -717,12 +721,14 @@ mod tests {
         assert_eq!(query.question_types, vec![QuestionType::MultipleChoice]);
         assert_eq!(query.capabilities, vec![Capability::Hints]);
         assert_eq!(query.question_licenses, vec![QuestionLicense::CcBy4_0]);
-        assert!(QuestionSearchRequest {
-            text: Some("x".repeat(257)),
-            ..QuestionSearchRequest::default()
-        }
-        .normalized()
-        .is_err());
+        assert!(
+            QuestionSearchRequest {
+                text: Some("x".repeat(257)),
+                ..QuestionSearchRequest::default()
+            }
+            .normalized()
+            .is_err()
+        );
     }
 
     #[test]

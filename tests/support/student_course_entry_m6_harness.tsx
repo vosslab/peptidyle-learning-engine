@@ -1,6 +1,6 @@
 // Compiled browser harness for the Student current-Course entry decisions.
 
-import { MemoryRouter, Route, createMemoryHistory, useLocation } from "@solidjs/router";
+import { MemoryRouter, Route, createMemoryHistory, query, useLocation } from "@solidjs/router";
 import type { JSX } from "solid-js";
 import { render } from "solid-js/web";
 
@@ -15,6 +15,14 @@ import { AssessmentOverviewPage } from "../../src/pages/assessment_overview_page
 import { StudentCourseLandingPage } from "../../src/pages/student_course_landing_page";
 import { StudentCoursesPage } from "../../src/pages/student_courses_page";
 import { RouteScopeProvider } from "../../src/ribbon/route_scope_context";
+import type { RouteScopeQueries } from "../../src/ribbon/route_scope_controller";
+import type { CourseRouteView } from "../../src/api/contracts";
+import type { StudentAssessmentAttemptContext } from "../../src/api/assessment_attempt_navigation";
+import type { StudentAssessmentAttemptHistory } from "../../src/api/assessment_attempt_history";
+import type {
+  CourseInstanceRouteReference,
+  AssessmentAttemptRouteReference,
+} from "../../src/navigation/public_route";
 
 type StudentCourseEntryCase = "zero" | "one" | "choose" | "many" | "landing";
 
@@ -57,6 +65,7 @@ const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   reference: "A4N8BQ2",
   title: "Bonus protein challenge",
   assessmentType: "bonus_assignment",
+  decision: { ...ASSESSMENT_DECISION, attemptLimit: null },
   assessmentAttemptNumber: 1,
   assessmentAttemptCompletion: "completed",
   canResumeAssessmentAttempt: false,
@@ -74,6 +83,14 @@ const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   canResumeAssessmentAttempt: false,
   gradedQuestionCount: 4,
   questionCount: 4,
+};
+const UNSTARTED_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
+  ...WITHHELD_ASSESSMENT,
+  reference: "A3N7DX6",
+  title: "Protein folding quiz",
+  assessmentAttemptNumber: null,
+  assessmentAttemptCompletion: null,
+  gradedQuestionCount: 0,
 };
 
 function coursesFor(
@@ -139,43 +156,99 @@ export function mountStudentCourseEntryM6Harness(
       listLiveStudentAssessments: () =>
         Promise.resolve(
           caseName === "landing"
-            ? [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT]
+            ? [currentAssessment(), BONUS_ASSESSMENT, WITHHELD_ASSESSMENT, UNSTARTED_ASSESSMENT]
             : [],
         ),
-      getLiveAssessmentAccess: () =>
-        Promise.resolve({
-          decision: currentDecision(),
-          activeAssessmentAttempt: null,
-          title: ASSESSMENT.title,
-          assessmentType: ASSESSMENT.assessmentType,
-          questionCount: ASSESSMENT.questionCount,
-          pointsPossible: 8,
-          previousAttempts: [],
-        }),
+      getLiveAssessmentAccess: (_course: string, assessment: string) => {
+        const item = [
+          currentAssessment(),
+          BONUS_ASSESSMENT,
+          WITHHELD_ASSESSMENT,
+          UNSTARTED_ASSESSMENT,
+        ].find((candidate) => candidate.reference === assessment);
+        if (item === undefined) throw new Error("Unknown harness Coursework");
+        return Promise.resolve({
+          decision: item.decision,
+          activeAssessmentAttempt: item.canResumeAssessmentAttempt ? "R-6" : null,
+          title: item.title,
+          assessmentType: item.assessmentType,
+          questionCount: item.questionCount,
+          pointsPossible: item.assessmentScore?.pointsPossible ?? 8,
+          previousAttempts:
+            item.assessmentAttemptCompletion === "completed"
+              ? [
+                  {
+                    assessmentAttempt: "R-5",
+                    attemptNumber: 1,
+                    state: "submitted",
+                    score: item.assessmentScore,
+                  },
+                ]
+              : [],
+        });
+      },
     },
     queries: {
-      courseScope: () =>
-        Promise.resolve({
-          summary: {
-            reference: COURSE_ONE.reference,
-            shortName: COURSE_ONE.shortName,
-            longName: COURSE_ONE.longName,
-            term: { startDate: "2026-08-31", endDate: "2026-12-12" },
-            role: "student",
-          },
-          appearance: { theme: "ocean", banner: null },
-        }),
-    },
+      courseScope: query(
+        (_reference: CourseInstanceRouteReference): Promise<CourseRouteView> =>
+          Promise.resolve({
+            summary: {
+              reference: COURSE_ONE.reference,
+              shortName: COURSE_ONE.shortName,
+              longName: COURSE_ONE.longName,
+              term: { startDate: "2026-08-31", endDate: "2026-12-12" },
+              role: "student",
+            },
+            appearance: { theme: "ocean", banner: null },
+          }),
+        "m6-course-scope",
+      ),
+      assessmentAttemptScope: query(
+        (_reference: AssessmentAttemptRouteReference): Promise<StudentAssessmentAttemptContext> =>
+          Promise.resolve({
+            assessmentAttempt: "R-6",
+            attemptNumber: ASSESSMENT.assessmentAttemptNumber ?? 1,
+            displayTimeZone: ASSESSMENT_DECISION.displayTimeZone,
+            expiresAt: null,
+            timerRemainingMilliseconds: null,
+            course: { ...COURSE_ONE, theme: "ocean" },
+            assessment: { reference: ASSESSMENT.reference, title: ASSESSMENT.title },
+          }),
+        "m6-attempt-scope",
+      ),
+      assessmentAttemptHistory: query(
+        (_reference: AssessmentAttemptRouteReference): Promise<StudentAssessmentAttemptHistory> =>
+          Promise.resolve({
+            assessmentAttempt: "R-5",
+            attemptNumber: 1,
+            course: { ...COURSE_ONE, theme: "ocean" },
+            assessment: { reference: BONUS_ASSESSMENT.reference, title: BONUS_ASSESSMENT.title },
+            state: "submitted",
+            score: BONUS_ASSESSMENT.assessmentScore,
+            questions: [],
+          }),
+        "m6-attempt-history",
+      ),
+    } satisfies RouteScopeQueries,
   } as unknown as ApplicationApi<OrdinaryBrowserApiClient>;
   const dispose = render(
     () => (
       <ApplicationApiProvider applicationApi={applicationApi}>
         <MemoryRouter history={history} root={HarnessRoot}>
           <Route path="/" component={StudentCoursesPage} />
+          <Route path="/student" component={StudentCoursesPage} />
           <Route path="/student/courses/:courseRef" component={StudentCourseLandingPage} />
           <Route
             path="/courses/:courseRef/assessments/:assessmentRef"
             component={AssessmentOverviewPage}
+          />
+          <Route
+            path="/assessment-attempts/:attemptRef"
+            component={() => <p>Active Attempt destination</p>}
+          />
+          <Route
+            path="/assessment-attempts/:attemptRef/summary"
+            component={() => <p>Attempt summary destination</p>}
           />
         </MemoryRouter>
       </ApplicationApiProvider>

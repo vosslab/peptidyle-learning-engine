@@ -66,6 +66,8 @@ pub(crate) fn publish_with_context(
             .context("Pilot publication database URL is invalid")?;
         let drafts = PostgresAuthoringDraftStore::new(pool.clone());
         let publication = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
+        let classification =
+            learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
         let library = PostgresQuestionLibraryStore::new(pool);
         let objects = server_core::composition::question_library_object_store_from_env()
             .await
@@ -77,6 +79,7 @@ pub(crate) fn publish_with_context(
             workspace,
             plan,
             PilotPublicationServices {
+                classification: &classification,
                 drafts: &drafts,
                 publication: &publication,
                 library: &library,
@@ -155,6 +158,7 @@ fn validated_publication_mapping(value: &str) -> Result<BTreeMap<String, Publish
 /// They share a lifetime because the operation borrows all of them until every
 /// source has either been confirmed or published.
 struct PilotPublicationServices<'a> {
+    classification: &'a learning_data_access::postgres::PostgresContentClassificationStore,
     drafts: &'a PostgresAuthoringDraftStore,
     publication: &'a PostgresDraftQuestionSourceBindingStore,
     library: &'a PostgresQuestionLibraryStore,
@@ -179,6 +183,23 @@ async fn publish_plan(
         .list_published_question_library_entries(session)
         .await
         .context("reading ordinary published Question provenance")?;
+    // Recovery reuses immutable provenance without constraining mutable metadata.
+    // Resolve every new lineage before the first write in this batch.
+    let mut classifications = BTreeMap::new();
+    for question in &plan.questions {
+        if existing_publication(&existing, question, &authorship, &license)?.is_none() {
+            classifications.insert(
+                question.slug.clone(),
+                question
+                    .classification
+                    .resolve(services.classification, session)
+                    .await
+                    .with_context(|| {
+                        format!("resolving Pilot classification for {}", question.slug)
+                    })?,
+            );
+        }
+    }
     let mut published = BTreeMap::new();
     for question in plan.questions {
         if let Some(revision) = existing_publication(&existing, &question, &authorship, &license)? {
@@ -191,6 +212,9 @@ async fn publish_plan(
             );
             continue;
         }
+        let classification = classifications
+            .get(&question.slug)
+            .context("Pilot classification admission is incomplete")?;
         let draft = matching_or_new_draft(
             session,
             workspace,
@@ -235,6 +259,10 @@ async fn publish_plan(
                     expected_draft_question_edit_number: bound_edit_number,
                     workspace,
                     question_authorship: authorship.clone(),
+                    discipline_uuid: classification.discipline_uuid,
+                    subject_uuid: classification.subject_uuid,
+                    topic_uuid: classification.topic_uuid,
+                    subtopic_uuid: classification.subtopic_uuid,
                     initial_shared_tags: initial_shared_tags(&question)?,
                     question_license: license.clone(),
                     question_revision_reason: QuestionRevisionReason::new(

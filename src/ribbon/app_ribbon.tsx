@@ -6,6 +6,7 @@ import {
   createSignal,
   For,
   onCleanup,
+  onMount,
   Show,
   type Accessor,
   type JSX,
@@ -240,6 +241,25 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
   let taskObservationVersion = 0;
   let disposed = false;
   const [profileMenuOpen, setProfileMenuOpen] = createSignal(false);
+  const [narrowScreen, setNarrowScreen] = createSignal(false);
+  const [topRow, setTopRow] = createSignal<HTMLElement>();
+  const [tabRow, setTabRow] = createSignal<HTMLElement>();
+  onMount(() => {
+    const query = window.matchMedia("(max-width: 40rem)");
+    const update = (): void => {
+      setNarrowScreen(query.matches);
+    };
+    update();
+    query.addEventListener("change", update);
+    onCleanup(() => query.removeEventListener("change", update));
+  });
+  createEffect(() => {
+    const row =
+      narrowScreen() && props.model.context.productLabel === "Student" ? tabRow() : topRow();
+    if (row === undefined) return;
+    tabScrollport.current = row;
+    topOverflow.setRow(row);
+  });
   let profileTrigger: HTMLButtonElement | undefined;
   let profileMenu: HTMLDivElement | undefined;
   const visibleTabs = (): ReadonlyArray<RibbonControlModel & { href: string }> =>
@@ -422,10 +442,7 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
           class="ple-app-ribbon__row ple-app-ribbon__top-bar"
           aria-label="Ribbon navigation"
           data-ribbon-row="top"
-          ref={(element): void => {
-            tabScrollport.current = element;
-            topOverflow.setRow(element);
-          }}
+          ref={setTopRow}
         >
           <div class="ple-app-ribbon__context-identity">
             <a class="ple-app-ribbon__brand" href="/" aria-label="Peptidyle home">
@@ -452,11 +469,16 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
               {(label) => <span>{label()}</span>}
             </Show>
           </div>
-          <nav class="ple-app-ribbon__tabs" aria-label="Ribbon tabs">
-            <For each={visibleTabs()}>
-              {(control) => <RibbonLink control={control} pendingNavigation={pendingNavigation} />}
-            </For>
-          </nav>
+          <div class="ple-app-ribbon__tabs-frame">
+            <nav class="ple-app-ribbon__tabs" aria-label="Ribbon tabs" ref={setTabRow}>
+              <For each={visibleTabs()}>
+                {(control) => (
+                  <RibbonLink control={control} pendingNavigation={pendingNavigation} />
+                )}
+              </For>
+            </nav>
+            <RibbonOverflowCues state={topOverflow} />
+          </div>
         </section>
         <RibbonOverflowCues state={topOverflow} />
       </section>

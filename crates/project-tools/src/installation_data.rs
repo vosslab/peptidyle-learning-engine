@@ -65,6 +65,15 @@ fn parse_arguments(args: &[String]) -> Result<InstallationDataCommand> {
 }
 
 fn run_command(command: InstallationDataCommand) -> Result<()> {
+    validate_publisher_environment()?;
+    // ASVS 2.3.1: bundled authorship declares its vocabulary before either
+    // ordinary publisher validates Question classification.
+    run_manifest(
+        &required_environment("PLE_MIGRATION_DATABASE_URL")?,
+        "content_vocabulary.sql",
+        &BTreeMap::new(),
+    )
+    .context("provisioning the declared bundled content vocabulary")?;
     match command {
         InstallationDataCommand::Apply => {
             // Preserve the long-standing Live Demo identifiers on a default
@@ -356,6 +365,7 @@ fn fixed_manifest_path(filename: &str) -> Result<PathBuf> {
         matches!(
             filename,
             "prepublication_context.sql"
+                | "content_vocabulary.sql"
                 | "install.sql"
                 | "bundled_curriculum_context.sql"
                 | "revoke_example_content_session.sql"
@@ -409,6 +419,7 @@ fn psql_script(manifest: &Path, variables: &BTreeMap<&str, String>) -> Result<St
         rendered_manifest.starts_with(IMAGE_SCHEMA_ROOT)
             || [
                 "prepublication_context.sql",
+                "content_vocabulary.sql",
                 "install.sql",
                 "bundled_curriculum_context.sql",
                 "revoke_example_content_session.sql",

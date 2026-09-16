@@ -166,14 +166,16 @@
   - Evidence (source): `src/ribbon/app_ribbon.tsx` renders only catalog navigation and Sign Out in `AppRibbon`; task content stays in `ApplicationShell` content.
 - [ ] On narrow Student screens, use a compact navigation arrangement that keeps the product identity,
   current location, navigation controls, and Profile readable and reachable.
-  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `AppRibbon` retains the Student identity and Profile controls while `src/ribbon/app_ribbon.css` `@media (max-width: 40rem)` makes the Student identity content-sized and gives the navigation controls a full-width scrollport; `src/application_shell.tsx` `BreadcrumbPrelude` supplies the route-context trail where reserved.
+  - Evidence (runtime): `src/ribbon/app_ribbon.tsx` `AppRibbon` and `src/application_shell.tsx` `BreadcrumbPrelude` were exercised in root's accepted bounded actual before/after receipt at `/private/tmp/ple-student-nav-proof/after-report.json`, with current `after-*.png` captures at 1280, 390, and 320 CSS pixels and 320 at 200% root font; the sampled overview, history, and Profile routes retained readable identity, reachable Profile and navigation, visible current route context where present, and no document overflow; an independent review accepted the bounded fix. See `/private/tmp/ple-student-nav-implementation.md`.
+  - Verification pending: This bounded Student receipt does not establish every narrow Student route or the broader all-routes layout contract. Profile still has no breadcrumb reservation.
 - [x] See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` composes `AppRibbon` and `BreadcrumbPrelude`.
 
 ### User top bar interface
 
-- [x] All signed-in users share the same basic top bar layout.
-  - Evidence (source): `src/ribbon/app_ribbon.tsx` `AppRibbon` renders one top-bar structure from each role model.
+- [x] All signed-in users share the same top-left logo/account and top-right profile bar layout.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `AppRibbon` renders the shared leading `ple-app-ribbon__context-identity` logo/account block and shared trailing `ple-app-ribbon__profile-endcap` Profile control for every role model; `src/ribbon/app_ribbon.css` `ple-app-ribbon__profile-endcap` pins the Profile control at the inline end, while Student narrow rules adapt only the middle navigation arrangement.
 - [x] The top bar remains in a consistent location as users navigate.
   - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` measures the persistent top row across model changes.
 - [x] The PLE logo and product name appear at the upper left and link to the user's home dashboard.

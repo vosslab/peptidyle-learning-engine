@@ -50,6 +50,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.getByRole("heading", { name: "Students", exact: true }).waitFor();
     await session.page.getByText("BIO301-AVERY", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "course_roster_active", session);
+    await session.page.locator("summary").filter({ hasText: "Roster tools" }).click();
     await session.page
       .getByLabel("Email, roster ID")
       .fill("screenshot.pending@biology.roosevelt.edu,screenshot-pending");

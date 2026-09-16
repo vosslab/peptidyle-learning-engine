@@ -74,11 +74,17 @@ impl BulkPublishedQuestionMetadataStore for PostgresBulkPublishedQuestionMetadat
         if let Some(tags) = input.patch.tags {
             patch.insert("tags".to_owned(), json!(tags));
         }
-        if let Some(subject) = input.patch.subject {
-            patch.insert("subject".to_owned(), json!(subject));
+        if let Some(value) = input.patch.discipline_uuid {
+            patch.insert("disciplineUuid".to_owned(), json!(value));
         }
-        if let Some(topic) = input.patch.topic {
-            patch.insert("topic".to_owned(), json!(topic));
+        if let Some(value) = input.patch.subject_uuid {
+            patch.insert("subjectUuid".to_owned(), json!(value));
+        }
+        if let Some(value) = input.patch.topic_uuid {
+            patch.insert("topicUuid".to_owned(), json!(value));
+        }
+        if let Some(value) = input.patch.subtopic_uuid {
+            patch.insert("subtopicUuid".to_owned(), json!(value));
         }
         let mut tx = self.begin(session_token_hash).await?;
         let rows = sqlx::query(

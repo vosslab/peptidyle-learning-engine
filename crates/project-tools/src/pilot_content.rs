@@ -15,6 +15,112 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 const DEFAULT_MANIFEST: &str = "content/pilot/chapter_1_assessments.yaml";
+
+/// Explicit authored display names, never inferred from Course organization.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AuthoredClassification {
+    pub(crate) discipline: String,
+    pub(crate) subject: String,
+    pub(crate) topic: Option<String>,
+    pub(crate) subtopic: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct ResolvedClassification {
+    pub(crate) discipline_uuid: uuid::Uuid,
+    pub(crate) subject_uuid: uuid::Uuid,
+    pub(crate) topic_uuid: Option<uuid::Uuid>,
+    pub(crate) subtopic_uuid: Option<uuid::Uuid>,
+}
+
+impl AuthoredClassification {
+    pub(crate) fn validate(&self) -> Result<()> {
+        // ASVS 2.2.1-2.2.3: reject malformed names and incomplete hierarchy.
+        for name in [&self.discipline, &self.subject]
+            .into_iter()
+            .chain(self.topic.iter())
+            .chain(self.subtopic.iter())
+        {
+            if name.is_empty() || name.trim() != name || name.chars().any(char::is_control) {
+                bail!(
+                    "classification display names must be trimmed, nonempty, and contain no control characters"
+                );
+            }
+        }
+        if self.subtopic.is_some() && self.topic.is_none() {
+            bail!("classification Subtopic requires an explicit Topic");
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn resolve(
+        &self,
+        store: &impl learning_data_access::ContentClassificationStore,
+        session: learning_data_access::SessionTokenHash,
+    ) -> Result<ResolvedClassification> {
+        self.validate()?;
+        let discipline_uuid = classification_name_uuid(
+            store
+                .list_disciplines(session)
+                .await
+                .context("listing authorized Disciplines")?,
+            "Discipline",
+            &self.discipline,
+        )?;
+        let subject_uuid = classification_name_uuid(
+            store
+                .list_subjects(session, discipline_uuid)
+                .await
+                .context("listing associated Subjects")?,
+            "Subject associated with the selected Discipline",
+            &self.subject,
+        )?;
+        let topic_uuid = match &self.topic {
+            Some(name) => Some(classification_name_uuid(
+                store
+                    .list_topics(session, subject_uuid)
+                    .await
+                    .context("listing Subject Topics")?,
+                "Topic within the selected Subject",
+                name,
+            )?),
+            None => None,
+        };
+        let subtopic_uuid = match (&self.subtopic, topic_uuid) {
+            (Some(name), Some(topic)) => Some(classification_name_uuid(
+                store
+                    .list_subtopics(session, topic)
+                    .await
+                    .context("listing Topic Subtopics")?,
+                "Subtopic within the selected Topic",
+                name,
+            )?),
+            _ => None,
+        };
+        Ok(ResolvedClassification {
+            discipline_uuid,
+            subject_uuid,
+            topic_uuid,
+            subtopic_uuid,
+        })
+    }
+}
+
+fn classification_name_uuid(
+    items: Vec<learning_data_access::ContentClassificationItem>,
+    kind: &str,
+    name: &str,
+) -> Result<uuid::Uuid> {
+    let mut matches = items.into_iter().filter(|item| item.name == name);
+    let selected = matches.next().with_context(|| format!(
+        "authored classification {kind} {name:?} is unavailable; provision the canonical vocabulary and its parent association before publication"
+    ))?;
+    if matches.next().is_some() {
+        bail!("authored classification {kind} {name:?} is ambiguous");
+    }
+    Ok(selected.uuid)
+}
 const IMAGE_CONTENT_ROOT: &str = "/opt/ple/content";
 const EXPECTED_QUESTION_SHAPES: [(Backend, PilotQuestionType); 4] = [
     (Backend::Webwork, PilotQuestionType::MultipleChoice),
@@ -45,6 +151,7 @@ struct SourceProject {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Chapter {
+    pub(crate) classification: AuthoredClassification,
     pub(crate) slug: String,
     course: String,
     pub(crate) course_title: String,
@@ -107,6 +214,7 @@ pub(crate) enum PilotQuestionType {
 /// immediately before it writes the immutable source object.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct PublicationSource {
+    pub(crate) classification: AuthoredClassification,
     pub(crate) slug: String,
     pub(crate) question_title: String,
     pub(crate) question_description: String,
@@ -183,6 +291,7 @@ pub(crate) fn publication_plan() -> Result<PublicationPlan> {
             let source_bytes = canonical_publication_source(question.backend, source_bytes)?;
             let source_sha256 = sha256_hex(&source_bytes);
             questions.push(PublicationSource {
+                classification: chapter.classification.clone(),
                 slug: question.slug.clone(),
                 question_title: question.question_title.clone(),
                 question_description: question.question_description.clone(),
@@ -336,6 +445,7 @@ fn validate_manifest_contract(manifest: &PilotManifest) -> Result<()> {
 }
 
 fn validate_chapter(chapter: &Chapter) -> Result<()> {
+    chapter.classification.validate()?;
     if chapter.slug.trim().is_empty()
         || chapter.course_title.trim().is_empty()
         || chapter.assessment_title.trim().is_empty()

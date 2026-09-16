@@ -1,7 +1,6 @@
 -- One global vocabulary for Courses and Library Objects; Assessments have no
 -- independent classification.
--- Content references and authenticated selection/mutation functions follow in
--- separate vertical slices; existing Question free text is not a bridge here.
+-- Published Question references enforce this hierarchy independently of commands.
 -- UUIDs are internal identities supplied by trusted writers, not public IDs.
 -- ASVS 2.1.1/2.2.1/2.2.3: names have bounded canonical storage. Subjects are
 -- shared across Disciplines; Topics and Subtopics have one real parent.
@@ -45,6 +44,7 @@ CREATE TABLE ple_data.content_subject_discipline (
 
 CREATE TABLE ple_data.content_topic (
     topic_uuid uuid PRIMARY KEY,
+    UNIQUE (subject_uuid, topic_uuid),
     subject_uuid uuid NOT NULL
         REFERENCES ple_data.content_subject(subject_uuid),
     name text NOT NULL CHECK (
@@ -56,6 +56,7 @@ CREATE TABLE ple_data.content_topic (
 
 CREATE TABLE ple_data.content_subtopic (
     subtopic_uuid uuid PRIMARY KEY,
+    UNIQUE (topic_uuid, subtopic_uuid),
     topic_uuid uuid NOT NULL REFERENCES ple_data.content_topic(topic_uuid),
     name text NOT NULL CHECK (
         char_length(name) BETWEEN 1 AND 480

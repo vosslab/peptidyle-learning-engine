@@ -120,13 +120,38 @@ print(json.dumps({
 }, separators=(",", ":")))'
 }
 
+classification_uuid() {
+	local path="$1" key="$2" name="$3" response
+	response="$(request "$path" "$instructor_cookie")"
+	if [ "$(response_status "$response")" != "200" ]; then
+		echo "Authoring classification selector $key failed (HTTP $(response_status "$response"))" >&2
+		return 1
+	fi
+	# ASVS 2.2.1: require the named installed fixture and canonical UUID, never a default.
+	python3 -c '
+import json, sys, uuid
+payload = json.loads(sys.argv[1])
+key, name = sys.argv[2:4]
+items = payload.get(key)
+if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+    raise SystemExit(f"Authoring classification selector {key} did not return a list")
+matches = [item for item in items if item.get("name") == name]
+if len(matches) != 1:
+    raise SystemExit(f"Authoring requires exactly one installed {key} fixture named {name}; found {len(matches)}")
+value = matches[0].get("uuid")
+if not isinstance(value, str) or str(uuid.UUID(value)) != value:
+    raise SystemExit(f"Authoring {name} fixture did not return a canonical UUID")
+print(value)
+' "$(response_body "$response")" "$key" "$name"
+}
+
 draft_reference=""
 draft_edit=""
 instructor_cookie=""
 published_question_id=""
 
 prove_draft() {
-	local anonymous student_cookie student instructor created body source anonymous_source student_source saved stale list
+	local anonymous student_cookie student created body source anonymous_source student_source saved stale list
 	anonymous="$(request '/api/authoring/drafts')"
 	assert_concealed "$anonymous"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -199,9 +224,19 @@ for forbidden in ("draftQuestionUuid", "workspaceId", "objectAddress", "sourceOb
 }
 
 prove_publish() {
-	local published library
+	local published library discipline_uuid subject_uuid request_body
 	if [ -z "$draft_reference" ]; then prove_draft; fi
-	published="$(request "/api/authoring/drafts/$draft_reference/publish" "$instructor_cookie" POST '{"authors":["Live Demo Instructor"]}' 'application/json' "\"$draft_edit\"")"
+	discipline_uuid="$(classification_uuid '/api/content-classification/disciplines' disciplines Biology)"
+	subject_uuid="$(classification_uuid "/api/content-classification/subjects?disciplineUuid=$discipline_uuid" subjects Genetics)"
+	# ASVS 1.2.3: serialize selected identities as JSON data rather than shell interpolation.
+	request_body="$(python3 -c '
+import json, sys
+print(json.dumps({
+    "authors": ["Live Demo Instructor"],
+    "disciplineUuid": sys.argv[1], "subjectUuid": sys.argv[2],
+}, separators=(",", ":")))
+' "$discipline_uuid" "$subject_uuid")"
+	published="$(request "/api/authoring/drafts/$draft_reference/publish" "$instructor_cookie" POST "$request_body" 'application/json' "\"$draft_edit\"")"
 	if [ "$(response_status "$published")" != "200" ]; then
 		echo "Instructor could not publish the saved Draft Question" >&2
 		exit 1

@@ -113,6 +113,11 @@ pub struct NewQuestionLineagePublicationCommand {
     pub question_authorship: QuestionAuthorship,
     /// Initial shared search tags derived from the reviewed canonical source.
     pub initial_shared_tags: Vec<Tag>,
+    /// Reviewed canonical lineage classification; PostgreSQL validates its parents.
+    pub discipline_uuid: Uuid,
+    pub subject_uuid: Uuid,
+    pub topic_uuid: Option<Uuid>,
+    pub subtopic_uuid: Option<Uuid>,
     /// Compatible Question License for the immutable first revision.
     pub question_license: QuestionLicense,
     /// Reviewed reason for accepting the first Question Revision.
@@ -271,6 +276,10 @@ where
                 question_source_object_record: target_record,
                 question_authorship: command.question_authorship.clone(),
                 initial_shared_tags: command.initial_shared_tags.clone(),
+                discipline_uuid: command.discipline_uuid,
+                subject_uuid: command.subject_uuid,
+                topic_uuid: command.topic_uuid,
+                subtopic_uuid: command.subtopic_uuid,
                 question_license: command.question_license.clone(),
                 question_revision_reason: command.question_revision_reason.clone(),
                 question_ownership_event_id: Uuid::now_v7(),

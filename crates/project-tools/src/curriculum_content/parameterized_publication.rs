@@ -102,7 +102,10 @@ async fn publish_validated_with_context(
         .context("parameterized curriculum publication database URL is invalid")?;
     let drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let bindings = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
+    let classification_store =
+        learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
     let library = PostgresQuestionLibraryStore::new(pool);
+    let mut classifications = BTreeMap::new();
     let objects = server_core::composition::question_library_object_store_from_env()
         .await
         .context("configuring ordinary Question source object store")?;
@@ -164,6 +167,35 @@ async fn publish_validated_with_context(
         })
         .collect::<Result<Vec<_>>>()?;
 
+    // Existing immutable provenance is reusable despite later metadata edits.
+    // Resolve only new lineages, all before the first write in this batch.
+    for source in admitted
+        .iter()
+        .filter(|entry| entry.existing.is_none())
+        .map(|entry| &entry.prepared.source)
+    {
+        classifications.insert(
+            source.source_id.clone(),
+            source
+                .classification
+                .as_ref()
+                .with_context(|| {
+                    format!(
+                        "{} requires explicit authored classification before publication",
+                        source.source_id
+                    )
+                })?
+                .resolve(&classification_store, session)
+                .await
+                .with_context(|| {
+                    format!(
+                        "resolving curriculum classification for {}",
+                        source.source_id
+                    )
+                })?,
+        );
+    }
+
     let mut published = BTreeMap::new();
     for admitted_source in admitted {
         let PreparedSource {
@@ -178,6 +210,9 @@ async fn publish_validated_with_context(
                     session,
                     workspace,
                     &source,
+                    classifications
+                        .get(&source.source_id)
+                        .context("curriculum classification admission is incomplete")?,
                     &context,
                     bytes,
                     admitted_source.resumable_draft,
@@ -352,6 +387,7 @@ async fn publish_source(
     session: SessionTokenHash,
     workspace: WorkspaceId,
     source: &ParameterizedSource,
+    classification: &crate::pilot_content::ResolvedClassification,
     context: &SourceContext,
     bytes: Vec<u8>,
     resumable_draft: Option<AuthoringDraft>,
@@ -407,6 +443,10 @@ async fn publish_source(
                 expected_draft_question_edit_number: bound_edit_number,
                 workspace,
                 question_authorship: authorship.clone(),
+                discipline_uuid: classification.discipline_uuid,
+                subject_uuid: classification.subject_uuid,
+                topic_uuid: classification.topic_uuid,
+                subtopic_uuid: classification.subtopic_uuid,
                 initial_shared_tags: Vec::new(),
                 question_license: license.clone(),
                 question_revision_reason: QuestionRevisionReason::new(

@@ -75,7 +75,7 @@ def reset_live_demo_browser(
 		_run_remove(
 			runner,
 			repo_root,
-			["podman", "rm", "-f", "--depend", current.containers[0].id],
+			["podman", "rm", "-f", "--volumes", "--depend", current.containers[0].id],
 		)
 		current = _browser_snapshot(runner, repo_root)
 		local_stack_control.browser_suite_ownership.require_live_demo_browser_ownership(current)

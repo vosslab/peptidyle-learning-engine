@@ -2,6 +2,7 @@
 
 import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import type { WasmFacade } from "../../wasm/index";
+import type { ContentClassificationClient } from "../../api/content_classification";
 import type { PleQuestionJsonRead } from "./question_json_client";
 import type {
   PleQuestionGeneralFeedbackClient,
@@ -41,6 +42,7 @@ export interface PleQuestionJsonEditorPageProps {
   readonly initialGeneralFeedback: PleQuestionGeneralFeedbackRead;
   readonly generalFeedbackClient: PleQuestionGeneralFeedbackClient;
   readonly repository: PleQuestionJsonRepository;
+  readonly classificationClient: ContentClassificationClient;
   /** Injected browser-safe validator keeps preview on the same student QuestionResponseControl path. */
   readonly responseValidator: Pick<WasmFacade, "validateResponseFormat">;
   /** Same-route QTI conversion may move focus into the newly replaced draft. */

@@ -35,6 +35,9 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_description: String,
     /// Current shared search metadata and its independent edit number.
     pub shared_metadata: PublishedQuestionSharedMetadata,
+    /// Vocabulary-resolved names used by existing human-readable search facets.
+    pub subject_name: String,
+    pub topic_name: Option<String>,
     /// Whether a current available entry in one of the viewer's Courses uses
     /// this stable Question lineage.
     pub used_in_current_account_courses: bool,

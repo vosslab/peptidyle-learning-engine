@@ -8,7 +8,7 @@ CREATE FUNCTION ple_private.question_library_entries(
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    subject text, topic text, used_in_current_account_courses boolean,
+    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, used_in_current_account_courses boolean,
     source_object_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text
 ) LANGUAGE plpgsql SECURITY DEFINER
@@ -58,7 +58,7 @@ BEGIN
               WHERE owner.question_id = revision.question_id
                 AND owner.owner_account_id = ple_api.current_session_account_id()),
            license.spdx_expression, lineage.availability, lineage.availability_edit_number,
-           metadata.metadata_edit_number, metadata.tags, metadata.subject, metadata.topic,
+           metadata.metadata_edit_number, metadata.tags, metadata.discipline_uuid, metadata.subject_uuid, metadata.topic_uuid, metadata.subtopic_uuid,
            authorized_course_question.question_id IS NOT NULL,
            binding.source_object_id, binding.source_object_checksum, record.media_type,
            binding.webwork_pg_path
@@ -110,7 +110,7 @@ RETURNS TABLE (
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    subject text, topic text, used_in_current_account_courses boolean,
+    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, used_in_current_account_courses boolean,
     source_object_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -123,7 +123,7 @@ RETURNS TABLE (
     authored_by_current_account boolean, viewer_may_archive boolean,
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
-    subject text, topic text, used_in_current_account_courses boolean,
+    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, used_in_current_account_courses boolean,
     source_object_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -135,7 +135,7 @@ SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.load_current_published_question_shared_metadata(
     p_question_ids text[]
 ) RETURNS TABLE (
-    question_id text, metadata_edit_number bigint, tags text[], subject text, topic text
+    question_id text, metadata_edit_number bigint, tags text[], discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
@@ -169,7 +169,7 @@ BEGIN
     -- cannot expose rows from an incomplete selection.
     RETURN QUERY
     SELECT metadata.question_id, metadata.metadata_edit_number,
-           metadata.tags, metadata.subject, metadata.topic
+           metadata.tags, metadata.discipline_uuid, metadata.subject_uuid, metadata.topic_uuid, metadata.subtopic_uuid
       FROM ple_data.published_question_metadata AS metadata
       JOIN ple_data.published_question AS lineage
         ON lineage.question_id = metadata.question_id
@@ -197,7 +197,7 @@ RESET ROLE;
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.load_current_published_question_shared_metadata(p_question_ids text[])
 RETURNS TABLE (
-    question_id text, metadata_edit_number bigint, tags text[], subject text, topic text
+    question_id text, metadata_edit_number bigint, tags text[], discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT *

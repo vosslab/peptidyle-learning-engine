@@ -14,6 +14,7 @@ export function LibraryRoutePage(): JSX.Element {
       mode="search"
       repository={questionLibrary}
       metadataClient={runtime.client}
+      classificationClient={runtime.client}
       questionPoolClient={runtime.client}
       getQuestionDetails={runtime.client.getQuestionDetails}
     />
@@ -28,6 +29,7 @@ export function BrowseLibraryRoutePage(): JSX.Element {
       mode="browse"
       repository={questionLibrary}
       metadataClient={runtime.client}
+      classificationClient={runtime.client}
       questionPoolClient={runtime.client}
       getQuestionDetails={runtime.client.getQuestionDetails}
     />

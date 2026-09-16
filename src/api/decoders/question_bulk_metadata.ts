@@ -12,11 +12,17 @@ import {
   decodeNullable,
   decodeRecord,
   decodeSafeInteger,
+  decodeUuid,
 } from "../decoder";
 import { decodeQuestionId, field, requireOnlyFields } from "./shared";
 
 const MAX_SHARED_METADATA_VALUES = 64;
 const MAX_SHARED_METADATA_TEXT_CODE_POINTS = 120;
+function decodeClassificationUuid(value: unknown, path: string): string {
+  const uuid = decodeUuid(value, path);
+  if (uuid !== uuid.toLowerCase()) throw new DecodeError(path, "a canonical lowercase UUID");
+  return uuid;
+}
 function hasControlCharacter(value: string): boolean {
   return [...value].some((character) => {
     const codePoint = character.codePointAt(0) ?? 0;
@@ -57,7 +63,15 @@ function decodeTags(value: unknown, path: string): Array<string> {
 
 function decodeSharedMetadata(value: unknown, path: string): PublishedQuestionSharedMetadata {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionId", "metadataEditNumber", "tags", "subject", "topic"]);
+  requireOnlyFields(record, path, [
+    "questionId",
+    "metadataEditNumber",
+    "tags",
+    "disciplineUuid",
+    "subjectUuid",
+    "topicUuid",
+    "subtopicUuid",
+  ]);
   return {
     questionId: decodeQuestionId(field(record, "questionId", path), `${path}.questionId`),
     metadataEditNumber: decodePositiveSafeInteger(
@@ -65,12 +79,24 @@ function decodeSharedMetadata(value: unknown, path: string): PublishedQuestionSh
       `${path}.metadataEditNumber`,
     ),
     tags: decodeTags(field(record, "tags", path), `${path}.tags`),
-    subject: decodeNullable(
-      field(record, "subject", path),
-      `${path}.subject`,
-      decodeSharedMetadataText,
+    disciplineUuid: decodeClassificationUuid(
+      field(record, "disciplineUuid", path),
+      `${path}.disciplineUuid`,
     ),
-    topic: decodeNullable(field(record, "topic", path), `${path}.topic`, decodeSharedMetadataText),
+    subjectUuid: decodeClassificationUuid(
+      field(record, "subjectUuid", path),
+      `${path}.subjectUuid`,
+    ),
+    topicUuid: decodeNullable(
+      field(record, "topicUuid", path),
+      `${path}.topicUuid`,
+      decodeClassificationUuid,
+    ),
+    subtopicUuid: decodeNullable(
+      field(record, "subtopicUuid", path),
+      `${path}.subtopicUuid`,
+      decodeClassificationUuid,
+    ),
   };
 }
 
@@ -157,31 +183,37 @@ export function validateQuestionBulkMetadataRequest(
   const keys = Object.keys(rawPatch);
   if (
     keys.length === 0 ||
-    keys.some((key) => key !== "tags" && key !== "subject" && key !== "topic")
+    keys.some(
+      (key) =>
+        !["tags", "disciplineUuid", "subjectUuid", "topicUuid", "subtopicUuid"].includes(key),
+    )
   ) {
     throw new DecodeError("request.patch", "at least one closed shared-metadata field");
   }
   const patch: {
     tags?: Array<string>;
-    subject?: string | null;
-    topic?: string | null;
+    disciplineUuid?: string;
+    subjectUuid?: string;
+    topicUuid?: string | null;
+    subtopicUuid?: string | null;
   } = {};
   if ("tags" in rawPatch) {
     patch.tags = decodeTags(field(rawPatch, "tags", "request.patch"), "request.patch.tags");
   }
-  if ("subject" in rawPatch) {
-    patch.subject = decodeNullable(
-      field(rawPatch, "subject", "request.patch"),
-      "request.patch.subject",
-      decodeSharedMetadataText,
-    );
+  for (const key of ["disciplineUuid", "subjectUuid"] as const) {
+    if (key in rawPatch)
+      patch[key] = decodeClassificationUuid(
+        field(rawPatch, key, "request.patch"),
+        `request.patch.${key}`,
+      );
   }
-  if ("topic" in rawPatch) {
-    patch.topic = decodeNullable(
-      field(rawPatch, "topic", "request.patch"),
-      "request.patch.topic",
-      decodeSharedMetadataText,
-    );
+  for (const key of ["topicUuid", "subtopicUuid"] as const) {
+    if (key in rawPatch)
+      patch[key] = decodeNullable(
+        field(rawPatch, key, "request.patch"),
+        `request.patch.${key}`,
+        decodeClassificationUuid,
+      );
   }
   return { selection, patch };
 }

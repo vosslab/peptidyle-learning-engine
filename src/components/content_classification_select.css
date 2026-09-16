@@ -1,0 +1,19 @@
+/* Controlled native selectors inherit the product theme without new color roles. */
+.content-classification-select {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.content-classification-select select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ple-control-min-height, 2.75rem);
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-surface);
+  color: var(--ple-ink);
+  font: inherit;
+}

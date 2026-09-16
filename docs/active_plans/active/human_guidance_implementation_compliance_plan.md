@@ -15,12 +15,15 @@ new product definitions remain open absent independently accepted evidence. Part
 avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
 avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
 all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
-owns Library metadata, Part 08 Course classification, and Part 09 Assessment classification.
-The shared system requires exactly one Discipline per content object, optional narrower levels,
-and globally identified Subjects associated with one or more Disciplines. The accepted association
-storage correction does not establish global Subject-name uniqueness, role-aware commands,
-normalization, content attachments, hierarchical selection, or discovery. Those gaps remain open.
-KISS/design constraints are audited N/A where not independently closable, but still bind reviews.
+owns Library metadata and Part 08 Course classification. Current HG applies this shared vocabulary
+to Courses and Library Objects only, not Assessments: a Course requires Discipline and has optional
+Subject, while a Library Object requires both. Subjects are globally named and may have one or more
+Discipline associations. The historical 998-bullet counts above remain a historical snapshot.
+The independently accepted SQL command prerequisite establishes global Subject-name uniqueness,
+role-aware commands, normalization, parent-filtered selectors, and Sysadmin-only association
+replacement. Content attachments, HTTP/editor integration, search, lifecycle, and deployed-state
+acceptance remain open. KISS/design constraints are audited N/A where not independently closable,
+but still bind reviews.
 
 Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
 no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
@@ -35,32 +38,62 @@ inventories/correction IDs and superseded contradictions below are historical pr
 
 ## Current classification prerequisite
 
-The shared global vocabulary foundation is installed in
-[`schemas/base_schema/content_classification.sql`](../../../schemas/base_schema/content_classification.sql).
-It has four UUID vocabulary tables. `content_subject_discipline` gives Subjects real, unique
-Discipline associations through its composite primary key and foreign keys; Topics and Subtopics
-retain mandatory one-parent foreign keys. Name limits are 120, 120, 240, and 480 characters.
-`FORCE ROW LEVEL SECURITY` makes every vocabulary table owner-only, with no runtime grants. It
-installs after authorization.
+The shared global vocabulary and its authenticated commands are installed in
+[`schemas/base_schema/content_classification.sql`](../../../schemas/base_schema/content_classification.sql)
+and
+[`schemas/base_schema/content_classification_operations.sql`](../../../schemas/base_schema/content_classification_operations.sql).
+Four UUID vocabulary tables retain mandatory Topic/Subtopic parents; the global case-insensitive
+Subject index rejects case-only duplicates. Commands trim before validation, reject invalid or
+overlong normalized names, create the hierarchy with role-aware authority, find a global Subject,
+and list only immediate children of the supplied parent. Vetted active Instructors may create
+Subjects, Topics, and Subtopics and explicitly add an existing Subject to a Discipline; only active
+Sysadmins create Disciplines or replace a Subject's nonempty association set. The composite key,
+foreign keys, and Subject-row lock preserve real associations. `FORCE ROW LEVEL SECURITY`, no
+direct runtime DML grants, and command authorization keep the vocabulary boundary closed.
 
-Fresh PostgreSQL 17 proof passed in sibling `install.log` and `proof.log` artifacts under
-`/private/tmp/ple-global-classification-artifacts.nAoIIo`. It establishes one Subject associated
-with two Disciplines, rejects duplicate and orphan associations, and denies
-deleting a referenced parent. It also establishes one-parent Topic/Subtopic relationships, runtime
-ACL denial, and independent association-table RLS `SELECT`/`INSERT` denial. Independent review
-accepted this bounded association correction. No live database was modified.
+The independent fresh PostgreSQL 17 command proof was accepted. The isolated runner exited 0;
+`/private/tmp/ple-classification-commands-artifacts.fZuHxB/{install,proof,concurrency-result}.log`
+records installation, role-aware creation and denial, normalization and global-uniqueness checks,
+parent-filtered selection, explicit existing-Subject acceptance, and Sysadmin-only replacement
+with rollback on invalid input. A real two-session test shows an addition waits on replacement and
+both associations persist. No hash attestation was recorded for these logs, and no live database
+was modified.
 
-This prerequisite is not global feature closure. Authenticated ProductRole-aware readers and
-writers, including Instructor creation at the permitted hierarchy levels and Sysadmin association
-maintenance, remain open, as do strip-before-validate behavior, Discipline lifecycle, content
-attachments, editors, and search; existing Question free text is unchanged. The schema does not
-enforce at least one association per Subject. A future authenticated writer must atomically maintain
-that invariant and serialize association replacement on the Subject row. The current HG source hash
-is `a020bdda98e2c628eb5b6f431f56a83bb00ecdb759ceeae97f0c91c72f6bc297`; this bounded receipt
-does not reconcile its other classification additions. Continue in this small dependency sequence:
-vocabulary commands, one Published Question vertical slice, then other object consumers.
-Independent consumers may proceed in parallel only after the shared contracts are accepted. No
-inheritance or synchronization behavior is implied.
+This accepted SQL prerequisite is not global feature closure or deployed-state evidence. It does
+not establish HTTP routes, editors, Course or Library Object content attachments, search, lifecycle,
+or deployment. Existing Question free text is unchanged. No inheritance or synchronization behavior
+is implied.
+
+The current source-level next slice is implemented: authenticated selector transport/decoding,
+Published Question Publish Review and bulk-metadata consumers, and Pilot/curriculum publishers use
+the shared UUID classification hierarchy. Those consumers start without defaults and require
+existing provisioned hierarchy identities plus authorized parent associations; they do not create
+vocabulary or associations, infer classification, or fall back to a default. Publish Review and
+bulk editing retain required Discipline/Subject and optional Topic/Subtopic semantics. All 42
+curriculum sources and two Pilot chapters have explicit classifications. The supporting
+restriction-enzyme Genetics exercise carries Biology/Genetics, so authored source input no longer
+blocks a full batch; actual publication remains unverified.
+
+`cargo check -p project-tools` passed after the publisher-recovery correction in 7.51 seconds;
+shared `npx tsc --noEmit` passed earlier and `cargo tsgen` refreshed 367 types. The recorded SQL
+behavioral proof remains separate. Installed-session HTTP acceptance, browser interaction,
+deployment, actual imports, and global classification closure remain pending. This plan update
+does not add count-audit machinery or change checklist counts.
+
+An additional isolated HTTP/SQL receipt now establishes a narrow installed-session boundary for
+the shared classification hierarchy. A fresh disposable PostgreSQL 17 and MinIO installation
+running the current host binary exited 0: a vetted active Instructor and an MFA-attested Sysadmin
+each read the Discipline, parent-filtered Subject, parent-filtered Topic, and parent-filtered
+Subtopic selectors. Anonymous, Student, and inactive-Instructor requests received identical
+concealed `404` responses. The same receipt published one native Question with explicit
+Biology/Genetics metadata, then changed only its Subject to Biochemistry through bulk metadata
+editing; its exact Question Revision and source binding remained unchanged. A stale metadata
+request returned `412` and left the metadata unchanged. The temporary runner and artifacts are
+evidence only, not permanent documentation links, and the proof made no Live Demo change.
+
+This receipt is not browser HTTPS acceptance, a provisioned full-Course acceptance, or a rendered
+selector-workflow acceptance. Those boundaries, along with deployment and global classification
+closure, remain open; it adds no checklist-count or Human Guidance closure claim.
 
 ## Context
 

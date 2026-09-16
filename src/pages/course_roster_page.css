@@ -4,6 +4,55 @@
   margin-top: var(--ple-space-3);
 }
 
+.roster-page .roster-feedback-success {
+  padding: 0.75rem;
+  border-left: 3px solid var(--ple-success);
+  background: color-mix(in srgb, var(--ple-success) 7%, white);
+  color: var(--ple-success);
+}
+
+.roster-page > .roster-section {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.roster-tools {
+  margin-top: var(--ple-space-3);
+  border-top: 1px solid var(--ple-border);
+}
+
+.roster-tools > summary {
+  padding-block: 0.75rem;
+  font-weight: 690;
+  cursor: pointer;
+}
+
+.roster-tools > summary:focus-visible {
+  outline: 2px solid var(--ple-accent-strong);
+  outline-offset: 2px;
+}
+
+.roster-tools-help {
+  margin-bottom: var(--ple-space-3);
+}
+
+.roster-tools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  align-items: start;
+  gap: var(--ple-space-4);
+}
+
+.roster-tools-grid h2 {
+  margin-top: 0;
+}
+
+.roster-tools-grid button {
+  justify-self: start;
+  margin-top: var(--ple-space-1);
+}
+
 .roster-import-select {
   min-width: 6.5rem;
   min-height: 2.75rem;

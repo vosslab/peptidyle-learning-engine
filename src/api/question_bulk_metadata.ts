@@ -6,8 +6,10 @@ import type { Tag } from "../../generated/api/Tag";
 
 export interface QuestionBulkMetadataPatch {
   readonly tags?: ReadonlyArray<Tag>;
-  readonly subject?: string | null;
-  readonly topic?: string | null;
+  readonly disciplineUuid?: string;
+  readonly subjectUuid?: string;
+  readonly topicUuid?: string | null;
+  readonly subtopicUuid?: string | null;
 }
 
 export interface QuestionBulkMetadataSelectionItem {

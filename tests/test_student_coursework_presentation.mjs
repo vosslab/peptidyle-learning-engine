@@ -20,3 +20,23 @@ test("Coursework display distinguishes resumable, non-resumable unfinished, and 
     );
   }
 });
+
+test("Coursework actions describe the overview destination without promising an immediate start", () => {
+  const cases = [
+    ["may_start", "inProgress", true, "Resume"],
+    ["closed", "inProgress", false, "Open"],
+    ["may_start", "completed", false, "Review"],
+    ["attempt_limit_reached", "completed", false, "Review"],
+    ["may_start", null, false, "Open"],
+    ["not_yet_available", null, false, "Open"],
+    ["closed", null, false, "Open"],
+  ];
+
+  for (const [decision, completion, canResume, expectedAction] of cases) {
+    assert.equal(
+      studentCourseworkDisplay(decision, completion, canResume).actionVerb,
+      expectedAction,
+      `${decision}/${completion ?? "none"}`,
+    );
+  }
+});

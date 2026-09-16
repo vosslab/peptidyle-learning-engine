@@ -9,6 +9,9 @@ source_project:
 
 chapters:
   - slug: genetics-chapter-1
+    classification:
+      discipline: Biology
+      subject: Genetics
     course: Genetics
     course_title: "Genetics: Foundations of Inheritance"
     chapter: 1
@@ -68,6 +71,9 @@ chapters:
         payload_sha256: f475beefeab224fbcb41efa32ac8dc30dad6ff611887c2edc64e2a17b46cc66d
 
   - slug: biochemistry-chapter-1
+    classification:
+      discipline: Biology
+      subject: Biochemistry
     course: Biochemistry
     course_title: "Biochemistry: Molecular Foundations"
     chapter: 1

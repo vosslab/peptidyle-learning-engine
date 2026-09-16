@@ -81,6 +81,12 @@ coverage gaps. Screenshots establish presentation; interaction receipts establis
   permitted Attempt.
 - Acceptance: use state-aware action labels that accurately describe their destinations, such as
   Resume or Review where applicable. Check completed Coursework with and without further Attempts.
+- Receipt (2026-09-16): `src/pages/student_coursework_presentation.ts` and the Student Course
+  landing page now choose state-aware coursework actions. The accepted component-browser receipt
+  at 1280 and 390 pixels keyboard-activates Resume, Review, and Open, retaining existing axe and
+  page-error checks; root `node --import tsx tests/playwright/student_course_entry_m6_evidence.mjs`
+  exited 0. This bounded S02 receipt does not establish live perfect-score behavior, all Student
+  interface acceptance, full HTTP/browser coverage, or global UI closure.
 
 ### S03: active-work progress is expressed as grading progress
 
@@ -128,6 +134,16 @@ coverage gaps. Screenshots establish presentation; interaction receipts establis
 - Acceptance: adapt Student navigation to narrow widths while preserving recognizable current
   context, reachable navigation, and Profile access. Check long Course and Coursework names,
   intermediate widths, and enlarged text.
+- Receipt (2026-09-16): the accepted bounded source and runtime fix in
+  `src/ribbon/app_ribbon.tsx`, `src/ribbon/app_ribbon.css`, and `src/application_shell.tsx` has
+  content-sized identity at upper left, role-aware flex navigation, and Profile at upper right.
+  Current evidence is `/private/tmp/ple-student-nav-proof/after-report.json` and its after PNGs:
+  full-width navigation, full breadcrumb labels with keyboard-reachable ancestors, and no document
+  horizontal overflow at 320, 390, and 1280 pixels, including 320 pixels at 200% enlargement.
+  Independent review accepted the P1/P2 corrections. This does not close global responsive or all
+  S07 acceptance: Profile omits HG's permanent breadcrumb reservation and overview body wrapping
+  remains awkward at 200% enlargement. Root reports typecheck/build pass for `6f09e3e8`; the fresh
+  fast suite has 7,367 passes and four known Markdown-link failures.
 
 ### S08: review information is spread over many lines
 
@@ -187,6 +203,11 @@ while correcting its presentation.
 - Acceptance: make current Students and their states easy to inspect at 1280 by 800. Present import
   and invitation tools compactly or through disclosure. Establish available roster-name data and
   permitted display before adding names; retain course-scoped IDs as useful supporting information.
+- Receipt (2026-09-16): accepted 1280-pixel and keyboard evidence shows Current roster before
+  Roster tools. The tools use a native disclosure that starts closed; keyboard activation reaches
+  its import and invitation-export controls. A local malformed import shows the existing invalid
+  input feedback and records no roster API write. Roster names remain an independent data and
+  permitted-display gap.
 
 ### I03: successful roster import looks like an error
 
@@ -196,6 +217,11 @@ while correcting its presentation.
   successful import with expected pending invitations.
 - Acceptance: distinguish recorded import, pending enrollment, and actual import errors through
   accurate wording and semantic styling. Verify success, partial failure, and rejected input states.
+- Receipt (2026-09-16): source review accepts distinct success and error presentation: success
+  uses local status semantics and the success style, while invalid import feedback uses error/alert
+  semantics. The current runtime receipt proves only rejected local input; it does not submit an
+  actual successful import, export, or revocation, and it does not establish partial-success
+  behavior. Those outcome states remain open.
 
 ### I04: Question inspection puts metadata ahead of teaching content
 
@@ -206,6 +232,18 @@ while correcting its presentation.
   explanations consume much of the captured working space before the Question.
 - Acceptance: make the prompt and response presentation easy to inspect, with compact metadata
   and supporting actions. Preserve Question Backend rendering where its typography is necessary.
+- Receipt (2026-09-16): at the bounded 1280 by 800 laptop viewport, the current detail page
+  presents the native prompt or backend-owned WeBWorK preview before its compact support region.
+  The support region then groups the copyable reference, metadata, generated-example note, and
+  Star/Watch controls. The supplied independent review and
+  `/private/tmp/ple-question-inspection-proof/report.json` accept prompt-first order for both
+  backends; the two accompanying screenshots are temporary review evidence, not permanent assets.
+  Native Star and Watch are keyboard-reachable without activation. The sandboxed WeBWorK preview
+  retains its eight renderer-owned controls, without a protected-answer request or visible
+  protected-answer text. The receipt reports no writes and no page errors. Root recorded frontend
+  build `fa08ad78` with exit 0. This is a bounded I04 improvement, not all UI closure: the native
+  capture displays its existing stem only and does not establish native response-control rendering
+  for every Question Type, a submission workflow, or broader interaction/accessibility coverage.
 
 ### I05: publication success offers a generic destination
 

@@ -1,7 +1,7 @@
 //! Atomic, closed-field shared metadata edits for Published Questions.
 //!
 //! This is deliberately not a generic patch model.  The command names the
-//! only three mutable shared search fields and carries a per-lineage metadata
+//! mutable shared search fields and carries a per-lineage metadata
 //! precondition for every selected Question.
 
 use std::collections::BTreeSet;
@@ -22,21 +22,28 @@ pub struct BulkPublishedQuestionMetadataSelection {
 
 /// Closed replacement-or-clear patch for shared Published Question metadata.
 ///
-/// `None` leaves a field unchanged.  `Some(None)` clears `subject` or `topic`.
+/// `None` leaves a field unchanged. `Some(None)` clears an optional classification.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct BulkPublishedQuestionMetadataPatch {
     /// Complete replacement tags when present; an empty list intentionally clears tags.
     pub tags: Option<Vec<String>>,
-    /// Complete replacement or explicit clear for the optional subject.
-    pub subject: Option<Option<String>>,
-    /// Complete replacement or explicit clear for the optional topic.
-    pub topic: Option<Option<String>>,
+    /// Required classification replacements cannot be cleared.
+    pub discipline_uuid: Option<uuid::Uuid>,
+    pub subject_uuid: Option<uuid::Uuid>,
+    /// Optional classification replacements permit an explicit clear.
+    pub topic_uuid: Option<Option<uuid::Uuid>>,
+    pub subtopic_uuid: Option<Option<uuid::Uuid>>,
 }
 
 impl BulkPublishedQuestionMetadataPatch {
     /// Refuses an empty or malformed patch before a database transaction opens.
     pub fn validate(&self) -> Result<(), StoreError> {
-        if self.tags.is_none() && self.subject.is_none() && self.topic.is_none() {
+        if self.tags.is_none()
+            && self.discipline_uuid.is_none()
+            && self.subject_uuid.is_none()
+            && self.topic_uuid.is_none()
+            && self.subtopic_uuid.is_none()
+        {
             return Err(invalid("Bulk Published Question metadata patch is empty"));
         }
         if let Some(tags) = &self.tags {
@@ -46,14 +53,6 @@ impl BulkPublishedQuestionMetadataPatch {
                 .any(|tag| !valid_text(tag) || !distinct.insert(tag))
             {
                 return Err(invalid("Bulk Published Question metadata tags are invalid"));
-            }
-        }
-        for value in [
-            self.subject.as_ref().and_then(|value| value.as_ref()),
-            self.topic.as_ref().and_then(|value| value.as_ref()),
-        ] {
-            if value.is_some_and(|value| !valid_text(value)) {
-                return Err(invalid("Bulk Published Question metadata text is invalid"));
             }
         }
         Ok(())

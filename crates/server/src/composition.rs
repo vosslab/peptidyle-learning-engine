@@ -14,7 +14,8 @@ use learning_data_access::{
         PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
-        PostgresCourseBannerStore, PostgresCourseGradebookStore, PostgresCourseInstanceStore,
+        PostgresContentClassificationStore, PostgresCourseBannerStore,
+        PostgresCourseGradebookStore, PostgresCourseInstanceStore,
         PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
         PostgresCourseRosterStore, PostgresCourseThemeStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
@@ -93,6 +94,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let sysadmin_totp = local_sysadmin_totp_store_from_env(pool.clone())?;
     let question_library_store = PostgresQuestionLibraryStore::new(pool.clone());
     let question_bulk_metadata = PostgresBulkPublishedQuestionMetadataStore::new(pool.clone());
+    let content_classification = PostgresContentClassificationStore::new(pool.clone());
     let question_pool_creation = PostgresQuestionPoolCreationStore::new(pool.clone());
     let question_pool_library = PostgresQuestionPoolLibraryStore::new(pool.clone());
     let question_forks = PostgresQuestionForkStore::new(pool.clone());
@@ -162,6 +164,10 @@ pub async fn production_router_from_env() -> Result<Router> {
     let router = Router::new()
         .merge(readiness_router)
         .merge(authentication_router)
+        .merge(crate::content_classification::content_classification_router(
+            Arc::clone(&sessions),
+            content_classification,
+        ))
         .merge(crate::author_content_dependency_assets::author_content_dependency_asset_router())
         .merge(crate::question_library::question_library_router(
             Arc::clone(&sessions),

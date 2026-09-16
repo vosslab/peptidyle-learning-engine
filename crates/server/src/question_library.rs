@@ -715,8 +715,8 @@ fn webwork_question_library_entry(
 ) -> Result<ResolvedQuestionLibraryEntry, ()> {
     let used_in_current_account_courses = entry.used_in_current_account_courses;
     let tags = entry.shared_metadata.tags.clone();
-    let subject = entry.shared_metadata.subject.clone();
-    let topic = entry.shared_metadata.topic.clone();
+    let subject = Some(entry.subject_name.clone());
+    let topic = entry.topic_name.clone();
     Ok(ResolvedQuestionLibraryEntry {
         summary: QuestionSummary {
             question_id: entry.question_revision.question_id.clone(),
@@ -772,8 +772,8 @@ async fn resolved_ple_question(
     let presentation = compiled.presentation();
     let mut metadata = presentation.metadata().clone();
     let used_in_current_account_courses = entry.used_in_current_account_courses;
-    let subject = entry.shared_metadata.subject.clone();
-    let topic = entry.shared_metadata.topic.clone();
+    let subject = Some(entry.subject_name.clone());
+    let topic = entry.topic_name.clone();
     if metadata.question_title != entry.question_title
         || metadata.question_description != entry.question_description
         || metadata.question_license.as_ref() != Some(&entry.question_license)

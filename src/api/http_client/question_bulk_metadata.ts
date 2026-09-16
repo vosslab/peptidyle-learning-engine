@@ -19,7 +19,7 @@ const UPDATE_METADATA_PATH = "/api/questions/bulk-metadata";
 
 // boundedResponseJson counts UTF-16 code units in the pre-parse JSON text. A
 // valid serde_json response needs under 18 MiB for 1000 * (64 tags * 120 code
-// points at worst two units/escaped characters), two bounded fields, and syntax.
+// points at worst two units/escaped characters), four UUID fields, and syntax.
 const MAX_BULK_METADATA_RESPONSE_CHARACTERS = 18 * 1_024 * 1_024;
 
 function exactOrderedIdSet(

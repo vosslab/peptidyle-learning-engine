@@ -4,6 +4,17 @@ use super::*;
 fn pilot_publication_preserves_explicit_source_formats() {
     let manifest_path = tracked_manifest_path().expect("tracked Pilot manifest");
     let mut manifest = read_manifest(&manifest_path).expect("Pilot manifest decodes");
+    manifest.chapters[0].classification.validate().unwrap();
+    let mut malformed = manifest.chapters[0].classification.clone();
+    malformed.subject = " Genetics".to_owned();
+    assert!(malformed.validate().is_err());
+    malformed.subject = "Genetics".to_owned();
+    malformed.subtopic = Some("X-linked crosses".to_owned());
+    assert!(malformed.validate().is_err());
+    let missing = classification_name_uuid(Vec::new(), "Subject", "Genetics")
+        .unwrap_err()
+        .to_string();
+    assert!(missing.contains("provision the canonical vocabulary"));
     let webwork = &mut manifest.chapters[0].questions[0];
     assert_eq!(
         validated_question_format(webwork).unwrap(),

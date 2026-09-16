@@ -1,5 +1,6 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
-import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorship";
+import type { PleQuestionJsonPublicationRequest } from "./question_json_repository";
+import { decodeUuid } from "../../api/decoder";
 import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
 import { decodeQuestionLineageView, isAvailablePleQuestionSummary } from "../../api/decoders";
 import { isQuestionAuthorship } from "../../api/question_authorship";
@@ -9,6 +10,12 @@ import { parsePleQuestionJsonSource, serializePleQuestionJsonSource } from "./qu
 
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const SAFE_ORIGIN = "https://ple-question-json.invalid";
+function publicationUuid(value: unknown, path: string): string {
+  const uuid = decodeUuid(value, path);
+  if (uuid !== uuid.toLowerCase())
+    throw new PleQuestionJsonProtocolError("Publication requires canonical lowercase UUIDs");
+  return uuid;
+}
 
 /** Fetch-compatible dependency for browser code and deterministic Node tests. */
 export type PleQuestionJsonFetch = (
@@ -61,7 +68,7 @@ export interface PleQuestionJsonClient {
   ): Promise<PleQuestionJsonSave>;
   publish(
     draftQuestion: DraftQuestionReference,
-    request: { readonly authorship: QuestionAuthorship },
+    request: PleQuestionJsonPublicationRequest,
     revision: string,
   ): Promise<QuestionSummary>;
 }
@@ -248,7 +255,7 @@ export function createPleQuestionJsonClient(
 
   async function publish(
     draftQuestion: DraftQuestionReference,
-    request: { readonly authorship: QuestionAuthorship },
+    request: PleQuestionJsonPublicationRequest,
     revision: string,
   ): Promise<QuestionSummary> {
     if (!isQuestionAuthorship(request.authorship)) {
@@ -257,6 +264,17 @@ export function createPleQuestionJsonClient(
       );
     }
     const path = publishPath(draftQuestion);
+    // ASVS 2.2.1-2: validate identities; the server validates the resulting hierarchy.
+    const disciplineUuid = publicationUuid(request.disciplineUuid, "publication.disciplineUuid");
+    const subjectUuid = publicationUuid(request.subjectUuid, "publication.subjectUuid");
+    const topicUuid =
+      request.topicUuid === null
+        ? null
+        : publicationUuid(request.topicUuid, "publication.topicUuid");
+    const subtopicUuid =
+      request.subtopicUuid === null
+        ? null
+        : publicationUuid(request.subtopicUuid, "publication.subtopicUuid");
     const requestPath = sameOriginPath(basePath, path);
     const response = await fetchImplementation(
       requestPath,
@@ -269,6 +287,10 @@ export function createPleQuestionJsonClient(
         },
         JSON.stringify({
           authors: request.authorship.authors.map((author) => author.displayName),
+          disciplineUuid,
+          subjectUuid,
+          topicUuid,
+          subtopicUuid,
         }),
       ),
     );
