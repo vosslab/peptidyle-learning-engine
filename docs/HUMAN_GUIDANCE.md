@@ -74,21 +74,58 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Project images and simulated live-stack data are disposable acceptance infrastructure.
 - `./launchers/run_live_demo.sh` is the normal local-stack entry point. For direct controller
   diagnostics, use `source source_me.sh && python3 local_stack.py`.
+## Product vocabulary and glossary
 
-## Product vocabulary
+- **Account**: A global PLE user account with exactly one Product Role.
+- **Product Role**: The Account's global role in PLE: **Student**, **Instructor**, or **Sysadmin**.
+- **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates Accounts, and provides scoped administrative support.
+- **Instructor**: An approved user who teaches Courses and can browse, reuse, create, fork, and publish Questions.
+- **Student**: A user who enrolls in **Course Instances** and completes Coursework.
 
-- **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
-- **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its content cannot change.
-- **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may be created from a Blueprint Course or started empty.
-- **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
-- **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
-- **Question Library**: The global collection of Published Questions and Question Pools available to vetted **Instructors**.
-- **User Roles**:
-  - **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
-  - **Instructor**: An approved user who teaches courses and can browse, reuse, create, fork, and publish Questions.
-  - **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
+### Course vocabulary
+
+- **Course**: The general term covering both **Blueprint Courses** and **Course Instances**.
+- **Blueprint Course**: A reusable Course used to create **Course Instances**. It has no enrolled **Students**, deadlines, or other teaching-specific delivery settings.
+- **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its reusable content cannot change.
+- **Course Instance**: A Course used for teaching. It has **Students**, deadlines, releases, and other delivery settings. It may be created from a Blueprint Course or started empty.
+- **Adoption**: Connecting a **Course Instance** to a **Blueprint Course**. Adoption may occur when the Course Instance is created or later.
+
+### Assessment vocabulary
+
+- **Assessment**: The PLE object that organizes Questions into a graded or practice activity.
+- **Blueprint Assessment**: An Assessment in a **Blueprint Course** containing reusable content and teaching settings without Students, dates, or other Course Instance delivery settings.
+- **Course Instance Assessment**: An Assessment in a **Course Instance** that can be released and delivered to **Students**.
+- **Assessment Type**: The pedagogical type of an Assessment: **Regular Assignment**, **Practice Question Assignment**, **Bonus Assignment**, **Quiz**, or **Exam**.
+- **Coursework**: The Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
+- **Assessment Attempt**: One **Student** attempt at a Course Instance Assessment.
+- **Assessment Template**: A reusable set of settings for creating Course Instance Assessments. It contains settings rather than Questions.
 - **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
-- **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
+- **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, Attempts, late work, and what **Students** can see.
+
+### Question vocabulary
+
+- **Question**: The general PLE object representing one automatically evaluated question, regardless of its Question Backend.
+- **Draft Question**: A private Question being developed by an **Instructor**. It must pass publication validation before becoming a Published Question.
+- **Published Question**: An immutable-revision Question available for reuse through the global **Question Library**.
+- **Question Revision**: A fixed version of a **Published Question** preserved so Assessments and Student Work can refer to the exact Question delivered.
+- **Question Pool**: A published **Library Object** containing interchangeable **Published Questions** from which PLE selects Questions for a **Student**.
+- **Question Backend**: The component responsible for a Question's rendering, interaction, response handling, grading, feedback, and backend-specific state.
+- **Question Type**: Author-declared educational metadata describing the Question's interaction type, such as MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, or HOTSPOT.
+- **Question Library**: The global collection of **Published Questions** and **Question Pools** available to vetted **Instructors**.
+- **Library Object**: A **Published Question** or **Question Pool** in the **Question Library**.
+
+### Student Work vocabulary
+
+- **Student Work**: The collective term for FERPA-sensitive records created by a **Student** in a **Course Instance**, including Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret submitted work.
+- **Grading Outcome**: The immutable credit fraction returned by a **Question Backend** for a complete evaluated response and stored by PLE.
+
+### Content classification vocabulary
+
+- **Discipline**: The broadest academic classification, such as Biology, Chemistry, or Mathematics.
+- **Subject**: An area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+- **Topic**: A major area within a Subject.
+- **Subtopic**: A narrower classification within a Topic.
+- **Tag**: An optional label attached to PLE content. Content may have any number of Tags.
 
 ## Accounts and roles
 
@@ -957,12 +994,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Courses** organize reusable teaching content and its delivery to **Students**.
 - PLE has two Course forms: **Blueprint Courses** and **Course Instances**.
-- **Blueprint Courses** provide reusable course designs for creating Course Instances.
+- **Blueprint Courses** provide reusable course designs for **Course Instances**.
 - Course Instances may be created from a Blueprint Course or started empty.
 - A Course can have multiple co-**Instructors** with equal teaching authority.
 - **Sysadmins** can create Courses, but **Instructors** teach them.
 - Every Course Instance must have at least one assigned **Instructor**.
 - Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
+- **Adoption** connects a Course Instance to a Blueprint Course.
+- Adoption may occur when the Course Instance is created or later.
+- A Course Instance connected to a Blueprint Course is a daughter Course Instance of that Blueprint Course.
 
 ### Blueprint Course specifications
 
