@@ -262,6 +262,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
 - Public Blueprint Course search should support quickly narrowing a large collection.
 - A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
+
+###### Blueprint Course editing
+
 - Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.
 - The Course Editor should show the Blueprint Course structure without editing every Question on one page.
 - Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.
@@ -269,16 +272,40 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment.
 - **Blueprint Assessment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see.
 - Blueprint Courses should not contain Assessment dates or relative Assessment schedules.
+
+###### Blueprint Course lifecycle
+
 - Blueprint Courses follow the lifecycle **Private -> Public -> Archived**.
 - New and forked Blueprint Courses start **Private**.
 - Private Blueprint Courses are visible only to their owner.
 - Instructors may develop and use Private Blueprint Courses without publishing them.
 - Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection.
+- Public Blueprint Courses are visible to all **Instructors**.
 - A Public Blueprint Course with no adoptions may return to **Private**.
 - A Public Blueprint Course with one or more adoptions remains **Public**.
 - Archived Blueprint Courses leave normal discovery but remain available where needed for history.
-- Instructors may fork a Public Blueprint Course to continue development privately.
+- Archived Blueprint Courses remain viewable when accessed directly or through their history.
 - Blueprint Courses do not have a separate Draft state.
+
+###### Blueprint Course forks and changes
+
+- Instructors may fork a Public Blueprint Course to continue development privately.
+- Forking a Blueprint Course creates an independent Private Blueprint Course owned by the
+  Instructor who created the fork.
+- A Blueprint Course fork records the Blueprint Course and Revision it was forked from.
+- Blueprint Course forks develop independently after they are created.
+- A fork does not automatically receive later changes from its source Blueprint Course.
+- A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
+- **Instructors** can open a fork and compare it with its source Blueprint Course.
+- Fork comparison normally compares the current Revision of the source Blueprint Course with the
+  current Revision of the fork.
+- The recorded source Revision from which the fork was created provides the common baseline for
+  identifying changes made later in the source and changes made in the fork.
+- Comparison should make changes unique to the fork and changes added later to the source easy to
+  distinguish.
+- Blueprint Course differences are calculated from canonical JSON when the comparison is requested.
+- Older Revisions remain available through Blueprint history but are not the normal fork-comparison
+  workflow.
 
 ##### Course Instances
 
