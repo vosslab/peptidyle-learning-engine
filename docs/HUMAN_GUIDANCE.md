@@ -553,6 +553,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for
   each object.
 - A Revision Number identifies a specific immutable Revision stored by PLE.
+- A new Revision keeps the same Published Question ID or Question Pool ID.
+- Forking a Published Question or Question Pool creates a new public ID.
+- A fork starts at Revision 1 under its new ID.
 - Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
 - Student Work records the Student's responses and the grading outcome returned by the Question Backend.
 - Student Work records the Question Pool Revision and selected Published Question Revision for each response.
@@ -910,9 +913,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Assessment content
 
 - Assessments contain an ordered sequence of Published Questions and Question Pools.
-- Published Questions are reused by reference when added to another Assessment.
+- Published Questions are reused by reference to their Question ID and exact Revision when added to
+  another Assessment.
 - Question Pools are copied by forking when added to another Assessment.
-- A newly forked Question Pool initially contains the same Published Questions as its source.
+- A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions
+  as its source.
 - A forked Question Pool can be changed independently without changing its source Question Pool.
 - Published Questions and Question Pools remain distinct even though both can occupy positions in an Assessment.
 - **Instructors** can add, remove, and reorder Published Questions and Question Pools.
