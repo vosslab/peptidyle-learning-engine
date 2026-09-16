@@ -286,26 +286,49 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Archived Blueprint Courses leave normal discovery but remain available where needed for history.
 - Archived Blueprint Courses remain viewable when accessed directly or through their history.
 - Blueprint Courses do not have a separate Draft state.
+- Public Blueprint Courses and their Revision history are visible to all **Instructors**.
+- Archived Blueprint Courses and their Revision history remain visible to all **Instructors**, but
+  do not appear in normal Blueprint Course discovery.
+- Blueprint Course visibility includes its content, Revision history, and recorded changes.
+- The owning **Instructor** controls changes to a Blueprint Course; visibility does not grant
+  editing authority.
 
 ###### Blueprint Course forks and changes
 
 - Instructors may fork a Public Blueprint Course to continue development privately.
 - Forking a Blueprint Course creates an independent Private Blueprint Course owned by the
   Instructor who created the fork.
+- Forking a Blueprint Course creates new Blueprint Assessments populated with the same Published
+  Question IDs and forks of the source Question Pools.
+- Forked Question Pools preserve the Published Question IDs contained in their source Question Pools.
 - A Blueprint Course fork records the Blueprint Course and Revision it was forked from.
 - Blueprint Course forks develop independently after they are created.
-- A fork does not automatically receive later changes from its source Blueprint Course.
 - A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
-- **Instructors** can open a fork and compare it with its source Blueprint Course.
-- Fork comparison normally compares the current Revision of the source Blueprint Course with the
-  current Revision of the fork.
-- The recorded source Revision from which the fork was created provides the common baseline for
-  identifying changes made later in the source and changes made in the fork.
-- Comparison should make changes unique to the fork and changes added later to the source easy to
-  distinguish.
-- Blueprint Course differences are calculated from canonical JSON when the comparison is requested.
-- Older Revisions remain available through Blueprint history but are not the normal fork-comparison
+- A fork does not automatically receive later changes from its source Blueprint Course.
+- PLE should make it clear when a source Blueprint Course has newer Revisions than its forks.
+- PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
+- The fork owner decides whether to incorporate source changes into the fork.
+- PLE should make it easy for the fork owner to incorporate selected source changes into the fork.
+
+###### Blueprint Course comparison
+
+- Any **Instructor** can compare related Blueprint Courses in the same fork lineage when those
+  Blueprint Courses are visible to that Instructor.
+- Fork comparison normally compares the newest Revision of the source Blueprint Course with the
+  newest Revision of the fork.
+- Older Revisions remain available through Blueprint history but are not the normal comparison
   workflow.
+- Blueprint Course differences are calculated from canonical JSON when the Instructor requests
+  the comparison.
+- Shared Question IDs provide the durable content relationships between compared Blueprint Courses.
+- Blueprint Assessments are matched by the shared Question IDs they contain.
+- Blueprint Course comparison does not require Blueprint Assessment identity or history across
+  forks; Assessment relationships are determined from the shared Question IDs they contain.
+- Comparison should show shared, added, and removed Assessments and Question IDs, plus changed
+  content where those differences can be determined from canonical JSON.
+- Comparison should remain useful when Assessment names, order, or structure have changed.
+- Comparison visibility follows Blueprint Course visibility rather than fork ownership.
+
 
 ##### Course Instances
 
