@@ -185,9 +185,7 @@ fn decode_repair(
 
 fn decode_resource_class(value: String) -> Result<SupportRepairResourceClass, StoreError> {
     match value.as_str() {
-        "course" => Ok(SupportRepairResourceClass::Course),
         "student" => Ok(SupportRepairResourceClass::Student),
-        "content" => Ok(SupportRepairResourceClass::Content),
         _ => Err(invalid("Support repair resource class")),
     }
 }

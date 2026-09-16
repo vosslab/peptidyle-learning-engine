@@ -16,6 +16,13 @@ import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 const { scope: _scope, ...questionSummary } = publishedQuestionFixture.publishedQuestion;
 const publishedQuestion = { ...questionSummary, questionFormat: "pleQuestionJson" };
 const metadataEtag = "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d";
+const classification = {
+  disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+  subjectUuid: null,
+  topicUuid: null,
+  subtopicUuid: null,
+  tags: [],
+};
 const FOUR_MIB = 4 * 1_024 * 1_024;
 const SIXTEEN_MIB = 16 * 1_024 * 1_024;
 function contentInput() {
@@ -89,6 +96,7 @@ function modules() {
 
 function blueprint(revision = "3") {
   return {
+    classification,
     reference: "BP7K3M2Q",
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
@@ -114,6 +122,7 @@ function blueprintWithAssessments(assessmentCount) {
 
 function creationInput() {
   return {
+    classification,
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     modules: [{ label: "Week one", assessments: [contentInput()] }],
@@ -142,6 +151,52 @@ function replacementInput() {
     ],
   };
 }
+
+test("Course classification metadata updates send explicit hierarchy with independent strong validators", async () => {
+  const requests = [];
+  const nextEtag = "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e";
+  const selected = { ...classification, tags: ["review"] };
+  const client = createHttpApiClient({
+    fetch: async (path, options) => {
+      requests.push({ path, options });
+      const body = path.includes("course-blueprints")
+        ? {
+            short_name: "Biochemistry",
+            long_name: "Biochemistry sequence",
+            availability: "private",
+            classification: selected,
+            metadata_etag: nextEtag,
+          }
+        : { classification: selected, metadataEtag: nextEtag, changed: true };
+      return noStoreJson(body, `"${nextEtag}"`);
+    },
+  });
+  const blueprintReceipt = await client.updateBlueprintCourseClassification(
+    "BP7K3M2Q",
+    selected,
+    `"${metadataEtag}"`,
+  );
+  const instanceReceipt = await client.updateCourseInstanceClassification(
+    "CI6F2R8T",
+    selected,
+    metadataEtag,
+  );
+  assert.equal(blueprintReceipt.metadataEtag, `"${nextEtag}"`);
+  assert.equal(instanceReceipt.metadataEtag, nextEtag);
+  assert.equal(instanceReceipt.changed, true);
+  assert.deepEqual(
+    requests.map(({ path }) => path),
+    [
+      "/api/course-blueprints/BP7K3M2Q/classification",
+      "/api/course-instances/CI6F2R8T/classification",
+    ],
+  );
+  for (const { options } of requests) {
+    assert.equal(options.method, "PUT");
+    assert.equal(options.headers["if-match"], `"${metadataEtag}"`);
+    assert.deepEqual(JSON.parse(options.body), selected);
+  }
+});
 
 function noStoreJson(value, etag, status = 200) {
   return new Response(JSON.stringify(value), {
@@ -210,6 +265,7 @@ test("Blueprint discovery requests Archived history only when explicitly include
 test("B1 client sends Revision and metadata validators to their separate routes", async () => {
   const requests = [];
   const renamedMetadata = {
+    classification,
     short_name: "Biochemistry",
     long_name: "Biochemistry sequence",
     availability: "private",
@@ -399,6 +455,7 @@ test("B1 metadata decoder rejects non-opaque validators", () => {
   assert.throws(
     () =>
       decodeBlueprintMetadataState({
+        classification,
         short_name: "Short",
         long_name: "Long",
         availability: "available",
@@ -415,6 +472,7 @@ test("Blueprint lifecycle metadata accepts only the generated public states", ()
   for (const availability of ["private", "public", "archived"]) {
     assert.equal(
       decodeBlueprintMetadataState({
+        classification,
         short_name: "Short",
         long_name: "Long",
         availability,
@@ -426,6 +484,7 @@ test("Blueprint lifecycle metadata accepts only the generated public states", ()
   assert.throws(
     () =>
       decodeBlueprintMetadataState({
+        classification,
         short_name: "Short",
         long_name: "Long",
         availability: "available",

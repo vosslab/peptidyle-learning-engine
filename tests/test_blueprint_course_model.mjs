@@ -138,6 +138,13 @@ test("Blueprint Course creation requires separate short and long lineage names",
   assert.equal(
     validateBlueprintCourseContent({
       short_name: "Blueprint",
+      classification: {
+        disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+        subjectUuid: null,
+        topicUuid: null,
+        subtopicUuid: null,
+        tags: [],
+      },
       long_name: "Protein folding Blueprint Course",
       modules: [{ label: "Module 1", assessments: [assignment] }],
     }).valid,
@@ -146,6 +153,13 @@ test("Blueprint Course creation requires separate short and long lineage names",
   assert.match(
     validateBlueprintCourseContent({
       short_name: " ",
+      classification: {
+        disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+        subjectUuid: null,
+        topicUuid: null,
+        subtopicUuid: null,
+        tags: [],
+      },
       long_name: "Protein folding Blueprint Course",
       modules: [{ label: "Module 1", assessments: [assignment] }],
     }).message ?? "",

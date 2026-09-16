@@ -78,6 +78,7 @@ fn decode_entry(
                 _ => return Err(invalid()),
             };
             Ok(BlueprintHistoryEntryView::MetadataChange {
+                classification: super::blueprint_course::decode_classification(row)?,
                 short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
                 long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
                 availability,

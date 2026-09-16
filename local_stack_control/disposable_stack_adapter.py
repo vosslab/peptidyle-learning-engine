@@ -48,9 +48,9 @@ LIVE_DEMO_MANIFEST_KEYS = (*MANIFEST_KEYS, "PROFILE")
 CONTAINER_ID_PREFIX_PATTERN = re.compile(r"^[a-f0-9]{12}$")
 POSTGRESQL_ATTEMPT_COUNT_QUERIES = (
 	"SELECT count(*) FROM ple_private.question_attempt WHERE question_attempt_id = :'attempt_id'::uuid",
-	"SELECT count(*) FROM ple_private.question_submission WHERE question_attempt_id = :'attempt_id'::uuid",
-	"SELECT count(*) FROM ple_private.question_submission_grading AS grading "
-	"JOIN ple_private.question_submission AS submission ON submission.submission_id = grading.submission_id "
+	"SELECT count(*) FROM ple_private.question_response WHERE question_attempt_id = :'attempt_id'::uuid",
+	"SELECT count(*) FROM ple_private.question_response_grading AS grading "
+	"JOIN ple_private.question_response AS submission ON submission.question_response_id = grading.question_response_id "
 	"WHERE submission.question_attempt_id = :'attempt_id'::uuid",
 	"SELECT count(*) FROM ple_private.grading_result WHERE question_attempt_id = :'attempt_id'::uuid",
 	"SELECT count(*) FROM ple_audit.automated_grading_receipt AS receipt "

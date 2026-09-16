@@ -209,11 +209,12 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 - [ ] **Discipline**: The broadest academic classification, such as Biology, Chemistry, or Mathematics.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
-- [ ] **Subject**: An area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Subject**: A globally named area associated with one or more Disciplines, such as Genetics,
+  Biochemistry, or Ecology.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Topic**: A major area within a Subject.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
 - [ ] **Subtopic**: A narrower classification within a Topic.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
-- [ ] **Tag**: An optional label attached to PLE content. Content may have any number of Tags.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Tag**: An optional label attached to a Course or Library Object. Each may have any number of Tags.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.

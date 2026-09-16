@@ -1,5 +1,8 @@
 version: 1
 course:
+  classification:
+    discipline: Biology
+    subject: Genetics
   assessment_type: regular_assignment
   short_name: Genetics
   long_name: Fall Genetics

@@ -52,6 +52,13 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             .create_course_instance(
                 token(),
                 CreateCourseInstanceInput {
+                    classification: question_model::CourseClassification {
+                        discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                        subject_uuid: None,
+                        topic_uuid: None,
+                        subtopic_uuid: None,
+                        tags: Vec::new(),
+                    },
                     source: if index == 2 {
                         CourseInstanceCreationSource::Empty
                     } else {

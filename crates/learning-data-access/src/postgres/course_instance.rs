@@ -76,6 +76,43 @@ impl PostgresCourseInstanceStore {
 
 #[async_trait]
 impl CourseInstanceStore for PostgresCourseInstanceStore {
+    async fn update_course_classification(
+        &self,
+        session_token_hash: SessionTokenHash,
+        reference: CourseInstanceReference,
+        expected_metadata_etag: question_model::CourseMetadataEtag,
+        classification: question_model::CourseClassification,
+    ) -> Result<crate::course_instance::CourseClassificationUpdate, StoreError> {
+        classification
+            .validate()
+            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        let row =
+            sqlx::query("SELECT * FROM ple_api.update_course_classification($1,$2,$3,$4,$5,$6,$7)")
+                .bind(reference.as_string())
+                .bind(expected_metadata_etag.as_uuid())
+                .bind(classification.discipline_uuid)
+                .bind(classification.subject_uuid)
+                .bind(classification.topic_uuid)
+                .bind(classification.subtopic_uuid)
+                .bind(super::blueprint_course::classification_tags(
+                    &classification,
+                ))
+                .fetch_one(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+        let result = crate::course_instance::CourseClassificationUpdate {
+            classification,
+            metadata_etag: question_model::CourseMetadataEtag::from_uuid(
+                row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+            ),
+            changed: row.try_get("changed").map_err(map_sqlx_error)?,
+        };
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
     async fn resolve_course_navigation(
         &self,
         session_token_hash: SessionTokenHash,
@@ -115,7 +152,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         // this opaque Course ID to the installed session's active membership.
         let row = sqlx::query(
             "SELECT course_id, public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, membership_role \
+             term_ends_on::text AS term_ends_on, membership_role, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.read_course_summary($1)",
         )
         .bind(course.as_uuid())
@@ -140,7 +177,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let rows = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme \
+             term_ends_on::text AS term_ends_on, course_theme, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.list_course_instances()",
         )
         .fetch_all(&mut *transaction)
@@ -186,9 +223,9 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             };
             let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on \
+             term_ends_on::text AS term_ends_on, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.create_course_instance(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13)",
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14,$15,$16,$17,$18)",
         )
             .bind(random_uuid()?)
         .bind(random_uuid()?)
@@ -207,6 +244,11 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 .map(|reference| reference.as_string()),
         )
         .bind(assessments)
+        .bind(input.classification.discipline_uuid)
+        .bind(input.classification.subject_uuid)
+        .bind(input.classification.topic_uuid)
+        .bind(input.classification.subtopic_uuid)
+        .bind(super::blueprint_course::classification_tags(&input.classification))
             .fetch_one(&mut *transaction)
             .await;
             let row = match row {
@@ -223,6 +265,10 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             };
             let record = CreatedCourseInstance {
                 course: CourseInstanceSummary {
+                    classification: super::blueprint_course::decode_classification(&row)?,
+                    metadata_etag: question_model::CourseMetadataEtag::from_uuid(
+                        row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+                    ),
                     reference: course_reference(
                         row.try_get("public_reference").map_err(map_sqlx_error)?,
                     )?,
@@ -276,7 +322,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme, \
+             term_ends_on::text AS term_ends_on, course_theme, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags, \
              active_instructor_count, blueprint_reference, adopted_blueprint_revision, \
              current_blueprint_revision FROM ple_api.load_course_instance($1)",
         )
@@ -321,6 +367,10 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, StoreError> {
     Ok(CourseInstanceSummary {
+        classification: super::blueprint_course::decode_classification(row)?,
+        metadata_etag: question_model::CourseMetadataEtag::from_uuid(
+            row.try_get("metadata_etag").map_err(map_sqlx_error)?,
+        ),
         reference: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
@@ -336,6 +386,7 @@ fn decode_course_summary(row: &sqlx::postgres::PgRow) -> Result<CourseSummary, S
     let course_id = row.try_get("course_id").map_err(map_sqlx_error)?;
     let stored_membership_role: String = row.try_get("membership_role").map_err(map_sqlx_error)?;
     Ok(CourseSummary {
+        classification: super::blueprint_course::decode_classification(row)?,
         id: CourseId::from_uuid(course_id),
         reference: course_reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,

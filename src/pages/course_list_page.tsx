@@ -13,6 +13,13 @@ import {
   parseBlueprintCourseReference,
 } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
+import {
+  CourseClassificationFields,
+  emptyCourseClassification,
+  type CourseClassificationDraft,
+} from "../components/course_classification_fields";
+import { CourseClassificationSummary } from "../components/course_classification_summary";
+import { decodeCourseClassification } from "../api/decoders/course_classification";
 
 type AdoptableBlueprintCourse = Pick<
   BlueprintCourseSummaryView,
@@ -41,6 +48,7 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
       <div class="instructor-list__identity">
         <p class="instructor-list__kind">Course Instance</p>
         <h2>{props.course.longName}</h2>
+        <CourseClassificationSummary value={props.course.classification} />
         <p class="instructor-list__metadata">
           {props.course.term.startDate} through {props.course.term.endDate}
         </p>
@@ -137,6 +145,9 @@ function TeachingCourseListPage(): JSX.Element {
       : blueprintSourceValue(selected);
   };
   const [shortName, setShortName] = createSignal("");
+  const [classification, setClassification] = createSignal<CourseClassificationDraft>(
+    emptyCourseClassification(),
+  );
   const [longName, setLongName] = createSignal("");
   const [startDate, setStartDate] = createSignal("");
   const [endDate, setEndDate] = createSignal("");
@@ -168,6 +179,15 @@ function TeachingCourseListPage(): JSX.Element {
   async function createCourseInstance(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (isCreating()) return;
+    let selectedClassification;
+    try {
+      selectedClassification = decodeCourseClassification(classification());
+    } catch {
+      setCreationError(
+        "Choose a Discipline and check that Tags are unique, trimmed labels of 1 through 120 characters.",
+      );
+      return;
+    }
     let source: CourseInstanceCreationSource = { kind: "empty" };
     if (creationSource() === "adopted") {
       const selected = adoptableBlueprints().find(
@@ -200,6 +220,7 @@ function TeachingCourseListPage(): JSX.Element {
     setIsCreating(true);
     try {
       const created = await applicationApi.client.createCourseInstance({
+        classification: selectedClassification,
         source,
         shortName: shortName(),
         longName: longName(),
@@ -210,6 +231,7 @@ function TeachingCourseListPage(): JSX.Element {
       setBlueprintChoice("");
       setChosenBlueprint(undefined);
       setShortName("");
+      setClassification(emptyCourseClassification());
       setLongName("");
       setStartDate("");
       setEndDate("");
@@ -366,6 +388,11 @@ function TeachingCourseListPage(): JSX.Element {
               required
             />
           </label>
+          <CourseClassificationFields
+            value={classification()}
+            disabled={isCreating()}
+            onChange={setClassification}
+          />
           <label for="course-start-date">
             Course Term start date
             <input

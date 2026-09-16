@@ -80,14 +80,13 @@ remains `QuestionId`/`PoolId` because ID is its product name.
 | Course Instance | `course_instance_uuid` with equal co-Instructor relationships |
 | Assessment | `assessment_uuid`; Blueprint Assessment or Course Instance Assessment where scope matters |
 | Assessment Attempt | `assessment_attempt_uuid` and current whole-submission state |
-| Saved response | `saved_response_uuid` or exact implementation evidence name; never Student `QuestionSubmission` |
+| Saved response | `saved_response_uuid` or exact implementation evidence name; never a Student submission |
 | Object | `object_record_uuid` plus typed owner/scope |
 | Service work | Exact operation target plus lease only when asynchronous work is required |
 
 Current `assignment_uuid`, `assignment_attempt_uuid`, `QuestionAttempt`, or
-`QuestionSubmission` identifiers may remain until a code/schema migration.
-When documentation must cite them, format them as current implementation names
-and state the canonical Assessment or saved-response meaning nearby.
+`QuestionResponse` identifiers are implementation names. When documentation
+must cite them, state the canonical Assessment or saved-response meaning nearby.
 
 ## Blueprint and Course names
 

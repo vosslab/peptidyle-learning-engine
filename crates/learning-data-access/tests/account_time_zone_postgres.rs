@@ -33,6 +33,11 @@ fn token(byte: u8) -> SessionTokenHash {
 
 async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
     let mut tx = admin.begin().await.expect("fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("classification fixture owner");
+    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *tx).await.expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
@@ -93,9 +98,9 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
     sqlx::query(
         "INSERT INTO ple_data.blueprint_course \
          (blueprint_id, reference_number, owner_account_id, short_name, long_name, \
-          metadata_etag, created_at) OVERRIDING SYSTEM VALUE \
+          metadata_etag, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE \
          VALUES ($1, $2, $3, 'ZONE', 'Student Time Zone Blueprint', \
-                 '00000000-0000-0000-0000-00000000ef04', clock_timestamp())",
+                 '00000000-0000-0000-0000-00000000ef04', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
     )
     .bind(id(BLUEPRINT))
     .bind(REFERENCE_NUMBER)
@@ -128,10 +133,10 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
         "INSERT INTO ple_data.course_instance \
          (course_id, reference_number, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
-          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) \
          OVERRIDING SYSTEM VALUE \
          VALUES ($1, $2, 'adopted', $2, 1, $3, 'instructor', 'ZONE', \
-                 'Student Time Zone Course', current_date, current_date + 1, clock_timestamp())",
+                 'Student Time Zone Course', current_date, current_date + 1, clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
     )
     .bind(id(COURSE))
     .bind(REFERENCE_NUMBER)

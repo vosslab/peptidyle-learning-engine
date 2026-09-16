@@ -3,6 +3,7 @@
 import type { CreateBlueprintCourseInput } from "../../../generated/api/CreateBlueprintCourseInput";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { validateBlueprintCourseContent } from "./blueprint_course_model";
+import { decodeCourseClassification } from "../../api/decoders/course_classification";
 
 export type BlueprintCourseCreationResult<Created> =
   | { readonly kind: "invalid"; readonly message: string }
@@ -16,6 +17,15 @@ export async function createBlueprintCourseWhenReady(
 ): Promise<
   BlueprintCourseCreationResult<Awaited<ReturnType<BlueprintCourseClient["createBlueprintCourse"]>>>
 > {
+  try {
+    decodeCourseClassification(content.classification);
+  } catch {
+    return {
+      kind: "invalid",
+      message:
+        "Choose a Discipline and valid Course classification before creating the Blueprint Course.",
+    };
+  }
   const validation = validateBlueprintCourseContent(content);
   if (!validation.valid) {
     return {

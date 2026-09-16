@@ -49,7 +49,7 @@ pub struct QuestionAttemptId(Uuid);
 
 /// One immutable accepted Student Response for one Question Attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-pub struct QuestionSubmissionId(Uuid);
+pub struct QuestionResponseId(Uuid);
 
 /// Fixed UUIDv5 namespace for durable Issued Question identity derivation.
 const ISSUED_QUESTION_NAMESPACE: Uuid = Uuid::from_u128(0xf3d3_b213_5c59_4e39_a76c_196f_82b0_620a);
@@ -93,7 +93,7 @@ impl_student_work_identifier!(AccommodationId);
 impl_student_work_identifier!(AssessmentAttemptId);
 impl_student_work_identifier!(IssuedQuestionId);
 impl_student_work_identifier!(QuestionAttemptId);
-impl_student_work_identifier!(QuestionSubmissionId);
+impl_student_work_identifier!(QuestionResponseId);
 
 impl IssuedQuestionId {
     /// Derives the stable identity for one frozen Assessment Attempt entry.

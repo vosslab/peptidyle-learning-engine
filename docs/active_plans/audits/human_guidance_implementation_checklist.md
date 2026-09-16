@@ -92,7 +92,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] PLE is pre-production with no users or durable production data. Improve the design directly.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` makes direct base-schema correction the pre-production path.
   - Mismatch: this database-only guard does not prove that every live alternate reader, writer, route, parser, DTO, client, fallback, alias, or migration path has been removed. The obsolete Assessment route layer and tsgen retired-header migration are gone, but live CI/A/U/BP client guards and receipt formats remain under audit. One Unrelease mutation path was found; no duplicate-current-path claim is made.
-- [x] Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](/docs/NAMING_CONVENTIONS.md) for details.
+- [x] Use readable `snake_case` whenever possible; see [NAMING_CONVENTIONS.md](../../NAMING_CONVENTIONS.md) for details.
   - Evidence (source): `devel/development_conformance_audit.py` `current_source_paths` inventories tracked and untracked current-worktree source files without opening deleted paths; `source_name_violations` enforces readable snake_case names.
   - Evidence (source): `devel/development_conformance_audit.py` `load_allowlist` permits only exact documented external-name exceptions owned by approved authority sections.
   - Decision: The one-time adversarial and current-worktree proof was removed after validation; the durable audit command is the regression boundary.
@@ -131,7 +131,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Reason: human ownership statement about a named machine, not implemented PLE behavior.
 - N/A Neil pre-approves pruning Podman images, volumes, and containers on Mac-Studio-36G as needed.
   - Reason: human authorization statement, not implemented PLE behavior.
-- N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](/docs/LIVE_DEMO_SPEC.md).
+- N/A The polished PLE Live Demo is the top priority; see [LIVE_DEMO_SPEC.md](../../LIVE_DEMO_SPEC.md).
   - Reason: human-owned project priority, not implemented PLE behavior.
 - [x] PLE should use one global installation with no institution boundaries.
   - Evidence (source): `schemas/base_schema/accounts.sql` `ple_private.account` has no institution column or foreign key; product roles are global account data.
@@ -221,14 +221,15 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 - [ ] **Discipline**: The broadest academic classification, such as Biology, Chemistry, or Mathematics.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
-- [ ] **Subject**: An area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Subject**: A globally named area associated with one or more Disciplines, such as Genetics,
+  Biochemistry, or Ecology.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Topic**: A major area within a Subject.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
 - [ ] **Subtopic**: A narrower classification within a Topic.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
-- [ ] **Tag**: An optional label attached to PLE content. Content may have any number of Tags.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Content classification vocabulary boundary.
+- [ ] **Tag**: An optional label attached to a Course or Library Object. Each may have any number of Tags.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 ## Accounts and roles
 
 ### Account rules
@@ -482,7 +483,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] Check text, controls, borders, and interaction states against their actual rendered backgrounds.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Apply the contrast requirements for text, controls, and other semantic uses in
-  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md)
+  [BIOME_THEME_PALETTES.md](../../BIOME_THEME_PALETTES.md)
   to rendered components in both light and dark themes, including gradients and state backgrounds.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain
@@ -672,17 +673,40 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: the implemented separation is for the retired Assignment object in `src/pages/assignment_workspace/`, not the HG Assessment object.
 - [ ] My Active Courses and My Inactive Courses should both be available from the Courses area.
   - Mismatch: both controls are `future` destinations in `src/ribbon/ribbon_catalog.ts`.
+- [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
+  Discipline is unavailable.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 
 ##### Blueprint Course interface
 
 - [x] **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
-- [x] **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
-  - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` submits the Instructor's name query to the Public-Blueprint list and opens the selected exact Blueprint detail.
-  - Evidence (runtime): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` is exercised by accepted C47 actual HTTP and compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json` and `public-search-browser.json`, using the Courses ribbon, submitted exact name search, and existing detail. It proves the isolated privileged-session workflow only; no ordinary login, TLS, full accessibility, or Course creation is claimed.
-- [x] Public Blueprint Course search should support quickly narrowing a large collection.
-  - Evidence (source): `crates/server/src/blueprint_course/list.rs` `list_blueprints` applies the literal Public query before paging, and `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` preserves the submitted query through continuation and resets it after an empty result.
-  - Evidence (runtime): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` and `crates/server/src/blueprint_course/list.rs` `list_blueprints` are exercised by accepted C47 actual HTTP and compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json` and `public-search-browser.json`, proving Public-only literal `%`, `_`, and backslash matching, a query-bound cursor, 51 matching records across the real 50-row continuation, and empty-search reset with unchanged `ple_data`.
+- [ ] **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Public Blueprint Course search should combine ordinary text search with shared classification
+  filters beginning with Discipline and following Discipline -> Subject -> Topic -> Subtopic.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] After selecting a Subject, Instructors should have an explicit option to include Blueprint Courses
+  associated with that Subject across its other Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Tags should provide additional filters outside the hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Search results should use a compact, information-rich layout that supports scanning and comparison.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Results should show Course name, classification, author, institution, and useful usage or
+  stewardship signals directly in the result list to support scanning and comparison.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Search terms, active filters, and the selected sort should remain visible while reviewing results.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [x] Clearing or changing part of a search should be quick.
+  - Evidence (source): `src/pages/library_page.tsx` `changeQuery` updates the search session on each input or selection change.
+- [ ] Opening a result and returning should preserve the Instructor's search, filters, sort, and scroll
+  position.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
   - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` is exercised by accepted C47 compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-browser.json`, which follows the existing detail action and preselects the matched Blueprint beyond the first 50 search rows. It does not submit or create a Course Instance.
@@ -754,6 +778,16 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: `starred` is a `future` Ribbon destination.
 - [ ] **Watched** should help Instructors follow Questions where changes or activity matter to them.
   - Mismatch: `watched` is a `future` Ribbon destination.
+- [ ] Published Questions should offer a **Create Pool from Question** action.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Pool creation should show the starting Question and its Discipline and Subject alongside the
+  Pool Title field.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Creating the Pool includes the starting Question and uses its Discipline and Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Adding Questions to a Pool should begin with Question Library results filtered to the Pool's
+  Discipline and Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 
 ##### Search Question Library interface
 
@@ -777,6 +811,18 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `src/pages/library_page.tsx` `question-library-row` shows title, summary, authors, and identifier.
 - [x] Search results should support filters for narrowing the Question Library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, and capability filters.
+- [ ] Classification browsing and filtering should begin with Discipline and follow the shared
+  Discipline -> Subject -> Topic -> Subtopic hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Tags should provide additional filters outside the hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Blueprint Course interface (first occurrence).
+- [ ] Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Blueprint Course interface (first occurrence).
+- [ ] After selecting a Subject, Instructors should have an explicit option to include Library Objects
+  associated with that Subject across its other Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Filters should update the current search rather than start a separate workflow.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` resets one `QuestionLibraryBrowseSession` with the updated query.
 - [x] Search should support Google-like syntax for more precise queries.
@@ -788,15 +834,17 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] A minus sign should exclude matching terms.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `exclusion_prefix` records a leading minus as an excluded search term.
   - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `exclusion_prefix` and returned `Alpha enzyme kinetics` for `enzyme -inhibitor` while excluding the matching inhibitor Question.
-- [x] Search should support PubMed-like field tags such as `topic:genetics`.
-  - Evidence (source): `crates/server/src/question_library/search_query.rs` `field_prefix` recognizes `topic` and `SearchTerm::matches` applies it to Question metadata.
-  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `field_prefix`, composed `subject:`, `topic:`, `tags:`, `type:`, and `author:` in one request, and returned the exact expected Question.
-- [x] Field tags should use PLE concepts and vocabulary.
-  - Evidence (source): `crates/server/src/question_library/search_query.rs` limits field tags to PLE terms: `subject`, `topic`, `tags`, `type`, and `author`.
-  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `SearchField` with only the closed PLE field vocabulary and preserved the production route's strict query boundary.
-- [x] Useful fields may include subject, topic, tags, Question Type, and author.
-  - Evidence (source): `crates/server/src/question_library/search_query.rs` `SearchField` and `SearchTerm::matches` support `subject`, `topic`, `tags`, `type`, and `author`.
-  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `impl SearchTerm` for subject, topic, tags, Question Type, and author together through the ordinary `text` query parameter.
+- [ ] Search should support PubMed-like field syntax such as `discipline:biology` and
+  `subject:genetics`.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Classification field examples include `topic:"chromosomal inheritance"` and `tags:review`.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] A Subtopic field example is `subtopic:"x-linked recessive crosses"`.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Search fields should use PLE concepts and vocabulary.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Useful fields may include Discipline, Subject, Topic, Subtopic, Tags, Question Type, and author.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Simple and advanced searches should use the same search box.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` provides one Search input, and `crates/server/src/question_library.rs` passes its optional `text` query value to `QuestionTextQuery::parse` before matching.
   - Evidence (runtime): accepted C59 component proof exercised `src/pages/library_page.tsx` `LibraryPage` and confirmed the visible Search box and its normal-flow Search tips.
@@ -813,6 +861,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `src/pages/library_page.tsx` `query` signal remains bound to the search input and filter selects while rows render.
 - [x] Clearing or changing part of a search should be quick.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` updates the search session on each input or selection change.
+  - Owner: Blueprint Course interface (first occurrence).
 - [x] Opening a result and returning should preserve the Instructor's search and position.
   - Evidence (source): `src/pages/library_page_model.ts` `saveQuestionLibraryReturnState` and `takeQuestionLibraryReturnState` retain one session-bound, single-use in-document snapshot; `src/pages/library_page.tsx` `LibraryPage` restores its query, server-validated loaded rows, filters, and clamped scroll position.
   - Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` restored `genetics`, the `ple` filter, 80 loaded rows, and exact virtual-list scroll position through visible detail return and browser Back; a changed session returned to the empty landing. The temporary harness and screenshots were removed after the accepted proof.
@@ -825,12 +874,12 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [x] Browse should help Instructors understand what the Question Library contains.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` explains that counts cover all authorized matching Questions and presents subject, topic, tag, and Question Type groups.
   - Evidence (runtime): accepted C60 component evidence rendered `src/pages/library_page.tsx` `LibraryPage` overview groups; actual-server HTTP evidence exercised `crates/server/src/question_library.rs` `search_questions` over the full authorized matched snapshot.
-- [x] Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders dedicated Subjects, Topics, Tags, and Question Types groups with explicit free-text truncation notices.
-  - Evidence (runtime): accepted component and actual-server HTTP evidence covered `crates/server/src/question_library/facets.rs` `facets` for all four groups, including truthful 64-value truncation flags.
-- [x] Browse should make moving from broad subjects to narrower topics easy.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` clears the prior topic on subject selection and requests exact subject filtering before presenting `Topics in this subject`.
-  - Evidence (runtime): accepted routed component evidence exercised `src/pages/library_page.tsx` `changeQuery`, selected Biochemistry then Enzymes, and preserved both exact filters.
+- [ ] Browse should begin with Discipline and make moving through Subject, Topic, and Subtopic easy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Selecting a Discipline limits browsing to Subjects associated with that Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Browse should also offer Tags, Question Types, and other useful groupings.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Browse should show useful counts where they help Instructors choose where to explore.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` group choices render their server-owned counts and state that counts cover all authorized matches, not only loaded rows.
   - Evidence (runtime): accepted actual-server HTTP evidence exercised `crates/server/src/question_library.rs` `search_questions` with `page_size=1` yet returned Biology topic counts of Enzymes 2 and Metabolism 1 over all three matching Questions.
@@ -1156,58 +1205,80 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 
 ### Content classification
 
-- [ ] PLE uses one global content classification hierarchy across **Courses**, **Assessments**, and **Library Objects**.
-  - Mismatch: Partial SQL foundation defines four vocabulary tables and Subject-Discipline associations, but no commands, content attachments, selection, normalization, or discovery exist.
+- [ ] PLE uses one shared global content classification vocabulary for **Courses** and **Library
+  Objects**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every Course has exactly one **Discipline**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Subject**, **Topic**, and **Subtopic** are optional for Courses.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every Library Object has exactly one **Discipline** and one **Subject**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Topic** and **Subtopic** are optional for Library Objects.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Courses retain the hierarchy because their classification supports Course organization, search,
+  filtering, and discovery.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
   - Mismatch: Partial SQL foundation gives Subject-Discipline associations and one-parent Topic/Subtopic relationships, but no complete content classification behavior exists.
 - [ ] **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
   - Mismatch: `content_discipline` exists as an owner-only SQL vocabulary table, but authenticated management and content use remain absent.
-- [ ] **Subject** identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-  - Mismatch: `content_subject` and its association table exist, but Subject management and content use remain absent.
+- [ ] **Subject** identifies a global area associated with one or more Disciplines, such as Genetics,
+  Biochemistry, or Ecology.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
   - Mismatch: `content_topic.subject_uuid` has a mandatory parent foreign key, but Topic management and content use remain absent.
 - [ ] **Subtopic** provides a narrower classification within a Topic, such as Enzyme Catalysis Mechanisms or X-Linked Recessive Crosses.
   - Mismatch: `content_subtopic.topic_uuid` has a mandatory parent foreign key, but Subtopic management and content use remain absent.
-- [ ] Subjects have a global identity across PLE.
-  - Mismatch: `content_subject` has UUID identity, but global Subject-name uniqueness and product-wide use are absent.
-- [ ] A Subject may belong to one or more Disciplines, with Discipline associations managed by **Sysadmins**.
-  - Mismatch: `content_subject_discipline` permits real, unique associations, but it does not enforce at least one association per Subject and has no Sysadmin commands.
+- [ ] Subjects have a global identity across PLE, and Subject names are unique across PLE.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] A Subject may be associated with one or more Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] A Topic belongs to one Subject.
   - Mismatch: The SQL foreign key enforces one Topic parent, but authenticated management and complete product behavior remain open.
 - [ ] A Subtopic belongs to one Topic.
   - Mismatch: The SQL foreign key enforces one Subtopic parent, but authenticated management and complete product behavior remain open.
-- [ ] Every Course, Assessment, and Library Object has exactly one **Discipline**.
-  - Mismatch: No content attachment schema or writer enforces exactly one Discipline for Courses, Assessments, or Library Objects.
-- [ ] **Subject**, **Topic**, and **Subtopic** are optional.
-  - Mismatch: No content attachment schema or writer establishes optional narrower selections.
-- [ ] Classification selection begins with Discipline and follows the hierarchy from Discipline to Subject to Topic to Subtopic, progressively narrowing the available choices at each level.
-  - Mismatch: No authenticated reader or selector implements progressive narrowing.
-- [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
-  - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
-- [ ] After selecting a Subject, search interfaces may allow users to include content associated with that Subject across its other Disciplines.
-  - Mismatch: No authenticated search interface or content attachment supports cross-Discipline Subject use.
-- [ ] Courses, Assessments, and Library Objects select from the same shared global hierarchy.
-  - Mismatch: The shared SQL vocabulary is not attached to or selectable by any content owner.
-- [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
-  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
-- [ ] Content may have any number of Tags, including none.
-  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
-- [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
-  - Mismatch: No classification reader, query, or product discovery behavior exists.
-- [ ] **Sysadmins** exclusively manage the Discipline vocabulary and its lifecycle.
-  - Mismatch: Owner-only SQL access is not ProductRole-aware Sysadmin management; no commands or lifecycle exist.
+- [ ] Course and Library Object selections follow the hierarchy: the Subject is associated with the
+  selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Courses and Library Objects select from the same shared global vocabulary.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Sysadmins** exclusively create and manage the Discipline vocabulary and its lifecycle.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Discipline is a stable vocabulary expected to change infrequently.
   - Mismatch: `content_discipline` is a bounded foundation table, but no managed lifecycle establishes its stable vocabulary behavior.
 - [ ] **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
   - Mismatch: No Instructor reader, selector, or content attachment exists.
-- [ ] **Instructors** may create new Subjects within a Discipline.
-  - Mismatch: No Instructor Subject writer or atomic association-maintenance command exists.
+- [ ] **Instructors** may create new Subjects within a selected Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] When an Instructor attempts to create a Subject whose globally unique name already exists, PLE
+  offers the existing Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] PLE requires explicit Instructor acceptance before associating the existing Subject with the
+  selected Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Creating or selecting vocabulary should fit naturally into the classification workflow.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Instructors** may create new Topics within a Subject.
   - Mismatch: No Instructor Topic writer exists.
 - [ ] **Instructors** may create new Subtopics within a Topic.
   - Mismatch: No Instructor Subtopic writer exists.
-- [ ] Subject names are unique across PLE.
-  - Mismatch: `content_subject.name` is not globally unique.
+- [ ] Classification selection, browsing, and filtering begin with Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Course and Library Object classification follow Discipline -> Subject -> Topic -> Subtopic,
+  progressively narrowing the available choices at each level.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
+  - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
+- [ ] After selecting a Subject, search interfaces may offer an explicit option to include content
+  associated with that Subject across its other Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
+- [ ] Courses and Library Objects may have any number of Tags, including none.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
+  - Mismatch: No classification reader, query, or product discovery behavior exists.
 - [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
   - Mismatch: The SQL tables bound and reject untrimmed/control-character names, but trusted strip-before-validate writers are absent.
 - [ ] Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
@@ -1412,8 +1483,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] A Draft Question must pass Question Publication Validation before becoming a Published Question.
   - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
   - Verification pending: audit ordinary Draft publication, not only fork publication, against current validation and required Library metadata.
-- [ ] Publication requires all required Question Library metadata.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Publication Validation requires Discipline, Subject, and all other required Question
+  Library metadata before publication.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 
 ### Question formats and type specifications
 
@@ -1657,9 +1729,9 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-- [x] Changing the Question title, description, Tags, Subject, Topic, or other search metadata does not
-  create a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
+- [ ] Changes to the Question title, description, Discipline, Subject, Topic, Subtopic, Tags, or other
+  search metadata update the Published Question metadata while preserving the current Question Revision.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
 - [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
@@ -1715,9 +1787,8 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that false or missing attestation returned 422 and left no Pool behind. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
 - [ ] Question Pools may contain Questions from any Question Backend.
   - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor Pool workflow proves this behavior.
-- [x] Question Pools are always published and have no draft or unpublished state.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` model only a stable published lineage and immutable Revisions, with no draft, publication-status, or unpublished state.
-  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main Instructor proof: it created a reusable Pool from two Published Questions and immediately read its server-issued Revision 1; the UI and API expose no draft or publish transition.
+- [ ] Question Pools are created from a Published Question and enter the Question Library immediately.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] A Question Pool is an independently reusable Question Library object.
   - Evidence (source): `crates/server/src/question_pool_library.rs` `current_pool` reads a Pool independently of any Assessment.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `current_pool` passed accepted actual-main Instructor proof: Pool `SBQR-N5RE` was created from the Question Library and its ordered member pins were read through `/api/question-pools/SBQR-N5RE`; separate actual-server proof then imported another reusable Pool into an Assessment.
@@ -1773,6 +1844,13 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Question Pool metadata includes Title and Description.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] The first Published Question establishes the Question Pool's Discipline and Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
+  when included in a Question Pool.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Pools may have their own authorship, attribution, license, and source information where
   appropriate.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
@@ -1810,8 +1888,8 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
   - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
 - [ ] **Instructors** should be able to select many Library objects and update shared metadata such as
-  Tags, Subject, Topic, or other search fields together.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  Discipline, Subject, Topic, Subtopic, Tags, or other search fields together.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
   - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
 
@@ -1823,10 +1901,23 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
 - [ ] Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
-- [ ] Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag** classification system.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
-- [ ] Library Object classification belongs to the Library Object rather than to one use of that object in an Assessment.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag**
+  vocabulary.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every Library Object has exactly one **Discipline** and one **Subject**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Content classification (first occurrence).
+- [ ] **Topic** and **Subtopic** are optional for Library Objects.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Content classification (first occurrence).
+- [ ] Library Objects may have any number of **Tags**, including none.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Question Publication Validation requires Discipline and Subject before publication.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Library Object classification follows Discipline -> Subject -> Topic -> Subtopic.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Questions and Question Pools retain their Library Object classification when used in an Assessment.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Library classification supports searching, filtering, sorting, and bulk editing.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
 - [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
@@ -1947,10 +2038,20 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
 - [ ] Course classification describes the Course as a whole.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Courses use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Every Blueprint Course and Course Instance has exactly one **Discipline**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Courses may have any number of **Tags**, including none.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
+  Discipline is unavailable.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Course interfaces (first occurrence).
+- [ ] **Sysadmins** exclusively create and manage Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course classification supports Course search, filtering, organization, and discovery where applicable.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
 - [ ] A Course Instance may have classification that differs from its Blueprint Course.
@@ -2353,23 +2454,10 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Evidence (source): `schemas/base_schema/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
   - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
 
-### Assessment classification specifications
-
-- [ ] **Blueprint Assessments** and **Course Instance Assessments** use the shared content classification system.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessment classification describes the Assessment as a whole.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessments use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessments may have any number of **Tags**, including none.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessment classification supports Assessment search, filtering, organization, and discovery where applicable.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessment classification is independent of the classifications of the Questions and Question Pools it contains.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-
 ### Assessment content specifications
 
+- [ ] Assessments are organized by their Course and position within its ordered sequence.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Assessments contain an ordered sequence of Published Questions and Question Pools.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` renders the mixed entry sequence; `schemas/base_schema/assessments.sql` `assessment_entry_active_authored_position_key` enforces distinct current positions with a deferred constraint, allowing atomic swaps and retired-position reuse. `schemas/base_schema/assessment_operations.sql` `ple_api.load_assessment_workspace_rows` projects only available current entries.
   - Evidence (runtime): accepted independent actual-server/private bundled-main browser proof at `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` saved Fixed A, an imported Pool, and Fixed B, moved the top-level Pool across Fixed A, and reloaded exact ordered entry IDs and Revision pins. Artifact: `/private/tmp/ple-assessment-mixed-entries-artifacts.CogOX1`.
@@ -2693,7 +2781,7 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
 - [ ] The Student may change a saved response while the Assessment Attempt remains open.
   - Mismatch: Current response persistence source exists, but no current runtime receipt establishes saved-response replacement after the retired oracle was removed.
 - [x] Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
-  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Assessment submission and its finalized Question responses.
   - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [x] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
   - Evidence (source): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` labels closed issued Questions with no submission as **Unanswered** and reserves unavailable-response wording for submitted Questions whose saved response is not released.
@@ -2827,4 +2915,4 @@ Reason: This section gives rules for writing and maintaining Human Guidance. It 
   - Mismatch: No actual HTTP request count or Backend-transport observation confirms the SQL and server control-flow evidence.
 - [x] Score recalculation does not change the stored Question grading outcome.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` only calculates a score and performs no writes; `grading_result_is_immutable` rejects updates through `ple_private.reject_grading_evidence_change`. `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.prepare_assessment_attempt_finalization` reads existing grading outcomes without replacing them.
-  - Evidence (runtime): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` is invoked by the accepted private PostgreSQL 17 fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the `0.5` fraction and matched before/after JSON hashes for every `grading_result`, `question_submission`, `assessment_submission`, and `automated_grading_receipt` row after the authorized points edit and replay. This does not establish HTTP, rendering, or Backend transport.
+  - Evidence (runtime): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` is invoked by the accepted private PostgreSQL 17 fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the `0.5` fraction and matched before/after JSON hashes for every grading-result, finalized-Question-response, Assessment-submission, and automated-grading-receipt row after the authorized points edit and replay. This does not establish HTTP, rendering, or Backend transport.

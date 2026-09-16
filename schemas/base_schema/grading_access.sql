@@ -96,15 +96,15 @@ $$;
 
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.has_automated_grading_receipt(
-    p_question_submission_grading_id uuid,
+    p_question_response_grading_id uuid,
     p_grading_result_id uuid
 ) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_audit AS $$
-    SELECT p_question_submission_grading_id IS NOT NULL
+    SELECT p_question_response_grading_id IS NOT NULL
        AND p_grading_result_id IS NOT NULL
        AND EXISTS (
            SELECT 1 FROM ple_audit.automated_grading_receipt AS receipt
-            WHERE receipt.question_submission_grading_id = p_question_submission_grading_id
+            WHERE receipt.question_response_grading_id = p_question_response_grading_id
               AND receipt.grading_result_id = p_grading_result_id
        )
 $$;

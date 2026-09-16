@@ -60,6 +60,20 @@ pub(crate) async fn publish_with_context(
     let pool =
         lazy_pool(&database_url).context("curriculum publication database URL is invalid")?;
     let library = PostgresQuestionLibraryStore::new(pool.clone());
+    let classification_store =
+        learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
+    let resolved = manifest
+        .course
+        .classification
+        .resolve(&classification_store, session)
+        .await?;
+    let classification = question_model::CourseClassification {
+        discipline_uuid: resolved.discipline_uuid,
+        subject_uuid: Some(resolved.subject_uuid),
+        topic_uuid: resolved.topic_uuid,
+        subtopic_uuid: resolved.subtopic_uuid,
+        tags: Vec::new(),
+    };
     let blueprints = PostgresBlueprintCourseStore::new(pool);
     let authorship = curriculum_authorship(&manifest)?;
     let license = curriculum_license(&manifest)?;
@@ -81,7 +95,11 @@ pub(crate) async fn publish_with_context(
             existing_revisions.len() == manifest.parameterized_sources.len(),
             "same-name Genetics Blueprint does not resolve every canonical source before publication"
         );
-        let input = blueprint_input(&manifest, &existing_revisions)?;
+        let input = blueprint_input(&manifest, &existing_revisions, classification.clone())?;
+        ensure!(
+            retained.classification == classification,
+            "same-name Genetics Blueprint classification conflicts with the authored Course"
+        );
         validate_loaded_content(&retained.content, &input, &manifest, &existing_revisions)
             .context("same-name Genetics Blueprint conflicts with the canonical fresh catalog")?;
         return Receipt::new(
@@ -101,7 +119,7 @@ pub(crate) async fn publish_with_context(
     .await
     .context("publishing canonical Genetics Questions")?;
     let revisions = publication.question_revisions();
-    let input = blueprint_input(&manifest, &revisions)?;
+    let input = blueprint_input(&manifest, &revisions, classification)?;
     let (reference, revision) =
         create_blueprint(session, &input, &manifest, &revisions, &blueprints).await?;
     Receipt::new(
@@ -255,6 +273,10 @@ async fn create_blueprint(
         "new canonical Genetics Blueprint Course is not Private"
     );
     validate_loaded_content(&loaded.content, input, manifest, revisions)?;
+    ensure!(
+        loaded.classification == input.classification,
+        "created Genetics Blueprint classification differs from authored metadata"
+    );
     Ok((loaded.reference, loaded.current_revision))
 }
 

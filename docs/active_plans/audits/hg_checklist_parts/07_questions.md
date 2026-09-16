@@ -35,8 +35,9 @@
 - [ ] A Draft Question must pass Question Publication Validation before becoming a Published Question.
   - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
   - Verification pending: audit ordinary Draft publication, not only fork publication, against current validation and required Library metadata.
-- [ ] Publication requires all required Question Library metadata.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Publication Validation requires Discipline, Subject, and all other required Question
+  Library metadata before publication.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 
 ### Question formats and type specifications
 
@@ -280,9 +281,9 @@
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
-- [x] Changing the Question title, description, Tags, Subject, Topic, or other search metadata does not
-  create a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
+- [ ] Changes to the Question title, description, Discipline, Subject, Topic, Subtopic, Tags, or other
+  search metadata update the Published Question metadata while preserving the current Question Revision.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
 - [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
@@ -338,9 +339,8 @@
   - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that false or missing attestation returned 422 and left no Pool behind. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
 - [ ] Question Pools may contain Questions from any Question Backend.
   - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor Pool workflow proves this behavior.
-- [x] Question Pools are always published and have no draft or unpublished state.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` model only a stable published lineage and immutable Revisions, with no draft, publication-status, or unpublished state.
-  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main Instructor proof: it created a reusable Pool from two Published Questions and immediately read its server-issued Revision 1; the UI and API expose no draft or publish transition.
+- [ ] Question Pools are created from a Published Question and enter the Question Library immediately.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] A Question Pool is an independently reusable Question Library object.
   - Evidence (source): `crates/server/src/question_pool_library.rs` `current_pool` reads a Pool independently of any Assessment.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `current_pool` passed accepted actual-main Instructor proof: Pool `SBQR-N5RE` was created from the Question Library and its ordered member pins were read through `/api/question-pools/SBQR-N5RE`; separate actual-server proof then imported another reusable Pool into an Assessment.
@@ -396,6 +396,13 @@
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Question Pool metadata includes Title and Description.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] The first Published Question establishes the Question Pool's Discipline and Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
+  when included in a Question Pool.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Pools may have their own authorship, attribution, license, and source information where
   appropriate.
   - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
@@ -433,8 +440,8 @@
   - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
   - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
 - [ ] **Instructors** should be able to select many Library objects and update shared metadata such as
-  Tags, Subject, Topic, or other search fields together.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+  Discipline, Subject, Topic, Subtopic, Tags, or other search fields together.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
   - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
 
@@ -446,10 +453,23 @@
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
 - [ ] Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
-- [ ] Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag** classification system.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
-- [ ] Library Object classification belongs to the Library Object rather than to one use of that object in an Assessment.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
+- [ ] Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag**
+  vocabulary.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every Library Object has exactly one **Discipline** and one **Subject**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Content classification (first occurrence).
+- [ ] **Topic** and **Subtopic** are optional for Library Objects.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Content classification (first occurrence).
+- [ ] Library Objects may have any number of **Tags**, including none.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Question Publication Validation requires Discipline and Subject before publication.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Library Object classification follows Discipline -> Subject -> Topic -> Subtopic.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Questions and Question Pools retain their Library Object classification when used in an Assessment.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Library classification supports searching, filtering, sorting, and bulk editing.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Question Library metadata boundary.
 - [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.

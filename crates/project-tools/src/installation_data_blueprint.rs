@@ -47,7 +47,6 @@ pub(crate) fn create_live_demo_blueprint(
 ) -> Result<LiveDemoBlueprintManifestReferences> {
     let questions = pilot_content::validated_ple_question_json_revisions(publications)
         .context("resolving the reviewed PLE Question JSON Pilot publications")?;
-    let input = live_demo_blueprint_input(questions.clone())?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -57,6 +56,25 @@ pub(crate) fn create_live_demo_blueprint(
             .context("DATABASE_URL must be set for Live Demo Blueprint creation")?;
         let pool =
             lazy_pool(&database_url).context("Live Demo Blueprint database URL is invalid")?;
+        let classification_store =
+            learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
+        // Authored Course metadata, not inferred from its Question collection.
+        let resolved = pilot_content::AuthoredClassification {
+            discipline: "Biology".to_owned(),
+            subject: "Biochemistry".to_owned(),
+            topic: None,
+            subtopic: None,
+        }
+        .resolve(&classification_store, session)
+        .await?;
+        let classification = question_model::CourseClassification {
+            discipline_uuid: resolved.discipline_uuid,
+            subject_uuid: Some(resolved.subject_uuid),
+            topic_uuid: resolved.topic_uuid,
+            subtopic_uuid: resolved.subtopic_uuid,
+            tags: Vec::new(),
+        };
+        let input = live_demo_blueprint_input(questions.clone(), classification.clone())?;
         let store = PostgresBlueprintCourseStore::new(pool);
         let receipt = store
             .create_blueprint_course(session, LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM, input.clone())
@@ -87,6 +105,10 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint lineage names differ from the fixed course names"
         );
         let assessment_reference = validate_loaded_content(&blueprint.content, &input, &questions)?;
+        ensure!(
+            blueprint.classification == classification,
+            "Live Demo Blueprint classification conflicts with the authored Course"
+        );
         if blueprint.availability == BlueprintAvailability::Private {
             store
                 .publish_blueprint(
@@ -182,12 +204,14 @@ fn validate_loaded_content(
 
 fn live_demo_blueprint_input(
     questions: Vec<QuestionRevisionReference>,
+    classification: question_model::CourseClassification,
 ) -> Result<CreateBlueprintCourseInput> {
     ensure!(
         questions.len() == 4,
         "Live Demo Blueprint requires exactly four PLE Question JSON publications"
     );
     let input = CreateBlueprintCourseInput {
+        classification,
         short_name: LIVE_DEMO_COURSE_SHORT_NAME.to_owned(),
         long_name: LIVE_DEMO_COURSE_LONG_NAME.to_owned(),
         modules: vec![CreateBlueprintModuleInput {
@@ -248,7 +272,17 @@ mod tests {
 
     #[test]
     fn live_demo_input_contains_one_assessment_with_four_fixed_questions() {
-        let input = live_demo_blueprint_input((1..=4).map(question).collect()).unwrap();
+        let input = live_demo_blueprint_input(
+            (1..=4).map(question).collect(),
+            question_model::CourseClassification {
+                discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                subject_uuid: None,
+                topic_uuid: None,
+                subtopic_uuid: None,
+                tags: Vec::new(),
+            },
+        )
+        .unwrap();
         assert_eq!(input.modules.len(), 1);
         assert_eq!(input.modules[0].assessments.len(), 1);
         assert_eq!(input.modules[0].assessments[0].entries.len(), 4);
@@ -257,7 +291,19 @@ mod tests {
 
     #[test]
     fn live_demo_input_rejects_an_incomplete_pilot_mapping() {
-        assert!(live_demo_blueprint_input((1..=3).map(question).collect()).is_err());
+        assert!(
+            live_demo_blueprint_input(
+                (1..=3).map(question).collect(),
+                question_model::CourseClassification {
+                    discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                    subject_uuid: None,
+                    topic_uuid: None,
+                    subtopic_uuid: None,
+                    tags: Vec::new()
+                }
+            )
+            .is_err()
+        );
     }
 
     fn stored_content(
@@ -307,7 +353,17 @@ mod tests {
     #[test]
     fn loaded_content_allows_only_store_generated_child_identity_differences() {
         let questions = (1..=4).map(question).collect::<Vec<_>>();
-        let input = live_demo_blueprint_input(questions.clone()).unwrap();
+        let input = live_demo_blueprint_input(
+            questions.clone(),
+            question_model::CourseClassification {
+                discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                subject_uuid: None,
+                topic_uuid: None,
+                subtopic_uuid: None,
+                tags: Vec::new(),
+            },
+        )
+        .unwrap();
         let content = stored_content(&input, &questions);
 
         let assessment = validate_loaded_content(&content, &input, &questions).unwrap();
@@ -318,7 +374,17 @@ mod tests {
     #[test]
     fn loaded_content_rejects_replayed_semantic_drift() {
         let questions = (1..=4).map(question).collect::<Vec<_>>();
-        let input = live_demo_blueprint_input(questions.clone()).unwrap();
+        let input = live_demo_blueprint_input(
+            questions.clone(),
+            question_model::CourseClassification {
+                discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                subject_uuid: None,
+                topic_uuid: None,
+                subtopic_uuid: None,
+                tags: Vec::new(),
+            },
+        )
+        .unwrap();
         let mut content = stored_content(&input, &questions);
         content.modules[0].assessments[0].content.title = "Changed title".to_owned();
 

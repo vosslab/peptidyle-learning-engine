@@ -99,21 +99,10 @@ export function StudentAssessmentDecisionDetails(props: {
         </strong>
         <Show when={props.decision.publicReason}>{(publicReason) => <> - {publicReason()}</>}</Show>
       </p>
-      <p class="student-assessment-decision__heading">Timing and Attempt rules</p>
       <p class="student-assessment-decision__zone">
         Times shown in {props.decision.displayTimeZone}
       </p>
       <dl class="assessment-facts">
-        <div>
-          <dt>Available</dt>
-          <dd>
-            {formatAssessmentDeliveryTime(
-              props.decision.availableAt,
-              props.decision.displayTimeZone,
-              "No opening time",
-            )}
-          </dd>
-        </div>
         <div>
           <dt>Due</dt>
           <dd data-assessment-decision-due>
@@ -125,16 +114,6 @@ export function StudentAssessmentDecisionDetails(props: {
           </dd>
         </div>
         <div>
-          <dt>Closes</dt>
-          <dd>
-            {formatAssessmentDeliveryTime(
-              props.decision.closesAt,
-              props.decision.displayTimeZone,
-              "No closing time",
-            )}
-          </dd>
-        </div>
-        <div>
           <dt>Time limit</dt>
           <dd>{formatAssessmentAttemptTimeLimit(props.decision.timeLimitSeconds)}</dd>
         </div>
@@ -142,11 +121,36 @@ export function StudentAssessmentDecisionDetails(props: {
           <dt>Attempt limit</dt>
           <dd>{formatAssessmentLimit(props.decision.attemptLimit, "attempt", "attempts")}</dd>
         </div>
-        <div>
-          <dt>Late work</dt>
-          <dd>{formatLateWorkRule(props.decision.lateWorkRule)}</dd>
-        </div>
       </dl>
+      <details class="student-assessment-decision__details">
+        <summary>More timing and Attempt rules</summary>
+        <dl class="assessment-facts">
+          <div>
+            <dt>Available</dt>
+            <dd>
+              {formatAssessmentDeliveryTime(
+                props.decision.availableAt,
+                props.decision.displayTimeZone,
+                "No opening time",
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Closes</dt>
+            <dd>
+              {formatAssessmentDeliveryTime(
+                props.decision.closesAt,
+                props.decision.displayTimeZone,
+                "No closing time",
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt>Late work</dt>
+            <dd>{formatLateWorkRule(props.decision.lateWorkRule)}</dd>
+          </div>
+        </dl>
+      </details>
     </div>
   );
 }

@@ -10,10 +10,21 @@ import {
   decodeCreateCourseInstanceInput,
 } from "../src/api/decoders/course_instance.ts";
 import { courseThemeTokens } from "../src/features/course_appearance/course_theme_registry.ts";
+import { decodeCourseClassification } from "../src/api/decoders/course_classification.ts";
+
+const classification = {
+  disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+  subjectUuid: null,
+  topicUuid: null,
+  subtopicUuid: null,
+  tags: [],
+};
 
 function courseSummary(theme = "forest") {
   return {
     reference: "CI6F2R8T",
+    classification,
+    metadataEtag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
     shortName: "Mol Bio",
     longName: "Molecular Biology",
     term: {
@@ -58,6 +69,7 @@ test("the Course-list decoder rejects missing, surplus, and unknown theme data",
 
 test("Course creation accepts only the two current source wires", () => {
   const common = {
+    classification,
     shortName: "Genetics",
     longName: "Advanced Genetics",
     term: { startDate: "2026-09-01", endDate: "2026-12-18" },
@@ -95,6 +107,25 @@ test("Course creation accepts only the two current source wires", () => {
     () => decodeCreateCourseInstanceInput({ ...common, blueprintCourse: "BP6F2R8T" }),
     DecodeError,
   );
+});
+
+test("Course classification requires a Discipline, permits absent Subject, and has no Tag-count ceiling", () => {
+  assert.deepEqual(decodeCourseClassification(classification), classification);
+  assert.throws(
+    () => decodeCourseClassification({ ...classification, disciplineUuid: null }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeCourseClassification({ ...classification, topicUuid: classification.disciplineUuid }),
+    DecodeError,
+  );
+  assert.throws(
+    () => decodeCourseClassification({ ...classification, tags: ["duplicate", "duplicate"] }),
+    DecodeError,
+  );
+  const tags = Array.from({ length: 70 }, (_, index) => `tag-${index}`);
+  assert.deepEqual(decodeCourseClassification({ ...classification, tags }).tags, tags);
 });
 
 test("dense Instructor rows remain scoped away from Student cards and product theme scope", () => {

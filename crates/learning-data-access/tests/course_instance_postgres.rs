@@ -31,6 +31,13 @@ fn token(marker: u8) -> SessionTokenHash {
 
 fn empty_course_input() -> CreateCourseInstanceInput {
     CreateCourseInstanceInput {
+        classification: question_model::CourseClassification {
+            discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            tags: Vec::new(),
+        },
         source: CourseInstanceCreationSource::Empty,
         short_name: "EMPTY-1".to_owned(),
         long_name: "Empty Course contract".to_owned(),
@@ -41,6 +48,11 @@ fn empty_course_input() -> CreateCourseInstanceInput {
 
 async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountReference, AccountReference) {
     let mut transaction = admin.begin().await.expect("fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("classification fixture owner");
+    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *transaction).await.expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *transaction)
         .await
@@ -124,7 +136,7 @@ async fn malformed_empty_materialization_rejection(
         "SELECT public_reference FROM ple_api.create_course_instance( \
          $1, $2, $3, $4, 'empty', NULL, NULL, 'EMPTY-BAD', \
          'Rejected nonempty Empty Course', '2026-01-01'::date, '2026-05-01'::date, \
-         NULL, jsonb_build_array(jsonb_build_object('source', $5::text)))",
+         NULL, jsonb_build_array(jsonb_build_object('source', $5::text)), '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
     )
     .bind(id(0xc721))
     .bind(id(0xc722))
@@ -194,7 +206,7 @@ async fn course_term_beyond_active_lifetime_rejection(
          'Rejected Active lifetime extension', \
          (transaction_timestamp() AT TIME ZONE 'UTC')::date, \
          (((transaction_timestamp() AT TIME ZONE 'UTC') + interval '6 months')::date + 1), \
-         NULL, '[]'::jsonb)",
+         NULL, '[]'::jsonb, '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
     )
     .bind(id(0xc731))
     .bind(id(0xc732))

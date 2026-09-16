@@ -7,7 +7,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
 import {
   Actions,
-  createSubmissionController,
+  createResponseController,
   Status,
   type ShortTextResponseFormat,
   type QuestionResponseControlBodyProps,
@@ -19,15 +19,15 @@ export function ShortTextResponse(
   const initialText = props.initialResponse?.kind === "shortText" ? props.initialResponse.text : "";
   const [text, setText] = createSignal(initialText);
   let control!: HTMLTextAreaElement;
-  const controller = createSubmissionController(props, { kind: "shortText", text: initialText });
+  const controller = createResponseController(props, { kind: "shortText", text: initialText });
   const characterCount = (): number => [...text()].length;
   const response = (): StudentResponse => ({ kind: "shortText", text: text() });
   function update(next: string): void {
     setText(next);
     void controller.edit({ kind: "shortText", text: next });
   }
-  function submit(): void {
-    void controller.submit(response());
+  function save(): void {
+    void controller.save(response());
   }
   function reset(): void {
     setText(initialText);
@@ -39,7 +39,7 @@ export function ShortTextResponse(
       class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
-        handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
+        handleQuestionResponseControlKeyDown(event, props.onEscape, save, controller.canSave)
       }
     >
       <label for={`${props.attemptId}-short-text`}>Short written response</label>
@@ -67,10 +67,10 @@ export function ShortTextResponse(
       />
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.locked()}
+        disabled={!controller.canSave() || controller.locked()}
         resetDisabled={controller.locked()}
-        onSubmit={submit}
-        submitLabel={props.submitLabel}
+        onSave={save}
+        saveLabel={props.saveLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

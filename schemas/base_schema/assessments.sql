@@ -86,7 +86,11 @@ CREATE TABLE ple_data.assessment (
             AND source_blueprint_assessment_reference IS NOT NULL)
     ),
     CHECK (updated_at >= created_at),
-    CHECK (assessment_type NOT IN ('quiz', 'exam') OR assessment_attempt_limit = 1)
+    -- ASVS 2.2.1-2.2.3: mandatory variant fields cannot pass CHECK as unknown.
+    CHECK (
+        assessment_type NOT IN ('quiz', 'exam')
+        OR (assessment_attempt_limit IS NOT NULL AND assessment_attempt_limit = 1)
+    )
 );
 
 CREATE TABLE ple_data.assessment_entry (
@@ -125,6 +129,7 @@ CREATE TABLE ple_data.assessment_entry (
             AND question_revision_number IS NOT NULL
             AND question_pool_id IS NULL
             AND question_pool_revision_number IS NULL
+            AND points_possible IS NOT NULL
             AND points_possible >= 0
             AND selection_count IS NULL
             AND points_per_item IS NULL
@@ -135,8 +140,11 @@ CREATE TABLE ple_data.assessment_entry (
             AND question_pool_id IS NOT NULL
             AND question_pool_revision_number IS NOT NULL
             AND points_possible IS NULL
+            AND selection_count IS NOT NULL
             AND selection_count > 0
+            AND points_per_item IS NOT NULL
             AND points_per_item >= 0
+            AND selected_question_order IS NOT NULL
             AND selected_question_order IN ('question_pool_order', 'random_order'))
     ),
     CHECK (question_attempt_limit IS NULL OR question_attempt_limit > 0),

@@ -13,6 +13,12 @@ import {
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import {
+  CourseClassificationFields,
+  emptyCourseClassification,
+  type CourseClassificationDraft,
+} from "../../components/course_classification_fields";
+import { decodeCourseClassification } from "../../api/decoders/course_classification";
+import {
   QuestionPicker,
   type QuestionPickerSelection,
   type QuestionPickerSource,
@@ -38,6 +44,9 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
   const navigate = useNavigate();
   const [shortName, setShortName] = createSignal("Untitled Blueprint");
   const [longName, setLongName] = createSignal("Untitled Blueprint Course");
+  const [classification, setClassification] = createSignal<CourseClassificationDraft>(
+    emptyCourseClassification(),
+  );
   const [moduleLabel, setModuleLabel] = createSignal("Module 1");
   const [assessmentTitle, setAssessmentTitle] = createSignal("Module 1 assessment");
   const [content, setContent] = createSignal<BlueprintAssessmentContentInput>();
@@ -66,6 +75,7 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
     const assessment = content();
     if (assessment === undefined) return undefined;
     return {
+      classification: decodeCourseClassification(classification()),
       short_name: shortName(),
       long_name: longName(),
       modules: [
@@ -94,6 +104,14 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
   }
 
   async function save(): Promise<void> {
+    try {
+      decodeCourseClassification(classification());
+    } catch {
+      setMessage(
+        "Choose a Discipline and check that Tags are unique, trimmed labels of 1 through 120 characters.",
+      );
+      return;
+    }
     const input = creationInput();
     if (input === undefined) {
       setMessage("Choose an Assessment Type before creating the Blueprint Course.");
@@ -188,6 +206,14 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
             }}
           />
         </label>
+        <CourseClassificationFields
+          value={classification()}
+          disabled={busy()}
+          onChange={(value) => {
+            setClassification(value);
+            setDirty(true);
+          }}
+        />
         <label>
           First module label
           <input

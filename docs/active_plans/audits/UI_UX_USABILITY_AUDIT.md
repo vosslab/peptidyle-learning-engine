@@ -103,6 +103,11 @@ coverage gaps. Screenshots establish presentation; interaction receipts establis
 - User need: find recorded Attempts and results as readily as the next available work action.
 - Acceptance: make previous Attempts easy to locate alongside a compact overview. Check laptop and
   narrow Student layouts with several Attempts and long titles.
+- Receipt (2026-09-16): independent source/render review accepted compact rules disclosure and
+  details at `/private/tmp/ple-student-rules-disclosure-review.md`. Root
+  `node /private/tmp/ple-student-rules-proof.mjs` exited 0 at 1280 and 390 pixels. This is
+  component-only evidence: it does not establish full shell, theme, zoom, or all-Student-interface
+  acceptance.
 
 ## Layout and recognition
 
@@ -115,6 +120,11 @@ coverage gaps. Screenshots establish presentation; interaction receipts establis
 - Acceptance: use compact summaries with visually connected labels and values. Keep essential
   information and actions visible; disclose fuller rules through accessible expandable details.
   Check that Students can scan several Coursework entries and locate the start action promptly.
+- Receipt (2026-09-16): the same independent source/render review accepted the compact details
+  component at 1280 and 390 pixels. Evidence is
+  `/private/tmp/ple-student-rules-disclosure-review.md` and root
+  `node /private/tmp/ple-student-rules-proof.mjs` exited 0. This does not establish full shell,
+  theme, zoom, or all-Student-interface acceptance.
 
 ### S06: Question navigation consumes vertical working space
 
@@ -192,6 +202,16 @@ while correcting its presentation.
   their own lines, while the title and description share one long link.
 - Acceptance: use compact aligned records with distinct title, description, state, and actions.
   Keep opening or continuing a draft the clear routine action. Check long titles and descriptions.
+- Receipt (2026-09-16): independent review accepts the bounded Draft Questions presentation
+  correction. At 1280 pixels, rows are compact aligned records with separate full titles,
+  descriptions, state, and accessible Edit/Delete actions; the observed normal row height is
+  55.06 pixels, compared with 59.67 pixels before the correction. The temporary component-browser
+  receipt at `/private/tmp/ple-draft-list-proof.mjs` observes no document horizontal overflow at
+  1280 pixels, 320 pixels, and 640 pixels with enlarged text. Keyboard Delete opens the existing
+  confirmation with focus on Keep draft. These observations and a laptop screenshot were reviewed,
+  but the harness does not assert every observation. Connected-route/CAS/error behavior,
+  successful deletion, and actual dark-theme evidence remain unverified; simulated dark mode is
+  not theme evidence.
 
 ### I02: roster management puts the roster below setup controls
 
@@ -254,6 +274,14 @@ while correcting its presentation.
   direct path to the newly Published Question.
 - Acceptance: identify the published object and offer a direct inspection action. Keep heading,
   breadcrumb, status, and next actions coherent with the resulting state. Verify the live transition.
+- Receipt (2026-09-16): independent review accepts the bounded connected desktop publication
+  transition. At `https://localhost:8067`, fake Elena published draft `D-56` as `GC4P-S7SG`,
+  Revision 1. The `Question published` heading receives DOM focus; neutral Question-authoring
+  navigation remains; Save draft is absent; and the exact title, public ID, and Revision are
+  visible. The direct `/library/GC4P-S7SG` link and keyboard Enter open that exact Question/title.
+  `/private/tmp/ple-publication-browser-proof-result.md` reports exit 0, and independent review
+  visually inspected both PNGs. This does not establish mobile, theme, broad accessibility,
+  failure, concurrency, or all-authoring behavior.
 
 ### I06: assessment identity and records are hard to scan
 

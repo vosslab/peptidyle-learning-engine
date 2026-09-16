@@ -146,8 +146,10 @@ export function emptyReusableContent(
 /** Builds complete local Blueprint Course working state with one explicitly typed Assessment. */
 export function emptyBlueprintCourseContent(
   assessmentType: AssessmentType,
+  classification: import("../../../generated/api/CourseClassification").CourseClassification,
 ): CreateBlueprintCourseInput {
   return {
+    classification,
     short_name: "Untitled Blueprint",
     long_name: "Untitled Blueprint Course",
     modules: [{ label: "Module 1", assessments: [emptyReusableContent(assessmentType)] }],

@@ -8,7 +8,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
 import {
   Actions,
-  createSubmissionController,
+  createResponseController,
   Status,
   textFromBlocks,
   type MultipleChoiceResponseFormat,
@@ -58,7 +58,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
     props.initialResponse?.kind === "multipleChoice" ? props.initialResponse.selected : [];
   const [selected, setSelected] = createSignal<ReadonlyArray<ResponseItemReference>>(restored);
   let firstChoice!: HTMLInputElement;
-  const controller = createSubmissionController(props, {
+  const controller = createResponseController(props, {
     kind: "multipleChoice",
     selected: [...restored],
   });
@@ -78,8 +78,8 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
     setSelected(next);
     void controller.edit({ kind: "multipleChoice", selected: [...next] });
   }
-  function submit(): void {
-    void controller.submit(response());
+  function save(): void {
+    void controller.save(response());
   }
   function reset(): void {
     const next = [...restored];
@@ -119,7 +119,7 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
       }
       return;
     }
-    handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit);
+    handleQuestionResponseControlKeyDown(event, props.onEscape, save, controller.canSave);
   }
   return (
     <section
@@ -174,10 +174,10 @@ export function MultipleChoiceResponse(props: MultipleChoiceResponseProps): JSX.
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.locked()}
+        disabled={!controller.canSave() || controller.locked()}
         resetDisabled={controller.locked()}
-        onSubmit={submit}
-        submitLabel={props.submitLabel}
+        onSave={save}
+        saveLabel={props.saveLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

@@ -98,5 +98,5 @@ async fn evaluate_one(
 }
 
 fn finalization_unavailable() -> StoreError {
-    StoreError::Unavailable("Question Submission unavailable".to_string())
+    StoreError::Unavailable("Question response unavailable".to_string())
 }

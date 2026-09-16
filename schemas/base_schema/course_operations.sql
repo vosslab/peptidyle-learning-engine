@@ -51,10 +51,12 @@ $$;
 
 CREATE FUNCTION ple_api.read_course_summary(p_course_id uuid)
 RETURNS TABLE(course_id uuid, public_reference text, short_name text, long_name text,
-              term_starts_on date, term_ends_on date, membership_role text)
+              term_starts_on date, term_ends_on date, membership_role text,
+              discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, tags text[])
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.course_id, course.public_reference, course.course_short_name, course.course_long_name,
-           course.term_starts_on, course.term_ends_on, membership.role
+           course.term_starts_on, course.term_ends_on, membership.role,
+           course.discipline_uuid, course.subject_uuid, course.topic_uuid, course.subtopic_uuid, course.tags
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership
         ON membership.course_id = course.course_id
@@ -68,10 +70,12 @@ CREATE FUNCTION ple_api.create_course_instance(
     p_course_id uuid, p_origin_id uuid, p_membership_id uuid, p_event_id uuid,
     p_source_kind text, p_blueprint_reference text, p_blueprint_revision bigint,
     p_short_name text, p_long_name text, p_term_start date, p_term_end date,
-    p_assigned_instructor_reference text, p_assessments jsonb
+    p_assigned_instructor_reference text, p_assessments jsonb,
+    p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
-              term_ends_on date)
+              term_ends_on date, discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid,
+              subtopic_uuid uuid, tags text[], metadata_etag uuid)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE
     actor uuid;
@@ -165,10 +169,12 @@ BEGIN
     INSERT INTO ple_data.course_instance (
         course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
-        term_starts_on, term_ends_on, created_at
+        term_starts_on, term_ends_on, created_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
         p_course_id, p_source_kind, blueprint.reference_number, p_blueprint_revision, assigned,
-        p_short_name, p_long_name, p_term_start, p_term_end, now_at
+        p_short_name, p_long_name, p_term_start, p_term_end, now_at,
+        p_discipline, p_subject, p_topic, p_subtopic, p_tags
     ) RETURNING ple_data.course_instance.reference_number, ple_data.course_instance.public_reference
       INTO course_reference_number, course_public_reference;
     INSERT INTO ple_data.course_origin (
@@ -187,7 +193,10 @@ BEGIN
         p_event_id, p_course_id, course_reference_number, p_source_kind,
         blueprint.reference_number, p_blueprint_revision, assigned, actor, now_at
     );
-    RETURN QUERY SELECT course_public_reference, p_short_name, p_long_name, p_term_start, p_term_end;
+    RETURN QUERY SELECT course.public_reference, course.course_short_name, course.course_long_name,
+        course.term_starts_on, course.term_ends_on, course.discipline_uuid, course.subject_uuid,
+        course.topic_uuid, course.subtopic_uuid, course.tags, course.metadata_etag
+        FROM ple_data.course_instance AS course WHERE course.course_id = p_course_id;
 END
 $$;
 
@@ -238,10 +247,13 @@ $$;
 
 CREATE FUNCTION ple_api.list_course_instances()
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
-              term_ends_on date, course_theme text)
+              term_ends_on date, course_theme text, discipline_uuid uuid, subject_uuid uuid,
+              topic_uuid uuid, subtopic_uuid uuid, tags text[], metadata_etag uuid)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.public_reference, course.course_short_name, course.course_long_name,
-           course.term_starts_on, course.term_ends_on, course.course_theme
+           course.term_starts_on, course.term_ends_on, course.course_theme,
+           course.discipline_uuid, course.subject_uuid, course.topic_uuid,
+           course.subtopic_uuid, course.tags, course.metadata_etag
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership
         ON membership.course_id = course.course_id
@@ -256,7 +268,9 @@ CREATE FUNCTION ple_api.load_course_instance(p_reference text)
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, course_theme text,
               active_instructor_count bigint, blueprint_reference text,
-              adopted_blueprint_revision bigint, current_blueprint_revision bigint)
+              adopted_blueprint_revision bigint, current_blueprint_revision bigint,
+              discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid,
+              tags text[], metadata_etag uuid)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.public_reference, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, course.course_theme,
@@ -266,7 +280,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
            readable_blueprint.public_reference,
            CASE WHEN readable_blueprint.public_reference IS NOT NULL
                 THEN course.blueprint_revision_number END,
-           readable_blueprint.current_blueprint_revision_number
+           readable_blueprint.current_blueprint_revision_number,
+           course.discipline_uuid, course.subject_uuid, course.topic_uuid,
+           course.subtopic_uuid, course.tags, course.metadata_etag
       FROM ple_data.course_instance AS course
       LEFT JOIN ple_data.blueprint_course AS parent_blueprint
         ON parent_blueprint.reference_number = course.blueprint_course_reference_number
@@ -282,6 +298,46 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
      WHERE course.public_reference = p_reference
        AND ple_api.current_session_account_is_instructor()
 $$;
+
+CREATE FUNCTION ple_api.update_course_classification(
+    p_reference text, p_expected_metadata_etag uuid,
+    p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
+)
+RETURNS TABLE(metadata_etag uuid, changed boolean)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
+DECLARE
+    v_course ple_data.course_instance%ROWTYPE;
+    v_next uuid;
+BEGIN
+    -- ASVS 8.2.1/8.2.2: every current co-Instructor has equal scoped authority.
+    SELECT course.* INTO v_course FROM ple_data.course_instance AS course
+     WHERE course.public_reference = p_reference
+       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Course Instance is not available' USING ERRCODE = '42501';
+    END IF;
+    -- ASVS 2.3.3: only classification writes advance this bounded CAS validator.
+    IF p_expected_metadata_etag IS DISTINCT FROM v_course.metadata_etag THEN
+        RAISE EXCEPTION 'Course metadata ETag is stale' USING ERRCODE = '40001';
+    END IF;
+    IF ROW(v_course.discipline_uuid, v_course.subject_uuid, v_course.topic_uuid,
+           v_course.subtopic_uuid, v_course.tags)
+       IS NOT DISTINCT FROM ROW(p_discipline, p_subject, p_topic, p_subtopic, p_tags) THEN
+        RETURN QUERY SELECT v_course.metadata_etag, false;
+        RETURN;
+    END IF;
+    v_next := pg_catalog.gen_random_uuid();
+    UPDATE ple_data.course_instance AS course SET
+        discipline_uuid = p_discipline, subject_uuid = p_subject, topic_uuid = p_topic,
+        subtopic_uuid = p_subtopic, tags = p_tags, metadata_etag = v_next
+     WHERE course.course_id = v_course.course_id;
+    RETURN QUERY SELECT v_next, true;
+END
+$$;
+
+REVOKE ALL ON FUNCTION ple_api.update_course_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.update_course_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) TO ple_app;
 
 CREATE FUNCTION ple_api.list_course_creation_instructors()
 RETURNS TABLE(public_reference text) LANGUAGE sql STABLE SECURITY DEFINER
@@ -349,13 +405,16 @@ BEGIN
        OR NOT ple_api.current_session_account_has_platform_administration() THEN
         RETURN;
     END IF;
-    SELECT course_id INTO course FROM ple_data.course_instance
-     WHERE public_reference = p_course_public_reference;
+    SELECT course_instance.course_id INTO course
+      FROM ple_data.course_instance AS course_instance
+     WHERE course_instance.public_reference = p_course_public_reference;
     IF NOT FOUND THEN
         RETURN;
     END IF;
-    SELECT student_account_id INTO student FROM ple_private.course_roster_profile
-     WHERE course_id = course AND roster_id = p_roster_id;
+    SELECT profile.student_account_id INTO student
+      FROM ple_private.course_roster_profile AS profile
+     WHERE profile.course_id = course
+       AND profile.roster_id = p_roster_id;
     IF NOT FOUND THEN
         RETURN;
     END IF;
@@ -693,7 +752,7 @@ $$;
 
 REVOKE ALL ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_theme(uuid, text),
     ple_api.resolve_course_navigation(text), ple_api.read_course_summary(uuid),
-    ple_api.create_course_instance(uuid, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb),
+    ple_api.create_course_instance(uuid, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb, uuid, uuid, uuid, uuid, text[]),
     ple_api.add_course_instructor(uuid, text, text),
     ple_api.list_course_instances(), ple_api.load_course_instance(text),
     ple_api.list_course_creation_instructors(), ple_api.list_course_roster(text),
@@ -707,7 +766,7 @@ REVOKE ALL ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_th
     ple_api.revoke_course_roster_entry(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_theme(uuid, text),
     ple_api.resolve_course_navigation(text), ple_api.read_course_summary(uuid),
-    ple_api.create_course_instance(uuid, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb),
+    ple_api.create_course_instance(uuid, uuid, uuid, uuid, text, text, bigint, text, text, date, date, text, jsonb, uuid, uuid, uuid, uuid, text[]),
     ple_api.add_course_instructor(uuid, text, text),
     ple_api.list_course_instances(), ple_api.load_course_instance(text),
     ple_api.list_course_creation_instructors(), ple_api.list_course_roster(text),

@@ -114,6 +114,10 @@ pub fn blueprint_course_router(
             put(rename_blueprint),
         )
         .route(
+            "/api/course-blueprints/{reference}/classification",
+            put(update_classification),
+        )
+        .route(
             "/api/course-blueprints/{reference}/publish",
             post(publish_blueprint),
         )
@@ -170,6 +174,34 @@ async fn load_blueprint(
         Ok(view) => blueprint_response(StatusCode::OK, view),
         Err(RouteLoadError::Store(error)) => store_error_response(error),
         Err(RouteLoadError::Unavailable) => unavailable(),
+    }
+}
+
+async fn update_classification(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+    Json(classification): Json<question_model::CourseClassification>,
+) -> Response {
+    let reference = match parse_reference(&reference) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let expected = match expected_metadata_etag(&headers) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let session = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .blueprints
+        .update_blueprint_classification(session, reference, expected, classification)
+        .await
+    {
+        Ok(value) => metadata_response(value),
+        Err(error) => store_error_response(error),
     }
 }
 
@@ -462,6 +494,7 @@ async fn view_from_record(
     record: StoredBlueprintCourse,
 ) -> Result<BlueprintCourseView, RouteLoadError> {
     Ok(BlueprintCourseView {
+        classification: record.classification,
         reference: record.reference,
         short_name: record.short_name,
         long_name: record.long_name,
@@ -480,6 +513,7 @@ fn summary_view(
     record: learning_data_access::StoredBlueprintCourseSummary,
 ) -> BlueprintCourseSummaryView {
     BlueprintCourseSummaryView {
+        classification: record.classification,
         total_adoptions: record.total_adoptions,
         total_students_ever_enrolled: record.total_students_ever_enrolled,
         reference: record.reference,

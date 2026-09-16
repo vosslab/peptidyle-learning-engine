@@ -9,7 +9,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
 import {
   Actions,
-  createSubmissionController,
+  createResponseController,
   Status,
   textFromBlocks,
   type OrderingResponseFormat,
@@ -45,7 +45,7 @@ export function OrderingResponse(
   const [order, setOrder] = createSignal<ReadonlyArray<ResponseItemReference>>(initialOrder);
   let firstMoveControl!: HTMLButtonElement;
   const [movementAnnouncement, setMovementAnnouncement] = createSignal("");
-  const controller = createSubmissionController(props, {
+  const controller = createResponseController(props, {
     kind: "ordering",
     order: [...initialOrder],
   });
@@ -93,8 +93,8 @@ export function OrderingResponse(
     event.preventDefault();
     moveOrderItem(id, index, nextIndex, direction);
   }
-  function submit(): void {
-    void controller.submit(response());
+  function save(): void {
+    void controller.save(response());
   }
   function reset(): void {
     const next = [...initialOrder];
@@ -108,7 +108,7 @@ export function OrderingResponse(
       class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
-        handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
+        handleQuestionResponseControlKeyDown(event, props.onEscape, save, controller.canSave)
       }
     >
       <fieldset
@@ -178,10 +178,10 @@ export function OrderingResponse(
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.locked()}
+        disabled={!controller.canSave() || controller.locked()}
         resetDisabled={controller.locked()}
-        onSubmit={submit}
-        submitLabel={props.submitLabel}
+        onSave={save}
+        saveLabel={props.saveLabel}
         onReset={reset}
         resetLabel="Reset order"
         onEscape={props.onEscape}

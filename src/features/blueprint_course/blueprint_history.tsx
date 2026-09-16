@@ -6,6 +6,7 @@ import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevi
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { ApiRequestError } from "../../api/http_client";
+import { CourseClassificationSummary } from "../../components/course_classification_summary";
 
 interface HistoryProps {
   readonly client: BlueprintCourseClient;
@@ -245,10 +246,11 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
               </Show>
               <Show when={item.kind === "metadataChange" ? item : undefined}>
                 {(metadata) => (
-                  <span>
+                  <div>
                     {metadata().longName} ({metadata().shortName}) - {metadata().availability};
                     recorded {recordedTime(metadata().recordedAt)}
-                  </span>
+                    <CourseClassificationSummary value={metadata().classification} />
+                  </div>
                 )}
               </Show>
             </li>

@@ -122,7 +122,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                      'questionId', issued.question_id,
                      'revisionNumber', issued.revision_number,
                      'responseState', CASE question_attempt.question_attempt_state
-                         WHEN 'submission_accepted' THEN 'submitted'
+                         WHEN 'response_finalized' THEN 'submitted'
                          ELSE 'closed'
                      END
                  ) ORDER BY issued.issued_position), '[]'::jsonb) AS questions
@@ -139,7 +139,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                              result.grading_result_id IS NOT NULL
                              AND grading_state.grading_state = 'graded'
                              AND ple_api.has_automated_grading_receipt(
-                                 grading_state.question_submission_grading_id,
+                                 grading_state.question_response_grading_id,
                                  result.grading_result_id
                              )
                          )
@@ -151,7 +151,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                                    result.grading_result_id IS NOT NULL
                                    AND grading_state.grading_state = 'graded'
                                    AND ple_api.has_automated_grading_receipt(
-                                       grading_state.question_submission_grading_id,
+                                       grading_state.question_response_grading_id,
                                        result.grading_result_id
                                    )
                                )
@@ -166,13 +166,13 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
             FROM ple_private.issued_question AS issued
             JOIN ple_private.question_attempt
               ON question_attempt.issued_question_id = issued.issued_question_id
-            LEFT JOIN ple_private.question_submission AS submission
+            LEFT JOIN ple_private.question_response AS submission
               ON submission.question_attempt_id = question_attempt.question_attempt_id
-            LEFT JOIN ple_private.question_submission_grading AS grading_state
-              ON grading_state.submission_id = submission.submission_id
+            LEFT JOIN ple_private.question_response_grading AS grading_state
+              ON grading_state.question_response_id = submission.question_response_id
             LEFT JOIN ple_private.grading_result AS result
-              ON result.question_submission_grading_id = grading_state.question_submission_grading_id
-             AND result.submission_id = submission.submission_id
+              ON result.question_response_grading_id = grading_state.question_response_grading_id
+             AND result.question_response_id = submission.question_response_id
              AND result.question_attempt_id = question_attempt.question_attempt_id
             JOIN ple_data.assessment_entry AS entry
               ON entry.assessment_entry_id = issued.assessment_entry_id
@@ -297,7 +297,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
       JOIN ple_data.question_revision AS revision
         ON revision.question_id = issued.question_id
        AND revision.revision_number = issued.revision_number
-      LEFT JOIN ple_private.question_submission AS submission
+      LEFT JOIN ple_private.question_response AS submission
         ON submission.question_attempt_id = question_attempt.question_attempt_id
       JOIN ple_private.question_attempt_presentation_binding AS presentation
         ON presentation.question_attempt_id = question_attempt.question_attempt_id

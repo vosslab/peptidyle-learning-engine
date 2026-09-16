@@ -4,7 +4,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import type { ImathasQuestionBackendLaunch } from "../../api/contracts";
 import type { StudentResponseFormatCheck } from "../../api/decoders/student_response_format_check";
 import { isExpectedImathasQuestionBackendLaunchPath } from "../../api/imathas_question_backend_launch";
-import type { StudentWorkRouteScope, SubmissionOutcome } from "./common";
+import type { StudentWorkRouteScope, ResponseSaveOutcome } from "./common";
 
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
 
@@ -14,8 +14,8 @@ type ImathasQuestionBackendPhase =
   | { readonly kind: "awaitingReady" }
   | { readonly kind: "ready" }
   | { readonly kind: "failed"; readonly message: string }
-  | { readonly kind: "submitting" }
-  | { readonly kind: "submitted" };
+  | { readonly kind: "saving" }
+  | { readonly kind: "saved" };
 
 interface ImathasQuestionBackendReadyMessage {
   readonly kind: "ple.imathasQuestionBackend.ready";
@@ -24,7 +24,7 @@ interface ImathasQuestionBackendReadyMessage {
 
 export interface ImathasQuestionBackendResponseProps {
   readonly attemptId: string;
-  readonly onSubmit: (response: StudentResponse) => Promise<SubmissionOutcome>;
+  readonly onSave: (response: StudentResponse) => Promise<ResponseSaveOutcome>;
   readonly onEscape: () => void;
   readonly onResponseChange?: (
     response: StudentResponse,
@@ -115,15 +115,15 @@ function imathasQuestionBackendStatus(phase: ImathasQuestionBackendPhase): strin
     case "loading":
       return "Opening iMathAS...";
     case "awaitingReady":
-      return "iMathAS is loading. Complete its preparation to enable submission.";
+      return "iMathAS is loading. Complete its preparation to enable save.";
     case "ready":
-      return "iMathAS is ready. Submit when you are finished.";
+      return "iMathAS is ready. Save your response when you are finished.";
     case "failed":
       return phase.message;
-    case "submitting":
+    case "saving":
       return "Recording your iMathAS Question Backend response. Please wait.";
-    case "submitted":
-      return "Response recorded. Student Feedback will appear when it is released.";
+    case "saved":
+      return "Response saved. You can continue working while the Assessment Attempt is open.";
   }
 }
 
@@ -142,7 +142,7 @@ export function ImathasQuestionBackendResponse(
   const [phase, setPhase] = createSignal<ImathasQuestionBackendPhase>({ kind: "idle" });
   const [launchUrl, setLaunchUrl] = createSignal<string | null>(null);
   let frame: HTMLIFrameElement | undefined;
-  let submitButton: HTMLButtonElement | undefined;
+  let saveButton: HTMLButtonElement | undefined;
   let launchRequest = 0;
   let persistMarker = createImathasQuestionBackendMarkerPersistence(props);
 
@@ -154,8 +154,8 @@ export function ImathasQuestionBackendResponse(
     frame = element;
   }
 
-  function setSubmitButton(element: HTMLButtonElement): void {
-    submitButton = element;
+  function setSaveButton(element: HTMLButtonElement): void {
+    saveButton = element;
   }
 
   function resetForAttempt(): void {
@@ -175,7 +175,7 @@ export function ImathasQuestionBackendResponse(
       return;
     }
     setPhase({ kind: "ready" });
-    queueMicrotask(() => submitButton?.focus());
+    queueMicrotask(() => saveButton?.focus());
   }
 
   async function launch(): Promise<void> {
@@ -218,14 +218,14 @@ export function ImathasQuestionBackendResponse(
     }
   }
 
-  async function submit(): Promise<void> {
-    if (phase().kind !== "ready") return;
-    setPhase({ kind: "submitting" });
+  async function save(): Promise<void> {
+    if (phase().kind !== "ready" && phase().kind !== "saved") return;
+    setPhase({ kind: "saving" });
     try {
-      const outcome = await props.onSubmit(marker());
+      const outcome = await props.onSave(marker());
       switch (outcome.kind) {
         case "accepted":
-          setPhase({ kind: "submitted" });
+          setPhase({ kind: "saved" });
           return;
         case "rejected":
           setPhase({ kind: "failed", message: outcome.message });
@@ -244,8 +244,8 @@ export function ImathasQuestionBackendResponse(
     handleQuestionResponseControlKeyDown(
       event,
       props.onEscape,
-      () => void submit(),
-      () => phase().kind === "ready",
+      () => void save(),
+      () => phase().kind === "ready" || phase().kind === "saved",
     );
   }
 
@@ -272,7 +272,7 @@ export function ImathasQuestionBackendResponse(
       <h3>iMathAS Question Backend</h3>
       <p class="field-help">
         Open iMathAS in this question. When it reports that it is ready, you can record this
-        activity with the ordinary submission button.
+        activity with the ordinary save button.
       </p>
       <p id={statusId()} class="format-status" role="status" aria-live="polite">
         {imathasQuestionBackendStatus(phase())}
@@ -302,13 +302,13 @@ export function ImathasQuestionBackendResponse(
           </button>
         </Show>
         <button
-          ref={setSubmitButton}
+          ref={setSaveButton}
           class="primary-action"
           type="button"
-          disabled={phase().kind !== "ready"}
-          onClick={() => void submit()}
+          disabled={phase().kind !== "ready" && phase().kind !== "saved"}
+          onClick={() => void save()}
         >
-          Submit answer
+          Save response
         </button>
         <button class="quiet-action" type="button" onClick={props.onEscape}>
           Return to assessment <span aria-hidden="true">(Esc)</span>

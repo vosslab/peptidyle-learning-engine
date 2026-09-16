@@ -18,15 +18,15 @@ import type { ResponseFormatValidator } from "../../wasm/index";
 
 export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
 /**
- * Format-only and submission modes share native controls, but only submission
- * mode exposes the Question Submission boundary. Keep that distinction at the
+ * Format-only and save modes share native controls, but only save
+ * mode persists editable Question responses. Keep that distinction at the
  * shared controller boundary so each response-format component stays native.
  */
-export type ResponseControlMode = "submission" | "save" | "formatOnly";
+export type ResponseControlMode = "save" | "formatOnly";
 /** Current response persistence has one success and one failure outcome. */
-export type SubmissionOutcome =
+export type ResponseSaveOutcome =
   { readonly kind: "accepted" } | { readonly kind: "rejected"; readonly message: string };
-const ResponseControlModeContext = createContext<ResponseControlMode>("submission");
+const ResponseControlModeContext = createContext<ResponseControlMode>("save");
 
 export function ResponseControlModeProvider(props: {
   readonly mode: ResponseControlMode;
@@ -60,8 +60,8 @@ type QuestionResponseControlPhase =
   | { readonly kind: "ready" }
   | { readonly kind: "restored" }
   | { readonly kind: "invalid"; readonly message: string }
-  | { readonly kind: "submitting" }
-  | { readonly kind: "submitted" }
+  | { readonly kind: "saving" }
+  | { readonly kind: "saved" }
   | { readonly kind: "failed"; readonly message: string };
 
 export interface StudentWorkRouteScope {
@@ -71,13 +71,13 @@ export interface StudentWorkRouteScope {
 
 export interface QuestionResponseControlBaseProps {
   readonly attemptId: string;
-  /** Format-only controls have no Student Response submission capability. */
+  /** Format-only controls have no Student Response save capability. */
   readonly mode?: ResponseControlMode;
   /** Question Response Controls require only the key-free local format validation capability. */
   readonly validator: { readonly validateResponseFormat: ResponseFormatValidator };
-  readonly onSubmit?: (response: StudentResponse) => Promise<SubmissionOutcome>;
+  readonly onSave?: (response: StudentResponse) => Promise<ResponseSaveOutcome>;
   /** Delivery surfaces may name a durable save without changing response semantics. */
-  readonly submitLabel?: string;
+  readonly saveLabel?: string;
   readonly onEscape: () => void;
   /**
    * Editable delivery surfaces receive the raw response synchronously.  This
@@ -118,19 +118,19 @@ export interface QuestionResponseControlBodyProps<
 export type MultipleChoiceResponseProps =
   QuestionResponseControlBodyProps<MultipleChoiceResponseFormat>;
 
-export interface SubmissionController {
+export interface ResponseController {
   readonly phase: () => QuestionResponseControlPhase;
   readonly invalid: () => boolean;
   readonly pending: () => boolean;
   readonly locked: () => boolean;
-  readonly canSubmit: () => boolean;
+  readonly canSave: () => boolean;
   readonly canReset: () => boolean;
   /** Record an input edit before its asynchronous format check starts. */
   readonly edit: (response: StudentResponse) => Promise<void>;
   readonly validate: (response: StudentResponse) => Promise<void>;
-  /** Restore an unsubmitted response and invalidate any older format check. */
+  /** Restore the local response and invalidate any older format check. */
   readonly reset: (response: StudentResponse) => Promise<void>;
-  readonly submit: (response: StudentResponse) => Promise<void>;
+  readonly save: (response: StudentResponse) => Promise<void>;
 }
 
 export function textFromBlocks(blocks: ReadonlyArray<QuestionContentBlock>): string {
@@ -188,7 +188,7 @@ function responseFormatMessage(check: StudentResponseFormatCheck): string {
     : responseFormatMessageForIssue(first);
 }
 
-/** Browser-only format check: deliberately has no submit or grading dependency. */
+/** Browser-only format check: deliberately has no save or grading dependency. */
 export async function validateResponseLocally(
   validator: { readonly validateResponseFormat: ResponseFormatValidator },
   responseFormat: ResponseFormat,
@@ -202,42 +202,23 @@ export function numericResponseFromInput(input: string): StudentResponse {
   return { kind: "numeric", value: input.trim() === "" ? Number.NaN : Number(input) };
 }
 
-function phaseMessage(mode: ResponseControlMode, phase: QuestionResponseControlPhase): string {
-  if (mode === "save") {
-    switch (phase.kind) {
-      case "idle":
-        return "Complete the response, then save it.";
-      case "validating":
-        return "Checking response format...";
-      case "ready":
-        return "Response format is ready to save.";
-      case "restored":
-        return "Review the response before saving changes.";
-      case "invalid":
-      case "failed":
-        return phase.message;
-      case "submitting":
-        return "Saving your response. Please wait.";
-      case "submitted":
-        return "Response saved.";
-    }
-  }
+function phaseMessage(phase: QuestionResponseControlPhase): string {
   switch (phase.kind) {
     case "idle":
-      return "Complete the response, then use the action below.";
+      return "Complete the response, then save it.";
     case "validating":
       return "Checking response format...";
     case "ready":
-      return "Response format is ready.";
+      return "Response format is ready to save.";
     case "restored":
-      return "Response restored. Review it before using the action below.";
+      return "Review the response before saving changes.";
     case "invalid":
     case "failed":
       return phase.message;
-    case "submitting":
-      return "Processing your response. Please wait.";
-    case "submitted":
-      return "Response accepted.";
+    case "saving":
+      return "Saving your response. Please wait.";
+    case "saved":
+      return "Response saved.";
   }
 }
 
@@ -253,22 +234,22 @@ function formatOnlyPhaseMessage(phase: QuestionResponseControlPhase): string {
     case "invalid":
     case "failed":
       return phase.message;
-    // Format-only controls never enter submission states, but preserve a safe
+    // Format-only controls never enter save states, but preserve a safe
     // status if a future caller supplies one.
-    case "submitting":
-    case "submitted":
+    case "saving":
+    case "saved":
       return "Response format is ready.";
   }
 }
 
 /** Key-free validation state machine. Validation never invokes server grading. */
-export function createSubmissionController(
+export function createResponseController(
   props: QuestionResponseControlProps,
   initialResponse?: StudentResponse,
-): SubmissionController {
+): ResponseController {
   const [phase, setPhase] = createSignal<QuestionResponseControlPhase>({ kind: "idle" });
   let validationRequest = 0;
-  let submissionRequest = 0;
+  let saveRequest = 0;
   let disposed = false;
   let latestEdit:
     { readonly response: StudentResponse; readonly revision: number | undefined } | undefined;
@@ -277,7 +258,7 @@ export function createSubmissionController(
   onCleanup(() => {
     disposed = true;
     validationRequest += 1;
-    submissionRequest += 1;
+    saveRequest += 1;
   });
 
   function latestEditRevision(response: StudentResponse): number | undefined {
@@ -292,7 +273,7 @@ export function createSubmissionController(
 
   async function validate(response: StudentResponse, editRevision?: number): Promise<void> {
     if (disposed) return;
-    if (phase().kind === "submitting" || phase().kind === "submitted") {
+    if (phase().kind === "saving") {
       return;
     }
     validationRequest += 1;
@@ -302,7 +283,7 @@ export function createSubmissionController(
     setPhase({ kind: "validating" });
     try {
       const check = await validateResponseLocally(props.validator, props.responseFormat, response);
-      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      if (disposed || request !== validationRequest || phase().kind === "saving") return;
       if (check.issues.length === 0) validatedResponse = response;
       props.onResponseChange?.(response, check, effectiveEditRevision);
       setPhase(
@@ -311,7 +292,7 @@ export function createSubmissionController(
           : { kind: "invalid", message: responseFormatMessage(check) },
       );
     } catch (error: unknown) {
-      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      if (disposed || request !== validationRequest || phase().kind === "saving") return;
       validatedResponse = undefined;
       const message = error instanceof Error ? error.message : "format validation was unavailable";
       setPhase({ kind: "failed", message: `Cannot check this response yet: ${message}.` });
@@ -324,13 +305,12 @@ export function createSubmissionController(
     await validate(response, editRevision);
   }
 
-  async function submit(response: StudentResponse): Promise<void> {
+  async function save(response: StudentResponse): Promise<void> {
     if (disposed || props.mode === "formatOnly") return;
-    if (phase().kind === "submitting" || phase().kind === "submitted") {
+    if (phase().kind === "saving") {
       return;
     }
     const retryingSavedResponse =
-      props.mode === "save" &&
       phase().kind === "failed" &&
       validatedResponse !== undefined &&
       JSON.stringify(validatedResponse) === JSON.stringify(response);
@@ -338,37 +318,37 @@ export function createSubmissionController(
       await validate(response);
       if (phase().kind !== "ready") return;
     }
-    submissionRequest += 1;
-    const request = submissionRequest;
-    setPhase({ kind: "submitting" });
+    saveRequest += 1;
+    const request = saveRequest;
+    setPhase({ kind: "saving" });
     try {
-      if (props.onSubmit === undefined) {
-        setPhase({ kind: "failed", message: "Response submission is unavailable." });
+      if (props.onSave === undefined) {
+        setPhase({ kind: "failed", message: "Response save is unavailable." });
         return;
       }
-      const outcome = await props.onSubmit(response);
-      if (disposed || request !== submissionRequest) return;
+      const outcome = await props.onSave(response);
+      if (disposed || request !== saveRequest) return;
       switch (outcome.kind) {
         case "accepted":
-          setPhase(props.mode === "save" ? { kind: "restored" } : { kind: "submitted" });
+          setPhase({ kind: "saved" });
           return;
         case "rejected":
           setPhase({ kind: "failed", message: outcome.message });
           return;
       }
     } catch (error: unknown) {
-      if (disposed || request !== submissionRequest) return;
+      if (disposed || request !== saveRequest) return;
       const message =
         error instanceof Error
-          ? `Your response is still available. Submission failed: ${error.message}. Try again.`
-          : "Your response is still available. Submission failed. Try again.";
+          ? `Your response is still available. Save failed: ${error.message}. Try again.`
+          : "Your response is still available. Save failed. Try again.";
       setPhase({ kind: "failed", message });
     }
   }
 
   async function reset(response: StudentResponse): Promise<void> {
     if (disposed) return;
-    if (phase().kind === "submitting" || phase().kind === "submitted") {
+    if (phase().kind === "saving") {
       return;
     }
     // A restored response supersedes every earlier asynchronous format check.
@@ -380,7 +360,7 @@ export function createSubmissionController(
     setPhase({ kind: "validating" });
     try {
       const check = await validateResponseLocally(props.validator, props.responseFormat, response);
-      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      if (disposed || request !== validationRequest || phase().kind === "saving") return;
       if (check.issues.length === 0) validatedResponse = response;
       props.onResponseChange?.(response, check, editRevision);
       setPhase(
@@ -389,7 +369,7 @@ export function createSubmissionController(
           : { kind: "invalid", message: responseFormatMessage(check) },
       );
     } catch (error: unknown) {
-      if (disposed || request !== validationRequest || phase().kind === "submitting") return;
+      if (disposed || request !== validationRequest || phase().kind === "saving") return;
       validatedResponse = undefined;
       const message = error instanceof Error ? error.message : "format validation was unavailable";
       setPhase({ kind: "failed", message: `Cannot check this response yet: ${message}.` });
@@ -404,24 +384,25 @@ export function createSubmissionController(
   return {
     phase,
     invalid: () => phase().kind === "invalid" || phase().kind === "failed",
-    pending: () => phase().kind === "submitting",
-    locked: () => phase().kind === "submitting" || phase().kind === "submitted",
-    canSubmit: () =>
+    pending: () => phase().kind === "saving",
+    locked: () => phase().kind === "saving",
+    canSave: () =>
       props.mode !== "formatOnly" &&
       (phase().kind === "ready" ||
         phase().kind === "restored" ||
-        (props.mode === "save" && phase().kind === "failed")),
-    canReset: () => phase().kind !== "submitting" && phase().kind !== "submitted",
+        phase().kind === "saved" ||
+        phase().kind === "failed"),
+    canReset: () => phase().kind !== "saving",
     edit,
     validate,
     reset,
-    submit,
+    save,
   };
 }
 
 export function Status(props: {
   readonly attemptId: string;
-  readonly controller: SubmissionController;
+  readonly controller: ResponseController;
 }): JSX.Element {
   const mode = useContext(ResponseControlModeContext);
   return (
@@ -433,7 +414,7 @@ export function Status(props: {
         ready:
           props.controller.phase().kind === "ready" ||
           props.controller.phase().kind === "restored" ||
-          props.controller.phase().kind === "submitted",
+          props.controller.phase().kind === "saved",
       }}
       role="status"
       aria-label="Response format"
@@ -441,7 +422,7 @@ export function Status(props: {
     >
       {mode === "formatOnly"
         ? formatOnlyPhaseMessage(props.controller.phase())
-        : phaseMessage(mode, props.controller.phase())}
+        : phaseMessage(props.controller.phase())}
     </p>
   );
 }
@@ -449,8 +430,8 @@ export function Status(props: {
 export function Actions(props: {
   readonly disabled: boolean;
   readonly resetDisabled?: boolean;
-  readonly onSubmit: () => void;
-  readonly submitLabel?: string;
+  readonly onSave: () => void;
+  readonly saveLabel?: string;
   readonly onReset?: () => void;
   readonly resetLabel?: "Clear response" | "Reset order";
   readonly onEscape: () => void;
@@ -463,9 +444,9 @@ export function Actions(props: {
           class="primary-action"
           type="button"
           disabled={props.disabled}
-          onClick={props.onSubmit}
+          onClick={props.onSave}
         >
-          {props.submitLabel ?? "Submit answer"}
+          {props.saveLabel ?? "Save response"}
         </button>
       ) : null}
       {props.onReset === undefined ? null : (

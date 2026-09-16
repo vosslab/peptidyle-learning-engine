@@ -91,6 +91,11 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     // The oracle is deliberately deterministic: all capability decisions below
     // come through a normal session-bound PostgresCourseBannerStore.
     let mut transaction = admin.begin().await.expect("fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("classification fixture owner");
+    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *transaction).await.expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *transaction)
         .await
@@ -115,14 +120,14 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *transaction)
         .await
         .expect("data fixture role");
-    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, metadata_etag, created_at) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,'BANNER','Banner oracle', '00000000-0000-0000-0000-00000000cd02',clock_timestamp())")
+    sqlx::query("INSERT INTO ple_data.blueprint_course (blueprint_id, reference_number, owner_account_id, short_name, long_name, metadata_etag, created_at, discipline_uuid, tags) OVERRIDING SYSTEM VALUE VALUES ($1,1,$2,'BANNER','Banner oracle', '00000000-0000-0000-0000-00000000cd02',clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
         .bind(id(0xcd01)).bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("blueprint");
     sqlx::query("INSERT INTO ple_data.blueprint_course_revision (blueprint_course_reference_number, blueprint_revision_number, content, content_checksum, saved_at) VALUES (1,1,'{}',decode(repeat('00',32),'hex'),clock_timestamp())")
         .execute(&mut *transaction).await.expect("revision");
     sqlx::query("INSERT INTO ple_data.blueprint_revision_event (blueprint_course_reference_number, blueprint_revision_number, actor_account_id, request_checksum, occurred_at) VALUES (1,1,$1,decode(repeat('cd',32),'hex'),clock_timestamp())")
         .bind(id(INSTRUCTOR)).execute(&mut *transaction).await.expect("revision event");
     for (course, assigned) in [(COURSE, INSTRUCTOR), (FOREIGN_COURSE, FOREIGN)] {
-        sqlx::query("INSERT INTO ple_data.course_instance (course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) VALUES ($1,'adopted',1,1,$2,'Banner','Banner course',current_date,current_date + 1,clock_timestamp())")
+        sqlx::query("INSERT INTO ple_data.course_instance (course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number, assigned_instructor_account_id, course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) VALUES ($1,'adopted',1,1,$2,'Banner','Banner course',current_date,current_date + 1,clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])")
             .bind(id(course)).bind(id(assigned)).execute(&mut *transaction).await.expect("course");
     }
     sqlx::query("INSERT INTO ple_data.student_record (student_record_id, course_id, student_account_id, created_at) VALUES ($1,$2,$3,clock_timestamp())")

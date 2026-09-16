@@ -7,28 +7,24 @@ use uuid::Uuid;
 
 use crate::{CourseRosterEntry, SessionTokenHash, StoreError};
 
-/// The only resource classes that an explicit support-repair request may name.
-/// The reference stays opaque here: C26 resolves and enforces it at the
-/// resource-owning boundary, never through a generic data reader.
+/// Only the implemented Course-local Student roster repair scope is supported.
+/// SQL resolves an existing canonical profile and checks the original issuer's
+/// current exact Course authority at issuance and use. Course/content are future work.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SupportRepairResourceClass {
-    Course,
     Student,
-    Content,
 }
 
 impl SupportRepairResourceClass {
     pub(crate) fn database_name(self) -> &'static str {
         match self {
-            Self::Course => "course",
             Self::Student => "student",
-            Self::Content => "content",
         }
     }
 }
 
-/// Server validates the bounded opaque reference and derives the expiry.
+/// Rust bounds clean input; SQL resolves the exact roster scope and derives expiry.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct IssueSupportRepairCapabilityInput {
@@ -124,9 +120,9 @@ mod tests {
     }
 
     #[test]
-    fn support_repair_request_accepts_only_bounded_clean_opaque_fields() {
+    fn support_repair_request_bounds_clean_fields_before_database_resolution() {
         assert!(
-            input("student-record:opaque-42", "Correct a roster mismatch")
+            input("course-instance/CI7K3M2Q/roster/student-42", "Correct a roster mismatch")
                 .validate()
                 .is_ok()
         );
@@ -145,5 +141,13 @@ mod tests {
                 .validate()
                 .is_err()
         );
+    }
+
+    #[test]
+    fn unsupported_repair_classes_fail_deserialization() {
+        for class in ["course", "content"] {
+            assert!(serde_json::from_str::<SupportRepairResourceClass>(&format!("\"{class}\""))
+                .is_err());
+        }
     }
 }

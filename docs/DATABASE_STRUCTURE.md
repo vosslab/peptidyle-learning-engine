@@ -137,9 +137,9 @@ immutable credit fractions, and protected feedback.
 A complete response is replaceable while the Attempt is open. Submitting the
 whole Assessment Attempt finalizes all saved responses together. Positions
 without a complete saved response remain visibly unanswered, contribute zero,
-and count as incorrect without backend evaluation. An internal row named
-`question_submission` may currently store finalized-response evidence, but its
-name does not define another Student action or lifecycle.
+and count as incorrect without backend evaluation. An internal
+`question_response` row stores finalized-response evidence under the Assessment
+submission; it does not define another Student action or lifecycle.
 
 Scores are derived from immutable credit fractions and current Assessment
 Question point values. The highest submitted Assessment Attempt score is used.

@@ -7,6 +7,13 @@ import { emptyReusableContent } from "../src/features/blueprint_course/blueprint
 function blueprint(content) {
   return {
     short_name: "Local Blueprint",
+    classification: {
+      disciplineUuid: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6d",
+      subjectUuid: null,
+      topicUuid: null,
+      subtopicUuid: null,
+      tags: [],
+    },
     long_name: "Local Blueprint Course",
     modules: [{ label: "Module 1", assessments: [content] }],
   };

@@ -1,10 +1,9 @@
 -- Privacy-safe global statistics for immutable Question Revisions.  The
 -- aggregate key deliberately contains only the immutable Question Revision;
 -- it has no Student, Account, Course, Attempt, response, or grade identity.
--- Private rebuild receipts are rooted in Student Work solely so Unrelease can
--- remove an observation and rebuild from surviving evidence.  Course-retention
--- deletion instead removes those receipts with the private Work roots and
--- deliberately leaves the already-materialized aggregate unchanged.
+-- Private exact-once receipts are rooted in Student Work and disappear with it.
+-- Course retention and Unrelease leave anonymous totals unchanged; subsequent
+-- accepted grades increment those totals without reconstructing private evidence.
 
 SET LOCAL ROLE ple_data_owner;
 
@@ -54,52 +53,55 @@ REVOKE ALL ON TABLE ple_data.question_revision_statistics,
 GRANT SELECT ON TABLE ple_data.question_revision_statistics,
     ple_data.question_revision_choice_statistics TO ple_api_owner;
 
--- Rebuild only one exact Revision.  This is called after Unrelease removes
--- rooted receipts, rather than trusting a mutable counter to survive deletion.
-CREATE FUNCTION ple_data.rebuild_question_revision_statistics(
+-- ASVS 15.4.2: the private receipt winner increments in the same transaction.
+-- Retained counts never depend on reconstructing deleted Student evidence.
+CREATE FUNCTION ple_data.increment_question_revision_statistics(
     p_question_id text,
     p_revision_number integer,
-    p_rebuilt_at timestamptz
+    p_correct boolean,
+    p_eligible_choice_ids text[],
+    p_observed_at timestamptz
 ) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data, ple_private AS $$
+SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    IF p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
-       OR p_revision_number <= 0 THEN
+    IF p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+       OR p_revision_number IS NULL OR p_revision_number <= 0
+       OR p_correct IS NULL OR p_observed_at IS NULL
+       OR p_eligible_choice_ids IS NULL
+       OR EXISTS (
+           SELECT 1 FROM unnest(p_eligible_choice_ids) AS choice(choice_id)
+            WHERE choice.choice_id IS NULL OR choice.choice_id <> btrim(choice.choice_id)
+               OR char_length(choice.choice_id) NOT BETWEEN 1 AND 256
+       )
+       OR (SELECT count(*) FROM unnest(p_eligible_choice_ids))
+          <> (SELECT count(DISTINCT choice_id)
+                FROM unnest(p_eligible_choice_ids) AS choice(choice_id)) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
-            MESSAGE = 'Question Revision Statistics rebuild target is invalid';
+            MESSAGE = 'Question Revision Statistics increment is invalid';
     END IF;
 
-    PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended(p_question_id || ':' || p_revision_number::text, 0));
-
-    DELETE FROM ple_data.question_revision_choice_statistics
-     WHERE question_id = p_question_id AND revision_number = p_revision_number;
-    DELETE FROM ple_data.question_revision_statistics
-     WHERE question_id = p_question_id AND revision_number = p_revision_number;
-
-    INSERT INTO ple_data.question_revision_statistics (
+    INSERT INTO ple_data.question_revision_statistics AS retained (
         question_id, revision_number, accepted_graded_attempt_count, correct_count, updated_at
-    ) SELECT observation.question_id, observation.revision_number, count(*),
-             count(*) FILTER (WHERE observation.correct), p_rebuilt_at
-        FROM ple_private.question_statistics_observation_receipt AS observation
-       WHERE observation.question_id = p_question_id
-         AND observation.revision_number = p_revision_number
-       GROUP BY observation.question_id, observation.revision_number;
+    ) VALUES (p_question_id, p_revision_number, 1, p_correct::integer, p_observed_at)
+    ON CONFLICT (question_id, revision_number) DO UPDATE
+        SET accepted_graded_attempt_count = retained.accepted_graded_attempt_count + 1,
+            correct_count = retained.correct_count + EXCLUDED.correct_count,
+            updated_at = greatest(retained.updated_at, EXCLUDED.updated_at);
 
-    INSERT INTO ple_data.question_revision_choice_statistics (
+    -- ASVS 15.4.3: parent first, then choices in consistent identity order.
+    INSERT INTO ple_data.question_revision_choice_statistics AS retained (
         question_id, revision_number, choice_id, selected_count
-    ) SELECT observation.question_id, observation.revision_number, choice.choice_id, count(*)
-        FROM ple_private.question_statistics_observation_receipt AS observation
-        JOIN ple_private.question_statistics_observation_choice AS choice
-          ON choice.automated_grading_receipt_id = observation.automated_grading_receipt_id
-       WHERE observation.question_id = p_question_id
-         AND observation.revision_number = p_revision_number
-       GROUP BY observation.question_id, observation.revision_number, choice.choice_id;
+    ) SELECT p_question_id, p_revision_number, choice.choice_id, 1
+        FROM unnest(p_eligible_choice_ids) AS choice(choice_id)
+       ORDER BY choice.choice_id
+    ON CONFLICT (question_id, revision_number, choice_id) DO UPDATE
+        SET selected_count = retained.selected_count + 1;
 END
 $$;
 
-REVOKE ALL ON FUNCTION ple_data.rebuild_question_revision_statistics(text, integer, timestamptz)
+-- ASVS 8.2.1: only the trusted private capture routine may add observations.
+REVOKE ALL ON FUNCTION ple_data.increment_question_revision_statistics(text, integer, boolean, text[], timestamptz)
     FROM PUBLIC;
 RESET ROLE;
 
@@ -150,18 +152,9 @@ CREATE POLICY question_statistics_receipt_private_owner_access
 CREATE POLICY question_statistics_choice_private_owner_access
     ON ple_private.question_statistics_observation_choice
     FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
-CREATE POLICY question_statistics_receipt_data_rebuild_read
-    ON ple_private.question_statistics_observation_receipt
-    FOR SELECT TO ple_data_owner USING (true);
-CREATE POLICY question_statistics_choice_data_rebuild_read
-    ON ple_private.question_statistics_observation_choice
-    FOR SELECT TO ple_data_owner USING (true);
 
 REVOKE ALL ON TABLE ple_private.question_statistics_observation_receipt,
     ple_private.question_statistics_observation_choice FROM PUBLIC;
-GRANT USAGE ON SCHEMA ple_private TO ple_data_owner;
-GRANT SELECT ON TABLE ple_private.question_statistics_observation_receipt,
-    ple_private.question_statistics_observation_choice TO ple_data_owner;
 
 -- The trusted grading commit has already locked and accepted its grading
 -- lineage.  This function derives the exact immutable Revision and eligibility
@@ -199,10 +192,10 @@ BEGIN
       FROM ple_audit.automated_grading_receipt AS receipt
       JOIN ple_private.grading_result AS result
         ON result.grading_result_id = receipt.grading_result_id
-      JOIN ple_private.question_submission_grading AS grading
-        ON grading.question_submission_grading_id = result.question_submission_grading_id
-      JOIN ple_private.question_submission AS submission
-        ON submission.submission_id = result.submission_id
+      JOIN ple_private.question_response_grading AS grading
+        ON grading.question_response_grading_id = result.question_response_grading_id
+      JOIN ple_private.question_response AS submission
+        ON submission.question_response_id = result.question_response_id
       JOIN ple_private.question_attempt AS attempt
         ON attempt.question_attempt_id = submission.question_attempt_id
       JOIN ple_private.issued_question AS issued
@@ -231,8 +224,8 @@ BEGIN
     ) SELECT p_automated_grading_receipt_id, choice.choice_id
         FROM unnest(p_eligible_choice_ids) AS choice(choice_id);
 
-    PERFORM ple_data.rebuild_question_revision_statistics(
-        v_question_id, v_revision_number, v_observed_at);
+    PERFORM ple_data.increment_question_revision_statistics(
+        v_question_id, v_revision_number, v_correct, p_eligible_choice_ids, v_observed_at);
 END
 $$;
 
@@ -250,7 +243,7 @@ GRANT SELECT ON TABLE ple_audit.automated_grading_receipt TO ple_private_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;
-GRANT EXECUTE ON FUNCTION ple_data.rebuild_question_revision_statistics(text, integer, timestamptz)
+GRANT EXECUTE ON FUNCTION ple_data.increment_question_revision_statistics(text, integer, boolean, text[], timestamptz)
     TO ple_private_owner;
 RESET ROLE;
 
@@ -279,7 +272,7 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 COMMENT ON TABLE ple_private.question_statistics_observation_receipt IS
-    'One immutable accepted-grade observation, retained only as rebuildable aggregate evidence.';
+    'Private exact-once accepted-grade observation gate, purged with underlying Student Work while anonymous aggregate counts remain.';
 COMMENT ON TABLE ple_private.question_statistics_observation_choice IS
     'Normalized opaque eligible-choice evidence for one statistics observation.';
 RESET ROLE;

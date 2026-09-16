@@ -64,7 +64,7 @@ SET LOCAL ROLE ple_private_owner;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.assessment_submission WHERE assessment_attempt_id = 'e3000000-0000-0000-0000-000000000010')
-       OR EXISTS (SELECT 1 FROM ple_private.question_submission WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000031')
+       OR EXISTS (SELECT 1 FROM ple_private.question_response WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000031')
        OR EXISTS (SELECT 1 FROM ple_private.grading_result WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000031')
        OR EXISTS (SELECT 1 FROM ple_audit.automated_grading_receipt AS receipt JOIN ple_private.grading_result AS result ON result.grading_result_id = receipt.grading_result_id WHERE result.question_attempt_id = 'e3000000-0000-0000-0000-000000000031') THEN
         RAISE EXCEPTION 'stale finalization left partial immutable evidence';
@@ -184,7 +184,7 @@ SET LOCAL ROLE ple_private_owner;
 DO $$
 BEGIN
     IF (SELECT count(*) FROM ple_private.assessment_submission WHERE assessment_attempt_id = 'e3000000-0000-0000-0000-000000000020') <> 1
-       OR (SELECT count(*) FROM ple_private.question_submission WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000041') <> 0
+       OR (SELECT count(*) FROM ple_private.question_response WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000041') <> 0
        OR (SELECT count(*) FROM ple_private.question_attempt WHERE question_attempt_id = 'e3000000-0000-0000-0000-000000000041' AND question_attempt_state = 'closed_unanswered') <> 1 THEN
         RAISE EXCEPTION 'expired unanswered Attempt did not close as immutable zero-credit work';
     END IF;

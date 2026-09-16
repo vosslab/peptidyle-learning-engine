@@ -140,7 +140,7 @@ printf '%s\n' "$headers" | tr -d '\r' | rg -qi '^cache-control: no-store$' || {
     echo "Gradebook response was cacheable" >&2
     exit 1
 }
-podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "DO \$\$ BEGIN IF has_table_privilege('\''ple_app'\'', '\''ple_private.grading_result'\'', '\''SELECT'\'') OR has_table_privilege('\''ple_app'\'', '\''ple_private.question_submission'\'', '\''SELECT'\'') THEN RAISE EXCEPTION '\''direct Gradebook evidence access widened'\''; END IF; END \$\$; SELECT '\''gradebook_catalog_authority'\'';"' | rg -qx 'gradebook_catalog_authority' || { echo "Gradebook least-privilege evidence failed" >&2; exit 1; }
+podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "DO \$\$ BEGIN IF has_table_privilege('\''ple_app'\'', '\''ple_private.grading_result'\'', '\''SELECT'\'') OR has_table_privilege('\''ple_app'\'', '\''ple_private.question_response'\'', '\''SELECT'\'') THEN RAISE EXCEPTION '\''direct Gradebook evidence access widened'\''; END IF; END \$\$; SELECT '\''gradebook_catalog_authority'\'';"' | rg -qx 'gradebook_catalog_authority' || { echo "Gradebook least-privilege evidence failed" >&2; exit 1; }
 
 echo "Gradebook authority: current Course Instructor receives answer-free immutable grading evidence with concealed foreign access"
 if [ "$mode" = "browser" ]; then

@@ -37,6 +37,9 @@ pub mod blueprint_operations;
 pub mod capability;
 /// Course and assessment browser projections.
 pub mod course;
+/// Mandatory current classification for both Course forms.
+pub mod course_classification;
+pub use course_classification::{CourseClassification, CourseClassificationError, CourseMetadataEtag};
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
 /// Validated inclusive course-calendar bounds and authoritative IANA zone.
@@ -270,7 +273,7 @@ pub use crate::student_work::{
     QuestionAttemptReproductionDetails, QuestionAttemptState, QuestionAttemptTiming,
     QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,
     QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
-    QuestionRendererVersion, QuestionSubmission, QuestionSubmissionId, RecordedCredit,
+    QuestionRendererVersion, QuestionResponse, QuestionResponseId, RecordedCredit,
     SourceObjectChecksum, SourceObjectChecksumError, SourceObjectReference,
     StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
     StudentAssessmentAttemptResponseState, StudentAssessmentGrade, StudentAssessmentProgress,

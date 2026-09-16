@@ -69,10 +69,13 @@
   padding-block-end: var(--ple-space-2);
 }
 
-.student-assessment-decision__heading {
-  margin-block: var(--ple-space-3) var(--ple-space-1);
-  font-size: 1rem;
-  font-weight: 700;
+.student-assessment-decision__details summary {
+  width: fit-content;
+  max-width: 100%;
+  padding-block: var(--ple-space-3);
+  cursor: pointer;
+  font-weight: 620;
+  overflow-wrap: anywhere;
 }
 
 .student-assessment-decision__status,

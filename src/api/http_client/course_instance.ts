@@ -3,6 +3,9 @@
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
 import type { ApiClient } from "../client";
 import type { CourseInstanceClient } from "../course_instance";
+import { decodeCourseClassification } from "../decoders/course_classification";
+import { decodeRecord, decodeUuid, DecodeError } from "../decoder";
+import { field, requireOnlyFields } from "../decoders/shared";
 import {
   decodeCourseCreationInstructors,
   decodeCourseInstanceList,
@@ -53,6 +56,41 @@ export function createCourseInstanceClient(
   basePath: string,
 ): Pick<ApiClient, keyof CourseInstanceClient> {
   return {
+    updateCourseInstanceClassification: async (
+      reference,
+      classification,
+      metadataEtag,
+    ): Promise<Awaited<ReturnType<CourseInstanceClient["updateCourseInstanceClassification"]>>> => {
+      const path = `${courseInstancePath(reference)}/classification`;
+      const validator = decodeUuid(metadataEtag, "metadataEtag");
+      const response = await requestSameOrigin(fetchImplementation, basePath, path, {
+        method: "PUT",
+        body: decodeCourseClassification(classification, "request"),
+        headers: { "if-match": `"${validator}"` },
+      });
+      requireNoStore(response, path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      if (response.status !== 200)
+        throw new ApiProtocolError(`API response ${path} must use status 200`);
+      const record = decodeRecord(await boundedResponseJson(response, path), "response");
+      requireOnlyFields(record, "response", ["classification", "metadataEtag", "changed"]);
+      const nextEtag = decodeUuid(
+        field(record, "metadataEtag", "response"),
+        "response.metadataEtag",
+      );
+      if (response.headers.get("etag") !== `"${nextEtag}"`)
+        throw new ApiProtocolError("Course metadata response ETag must match its validator");
+      const changed = field(record, "changed", "response");
+      if (typeof changed !== "boolean") throw new DecodeError("response.changed", "a boolean");
+      return {
+        classification: decodeCourseClassification(
+          field(record, "classification", "response"),
+          "response.classification",
+        ),
+        metadataEtag: nextEtag,
+        changed,
+      };
+    },
     listCourseInstances: () =>
       courseInstanceJson(
         fetchImplementation,

@@ -1,8 +1,8 @@
 //! Canonical, answer-free reusable Blueprint Course exchange projection.
 //!
 //! This is an export representation, not persistence and not an import
-//! command.  It deliberately contains only reusable teaching content: lineage
-//! names, ordered module/Assessment structure, reusable Assessment settings,
+//! command. It contains current lineage metadata and reusable teaching content:
+//! names, classification, ordered module/Assessment structure, reusable settings,
 //! and exact Published Question Revision pins.  It has no owner, lineage or
 //! revision identifier, availability, Stars, Watches, Course Instance,
 //! Student, delivery, or operational state.  A future import boundary must
@@ -18,7 +18,10 @@ use crate::{
     QuestionRevisionReference,
 };
 
-/// Complete portable, deterministic reusable Blueprint Course representation.
+/// Deterministic current-metadata and reusable Blueprint Course projection.
+///
+/// Classification UUIDs identify this installation's shared vocabulary. This
+/// does not establish cross-install import matching or historical Revision metadata.
 ///
 /// `serde_json::to_vec` preserves this declared field order and each authored
 /// vector order, making the resulting JSON suitable for comparison and later
@@ -35,18 +38,20 @@ pub struct CanonicalBlueprintCourse {
 impl CanonicalBlueprintCourse {
     /// Projects validated reusable content without any operational identity.
     ///
-    /// The caller supplies names from the selected Blueprint lineage. The
+    /// The caller supplies current metadata from the selected Blueprint lineage. The
     /// persistence/read boundary remains responsible for C73's published
     /// content predicate before constructing the source `BlueprintCourseContent`.
     pub fn export(
         short_name: impl Into<String>,
         long_name: impl Into<String>,
+        classification: crate::CourseClassification,
         content: &BlueprintCourseContent,
     ) -> Self {
         Self {
             metadata: CanonicalBlueprintMetadata {
                 short_name: short_name.into(),
                 long_name: long_name.into(),
+                classification,
             },
             modules: content
                 .modules()
@@ -72,15 +77,20 @@ impl CanonicalBlueprintCourse {
     }
 }
 
-/// Reusable Blueprint metadata required to recreate names and structure.
+/// Explicit current Blueprint metadata accompanying reusable structure.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub struct CanonicalBlueprintMetadata {
     short_name: String,
     long_name: String,
+    classification: crate::CourseClassification,
 }
 
 impl CanonicalBlueprintMetadata {
+    /// Explicit current metadata; UUID identities are installation-local.
+    pub fn classification(&self) -> &crate::CourseClassification {
+        &self.classification
+    }
     /// Compact reusable Blueprint name.
     pub fn short_name(&self) -> &str {
         &self.short_name

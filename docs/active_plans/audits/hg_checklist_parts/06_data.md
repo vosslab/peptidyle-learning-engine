@@ -31,58 +31,80 @@
 
 ### Content classification
 
-- [ ] PLE uses one global content classification hierarchy across **Courses**, **Assessments**, and **Library Objects**.
-  - Mismatch: Partial SQL foundation defines four vocabulary tables and Subject-Discipline associations, but no commands, content attachments, selection, normalization, or discovery exist.
+- [ ] PLE uses one shared global content classification vocabulary for **Courses** and **Library
+  Objects**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every Course has exactly one **Discipline**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Subject**, **Topic**, and **Subtopic** are optional for Courses.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Every Library Object has exactly one **Discipline** and one **Subject**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Topic** and **Subtopic** are optional for Library Objects.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Courses retain the hierarchy because their classification supports Course organization, search,
+  filtering, and discovery.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
   - Mismatch: Partial SQL foundation gives Subject-Discipline associations and one-parent Topic/Subtopic relationships, but no complete content classification behavior exists.
 - [ ] **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
   - Mismatch: `content_discipline` exists as an owner-only SQL vocabulary table, but authenticated management and content use remain absent.
-- [ ] **Subject** identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-  - Mismatch: `content_subject` and its association table exist, but Subject management and content use remain absent.
+- [ ] **Subject** identifies a global area associated with one or more Disciplines, such as Genetics,
+  Biochemistry, or Ecology.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
   - Mismatch: `content_topic.subject_uuid` has a mandatory parent foreign key, but Topic management and content use remain absent.
 - [ ] **Subtopic** provides a narrower classification within a Topic, such as Enzyme Catalysis Mechanisms or X-Linked Recessive Crosses.
   - Mismatch: `content_subtopic.topic_uuid` has a mandatory parent foreign key, but Subtopic management and content use remain absent.
-- [ ] Subjects have a global identity across PLE.
-  - Mismatch: `content_subject` has UUID identity, but global Subject-name uniqueness and product-wide use are absent.
-- [ ] A Subject may belong to one or more Disciplines, with Discipline associations managed by **Sysadmins**.
-  - Mismatch: `content_subject_discipline` permits real, unique associations, but it does not enforce at least one association per Subject and has no Sysadmin commands.
+- [ ] Subjects have a global identity across PLE, and Subject names are unique across PLE.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] A Subject may be associated with one or more Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] A Topic belongs to one Subject.
   - Mismatch: The SQL foreign key enforces one Topic parent, but authenticated management and complete product behavior remain open.
 - [ ] A Subtopic belongs to one Topic.
   - Mismatch: The SQL foreign key enforces one Subtopic parent, but authenticated management and complete product behavior remain open.
-- [ ] Every Course, Assessment, and Library Object has exactly one **Discipline**.
-  - Mismatch: No content attachment schema or writer enforces exactly one Discipline for Courses, Assessments, or Library Objects.
-- [ ] **Subject**, **Topic**, and **Subtopic** are optional.
-  - Mismatch: No content attachment schema or writer establishes optional narrower selections.
-- [ ] Classification selection begins with Discipline and follows the hierarchy from Discipline to Subject to Topic to Subtopic, progressively narrowing the available choices at each level.
-  - Mismatch: No authenticated reader or selector implements progressive narrowing.
-- [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
-  - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
-- [ ] After selecting a Subject, search interfaces may allow users to include content associated with that Subject across its other Disciplines.
-  - Mismatch: No authenticated search interface or content attachment supports cross-Discipline Subject use.
-- [ ] Courses, Assessments, and Library Objects select from the same shared global hierarchy.
-  - Mismatch: The shared SQL vocabulary is not attached to or selectable by any content owner.
-- [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
-  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
-- [ ] Content may have any number of Tags, including none.
-  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
-- [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
-  - Mismatch: No classification reader, query, or product discovery behavior exists.
-- [ ] **Sysadmins** exclusively manage the Discipline vocabulary and its lifecycle.
-  - Mismatch: Owner-only SQL access is not ProductRole-aware Sysadmin management; no commands or lifecycle exist.
+- [ ] Course and Library Object selections follow the hierarchy: the Subject is associated with the
+  selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Courses and Library Objects select from the same shared global vocabulary.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Sysadmins** exclusively create and manage the Discipline vocabulary and its lifecycle.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Discipline is a stable vocabulary expected to change infrequently.
   - Mismatch: `content_discipline` is a bounded foundation table, but no managed lifecycle establishes its stable vocabulary behavior.
 - [ ] **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
   - Mismatch: No Instructor reader, selector, or content attachment exists.
-- [ ] **Instructors** may create new Subjects within a Discipline.
-  - Mismatch: No Instructor Subject writer or atomic association-maintenance command exists.
+- [ ] **Instructors** may create new Subjects within a selected Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] When an Instructor attempts to create a Subject whose globally unique name already exists, PLE
+  offers the existing Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] PLE requires explicit Instructor acceptance before associating the existing Subject with the
+  selected Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Creating or selecting vocabulary should fit naturally into the classification workflow.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Instructors** may create new Topics within a Subject.
   - Mismatch: No Instructor Topic writer exists.
 - [ ] **Instructors** may create new Subtopics within a Topic.
   - Mismatch: No Instructor Subtopic writer exists.
-- [ ] Subject names are unique across PLE.
-  - Mismatch: `content_subject.name` is not globally unique.
+- [ ] Classification selection, browsing, and filtering begin with Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Course and Library Object classification follow Discipline -> Subject -> Topic -> Subtopic,
+  progressively narrowing the available choices at each level.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
+  - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
+- [ ] After selecting a Subject, search interfaces may offer an explicit option to include content
+  associated with that Subject across its other Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
+- [ ] Courses and Library Objects may have any number of Tags, including none.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
+  - Mismatch: No classification reader, query, or product discovery behavior exists.
 - [ ] Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
   - Mismatch: The SQL tables bound and reject untrimmed/control-character names, but trusted strip-before-validate writers are absent.
 - [ ] Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.

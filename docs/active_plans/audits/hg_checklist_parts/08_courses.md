@@ -30,10 +30,20 @@
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
 - [ ] Course classification describes the Course as a whole.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Courses use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Every Blueprint Course and Course Instance has exactly one **Discipline**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Courses may have any number of **Tags**, including none.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
+- [ ] Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
+  Discipline is unavailable.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Course interfaces (first occurrence).
+- [ ] **Sysadmins** exclusively create and manage Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course classification supports Course search, filtering, organization, and discovery where applicable.
   - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
 - [ ] A Course Instance may have classification that differs from its Blueprint Course.

@@ -24,7 +24,7 @@ import type { StudentAssessmentAttemptQuestionState } from "../components/studen
 import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
 import { QuestionPresentationRenderer } from "../components/question_renderer";
 import { QuestionPresentationResponseControl } from "../components/question_response_controls/question_response_control";
-import type { SubmissionOutcome } from "../components/question_response_controls/common";
+import type { ResponseSaveOutcome } from "../components/question_response_controls/common";
 import {
   saveCapturedBackendOwnedResponse,
   saveCompleteResponseBeforeAttemptSubmission,
@@ -310,7 +310,7 @@ function AttemptExperience(props: {
     }
   }
 
-  function saveOutcome(): Promise<SubmissionOutcome> {
+  function saveOutcome(): Promise<ResponseSaveOutcome> {
     return saveCurrentResponse().then((saved) =>
       saved
         ? { kind: "accepted" as const }
@@ -503,7 +503,7 @@ function AttemptExperience(props: {
                   responseFormat={currentPresentation.presentation.response}
                   initialResponse={currentPresentation.savedResponse ?? undefined}
                   validator={validator}
-                  submitLabel="Save response"
+                  saveLabel="Save response"
                   mode="save"
                   onResponseEdit={(response) =>
                     responseEdited(currentPresentation.position, response)
@@ -516,7 +516,7 @@ function AttemptExperience(props: {
                       editRevision,
                     )
                   }
-                  onSubmit={saveOutcome}
+                  onSave={saveOutcome}
                   onEscape={() => finishAssessmentButton?.focus()}
                 />
                 <Show when={saveState() === "saving"}>

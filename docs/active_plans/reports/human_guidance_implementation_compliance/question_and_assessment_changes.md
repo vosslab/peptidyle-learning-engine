@@ -79,7 +79,7 @@ The authoritative exhaustive record is the
   used authorized expected-current `ple_api.save_assessment` to set points from `8` to `13` and
   advance the edit number, then observed `6.5 / 13`, unanswered `0 / 13`, and `6.5 / 26` through
   three replay, history, Student landing, and Instructor Gradebook reads. Before/after JSON hashes
-  for grading results, Question submissions, Assessment submissions, and automated grading receipts
+  for grading results, finalized Question responses, Assessment submissions, and automated grading receipts
   were unchanged. The remaining no-Backend-interaction row stays open: the SQL
   `already_submitted` state has no work fields and the server bypasses its ready-path Backend work,
   but actual HTTP request counts and Backend transport were not observed. The fixture is temporary,

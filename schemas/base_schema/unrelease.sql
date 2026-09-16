@@ -15,7 +15,7 @@ CREATE TABLE ple_audit.assessment_unrelease_event (
     actor_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
     assessment_edit_number bigint NOT NULL CHECK (assessment_edit_number > 0),
     assessment_attempt_count bigint NOT NULL CHECK (assessment_attempt_count >= 0),
-    question_submission_count bigint NOT NULL CHECK (question_submission_count >= 0),
+    question_response_count bigint NOT NULL CHECK (question_response_count >= 0),
     assessment_submission_count bigint NOT NULL CHECK (assessment_submission_count >= 0),
     grading_result_count bigint NOT NULL CHECK (grading_result_count >= 0),
     outcome text NOT NULL CHECK (outcome = 'completed'),
@@ -67,16 +67,14 @@ CREATE POLICY course_instance_unrelease_executor_read
 CREATE POLICY assessment_unrelease_executor_access
     ON ple_data.assessment
     FOR ALL TO ple_unrelease_executor USING (true) WITH CHECK (true);
-GRANT EXECUTE ON FUNCTION ple_data.rebuild_question_revision_statistics(text, integer, timestamptz)
-    TO ple_unrelease_executor;
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
 GRANT USAGE ON SCHEMA ple_private TO ple_unrelease_executor;
 GRANT SELECT, DELETE ON TABLE ple_private.assessment_attempt TO ple_unrelease_executor;
 GRANT SELECT ON TABLE ple_private.issued_question, ple_private.question_attempt,
-    ple_private.question_submission, ple_private.assessment_submission,
-    ple_private.grading_result, ple_private.question_statistics_observation_receipt
+    ple_private.question_response, ple_private.assessment_submission,
+    ple_private.grading_result
     TO ple_unrelease_executor;
 CREATE POLICY assessment_attempt_unrelease_executor_access
     ON ple_private.assessment_attempt
@@ -87,17 +85,14 @@ CREATE POLICY issued_question_unrelease_executor_read
 CREATE POLICY question_attempt_unrelease_executor_read
     ON ple_private.question_attempt
     FOR SELECT TO ple_unrelease_executor USING (true);
-CREATE POLICY question_submission_unrelease_executor_read
-    ON ple_private.question_submission
+CREATE POLICY question_response_unrelease_executor_read
+    ON ple_private.question_response
     FOR SELECT TO ple_unrelease_executor USING (true);
 CREATE POLICY assessment_submission_unrelease_executor_read
     ON ple_private.assessment_submission
     FOR SELECT TO ple_unrelease_executor USING (true);
 CREATE POLICY grading_result_unrelease_executor_read
     ON ple_private.grading_result
-    FOR SELECT TO ple_unrelease_executor USING (true);
-CREATE POLICY question_statistics_observation_unrelease_executor_read
-    ON ple_private.question_statistics_observation_receipt
     FOR SELECT TO ple_unrelease_executor USING (true);
 RESET ROLE;
 
@@ -112,7 +107,7 @@ RESET ROLE;
 -- capability.  Creating the function as the capability owner means no API or
 -- worker role inherits the destructive privilege.  ASVS 2.2.1/2.2.2 validates
 -- confirmation inputs at the trusted boundary; ASVS 2.3.1/2.3.3 keeps the
--- transition, deletion, aggregate rebuild, and audit event indivisible.
+-- transition, deletion, and audit event indivisible; anonymous totals remain.
 SET LOCAL ROLE ple_unrelease_executor;
 
 CREATE FUNCTION ple_api.read_assessment_unrelease_impact(
@@ -123,7 +118,7 @@ RETURNS TABLE (
     assessment_title text,
     assessment_edit_number bigint,
     assessment_attempt_count bigint,
-    question_submission_count bigint,
+    question_response_count bigint,
     assessment_submission_count bigint,
     grading_result_count bigint
 )
@@ -151,8 +146,8 @@ BEGIN
     SELECT count(*) INTO assessment_attempt_count
       FROM ple_private.assessment_attempt
      WHERE assessment_id = assessment_row.assessment_id;
-    SELECT count(*) INTO question_submission_count
-      FROM ple_private.question_submission AS submission
+    SELECT count(*) INTO question_response_count
+      FROM ple_private.question_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.question_attempt_id = submission.question_attempt_id
       JOIN ple_private.issued_question AS issued
@@ -192,7 +187,7 @@ RETURNS TABLE (
     assessment_status text,
     assessment_edit_number bigint,
     assessment_attempt_count bigint,
-    question_submission_count bigint,
+    question_response_count bigint,
     assessment_submission_count bigint,
     grading_result_count bigint
 )
@@ -200,8 +195,6 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE actor_account_id uuid;
-DECLARE v_statistics_targets jsonb;
-DECLARE statistics_target jsonb;
 DECLARE now_at timestamptz := pg_catalog.transaction_timestamp();
 BEGIN
     IF p_course_reference_number IS NULL
@@ -237,8 +230,8 @@ BEGIN
     SELECT count(*) INTO assessment_attempt_count
       FROM ple_private.assessment_attempt
      WHERE assessment_id = assessment_row.assessment_id;
-    SELECT count(*) INTO question_submission_count
-      FROM ple_private.question_submission AS submission
+    SELECT count(*) INTO question_response_count
+      FROM ple_private.question_response AS submission
       JOIN ple_private.question_attempt AS question_attempt
         ON question_attempt.question_attempt_id = submission.question_attempt_id
       JOIN ple_private.issued_question AS issued
@@ -263,26 +256,6 @@ BEGIN
           WHERE assessment_id = assessment_row.assessment_id
      );
 
-    -- Retain only exact aggregate identities before the rooted cascade removes
-    -- the observation receipts that make them necessary.
-    SELECT coalesce(jsonb_agg(jsonb_build_object(
-               'questionId', observation.question_id,
-               'revisionNumber', observation.revision_number
-           )), '[]'::jsonb)
-      INTO v_statistics_targets
-      FROM (
-          SELECT DISTINCT observation.question_id, observation.revision_number
-            FROM ple_private.question_statistics_observation_receipt AS observation
-            JOIN ple_private.question_attempt AS question_attempt
-              ON question_attempt.question_attempt_id = observation.question_attempt_id
-            JOIN ple_private.issued_question AS issued
-              ON issued.issued_question_id = question_attempt.issued_question_id
-           WHERE issued.assessment_attempt_id IN (
-               SELECT assessment_attempt_id FROM ple_private.assessment_attempt
-                WHERE assessment_id = assessment_row.assessment_id
-           )
-      ) AS observation;
-
     UPDATE ple_data.assessment AS updated
        SET assessment_status = 'unreleased',
            assessment_edit_number = updated.assessment_edit_number + 1,
@@ -293,26 +266,17 @@ BEGIN
       INTO assessment_reference_number, assessment_title, assessment_status,
            assessment_edit_number;
 
+    -- ASVS 14.2.4: remove Student Work, not approved identity-free totals.
     DELETE FROM ple_private.assessment_attempt
      WHERE assessment_id = assessment_row.assessment_id;
 
-    FOR statistics_target IN
-        SELECT value FROM jsonb_array_elements(v_statistics_targets)
-    LOOP
-        PERFORM ple_data.rebuild_question_revision_statistics(
-            statistics_target ->> 'questionId',
-            (statistics_target ->> 'revisionNumber')::integer,
-            now_at
-        );
-    END LOOP;
-
     INSERT INTO ple_audit.assessment_unrelease_event (
         event_id, assessment_id, actor_account_id, assessment_edit_number,
-        assessment_attempt_count, question_submission_count,
+        assessment_attempt_count, question_response_count,
         assessment_submission_count, grading_result_count, outcome, occurred_at
     ) VALUES (
         pg_catalog.gen_random_uuid(), assessment_row.assessment_id, actor_account_id,
-        assessment_edit_number, assessment_attempt_count, question_submission_count,
+        assessment_edit_number, assessment_attempt_count, question_response_count,
         assessment_submission_count, grading_result_count, 'completed', now_at
     );
     RETURN NEXT;

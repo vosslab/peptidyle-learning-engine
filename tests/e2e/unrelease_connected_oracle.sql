@@ -16,6 +16,8 @@ INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
     ('10000000-0000-0000-0000-000000000002', 'student', clock_timestamp());
 
 SET LOCAL ROLE ple_data_owner;
+INSERT INTO ple_data.content_discipline (discipline_uuid, name)
+VALUES ('20000000-0000-0000-0000-00000000cc01', 'Unrelease fixture discipline');
 INSERT INTO ple_data.published_question (question_id, created_at)
 VALUES ('ABCDXEF0', clock_timestamp());
 INSERT INTO ple_data.question_revision (
@@ -41,12 +43,12 @@ INSERT INTO ple_private.question_revision_source_binding (
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_data.blueprint_course (
     blueprint_id, owner_account_id, short_name, long_name,
-    metadata_etag, created_at
+    metadata_etag, created_at, discipline_uuid, tags
 ) VALUES (
     '20000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000001', 'UNR-1',
     'Unrelease acceptance Blueprint', '20000000-0000-0000-0000-000000000004',
-    clock_timestamp()
+    clock_timestamp(), '20000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]
 );
 INSERT INTO ple_data.blueprint_course_revision (
     blueprint_course_reference_number, blueprint_revision_number,
@@ -78,14 +80,14 @@ INSERT INTO ple_data.course_instance (
     course_id, source_kind, blueprint_course_reference_number,
     blueprint_revision_number, assigned_instructor_account_id,
     assigned_instructor_role, course_short_name, course_long_name,
-    term_starts_on, term_ends_on, created_at
+    term_starts_on, term_ends_on, created_at, discipline_uuid, tags
 ) VALUES (
     '30000000-0000-0000-0000-000000000001', 'adopted',
     (SELECT reference_number FROM ple_data.blueprint_course
       WHERE blueprint_id = '20000000-0000-0000-0000-000000000001'), 1,
     '10000000-0000-0000-0000-000000000001', 'instructor', 'UNR-1',
     'Unrelease acceptance Course', current_date, current_date + 1,
-    clock_timestamp()
+    clock_timestamp(), '20000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]
 );
 INSERT INTO ple_data.student_record (
     student_record_id, course_id, student_account_id, created_at
@@ -104,8 +106,8 @@ INSERT INTO ple_data.course_membership (
      '30000000-0000-0000-0000-000000000002', clock_timestamp());
 
 -- Target and survivor use the same immutable Question Revision.  The survivor
--- makes statistics rebuilding observable rather than trusting a deletion-side
--- counter.
+-- makes retained anonymous statistics distinguishable from remaining private
+-- Student Work after the target is Unreleased.
 SET LOCAL ROLE ple_data_owner;
 INSERT INTO ple_data.assessment (
     assessment_id, course_id, origin_kind, assessment_type,
@@ -154,7 +156,7 @@ INSERT INTO ple_data.assessment_entry (
 
 -- Start both Attempts through the ordinary restricted path.  The fixture then
 -- adds the lower-level submission/grading receipts needed to exercise the
--- destructive closure and statistics rebuild.
+-- destructive closure and retained anonymous statistics.
 SET LOCAL ROLE ple_app;
 SELECT set_config('ple.session_account_id', '10000000-0000-0000-0000-000000000002', true);
 SELECT * FROM ple_api.start_assessment_attempt(
@@ -174,44 +176,61 @@ SELECT * FROM ple_api.start_assessment_attempt(
 RESET ROLE;
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.question_attempt (
-    question_attempt_id, issued_question_id, issued_at, submitted_at,
+    question_attempt_id, issued_question_id, issued_at, finalized_at,
     question_attempt_state, backend_name, backend_version,
     grader_name, grader_version, rendered_question_sha256, issued_capability
 ) VALUES
     ('50000000-0000-0000-0000-000000000021', '50000000-0000-0000-0000-000000000011',
-     transaction_timestamp(), transaction_timestamp(), 'submission_accepted', 'ple', '1',
+     transaction_timestamp(), transaction_timestamp(), 'response_finalized', 'ple', '1',
      'ple', '1', decode(repeat('b', 64), 'hex'), 'not_applicable'),
     ('50000000-0000-0000-0000-000000000022', '50000000-0000-0000-0000-000000000012',
-     transaction_timestamp(), transaction_timestamp(), 'submission_accepted', 'ple', '1',
+     transaction_timestamp(), transaction_timestamp(), 'response_finalized', 'ple', '1',
      'ple', '1', decode(repeat('d', 64), 'hex'), 'not_applicable');
 INSERT INTO ple_private.assessment_attempt_saved_response (question_attempt_id, student_response, saved_at)
 VALUES ('50000000-0000-0000-0000-000000000021', '{}'::jsonb, clock_timestamp()),
        ('50000000-0000-0000-0000-000000000022', '{}'::jsonb, clock_timestamp());
-INSERT INTO ple_private.question_submission (submission_id, question_attempt_id, submitted_at, student_response)
-VALUES ('50000000-0000-0000-0000-000000000031', '50000000-0000-0000-0000-000000000021', transaction_timestamp(), '{}'::jsonb),
-       ('50000000-0000-0000-0000-000000000032', '50000000-0000-0000-0000-000000000022', transaction_timestamp(), '{}'::jsonb);
+INSERT INTO ple_private.question_response (question_response_id, assessment_submission_id, question_attempt_id, finalized_at, student_response)
+VALUES ('50000000-0000-0000-0000-000000000031', '50000000-0000-0000-0000-000000000041', '50000000-0000-0000-0000-000000000021', transaction_timestamp(), '{}'::jsonb),
+       ('50000000-0000-0000-0000-000000000032', '50000000-0000-0000-0000-000000000042', '50000000-0000-0000-0000-000000000022', transaction_timestamp(), '{}'::jsonb);
 INSERT INTO ple_private.assessment_submission (assessment_submission_id, assessment_attempt_id, submitted_at, finalization_kind, authorized_by_account_id, receipt)
-VALUES ('50000000-0000-0000-0000-000000000041', '50000000-0000-0000-0000-000000000001', clock_timestamp(), 'student', '10000000-0000-0000-0000-000000000002', '{}'::jsonb),
-       ('50000000-0000-0000-0000-000000000042', '50000000-0000-0000-0000-000000000002', clock_timestamp(), 'student', '10000000-0000-0000-0000-000000000002', '{}'::jsonb);
-INSERT INTO ple_private.question_submission_grading (
-    question_submission_grading_id, submission_id, grading_state, created_at, completed_at
+VALUES ('50000000-0000-0000-0000-000000000041', '50000000-0000-0000-0000-000000000001', transaction_timestamp(), 'student', '10000000-0000-0000-0000-000000000002', '{}'::jsonb),
+       ('50000000-0000-0000-0000-000000000042', '50000000-0000-0000-0000-000000000002', transaction_timestamp(), 'student', '10000000-0000-0000-0000-000000000002', '{}'::jsonb);
+INSERT INTO ple_private.question_response_grading (
+    question_response_grading_id, question_response_id, grading_state, created_at, completed_at
 ) VALUES
     ('50000000-0000-0000-0000-000000000061', '50000000-0000-0000-0000-000000000031', 'graded', clock_timestamp(), clock_timestamp()),
     ('50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000032', 'graded', clock_timestamp(), clock_timestamp());
-INSERT INTO ple_private.grading_result (grading_result_id, submission_id, question_submission_grading_id, question_attempt_id, normalized_credit, recorded_at)
+INSERT INTO ple_private.grading_result (grading_result_id, question_response_id, question_response_grading_id, question_attempt_id, normalized_credit, recorded_at)
 VALUES ('50000000-0000-0000-0000-000000000071', '50000000-0000-0000-0000-000000000031', '50000000-0000-0000-0000-000000000061', '50000000-0000-0000-0000-000000000021', 1, clock_timestamp()),
        ('50000000-0000-0000-0000-000000000072', '50000000-0000-0000-0000-000000000032', '50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000022', 1, clock_timestamp());
 
 SET LOCAL ROLE ple_audit_owner;
-INSERT INTO ple_audit.automated_grading_receipt (automated_grading_receipt_id, question_submission_grading_id, grading_result_id, committed_at, automated_grading_receipt_checksum)
+INSERT INTO ple_audit.automated_grading_receipt (automated_grading_receipt_id, question_response_grading_id, grading_result_id, committed_at, automated_grading_receipt_checksum)
 VALUES ('50000000-0000-0000-0000-000000000081', '50000000-0000-0000-0000-000000000061', '50000000-0000-0000-0000-000000000071', clock_timestamp(), decode(repeat('e', 64), 'hex')),
        ('50000000-0000-0000-0000-000000000082', '50000000-0000-0000-0000-000000000062', '50000000-0000-0000-0000-000000000072', clock_timestamp(), decode(repeat('f', 64), 'hex'));
-SET LOCAL ROLE ple_private_owner;
-INSERT INTO ple_private.question_statistics_observation_receipt (automated_grading_receipt_id, question_attempt_id, question_id, revision_number, correct, observed_at)
-VALUES ('50000000-0000-0000-0000-000000000081', '50000000-0000-0000-0000-000000000021', 'ABCDXEF0', 1, true, clock_timestamp()),
-       ('50000000-0000-0000-0000-000000000082', '50000000-0000-0000-0000-000000000022', 'ABCDXEF0', 1, true, clock_timestamp());
+SET LOCAL ROLE ple_api_owner;
+SELECT ple_api.record_question_statistics_observation(
+    '50000000-0000-0000-0000-000000000081', ARRAY['eligible-choice']);
+SELECT ple_api.record_question_statistics_observation(
+    '50000000-0000-0000-0000-000000000082', ARRAY['eligible-choice']);
+-- Repeating a committed grading receipt must not count the observation twice.
+SELECT ple_api.record_question_statistics_observation(
+    '50000000-0000-0000-0000-000000000081', ARRAY['eligible-choice']);
 SET LOCAL ROLE ple_data_owner;
-SELECT ple_data.rebuild_question_revision_statistics('ABCDXEF0', 1, clock_timestamp());
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision_statistics
+         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+           AND accepted_graded_attempt_count = 2 AND correct_count = 2
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision_choice_statistics
+         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+           AND choice_id = 'eligible-choice' AND selected_count = 2
+    ) THEN
+        RAISE EXCEPTION 'production statistics capture did not count each accepted grade exactly once';
+    END IF;
+END $$;
 COMMIT;
 
 -- Error cases are real public calls.  Each verifies the rejected transaction
@@ -286,7 +305,7 @@ COMMIT;
 
 -- The accepted public transition returns aggregate impact only, removes the
 -- rooted closure, retains the current Assessment/entry and shared Revision,
--- rebuilds the shared Revision statistics from the survivor, and records a
+-- retains both anonymous observations despite private evidence deletion, and records a
 -- redacted aggregate audit receipt.
 BEGIN;
 SET LOCAL ROLE ple_data_owner;
@@ -308,7 +327,7 @@ BEGIN
         1, 'Unrelease target'
     );
     IF result.assessment_status <> 'unreleased' OR result.assessment_edit_number <> 2
-       OR result.assessment_attempt_count <> 1 OR result.question_submission_count <> 1
+       OR result.assessment_attempt_count <> 1 OR result.question_response_count <> 1
        OR result.assessment_submission_count <> 1 OR result.grading_result_count <> 1 THEN
         RAISE EXCEPTION 'accepted Unrelease returned an incorrect aggregate receipt';
     END IF;
@@ -330,10 +349,13 @@ SET LOCAL ROLE ple_private_owner;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM ple_private.assessment_attempt WHERE assessment_id = '40000000-0000-0000-0000-000000000001')
-       OR EXISTS (SELECT 1 FROM ple_private.question_submission WHERE submission_id = '50000000-0000-0000-0000-000000000031')
+       OR EXISTS (SELECT 1 FROM ple_private.question_response WHERE question_response_id = '50000000-0000-0000-0000-000000000031')
        OR EXISTS (SELECT 1 FROM ple_private.assessment_submission WHERE assessment_submission_id = '50000000-0000-0000-0000-000000000041')
        OR EXISTS (SELECT 1 FROM ple_private.grading_result WHERE grading_result_id = '50000000-0000-0000-0000-000000000071')
        OR EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_receipt WHERE automated_grading_receipt_id = '50000000-0000-0000-0000-000000000081')
+       OR EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_choice WHERE automated_grading_receipt_id = '50000000-0000-0000-0000-000000000081')
+       OR NOT EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_receipt WHERE automated_grading_receipt_id = '50000000-0000-0000-0000-000000000082')
+       OR NOT EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_choice WHERE automated_grading_receipt_id = '50000000-0000-0000-0000-000000000082' AND choice_id = 'eligible-choice')
        OR NOT EXISTS (SELECT 1 FROM ple_private.assessment_attempt WHERE assessment_id = '40000000-0000-0000-0000-000000000002') THEN
         RAISE EXCEPTION 'Unrelease did not preserve and delete the expected roots';
     END IF;
@@ -341,9 +363,16 @@ END $$;
 SET LOCAL ROLE ple_data_owner;
 DO $$
 BEGIN
-    IF (SELECT accepted_graded_attempt_count FROM ple_data.question_revision_statistics WHERE question_id = 'ABCDXEF0' AND revision_number = 1) <> 1
-       OR (SELECT correct_count FROM ple_data.question_revision_statistics WHERE question_id = 'ABCDXEF0' AND revision_number = 1) <> 1 THEN
-        RAISE EXCEPTION 'Unrelease did not rebuild Question Revision statistics from survivors';
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision_statistics
+         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+           AND accepted_graded_attempt_count = 2 AND correct_count = 2
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision_choice_statistics
+         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+           AND choice_id = 'eligible-choice' AND selected_count = 2
+    ) THEN
+        RAISE EXCEPTION 'Unrelease changed retained anonymous Question Revision statistics';
     END IF;
 END $$;
 SET LOCAL ROLE ple_audit_owner;
@@ -361,7 +390,8 @@ END $$;
 COMMIT;
 
 -- A repeated lifecycle action remains a conflict and cannot create a second
--- audit record or alter the surviving statistics.
+-- audit record or alter retained statistics.  Recapturing the deleted grade
+-- also cannot resurrect private evidence or increment anonymous totals.
 BEGIN;
 SET LOCAL ROLE ple_data_owner;
 SELECT set_config('ple.test_unrelease_course_reference', public_reference, true)
@@ -384,6 +414,32 @@ BEGIN
 EXCEPTION WHEN object_not_in_prerequisite_state THEN NULL;
 END $$;
 RESET ROLE;
+SET LOCAL ROLE ple_api_owner;
+SELECT ple_api.record_question_statistics_observation(
+    '50000000-0000-0000-0000-000000000081', ARRAY['eligible-choice']);
+SET LOCAL ROLE ple_private_owner;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM ple_private.question_statistics_observation_receipt
+                WHERE automated_grading_receipt_id = '50000000-0000-0000-0000-000000000081') THEN
+        RAISE EXCEPTION 'recapture resurrected deleted private statistics evidence';
+    END IF;
+END $$;
+SET LOCAL ROLE ple_data_owner;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision_statistics
+         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+           AND accepted_graded_attempt_count = 2 AND correct_count = 2
+    ) OR NOT EXISTS (
+        SELECT 1 FROM ple_data.question_revision_choice_statistics
+         WHERE question_id = 'ABCDXEF0' AND revision_number = 1
+           AND choice_id = 'eligible-choice' AND selected_count = 2
+    ) THEN
+        RAISE EXCEPTION 'rejected repeat or deleted-grade recapture changed retained statistics';
+    END IF;
+END $$;
 SET LOCAL ROLE ple_audit_owner;
 DO $$
 BEGIN

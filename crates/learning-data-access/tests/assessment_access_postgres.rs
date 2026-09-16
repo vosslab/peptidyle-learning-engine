@@ -80,6 +80,11 @@ async fn authenticated_student_record_ownership(
 
 async fn seed(admin: &sqlx::postgres::PgPool) {
     let mut tx = admin.begin().await.expect("fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("classification fixture owner");
+    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *tx).await.expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
         .await
@@ -162,9 +167,9 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("API fixture role");
     let blueprint_reference_number: i64 = sqlx::query_scalar(
         "INSERT INTO ple_data.blueprint_course \
-         (blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at) \
+         (blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at, discipline_uuid, tags) \
          VALUES ($1, $2, 'ACCESS', 'Assessment Access Blueprint', \
-                 '00000000-0000-0000-0000-00000000ec04', clock_timestamp()) \
+                 '00000000-0000-0000-0000-00000000ec04', clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[]) \
          RETURNING reference_number",
     )
     .bind(id(BLUEPRINT))
@@ -219,9 +224,9 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         "INSERT INTO ple_data.course_instance \
          (course_id, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
-          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) \
          VALUES ($1, 'adopted', $2, 1, $3, 'instructor', 'ACCESS', \
-                 'Assessment Access Course', current_date, current_date + 1, clock_timestamp())",
+                 'Assessment Access Course', current_date, current_date + 1, clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
     )
     .bind(id(COURSE))
     .bind(blueprint_reference_number)
@@ -233,10 +238,10 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         "INSERT INTO ple_data.course_instance \
          (course_id, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
-          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
+          course_short_name, course_long_name, term_starts_on, term_ends_on, created_at, discipline_uuid, tags) \
          VALUES ($1, 'adopted', $2, 1, $3, 'instructor', 'ACCESS-OTHER', \
                  'Other Course for exact Student Work scope', current_date, current_date + 1, \
-                 clock_timestamp())",
+                 clock_timestamp(), '00000000-0000-0000-0000-00000000cc01', ARRAY[]::text[])",
     )
     .bind(id(OTHER_COURSE))
     .bind(blueprint_reference_number)

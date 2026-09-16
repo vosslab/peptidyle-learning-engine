@@ -8,6 +8,7 @@ import { createDefaultPleQuestionJsonSource } from "../features/ple_question_jso
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../features/ple_question_json_authoring/question_json_source";
 import { serializePleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_codec";
 import { parseDraftQuestionReference } from "../navigation/public_route";
+import "./question_drafts_page.css";
 
 type DraftSummary = {
   readonly draftQuestion: DraftQuestionReference;
@@ -165,7 +166,7 @@ export function QuestionDraftsPage(): JSX.Element {
     <main class="page" data-route-surface="questionDrafts">
       <header>
         <p class="eyebrow">Private instructor authoring</p>
-        <h1>My Question Drafts</h1>
+        <h1>My Draft Questions</h1>
         <p>
           Draft Questions stay in your Authoring Workspace until you publish a validated question.
         </p>
@@ -208,21 +209,38 @@ export function QuestionDraftsPage(): JSX.Element {
               <p class="calm-status">Create a Draft Question to begin authoring privately.</p>
             }
           >
-            <ul class="question-library-list">
+            <ul class="draft-question-list" aria-label="Private Draft Questions">
               <For each={items()}>
                 {(draft) => (
-                  <li>
-                    <A href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`}>
-                      <strong>{draft.questionTitle}</strong>
-                      <span>{draft.questionDescription}</span>
-                      <small>
-                        {draft.draftQuestion} · Edit {draft.editNumber}
-                      </small>
-                    </A>
-                    <div class="action-row">
+                  <li class="draft-question-row">
+                    <div class="draft-question-content">
+                      <A
+                        class="draft-question-title"
+                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`}
+                      >
+                        {draft.questionTitle}
+                      </A>
+                      <Show when={draft.questionDescription.length > 0}>
+                        <p class="draft-question-description">{draft.questionDescription}</p>
+                      </Show>
+                    </div>
+                    <p class="draft-question-metadata">
+                      <span>Private draft</span>
+                      <span>Reference {draft.draftQuestion}</span>
+                      <span>Edit Number {draft.editNumber}</span>
+                    </p>
+                    <div class="draft-question-actions">
+                      <A
+                        class="quiet-link draft-question-edit"
+                        href={`/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`}
+                        aria-label={`Edit draft: ${draft.questionTitle}`}
+                      >
+                        Edit draft
+                      </A>
                       <button
-                        class="quiet-action"
+                        class="quiet-action draft-question-delete"
                         type="button"
+                        aria-label={`Delete draft: ${draft.questionTitle}`}
                         disabled={deleting()}
                         onClick={() => requestDelete(draft)}
                       >

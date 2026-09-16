@@ -1,97 +1,137 @@
 # Peptidyle Learning Engine
 
-An open-source, pre-production platform for biology instructors to design varied practice while
-keeping grading decisions and answer keys on the server.
+An open-source teaching platform for instructors to build reusable courses and automatically graded practice, combining native and WeBWorK Questions with exact Revision evidence and server-owned grading.
 
-## Status
+## Preparing for launch
 
-PLE is under active development and is not ready for production deployment. The local Live Demo is
-the connected current PLE application: its Instructor, Student, and Sysadmin personas enter the
-same role- and relationship-gated routes that the application exposes. The browser does not send
-mail, disclose Answer Keys or private Question Source data, or grant authority beyond stored
-relationships. [LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md) and
-[TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) define the executable and evidence
-boundaries.
+PLE is preparing for its first production launch. The local Live Demo provides connected
+Instructor, Student, and Sysadmin workflows using the ordinary application, database, and
+Course relationships. Authoring, delivery, and interface work remain under active refinement;
+individual implementation and screenshot receipts establish only their stated scope.
+[docs/ROADMAP.md](docs/ROADMAP.md) records release gates, and
+[docs/TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) explains what each check proves.
+The quick start below is a disposable local demonstration, not a production deployment procedure.
 
-## The teaching promise
+Email authentication is not yet configured for the Live Demo. Students and Instructors enter
+through its visible fictional-account selector; Sysadmin entry additionally requires genuine
+TOTP authentication. See [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md).
 
-PLE is built for the instructional moment after a student finishes an assignment: instructors can
-separate completion, grading, variation, continued practice, and feedback policies instead of
-treating an assignment as a one-shot event. The intended system combines reusable Question Sources,
-exact immutable Question Revisions, Course-owned student records, and answer-free browser contracts.
+## Reuse Questions, preserve the work
 
-The current code and contracts preserve two non-negotiable boundaries:
+PLE separates reusable teaching content from its delivery in a particular Course:
 
-- Grading, Answer Keys, private Question Sources, and provider credentials remain server-owned.
-- Shared published Questions remain distinct from Course-owned memberships, attempts, responses,
-  grades, and issued evidence.
+- Find, author, publish, and reuse Questions through one global Question Library.
+- Combine native static Questions and algorithmic WeBWorK PG or PGML source. A generated
+  variant belongs to its algorithmic Question; a Question Pool selects among distinct Questions.
+- Design a Blueprint Course, then create a teaching Course Instance with independent Assessments.
+- Set Assessment content and Properties separately: Question order and points, Attempts, timing,
+  availability, and permitted feedback.
+- Let Students save responses, resume an open Attempt, and submit the whole Attempt, while
+  retained work identifies the exact Question and Pool Revisions delivered.
 
-See [MASTERY_ASSIGNMENT_DESIGN.md](docs/MASTERY_ASSIGNMENT_DESIGN.md) for the teaching model and
-[CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md) for the technical ownership boundary.
+Regular Assignments default to repeated practice with unlimited Attempts. Practice Question
+Assignments provide focused review and show correct answers after whole-Attempt submission.
+Quizzes and Exams allow one Attempt. These are pedagogical Types within the same Assessment
+model, with independently configurable settings; see
+[docs/MASTERY_ASSIGNMENT_DESIGN.md](docs/MASTERY_ASSIGNMENT_DESIGN.md).
 
-## Current application screenshots
+Question Backends own interaction and grading. PLE keeps grading authority, protected answer
+content, and provider credentials on the server, and scopes Student Work through Course
+relationships and Student ownership. Reusable published content remains distinct from
+FERPA-sensitive Attempts, responses, and grades. Current product intent is defined by
+[docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md), with vocabulary in
+[docs/TERMINOLOGY_CONTRACT.md](docs/TERMINOLOGY_CONTRACT.md).
 
-These images come from the production bundle served by the fixed disposable seeded environment.
-They live in public or Product Role screen folders because the Live Demo reaches the same application
-surfaces as the rest of PLE. See [SCREENSHOT_CONTRACT.md](docs/SCREENSHOT_CONTRACT.md).
+## See the Live Demo
+
+These repository captures show the fictional-account entry, Instructor Assessment Properties,
+a Student's saved response, and Sysadmin administration. They are rendered evidence from the
+published capture corpus, not a fresh verification of every current workflow.
 
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
-![Seeded PLE Account entry](docs/screenshots/public/sign_in_laptop.png)
-![Instructor released Assignment Workspace](docs/screenshots/instructor/assignment_release_released.png)
-![Student Assignment Attempt showing a saved response and Question navigation](docs/screenshots/student/assignment_attempt_saved_laptop.png)
-![Sysadmin scoped support](docs/screenshots/sysadmin/scoped_support_roster_laptop.png)
+![Live Demo sign-in with fictional Instructor, Student, and Sysadmin Accounts](docs/screenshots/public/sign_in_laptop.png)
+![Instructor Assessment Properties Editor with a saved, released Assessment](docs/screenshots/instructor/assignment_release_released.png)
+![Student Chapter 1 Pilot Practice Attempt with a saved response and Question navigation](docs/screenshots/student/assignment_attempt_saved_laptop.png)
+![Sysadmin administration home with Instructor Account and scoped roster-support actions](docs/screenshots/sysadmin/system_administration_home_laptop.png)
 <!-- screenshots:end -->
 
-Run `./devel/capture_screenshots.sh` to rebuild the manifest-listed role captures through a fresh
-seeded capture environment. Run `./devel/capture_screenshots.sh --verify` to validate the published
-artifacts and replay every capture through another clean Live Demo. Browse the complete grouped
-[Screenshot atlas](docs/SCREENSHOT_ATLAS.md); its coverage tables also identify deferred product
-surfaces. These are rendered review evidence, not permanent browser tests.
+Browse [docs/SCREENSHOT_ATLAS.md](docs/SCREENSHOT_ATLAS.md) for the full grouped corpus and
+its coverage gaps. Capture and replay instructions are in
+[docs/SCREENSHOT_CONTRACT.md](docs/SCREENSHOT_CONTRACT.md).
+The demo runs locally at the HTTPS address printed by the launcher.
 
 ## Quick start
 
-The first meaningful result is a disposable HTTPS PLE stack with the seeded sign-in entry. Install
-the prerequisites in [INSTALL.md](docs/INSTALL.md), including Python, Rust, Node.js, Podman,
-and a usable Compose provider. Then run:
+Start from a checkout with Bash, Git, Python, Rust, Node.js/npm, Podman, and a usable Compose
+provider. [docs/INSTALL.md](docs/INSTALL.md) gives the complete setup path;
+[docs/MACOS_PODMAN.md](docs/MACOS_PODMAN.md) covers macOS Podman setup.
+Install the declared Python runtime dependencies, then start the demo:
 
 ```bash
+source source_me.sh && python3 -m pip install --requirement pip_requirements.txt
 ./launchers/run_live_demo.sh
 ```
 
-The command runs the existing TypeScript setup, builds the production browser bundle, starts the
-fixed `ple-live-demo-browser` stack, and prints a ready HTTPS origin.
-Open that URL in your browser to
-choose a seeded persona; the server derives the ordinary authenticated session from disposable
-seeded state and opens that persona's permitted PLE routes. Run
-`./launchers/run_live_demo.sh open` (or its `--open` shorthand) to open an already-running demo; use
-`./launchers/run_live_demo.sh start --open` to create a fresh demo and open it.
+The launcher installs missing TypeScript dependencies, builds the production browser bundle,
+provisions the fixed disposable `ple-live-demo-browser` stack, and prints a ready HTTPS entry URL.
+Open that URL, or open the running demo with:
 
-Stop the disposable stack when you finish:
+```bash
+./launchers/run_live_demo.sh open
+```
+
+To start a fresh demo and open it automatically, use `./launchers/run_live_demo.sh start --open`.
+The standalone `--open` option also starts a fresh demo; `open` opens the existing one.
+
+### Try a teaching workflow
+
+1. Choose **Elena Rivera (Instructor)**. Open **BCHM 301** and inspect **Chapter 1 Pilot Practice**,
+   its Questions, Assessment Properties, answer-free Student View, and Gradebook.
+2. Sign Out through Profile and choose **Jack Nguyen (Student)**. Resume the open practice
+   Attempt to inspect its saved response and Question navigation.
+3. Choose **Mary Okafor (Student)** to inspect completed work, or **Avery Thompson (Student)**
+   to see the same released practice before starting a new Attempt.
+
+These personas use ordinary Course membership and Student Work. The reusable demo Blueprint is
+**Biochemistry 301: Proteins and Peptides**. The installation also includes the free, open-source
+BiologyProblems.org Genetics example Blueprint. Its canonical PG/PGML Questions demonstrate
+backend-native algorithmic variation. See [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md)
+for the teaching graph and identity boundaries.
+
+Stop the demo when finished:
 
 ```bash
 ./launchers/run_live_demo.sh stop
 ```
 
-Relaunching replaces this demo's containers, volumes, networks, and seeded records. It does not
-change unrelated Podman projects. Use [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) when the stack
-does not become ready.
+Starting again replaces this demo's containers, volumes, networks, and local records. Unrelated
+Podman projects are outside that lifecycle. For startup problems, use
+[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md); for diagnostics and controller ownership,
+use [docs/LOCAL_STACK_OPERATIONS.md](docs/LOCAL_STACK_OPERATIONS.md).
 
-## What is available now
+## Find the right documentation
 
-The current server exposes:
+- [docs/INSTALL.md](docs/INSTALL.md): prerequisites, checkout setup, and installation boundaries.
+- [docs/USAGE.md](docs/USAGE.md): Live Demo commands, Blueprint adoption, and stack diagnostics.
+- [docs/LIVE_DEMO_SPEC.md](docs/LIVE_DEMO_SPEC.md): fictional Accounts, teaching data, and demo access.
+- [docs/HUMAN_GUIDANCE.md](docs/HUMAN_GUIDANCE.md): controlling product intent and teaching rules.
+- [docs/TERMINOLOGY_CONTRACT.md](docs/TERMINOLOGY_CONTRACT.md): Courses, Assessments, Questions,
+  Revisions, Student Work, and retention vocabulary.
+- [docs/CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md): component ownership and security boundaries.
+- [docs/ROADMAP.md](docs/ROADMAP.md): release direction and production gates.
+- [docs/RELATED_PROJECTS.md](docs/RELATED_PROJECTS.md): related assessment systems and standards.
 
-- `GET /health` for readiness.
-- `GET /api/auth/session` and `POST /api/auth/logout` for the ordinary session boundary.
-- Deployment-gated seeded-account endpoints for the local demo selector.
-
-The browser receives no Answer Keys or grading inputs through these paths. The complete current
-surface and the intentionally absent teaching routes are documented in
-[USAGE.md](docs/USAGE.md) and [API_CONTRACTS.md](docs/API_CONTRACTS.md).
+For common design questions, see [docs/FAQ.md](docs/FAQ.md). Developers can continue with
+[docs/FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md), [docs/CONTRACTS.md](docs/CONTRACTS.md),
+and [docs/API_CONTRACTS.md](docs/API_CONTRACTS.md) for layout, module boundaries, and HTTP details.
 
 ## For contributors
 
-Use the repository front doors to build and verify the current contract surfaces:
+The implementation uses a Rust workspace, PostgreSQL, S3-compatible local MinIO storage, and a
+Solid/TypeScript browser with a WebAssembly bridge. Follow
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for dependency setup and bounded verification.
+The build and offline check front doors are:
 
 ```bash
 ./build.sh
@@ -106,25 +146,15 @@ The complete aggregate adds disposable service acceptance:
 source source_me.sh && ./launchers/all_test.sh
 ```
 
-Passing these commands does not establish a visible browser teaching journey. Read
-[TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md) before assigning that broader claim.
-
-## Documentation
-
-- [INSTALL.md](docs/INSTALL.md): prerequisites and first local stack.
-- [USAGE.md](docs/USAGE.md): current commands and browser-entry boundary.
-- [CODE_ARCHITECTURE.md](docs/CODE_ARCHITECTURE.md): component ownership and security boundaries.
-- [FILE_STRUCTURE.md](docs/FILE_STRUCTURE.md): repository layout and placement guidance.
-- [CONTRACTS.md](docs/CONTRACTS.md): durable module and service boundaries.
-- [ROADMAP.md](docs/ROADMAP.md): pre-production release direction and gates.
-- [FAQ.md](docs/FAQ.md): terminology and common design questions.
-- [RELATED_PROJECTS.md](docs/RELATED_PROJECTS.md): related assessment systems and standards.
+Browser and screenshot evidence have separate execution lanes. Passing offline checks or service
+acceptance alone does not establish a visible teaching journey; see
+[docs/TEST_EVIDENCE_MODEL.md](docs/TEST_EVIDENCE_MODEL.md).
 
 ## License and authorship
 
 Code is licensed under the [GNU Affero General Public License v3](LICENSE.AGPL-3.0). Documentation
 and figures are licensed under [Creative Commons Attribution 4.0](LICENSE.CC-BY-4.0). See
-[AUTHORS.md](docs/AUTHORS.md) for project authorship and acknowledgments.
+[docs/AUTHORS.md](docs/AUTHORS.md) for project authorship and acknowledgments.
 
 The bundled Ribbon sprite redistributes only Font Awesome Free SVG icon artwork under
 [Creative Commons Attribution 4.0](LICENSE.CC-BY-4.0). That attribution does not claim to

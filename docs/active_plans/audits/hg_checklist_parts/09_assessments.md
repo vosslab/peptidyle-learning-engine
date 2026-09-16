@@ -18,23 +18,10 @@
   - Evidence (source): `schemas/base_schema/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
   - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
 
-### Assessment classification specifications
-
-- [ ] **Blueprint Assessments** and **Course Instance Assessments** use the shared content classification system.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessment classification describes the Assessment as a whole.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessments use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessments may have any number of **Tags**, including none.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessment classification supports Assessment search, filtering, organization, and discovery where applicable.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-- [ ] Assessment classification is independent of the classifications of the Questions and Question Pools it contains.
-  - Mismatch: Current global classification is not implemented across content owners. The four-table vocabulary foundation does not establish Sysadmin commands, Subject multi-Discipline associations, exactly-one-Discipline content attachments, hierarchical selection, normalization, or discovery.
-
 ### Assessment content specifications
 
+- [ ] Assessments are organized by their Course and position within its ordered sequence.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Assessments contain an ordered sequence of Published Questions and Question Pools.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` renders the mixed entry sequence; `schemas/base_schema/assessments.sql` `assessment_entry_active_authored_position_key` enforces distinct current positions with a deferred constraint, allowing atomic swaps and retired-position reuse. `schemas/base_schema/assessment_operations.sql` `ple_api.load_assessment_workspace_rows` projects only available current entries.
   - Evidence (runtime): accepted independent actual-server/private bundled-main browser proof at `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` saved Fixed A, an imported Pool, and Fixed B, moved the top-level Pool across Fixed A, and reloaded exact ordered entry IDs and Revision pins. Artifact: `/private/tmp/ple-assessment-mixed-entries-artifacts.CogOX1`.
@@ -358,7 +345,7 @@
 - [ ] The Student may change a saved response while the Assessment Attempt remains open.
   - Mismatch: Current response persistence source exists, but no current runtime receipt establishes saved-response replacement after the retired oracle was removed.
 - [x] Submitting the Assessment Attempt finalizes all saved Question responses together as Student Work.
-  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Attempt submission and Question submissions.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` verifies every saved response before inserting the Assessment submission and its finalized Question responses.
   - Evidence (runtime): accepted C525 actual-Store evidence exercised whole partial-response submission and history through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 - [x] Questions without a saved response remain visibly unanswered when the Attempt is submitted.
   - Evidence (source): `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` labels closed issued Questions with no submission as **Unanswered** and reserves unavailable-response wording for submitted Questions whose saved response is not released.
@@ -492,4 +479,4 @@
   - Mismatch: No actual HTTP request count or Backend-transport observation confirms the SQL and server control-flow evidence.
 - [x] Score recalculation does not change the stored Question grading outcome.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` only calculates a score and performs no writes; `grading_result_is_immutable` rejects updates through `ple_private.reject_grading_evidence_change`. `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.prepare_assessment_attempt_finalization` reads existing grading outcomes without replacing them.
-  - Evidence (runtime): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` is invoked by the accepted private PostgreSQL 17 fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the `0.5` fraction and matched before/after JSON hashes for every `grading_result`, `question_submission`, `assessment_submission`, and `automated_grading_receipt` row after the authorized points edit and replay. This does not establish HTTP, rendering, or Backend transport.
+  - Evidence (runtime): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` is invoked by the accepted private PostgreSQL 17 fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the `0.5` fraction and matched before/after JSON hashes for every grading-result, finalized-Question-response, Assessment-submission, and automated-grading-receipt row after the authorized points edit and replay. This does not establish HTTP, rendering, or Backend transport.

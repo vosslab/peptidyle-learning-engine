@@ -188,9 +188,9 @@ export function PleQuestionJsonPreview(props: PleQuestionJsonPreviewProps): JSX.
         <QuestionResponseControl
           attemptId="ple-question-json-author-preview"
           responseFormat={props.preview.response}
+          mode="formatOnly"
           validator={props.validator}
           onEscape={() => undefined}
-          onSubmit={() => Promise.resolve({ kind: "accepted" })}
         />
       </article>
       <Show when={props.instructorAnswerCheck}>

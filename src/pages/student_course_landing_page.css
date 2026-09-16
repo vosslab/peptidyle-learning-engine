@@ -5,7 +5,6 @@
     "state action"
     "title action"
     "facts action"
-    "zone action"
     "grade action"
     "decision decision";
   align-items: start;
@@ -41,7 +40,7 @@
 .student-coursework-card__facts {
   grid-area: facts;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ple-space-2) var(--ple-space-5);
   margin: var(--ple-space-3) 0 0;
 }
@@ -75,15 +74,10 @@
   flex: none;
 }
 
-.student-coursework-card__zone,
 .student-coursework-card__grade {
   margin: var(--ple-space-2) 0 0;
   color: var(--ple-muted);
   font-size: 0.85rem;
-}
-
-.student-coursework-card__zone {
-  grid-area: zone;
 }
 
 .student-coursework-card__grade {
@@ -97,17 +91,12 @@
   border-top: 1px solid var(--ple-border);
 }
 
-.student-coursework-card__decision h4 {
-  margin: 0 0 var(--ple-space-2);
-}
-
 @media (max-width: 48rem) {
   .student-coursework-card {
     grid-template-areas:
       "state"
       "title"
       "facts"
-      "zone"
       "grade"
       "decision"
       "action";

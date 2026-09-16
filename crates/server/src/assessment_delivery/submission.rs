@@ -64,7 +64,7 @@ pub(super) async fn save_selected_response(
         Err(StartError::Unavailable) => {
             return error(
                 StatusCode::SERVICE_UNAVAILABLE,
-                "Question Submission unavailable",
+                "Question response unavailable",
             );
         }
         Err(StartError::Invalid | StartError::Store(_)) => return invalid_response(),

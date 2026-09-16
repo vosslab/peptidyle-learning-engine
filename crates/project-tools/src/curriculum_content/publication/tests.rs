@@ -39,6 +39,12 @@ fn manifest() -> Manifest {
     Manifest {
         version: 1,
         course: Course {
+            classification: crate::pilot_content::AuthoredClassification {
+                discipline: "Biology".to_owned(),
+                subject: "Genetics".to_owned(),
+                topic: None,
+                subtopic: None,
+            },
             assessment_type: question_model::AssessmentType::PracticeQuestionAssignment,
             short_name: "Genetics".to_owned(),
             long_name: "Genetics Blueprint".to_owned(),
@@ -73,12 +79,25 @@ fn canonical_blueprint_uses_ordered_direct_fixed_questions() {
         ("first".to_owned(), first.clone()),
         ("second".to_owned(), second.clone()),
     ]);
-    let input = blueprint_input(&manifest, &revisions).expect("valid direct Fixed Blueprint");
+    let input = blueprint_input(
+        &manifest,
+        &revisions,
+        question_model::CourseClassification {
+            discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            tags: Vec::new(),
+        },
+    )
+    .expect("valid direct Fixed Blueprint");
     let entries = &input.modules[0].assessments[0].entries;
     assert_eq!(entries.len(), 2);
-    assert!(entries
-        .iter()
-        .all(|entry| matches!(entry, BlueprintAssessmentEntryInput::Fixed(_))));
+    assert!(
+        entries
+            .iter()
+            .all(|entry| matches!(entry, BlueprintAssessmentEntryInput::Fixed(_)))
+    );
     let BlueprintAssessmentEntryInput::Fixed(first_entry) = &entries[0] else {
         unreachable!();
     };
@@ -104,7 +123,18 @@ fn exact_replay_rejects_semantic_drift() {
         ("first".to_owned(), first.clone()),
         ("second".to_owned(), second.clone()),
     ]);
-    let input = blueprint_input(&manifest, &revisions).expect("valid direct Fixed Blueprint");
+    let input = blueprint_input(
+        &manifest,
+        &revisions,
+        question_model::CourseClassification {
+            discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            tags: Vec::new(),
+        },
+    )
+    .expect("valid direct Fixed Blueprint");
     let mut stored = StoredBlueprintCourseContent::from_create(input.clone(), &BTreeMap::new())
         .expect("stored canonical Blueprint content");
     validate_loaded_content(&stored, &input, &manifest, &revisions)

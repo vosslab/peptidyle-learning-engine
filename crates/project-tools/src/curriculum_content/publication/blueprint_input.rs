@@ -10,6 +10,7 @@ use question_model::{
 pub(super) fn blueprint_input(
     manifest: &Manifest,
     revisions: &SourceRevisions,
+    classification: question_model::CourseClassification,
 ) -> Result<CreateBlueprintCourseInput> {
     let assessments = manifest
         .topics
@@ -52,6 +53,7 @@ pub(super) fn blueprint_input(
         })
         .collect::<Result<Vec<_>>>()?;
     let input = CreateBlueprintCourseInput {
+        classification,
         short_name: manifest.course.short_name.clone(),
         long_name: manifest.course.long_name.clone(),
         modules: vec![CreateBlueprintModuleInput {

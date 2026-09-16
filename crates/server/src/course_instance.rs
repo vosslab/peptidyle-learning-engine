@@ -9,9 +9,12 @@ use std::{str::FromStr, sync::Arc};
 use axum::{
     Json, Router,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    http::{
+        HeaderMap, HeaderValue, StatusCode,
+        header::{COOKIE, ETAG, IF_MATCH},
+    },
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, put},
 };
 use learning_data_access::{
     CourseInstancePoolIdIssuer, CourseInstanceStore, CreateCourseInstanceInput, SessionTokenHash,
@@ -59,6 +62,10 @@ pub fn course_instance_router(
         .route(
             "/api/course-instances/{reference}/summary",
             get(read_course_summary),
+        )
+        .route(
+            "/api/course-instances/{reference}/classification",
+            put(update_classification),
         )
         .route(
             "/api/course-instance-creation/instructors",
@@ -167,6 +174,7 @@ async fn read_course_summary(
     {
         Ok(summary) => crate::auth::no_store(
             Json(CourseInstanceRouteSummary {
+                classification: summary.classification,
                 reference: summary.reference,
                 short_name: summary.short_name,
                 long_name: summary.long_name,
@@ -175,6 +183,57 @@ async fn read_course_summary(
             })
             .into_response(),
         ),
+        Err(error) => store_error_response(error),
+    }
+}
+
+async fn update_classification(
+    State(state): State<CourseInstanceRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+    Json(classification): Json<question_model::CourseClassification>,
+) -> Response {
+    let reference = match reference.parse::<CourseInstanceReference>() {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let Some(raw) = headers.get(IF_MATCH).and_then(|value| value.to_str().ok()) else {
+        return route_error(
+            StatusCode::PRECONDITION_REQUIRED,
+            "Course metadata precondition is required",
+        );
+    };
+    let expected = match raw
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .and_then(|value| value.parse::<question_model::CourseMetadataEtag>().ok())
+    {
+        Some(value) => value,
+        None => return route_error(StatusCode::BAD_REQUEST, "Course metadata ETag is invalid"),
+    };
+    let session = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .courses
+        .update_course_classification(session, reference, expected, classification)
+        .await
+    {
+        Ok(value) => {
+            let etag = match HeaderValue::from_str(&format!("\"{}\"", value.metadata_etag)) {
+                Ok(value) => value,
+                Err(_) => {
+                    return route_error(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "Course metadata unavailable",
+                    );
+                }
+            };
+            let mut response = crate::auth::no_store(Json(value).into_response());
+            response.headers_mut().insert(ETAG, etag);
+            response
+        }
         Err(error) => store_error_response(error),
     }
 }

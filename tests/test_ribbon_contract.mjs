@@ -415,7 +415,7 @@ test("breadcrumb trails are canonical route projections with one current termina
     ["assessmentWorkspaceQuestions", ["Courses", "Biochemistry I", "Problem Set 7", "Questions"]],
     ["assessmentWorkspacePolicies", ["Courses", "Biochemistry I", "Problem Set 7", "Properties"]],
     ["questionDetail", ["Questions", "Question Library", "Question"]],
-    ["questionDraftEditor", ["Questions", "My Draft Questions", "Draft Question"]],
+    ["questionDraftEditor", ["Questions", "My Draft Questions", "Question authoring"]],
     ["blueprintCourseDetail", ["Courses", "My Blueprint Courses", "Blueprint Course"]],
     ["publicBlueprintSearch", ["Courses", "Search Public Blueprint Courses"]],
     ["assessmentAttempt", ["Courses", "Biochemistry I", "Problem Set 7", "Attempt"]],

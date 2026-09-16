@@ -467,9 +467,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
       setPublishedSummary(summary);
       transition({
         kind: "publishSucceeded",
-        reference: "/library",
+        reference: `/library/${encodeURIComponent(summary.questionId)}`,
       });
-      setStatus("The new Question ID is published.");
+      setStatus("Publication complete. Open the published Question to inspect it.");
+      requestAnimationFrame(() => heading?.focus());
     } catch (error: unknown) {
       transition({
         kind: "publishFailed",
@@ -506,18 +507,24 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
     >
       <style>{PLE_QUESTION_JSON_EDITOR_STYLES}</style>
       <header>
-        <p class="eyebrow">Private instructor authoring</p>
+        <p class="eyebrow">
+          {publishedReference(state()) ? "Publication complete" : "Private instructor authoring"}
+        </p>
         <h1 ref={(node) => (heading = node)} tabindex="-1">
-          PLE Question JSON
+          {publishedReference(state()) ? "Question published" : "PLE Question JSON"}
         </h1>
         <p>
-          Build a clear student question, save it privately, then review and publish it when it is
-          ready.
+          {publishedReference(state())
+            ? "Your authoring work is complete. This confirmation identifies the Question now available in the Question Library."
+            : "Build a clear student question, save it privately, then review and publish it when it is ready."}
         </p>
       </header>
       <Show when={status()}>
         {(message) => (
-          <p role="status" aria-label="Private draft status">
+          <p
+            role="status"
+            aria-label={publishedReference(state()) ? "Publication status" : "Private draft status"}
+          >
             {message()}
           </p>
         )}
@@ -821,6 +828,10 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                     <strong>Question ID:</strong> <code>{summary.questionId}</code>
                   </p>
                   <p>
+                    <strong>Published Revision:</strong>{" "}
+                    {summary.latestQuestionRevision.revisionNumber}
+                  </p>
+                  <p>
                     <strong>Published to:</strong> Question Library
                   </p>
                   <p>
@@ -830,7 +841,9 @@ export function PleQuestionJsonEditorPage(props: PleQuestionJsonEditorPageProps)
                 </>
               )}
             </Show>
-            <a href={reference()}>Open question library</a>
+            <a class="primary-action" href={reference()}>
+              Open published Question
+            </a>
           </section>
         )}
       </Show>

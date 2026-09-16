@@ -6,6 +6,7 @@ import { decodeBlueprintPoolMembersView } from "../decoders/blueprint_pool_membe
 import { decodeBlueprintComparisonView } from "../decoders/blueprint_comparison";
 import { decodeBlueprintHistoryPageView } from "../decoders/blueprint_history";
 import { decodeUuid } from "../decoder";
+import { decodeCourseClassification } from "../decoders/course_classification";
 import { decodeCursor, decodeQuestionId } from "../decoders/shared";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
@@ -403,6 +404,27 @@ export function createBlueprintCourseClient(
           path,
         ),
       };
+    },
+    updateBlueprintCourseClassification: async (
+      reference,
+      classification,
+      etag,
+    ): Promise<BlueprintMetadataTransition> => {
+      const path = `${blueprintPath(reference)}/classification`;
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintMetadataState,
+        {
+          method: "PUT",
+          body: decodeCourseClassification(classification, "request"),
+          etag,
+          parseEtag: parseMetadataEtag,
+          expectedStatus: 200,
+        },
+      );
+      return metadataTransition(result.body, result.response, path);
     },
     renameBlueprintCourse: async (reference, names, etag): Promise<BlueprintMetadataTransition> => {
       const path = `${blueprintPath(reference)}/metadata`;

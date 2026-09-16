@@ -168,40 +168,44 @@ print(json.dumps(replacement, separators=(",",":")))
 course_payload() {
 	python3 -c '
 import json, sys
-blueprint, revision, assigned, short_name, long_name = sys.argv[1:]
-print(json.dumps({"source":{"kind":"adopted","blueprintCourse":blueprint,"blueprintRevision":revision},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
-' "$1" "$2" "$3" "$4" "$5"
+blueprint, revision, assigned, classification, short_name, long_name = sys.argv[1:]
+print(json.dumps({"classification":json.loads(classification),"source":{"kind":"adopted","blueprintCourse":blueprint,"blueprintRevision":revision},"shortName":short_name,"longName":long_name,"term":{"startDate":"2026-09-01","endDate":"2026-12-18"},"assignedInstructor":assigned}, separators=(",",":")))
+' "$1" "$2" "$3" "$4" "$5" "$6"
 }
 
 assert_course_receipt() {
 	python3 -c '
-import json, re, sys
+import json, sys
 value = json.loads(sys.argv[1])
 if set(value) != {"course"}:
     raise SystemExit("Course Instance creation receipt was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
-if (set(course) != {"reference", "shortName", "longName", "term", "theme"}
-    or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"])
+if (set(course) != {"classification", "metadataEtag", "reference", "shortName", "longName", "term", "theme"}
+    or not isinstance(course["reference"], str) or not course["reference"]
+    or course["classification"] != json.loads(sys.argv[4])
+    or not isinstance(course["metadataEtag"], str) or not course["metadataEtag"]
     or course["theme"] not in themes):
     raise SystemExit("Course Instance creation receipt did not return a public Course Instance identity")
 if course["shortName"] != sys.argv[2] or course["longName"] != sys.argv[3]:
     raise SystemExit("Sysadmin Course Instance creation did not preserve its Course identity receipt")
 print(course["reference"])
-' "$1" "$2" "$3"
+' "$1" "$2" "$3" "$4"
 }
 
 assert_instructor_view() {
 	python3 -c '
-import json, re, sys
+import json, sys
 value = json.loads(sys.argv[1])
 if set(value) != {"course", "activeInstructorCount", "blueprintOrigin"}:
     raise SystemExit("Course Instance teaching-team view was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
-if (set(course) != {"reference", "shortName", "longName", "term", "theme"}
-    or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"])
+if (set(course) != {"classification", "metadataEtag", "reference", "shortName", "longName", "term", "theme"}
+    or not isinstance(course["reference"], str) or not course["reference"]
     or course["reference"] != sys.argv[2]
+    or course["classification"] != json.loads(sys.argv[5])
+    or not isinstance(course["metadataEtag"], str) or not course["metadataEtag"]
     or course["theme"] not in themes):
     raise SystemExit("Course Instance teaching-team view identity differs")
 if course["shortName"] != sys.argv[3] or course["longName"] != sys.argv[4]:
@@ -212,18 +216,18 @@ origin = value["blueprintOrigin"]
 if origin is not None and (
     not isinstance(origin, dict)
     or set(origin) != {"reference", "adoptedRevision", "currentRevision"}
-    or not re.fullmatch(r"BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}", origin["reference"])
+    or not isinstance(origin["reference"], str) or not origin["reference"]
     or not isinstance(origin["adoptedRevision"], str)
     or not isinstance(origin["currentRevision"], str)
-    or not re.fullmatch(r"[1-9][0-9]*", origin["adoptedRevision"])
-    or not re.fullmatch(r"[1-9][0-9]*", origin["currentRevision"])
+    or not origin["adoptedRevision"].isdigit()
+    or not origin["currentRevision"].isdigit()
     or not 0 < int(origin["adoptedRevision"]) <= int(origin["currentRevision"])
 ):
     raise SystemExit("Course Instance Blueprint origin was not a closed ordered provenance")
 forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
 if forbidden.intersection(value) or forbidden.intersection(course):
     raise SystemExit("Course Instance teaching-team view exposed future or private state")
-' "$1" "$2" "$3" "$4"
+' "$1" "$2" "$3" "$4" "$5"
 }
 
 assert_course_list() {
@@ -239,7 +243,43 @@ if len(matches) != 1:
 course = matches[0]
 if course.get("shortName") != sys.argv[3] or course.get("longName") != sys.argv[4]:
     raise SystemExit("Assigned Instructor Course Instance list did not retain both names")
-' "$1" "$2" "$3" "$4"
+if course.get("classification") != json.loads(sys.argv[5]):
+    raise SystemExit("Assigned Instructor Course Instance list did not retain its classification")
+' "$1" "$2" "$3" "$4" "$5"
+}
+
+classification_uuid() {
+	local path="$1" key="$2" name="$3" cookie="$4" response
+	response="$(request "$path" "$cookie")"
+	if [ "$(response_status "$response")" != "200" ]; then
+		echo "Course Instance classification selector $key failed (HTTP $(response_status "$response"))" >&2
+		return 1
+	fi
+	python3 -c '
+import json, sys, uuid
+payload = json.loads(sys.argv[1])
+key, name = sys.argv[2:4]
+items = payload.get(key)
+if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+    raise SystemExit(f"Course Instance classification selector {key} did not return a list")
+matches = [item for item in items if item.get("name") == name]
+if len(matches) != 1:
+    raise SystemExit(f"Course Instance requires exactly one installed {key} fixture named {name}; found {len(matches)}")
+value = matches[0].get("uuid")
+if not isinstance(value, str) or str(uuid.UUID(value)) != value:
+    raise SystemExit(f"Course Instance {name} fixture did not return a canonical UUID")
+print(value)
+' "$(response_body "$response")" "$key" "$name"
+}
+
+course_classification() {
+	local cookie="$1" discipline_uuid subject_uuid
+	discipline_uuid="$(classification_uuid '/api/content-classification/disciplines' disciplines Biology "$cookie")"
+	subject_uuid="$(classification_uuid "/api/content-classification/subjects?disciplineUuid=$discipline_uuid" subjects Biochemistry "$cookie")"
+	python3 -c '
+import json, sys
+print(json.dumps({"disciplineUuid": sys.argv[1], "subjectUuid": sys.argv[2], "topicUuid": None, "subtopicUuid": None, "tags": []}, separators=(",", ":")))
+' "$discipline_uuid" "$subject_uuid"
 }
 
 assert_database_evidence() {
@@ -249,44 +289,33 @@ assert_database_evidence() {
 	local instructor_reference="$4"
 	local postgres output sql
 	postgres="$(service_id postgres)"
-	sql="DO \$\$
-DECLARE
-    v_course_id uuid;
-    v_assigned_instructor_id uuid;
-BEGIN
-    SELECT course.course_id, course.assigned_instructor_account_id
-      INTO v_course_id, v_assigned_instructor_id
+	sql="SELECT 'course_instance_authority'
       FROM ple_data.course_instance AS course
-     WHERE course.reference_number = ${course_reference#C-}
-       AND course.blueprint_course_reference_number = ${blueprint_reference#BP-}
-       AND course.blueprint_revision_number = $blueprint_revision;
-    IF v_course_id IS NULL
-       OR NOT EXISTS (SELECT 1 FROM ple_data.course_origin AS origin
-                      WHERE origin.course_id = v_course_id
-                        AND origin.source_course_id IS NULL
-                        AND origin.blueprint_course_reference_number = ${blueprint_reference#BP-}
-                        AND origin.blueprint_revision_number = $blueprint_revision)
-       OR NOT EXISTS (SELECT 1 FROM ple_data.course_membership AS membership
-                      WHERE membership.course_id = v_course_id
-                        AND membership.account_id = v_assigned_instructor_id
-                        AND membership.role = 'instructor'
-                        AND ple_data.course_membership_is_active(membership.membership_id))
-       OR NOT EXISTS (SELECT 1 FROM ple_audit.course_instance_creation_event AS event
-                      WHERE event.course_id = v_course_id
-                        AND event.assigned_instructor_account_id = v_assigned_instructor_id
-                        AND event.created_by_account_id <> v_assigned_instructor_id)
-       OR EXISTS (SELECT 1 FROM ple_data.student_record WHERE course_id = v_course_id)
-       OR EXISTS (SELECT 1 FROM ple_data.assignment WHERE course_id = v_course_id)
-       OR NOT EXISTS (SELECT 1 FROM ple_private.account
-                      WHERE account_id = v_assigned_instructor_id
-                        AND reference_number = ${instructor_reference#U-})
-    THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Instance atomic evidence is incomplete';
-    END IF;
-END
-\$\$;
-SELECT 'course_instance_authority';"
-	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "$1"' sh "$sql")"
+      JOIN ple_data.blueprint_course AS blueprint
+        ON blueprint.reference_number = course.blueprint_course_reference_number
+      JOIN ple_private.account AS instructor
+        ON instructor.account_id = course.assigned_instructor_account_id
+     WHERE course.public_reference = :'course_reference'
+       AND blueprint.public_reference = :'blueprint_reference'
+       AND course.blueprint_revision_number = :'blueprint_revision'::bigint
+       AND instructor.public_reference = :'instructor_reference'
+       AND EXISTS (SELECT 1 FROM ple_data.course_origin AS origin
+                    WHERE origin.course_id = course.course_id
+                      AND origin.source_course_id IS NULL
+                      AND origin.blueprint_course_reference_number = course.blueprint_course_reference_number
+                      AND origin.blueprint_revision_number = course.blueprint_revision_number)
+       AND EXISTS (SELECT 1 FROM ple_data.course_membership AS membership
+                    WHERE membership.course_id = course.course_id
+                      AND membership.account_id = course.assigned_instructor_account_id
+                      AND membership.role = 'instructor'
+                      AND ple_data.course_membership_is_active(membership.membership_id))
+       AND EXISTS (SELECT 1 FROM ple_audit.course_instance_creation_event AS event
+                    WHERE event.course_id = course.course_id
+                      AND event.assigned_instructor_account_id = course.assigned_instructor_account_id
+                      AND event.created_by_account_id <> course.assigned_instructor_account_id)
+       AND NOT EXISTS (SELECT 1 FROM ple_data.student_record WHERE course_id = course.course_id)
+       AND NOT EXISTS (SELECT 1 FROM ple_data.assignment WHERE course_id = course.course_id);"
+	output="$(printf '%s\n' "$sql" | podman exec -i "$postgres" sh -lc 'exec psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At "$@"' sh -v course_reference="$course_reference" -v blueprint_reference="$blueprint_reference" -v blueprint_revision="$blueprint_revision" -v instructor_reference="$instructor_reference")"
 	if [ "$(printf '%s\n' "$output" | sed -n '/^course_instance_authority$/p')" != "course_instance_authority" ]; then
 		echo "Course Instance atomic persistence evidence was not recorded" >&2
 		exit 1
@@ -315,7 +344,7 @@ if not isinstance(source["blueprint_assignment_reference"], str) or not source["
 }
 
 prove_authority() {
-	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint revision_one metadata_etag private_adoption published replacement saved revision_two candidates assigned course_created course_reference second_course_created second_course_reference course_list course_view source_choices stale_created newer_created newer_course_reference
+	local instructor_cookie sysadmin_cookie student_cookie library question_id created blueprint revision_one metadata_etag private_adoption published replacement saved revision_two candidates assigned classification course_created course_reference second_course_created second_course_reference course_list course_view source_choices stale_created newer_created newer_course_reference
 	instructor_cookie="$(persona_cookie elenaInstructor)"
 	sysadmin_cookie="$(persona_cookie morganSysadmin)"
 	student_cookie="$(persona_cookie maryStudent)"
@@ -333,32 +362,33 @@ prove_authority() {
 		exit 1
 	fi
 read -r blueprint revision_one metadata_etag < <(python3 -c '
-import json, re, sys
+import json, sys
 value=json.loads(sys.argv[1]); reference=value.get("reference"); revision=value.get("current_revision"); metadata_etag=value.get("metadata_etag")
-if (not isinstance(reference,str) or not re.fullmatch(r"BP-[1-9][0-9]{0,9}",reference)
+if (not isinstance(reference,str) or not reference
     or revision != {"reference": reference, "revision": "1"}
     or not isinstance(metadata_etag, str) or not metadata_etag):
     raise SystemExit("Blueprint creation did not return available exact Revision 1")
 print(reference, revision["revision"], metadata_etag)
 ' "$(response_body "$created")")
+	classification="$(course_classification "$sysadmin_cookie")"
 	candidates="$(request '/api/course-instance-creation/instructors' "$sysadmin_cookie")"
 	if [ "$(response_status "$candidates")" != "200" ]; then
 		echo "Sysadmin could not obtain the bounded Assigned Instructor selection" >&2
 		exit 1
 	fi
 	assigned="$(python3 -c '
-import json, re, sys
+import json, sys
 items=json.loads(sys.argv[1]).get("items")
 if not isinstance(items,list) or not items or any(not isinstance(item,dict) for item in items):
     raise SystemExit("Assigned Instructor selection is empty or malformed")
 references=[item.get("reference") for item in items]
-if any(not isinstance(reference,str) or not re.fullmatch(r"U-[1-9][0-9]{0,9}",reference) for reference in references):
+if any(not isinstance(reference,str) or not reference for reference in references):
     raise SystemExit("Assigned Instructor selection lacks a public Account Reference")
 if len(set(references)) != len(references):
     raise SystemExit("Assigned Instructor selection duplicates a public Account Reference")
 print(references[0])
 ' "$(response_body "$candidates")")"
-	private_adoption="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$course_short_name" "$course_long_name")")"
+	private_adoption="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$classification" "$course_short_name" "$course_long_name")")"
 	if [ "$(response_status "$private_adoption")" != "422" ]; then
 		echo "Private Blueprint Course accepted a new Course Instance adoption" >&2
 		exit 1
@@ -368,18 +398,18 @@ print(references[0])
 		echo "Instructor could not publish the Blueprint source for Course Instance adoption" >&2
 		exit 1
 	fi
-	course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$course_short_name" "$course_long_name")")"
+	course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$classification" "$course_short_name" "$course_long_name")")"
 	if [ "$(response_status "$course_created")" != "201" ]; then
 		echo "Sysadmin could not create the Course Instance for the selected Instructor (HTTP $(response_status "$course_created"): $(response_body "$course_created"))" >&2
 		exit 1
 	fi
-	course_reference="$(assert_course_receipt "$(response_body "$course_created")" "$course_short_name" "$course_long_name")"
-	second_course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$second_course_short_name" "$second_course_long_name")")"
+	course_reference="$(assert_course_receipt "$(response_body "$course_created")" "$course_short_name" "$course_long_name" "$classification")"
+	second_course_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$classification" "$second_course_short_name" "$second_course_long_name")")"
 	if [ "$(response_status "$second_course_created")" != "201" ]; then
 		echo "Sysadmin could not create the second Revision 1 Course Instance (HTTP $(response_status "$second_course_created"): $(response_body "$second_course_created"))" >&2
 		exit 1
 	fi
-	second_course_reference="$(assert_course_receipt "$(response_body "$second_course_created")" "$second_course_short_name" "$second_course_long_name")"
+	second_course_reference="$(assert_course_receipt "$(response_body "$second_course_created")" "$second_course_short_name" "$second_course_long_name" "$classification")"
 	assert_database_evidence "$course_reference" "$blueprint" "$revision_one" "$assigned"
 	assert_database_evidence "$second_course_reference" "$blueprint" "$revision_one" "$assigned"
 	assert_concealed "$(request '/api/course-instances' "$sysadmin_cookie")"
@@ -389,13 +419,13 @@ print(references[0])
 		echo "Assigned Instructor could not enter the new Course Instance list" >&2
 		exit 1
 	fi
-	assert_course_list "$(response_body "$course_list")" "$course_reference" "$course_short_name" "$course_long_name"
+	assert_course_list "$(response_body "$course_list")" "$course_reference" "$course_short_name" "$course_long_name" "$classification"
 	course_view="$(request "/api/course-instances/$course_reference" "$instructor_cookie")"
 	if [ "$(response_status "$course_view")" != "200" ]; then
 		echo "Assigned Instructor could not open the new Course Instance" >&2
 		exit 1
 	fi
-	assert_instructor_view "$(response_body "$course_view")" "$course_reference" "$course_short_name" "$course_long_name"
+	assert_instructor_view "$(response_body "$course_view")" "$course_reference" "$course_short_name" "$course_long_name" "$classification"
 	source_choices="$(request "/api/course-instances/$course_reference/assignment-source-choices" "$instructor_cookie")"
 	if [ "$(response_status "$source_choices")" != "200" ]; then
 		echo "Assigned Instructor could not obtain exact Blueprint Assignment sources" >&2
@@ -418,17 +448,17 @@ print("2")
 ' "$(response_body "$saved")" "$blueprint")"
 	assert_database_evidence "$course_reference" "$blueprint" "$revision_one" "$assigned"
 	assert_database_evidence "$second_course_reference" "$blueprint" "$revision_one" "$assigned"
-	stale_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "BIOL stale" "Molecular Biology stale Revision Pin")")"
+	stale_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_one" "$assigned" "$classification" "BIOL stale" "Molecular Biology stale Revision Pin")")"
 	if [ "$(response_status "$stale_created")" != "412" ]; then
 		echo "new Course Instance accepted a superseded Blueprint Revision" >&2
 		exit 1
 	fi
-	newer_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_two" "$assigned" "$current_course_short_name" "$current_course_long_name")")"
+	newer_created="$(request '/api/course-instances' "$sysadmin_cookie" POST "$(course_payload "$blueprint" "$revision_two" "$assigned" "$classification" "$current_course_short_name" "$current_course_long_name")")"
 	if [ "$(response_status "$newer_created")" != "201" ]; then
 		echo "Sysadmin could not create a Course Instance from the current Blueprint Revision" >&2
 		exit 1
 	fi
-	newer_course_reference="$(assert_course_receipt "$(response_body "$newer_created")" "$current_course_short_name" "$current_course_long_name")"
+	newer_course_reference="$(assert_course_receipt "$(response_body "$newer_created")" "$current_course_short_name" "$current_course_long_name" "$classification")"
 	assert_database_evidence "$newer_course_reference" "$blueprint" "$revision_two" "$assigned"
 	echo "Course Instance authority: current source selection, historical pin preservation, and no ambient Sysadmin access complete"
 }

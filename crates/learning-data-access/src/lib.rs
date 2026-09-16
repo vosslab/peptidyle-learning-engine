@@ -152,6 +152,7 @@ pub use course_banner::{
     StageCourseBannerUpload, StagedCourseBannerUpload,
 };
 pub use course_instance::{
+    CourseClassificationUpdate,
     CourseCreationInstructor, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
     CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput,
     CreatedCourseInstance,

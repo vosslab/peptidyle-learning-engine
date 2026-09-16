@@ -57,7 +57,7 @@ export function isBackendOwnedResponseMessage(
 }
 
 /**
- * Separates an ordinary bridge submission from the one reply requested by the
+ * Separates an ordinary bridge save from the one reply requested by the
  * active capture. A capture can advance Assessment Finish only on its exact ID.
  */
 export function classifyBackendOwnedResponseMessage(
@@ -189,8 +189,8 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
 
   async function captureAndSave(): Promise<void> {
     const response = await capture();
-    if (response === null || props.onSubmit === undefined) return;
-    const outcome = await props.onSubmit(response);
+    if (response === null || props.onSave === undefined) return;
+    const outcome = await props.onSave(response);
     if (outcome.kind === "accepted") {
       setPhase("saved");
       setMessage("Response saved.");
@@ -250,7 +250,7 @@ export function BackendOwnedDocument(props: BackendOwnedDocumentProps): JSX.Elem
         disabled={phase() !== "ready" && phase() !== "saved"}
         onClick={() => void captureAndSave()}
       >
-        {phase() === "capturing" ? "Saving response..." : (props.submitLabel ?? "Save response")}
+        {phase() === "capturing" ? "Saving response..." : (props.saveLabel ?? "Save response")}
       </button>
     </section>
   );

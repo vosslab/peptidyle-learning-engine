@@ -6,7 +6,7 @@ import test from "node:test";
 import { createRoot } from "solid-js";
 
 import {
-  createSubmissionController,
+  createResponseController,
   createImathasQuestionBackendMarkerPersistence,
   handleQuestionResponseControlKeyDown,
   isImathasQuestionBackendReadyMessage,
@@ -17,9 +17,9 @@ import {
 
 const numericResponseFormat = { kind: "numeric", tolerance: { kind: "exact" }, unit: null };
 
-test("invalid input is locally checked and issues no submission request", async () => {
+test("invalid input is locally checked and issues no save request", async () => {
   let validationCalls = 0;
-  let submitCalls = 0;
+  let saveCalls = 0;
   const validator = {
     mode: "wasm",
     validateResponseFormat: async () => {
@@ -32,30 +32,30 @@ test("invalid input is locally checked and issues no submission request", async 
     value: Number.NaN,
   };
   const controller = createRoot(() =>
-    createSubmissionController({
+    createResponseController({
       attemptId: "attempt-invalid",
       responseFormat: numericResponseFormat,
       validator,
       onEscape: () => undefined,
-      onSubmit: async () => {
-        submitCalls += 1;
+      onSave: async () => {
+        saveCalls += 1;
         return { kind: "accepted" };
       },
     }),
   );
   const check = await validateResponseLocally(validator, numericResponseFormat, response);
   await controller.validate(response);
-  await controller.submit(response);
+  await controller.save(response);
 
   assert.equal(validationCalls, 3);
   assert.equal(check.issues[0]?.kind, "numericNotFinite");
-  assert.equal(submitCalls, 0);
+  assert.equal(saveCalls, 0);
   assert.equal(controller.phase().kind, "invalid");
 });
 
-test("blank numeric input stays invalid and never submits zero", async () => {
+test("blank numeric input stays invalid and never saves zero", async () => {
   let validationCalls = 0;
-  let submitCalls = 0;
+  let saveCalls = 0;
   const blankResponse = numericResponseFromInput("  \t");
   const validator = {
     mode: "wasm",
@@ -67,31 +67,31 @@ test("blank numeric input stays invalid and never submits zero", async () => {
     },
   };
   const controller = createRoot(() =>
-    createSubmissionController({
+    createResponseController({
       attemptId: "attempt-blank-numeric",
       responseFormat: numericResponseFormat,
       validator,
       onEscape: () => undefined,
-      onSubmit: async () => {
-        submitCalls += 1;
+      onSave: async () => {
+        saveCalls += 1;
         return { kind: "accepted" };
       },
     }),
   );
 
   await controller.validate(blankResponse);
-  assert.equal(controller.canSubmit(), false);
-  await controller.submit(blankResponse);
+  assert.equal(controller.canSave(), false);
+  await controller.save(blankResponse);
 
   assert.equal(validationCalls, 2);
-  assert.equal(submitCalls, 0);
+  assert.equal(saveCalls, 0);
   assert.equal(controller.phase().kind, "invalid");
 });
 
-test("format-only controls validate locally without exposing submission", async () => {
-  let submitCalls = 0;
+test("format-only controls validate locally without exposing save", async () => {
+  let saveCalls = 0;
   const controller = createRoot(() =>
-    createSubmissionController({
+    createResponseController({
       attemptId: "presentation-nonce-only",
       mode: "formatOnly",
       responseFormat: numericResponseFormat,
@@ -100,8 +100,8 @@ test("format-only controls validate locally without exposing submission", async 
         validateResponseFormat: async () => ({ issues: [] }),
       },
       onEscape: () => undefined,
-      onSubmit: async () => {
-        submitCalls += 1;
+      onSave: async () => {
+        saveCalls += 1;
         return { kind: "accepted" };
       },
     }),
@@ -109,11 +109,11 @@ test("format-only controls validate locally without exposing submission", async 
   const response = { kind: "numeric", value: 3 };
 
   await controller.validate(response);
-  await controller.submit(response);
+  await controller.save(response);
 
   assert.equal(controller.phase().kind, "ready");
-  assert.equal(controller.canSubmit(), false);
-  assert.equal(submitCalls, 0);
+  assert.equal(controller.canSave(), false);
+  assert.equal(saveCalls, 0);
 });
 
 test("initial controlled responses are checked before a student edits them", async () => {
@@ -125,9 +125,9 @@ test("initial controlled responses are checked before a student edits them", asy
     ],
   };
   const initialOrder = { kind: "ordering", order: ["first", "second"] };
-  let submitCalls = 0;
+  let saveCalls = 0;
   const validController = createRoot(() =>
-    createSubmissionController(
+    createResponseController(
       {
         attemptId: "attempt-initial-order",
         responseFormat: orderingResponseFormat,
@@ -140,8 +140,8 @@ test("initial controlled responses are checked before a student edits them", asy
           },
         },
         onEscape: () => undefined,
-        onSubmit: async () => {
-          submitCalls += 1;
+        onSave: async () => {
+          saveCalls += 1;
           return { kind: "accepted" };
         },
       },
@@ -150,13 +150,13 @@ test("initial controlled responses are checked before a student edits them", asy
   );
 
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(validController.canSubmit(), true);
-  await validController.submit(initialOrder);
-  assert.equal(submitCalls, 1);
+  assert.equal(validController.canSave(), true);
+  await validController.save(initialOrder);
+  assert.equal(saveCalls, 1);
 
-  let invalidSubmitCalls = 0;
+  let invalidSaveCalls = 0;
   const invalidController = createRoot(() =>
-    createSubmissionController(
+    createResponseController(
       {
         attemptId: "attempt-invalid-initial-order",
         responseFormat: orderingResponseFormat,
@@ -168,8 +168,8 @@ test("initial controlled responses are checked before a student edits them", asy
           }),
         },
         onEscape: () => undefined,
-        onSubmit: async () => {
-          invalidSubmitCalls += 1;
+        onSave: async () => {
+          invalidSaveCalls += 1;
           return { kind: "accepted" };
         },
       },
@@ -179,14 +179,14 @@ test("initial controlled responses are checked before a student edits them", asy
 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(invalidController.phase().kind, "invalid");
-  await invalidController.submit({ kind: "ordering", order: ["first", "first"] });
-  assert.equal(invalidSubmitCalls, 0);
+  await invalidController.save({ kind: "ordering", order: ["first", "first"] });
+  assert.equal(invalidSaveCalls, 0);
 });
 
 test("a fresh issued empty response stays neutral until the student interacts", async () => {
   let validationCalls = 0;
   const controller = createRoot(() =>
-    createSubmissionController(
+    createResponseController(
       {
         attemptId: "attempt-fresh-empty",
         responseFormat: numericResponseFormat,
@@ -198,7 +198,7 @@ test("a fresh issued empty response stays neutral until the student interacts", 
           },
         },
         onEscape: () => undefined,
-        onSubmit: async () => ({ kind: "accepted" }),
+        onSave: async () => ({ kind: "accepted" }),
       },
       { kind: "numeric", value: Number.NaN },
     ),
@@ -207,12 +207,12 @@ test("a fresh issued empty response stays neutral until the student interacts", 
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(validationCalls, 0);
   assert.equal(controller.phase().kind, "idle");
-  assert.equal(controller.canSubmit(), false);
+  assert.equal(controller.canSave(), false);
 });
 
 test("Escape returns from a Question Response Control descendant unless native handling already owns it", () => {
   let escapes = 0;
-  let submits = 0;
+  let saves = 0;
   let prevented = false;
   const event = {
     defaultPrevented: false,
@@ -227,18 +227,18 @@ test("Escape returns from a Question Response Control descendant unless native h
   handleQuestionResponseControlKeyDown(
     event,
     () => escapes++,
-    () => submits++,
+    () => saves++,
     () => true,
   );
 
   assert.equal(escapes, 1);
-  assert.equal(submits, 0);
+  assert.equal(saves, 0);
   assert.equal(prevented, true);
 
   handleQuestionResponseControlKeyDown(
     { ...event, defaultPrevented: true },
     () => escapes++,
-    () => submits++,
+    () => saves++,
     () => true,
   );
   assert.equal(escapes, 1);
@@ -260,25 +260,25 @@ test("local validation is key-free and preserves a ready response for the attemp
   });
 });
 
-test("an in-flight submission locks the response and cannot issue a duplicate request", async () => {
-  let resolveSubmit;
-  const submission = new Promise((resolve) => {
-    resolveSubmit = resolve;
+test("an in-flight save locks the response and cannot issue a duplicate request", async () => {
+  let resolveSave;
+  const save = new Promise((resolve) => {
+    resolveSave = resolve;
   });
-  let submitCalls = 0;
+  let saveCalls = 0;
   const validator = {
     mode: "wasm",
     validateResponseFormat: async () => ({ issues: [] }),
   };
   const controller = createRoot(() =>
-    createSubmissionController({
+    createResponseController({
       attemptId: "attempt-1",
       responseFormat: numericResponseFormat,
       validator,
       onEscape: () => undefined,
-      onSubmit: async () => {
-        submitCalls += 1;
-        await submission;
+      onSave: async () => {
+        saveCalls += 1;
+        await save;
         return { kind: "accepted" };
       },
     }),
@@ -286,25 +286,25 @@ test("an in-flight submission locks the response and cannot issue a duplicate re
   const response = { kind: "numeric", value: 3 };
 
   await controller.validate(response);
-  const first = controller.submit(response);
-  const duplicate = controller.submit(response);
+  const first = controller.save(response);
+  const duplicate = controller.save(response);
   assert.equal(controller.pending(), true);
-  assert.equal(submitCalls, 1);
-  resolveSubmit();
+  assert.equal(saveCalls, 1);
+  resolveSave();
   await Promise.all([first, duplicate]);
   assert.equal(controller.pending(), false);
-  assert.equal(submitCalls, 1);
+  assert.equal(saveCalls, 1);
 });
 
-test("reset replaces a stale format check with the restored local response without submitting", async () => {
+test("reset replaces a stale format check with the restored local response without saving", async () => {
   let resolveFirst;
   const firstValidation = new Promise((resolve) => {
     resolveFirst = resolve;
   });
   const seen = [];
-  let submitCalls = 0;
+  let saveCalls = 0;
   const controller = createRoot(() =>
-    createSubmissionController({
+    createResponseController({
       attemptId: "attempt-reset",
       responseFormat: numericResponseFormat,
       validator: {
@@ -316,8 +316,8 @@ test("reset replaces a stale format check with the restored local response witho
         },
       },
       onEscape: () => undefined,
-      onSubmit: async () => {
-        submitCalls += 1;
+      onSave: async () => {
+        saveCalls += 1;
         return { kind: "accepted" };
       },
     }),
@@ -330,25 +330,25 @@ test("reset replaces a stale format check with the restored local response witho
 
   assert.deepEqual(seen, [9, 3]);
   assert.equal(controller.phase().kind, "restored");
-  assert.equal(controller.canSubmit(), true);
-  assert.equal(submitCalls, 0);
+  assert.equal(controller.canSave(), true);
+  assert.equal(saveCalls, 0);
 });
 
-test("a rejected submission keeps the response editable for a corrected resubmission", async () => {
-  const submitted = [];
+test("a rejected save keeps the response editable for a corrected save retry", async () => {
+  const saved = [];
   const controller = createRoot(() =>
-    createSubmissionController({
-      attemptId: "attempt-corrected-submission",
+    createResponseController({
+      attemptId: "attempt-corrected-save",
       responseFormat: numericResponseFormat,
       validator: {
         mode: "wasm",
         validateResponseFormat: async () => ({ issues: [] }),
       },
       onEscape: () => undefined,
-      onSubmit: async (response) => {
-        submitted.push(response);
-        return submitted.length === 1
-          ? { kind: "rejected", message: "The submitted response was refused (422). Correct it." }
+      onSave: async (response) => {
+        saved.push(response);
+        return saved.length === 1
+          ? { kind: "rejected", message: "The saved response was refused (422). Correct it." }
           : { kind: "accepted" };
       },
     }),
@@ -357,7 +357,7 @@ test("a rejected submission keeps the response editable for a corrected resubmis
   const corrected = { kind: "numeric", value: 8 };
 
   await controller.validate(refused);
-  await controller.submit(refused);
+  await controller.save(refused);
 
   assert.equal(controller.phase().kind, "failed");
   assert.equal(controller.invalid(), true);
@@ -365,11 +365,20 @@ test("a rejected submission keeps the response editable for a corrected resubmis
   assert.equal(controller.canReset(), true);
 
   await controller.validate(corrected);
-  assert.equal(controller.canSubmit(), true);
-  await controller.submit(corrected);
+  assert.equal(controller.canSave(), true);
+  await controller.save(corrected);
 
-  assert.equal(controller.phase().kind, "submitted");
-  assert.deepEqual(submitted, [refused, corrected]);
+  assert.equal(controller.phase().kind, "saved");
+  assert.deepEqual(saved, [refused, corrected]);
+
+  assert.equal(controller.locked(), false);
+  assert.equal(controller.canReset(), true);
+  const changed = { kind: "numeric", value: 9 };
+  await controller.edit(changed);
+  assert.equal(controller.canSave(), true);
+  await controller.save(changed);
+  assert.equal(controller.phase().kind, "saved");
+  assert.deepEqual(saved, [refused, corrected, changed]);
 });
 
 test("editable save records raw input before delayed validation and retries a failed save", async () => {
@@ -379,7 +388,7 @@ test("editable save records raw input before delayed validation and retries a fa
   const validated = [];
   const response = { kind: "numeric", value: 7 };
   const controller = createRoot(() =>
-    createSubmissionController({
+    createResponseController({
       attemptId: "attempt-save-retry",
       mode: "save",
       responseFormat: numericResponseFormat,
@@ -396,7 +405,7 @@ test("editable save records raw input before delayed validation and retries a fa
         return edits.length;
       },
       onResponseChange: (_response, _validation, editRevision) => validated.push(editRevision),
-      onSubmit: async () => {
+      onSave: async () => {
         saveCalls += 1;
         return saveCalls === 1
           ? { kind: "rejected", message: "Temporary save failure." }
@@ -407,17 +416,17 @@ test("editable save records raw input before delayed validation and retries a fa
 
   const pendingEdit = controller.edit(response);
   assert.deepEqual(edits, [response]);
-  assert.equal(controller.canSubmit(), false);
+  assert.equal(controller.canSave(), false);
   resolveValidation({ issues: [] });
   await pendingEdit;
   assert.deepEqual(validated, [1]);
 
-  await controller.submit(response);
+  await controller.save(response);
   assert.equal(controller.phase().kind, "failed");
-  assert.equal(controller.canSubmit(), true);
-  await controller.submit(response);
+  assert.equal(controller.canSave(), true);
+  await controller.save(response);
   assert.equal(saveCalls, 2);
-  assert.equal(controller.phase().kind, "restored");
+  assert.equal(controller.phase().kind, "saved");
 });
 
 test("iMathAS marker records one revisioned durable response and retains it for retry", () => {
@@ -450,7 +459,7 @@ test("a disposed response controller ignores a late format validation", async ()
   let dispose;
   createRoot((disposeRoot) => {
     dispose = disposeRoot;
-    controller = createSubmissionController({
+    controller = createResponseController({
       attemptId: "attempt-disposed-validation",
       responseFormat: numericResponseFormat,
       validator: {

@@ -2,7 +2,8 @@ SET LOCAL ROLE ple_api_owner;
 
 CREATE FUNCTION ple_api.create_blueprint_course(
     p_blueprint_id uuid, p_request_checksum bytea, p_short_name text, p_long_name text,
-    p_content jsonb, p_content_checksum bytea
+    p_content jsonb, p_content_checksum bytea,
+    p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
 )
 RETURNS TABLE (
     public_reference text, blueprint_revision_number bigint, metadata_etag uuid,
@@ -44,9 +45,11 @@ BEGIN
     v_now := pg_catalog.clock_timestamp();
     v_metadata_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.blueprint_course AS course (
-        blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at
+        blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
-        p_blueprint_id, v_actor, p_short_name, p_long_name, v_metadata_etag, v_now
+        p_blueprint_id, v_actor, p_short_name, p_long_name, v_metadata_etag, v_now,
+        p_discipline, p_subject, p_topic, p_subtopic, p_tags
     ) RETURNING course.reference_number INTO v_reference_number;
     blueprint_revision_number := 1;
     INSERT INTO ple_data.blueprint_course_revision (
@@ -76,10 +79,12 @@ BEGIN
     );
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_reference_number, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at
+        availability, metadata_etag, occurred_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
         v_reference_number, v_actor, p_short_name, p_long_name,
-        'private', v_metadata_etag, v_now
+        'private', v_metadata_etag, v_now,
+        p_discipline, p_subject, p_topic, p_subtopic, p_tags
     );
     INSERT INTO ple_data.blueprint_course_create_receipt
     VALUES (
@@ -208,7 +213,8 @@ CREATE FUNCTION ple_api.rename_blueprint_course(
     p_short_name text, p_long_name text
 )
 RETURNS TABLE (
-    short_name text, long_name text, availability text, metadata_etag uuid
+    short_name text, long_name text, availability text, metadata_etag uuid,
+    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, tags text[]
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -248,7 +254,9 @@ BEGIN
     END IF;
     IF v_course.short_name = p_short_name AND v_course.long_name = p_long_name THEN
         RETURN QUERY SELECT v_course.short_name, v_course.long_name,
-            v_course.availability, v_course.metadata_etag;
+            v_course.availability, v_course.metadata_etag,
+            v_course.discipline_uuid, v_course.subject_uuid, v_course.topic_uuid,
+            v_course.subtopic_uuid, v_course.tags;
         RETURN;
     END IF;
     v_next := pg_catalog.gen_random_uuid();
@@ -257,12 +265,17 @@ BEGIN
      WHERE course.reference_number = v_reference_number;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_reference_number, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at
+        availability, metadata_etag, occurred_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
         v_reference_number, v_actor, p_short_name, p_long_name,
-        v_course.availability, v_next, pg_catalog.clock_timestamp()
+        v_course.availability, v_next, pg_catalog.clock_timestamp(),
+        v_course.discipline_uuid, v_course.subject_uuid, v_course.topic_uuid,
+        v_course.subtopic_uuid, v_course.tags
     );
-    RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability, v_next;
+    RETURN QUERY SELECT p_short_name, p_long_name, v_course.availability, v_next,
+        v_course.discipline_uuid, v_course.subject_uuid, v_course.topic_uuid,
+        v_course.subtopic_uuid, v_course.tags;
 END
 $$;
 
@@ -271,7 +284,8 @@ CREATE FUNCTION ple_api.set_blueprint_availability(
     p_archive_confirmation_long_name text
 )
 RETURNS TABLE (
-    short_name text, long_name text, availability text, metadata_etag uuid
+    short_name text, long_name text, availability text, metadata_etag uuid,
+    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, tags text[]
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -332,14 +346,74 @@ BEGIN
      WHERE course.reference_number = v_reference_number;
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_reference_number, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at
+        availability, metadata_etag, occurred_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
         v_reference_number, v_actor, v_course.short_name, v_course.long_name,
-        p_availability, v_next, pg_catalog.clock_timestamp()
+        p_availability, v_next, pg_catalog.clock_timestamp(),
+        v_course.discipline_uuid, v_course.subject_uuid, v_course.topic_uuid,
+        v_course.subtopic_uuid, v_course.tags
     );
-    RETURN QUERY SELECT v_course.short_name, v_course.long_name, p_availability, v_next;
+    RETURN QUERY SELECT v_course.short_name, v_course.long_name, p_availability, v_next,
+        v_course.discipline_uuid, v_course.subject_uuid, v_course.topic_uuid,
+        v_course.subtopic_uuid, v_course.tags;
 END
 $$;
+
+CREATE FUNCTION ple_api.update_blueprint_classification(
+    p_reference text, p_expected_metadata_etag uuid,
+    p_discipline uuid, p_subject uuid, p_topic uuid, p_subtopic uuid, p_tags text[]
+)
+RETURNS TABLE(metadata_etag uuid, changed boolean)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE
+    v_course ple_data.blueprint_course%ROWTYPE;
+    v_next uuid;
+BEGIN
+    -- ASVS 8.2.1/8.2.2: ownership, not ambient Product Role, permits mutation.
+    SELECT course.* INTO v_course FROM ple_data.blueprint_course AS course
+     WHERE course.public_reference = p_reference
+       AND course.owner_account_id = ple_api.current_session_account_id()
+       AND ple_api.current_session_account_is_instructor()
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Blueprint Course is not available' USING ERRCODE = '42501';
+    END IF;
+    IF v_course.availability = 'archived' THEN
+        RAISE EXCEPTION 'Archived Blueprint Course is read-only' USING ERRCODE = '55000';
+    END IF;
+    -- ASVS 2.3.3: row lock and validator reject concurrent stale metadata writes.
+    IF p_expected_metadata_etag IS DISTINCT FROM v_course.metadata_etag THEN
+        RAISE EXCEPTION 'Blueprint metadata ETag is stale' USING ERRCODE = '40001';
+    END IF;
+    IF ROW(v_course.discipline_uuid, v_course.subject_uuid, v_course.topic_uuid,
+           v_course.subtopic_uuid, v_course.tags)
+       IS NOT DISTINCT FROM ROW(p_discipline, p_subject, p_topic, p_subtopic, p_tags) THEN
+        RETURN QUERY SELECT v_course.metadata_etag, false;
+        RETURN;
+    END IF;
+    v_next := pg_catalog.gen_random_uuid();
+    -- ASVS 2.2.2/2.2.3: mandatory Discipline and exact ancestry are durable FKs.
+    UPDATE ple_data.blueprint_course AS course SET
+        discipline_uuid = p_discipline, subject_uuid = p_subject, topic_uuid = p_topic,
+        subtopic_uuid = p_subtopic, tags = p_tags, metadata_etag = v_next
+     WHERE course.reference_number = v_course.reference_number;
+    INSERT INTO ple_data.blueprint_metadata_event (
+        blueprint_course_reference_number, actor_account_id, short_name, long_name,
+        availability, metadata_etag, occurred_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
+    ) VALUES (
+        v_course.reference_number, ple_api.current_session_account_id(),
+        v_course.short_name, v_course.long_name, v_course.availability,
+        v_next, pg_catalog.clock_timestamp(), p_discipline, p_subject, p_topic, p_subtopic, p_tags
+    );
+    RETURN QUERY SELECT v_next, true;
+END
+$$;
+
+REVOKE ALL ON FUNCTION ple_api.update_blueprint_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.update_blueprint_classification(text, uuid, uuid, uuid, uuid, uuid, text[]) TO ple_app;
 
 CREATE FUNCTION ple_api.list_blueprint_courses(
     p_include_archived boolean, p_public_only boolean, p_query text,
@@ -348,7 +422,8 @@ CREATE FUNCTION ple_api.list_blueprint_courses(
 RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
     metadata_etag uuid, current_blueprint_revision_number bigint, is_owner boolean,
-    total_adoptions bigint, total_students_ever_enrolled bigint
+    total_adoptions bigint, total_students_ever_enrolled bigint,
+    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, tags text[]
 )
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -370,7 +445,9 @@ BEGIN
               FROM ple_data.course_instance AS adoption
               JOIN ple_data.course_membership AS membership ON membership.course_id = adoption.course_id
              WHERE adoption.blueprint_course_reference_number = course.reference_number
-               AND membership.role = 'student')
+               AND membership.role = 'student'),
+           course.discipline_uuid, course.subject_uuid, course.topic_uuid,
+           course.subtopic_uuid, course.tags
       FROM ple_data.blueprint_course AS course
      WHERE ple_api.current_session_account_is_instructor()
        AND (NOT p_public_only OR course.availability = 'public')
@@ -399,7 +476,8 @@ RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
     metadata_etag uuid, current_blueprint_revision_number bigint,
     content jsonb, content_checksum bytea, is_owner boolean,
-    fork_source_reference text, fork_source_revision_number bigint
+    fork_source_reference text, fork_source_revision_number bigint,
+    discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, tags text[]
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -411,7 +489,9 @@ AS $$
            course.owner_account_id = ple_api.current_session_account_id(),
            source.public_reference,
            CASE WHEN source.reference_number IS NOT NULL
-                THEN ancestry.source_blueprint_revision_number END
+                THEN ancestry.source_blueprint_revision_number END,
+           course.discipline_uuid, course.subject_uuid, course.topic_uuid,
+           course.subtopic_uuid, course.tags
       FROM ple_data.blueprint_course AS course
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_reference_number = course.reference_number
@@ -459,14 +539,14 @@ AS $$
 $$;
 
 REVOKE ALL PRIVILEGES ON FUNCTION
-    ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea),
+    ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
     ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
     ple_api.list_blueprint_courses(boolean, boolean, text, text, text, integer), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-    ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea),
+    ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[]),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
     ple_api.list_blueprint_courses(boolean, boolean, text, text, text, integer), ple_api.load_blueprint_course(text),

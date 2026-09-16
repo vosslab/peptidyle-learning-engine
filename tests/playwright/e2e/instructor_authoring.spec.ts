@@ -84,17 +84,18 @@ test.describe("instructor authoring on the production PLE stack", () => {
         .getByRole("status")
         .filter({ has: page.getByRole("heading", { name: "Published", exact: true }) })
         .filter({ hasText: questionTitle });
-      await expect(publishedConfirmation).toContainText("Published to: Question Library");
-
-      await page.getByRole("link", { name: "Open question library", exact: true }).click();
+      await expect(publishedConfirmation).toContainText("Published Revision: 1");
       await expect(
-        page.getByRole("heading", { name: "Search Question Library", exact: true }),
-      ).toBeVisible();
-      const questionCard = page
-        .getByRole("article")
-        .filter({ has: page.getByRole("heading", { name: questionTitle, exact: true }) });
-      await expect(questionCard).toHaveCount(1);
-      await questionCard.getByRole("link", { name: "Open question", exact: true }).click();
+        page.getByRole("heading", { name: "Question published", exact: true }),
+      ).toBeFocused();
+      const publishedId = (await publishedConfirmation.locator("code").innerText()).trim();
+      const openPublished = page.getByRole("link", {
+        name: "Open published Question",
+        exact: true,
+      });
+      await expect(openPublished).toHaveAttribute("href", `/library/${publishedId}`);
+      await openPublished.click();
+      await expect(page).toHaveURL(new RegExp(`/library/${publishedId}$`, "u"));
       await expect(page.getByRole("heading", { name: questionTitle, exact: true })).toBeVisible();
     } finally {
       try {

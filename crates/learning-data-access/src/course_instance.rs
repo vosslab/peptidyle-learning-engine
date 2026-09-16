@@ -41,6 +41,8 @@ pub enum CourseInstanceCreationSource {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CreateCourseInstanceInput {
+    /// Explicit Course metadata, independent of adopted content.
+    pub classification: question_model::CourseClassification,
     /// Explicit Empty or exact Adopted Course source.
     pub source: CourseInstanceCreationSource,
     /// Compact Course Instance name for constrained navigation.
@@ -57,6 +59,9 @@ pub struct CreateCourseInstanceInput {
 impl CreateCourseInstanceInput {
     /// Keeps both durable Course Instance names within the persistence bound.
     pub fn validate(&self) -> Result<(), StoreError> {
+        self.classification
+            .validate()
+            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
         if !valid_name(&self.short_name) || !valid_name(&self.long_name) {
             return Err(StoreError::InvalidRecord(
                 "Course Instance name is invalid".to_string(),
@@ -70,6 +75,8 @@ impl CreateCourseInstanceInput {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceSummary {
+    pub classification: question_model::CourseClassification,
+    pub metadata_etag: question_model::CourseMetadataEtag,
     /// Public C-reference only; internal Course IDs never enter this route.
     pub reference: CourseInstanceReference,
     /// Compact Course Instance name for constrained navigation.
@@ -137,6 +144,14 @@ pub trait CourseInstancePoolIdIssuer: Send + Sync {
 /// Persistence contract for the Course Instance and initial Teaching Team boundary.
 #[async_trait]
 pub trait CourseInstanceStore: Send + Sync {
+    /// Changes only Course metadata under the current co-Instructor authority.
+    async fn update_course_classification(
+        &self,
+        session_token_hash: SessionTokenHash,
+        reference: CourseInstanceReference,
+        expected_metadata_etag: question_model::CourseMetadataEtag,
+        classification: question_model::CourseClassification,
+    ) -> Result<CourseClassificationUpdate, StoreError>;
     /// Resolves one public Course reference only for the current active Course Member.
     async fn resolve_course_navigation(
         &self,
@@ -188,9 +203,39 @@ pub trait CourseInstanceStore: Send + Sync {
     ) -> Result<Vec<CourseCreationInstructor>, StoreError>;
 }
 
+/// Accepted metadata state; no-op updates keep their validator.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseClassificationUpdate {
+    pub classification: question_model::CourseClassification,
+    pub metadata_etag: question_model::CourseMetadataEtag,
+    pub changed: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::CourseInstanceCreationSource;
+
+    #[test]
+    fn creation_requires_explicit_course_classification() {
+        let mut input = serde_json::json!({
+            "source": {"kind": "empty"},
+            "shortName": "Genetics",
+            "longName": "Genetics Course",
+            "term": {"startDate": "2026-09-01", "endDate": "2026-12-01"}
+        });
+        assert!(serde_json::from_value::<super::CreateCourseInstanceInput>(input.clone()).is_err());
+        input["classification"] = serde_json::json!({
+            "disciplineUuid": "00000000-0000-0000-0000-000000000001",
+            "subjectUuid": null,
+            "topicUuid": null,
+            "subtopicUuid": null,
+            "tags": []
+        });
+        let parsed: super::CreateCourseInstanceInput =
+            serde_json::from_value(input).expect("explicit classification");
+        assert!(parsed.validate().is_ok());
+    }
 
     #[test]
     fn creation_source_accepts_only_the_closed_browser_wire() {

@@ -1,29 +1,71 @@
 # Plan: Human Guidance implementation compliance
 
+## Current bounded SQL corrections
+
+Accepted bounded corrections establish these narrow contracts: every finalized
+`QuestionResponse` has an exact parent Assessment submission, owning Attempt, and matching
+finalization time; native response controls use editable `save` and `formatOnly` modes; private
+receipt-gated anonymous statistics increment atomically and remain after Unrelease; and the
+support repair command no longer takes a redundant Account lock or has ambiguous use/revoke
+references. Fresh PostgreSQL 17.11 parent proof passed all four rejection/retention cases; the
+statistics/Unrelease oracle and actual-role support proof exited 0. The installed mandatory-NULL
+shape matrix passed 25 LIKE cases. Root-observed checks include `cargo tsgen` (367 types),
+`cargo check -p server_core -p project-tools --tests`, `cargo check -p wasm_bridge --tests`, and
+the wasm32 target-feature check; response-control TypeScript and 19 focused tests passed. These
+are not connected-browser, deployed-app, or global-closure demonstrations.
+Fresh PostgreSQL 17.11 installation through `ple_migrator` also retained exactly the three valid
+unique indexes with no duplicate access paths; independent review accepted the three removals.
+
+Residual audit work remains for Course/Pool classification, Bloom, Change Proposals, recovery,
+and resource-specific support authority. The current reconciliation receipt below supersedes the
+former generator-drift statement; it changes inventory accounting only, not product acceptance.
+
 ## Current heading reconciliation
 
-The prior reconciled Human Guidance snapshot was 998 bullets: 449 verified, 499 open
-(490 owning), and 50 N/A, at SHA256
-`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
-The generated checklist owns occurrence status and first-owner pointers. All nine part gates,
-identity diff, and consistency passed for that snapshot. Unchanged scoring, timing, Blueprint,
-terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains unfinished;
-those gates establish inventory fidelity, not acceptance of the open requirements.
+Current Human Guidance SHA256 is
+`9e92c864a019d89ef9952cfb6e3b9c05a4f45d6055b6c3f49520c400f4dc7055`.
+All nine existing generator part gates, identity diff, and consistency passed. The generator and
+checklist now agree on 1,038 occurrences: 441 verified, 547 open, and 50 N/A. The first-owner
+inventory is 432 verified, 533 open, and 50 N/A across 1,015 distinct identities; 23 are later
+duplicates. Sixty-nine new or changed requirements remain explicitly pending independent audit.
+This receipt establishes current inventory fidelity only. It does not close any new Human Guidance
+row, alter a product status, or establish global compliance.
 
-Part 01 now owns Product vocabulary and glossary, including its five topical subheadings;
-new product definitions remain open absent independently accepted evidence. Part 03 owns Profile
-avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
-avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
-all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
-owns Library metadata and Part 08 Course classification. Current HG applies this shared vocabulary
-to Courses and Library Objects only, not Assessments: a Course requires Discipline and has optional
-Subject, while a Library Object requires both. Subjects are globally named and may have one or more
-Discipline associations. The historical 998-bullet counts above remain a historical snapshot.
-The independently accepted SQL command prerequisite establishes global Subject-name uniqueness,
-role-aware commands, normalization, parent-filtered selectors, and Sysadmin-only association
-replacement. Content attachments, HTTP/editor integration, search, lifecycle, and deployed-state
-acceptance remain open. KISS/design constraints are audited N/A where not independently closable,
-but still bind reviews.
+The prior 998-bullet snapshot (449 verified, 499 open, 490 owning-open, and 50 N/A at
+`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`) is historical evidence,
+not the current inventory. Earlier scoring, timing, Blueprint, terminal-Attempt, and bounded MATCH
+receipts remain limited to their stated evidence boundaries.
+
+Product work is in progress, not complete: the Course-classification foundation and Store HTTP
+slice use mandatory Discipline with optional hierarchy and tags, independent Course Instances;
+support work must preserve the exact issuer of Course authorization; and the compact Student
+details UI is an independent surface. The classification foundation is owned by its storage and
+Store/HTTP boundary, issuer preservation by Course authorization, and Student details by its UI
+boundary. Their dependency is limited to shared authorized Course identity where a surface needs
+it; none implies classification inheritance, Instance synchronization, or completion of another
+slice.
+
+The only completed test repair in this update is the required-classification fixture repair in
+`tests/test_ple_question_json_authoring.mjs`: 26 tests passed. Its report is
+`/private/tmp/ple-authoring-fixture-classification-repair.md`. This is not an all-tests result or
+Course-feature completion.
+
+Current bounded progress receipt: root `CARGO_INCREMENTAL=0 cargo check -p server_core -p
+project-tools --tests` passed in 11.37 seconds, and `cargo tsgen` generated 369 types. A fresh
+PostgreSQL 17 canonical installation through `ple_migrator` was repeated and passed. These are compiler,
+generation, and canonical-install receipts only, not an all-SQL or whole-feature acceptance.
+The self-contained actual-role Course-classification proof passed at
+`/private/tmp/ple-course-classification-actual-role-result.log`: create/authorization, ETag
+no-op/stale/history behavior, no Revision change, exact pins, 65 hierarchy tags, and fork/Instance
+independence were exercised. The corrected actual-role support proof passed its constraints and
+rollback at `/private/tmp/ple-support-exact-authority-result.log`; independent review accepted its
+source and corrected proof. Neither receipt is browser, deployed, durable HTTP-support-E2E, or
+whole-feature acceptance.
+
+Student S04/S05 compact-details work has accepted independent source/render review at
+`/private/tmp/ple-student-rules-disclosure-review.md`; root
+`node /private/tmp/ple-student-rules-proof.mjs` exited 0 at 1280 and 390 pixels. This component
+receipt does not establish the full shell, theme, zoom, or all-Student-interface acceptance.
 
 Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
 no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
@@ -962,10 +1004,13 @@ confirmation clean; changelog entry.
 
 ### C25: Issue scoped Sysadmin repair capabilities
 
-- HG bullets closed: "Sysadmins can help Instructors repair Courses, Students, and content."
+- HG requirement: "Sysadmins can help Instructors repair Courses, Students, and content."
 - Contributes to: C26 FERPA-safe support and no implied Instructor/Course membership.
+- Current implementation scope: Student roster support only. Course and content repair remain open
+  implementation requirements, not Human-Guidance-approved exclusions.
 - Expected behavior: explicitly requested, purpose-limited, time-scoped capabilities authorize
-  repairs for the named resource classes and record their use.
+  the implemented Student-roster repair and record its use; later Course and content scopes need
+  their own authorized resource boundaries before they can be accepted.
 - Owned boundary: support-capability server routes, `crates/server/src/support_capability.rs`.
 - Modules, tables, routes, and components: capability request, resource-class validation,
   revocation, and audit receipt; consume C24 authorization predicates.
@@ -973,6 +1018,12 @@ confirmation clean; changelog entry.
 - Focused gates: `source source_me.sh && cargo test -p server_core support_capability`; then
   `bash tests/e2e/e2e_live_demo_support_capability.sh --issue`; then
   `source source_me.sh && ./launchers/run_fast_checks.sh`.
+- Current proof state: the corrected actual-role proof passed constraints and rollback at
+  `/private/tmp/ple-support-exact-authority-result.log`; independent review accepted the source
+  and corrected proof. Each resource class still needs its own success gate: the implemented,
+  evidenced slice is Student roster only, while Course and content remain open. Durable HTTP
+  support E2E did not run and helper issues are still being fixed; no browser or deployed
+  acceptance follows.
 - Permanent-gate decision and failure plan: extend the existing support-capability E2E with each
   resource class, purpose, expiry, revocation, and audit receipt. These are durable scoped-support
   guarantees. If it fails, repair capability validation or audit recording and retain the case;
@@ -980,13 +1031,15 @@ confirmation clean; changelog entry.
 
 ### C26: Enforce FERPA-safe Sysadmin support boundaries
 
-- HG bullets closed: "Student Course data falls under FERPA; treat it as radioactive.";
+- HG requirements: "Student Course data falls under FERPA; treat it as radioactive.";
   "**Sysadmins** have full platform-administration capability but do not automatically have access
   to FERPA Course records."; "Sysadmin support does not make the Sysadmin an **Instructor** or
   Course member."
+- Current implementation scope: the Student-roster capability boundary only. Course and content
+  support remain open implementation requirements, not Human-Guidance-approved exclusions.
 - Expected behavior: ordinary Sysadmin administration cannot read FERPA Course records; an audited,
-  task-scoped support capability permits only its authorized records and never changes role or
-  Course membership.
+  task-scoped Student-roster capability permits only its authorized records and never changes role
+  or Course membership. Later Course/content support requires separate least-privilege proof.
 - Owned boundary: support authorization enforcement,
   `schemas/base_schema/course_operations.sql`.
 - Modules, tables, routes, and components: support-capability checks, audit facts, and
@@ -995,6 +1048,10 @@ confirmation clean; changelog entry.
 - Focused gates: `source source_me.sh && cargo test -p server_core support_capability`; then
   `bash tests/e2e/e2e_live_demo_support_capability.sh --issue`; then
   `source source_me.sh && ./launchers/run_fast_checks.sh`.
+- Current proof state: the corrected actual-role proof passed constraints and rollback at
+  `/private/tmp/ple-support-exact-authority-result.log`; independent review accepted the source
+  and corrected proof. It evidences Student-roster scope only. Durable HTTP support E2E did not
+  run and helper issues are still being fixed; no browser or deployed acceptance follows.
 - Permanent-gate decision and failure plan: extend the existing support E2E with absent-capability
   FERPA denial and no-role/no-membership-escalation assertions. The boundary prevents material
   privacy and authorization regression. If it fails, repair the SQL authorization check or role

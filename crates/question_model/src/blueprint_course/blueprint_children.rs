@@ -118,6 +118,8 @@ pub struct CreateBlueprintModuleInput {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct CreateBlueprintCourseInput {
+    /// Explicit current Course metadata, not inferred from reusable content.
+    pub classification: crate::CourseClassification,
     /// Compact Blueprint Course name used in constrained navigation.
     pub short_name: String,
     /// Descriptive Blueprint Course name used in headings and listings.
@@ -129,6 +131,9 @@ pub struct CreateBlueprintCourseInput {
 impl CreateBlueprintCourseInput {
     /// Validates lineage names and the complete ordered reusable structure.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
+        self.classification
+            .validate()
+            .map_err(|_| BlueprintCourseValidationError::InvalidClassification)?;
         validate_blueprint_course_title(&self.short_name)
             .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintName)?;
         validate_blueprint_course_title(&self.long_name)

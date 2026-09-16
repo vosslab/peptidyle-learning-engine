@@ -9,10 +9,7 @@ import type {
 } from "../api/live_student_course_landing";
 import { assessmentTypePresentation } from "../assessment_type_presentation";
 import { useApplicationApi } from "../api/application_api";
-import {
-  formatAssessmentDeliveryTime,
-  StudentAssessmentDecisionDetails,
-} from "../components/student_assessment_presentation";
+import { StudentAssessmentDecisionDetails } from "../components/student_assessment_presentation";
 import { CourseEntryIdentity } from "../features/course_appearance/course_entry_identity";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 import { RibbonIcon } from "../ribbon/ribbon_icon";
@@ -55,22 +52,10 @@ function AssessmentCard(props: {
           </dd>
         </div>
         <div>
-          <dt>Due</dt>
-          <dd>
-            {formatAssessmentDeliveryTime(
-              props.assessment.decision.dueAt,
-              props.assessment.decision.displayTimeZone,
-            )}
-          </dd>
-        </div>
-        <div>
           <dt>Completion</dt>
           <dd>{display().completionLabel}</dd>
         </div>
       </dl>
-      <p class="student-coursework-card__zone">
-        Times shown in {props.assessment.decision.displayTimeZone}
-      </p>
       <Show when={props.assessment.assessmentAttemptCompletion !== null}>
         <p class="student-coursework-card__grade">
           {props.assessment.gradedQuestionCount} of {props.assessment.questionCount} questions
@@ -86,7 +71,6 @@ function AssessmentCard(props: {
         </p>
       </Show>
       <section class="student-coursework-card__decision" aria-label="Coursework access and timing">
-        <h4>Access and timing</h4>
         <StudentAssessmentDecisionDetails decision={props.assessment.decision} />
       </section>
       <A

@@ -2,6 +2,23 @@
 -- maps all eight source checksums to exact Question Revisions, and replays
 -- without duplicate graph roots.
 
+SET LOCAL ROLE ple_data_owner;
+DO $
+DECLARE
+    selected_discipline uuid;
+    selected_subject uuid;
+BEGIN
+    SELECT discipline.discipline_uuid, subject.subject_uuid
+      INTO STRICT selected_discipline, selected_subject
+      FROM ple_data.content_discipline AS discipline
+      JOIN ple_data.content_subject_discipline AS association USING (discipline_uuid)
+      JOIN ple_data.content_subject AS subject USING (subject_uuid)
+     WHERE discipline.name = 'Biology' AND subject.name = 'Biochemistry';
+    PERFORM set_config('ple.installation_live_demo_discipline_uuid', selected_discipline::text, true);
+    PERFORM set_config('ple.installation_live_demo_subject_uuid', selected_subject::text, true);
+END
+$;
+
 SET LOCAL ROLE ple_private_owner;
 DO $$
 BEGIN
@@ -132,6 +149,9 @@ BEGIN
               AND owner_account_id = '00000000-0000-0000-0000-000000000101'
               AND short_name = 'BCHM 301'
               AND long_name = 'Biochemistry 301: Proteins and Peptides'
+              AND discipline_uuid = current_setting('ple.installation_live_demo_discipline_uuid')::uuid
+              AND subject_uuid = current_setting('ple.installation_live_demo_subject_uuid')::uuid
+              AND topic_uuid IS NULL AND subtopic_uuid IS NULL AND tags = ARRAY[]::text[]
               AND availability = 'public'
               AND current_blueprint_revision_number = 1
        )
@@ -139,6 +159,9 @@ BEGIN
                        WHERE course_id = '00000000-0000-0000-0000-000000000220'
                          AND course_short_name = 'BCHM 301'
                          AND course_long_name = 'Biochemistry 301: Proteins and Peptides'
+                         AND discipline_uuid = current_setting('ple.installation_live_demo_discipline_uuid')::uuid
+                         AND subject_uuid = current_setting('ple.installation_live_demo_subject_uuid')::uuid
+                         AND topic_uuid IS NULL AND subtopic_uuid IS NULL AND tags = ARRAY[]::text[]
                          AND term_starts_on = date '2026-08-24' AND term_ends_on = date '2026-12-11'
                          AND blueprint_course_reference_number = blueprint_reference
                          AND blueprint_revision_number = 1)

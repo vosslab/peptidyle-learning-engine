@@ -18,6 +18,7 @@ import type { CreateBlueprintCourseInput } from "../../generated/api/CreateBluep
 import type { RenameBlueprintCourseInput } from "../../generated/api/RenameBlueprintCourseInput";
 import type { ReplaceBlueprintCourseContentInput } from "../../generated/api/ReplaceBlueprintCourseContentInput";
 import type { CursorPage } from "./contracts";
+import type { CourseClassification } from "../../generated/api/CourseClassification";
 
 export type BlueprintRevisionEtag = string;
 export type BlueprintMetadataEtag = string;
@@ -37,6 +38,11 @@ export interface BlueprintMetadataTransition {
 
 /** Browser capability for Instructor-owned reusable Blueprint Course lifecycle operations. */
 export interface BlueprintCourseClient {
+  readonly updateBlueprintCourseClassification: (
+    reference: BlueprintCourseReference,
+    classification: CourseClassification,
+    etag: BlueprintMetadataEtag,
+  ) => Promise<BlueprintMetadataTransition>;
   readonly listBlueprintHistory: (
     reference: BlueprintCourseReference,
     kind?: "revisions" | "metadata",

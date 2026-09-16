@@ -17,6 +17,7 @@ pub enum BlueprintHistoryEntryView {
         saved_at: question_model::Timestamp,
     },
     MetadataChange {
+        classification: question_model::CourseClassification,
         short_name: String,
         long_name: String,
         availability: question_model::BlueprintAvailability,

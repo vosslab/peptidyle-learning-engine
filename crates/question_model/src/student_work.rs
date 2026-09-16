@@ -68,7 +68,7 @@ mod identifiers;
 pub use identifiers::{
     AccommodationId, AssessmentAttemptId, AssessmentEntryId, AssessmentId, CourseId,
     CourseMembershipId, IssuedQuestionId, QuestionAttemptId, QuestionPoolSelectionId,
-    QuestionSubmissionId, StudentRecordId,
+    QuestionResponseId, StudentRecordId,
 };
 
 /// A timestamp supplied by the server as Unix milliseconds.
@@ -173,19 +173,19 @@ pub struct QuestionAttemptTiming {
     pub issued_at: Timestamp,
     /// Server-owned base deadline before authorized pauses, or `None` when untimed.
     pub deadline: Option<Timestamp>,
-    /// Server time at which the response arrived, if submitted.
-    pub submitted_at: Option<Timestamp>,
+    /// Server time at which whole-Assessment finalization captured this response.
+    pub finalized_at: Option<Timestamp>,
 }
 
 /// Current operational state of one issued Question Attempt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum QuestionAttemptState {
-    /// The student may still submit a response.
+    /// The Student may still save a response.
     Open,
-    /// The server accepted one Question Submission.
-    SubmissionAccepted,
-    /// The effective deadline closed this Question Attempt without a submission.
+    /// The server accepted one finalized Question response.
+    ResponseFinalized,
+    /// The effective deadline closed this Question Attempt without a finalized response.
     ClosedAtDeadline,
 }
 
@@ -193,19 +193,19 @@ pub enum QuestionAttemptState {
 ///
 /// The containing Question Attempt supplies the exact issue-time reproduction details
 /// that the grading result reproduces. A Question Attempt has at most one
-/// accepted Question Submission.
+/// finalized Question response, captured only by whole-Assessment submission.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct QuestionSubmission {
-    /// Durable Question Submission identity.
-    pub id: QuestionSubmissionId,
+pub struct QuestionResponse {
+    /// Durable finalized Question response identity.
+    pub id: QuestionResponseId,
     /// Exact Question Attempt that accepted this response.
     pub question_attempt: QuestionAttemptId,
     /// Immutable Student Response accepted by the server.
     pub response: StudentResponse,
-    /// Server time when the response was accepted.
-    pub submitted_at: Timestamp,
-    /// Present only after grading produced a result for this submission.
+    /// Server time when whole-Assessment submission finalized this response.
+    pub finalized_at: Timestamp,
+    /// Present only after grading produced a result for this finalized response.
     pub grading_result: Option<GradingResult>,
 }
 
@@ -309,7 +309,7 @@ pub struct QuestionAttempt {
     /// This server model is never a browser wire contract.
     pub reproduction: QuestionReproduction,
     /// Immutable accepted Student Response, when the server accepted one.
-    pub submission: Option<QuestionSubmission>,
+    pub finalized_response: Option<QuestionResponse>,
     /// Current operational state, independent of retained response evidence.
     pub state: QuestionAttemptState,
     /// Server-owned timing record.
@@ -334,7 +334,7 @@ pub struct StudentQuestionAttemptView {
     /// Immutable delivered Question that owns this attempt.
     pub issued_question: IssuedQuestionId,
     /// Immutable accepted Student Response, when the server accepted one.
-    pub submission: Option<QuestionSubmission>,
+    pub finalized_response: Option<QuestionResponse>,
     /// Current operational state.
     pub state: QuestionAttemptState,
     /// Student-visible timing record.
@@ -348,7 +348,7 @@ impl From<&QuestionAttempt> for StudentQuestionAttemptView {
         Self {
             id: attempt.id,
             issued_question: attempt.issued_question,
-            submission: attempt.submission.clone(),
+            finalized_response: attempt.finalized_response.clone(),
             state: attempt.state,
             timing: attempt.timing,
             issued_capability: attempt.issued_capability,

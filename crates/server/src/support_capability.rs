@@ -1,8 +1,9 @@
 //! Direct-Instructor issuance and revocation of closed support capabilities.
 //!
-//! Repair capability issuance records a narrow, time-bounded request.  It has
-//! no generic resource-reading or repair route: C26 consumes it only beside a
-//! resource-owning operation.
+//! Only existing canonical Course-local Student roster profiles are currently
+//! supported. SQL checks the original issuer's current exact Course authority
+//! at issuance and use. Course/content support remains future implementation.
+//! There is no generic resource-reading or repair route.
 
 use crate::auth::{AuthError, resolve_session};
 use axum::{

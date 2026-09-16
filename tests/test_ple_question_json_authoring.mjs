@@ -24,6 +24,16 @@ import {
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../src/features/ple_question_json_authoring/question_json_source.ts";
 
 const draftQuestion = "D-1";
+const publicationClassification = {
+  disciplineUuid: "00000000-0000-4000-8000-000000000001",
+  subjectUuid: "00000000-0000-4000-8000-000000000002",
+  topicUuid: null,
+  subtopicUuid: null,
+};
+
+function publicationRequest(authors = [{ displayName: "Fixture Instructor" }]) {
+  return { authorship: { authors }, ...publicationClassification };
+}
 
 function source() {
   return {
@@ -650,8 +660,8 @@ test("client sends exact protected paths, headers, body, and revisions", async (
 
   const loaded = await client.load(draftQuestion);
   const saved = await client.save(draftQuestion, loaded.source, loaded.revision);
-  const publicationRequest = { authorship: { authors: [{ displayName: "Fixture Instructor" }] } };
-  const published = await client.publish(draftQuestion, publicationRequest, saved.revision);
+  const request = publicationRequest();
+  const published = await client.publish(draftQuestion, request, saved.revision);
   assert.deepEqual(published, publicationSummary());
 
   assert.equal(requests[0].input, `/ple/api/authoring/drafts/${draftQuestion}/source`);
@@ -661,7 +671,10 @@ test("client sends exact protected paths, headers, body, and revisions", async (
   assert.equal(requests[1].init.headers["if-match"], '"1"');
   assert.equal(requests[1].init.body, serializePleQuestionJsonSource(source()));
   assert.equal(requests[2].input, `/ple/api/authoring/drafts/${draftQuestion}/publish`);
-  assert.equal(requests[2].init.body, JSON.stringify({ authors: ["Fixture Instructor"] }));
+  assert.equal(
+    requests[2].init.body,
+    JSON.stringify({ authors: ["Fixture Instructor"], ...publicationClassification }),
+  );
   assert.equal(requests[2].init.headers["if-match"], '"2"');
   assert.equal(requests[3].input, "/ple/api/questions/by-id/7K3M-X9QP");
 });
@@ -759,7 +772,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
   await assert.rejects(
     wrongPublication.publish(
       draftQuestion,
-      { authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
+      publicationRequest(),
       '"1"',
     ),
     /available PLE Question Library summary/u,
@@ -777,7 +790,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
   await assert.rejects(
     staleScope.publish(
       draftQuestion,
-      { authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
+      publicationRequest(),
       '"1"',
     ),
     /scope must be a field allowed/u,
@@ -793,7 +806,7 @@ test("client rejects publication summaries that do not exactly confirm publicati
     await assert.rejects(
       wrongLifecycleOrScope.publish(
         draftQuestion,
-        { authorship: { authors: [{ displayName: "Fixture Instructor" }] } },
+        publicationRequest(),
         '"1"',
       ),
       /available PLE Question Library summary/u,

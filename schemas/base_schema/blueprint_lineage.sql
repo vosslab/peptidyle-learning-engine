@@ -449,10 +449,13 @@ BEGIN
     v_metadata_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.blueprint_course AS child (
         blueprint_id, owner_account_id, short_name, long_name, availability,
-        metadata_etag, current_blueprint_revision_number, created_at
+        metadata_etag, current_blueprint_revision_number, created_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
         p_blueprint_id, v_actor, v_source.short_name, v_source.long_name, 'private',
-        v_metadata_etag, 1, v_now
+        v_metadata_etag, 1, v_now,
+        v_source.discipline_uuid, v_source.subject_uuid, v_source.topic_uuid,
+        v_source.subtopic_uuid, v_source.tags
     ) RETURNING child.reference_number INTO v_child_reference;
     INSERT INTO ple_data.blueprint_course_revision (
         blueprint_course_reference_number, blueprint_revision_number,
@@ -481,10 +484,13 @@ BEGIN
     );
     INSERT INTO ple_data.blueprint_metadata_event (
         blueprint_course_reference_number, actor_account_id, short_name, long_name,
-        availability, metadata_etag, occurred_at
+        availability, metadata_etag, occurred_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
         v_child_reference, v_actor, v_source.short_name, v_source.long_name,
-        'private', v_metadata_etag, v_now
+        'private', v_metadata_etag, v_now,
+        v_source.discipline_uuid, v_source.subject_uuid, v_source.topic_uuid,
+        v_source.subtopic_uuid, v_source.tags
     );
     INSERT INTO ple_data.blueprint_course_fork VALUES (
         v_child_reference, v_source_reference_number, p_source_revision_number, v_now

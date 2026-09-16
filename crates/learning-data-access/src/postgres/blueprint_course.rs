@@ -23,6 +23,10 @@ use crate::{
     StoredBlueprintCourse, StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
 };
 
+mod classification;
+
+pub(in crate::postgres) use classification::{classification_tags, decode_classification};
+
 /// PostgreSQL Store for Blueprint lineages visible to active Instructors.
 #[derive(Clone)]
 pub struct PostgresBlueprintCourseStore {
@@ -149,7 +153,7 @@ impl PostgresBlueprintCourseStore {
         input: RenameBlueprintCourseInput,
     ) -> Result<BlueprintMetadataState, StoreError> {
         let row = sqlx::query(
-            "SELECT short_name, long_name, availability, metadata_etag \
+            "SELECT * \
              FROM ple_api.rename_blueprint_course($1, $2, $3, $4)",
         )
         .bind(reference_value.as_string())
@@ -166,6 +170,40 @@ impl PostgresBlueprintCourseStore {
 
 #[async_trait]
 impl BlueprintCourseStore for PostgresBlueprintCourseStore {
+    async fn update_blueprint_classification(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+        expected_metadata_etag: BlueprintMetadataEtag,
+        classification: question_model::CourseClassification,
+    ) -> Result<BlueprintMetadataState, StoreError> {
+        classification
+            .validate()
+            .map_err(|error| StoreError::InvalidRecord(error.to_string()))?;
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session)
+            .await?;
+        sqlx::query("SELECT * FROM ple_api.update_blueprint_classification($1,$2,$3,$4,$5,$6,$7)")
+            .bind(reference.as_string())
+            .bind(expected_metadata_etag.into_uuid())
+            .bind(classification.discipline_uuid)
+            .bind(classification.subject_uuid)
+            .bind(classification.topic_uuid)
+            .bind(classification.subtopic_uuid)
+            .bind(classification_tags(&classification))
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        // Read the complete accepted metadata under the same transaction.
+        let row = sqlx::query("SELECT * FROM ple_api.load_blueprint_course($1)")
+            .bind(reference.as_string())
+            .fetch_one(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        let result = decode_metadata_state(&row)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
     async fn load_blueprint_pool_members(
         &self,
         session: SessionTokenHash,
@@ -341,6 +379,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         input.validate().map_err(invalid_input)?;
         let short_name = input.short_name.clone();
         let long_name = input.long_name.clone();
+        let classification = input.classification.clone();
         let pool_choices = input
             .modules
             .iter()
@@ -404,7 +443,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         let row = sqlx::query(
             "SELECT public_reference, blueprint_revision_number, metadata_etag, \
              (EXTRACT(EPOCH FROM accepted_at) * 1000)::bigint AS accepted_at_millis \
-             FROM ple_api.create_blueprint_course($1, $2, $3, $4, $5, $6)",
+             FROM ple_api.create_blueprint_course($1, $2, $3, $4, $5, $6, $7,$8,$9,$10,$11)",
         )
         .bind(random_uuid()?)
         .bind(request_checksum.into_bytes().to_vec())
@@ -412,6 +451,11 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         .bind(long_name)
         .bind(encoded)
         .bind(content.checksum()?.as_bytes().to_vec())
+        .bind(classification.discipline_uuid)
+        .bind(classification.subject_uuid)
+        .bind(classification.topic_uuid)
+        .bind(classification.subtopic_uuid)
+        .bind(classification_tags(&classification))
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -636,7 +680,7 @@ impl PostgresBlueprintCourseStore {
             .begin_authenticated_application_transaction(session)
             .await?;
         let row = sqlx::query(
-            "SELECT short_name, long_name, availability, metadata_etag \
+            "SELECT * \
              FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
         )
         .bind(reference_value.as_string())
@@ -747,6 +791,7 @@ async fn validate_question_references(
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourseSummary, StoreError> {
     Ok(StoredBlueprintCourseSummary {
+        classification: decode_classification(row)?,
         total_adoptions: u64::try_from(
             row.try_get::<i64, _>("total_adoptions")
                 .map_err(map_sqlx_error)?,
@@ -792,6 +837,7 @@ fn decode_course(row: &sqlx::postgres::PgRow) -> Result<StoredBlueprintCourse, S
             .map_err(map_sqlx_error)?,
     )?;
     Ok(StoredBlueprintCourse {
+        classification: decode_classification(row)?,
         reference: reference(row.try_get("public_reference").map_err(map_sqlx_error)?)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
@@ -869,6 +915,7 @@ fn decode_metadata_state(
     row: &sqlx::postgres::PgRow,
 ) -> Result<BlueprintMetadataState, StoreError> {
     Ok(BlueprintMetadataState {
+        classification: decode_classification(row)?,
         short_name: row.try_get("short_name").map_err(map_sqlx_error)?,
         long_name: row.try_get("long_name").map_err(map_sqlx_error)?,
         availability: availability_value(row.try_get("availability").map_err(map_sqlx_error)?)?,

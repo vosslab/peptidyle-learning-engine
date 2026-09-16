@@ -83,7 +83,7 @@ Assessment fixes Question or Pool Revision selection
 ```
 
 Saving changes only the working response. The only submission workflow closes
-the whole Assessment Attempt. Current internal `question_submission` rows or
+the whole Assessment Attempt. Internal `question_response` rows or
 `/assignment-attempts/` routes are implementation structures beneath this
 target product boundary; their names do not define product actions.
 

@@ -229,14 +229,14 @@ mod tests {
         let verdict = question_attempt_timing_decision(
             r#"{
                 "policy":{"kind":"limited","seconds":9,"graceSeconds":2},
-                "timer":{"issuedAt":1000,"deadline":10000,"submittedAt":10500},
+                "timer":{"issuedAt":1000,"deadline":10000,"finalizedAt":10500},
                 "evaluatedAt":10500,
                 "pauseExtensionMillis":0
             }"#,
         )
         .expect("valid server timestamps should produce a verdict");
 
-        assert_eq!(verdict, r#""submittedWithinGrace""#);
+        assert_eq!(verdict, r#""finalizedWithinGrace""#);
     }
 
     #[test]

@@ -42,6 +42,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { normalizeQuestionIdSyntax } from "../../question_id";
+import { decodeCourseClassification } from "./course_classification";
 
 const MAX_PAGE_SIZE = 100;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
@@ -322,7 +323,8 @@ export function decodeCreateBlueprintCourseInput(
   path = "request",
 ): CreateBlueprintCourseInput {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["short_name", "long_name", "modules"]);
+  requireOnlyFields(record, path, ["short_name", "long_name", "modules", "classification"]);
+  decodeCourseClassification(field(record, "classification", path), `${path}.classification`);
   const modules = decodeBoundedArray(
     field(record, "modules", path),
     `${path}.modules`,
@@ -523,6 +525,7 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     "long_name",
     "availability",
     "metadata_etag",
+    "classification",
     "current_revision",
     "read_access",
   ]);
@@ -538,6 +541,10 @@ function summary(value: unknown, path: string): BlueprintCourseSummaryView {
     throw new DecodeError(path, "nonnegative Blueprint popularity totals");
   return {
     total_adoptions: totalAdoptions,
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
     total_students_ever_enrolled: totalStudents,
     reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
@@ -597,6 +604,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     "long_name",
     "availability",
     "metadata_etag",
+    "classification",
     "current_revision",
     "fork_source",
     "read_access",
@@ -604,6 +612,10 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
   ]);
   return {
     reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),
@@ -662,8 +674,18 @@ export function decodeBlueprintMetadataState(
   path = "response",
 ): BlueprintMetadataState {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["short_name", "long_name", "availability", "metadata_etag"]);
+  requireOnlyFields(record, path, [
+    "short_name",
+    "long_name",
+    "availability",
+    "metadata_etag",
+    "classification",
+  ]);
   return {
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
     short_name: text(field(record, "short_name", path), `${path}.short_name`),
     long_name: text(field(record, "long_name", path), `${path}.long_name`),
     availability: availability(field(record, "availability", path), `${path}.availability`),

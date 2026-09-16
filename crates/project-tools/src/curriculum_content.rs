@@ -53,6 +53,7 @@ pub(crate) struct ParameterizedSource {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Course {
+    pub(crate) classification: crate::pilot_content::AuthoredClassification,
     pub(crate) assessment_type: AssessmentType,
     pub(crate) short_name: String,
     pub(crate) long_name: String,
@@ -174,6 +175,7 @@ pub(crate) fn repository_root() -> Result<PathBuf> {
 }
 
 fn validate(manifest: &Manifest, root: &Path) -> Result<()> {
+    manifest.course.classification.validate()?;
     validate_manifest_header(manifest)?;
     ensure!(
         !manifest.parameterized_sources.is_empty(),

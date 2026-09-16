@@ -4,6 +4,7 @@ import type { BlueprintHistoryPageView } from "../../../generated/api/BlueprintH
 import { DecodeError, decodeRecord, decodeStringEnum } from "../decoder";
 import { decodeBlueprintRevision, text } from "./blueprint_course";
 import { decodeCursorPage, decodeTimestamp, field, requireOnlyFields } from "./shared";
+import { decodeCourseClassification } from "./course_classification";
 
 function entry(value: unknown, path: string): BlueprintHistoryEntryView {
   // ASVS 2.2.1: allowlist every tagged entry before it reaches browser state.
@@ -24,10 +25,15 @@ function entry(value: unknown, path: string): BlueprintHistoryEntryView {
       "longName",
       "availability",
       "recordedAt",
+      "classification",
     ]);
     return {
       kind,
       shortName: text(field(record, "shortName", path), `${path}.shortName`),
+      classification: decodeCourseClassification(
+        field(record, "classification", path),
+        `${path}.classification`,
+      ),
       longName: text(field(record, "longName", path), `${path}.longName`),
       availability: decodeStringEnum(field(record, "availability", path), `${path}.availability`, [
         "private",

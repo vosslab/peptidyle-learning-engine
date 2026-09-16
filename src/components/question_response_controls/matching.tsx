@@ -8,7 +8,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import { handleQuestionResponseControlKeyDown } from "./keyboard";
 import {
   Actions,
-  createSubmissionController,
+  createResponseController,
   Status,
   textFromBlocks,
   type MatchingResponseFormat,
@@ -60,7 +60,7 @@ export function MatchingResponse(
   // A drop must originate from this bank, not arbitrary external drag data.
   let draggedChoice: ResponseItemReference = "";
   const response = (): StudentResponse => matchingResponseFromSlots(matches());
-  const controller = createSubmissionController(props, response());
+  const controller = createResponseController(props, response());
   const reuseChoices = (): boolean => choicesMayBeReused(props.responseFormat);
 
   function assignedChoice(prompt: ResponseItemReference): ResponseItemReference {
@@ -120,8 +120,8 @@ export function MatchingResponse(
       ? `Selected: ${choiceText(pendingChoice())}. Already assigned; select another choice or clear its slot.`
       : `Selected: ${choiceText(pendingChoice())}. Activate a prompt slot to assign it.`;
   }
-  function submit(): void {
-    void controller.submit(response());
+  function save(): void {
+    void controller.save(response());
   }
   function reset(): void {
     if (controller.locked()) return;
@@ -139,7 +139,7 @@ export function MatchingResponse(
       class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
-        handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
+        handleQuestionResponseControlKeyDown(event, props.onEscape, save, controller.canSave)
       }
     >
       <fieldset
@@ -276,10 +276,10 @@ export function MatchingResponse(
       </fieldset>
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.locked()}
+        disabled={!controller.canSave() || controller.locked()}
         resetDisabled={controller.locked()}
-        onSubmit={submit}
-        submitLabel={props.submitLabel}
+        onSave={save}
+        saveLabel={props.saveLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

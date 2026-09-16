@@ -1,0 +1,47 @@
+/* Compact Course metadata controls reuse product surfaces and native keyboard behavior. */
+.course-classification-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+}
+
+.course-classification-fields legend {
+  padding-inline: 0.25rem;
+}
+
+.course-classification-fields__tags {
+  display: grid;
+  gap: 0.35rem;
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.course-classification-fields textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 4rem;
+  padding: 0.5rem;
+  resize: vertical;
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-surface);
+  color: var(--ple-ink);
+  font: inherit;
+}
+
+.course-classification-editor,
+.course-classification-editor form {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.course-classification-summary {
+  overflow-wrap: anywhere;
+  margin-block: 0.5rem;
+}

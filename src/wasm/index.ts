@@ -65,7 +65,7 @@ export interface QuestionAttemptTimingEvaluation {
 }
 
 export type QuestionAttemptTimingDecision =
-  "untimed" | "open" | "gracePeriod" | "submittedOnTime" | "submittedWithinGrace" | "timedOut";
+  "untimed" | "open" | "gracePeriod" | "finalizedOnTime" | "finalizedWithinGrace" | "timedOut";
 
 export type TimerEvaluator = (
   evaluation: QuestionAttemptTimingEvaluation,
@@ -266,8 +266,8 @@ function parseQuestionAttemptTimingDecision(json: string): QuestionAttemptTiming
     case "untimed":
     case "open":
     case "gracePeriod":
-    case "submittedOnTime":
-    case "submittedWithinGrace":
+    case "finalizedOnTime":
+    case "finalizedWithinGrace":
     case "timedOut":
       return value;
     default:

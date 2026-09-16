@@ -261,11 +261,25 @@ def _redact_supervisor_diagnostic(detail: str) -> str:
 #============================================
 def _launch_diagnostic(output: str) -> str:
 	"""Prefer an actionable child error over wrapper and provider diagnostics."""
-	actionable = "\n".join(
-		line for line in output.splitlines()
-		if re.match(r"^\s*(?:Error:|Caused by:)", line)
-		and re.search(r"(?i)^\s*Error:\s+executing\b.*\bexit status\b", line) is None
-	)
+	actionable_lines: list[str] = []
+	expecting_cause = False
+	numbered_cause_seen = False
+	for line in output.splitlines():
+		if re.match(r"^\s*(?:Error:|Caused by:)", line):
+			expecting_cause = line.lstrip().startswith("Caused by:")
+			numbered_cause_seen = False
+			if re.search(r"(?i)^\s*Error:\s+executing\b.*\bexit status\b", line) is None:
+				actionable_lines.append(line)
+			continue
+		if expecting_cause and re.match(r"^\s+\d+:\s+\S", line):
+			actionable_lines.append(line)
+			numbered_cause_seen = True
+			continue
+		if expecting_cause and not numbered_cause_seen and re.match(r"^\s+\S", line):
+			actionable_lines.append(line)
+		expecting_cause = False
+		numbered_cause_seen = False
+	actionable = "\n".join(actionable_lines)
 	if actionable != "":
 		return _redact_supervisor_diagnostic(actionable)
 	lines = (

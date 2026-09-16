@@ -7,7 +7,7 @@ import type { StudentResponse } from "../../../generated/api/StudentResponse";
 import { handleQuestionResponseControlKeyDown } from "../question_response_controls/keyboard";
 import {
   Actions,
-  createSubmissionController,
+  createResponseController,
   numericResponseFromInput,
   Status,
   type NumericResponseFormat,
@@ -22,14 +22,14 @@ export function NumericResponse(
   const initialValue = restored === undefined ? "" : String(restored);
   const [value, setValue] = createSignal(initialValue);
   let control!: HTMLInputElement;
-  const controller = createSubmissionController(props, numericResponseFromInput(initialValue));
+  const controller = createResponseController(props, numericResponseFromInput(initialValue));
   const response = (): StudentResponse => numericResponseFromInput(value());
   function update(next: string): void {
     setValue(next);
     void controller.edit(numericResponseFromInput(next));
   }
-  function submit(): void {
-    void controller.submit(response());
+  function save(): void {
+    void controller.save(response());
   }
   function reset(): void {
     setValue(initialValue);
@@ -41,7 +41,7 @@ export function NumericResponse(
       class="question-response-control"
       data-phase={controller.phase().kind}
       onKeyDown={(event) =>
-        handleQuestionResponseControlKeyDown(event, props.onEscape, submit, controller.canSubmit)
+        handleQuestionResponseControlKeyDown(event, props.onEscape, save, controller.canSave)
       }
     >
       <label for={`${props.attemptId}-numeric`}>
@@ -66,10 +66,10 @@ export function NumericResponse(
       />
       <Status attemptId={props.attemptId} controller={controller} />
       <Actions
-        disabled={!controller.canSubmit() || controller.locked()}
+        disabled={!controller.canSave() || controller.locked()}
         resetDisabled={controller.locked()}
-        onSubmit={submit}
-        submitLabel={props.submitLabel}
+        onSave={save}
+        saveLabel={props.saveLabel}
         onReset={reset}
         onEscape={props.onEscape}
       />

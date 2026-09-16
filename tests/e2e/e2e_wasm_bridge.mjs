@@ -109,13 +109,13 @@ const questionAttemptTimingDecision = JSON.parse(
   bridge.question_attempt_timing_decision(
     JSON.stringify({
       policy: { kind: "limited", seconds: 60, graceSeconds: 2 },
-      timer: { issuedAt: 1_000, deadline: 10_000, submittedAt: 11_500 },
+      timer: { issuedAt: 1_000, deadline: 10_000, finalizedAt: 11_500 },
       evaluatedAt: 11_500,
       pauseExtensionMillis: 0,
     }),
   ),
 );
-assert.equal(questionAttemptTimingDecision, "submittedWithinGrace");
+assert.equal(questionAttemptTimingDecision, "finalizedWithinGrace");
 
 assert.equal(
   JSON.parse(

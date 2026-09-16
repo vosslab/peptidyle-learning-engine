@@ -22,6 +22,20 @@ CREATE TABLE ple_data.course_instance (
         course_long_name = btrim(course_long_name)
         AND char_length(course_long_name) BETWEEN 1 AND 200
     ),
+    discipline_uuid uuid NOT NULL REFERENCES ple_data.content_discipline(discipline_uuid),
+    subject_uuid uuid,
+    topic_uuid uuid,
+    subtopic_uuid uuid,
+    tags text[] NOT NULL CHECK (ple_data.course_classification_tags_are_valid(tags)),
+    metadata_etag uuid NOT NULL DEFAULT gen_random_uuid(),
+    CHECK (topic_uuid IS NULL OR subject_uuid IS NOT NULL),
+    CHECK (subtopic_uuid IS NULL OR topic_uuid IS NOT NULL),
+    FOREIGN KEY (subject_uuid, discipline_uuid)
+        REFERENCES ple_data.content_subject_discipline(subject_uuid, discipline_uuid),
+    FOREIGN KEY (subject_uuid, topic_uuid)
+        REFERENCES ple_data.content_topic(subject_uuid, topic_uuid),
+    FOREIGN KEY (topic_uuid, subtopic_uuid)
+        REFERENCES ple_data.content_subtopic(topic_uuid, subtopic_uuid),
     term_starts_on date NOT NULL,
     term_ends_on date NOT NULL CHECK (term_ends_on >= term_starts_on),
     course_theme text NOT NULL DEFAULT 'grass' CHECK (course_theme IN (
@@ -225,6 +239,8 @@ REVOKE ALL ON FUNCTION ple_data.reject_course_origin_change(),
     ple_data.reject_course_instance_source_change() FROM PUBLIC;
 GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
 GRANT SELECT, INSERT ON ple_data.course_instance, ple_data.course_origin TO ple_api_owner;
+GRANT UPDATE (discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags, metadata_etag)
+    ON ple_data.course_instance TO ple_api_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_private_owner, ple_audit_owner;
 GRANT REFERENCES ON TABLE ple_data.course_instance TO ple_private_owner, ple_audit_owner;
 CREATE POLICY course_instance_api_owner_access ON ple_data.course_instance

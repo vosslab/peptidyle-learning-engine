@@ -51,17 +51,40 @@
   - Mismatch: the implemented separation is for the retired Assignment object in `src/pages/assignment_workspace/`, not the HG Assessment object.
 - [ ] My Active Courses and My Inactive Courses should both be available from the Courses area.
   - Mismatch: both controls are `future` destinations in `src/ribbon/ribbon_catalog.ts`.
+- [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
+  Discipline is unavailable.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 
 ##### Blueprint Course interface
 
 - [x] **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
-- [x] **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
-  - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` submits the Instructor's name query to the Public-Blueprint list and opens the selected exact Blueprint detail.
-  - Evidence (runtime): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` is exercised by accepted C47 actual HTTP and compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json` and `public-search-browser.json`, using the Courses ribbon, submitted exact name search, and existing detail. It proves the isolated privileged-session workflow only; no ordinary login, TLS, full accessibility, or Course creation is claimed.
-- [x] Public Blueprint Course search should support quickly narrowing a large collection.
-  - Evidence (source): `crates/server/src/blueprint_course/list.rs` `list_blueprints` applies the literal Public query before paging, and `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` preserves the submitted query through continuation and resets it after an empty result.
-  - Evidence (runtime): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` and `crates/server/src/blueprint_course/list.rs` `list_blueprints` are exercised by accepted C47 actual HTTP and compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json` and `public-search-browser.json`, proving Public-only literal `%`, `_`, and backslash matching, a query-bound cursor, 51 matching records across the real 50-row continuation, and empty-search reset with unchanged `ple_data`.
+- [ ] **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Public Blueprint Course search should combine ordinary text search with shared classification
+  filters beginning with Discipline and following Discipline -> Subject -> Topic -> Subtopic.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] After selecting a Subject, Instructors should have an explicit option to include Blueprint Courses
+  associated with that Subject across its other Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Tags should provide additional filters outside the hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Search results should use a compact, information-rich layout that supports scanning and comparison.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Results should show Course name, classification, author, institution, and useful usage or
+  stewardship signals directly in the result list to support scanning and comparison.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Search terms, active filters, and the selected sort should remain visible while reviewing results.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [x] Clearing or changing part of a search should be quick.
+  - Evidence (source): `src/pages/library_page.tsx` `changeQuery` updates the search session on each input or selection change.
+- [ ] Opening a result and returning should preserve the Instructor's search, filters, sort, and scroll
+  position.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
   - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` is exercised by accepted C47 compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-browser.json`, which follows the existing detail action and preselects the matched Blueprint beyond the first 50 search rows. It does not submit or create a Course Instance.
@@ -133,6 +156,16 @@
   - Mismatch: `starred` is a `future` Ribbon destination.
 - [ ] **Watched** should help Instructors follow Questions where changes or activity matter to them.
   - Mismatch: `watched` is a `future` Ribbon destination.
+- [ ] Published Questions should offer a **Create Pool from Question** action.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Pool creation should show the starting Question and its Discipline and Subject alongside the
+  Pool Title field.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Creating the Pool includes the starting Question and uses its Discipline and Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Adding Questions to a Pool should begin with Question Library results filtered to the Pool's
+  Discipline and Subject.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 
 ##### Search Question Library interface
 
@@ -156,6 +189,18 @@
   - Evidence (source): `src/pages/library_page.tsx` `question-library-row` shows title, summary, authors, and identifier.
 - [x] Search results should support filters for narrowing the Question Library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, and capability filters.
+- [ ] Classification browsing and filtering should begin with Discipline and follow the shared
+  Discipline -> Subject -> Topic -> Subtopic hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Tags should provide additional filters outside the hierarchy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Blueprint Course interface (first occurrence).
+- [ ] Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Owner: Blueprint Course interface (first occurrence).
+- [ ] After selecting a Subject, Instructors should have an explicit option to include Library Objects
+  associated with that Subject across its other Disciplines.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Filters should update the current search rather than start a separate workflow.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` resets one `QuestionLibraryBrowseSession` with the updated query.
 - [x] Search should support Google-like syntax for more precise queries.
@@ -167,15 +212,17 @@
 - [x] A minus sign should exclude matching terms.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `exclusion_prefix` records a leading minus as an excluded search term.
   - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `exclusion_prefix` and returned `Alpha enzyme kinetics` for `enzyme -inhibitor` while excluding the matching inhibitor Question.
-- [x] Search should support PubMed-like field tags such as `topic:genetics`.
-  - Evidence (source): `crates/server/src/question_library/search_query.rs` `field_prefix` recognizes `topic` and `SearchTerm::matches` applies it to Question metadata.
-  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `field_prefix`, composed `subject:`, `topic:`, `tags:`, `type:`, and `author:` in one request, and returned the exact expected Question.
-- [x] Field tags should use PLE concepts and vocabulary.
-  - Evidence (source): `crates/server/src/question_library/search_query.rs` limits field tags to PLE terms: `subject`, `topic`, `tags`, `type`, and `author`.
-  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `SearchField` with only the closed PLE field vocabulary and preserved the production route's strict query boundary.
-- [x] Useful fields may include subject, topic, tags, Question Type, and author.
-  - Evidence (source): `crates/server/src/question_library/search_query.rs` `SearchField` and `SearchTerm::matches` support `subject`, `topic`, `tags`, `type`, and `author`.
-  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `impl SearchTerm` for subject, topic, tags, Question Type, and author together through the ordinary `text` query parameter.
+- [ ] Search should support PubMed-like field syntax such as `discipline:biology` and
+  `subject:genetics`.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Classification field examples include `topic:"chromosomal inheritance"` and `tags:review`.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] A Subtopic field example is `subtopic:"x-linked recessive crosses"`.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Search fields should use PLE concepts and vocabulary.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Useful fields may include Discipline, Subject, Topic, Subtopic, Tags, Question Type, and author.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Simple and advanced searches should use the same search box.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` provides one Search input, and `crates/server/src/question_library.rs` passes its optional `text` query value to `QuestionTextQuery::parse` before matching.
   - Evidence (runtime): accepted C59 component proof exercised `src/pages/library_page.tsx` `LibraryPage` and confirmed the visible Search box and its normal-flow Search tips.
@@ -192,6 +239,7 @@
   - Evidence (source): `src/pages/library_page.tsx` `query` signal remains bound to the search input and filter selects while rows render.
 - [x] Clearing or changing part of a search should be quick.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` updates the search session on each input or selection change.
+  - Owner: Blueprint Course interface (first occurrence).
 - [x] Opening a result and returning should preserve the Instructor's search and position.
   - Evidence (source): `src/pages/library_page_model.ts` `saveQuestionLibraryReturnState` and `takeQuestionLibraryReturnState` retain one session-bound, single-use in-document snapshot; `src/pages/library_page.tsx` `LibraryPage` restores its query, server-validated loaded rows, filters, and clamped scroll position.
   - Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` restored `genetics`, the `ple` filter, 80 loaded rows, and exact virtual-list scroll position through visible detail return and browser Back; a changed session returned to the empty landing. The temporary harness and screenshots were removed after the accepted proof.
@@ -204,12 +252,12 @@
 - [x] Browse should help Instructors understand what the Question Library contains.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` explains that counts cover all authorized matching Questions and presents subject, topic, tag, and Question Type groups.
   - Evidence (runtime): accepted C60 component evidence rendered `src/pages/library_page.tsx` `LibraryPage` overview groups; actual-server HTTP evidence exercised `crates/server/src/question_library.rs` `search_questions` over the full authorized matched snapshot.
-- [x] Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders dedicated Subjects, Topics, Tags, and Question Types groups with explicit free-text truncation notices.
-  - Evidence (runtime): accepted component and actual-server HTTP evidence covered `crates/server/src/question_library/facets.rs` `facets` for all four groups, including truthful 64-value truncation flags.
-- [x] Browse should make moving from broad subjects to narrower topics easy.
-  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` clears the prior topic on subject selection and requests exact subject filtering before presenting `Topics in this subject`.
-  - Evidence (runtime): accepted routed component evidence exercised `src/pages/library_page.tsx` `changeQuery`, selected Biochemistry then Enzymes, and preserved both exact filters.
+- [ ] Browse should begin with Discipline and make moving through Subject, Topic, and Subtopic easy.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Selecting a Discipline limits browsing to Subjects associated with that Discipline.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+- [ ] Browse should also offer Tags, Question Types, and other useful groupings.
+  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [x] Browse should show useful counts where they help Instructors choose where to explore.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` group choices render their server-owned counts and state that counts cover all authorized matches, not only loaded rows.
   - Evidence (runtime): accepted actual-server HTTP evidence exercised `crates/server/src/question_library.rs` `search_questions` with `page_size=1` yet returned Biology topic counts of Enzymes 2 and Metabolism 1 over all three matching Questions.

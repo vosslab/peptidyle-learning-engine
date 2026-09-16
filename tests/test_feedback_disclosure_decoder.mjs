@@ -44,7 +44,7 @@ test("Student attempts require score freshness and redact stale numeric results"
   for (const assessmentScoringState of ["recalculating", "failed"]) {
     const redacted = {
       ...current,
-      submission: { ...current.submission, gradingResult: null },
+      finalizedResponse: { ...current.finalizedResponse, gradingResult: null },
       assessmentScoringState,
     };
     assert.deepEqual(decodeStudentQuestionAttempt(redacted), redacted);
@@ -52,7 +52,7 @@ test("Student attempts require score freshness and redact stale numeric results"
       () =>
         decodeStudentQuestionAttempt({
           ...redacted,
-          submission: { ...redacted.submission, gradingResult: current.submission.gradingResult },
+          finalizedResponse: { ...redacted.finalizedResponse, gradingResult: current.finalizedResponse.gradingResult },
         }),
       DecodeError,
       `${assessmentScoringState} must reject a numeric result`,

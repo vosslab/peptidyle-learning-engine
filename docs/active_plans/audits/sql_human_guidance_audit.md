@@ -115,7 +115,7 @@ so, express its narrowly owned capability deliberately.
 | Pool stewardship | Stable Pool-level star/watch identities, public vetted-Instructor endorsements, private subscription data and required notification events | Match the separation already used for Questions/Blueprints. Resolve ownership and visibility before users build durable subscriptions. |
 | Required notification kinds | Stable representation for Question/Pool improvement-thread and impact events, in addition to Revision/fork notifications | Question notification kinds are currently restricted to Revision/fork. Resolve the event identities and privacy boundary before subscriptions depend on that closed set. |
 | Supported backend set | Consistent allowed backend/source types across authoring, revisions, delivery, reproduction and whole-Attempt completion | The current schema admits iMathAS records that the saved-response completion path cannot finalize, and excludes H5P. Complete required SQL support or deliberately restrict the initial production backend scope; do not claim capability based on a backend CHECK alone. |
-| Assessment-only submission terminology and parentage | Rename `question_submission` to `question_response`; align related grading identities with that name and link the evidence explicitly to its owning Assessment submission | The current names imply a nonexistent Question submission concept. Resolve this terminology drift before names become frozen production SQL contracts. Preserve per-Question response/credit evidence; only the Assessment Attempt is submitted. |
+| Assessment-only response terminology and parentage | Align the per-Question response record and related grading identities with `question_response`; link the evidence explicitly to its owning Assessment submission | This audit observed names that implied a nonexistent independent Question action. Its recommendation was to resolve that terminology drift before names became frozen production SQL contracts. Preserve per-Question response/credit evidence; only the Assessment Attempt is submitted. |
 | Archive recovery | A narrowly authorized SQL recovery/read capability providing sufficient retained responses, exact delivery evidence and outcomes during the archive period | Physical rows and header summaries do not establish recoverability. Recovery need not reverse the archive state; it must provide the required evidence without reopening ordinary access or extending permanent deletion. |
 | Canonical Blueprint metadata/content boundary | Define which SQL fields form complete exchange JSON, including names/classification; preserve ordered reusable content and exact pins | Stored Revision content currently contains modules while names are separate. Freeze the database-to-canonical-representation contract; do not assume the content column alone is a complete exchange object. Serialization implementation remains outside scope. |
 
@@ -248,8 +248,9 @@ issued Question without a distinct lookup key.
 
 The later QC catalog pass confirmed two further duplicate access paths in
 [assessment_attempt_interaction.sql](../../../schemas/base_schema/assessment_attempt_interaction.sql),
-lines 171-172: `question_submission_assessment_attempt_idx` duplicates the unique
-Question Attempt key, and `assessment_submission_assessment_attempt_idx`
+lines 171-172: a nonunique index on the per-Question finalized-response record
+duplicates the unique Question Attempt key, and
+`assessment_submission_assessment_attempt_idx`
 duplicates the unique Assessment Attempt key. Compare access method, key order,
 operator classes, collations, expressions, included columns and predicates when
 checking duplication; this pass compared those catalog properties. Preserve the
@@ -481,8 +482,8 @@ Sources consulted from
 | Primary keys and installed integrity | All 131 data/private/audit tables have a primary key; zero unvalidated constraints; zero invalid/not-ready indexes. | Pass for catalog structure. This does not prove the constraints express every required invariant. |
 | Conditional required fields and NULL semantics | Exact Entry CHECK/NOT NULL/generated definitions copied with LIKE accepted fixed Question points=NULL and a Pool entry with selection_count/points_per_item/order=NULL. Negative fixed points were rejected. | Additional reproduced DDL weakness. Add explicit non-NULL conditions to mandatory variants before freezing the schema. Supported command validation is a separate question. |
 | Foreign-key indexing | Referencing-side indexes are not implicit. Earlier diagnostic identified 144 overinclusive candidates. | Measure high-volume join/delete paths; prioritize actual Course purge/Attempt cascades. Do not add 144 indexes by rote. |
-| Duplicate indexes | Catalog confirmed three exact duplicated access paths on issued_question, question_submission and assessment_submission. | Remove redundant nonunique copies after reviewing SQL dependencies/callers; keep unique constraint indexes. Write/storage savings are unquantified. |
-| Assessment-only submission boundary | The only reviewed INSERT into the SQL table `question_submission` occurs inside whole-Assessment finalization, after creating the Assessment submission record. Its child-state trigger checks Question Attempt state/time but not the parent Assessment submission directly. | Confirmed terminology drift and source-identified parent-invariant weakness. Rename the table to `question_response` and strengthen parent coupling before freezing. No independent Student Question submission operation was found. |
+| Duplicate indexes | Catalog confirmed three exact duplicated access paths on issued Question, per-Question finalized-response, and Assessment-submission records. | Remove redundant nonunique copies after reviewing SQL dependencies/callers; keep unique constraint indexes. Write/storage savings are unquantified. |
+| Assessment-only submission boundary | At audit time, the only reviewed INSERT into the per-Question finalized-response table occurred inside whole-Assessment finalization, after creating the Assessment submission record. Its child-state trigger checked Question Attempt state/time but not the parent Assessment submission directly. | The audit found terminology drift and a source-identified parent-invariant weakness. Its recommendation was to use `question_response` and strengthen parent coupling before freezing. No independent Student Question finalization operation was found. This historical finding does not verify a later repair. |
 | Unused indexes and partial indexes | Question search GIN has no matching search predicate in the reviewed Library command; active passkey/challenge/expiry indexes already use partial predicates. | Reconcile search query/index usage. Do not drop an index merely because a fresh test database reports zero scans; production/replica usage was not inspected. |
 | Index type and predicate match | B-trees cover many exact identity/ordering lookups; GIN is used for Question text search. Statistics Revision filtering lacked a useful leading key and improved in the prior measured experiment. | Keep workload-based index choices. No evidence justifies replacing B-trees wholesale with Hash/BRIN or adding generic GIN indexes to all JSON. |
 | Query volume/projection and expression indexing | Explicit public/Student projections coexist with internal SELECT * row locking; Library returns an unbounded catalog with correlated metadata work. | Internal complete-row loading is not automatically a defect. Bound expensive catalog projections and connect search to the existing expression index. |
@@ -503,17 +504,16 @@ It also provides positive evidence for type selection, catalog integrity and a
 limited structural restore. It does not turn source-supported command contracts
 into tested concurrency or production-performance guarantees.
 
-### Schema terminology drift: Assessment submission is the sole boundary
+### Historical schema terminology finding: Assessment submission is the sole boundary
 
 **Questions are not submitted independently.** A Student submits an Assessment
 Attempt, and that transaction finalizes its saved responses and outcomes.
-The identifier `ple_private.question_submission` is the existing SQL table name,
-not a valid second product object or user action. Its name, and related
-`question_submission_grading`/`question_submission_grading_id` identifiers, are
-schema terminology drift from the required Assessment-only submission model.
-In this audit the table means immutable
+At the time of this audit, the per-Question finalized-response table and related
+grading identifiers used terminology that did not fit the required
+Assessment-only submission model. The observed records meant immutable
 per-Question finalized-response evidence belonging to an Assessment submission.
-The duplicate-index finding concerns that physical table only.
+The duplicate-index finding concerns that historical physical table only. This
+audit finding does not verify a later terminology or parentage repair.
 
 Source inspection found its only INSERT in
 [assessment_attempt_finalization.sql](../../../schemas/base_schema/assessment_attempt_finalization.sql),
@@ -603,11 +603,12 @@ There are narrower pre-freeze concerns:
    used: an identifying JSON Object Address is not rendered safe merely by lack
    of an FK. No actual leaked Student object or blob was reproduced here, and
    external object-store cleanup is outside this SQL audit.
-4. **Missing explicit Assessment-submission parent.** The proposed
-   `question_response` table (currently `question_submission`) connects through
-   Question Attempt to issued Question/Assessment Attempt, but does not explicitly
-   require the parent Assessment submission. This is the parent-invariant concern
-   detailed above, rather than a disconnected-table finding.
+4. **Missing explicit Assessment-submission parent.** The audit's proposed
+   `question_response` table connected through Question Attempt to issued
+   Question/Assessment Attempt, but did not explicitly require the parent
+   Assessment submission. This is the historical parent-invariant concern
+   detailed above, rather than a disconnected-table finding; it does not verify
+   a later repair.
 
 For deletion, incoming FK edges on Question Attempts, response/grading records,
 statistics receipts and correction targets were inspected. Their cascades support

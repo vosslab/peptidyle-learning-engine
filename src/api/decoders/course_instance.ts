@@ -22,6 +22,8 @@ import {
 import { decodeBlueprintCourseReference, decodeBlueprintRevision } from "./blueprint_course";
 import { isCanonicalAccountReference } from "./instructor_account";
 import { decodeCourseTerm } from "./course_term";
+import { decodeCourseClassification } from "./course_classification";
+import { decodeUuid } from "../decoder";
 import {
   decodeCourseInstanceReference,
   decodeCourseName,
@@ -39,8 +41,21 @@ function accountReference(value: unknown, path: string): AccountReference {
 
 function summary(value: unknown, path: string): CourseInstanceSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "shortName", "longName", "term", "theme"]);
+  requireOnlyFields(record, path, [
+    "reference",
+    "shortName",
+    "longName",
+    "term",
+    "theme",
+    "classification",
+    "metadataEtag",
+  ]);
   return {
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
+    metadataEtag: decodeUuid(field(record, "metadataEtag", path), `${path}.metadataEtag`),
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
@@ -56,8 +71,19 @@ export function decodeCourseInstanceRouteSummary(
 ): CourseInstanceRouteSummary {
   // ASVS 1.5.2 and 2.2.1: accept only the generated public response shape.
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "shortName", "longName", "term", "role"]);
+  requireOnlyFields(record, path, [
+    "reference",
+    "shortName",
+    "longName",
+    "term",
+    "role",
+    "classification",
+  ]);
   return {
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
@@ -79,6 +105,7 @@ export function decodeCreateCourseInstanceInput(
     "longName",
     "term",
     "assignedInstructor",
+    "classification",
   ]);
   const sourcePath = `${path}.source`;
   const sourceRecord = decodeRecord(field(record, "source", path), sourcePath);
@@ -106,6 +133,10 @@ export function decodeCreateCourseInstanceInput(
   }
   const assignedInstructor = record["assignedInstructor"];
   const decoded = {
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
     source,
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),

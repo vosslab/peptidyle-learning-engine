@@ -50,7 +50,7 @@ pub(super) async fn create(
     let row = sqlx::query(
         "SELECT public_reference, blueprint_revision_number \
          FROM ple_api.create_blueprint_course($1, $2, 'REV-ACC', \
-              'Revision acceptance Blueprint', $3, $4)",
+              'Revision acceptance Blueprint', $3, $4, '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
     )
     .bind(blueprint_id)
     .bind(checksum)
@@ -318,6 +318,13 @@ fn question_pool_id() -> QuestionId {
 
 fn content_input(title: &str) -> CreateBlueprintCourseInput {
     CreateBlueprintCourseInput {
+        classification: question_model::CourseClassification {
+            discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+            subject_uuid: None,
+            topic_uuid: None,
+            subtopic_uuid: None,
+            tags: Vec::new(),
+        },
         short_name: "REV-ACC".to_owned(),
         long_name: "Revision acceptance Blueprint".to_owned(),
         modules: vec![CreateBlueprintModuleInput {
@@ -422,6 +429,11 @@ pub(super) fn changed_content(
 
 pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     let mut transaction = admin.begin().await.expect("fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("classification fixture owner");
+    sqlx::query("INSERT INTO ple_data.content_discipline (discipline_uuid, name) VALUES ('00000000-0000-0000-0000-00000000cc01', 'Course fixture discipline') ON CONFLICT (discipline_uuid) DO NOTHING").execute(&mut *transaction).await.expect("explicit fixture Discipline");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *transaction)
         .await

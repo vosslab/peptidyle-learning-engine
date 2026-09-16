@@ -269,3 +269,25 @@ def test_launch_diagnostic_retains_the_first_actionable_error() -> None:
 	)
 	assert diagnostic.startswith("Error: Live Demo Course discovery request did not complete")
 	assert "private-value" not in diagnostic
+
+
+#============================================
+def test_launch_diagnostic_retains_causes_but_excludes_trailing_diagnostics() -> None:
+	"""Keep an anyhow chain or one direct cause, but never trailing diagnostic noise."""
+	diagnostic = local_stack_control.browser_suite_developer._launch_diagnostic(
+		"Error: launch failed\n"
+		"Caused by:\n"
+		"    permission denied for PLE_RENDERER_TOKEN=private-value /private/socket\n"
+		"stack backtrace:\n"
+		"   0: arbitrary backtrace\n"
+		"status: ignored\n"
+		"Caused by:\n"
+		"    0: wrapper cause\n"
+		"    1: root cause\n"
+		"    2: detail cause\n"
+		"unindented status\n"
+	)
+	assert diagnostic == (
+		"Error: launch failed Caused by: permission denied for [private] [path] "
+		"Caused by: 0: wrapper cause 1: root cause 2: detail cause"
+	)

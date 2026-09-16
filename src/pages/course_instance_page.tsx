@@ -4,6 +4,7 @@ import { A, useParams } from "@solidjs/router";
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
+import { CourseClassificationEditor } from "../components/course_classification_editor";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
 import { parseCourseInstanceReference } from "../navigation/public_route";
@@ -308,7 +309,7 @@ export function CourseInstancePage(): JSX.Element {
   function courseReference(): ReturnType<typeof parseCourseInstanceReference> {
     return parseCourseInstanceReference(params["courseRef"] ?? "");
   }
-  const [course] = createResource(courseReference, async (reference) =>
+  const [course, { mutate: mutateCourse }] = createResource(courseReference, async (reference) =>
     applicationApi.client.getCourseInstance(reference),
   );
   const [assessments] = createResource(courseReference, async (reference) =>
@@ -340,6 +341,36 @@ export function CourseInstancePage(): JSX.Element {
           <>
             <p class="eyebrow">Course Instance · {view().course.reference}</p>
             <h1>{view().course.longName}</h1>
+            <CourseClassificationEditor
+              value={view().course.classification}
+              metadataEtag={view().course.metadataEtag}
+              canEdit
+              save={async (classification, etag) => {
+                const saved = await applicationApi.client.updateCourseInstanceClassification(
+                  view().course.reference,
+                  classification,
+                  etag,
+                );
+                mutateCourse({
+                  ...view(),
+                  course: {
+                    ...view().course,
+                    classification: saved.classification,
+                    metadataEtag: saved.metadataEtag,
+                  },
+                });
+              }}
+              reload={async () => {
+                const current = await applicationApi.client.getCourseInstance(
+                  view().course.reference,
+                );
+                mutateCourse(current);
+                return {
+                  classification: current.course.classification,
+                  metadataEtag: current.course.metadataEtag,
+                };
+              }}
+            />
             <Show when={view().blueprintOrigin}>
               {(origin) => (
                 <>

@@ -40,6 +40,27 @@ BEGIN
 END
 $$;
 
+-- ASVS 8.1.1/8.2.1/8.3.1: global vocabulary reads require an installed active
+-- Instructor or Sysadmin session, not an attributed, vetted identity. They expose
+-- no Course membership, Student work, or other FERPA data. Mutations retain the
+-- vetted-identity guard above; installation publishers receive no special bypass.
+CREATE FUNCTION ple_private.require_content_classification_reader()
+RETURNS uuid LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+DECLARE actor_id uuid;
+BEGIN
+    IF ple_api.current_session_account_has_platform_administration() THEN
+        RETURN ple_private.require_current_sysadmin_account();
+    END IF;
+    actor_id := ple_api.current_session_account_id();
+    IF actor_id IS NULL OR NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Content classification reading requires an active Instructor or active Sysadmin';
+    END IF;
+    RETURN actor_id;
+END
+$$;
+
 -- ASVS 2.2.1/2.2.2: strip boundary whitespace before length/control validation.
 -- Names remain plain display text; later renderers must encode for their context.
 CREATE FUNCTION ple_private.normalize_content_classification_name(p_name text, p_limit integer)
@@ -198,7 +219,7 @@ CREATE FUNCTION ple_private.list_content_disciplines()
 RETURNS TABLE (discipline_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    PERFORM ple_private.require_content_classification_actor(false);
+    PERFORM ple_private.require_content_classification_reader();
     RETURN QUERY SELECT item.discipline_uuid, item.name FROM ple_data.content_discipline AS item
 
     ORDER BY lower(item.name), item.name, item.discipline_uuid;
@@ -209,7 +230,7 @@ CREATE FUNCTION ple_private.list_content_subjects(p_discipline_uuid uuid)
 RETURNS TABLE (subject_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    PERFORM ple_private.require_content_classification_actor(false);
+    PERFORM ple_private.require_content_classification_reader();
     RETURN QUERY SELECT item.subject_uuid, item.name FROM ple_data.content_subject AS item
     JOIN ple_data.content_subject_discipline AS association ON association.subject_uuid = item.subject_uuid
     WHERE association.discipline_uuid = p_discipline_uuid
@@ -221,7 +242,7 @@ CREATE FUNCTION ple_private.list_content_topics(p_subject_uuid uuid)
 RETURNS TABLE (topic_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    PERFORM ple_private.require_content_classification_actor(false);
+    PERFORM ple_private.require_content_classification_reader();
     RETURN QUERY SELECT item.topic_uuid, item.name FROM ple_data.content_topic AS item
     WHERE item.subject_uuid = p_subject_uuid
     ORDER BY lower(item.name), item.name, item.topic_uuid;
@@ -232,7 +253,7 @@ CREATE FUNCTION ple_private.list_content_subtopics(p_topic_uuid uuid)
 RETURNS TABLE (subtopic_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
-    PERFORM ple_private.require_content_classification_actor(false);
+    PERFORM ple_private.require_content_classification_reader();
     RETURN QUERY SELECT item.subtopic_uuid, item.name FROM ple_data.content_subtopic AS item
     WHERE item.topic_uuid = p_topic_uuid
     ORDER BY lower(item.name), item.name, item.subtopic_uuid;
@@ -243,7 +264,7 @@ RETURNS TABLE (subject_uuid uuid, name text) LANGUAGE plpgsql STABLE SECURITY DE
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE normalized_name text;
 BEGIN
-    PERFORM ple_private.require_content_classification_actor(false);
+    PERFORM ple_private.require_content_classification_reader();
     normalized_name := ple_private.normalize_content_classification_name(p_name, 120);
     RETURN QUERY SELECT item.subject_uuid, item.name
     FROM ple_data.content_subject AS item WHERE lower(item.name) = lower(normalized_name)
@@ -255,6 +276,7 @@ GRANT EXECUTE ON FUNCTION ple_private.find_content_subject(text) TO ple_api_owne
 
 
 REVOKE ALL ON FUNCTION ple_private.require_content_classification_actor(boolean),
+    ple_private.require_content_classification_reader(),
     ple_private.normalize_content_classification_name(text, integer) FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_private.add_content_subject_discipline(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.add_content_subject_discipline(uuid, uuid) TO ple_api_owner;

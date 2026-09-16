@@ -677,12 +677,12 @@ pub(super) fn submission_store_error(value: StoreError) -> Response {
         StoreError::Conflict | StoreError::AlreadyExists | StoreError::RetryableTransaction => {
             error(
                 StatusCode::PRECONDITION_FAILED,
-                "Question Submission changed",
+                "Question response changed",
             )
         }
         StoreError::LifecycleConflict => error(
             StatusCode::CONFLICT,
-            "Question Submission lifecycle conflict",
+            "Question response lifecycle conflict",
         ),
         StoreError::InvalidRecord(_) => error(
             StatusCode::UNPROCESSABLE_ENTITY,
@@ -693,7 +693,7 @@ pub(super) fn submission_store_error(value: StoreError) -> Response {
         | StoreError::LeaseLost
         | StoreError::Unavailable(_) => error(
             StatusCode::SERVICE_UNAVAILABLE,
-            "Question Submission unavailable",
+            "Question response unavailable",
         ),
     }
 }

@@ -2,28 +2,48 @@
 
 ## Current heading reconciliation
 
-The prior reconciled Human Guidance snapshot was 998 bullets: 449 verified, 499 open
-(490 owning), and 50 N/A, at SHA256
-`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`.
-The generated checklist owns occurrence status and first-owner pointers. All nine part gates,
-identity diff, and consistency passed for that snapshot. Unchanged scoring, timing, Blueprint,
-terminal-Attempt, and bounded MATCH evidence is retained. Product compliance remains unfinished;
-those gates establish inventory fidelity, not acceptance of the open requirements.
+Current Human Guidance SHA256 is
+`9e92c864a019d89ef9952cfb6e3b9c05a4f45d6055b6c3f49520c400f4dc7055`.
+All nine existing generator part gates, identity diff, and consistency passed. The generator and
+checklist agree on 1,038 occurrences: 441 verified, 547 open, and 50 N/A. The first-owner
+inventory is 432 verified, 533 open, and 50 N/A across 1,015 distinct identities; 23 are later
+duplicates. Sixty-nine new or changed requirements remain pending independent audit. This is a
+current inventory receipt, not a new Human Guidance closure or a product-acceptance result.
 
-Part 01 now owns Product vocabulary and glossary, including its five topical subheadings;
-new product definitions remain open absent independently accepted evidence. Part 03 owns Profile
-avatar interface, Student avatars, and Instructor and Sysadmin Profile images. Account-creation
-avatar persistence has a bounded source/SQL receipt, not deployed gallery/upload/cropping or
-all-location acceptance. Part 06 owns the shared Content classification requirements; Part 07
-owns Library metadata and Part 08 Course classification. Current HG applies this shared vocabulary
-to Courses and Library Objects only, not Assessments: a Course requires Discipline and has optional
-Subject, while a Library Object requires both. Subjects are globally named and may have one or more
-Discipline associations. The historical 998-bullet counts above remain a historical snapshot.
-The independently accepted SQL command prerequisite establishes global Subject-name uniqueness,
-role-aware commands, normalization, parent-filtered selectors, and Sysadmin-only association
-replacement. Content attachments, HTTP/editor integration, search, lifecycle, and deployed-state
-acceptance remain open. KISS/design constraints are audited N/A where not independently closable,
-but still bind reviews.
+The prior 998-bullet snapshot (449 verified, 499 open, 490 owning-open, and 50 N/A at
+`e81d5bb0a63cfb7d3ca5f4f34287e5155dc9d20b0b91cb856fdbefa1ef6fa82b`) remains historical
+provenance only. Earlier scoring, timing, Blueprint, terminal-Attempt, and bounded MATCH receipts
+retain their stated boundaries.
+
+Product work remains in progress. The Course-classification foundation and Store HTTP slice use
+mandatory Discipline with optional hierarchy and tags, independent Course Instances; support work
+must retain the exact issuer of Course authorization; and compact Student details UI work is
+independent. Ownership remains at the classification storage/Store HTTP boundary, Course
+authorization boundary, and Student-details UI boundary respectively. The only shared dependency
+is authorized Course identity where a surface needs it; no inheritance, Instance synchronization,
+or cross-slice completion follows.
+
+The completed repair is limited to required-classification fixtures in
+`tests/test_ple_question_json_authoring.mjs`, which passed 26 tests. See
+`/private/tmp/ple-authoring-fixture-classification-repair.md`. This does not claim an all-tests
+result or Course-feature completion.
+
+Current bounded progress receipt: root `CARGO_INCREMENTAL=0 cargo check -p server_core -p
+project-tools --tests` passed in 11.37 seconds; `cargo tsgen` generated 369 types; and fresh
+PostgreSQL 17 canonical installation through `ple_migrator` was repeated and passed. These results
+do not establish all SQL or whole-feature acceptance. The self-contained actual-role
+Course-classification proof passed at `/private/tmp/ple-course-classification-actual-role-result.log`,
+covering create/authorization, ETag no-op/stale/history behavior, no Revision change, exact pins,
+65 hierarchy tags, and fork/Instance independence. The corrected actual-role support proof passed
+constraints and rollback at `/private/tmp/ple-support-exact-authority-result.log`; independent
+review accepted source and corrected proof. This is Student-roster-only support evidence: Course
+and content remain open, while durable HTTP support E2E, browser, and deployed acceptance remain
+unclaimed because the E2E did not run and helpers remain under repair.
+
+Independent source/render review accepted compact Student S04/S05 details at
+`/private/tmp/ple-student-rules-disclosure-review.md`. Root
+`node /private/tmp/ple-student-rules-proof.mjs` exited 0 at 1280 and 390 pixels. This is a
+component-only receipt, not full shell, theme, zoom, or all-Student-interface acceptance.
 
 Accepted R-4 desktop/phone terminal receipts hide active navigation and visibly label three
 no-response records Unanswered, incorrect `0 / 1`; the four exact MATCH pairs remain correct
@@ -45,6 +65,26 @@ default/override, malformed-input, authorization-denial and race proof; earlier 
 notes below are historical context, not a rejection of these newly observed valid writes.
 
 ## Authority and method
+
+### September 16 bounded SQL corrections receipt
+
+Accepted bounded corrections are recorded: finalized `QuestionResponse` identities are
+consistent across code, API, and SQL consumers, with parent Assessment submission, owning Attempt,
+and equal finalization time proven by four fresh PostgreSQL 17.11 cases; `save` and `formatOnly`
+keep native responses editable after an accepted save; private receipt-gated anonymous statistics
+increment atomically, retain no identity ledger, and survive Unrelease; and the support repair
+command removes its redundant Account lock while fixing ambiguous use/revoke references without
+new Account grants. The connected Unrelease oracle, actual-role support proof, and the 25-case
+installed mandatory-NULL LIKE matrix passed. Root-observed `cargo tsgen` (367 types), combined
+server-core/project-tools tests, wasm-bridge tests, wasm32 target-feature check, TypeScript, and
+19 focused response-control tests passed.
+Fresh PostgreSQL 17.11 installation through `ple_migrator` retained exactly three valid unique
+indexes with no duplicate access paths; independent review accepted the three removals.
+
+This is not whole-Course retention, public-statistics disclosure, connected-browser/deployed-app,
+or global Human Guidance acceptance. Course/Pool classification, Bloom, Change Proposals, recovery,
+and resource-specific support authority remain audit work. The current reconciliation receipt above
+supersedes the former generator-drift statement without changing this evidence boundary.
 
 ### September 16 shared classification finding
 
@@ -150,7 +190,8 @@ This initial save/reload receipt did not establish whole-Attempt submission. The
 follow-up above adds bounded submission/review proof for these five types only. HOTSPOT and
 WeBWorK rendering coverage remain open.
 
-Observed per-Question submission wording was corrected without changing persistence or grading.
+Observed wording that implied independent Question finalization was corrected without changing
+persistence or grading.
 Build `2bf1a166` and a fresh NUM save/reload capture show "ready to save" alongside the separate
 whole-Assessment Submit action. TypeScript, scoped formatting, and 14 existing response-control
 tests pass. Independent review identified three false claims in the first patch; corrections
@@ -172,20 +213,20 @@ per-bullet status. Later duplicate open bullets with an `Owner:` pointer are exc
 owning-open count. The unfinished implementation-compliance product goal remains tracked by the
 checklist, gap map, and active plan.
 
-## Checklist status by section
+## Current checklist status
 
-| Human Guidance section | Verified `[x]` | Open `[ ]` | N/A | Total |
+| Checklist part | Verified `[x]` | Open `[ ]` | N/A | Total |
 | --- | ---: | ---: | ---: | ---: |
-| How to use this guidance | 0 | 0 | 7 | 7 |
-| Development principles | 12 | 4 | 26 | 42 |
-| Product vocabulary and glossary | 0 | 35 | 0 | 35 |
-| Accounts and roles | 25 | 18 | 8 | 51 |
-| Interface design | 136 | 139 | 2 | 277 |
-| Data and history | 33 | 62 | 0 | 95 |
-| Question specifications | 79 | 103 | 2 | 184 |
-| Course specifications | 75 | 74 | 4 | 153 |
-| Assessment specifications | 89 | 64 | 1 | 154 |
-| **Total** | **449** | **499** | **50** | **998** |
+| 01 | 12 | 39 | 33 | 84 |
+| 02 | 25 | 18 | 8 | 51 |
+| 03 | 35 | 62 | 0 | 97 |
+| 04 | 68 | 70 | 0 | 138 |
+| 05 | 27 | 34 | 2 | 63 |
+| 06 | 33 | 74 | 0 | 107 |
+| 07 | 77 | 113 | 2 | 192 |
+| 08 | 75 | 78 | 4 | 157 |
+| 09 | 89 | 59 | 1 | 149 |
+| **Total** | **441** | **547** | **50** | **1,038** |
 
 The Assessment part closes four exact current-rescore rows. Independent review accepted
 private PostgreSQL 17 production-SQL lifecycle proof at
@@ -194,7 +235,7 @@ private PostgreSQL 17 production-SQL lifecycle proof at
 used authorized expected-current `ple_api.save_assessment` to change points from `8` to `13` and
 advance the edit number, then observed `6.5 / 13`, unanswered `0 / 13`, and `6.5 / 26` through
 three replay, history, Student landing, and Instructor Gradebook reads. The evidence hashes for
-grading results, Question submissions, Assessment submissions, and automated grading receipts were
+grading results, finalized Question responses, Assessment submissions, and automated grading receipts were
 unchanged. The no-Backend-interaction row remains open: SQL `already_submitted` has no work fields
 and the server bypasses ready-path Backend work, but actual HTTP request counts and Backend
 transport were not observed. C510 is closed: the production Gradebook and Student landing share the highest-score

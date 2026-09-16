@@ -741,7 +741,7 @@ BEGIN
            min(issued.issued_position) FILTER (WHERE question_attempt.question_attempt_state = 'open'
                AND response.question_attempt_id IS NULL) OVER (),
            issued.issued_position,
-           CASE WHEN question_attempt.question_attempt_state = 'submission_accepted' THEN 'submitted'
+           CASE WHEN question_attempt.question_attempt_state = 'response_finalized' THEN 'submitted'
                 WHEN question_attempt.question_attempt_state = 'closed_unanswered' THEN 'closed'
                 WHEN response.question_attempt_id IS NOT NULL THEN 'saved' ELSE 'unanswered' END
       FROM ple_private.issued_question AS issued
@@ -843,7 +843,7 @@ BEGIN
       FROM ple_private.issued_question AS issued
       JOIN ple_private.question_attempt ON question_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.assessment_attempt_saved_response AS response ON response.question_attempt_id = question_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_submission AS submission ON submission.question_attempt_id = question_attempt.question_attempt_id
+      LEFT JOIN ple_private.question_response AS submission ON submission.question_attempt_id = question_attempt.question_attempt_id
      WHERE issued.assessment_attempt_id = assessment_attempt_row.assessment_attempt_id
      ORDER BY issued.issued_position;
 END $$;

@@ -1,4 +1,5 @@
 // Question Library, course, and assessment browser-visible API DTOs.
+import { decodeCourseClassification } from "./course_classification";
 
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
 import type { FixedQuestionAssessmentEntrySummary as FixedQuestionAssessmentEntry } from "../../../generated/api/FixedQuestionAssessmentEntrySummary";
@@ -365,8 +366,20 @@ function decodeAssessmentActivityRules(
 
 export function decodeCourseSummary(value: unknown, path = "response"): CourseSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["id", "reference", "shortName", "longName", "term", "role"]);
+  requireOnlyFields(record, path, [
+    "id",
+    "reference",
+    "shortName",
+    "longName",
+    "term",
+    "role",
+    "classification",
+  ]);
   const decoded = {
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),

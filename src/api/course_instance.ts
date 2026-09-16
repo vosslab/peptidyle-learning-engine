@@ -7,6 +7,7 @@ import type { CourseInstanceReference } from "../../generated/api/CourseInstance
 import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
+import type { CourseClassification } from "../../generated/api/CourseClassification";
 
 /** Closed browser source: empty creation never names or reads a Blueprint. */
 export type CourseInstanceCreationSource =
@@ -19,6 +20,7 @@ export type CourseInstanceCreationSource =
 
 /** Exact source and initial Course Term required to create one Course Instance. */
 export interface CreateCourseInstanceInput {
+  readonly classification: CourseClassification;
   readonly source: CourseInstanceCreationSource;
   readonly shortName: string;
   readonly longName: string;
@@ -29,6 +31,8 @@ export interface CreateCourseInstanceInput {
 
 /** Browser-safe Course Instance landing-page identity. */
 export interface CourseInstanceSummary {
+  readonly classification: CourseClassification;
+  readonly metadataEtag: string;
   readonly reference: CourseInstanceReference;
   readonly shortName: string;
   readonly longName: string;
@@ -61,6 +65,15 @@ export interface CreatedCourseInstance {
 
 /** Same-origin client boundary for Course Instance creation and initial teaching team. */
 export interface CourseInstanceClient {
+  readonly updateCourseInstanceClassification: (
+    reference: CourseInstanceReference,
+    classification: CourseClassification,
+    metadataEtag: string,
+  ) => Promise<{
+    readonly classification: CourseClassification;
+    readonly metadataEtag: string;
+    readonly changed: boolean;
+  }>;
   readonly listCourseInstances: () => Promise<ReadonlyArray<CourseInstanceSummary>>;
   readonly createCourseInstance: (
     input: CreateCourseInstanceInput,

@@ -12,6 +12,19 @@ RESET ROLE;
 SET LOCAL ROLE ple_data_owner;
 GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
 
+-- ASVS 2.2.1/2.2.3: canonical set with no Course Tag-count ceiling.
+CREATE FUNCTION ple_data.course_classification_tags_are_valid(p_tags text[])
+RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
+    SELECT p_tags IS NOT NULL
+       AND NOT EXISTS (SELECT 1 FROM unnest(p_tags) AS tag(value)
+            WHERE value IS NULL OR value <> btrim(value)
+               OR char_length(value) NOT BETWEEN 1 AND 120 OR value ~ '[[:cntrl:]]')
+       AND cardinality(p_tags) = cardinality(
+           ARRAY(SELECT DISTINCT value FROM unnest(p_tags) AS tag(value)));
+$$;
+REVOKE ALL ON FUNCTION ple_data.course_classification_tags_are_valid(text[]) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_data.course_classification_tags_are_valid(text[]) TO ple_api_owner;
+
 CREATE TABLE ple_data.blueprint_course (
     blueprint_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL,
@@ -19,6 +32,19 @@ CREATE TABLE ple_data.blueprint_course (
     owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     short_name text NOT NULL CHECK (char_length(btrim(short_name)) BETWEEN 1 AND 500),
     long_name text NOT NULL CHECK (char_length(btrim(long_name)) BETWEEN 1 AND 500),
+    discipline_uuid uuid NOT NULL REFERENCES ple_data.content_discipline(discipline_uuid),
+    subject_uuid uuid,
+    topic_uuid uuid,
+    subtopic_uuid uuid,
+    tags text[] NOT NULL CHECK (ple_data.course_classification_tags_are_valid(tags)),
+    CHECK (topic_uuid IS NULL OR subject_uuid IS NOT NULL),
+    CHECK (subtopic_uuid IS NULL OR topic_uuid IS NOT NULL),
+    FOREIGN KEY (subject_uuid, discipline_uuid)
+        REFERENCES ple_data.content_subject_discipline(subject_uuid, discipline_uuid),
+    FOREIGN KEY (subject_uuid, topic_uuid)
+        REFERENCES ple_data.content_topic(subject_uuid, topic_uuid),
+    FOREIGN KEY (topic_uuid, subtopic_uuid)
+        REFERENCES ple_data.content_subtopic(topic_uuid, subtopic_uuid),
     -- A new reusable Blueprint is owner-only until its owner explicitly makes
     -- it Public. Public is the sole state eligible for discovery/adoption;
     -- Archived remains readable by exact historical Revision reference only.
@@ -141,6 +167,12 @@ CREATE TABLE ple_data.blueprint_metadata_event (
     actor_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     short_name text NOT NULL,
     long_name text NOT NULL,
+    -- Immutable exact snapshots, not joins to today's vocabulary associations.
+    discipline_uuid uuid NOT NULL,
+    subject_uuid uuid,
+    topic_uuid uuid,
+    subtopic_uuid uuid,
+    tags text[] NOT NULL CHECK (ple_data.course_classification_tags_are_valid(tags)),
     availability text NOT NULL CHECK (availability IN ('private', 'public', 'archived')),
     metadata_etag uuid NOT NULL,
     occurred_at timestamp with time zone NOT NULL,

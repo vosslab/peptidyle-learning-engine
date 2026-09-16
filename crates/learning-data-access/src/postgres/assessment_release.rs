@@ -509,7 +509,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         let mut tx = self.begin(token).await?;
         // ASVS 1.2.3 and 2.3.1: all caller data is bound, while the
         // SECURITY DEFINER procedure owns authorization, lock ordering,
-        // transition, closure deletion, statistics rebuild, and audit receipt.
+        // transition, closure deletion, retained anonymous totals, and audit receipt.
         let row = sqlx::query("SELECT * FROM ple_api.unrelease_assessment($1, $2, $3, $4)")
             .bind(course.as_string())
             .bind(assessment.as_string())
@@ -536,11 +536,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
 fn decode_unrelease_impact(
     row: &sqlx::postgres::PgRow,
 ) -> Result<AssessmentUnreleaseImpact, StoreError> {
-    let question_submissions = count(row, "question_submission_count")?;
-    let assessment_submissions = count(row, "assessment_submission_count")?;
-    let submission_count = question_submissions
-        .checked_add(assessment_submissions)
-        .ok_or_else(|| invalid("Assessment Unrelease submission count"))?;
+    let submission_count = count(row, "assessment_submission_count")?;
     Ok(AssessmentUnreleaseImpact {
         confirmation_title: title(row.try_get("assessment_title").map_err(map_sqlx_error)?)?,
         edit_number: edit(

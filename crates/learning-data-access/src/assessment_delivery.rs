@@ -585,7 +585,7 @@ pub trait LiveAssessmentDeliveryStore: Send + Sync {
     ) -> Result<StudentAssessmentAttemptFinalizationPreparationOutcome, StoreError>;
 
     /// Atomically accepts only the still-current prepared snapshot and stores
-    /// immutable backend credits, Question Submissions, and the terminal
+    /// immutable backend credits, finalized Question responses, and the terminal
     /// Assessment Submission.
     async fn commit_student_assessment_attempt_finalization(
         &self,

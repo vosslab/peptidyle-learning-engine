@@ -65,7 +65,7 @@ pub fn assessment_attempt_remaining_milliseconds(
 pub struct QuestionAttemptTimingEvaluation {
     /// Authored timing and grace policy for the Question or Assessment Attempt.
     pub policy: QuestionAttemptTimeLimit,
-    /// Server-recorded issue, base-deadline, and submission timestamps.
+    /// Server-recorded issue, base-deadline, and finalization timestamps.
     pub timer: QuestionAttemptTiming,
     /// Server time at which an unsubmitted timer is being evaluated.
     pub evaluated_at: Timestamp,
@@ -84,9 +84,9 @@ pub enum QuestionAttemptTimingDecision {
     /// The deadline passed, but the server still accepts an in-flight response.
     GracePeriod,
     /// The response arrived no later than the effective deadline.
-    SubmittedOnTime,
+    FinalizedOnTime,
     /// The response arrived after the deadline but within the inclusive grace window.
-    SubmittedWithinGrace,
+    FinalizedWithinGrace,
     /// No acceptable response arrived before the grace window closed.
     TimedOut,
 }
@@ -107,9 +107,9 @@ pub enum QuestionAttemptTimingEvaluationError {
     /// The evaluation predates the timer's issue timestamp.
     EvaluationBeforeIssue,
     /// The submission predates the timer's issue timestamp.
-    SubmissionBeforeIssue,
+    FinalizationBeforeIssue,
     /// The supplied evaluation predates the recorded submission.
-    SubmissionAfterEvaluation,
+    FinalizationAfterEvaluation,
     /// Applying pause or grace duration exceeded the timestamp range.
     TimestampOverflow,
 }
@@ -123,8 +123,8 @@ impl std::fmt::Display for QuestionAttemptTimingEvaluationError {
             Self::NegativePauseExtension => "a pause extension cannot be negative",
             Self::DeadlineBeforeIssue => "the timer deadline predates issue",
             Self::EvaluationBeforeIssue => "the timer evaluation predates issue",
-            Self::SubmissionBeforeIssue => "the timer submission predates issue",
-            Self::SubmissionAfterEvaluation => "the timer submission follows evaluation",
+            Self::FinalizationBeforeIssue => "the timer finalization predates issue",
+            Self::FinalizationAfterEvaluation => "the timer finalization follows evaluation",
             Self::TimestampOverflow => "the effective timer deadline overflowed",
         };
         formatter.write_str(message)
@@ -175,19 +175,19 @@ pub fn question_attempt_timing_decision(
     let grace_deadline = checked_add_millis(effective_deadline, grace_millis)?;
     let observed_at = evaluation
         .timer
-        .submitted_at
+        .finalized_at
         .unwrap_or(evaluation.evaluated_at);
 
     if observed_at <= effective_deadline {
-        return Ok(if evaluation.timer.submitted_at.is_some() {
-            QuestionAttemptTimingDecision::SubmittedOnTime
+        return Ok(if evaluation.timer.finalized_at.is_some() {
+            QuestionAttemptTimingDecision::FinalizedOnTime
         } else {
             QuestionAttemptTimingDecision::Open
         });
     }
     if observed_at <= grace_deadline {
-        return Ok(if evaluation.timer.submitted_at.is_some() {
-            QuestionAttemptTimingDecision::SubmittedWithinGrace
+        return Ok(if evaluation.timer.finalized_at.is_some() {
+            QuestionAttemptTimingDecision::FinalizedWithinGrace
         } else {
             QuestionAttemptTimingDecision::GracePeriod
         });
@@ -204,12 +204,12 @@ fn validate_record_order(
     if evaluation.evaluated_at < evaluation.timer.issued_at {
         return Err(QuestionAttemptTimingEvaluationError::EvaluationBeforeIssue);
     }
-    if let Some(submitted_at) = evaluation.timer.submitted_at {
-        if submitted_at < evaluation.timer.issued_at {
-            return Err(QuestionAttemptTimingEvaluationError::SubmissionBeforeIssue);
+    if let Some(finalized_at) = evaluation.timer.finalized_at {
+        if finalized_at < evaluation.timer.issued_at {
+            return Err(QuestionAttemptTimingEvaluationError::FinalizationBeforeIssue);
         }
-        if submitted_at > evaluation.evaluated_at {
-            return Err(QuestionAttemptTimingEvaluationError::SubmissionAfterEvaluation);
+        if finalized_at > evaluation.evaluated_at {
+            return Err(QuestionAttemptTimingEvaluationError::FinalizationAfterEvaluation);
         }
     }
     Ok(())
@@ -237,7 +237,7 @@ mod tests {
     fn evaluation(
         policy: QuestionAttemptTimeLimit,
         deadline: Option<i64>,
-        submitted_at: Option<i64>,
+        finalized_at: Option<i64>,
         evaluated_at: i64,
         pause_extension_millis: i64,
     ) -> QuestionAttemptTimingEvaluation {
@@ -246,7 +246,7 @@ mod tests {
             timer: QuestionAttemptTiming {
                 issued_at: timestamp(1_000),
                 deadline: deadline.map(timestamp),
-                submitted_at: submitted_at.map(timestamp),
+                finalized_at: finalized_at.map(timestamp),
             },
             evaluated_at: timestamp(evaluated_at),
             pause_extension_millis,
@@ -341,17 +341,17 @@ mod tests {
             (
                 "on-time submission at deadline",
                 evaluation(timed, Some(10_000), Some(10_000), 10_000, 0),
-                QuestionAttemptTimingDecision::SubmittedOnTime,
+                QuestionAttemptTimingDecision::FinalizedOnTime,
             ),
             (
                 "submission inside grace",
                 evaluation(timed, Some(10_000), Some(10_001), 10_001, 0),
-                QuestionAttemptTimingDecision::SubmittedWithinGrace,
+                QuestionAttemptTimingDecision::FinalizedWithinGrace,
             ),
             (
                 "submission at inclusive grace boundary",
                 evaluation(timed, Some(10_000), Some(12_000), 12_000, 0),
-                QuestionAttemptTimingDecision::SubmittedWithinGrace,
+                QuestionAttemptTimingDecision::FinalizedWithinGrace,
             ),
             (
                 "submission after grace",
@@ -361,12 +361,12 @@ mod tests {
             (
                 "authorized pause extends on-time deadline",
                 evaluation(timed, Some(10_000), Some(11_500), 11_500, 2_000),
-                QuestionAttemptTimingDecision::SubmittedOnTime,
+                QuestionAttemptTimingDecision::FinalizedOnTime,
             ),
             (
                 "authorized pause extends grace deadline",
                 evaluation(timed, Some(10_000), Some(13_500), 13_500, 2_000),
-                QuestionAttemptTimingDecision::SubmittedWithinGrace,
+                QuestionAttemptTimingDecision::FinalizedWithinGrace,
             ),
             (
                 "per-attempt uses the same verdict rules",
@@ -439,12 +439,12 @@ mod tests {
             (
                 "submission before issue",
                 evaluation(timed, Some(2_000), Some(999), 2_000, 0),
-                QuestionAttemptTimingEvaluationError::SubmissionBeforeIssue,
+                QuestionAttemptTimingEvaluationError::FinalizationBeforeIssue,
             ),
             (
                 "submission after evaluation",
                 evaluation(timed, Some(2_000), Some(1_500), 1_499, 0),
-                QuestionAttemptTimingEvaluationError::SubmissionAfterEvaluation,
+                QuestionAttemptTimingEvaluationError::FinalizationAfterEvaluation,
             ),
         ];
 
@@ -467,7 +467,7 @@ mod tests {
             timer: QuestionAttemptTiming {
                 issued_at: timestamp(i64::MAX - 1),
                 deadline: Some(timestamp(i64::MAX)),
-                submitted_at: None,
+                finalized_at: None,
             },
             evaluated_at: timestamp(i64::MAX),
             pause_extension_millis: 1,
@@ -496,9 +496,9 @@ mod tests {
         assert!(json.contains(r#""evaluatedAt":10001"#));
         assert!(json.contains(r#""pauseExtensionMillis":500"#));
         assert_eq!(
-            serde_json::to_string(&QuestionAttemptTimingDecision::SubmittedWithinGrace)
+            serde_json::to_string(&QuestionAttemptTimingDecision::FinalizedWithinGrace)
                 .expect("verdict should serialize"),
-            r#""submittedWithinGrace""#
+            r#""finalizedWithinGrace""#
         );
     }
 }

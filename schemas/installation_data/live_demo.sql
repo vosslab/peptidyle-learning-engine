@@ -19,6 +19,23 @@ SELECT set_config(
     :'live_demo_blueprint_assessment_reference', true
 ) AS ignored \gset
 
+SET LOCAL ROLE ple_data_owner;
+DO $
+DECLARE
+    selected_discipline uuid;
+    selected_subject uuid;
+BEGIN
+    SELECT discipline.discipline_uuid, subject.subject_uuid
+      INTO STRICT selected_discipline, selected_subject
+      FROM ple_data.content_discipline AS discipline
+      JOIN ple_data.content_subject_discipline AS association USING (discipline_uuid)
+      JOIN ple_data.content_subject AS subject USING (subject_uuid)
+     WHERE discipline.name = 'Biology' AND subject.name = 'Biochemistry';
+    PERFORM set_config('ple.installation_live_demo_discipline_uuid', selected_discipline::text, true);
+    PERFORM set_config('ple.installation_live_demo_subject_uuid', selected_subject::text, true);
+END
+$;
+
 SET LOCAL ROLE ple_private_owner;
 
 DO $$
@@ -126,7 +143,11 @@ DO $$
 DECLARE
     course_reference bigint;
     blueprint_reference bigint;
+    selected_discipline uuid;
+    selected_subject uuid;
 BEGIN
+    selected_discipline := current_setting('ple.installation_live_demo_discipline_uuid')::uuid;
+    selected_subject := current_setting('ple.installation_live_demo_subject_uuid')::uuid;
     -- ASVS 1.2.4 and 8.2.2: retain the opaque public reference across the
     -- Rust/psql boundary and resolve the internal key only under this owner.
     SELECT reference_number INTO blueprint_reference
@@ -141,12 +162,13 @@ BEGIN
     INSERT INTO ple_data.course_instance (
         course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
-        term_starts_on, term_ends_on, created_at
+        term_starts_on, term_ends_on, created_at,
+        discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags
     ) VALUES (
         '00000000-0000-0000-0000-000000000220', 'adopted', blueprint_reference, 1,
         '00000000-0000-0000-0000-000000000101', 'BCHM 301',
         'Biochemistry 301: Proteins and Peptides', date '2026-08-24', date '2026-12-11',
-        clock_timestamp()
+        clock_timestamp(), selected_discipline, selected_subject, NULL, NULL, ARRAY[]::text[]
     ) ON CONFLICT (course_id) DO NOTHING RETURNING reference_number INTO course_reference;
     IF course_reference IS NOT NULL THEN
         INSERT INTO ple_data.course_origin (
@@ -168,6 +190,15 @@ BEGIN
     ELSE
         SELECT reference_number INTO course_reference FROM ple_data.course_instance
          WHERE course_id = '00000000-0000-0000-0000-000000000220';
+        IF NOT EXISTS (SELECT 1 FROM ple_data.course_instance
+                        WHERE reference_number = course_reference
+                          AND discipline_uuid = selected_discipline
+                          AND subject_uuid = selected_subject
+                          AND topic_uuid IS NULL AND subtopic_uuid IS NULL
+                          AND tags = ARRAY[]::text[]) THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Live Demo Course classification conflicts with authored metadata';
+        END IF;
     END IF;
 END
 $$;

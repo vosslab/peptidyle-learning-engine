@@ -52,6 +52,7 @@ pub struct ApplyBlueprintForkResult {
 /// One current readable Blueprint lineage and the content selected by its read boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintCourse {
+    pub classification: question_model::CourseClassification,
     pub reference: BlueprintCourseReference,
     pub short_name: String,
     pub long_name: String,
@@ -68,6 +69,7 @@ pub struct StoredBlueprintCourse {
 /// Compact answer-free readable Blueprint lineage.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StoredBlueprintCourseSummary {
+    pub classification: question_model::CourseClassification,
     pub reference: BlueprintCourseReference,
     pub short_name: String,
     pub long_name: String,
@@ -448,6 +450,13 @@ pub struct StoredBlueprintPoolMembers {
 
 #[async_trait]
 pub trait BlueprintCourseStore: Send + Sync {
+    async fn update_blueprint_classification(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+        expected_metadata_etag: BlueprintMetadataEtag,
+        classification: question_model::CourseClassification,
+    ) -> Result<BlueprintMetadataState, StoreError>;
     async fn load_blueprint_pool_members(
         &self,
         session: SessionTokenHash,

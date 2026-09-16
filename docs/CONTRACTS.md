@@ -194,6 +194,15 @@ Entity` represents invalid resulting content or confirmation, and `409 Conflict`
 represents an invalid lifecycle state. Authorization and non-resolvable targets
 use the repository's non-enumerating response policy.
 
+### Scoped support authority
+
+Only a current active Instructor membership for the exact Course may issue a
+time-scoped Student-roster repair capability to a named Sysadmin. The capability records its
+issuer, recipient, exact Course/Student roster scope, purpose, expiry, revocation, and each use;
+use rechecks that authority and never creates Instructor membership or a broader record grant.
+This implemented Student-roster boundary does not close the separate open Course or content support
+requirements.
+
 ## Student Work and assessment evidence
 
 An Assessment Attempt is one independent Student Work occurrence. At start it

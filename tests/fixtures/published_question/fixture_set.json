@@ -46,6 +46,13 @@
     }
   ],
   "course": {
+    "classification": {
+      "disciplineUuid": "00000000-0000-0000-0000-00000000cc01",
+      "subjectUuid": null,
+      "topicUuid": null,
+      "subtopicUuid": null,
+      "tags": []
+    },
     "id": "0198e000-0000-7000-8000-000000000014",
     "reference": "CI000001",
     "shortName": "BIOC 301",
@@ -381,11 +388,11 @@
       "id": "0198e000-0000-7000-8000-000000000030",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000040",
       "reproduction": { "kind": "static" },
-      "state": "submission_accepted",
+      "state": "response_finalized",
       "timing": {
         "issuedAt": 1786000001100,
         "deadline": null,
-        "submittedAt": 1786000001200
+        "finalizedAt": 1786000001200
       },
       "reproductionDetails": {
         "backend": {
@@ -408,14 +415,14 @@
         "renderedQuestionSha256": "b36347ff4f36e10f24193f610163845c35e557559c7f891e330fed89f28ad338"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
-      "submission": {
+      "finalizedResponse": {
         "id": "0198e000-0000-7000-8000-000000000130",
         "questionAttempt": "0198e000-0000-7000-8000-000000000030",
         "response": {
           "kind": "multipleChoice",
           "selected": ["carbonyl"]
         },
-        "submittedAt": 1786000001200,
+        "finalizedAt": 1786000001200,
         "gradingResult": {
           "correct": false,
           "pointsEarned": 0,
@@ -427,11 +434,11 @@
       "id": "0198e000-0000-7000-8000-000000000031",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000041",
       "reproduction": { "kind": "static" },
-      "state": "submission_accepted",
+      "state": "response_finalized",
       "timing": {
         "issuedAt": 1786000002100,
         "deadline": null,
-        "submittedAt": 1786000002200
+        "finalizedAt": 1786000002200
       },
       "reproductionDetails": {
         "backend": {
@@ -454,14 +461,14 @@
         "renderedQuestionSha256": "bbe0d81641ea36e7ba639bf6962b75605a5a630cb74b9c86427184a27d32f139"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
-      "submission": {
+      "finalizedResponse": {
         "id": "0198e000-0000-7000-8000-000000000131",
         "questionAttempt": "0198e000-0000-7000-8000-000000000031",
         "response": {
           "kind": "multipleChoice",
           "selected": ["amide"]
         },
-        "submittedAt": 1786000002200,
+        "finalizedAt": 1786000002200,
         "gradingResult": {
           "correct": true,
           "pointsEarned": 1,
@@ -473,11 +480,11 @@
       "id": "0198e000-0000-7000-8000-000000000032",
       "issuedQuestion": "0198e000-0000-7000-8000-000000000042",
       "reproduction": { "kind": "static" },
-      "state": "submission_accepted",
+      "state": "response_finalized",
       "timing": {
         "issuedAt": 1786000003100,
         "deadline": null,
-        "submittedAt": 1786000003200
+        "finalizedAt": 1786000003200
       },
       "reproductionDetails": {
         "backend": {
@@ -500,14 +507,14 @@
         "renderedQuestionSha256": "b68840b11f32bb96de15c068e2de683db9dbf79935b69a858793fa095db9492f"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
-      "submission": {
+      "finalizedResponse": {
         "id": "0198e000-0000-7000-8000-000000000132",
         "questionAttempt": "0198e000-0000-7000-8000-000000000032",
         "response": {
           "kind": "multipleChoice",
           "selected": ["carbonyl"]
         },
-        "submittedAt": 1786000003200,
+        "finalizedAt": 1786000003200,
         "gradingResult": {
           "correct": false,
           "pointsEarned": 0,
@@ -523,7 +530,7 @@
       "timing": {
         "issuedAt": 1786000004100,
         "deadline": null,
-        "submittedAt": null
+        "finalizedAt": null
       },
       "reproductionDetails": {
         "backend": {
@@ -546,7 +553,7 @@
         "renderedQuestionSha256": "d52aa286360dd86a09ad858ed69a9bd2534b06903b70a295c474181dab1419a6"
       },
       "issuedCapability": "pleQuestionJsonPresentation",
-      "submission": null
+      "finalizedResponse": null
     }
   ],
   "assessmentGrade": {

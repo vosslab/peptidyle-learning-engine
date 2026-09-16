@@ -120,7 +120,7 @@
 - [ ] Check text, controls, borders, and interaction states against their actual rendered backgrounds.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Apply the contrast requirements for text, controls, and other semantic uses in
-  [BIOME_THEME_PALETTES.md](BIOME_THEME_PALETTES.md)
+  [BIOME_THEME_PALETTES.md](../../../BIOME_THEME_PALETTES.md)
   to rendered components in both light and dark themes, including gradients and state backgrounds.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Pair color cues with text, icons, or shapes so selection, focus, saved status, and results remain

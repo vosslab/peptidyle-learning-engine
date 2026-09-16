@@ -170,6 +170,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .create_course_instance(
             reader_token(),
             CreateCourseInstanceInput {
+                classification: question_model::CourseClassification {
+                    discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                    subject_uuid: None,
+                    topic_uuid: None,
+                    subtopic_uuid: None,
+                    tags: Vec::new(),
+                },
                 source: CourseInstanceCreationSource::Adopted {
                     blueprint_course: blueprint_reference,
                     blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
@@ -186,6 +193,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .create_course_instance(
             reader_token(),
             CreateCourseInstanceInput {
+                classification: question_model::CourseClassification {
+                    discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                    subject_uuid: None,
+                    topic_uuid: None,
+                    subtopic_uuid: None,
+                    tags: Vec::new(),
+                },
                 source: CourseInstanceCreationSource::Adopted {
                     blueprint_course: blueprint_reference,
                     blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
@@ -340,6 +354,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .create_course_instance(
                 reader_token(),
                 CreateCourseInstanceInput {
+                    classification: question_model::CourseClassification {
+                        discipline_uuid: uuid::Uuid::from_u128(0xcc01),
+                        subject_uuid: None,
+                        topic_uuid: None,
+                        subtopic_uuid: None,
+                        tags: Vec::new()
+                    },
                     source: CourseInstanceCreationSource::Adopted {
                         blueprint_course: blueprint_reference,
                         blueprint_revision: BlueprintRevision::INITIAL,
@@ -801,7 +822,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
              '00000000-0000-0000-0000-00000000b132', \
              '00000000-0000-0000-0000-00000000b133', \
              'adopted', $1, 3, 'RACE-C', 'Concurrent head Course', \
-             current_date, current_date + 1, NULL, '[]'::jsonb)",
+             current_date, current_date + 1, NULL, '[]'::jsonb, '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
         )
         .bind(create_reference)
         .fetch_one(&mut *transaction)

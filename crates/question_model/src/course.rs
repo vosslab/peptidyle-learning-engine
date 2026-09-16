@@ -31,6 +31,8 @@ pub enum CourseMembershipRole {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CourseSummary {
+    /// Current Course metadata; members cannot acquire editing authority from it.
+    pub classification: crate::CourseClassification,
     /// Durable course identity.
     pub id: CourseId,
     /// Stable Course Instance Reference used in application navigation.
@@ -52,6 +54,8 @@ pub struct CourseSummary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct CourseInstanceRouteSummary {
+    /// Current independently selected Course classification.
+    pub classification: crate::CourseClassification,
     /// Stable Course Instance Reference used in application navigation.
     pub reference: CourseInstanceReference,
     /// Compact Course Instance name for constrained navigation.

@@ -4,23 +4,23 @@
 
 SET LOCAL ROLE ple_private_owner;
 
-CREATE TABLE ple_private.question_submission_grading (
-    question_submission_grading_id uuid PRIMARY KEY,
-    submission_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_submission(submission_id)
+CREATE TABLE ple_private.question_response_grading (
+    question_response_grading_id uuid PRIMARY KEY,
+    question_response_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_response(question_response_id)
         ON DELETE CASCADE,
     grading_state text NOT NULL DEFAULT 'graded' CHECK (grading_state = 'graded'),
     created_at timestamptz NOT NULL,
     completed_at timestamptz,
-    UNIQUE (question_submission_grading_id, submission_id),
+    UNIQUE (question_response_grading_id, question_response_id),
     CHECK (completed_at IS NOT NULL),
     CHECK (completed_at IS NULL OR completed_at >= created_at)
 );
 
 CREATE TABLE ple_private.grading_result (
     grading_result_id uuid PRIMARY KEY,
-    submission_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_submission(submission_id)
+    question_response_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_response(question_response_id)
         ON DELETE CASCADE,
-    question_submission_grading_id uuid NOT NULL UNIQUE,
+    question_response_grading_id uuid NOT NULL UNIQUE,
     question_attempt_id uuid NOT NULL UNIQUE REFERENCES ple_private.question_attempt(question_attempt_id)
         ON DELETE CASCADE,
     -- The Question Backend owns response interpretation.  PLE retains only
@@ -30,13 +30,13 @@ CREATE TABLE ple_private.grading_result (
         normalized_credit >= 0 AND normalized_credit <= 1
     ),
     recorded_at timestamptz NOT NULL,
-    FOREIGN KEY (submission_id, question_attempt_id)
-        REFERENCES ple_private.question_submission(submission_id, question_attempt_id)
+    FOREIGN KEY (question_response_id, question_attempt_id)
+        REFERENCES ple_private.question_response(question_response_id, question_attempt_id)
         ON DELETE CASCADE,
-    FOREIGN KEY (question_submission_grading_id, submission_id)
-        REFERENCES ple_private.question_submission_grading(question_submission_grading_id, submission_id)
+    FOREIGN KEY (question_response_grading_id, question_response_id)
+        REFERENCES ple_private.question_response_grading(question_response_grading_id, question_response_id)
         ON DELETE CASCADE,
-    UNIQUE (question_submission_grading_id, grading_result_id)
+    UNIQUE (question_response_grading_id, grading_result_id)
 );
 
 -- Applies current Assessment Entry points to retained backend credit.  The
@@ -101,11 +101,11 @@ BEGIN
         MESSAGE = 'Grading evidence is immutable';
 END $$;
 
-CREATE TRIGGER question_submission_grading_is_immutable
-BEFORE UPDATE ON ple_private.question_submission_grading
+CREATE TRIGGER question_response_grading_is_immutable
+BEFORE UPDATE ON ple_private.question_response_grading
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_grading_evidence_change();
-CREATE TRIGGER question_submission_grading_delete_is_guarded
-BEFORE DELETE ON ple_private.question_submission_grading
+CREATE TRIGGER question_response_grading_delete_is_guarded
+BEFORE DELETE ON ple_private.question_response_grading
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
 CREATE TRIGGER grading_result_is_immutable
 BEFORE UPDATE ON ple_private.grading_result
@@ -123,13 +123,13 @@ GRANT EXECUTE ON FUNCTION ple_private.reject_student_work_delete() TO ple_audit_
 SET LOCAL ROLE ple_audit_owner;
 CREATE TABLE ple_audit.automated_grading_receipt (
     automated_grading_receipt_id uuid PRIMARY KEY,
-    question_submission_grading_id uuid NOT NULL,
+    question_response_grading_id uuid NOT NULL,
     grading_result_id uuid NOT NULL UNIQUE,
     committed_at timestamptz NOT NULL,
     automated_grading_receipt_checksum bytea NOT NULL
         CHECK (octet_length(automated_grading_receipt_checksum) = 32),
-    FOREIGN KEY (question_submission_grading_id, grading_result_id)
-        REFERENCES ple_private.grading_result(question_submission_grading_id, grading_result_id)
+    FOREIGN KEY (question_response_grading_id, grading_result_id)
+        REFERENCES ple_private.grading_result(question_response_grading_id, grading_result_id)
         ON DELETE CASCADE
 );
 CREATE FUNCTION ple_audit.reject_automated_grading_receipt_change()
@@ -167,13 +167,13 @@ GRANT SELECT, INSERT ON ple_audit.automated_grading_receipt TO ple_private_owner
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
-ALTER TABLE ple_private.question_submission_grading ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ple_private.question_submission_grading FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.question_response_grading ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_private.question_response_grading FORCE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.grading_result ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.grading_result FORCE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE ple_private.question_submission_grading, ple_private.grading_result FROM PUBLIC;
-CREATE POLICY question_submission_grading_private_owner_access
-    ON ple_private.question_submission_grading FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
+REVOKE ALL ON TABLE ple_private.question_response_grading, ple_private.grading_result FROM PUBLIC;
+CREATE POLICY question_response_grading_private_owner_access
+    ON ple_private.question_response_grading FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 CREATE POLICY grading_result_private_owner_access
     ON ple_private.grading_result FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 
@@ -183,7 +183,7 @@ SET LOCAL ROLE ple_private_owner;
 -- before the finalization transaction. The caller has already revalidated the
 -- saved-response snapshot and locked the Assessment root.
 CREATE FUNCTION ple_private.record_direct_automated_grading_result(
-    p_submission_id uuid,
+    p_question_response_id uuid,
     p_question_attempt_id uuid,
     p_normalized_credit numeric,
     p_recorded_at timestamptz
@@ -194,14 +194,14 @@ DECLARE result_id uuid := pg_catalog.gen_random_uuid();
 DECLARE receipt_id uuid := pg_catalog.gen_random_uuid();
 DECLARE calculated_checksum bytea;
 BEGIN
-    IF p_submission_id IS NULL OR p_question_attempt_id IS NULL
+    IF p_question_response_id IS NULL OR p_question_attempt_id IS NULL
        OR p_normalized_credit IS NULL OR p_normalized_credit < 0
        OR p_normalized_credit > 1 OR p_recorded_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Direct automated grading facts are invalid';
     END IF;
-    PERFORM 1 FROM ple_private.question_submission AS submission
-     WHERE submission.submission_id = p_submission_id
+    PERFORM 1 FROM ple_private.question_response AS submission
+     WHERE submission.question_response_id = p_question_response_id
        AND submission.question_attempt_id = p_question_attempt_id
      FOR KEY SHARE;
     IF NOT FOUND OR EXISTS (
@@ -211,16 +211,16 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Direct automated grading target is unavailable';
     END IF;
-    INSERT INTO ple_private.question_submission_grading (
-        question_submission_grading_id, submission_id, grading_state, created_at, completed_at
+    INSERT INTO ple_private.question_response_grading (
+        question_response_grading_id, question_response_id, grading_state, created_at, completed_at
     ) VALUES (
-        grading_id, p_submission_id, 'graded', p_recorded_at, p_recorded_at
+        grading_id, p_question_response_id, 'graded', p_recorded_at, p_recorded_at
     );
     INSERT INTO ple_private.grading_result (
-        grading_result_id, submission_id, question_submission_grading_id,
+        grading_result_id, question_response_id, question_response_grading_id,
         question_attempt_id, normalized_credit, recorded_at
     ) VALUES (
-        result_id, p_submission_id, grading_id, p_question_attempt_id,
+        result_id, p_question_response_id, grading_id, p_question_attempt_id,
         p_normalized_credit, p_recorded_at
     );
     calculated_checksum := pg_catalog.sha256(
@@ -228,13 +228,13 @@ BEGIN
         || pg_catalog.uuid_send(receipt_id)
         || pg_catalog.uuid_send(result_id)
         || pg_catalog.uuid_send(grading_id)
-        || pg_catalog.uuid_send(p_submission_id)
+        || pg_catalog.uuid_send(p_question_response_id)
         || pg_catalog.uuid_send(p_question_attempt_id)
         || pg_catalog.numeric_send(p_normalized_credit)
         || pg_catalog.int8send((extract(epoch FROM p_recorded_at) * 1000)::bigint)
     );
     INSERT INTO ple_audit.automated_grading_receipt (
-        automated_grading_receipt_id, question_submission_grading_id,
+        automated_grading_receipt_id, question_response_grading_id,
         grading_result_id, committed_at, automated_grading_receipt_checksum
     ) VALUES (
         receipt_id, grading_id, result_id, p_recorded_at, calculated_checksum

@@ -67,15 +67,16 @@ try {
   await page.getByLabel("Question Authors").fill("Live Demo Instructor");
   await page.getByRole("button", { name: "Confirm and publish" }).click();
   await page.getByRole("heading", { name: "Published" }).waitFor();
-  await page.getByRole("link", { name: "Open question library" }).click();
-  await page.waitForURL(`${origin}/library`);
-  await page.getByRole("heading", { name: questionTitle }).waitFor();
-  await page
-    .locator("article.question-library-row", {
-      has: page.getByRole("heading", { name: questionTitle }),
-    })
-    .getByRole("link", { name: "Open question" })
-    .click();
+  await page.getByRole("heading", { name: "Question published", exact: true }).waitFor();
+  const confirmation = page
+    .getByRole("status")
+    .filter({ has: page.getByRole("heading", { name: "Published", exact: true }) });
+  const publishedId = (await confirmation.locator("code").innerText()).trim();
+  const openPublished = page.getByRole("link", { name: "Open published Question", exact: true });
+  if ((await openPublished.getAttribute("href")) !== `/library/${publishedId}`) {
+    throw new Error("Publication inspection action does not identify the published Question.");
+  }
+  await openPublished.click();
   await page.waitForURL(/\/library\/[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/u);
   await page.getByRole("heading", { name: questionTitle }).waitFor();
 } finally {

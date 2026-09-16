@@ -384,7 +384,6 @@ CREATE INDEX assessment_attempt_student_assessment_lookup_idx
 CREATE INDEX assessment_attempt_expiry_sweep_idx
     ON ple_private.assessment_attempt(expires_at, assessment_attempt_id)
     WHERE expires_at IS NOT NULL;
-CREATE INDEX issued_question_attempt_position_idx ON ple_private.issued_question(assessment_attempt_id, issued_position);
 
 ALTER TABLE ple_private.student_assessment_accommodation ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ple_private.student_assessment_accommodation FORCE ROW LEVEL SECURITY;

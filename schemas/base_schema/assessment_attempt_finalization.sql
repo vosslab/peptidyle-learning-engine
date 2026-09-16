@@ -241,7 +241,8 @@ DECLARE resolved_kind text;
 DECLARE accepted_count integer;
 DECLARE expected_count integer;
 DECLARE evaluation_row record;
-DECLARE submission_id_value uuid;
+DECLARE question_response_id_value uuid;
+DECLARE assessment_submission_id_value uuid := pg_catalog.gen_random_uuid();
 BEGIN
     IF p_assessment_attempt_id IS NULL
        OR p_finalization_kind NOT IN ('student', 'deadline')
@@ -333,7 +334,7 @@ BEGIN
         assessment_submission_id, assessment_attempt_id, submitted_at,
         finalization_kind, authorized_by_account_id, receipt
     ) VALUES (
-        pg_catalog.gen_random_uuid(), assessment_attempt_row.assessment_attempt_id, now_value,
+        assessment_submission_id_value, assessment_attempt_row.assessment_attempt_id, now_value,
         resolved_kind,
         p_authorized_by_account_id,
         jsonb_build_object('submissionState', 'submitted', 'finalizationKind', resolved_kind)
@@ -342,8 +343,8 @@ BEGIN
        SET question_attempt_state = CASE WHEN EXISTS (
                    SELECT 1 FROM ple_private.assessment_attempt_saved_response AS response
                     WHERE response.question_attempt_id = question_attempt.question_attempt_id
-               ) THEN 'submission_accepted' ELSE 'closed_unanswered' END,
-           submitted_at = CASE WHEN EXISTS (
+               ) THEN 'response_finalized' ELSE 'closed_unanswered' END,
+           finalized_at = CASE WHEN EXISTS (
                    SELECT 1 FROM ple_private.assessment_attempt_saved_response AS response
                     WHERE response.question_attempt_id = question_attempt.question_attempt_id
                ) THEN now_value ELSE NULL END
@@ -355,11 +356,11 @@ BEGIN
         question_attempt_id uuid, saved_at_millis bigint, student_response jsonb,
         normalized_credit numeric
     ) LOOP
-        submission_id_value := pg_catalog.gen_random_uuid();
-        INSERT INTO ple_private.question_submission(
-            submission_id, question_attempt_id, submitted_at, student_response
+        question_response_id_value := pg_catalog.gen_random_uuid();
+        INSERT INTO ple_private.question_response(
+            question_response_id, assessment_submission_id, question_attempt_id, finalized_at, student_response
         )
-        SELECT submission_id_value, response.question_attempt_id, now_value,
+        SELECT question_response_id_value, assessment_submission_id_value, response.question_attempt_id, now_value,
                response.student_response
           FROM ple_private.assessment_attempt_saved_response AS response
          WHERE response.question_attempt_id = evaluation_row.question_attempt_id;
@@ -368,7 +369,7 @@ BEGIN
                 MESSAGE = 'Assessment Attempt saved responses changed';
         END IF;
         PERFORM ple_private.record_direct_automated_grading_result(
-            submission_id_value, evaluation_row.question_attempt_id,
+            question_response_id_value, evaluation_row.question_attempt_id,
             evaluation_row.normalized_credit, now_value
         );
     END LOOP;

@@ -11,6 +11,72 @@
 
 ### Behavior or Interface Changes
 
+- Recorded bounded current-progress evidence: root `CARGO_INCREMENTAL=0 cargo check -p
+  server_core -p project-tools --tests` passed in 11.37 seconds, `cargo tsgen` generated 369
+  types, and a repeated fresh PostgreSQL 17 canonical install through `ple_migrator` passed. These
+  do not establish all SQL or whole-feature acceptance. Self-contained actual-role
+  Course-classification proof passed create/authorization, ETag no-op/stale/history, no-Revision,
+  exact-pin, 65-hierarchy-tag, and fork/Instance-independence checks. The corrected actual-role
+  support proof passed constraints and rollback; independent review accepted source and proof.
+  This is Student-roster-only support evidence: Course/content remain open, and durable HTTP
+  support E2E did not run while helpers are fixed, so no browser or deployed acceptance follows.
+  Independent source/render review accepted compact Student S04/S05 details at 1280 and 390 pixels
+  (`/private/tmp/ple-student-rules-disclosure-review.md`); this component receipt does not establish
+  full shell, theme, zoom, or all-Student-interface acceptance.
+
+- Split requested user-owned files without behavior changes: `question_model` Blueprint Course
+  code now separates `assessment_content.rs` (291 lines) from `blueprint_course.rs` (738 lines),
+  and the TypeScript workspace public surface now separates list (265 lines), detail (807 lines),
+  and types (12 lines). The root source-line-limit gate passed at 1,350. Root Rust and TypeScript
+  checks remain in progress. A separate classification-name Draft repair is underway after the
+  split and is not part of this refactor.
+
+- Reconciled the full [TERMINOLOGY_CONTRACT.md](TERMINOLOGY_CONTRACT.md) against current
+  [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md), explicitly preserving Human Guidance precedence
+  and distinguishing product intent from accepted runtime support as PLE prepares for launch.
+  Corrected adoption scope, Bonus/Quiz icons, immutable Question Type, Draft-first Question forks,
+  public Stars/private Watches, and Student-facing action vocabulary. Added shared classification,
+  Library Object/Bloom/support-content distinctions, Pool and Blueprint fork/comparison rules,
+  Promoted authority, finite Attempt limits, and complete Student Work/retention definitions.
+  Removed route and JSON-key assertions from the vocabulary authority. Later-adoption handling
+  of existing Course content and adoption counts remains unspecified rather than invented.
+  Three focused contract link/encoding/whitespace checks passed; the contract is below 1,000
+  lines and scoped diff checks passed. Human Guidance, application behavior, and checklist
+  acceptance were not changed by this documentation edit; pre-existing local edits were preserved.
+
+- Reconciled the current Human Guidance checklist to SHA256
+  `9e92c864a019d89ef9952cfb6e3b9c05a4f45d6055b6c3f49520c400f4dc7055`.
+  All nine generator part gates, diff, and consistency passed: 1,038 occurrences (441 verified,
+  547 open, 50 N/A) and 1,015 first-owner identities (432 verified, 533 open, 50 N/A). Sixty-nine
+  new or changed requirements remain pending independent audit; no new Human Guidance row closed.
+  The prior 998-bullet accounting remains historical only. The focused required-classification
+  fixture repair in `tests/test_ple_question_json_authoring.mjs` passed 26 tests; this is neither
+  an all-tests result nor Course-feature completion. Product work remains in progress on the
+  Course-classification/Store HTTP foundation, exact Course-authorization issuer preservation, and
+  compact Student details UI as independent bounded slices.
+
+- Corrected the bounded Draft Questions list into compact aligned records with separate full title,
+  description, state, and accessible Edit/Delete actions, retaining the existing safe Delete
+  confirmation. Independent review accepted observed component-browser checks at 1280/320 pixels
+  and enlarged text: no horizontal overflow, plus keyboard Delete opening confirmation focused on
+  Keep draft. This does not establish connected-route/CAS/error behavior, successful deletion, or
+  actual dark-theme acceptance. Independent review also accepts I05's bounded connected desktop
+  publication receipt: Question published focuses its heading, retains neutral Question-authoring
+  navigation, removes Save draft, shows the exact title/public ID/Revision, and links directly to
+  that Question. This does not establish mobile, theme, broad accessibility, failure, concurrency,
+  or all-authoring behavior.
+
+- Recorded accepted bounded corrections: finalized `QuestionResponse` parent/Attempt/time
+  identity, editable native response-control saves, receipt-gated anonymous-statistics retention
+  through Unrelease, and the narrow support-repair lock/reference fix. Fresh PostgreSQL 17.11
+  parent, Unrelease, support-role, and mandatory-NULL shape proofs passed. Root-observed Cargo,
+  TypeScript, and focused response-control checks passed. This does not claim connected-browser or
+  deployed-app acceptance, whole-Course retention, public-statistics disclosure, resource-specific
+  support authority, or global Human Guidance closure; the current reconciliation establishes only
+  inventory fidelity.
+  A separate fresh PostgreSQL 17.11 proof retained exactly three valid unique indexes with no
+  duplicate access paths; independent review accepted the three redundant-index removals.
+
 - Recorded a bounded isolated HTTP/SQL receipt for the shared classification hierarchy. A vetted
   active Instructor and MFA-attested Sysadmin read all four hierarchy selectors; anonymous,
   Student, and inactive-Instructor access remained identically concealed. One native Question was

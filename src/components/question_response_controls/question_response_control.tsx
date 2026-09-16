@@ -20,7 +20,7 @@ import {
 import type { QuestionPresentationResponseFormat } from "../../../generated/api/QuestionPresentationResponseFormat";
 
 export {
-  createSubmissionController,
+  createResponseController,
   numericResponseFromInput,
   validateResponseLocally,
   type MultipleChoiceResponseProps,
@@ -133,16 +133,16 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
         />
       );
     case "imathasQuestionBackend":
-      // A dedicated iMathAS launch is a submission-capable integration, not a
-      // native format-only control. It is available only through the submission integration.
-      return props.mode === "formatOnly" || props.onSubmit === undefined ? (
+      // A dedicated iMathAS launch is a save-capable integration, not a
+      // native format-only control. It is available only through the save integration.
+      return props.mode === "formatOnly" || props.onSave === undefined ? (
         <p class="calm-status" role="status">
           This response format is not available for local checking.
         </p>
       ) : (
         <ImathasQuestionBackendResponse
           attemptId={props.attemptId}
-          onSubmit={props.onSubmit}
+          onSave={props.onSave}
           onEscape={props.onEscape}
           onResponseEdit={props.onResponseEdit}
           onResponseChange={props.onResponseChange}
@@ -170,7 +170,7 @@ function QuestionResponseControlBody(props: QuestionResponseControlProps): JSX.E
 /** Exhaustive dispatch point for every browser-safe Question Response Format variant. */
 export function QuestionResponseControl(props: QuestionResponseControlProps): JSX.Element {
   return (
-    <ResponseControlModeProvider mode={props.mode ?? "submission"}>
+    <ResponseControlModeProvider mode={props.mode ?? "save"}>
       <style>{QUESTION_RESPONSE_CONTROL_STYLES}</style>
       <QuestionResponseControlBody {...props} />
     </ResponseControlModeProvider>

@@ -24,7 +24,7 @@ import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { CourseSummary } from "../../../generated/api/CourseSummary";
 import type { IssuedAttemptCapability } from "../../../generated/api/IssuedAttemptCapability";
 import type { StudentQuestionAttemptView } from "../../../generated/api/StudentQuestionAttemptView";
-import type { QuestionSubmission } from "../../../generated/api/QuestionSubmission";
+import type { QuestionResponse } from "../../../generated/api/QuestionResponse";
 import type { StudentAssessmentProgress } from "../../../generated/api/StudentAssessmentProgress";
 import type { AssessmentProgress } from "../../../generated/api/AssessmentProgress";
 import type { StudentAssessmentGrade } from "../../../generated/api/StudentAssessmentGrade";
@@ -89,7 +89,7 @@ const ASSIGNMENT_SCORING_STATES = [
 const QUESTION_ATTEMPT_FIELDS = [
   "id",
   "issuedQuestion",
-  "submission",
+  "finalizedResponse",
   "state",
   "timing",
   "issuedCapability",
@@ -97,13 +97,13 @@ const QUESTION_ATTEMPT_FIELDS = [
 
 function decodeQuestionAttemptTiming(value: unknown, path: string): QuestionAttemptTiming {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["issuedAt", "deadline", "submittedAt"]);
+  requireOnlyFields(record, path, ["issuedAt", "deadline", "finalizedAt"]);
   const decoded = {
     issuedAt: decodeTimestamp(field(record, "issuedAt", path), `${path}.issuedAt`),
     deadline: decodeNullable(field(record, "deadline", path), `${path}.deadline`, decodeTimestamp),
-    submittedAt: decodeNullable(
-      field(record, "submittedAt", path),
-      `${path}.submittedAt`,
+    finalizedAt: decodeNullable(
+      field(record, "finalizedAt", path),
+      `${path}.finalizedAt`,
       decodeTimestamp,
     ),
   } satisfies QuestionAttemptTiming;
@@ -162,14 +162,14 @@ export function decodeStudentQuestionAttemptView(
       field(record, "issuedQuestion", path),
       `${path}.issuedQuestion`,
     ),
-    submission: decodeNullable(
-      field(record, "submission", path),
-      `${path}.submission`,
-      (submission, submissionPath) => decodeQuestionSubmission(submission, submissionPath, id),
+    finalizedResponse: decodeNullable(
+      field(record, "finalizedResponse", path),
+      `${path}.finalizedResponse`,
+      (response, responsePath) => decodeQuestionResponse(response, responsePath, id),
     ),
     state: decodeStringEnum(field(record, "state", path), `${path}.state`, [
       "open",
-      "submission_accepted",
+      "response_finalized",
       "closed_at_deadline",
     ] as const satisfies ReadonlyArray<QuestionAttemptState>),
     timing: decodeQuestionAttemptTiming(field(record, "timing", path), `${path}.timing`),
@@ -182,17 +182,17 @@ export function decodeStudentQuestionAttemptView(
   return decoded;
 }
 
-function decodeQuestionSubmission(
+function decodeQuestionResponse(
   value: unknown,
   path: string,
   expectedQuestionAttempt: string,
-): QuestionSubmission {
+): QuestionResponse {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "id",
     "questionAttempt",
     "response",
-    "submittedAt",
+    "finalizedAt",
     "gradingResult",
   ]);
   const questionAttempt = decodeIdentifier(
@@ -206,13 +206,13 @@ function decodeQuestionSubmission(
     id: decodeIdentifier(field(record, "id", path), `${path}.id`),
     questionAttempt,
     response: decodeStudentResponse(field(record, "response", path), `${path}.response`),
-    submittedAt: decodeTimestamp(field(record, "submittedAt", path), `${path}.submittedAt`),
+    finalizedAt: decodeTimestamp(field(record, "finalizedAt", path), `${path}.finalizedAt`),
     gradingResult: decodeNullable(
       field(record, "gradingResult", path),
       `${path}.gradingResult`,
       decodeGradingResult,
     ),
-  } satisfies QuestionSubmission;
+  } satisfies QuestionResponse;
 }
 
 export function decodeStudentQuestionAttempt(
@@ -240,11 +240,11 @@ export function decodeStudentQuestionAttempt(
   } satisfies StudentQuestionAttempt;
   if (
     decoded.assessmentScoringState !== "current" &&
-    decoded.submission !== null &&
-    decoded.submission.gradingResult !== null
+    decoded.finalizedResponse !== null &&
+    decoded.finalizedResponse.gradingResult !== null
   ) {
     throw new DecodeError(
-      `${path}.submission.gradingResult`,
+      `${path}.finalizedResponse.gradingResult`,
       "no numeric result while scoring is not current",
     );
   }
@@ -734,8 +734,8 @@ export function decodeQuestionAttemptTimingDecision(
     "untimed",
     "open",
     "gracePeriod",
-    "submittedOnTime",
-    "submittedWithinGrace",
+    "finalizedOnTime",
+    "finalizedWithinGrace",
     "timedOut",
   ]);
 }

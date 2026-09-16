@@ -246,9 +246,9 @@ fn question_attempt_state_uses_the_closed_operational_wire_vocabulary() {
         serde_json::json!("open")
     );
     assert_eq!(
-        serde_json::to_value(QuestionAttemptState::SubmissionAccepted)
+        serde_json::to_value(QuestionAttemptState::ResponseFinalized)
             .expect("accepted-submission state serializes"),
-        serde_json::json!("submission_accepted")
+        serde_json::json!("response_finalized")
     );
     assert_eq!(
         serde_json::to_value(QuestionAttemptState::ClosedAtDeadline)
@@ -300,12 +300,12 @@ fn question_attempt_browser_wire_omits_reproduction_details() {
         id: QuestionAttemptId::from_uuid(Uuid::from_u128(1)),
         issued_question: IssuedQuestionId::from_uuid(Uuid::from_u128(2)),
         reproduction: QuestionReproduction::Static,
-        submission: None,
+        finalized_response: None,
         state: QuestionAttemptState::Open,
         timing: QuestionAttemptTiming {
             issued_at: Timestamp::from_unix_millis(4),
             deadline: None,
-            submitted_at: None,
+            finalized_at: None,
         },
         reproduction_details: QuestionAttemptReproductionDetails {
             backend: QuestionBackendVersion {
@@ -340,6 +340,8 @@ fn question_attempt_browser_wire_omits_reproduction_details() {
         Some(&serde_json::json!(attempt.issued_question.to_string()))
     );
     assert!(wire.get("issuedCapability").is_some());
+    assert_eq!(wire.get("finalizedResponse"), Some(&serde_json::Value::Null));
+    assert!(wire.get("submission").is_none());
 }
 
 #[test]
