@@ -25,6 +25,8 @@ export function createDefaultPleQuestionJsonSource(): PleQuestionJsonDocument {
     tags: [],
     questionLicense: null,
     questionCitation: null,
+    externalResources: [],
+    authorScript: null,
     language: "en-US",
   };
 }

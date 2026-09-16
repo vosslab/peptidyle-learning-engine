@@ -146,7 +146,6 @@ content = {
             "assignmentCompletionRule": {"kind": "answerAll"},
             "assignmentAttemptGradeRule": "highest",
             "assignmentAttemptContinuationRule": {"kind": "unlimited"},
-            "questionPoolReuseRule": "reuseSelection",
             "questionVariationRule": "newVariation",
             "assignmentAttemptResumeRule": "resumable",
             "assignmentQuestionDisplayRule": "allQuestions",

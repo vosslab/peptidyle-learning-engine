@@ -19,7 +19,12 @@ use crate::{SessionTokenHash, StoreError};
 /// materialization path. An Adopted Course names one immutable source
 /// Revision. The tagged JSON representation rejects old flat source fields.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
 pub enum CourseInstanceCreationSource {
     /// Start a teaching Course without imported Blueprint content.
     Empty,
@@ -89,6 +94,20 @@ pub struct CourseInstanceView {
     pub course: CourseInstanceSummary,
     /// Current Teaching Team size; creation starts with exactly one Instructor membership.
     pub active_instructor_count: u32,
+    /// Original adoption and current head, only while the actor can read the source.
+    pub blueprint_origin: Option<CourseInstanceBlueprintOrigin>,
+}
+
+/// Read-only adoption provenance, not a claim about current Assessment content.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseInstanceBlueprintOrigin {
+    /// Readable parent Blueprint public identity.
+    pub reference: BlueprintCourseReference,
+    /// Immutable Revision originally adopted when the Course was created.
+    pub adopted_revision: BlueprintRevision,
+    /// Current readable source Revision, without applying any changes.
+    pub current_revision: BlueprintRevision,
 }
 
 /// Safe active-Instructor selection identity for a Sysadmin creation request.
@@ -167,4 +186,38 @@ pub trait CourseInstanceStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
     ) -> Result<Vec<CourseCreationInstructor>, StoreError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CourseInstanceCreationSource;
+
+    #[test]
+    fn creation_source_accepts_only_the_closed_browser_wire() {
+        let empty = serde_json::json!({"kind": "empty"});
+        let adopted = serde_json::json!({
+            "kind": "adopted",
+            "blueprintCourse": "BP7K3M2Q",
+            "blueprintRevision": "1"
+        });
+        assert!(serde_json::from_value::<CourseInstanceCreationSource>(empty).is_ok());
+        assert!(serde_json::from_value::<CourseInstanceCreationSource>(adopted).is_ok());
+        assert!(
+            serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
+                "kind": "adopted",
+                "blueprint_course": "BP7K3M2Q",
+                "blueprint_revision": "1"
+            }))
+            .is_err()
+        );
+        assert!(
+            serde_json::from_value::<CourseInstanceCreationSource>(serde_json::json!({
+                "kind": "adopted",
+                "blueprintCourse": "BP7K3M2Q",
+                "blueprintRevision": "1",
+                "blueprint_course": "BP7K3M2Q"
+            }))
+            .is_err()
+        );
+    }
 }

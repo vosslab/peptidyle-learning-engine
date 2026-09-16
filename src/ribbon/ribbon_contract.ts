@@ -167,7 +167,7 @@ const TASK_AREA_LABELS: Readonly<Record<RibbonTaskArea, string>> = Object.freeze
   instructorAssessments: "Assessments",
   assessment: "Assessment",
   courseSetup: "Course setup",
-  assessmentAttempt: "Assessment attempt",
+  assessmentAttempt: "Attempt",
 });
 
 const RESOLVED_RELATIONSHIP: RibbonRelationshipState = Object.freeze({
@@ -499,6 +499,7 @@ function breadcrumbsFor(
   const instructorAssessment = breadcrumbLink("assessmentWorkspaceOverview", assessmentParams);
   const studentAssessment = breadcrumbLink("assessmentOverview", assessmentParams);
   const assessmentLabel = labels.assessmentTitle ?? "Assessment";
+  const studentAssessmentAccessLabel = labels.assessmentTitle ?? "Before you start";
 
   function courseTrail(current: string, courseHref: string | undefined): RibbonBreadcrumbModel[] {
     if (courses === undefined || courseHref === undefined || labels.courseLongName === undefined)
@@ -562,7 +563,7 @@ function breadcrumbsFor(
     case "assessmentWorkspaceOverview":
       return Object.freeze(courseTrail(assessmentLabel, courseAssessments));
     case "assessmentOverview":
-      return Object.freeze(courseTrail(assessmentLabel, studentCourse));
+      return Object.freeze(courseTrail(studentAssessmentAccessLabel, studentCourse));
     case "assessmentCreate":
       return Object.freeze(courseTrail("New Assessment", courseAssessments));
     case "gradebook":
@@ -585,7 +586,7 @@ function breadcrumbsFor(
         breadcrumbLinkItem("Courses", courses),
         breadcrumbLinkItem(labels.courseLongName, studentCourse),
         breadcrumbLinkItem(labels.assessmentAttemptTitle, studentAssessment),
-        breadcrumbCurrent("Assessment attempt"),
+        breadcrumbCurrent("Attempt"),
       ]);
     case "assessmentAttemptSummary":
       return courses !== undefined &&
@@ -597,7 +598,7 @@ function breadcrumbsFor(
             breadcrumbLinkItem("Courses", courses),
             breadcrumbLinkItem(labels.courseLongName, studentCourse),
             breadcrumbLinkItem(labels.assessmentAttemptTitle, studentAssessment),
-            breadcrumbCurrent("Assessment attempt"),
+            breadcrumbCurrent("Attempt history"),
           ])
         : Object.freeze([]);
     default:

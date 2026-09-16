@@ -8,7 +8,6 @@ const baseInput = {
   savedAssessmentAvailability: { state: "available" },
   policies: {
     assessmentAttemptGradeRule: "instructorSelected",
-    questionPoolReuseRule: "selectAgain",
     questionVariationRule: "reuseVariation",
     assessmentAttemptResumeRule: "resumable",
     assessmentQuestionDisplayRule: "allQuestions",
@@ -41,7 +40,6 @@ test("Assessment policy summary covers every Properties-owned decision in readab
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
   assert.match(valueFor("assessmentAttemptGradeRule"), /Instructor-selected/);
-  assert.match(valueFor("questionPoolReuseRule"), /Select Questions again/);
   assert.match(valueFor("questionVariationRule"), /previous Question Variations/);
   assert.match(valueFor("savedDelivery"), /available now/);
   assert.match(valueFor("assessmentStatus"), /Released/);
@@ -52,13 +50,7 @@ test("Assessment policy summary covers every Properties-owned decision in readab
   assert.match(schedule, /2 attempts/);
   assert.match(schedule, /Instructor time zone/);
   const disclosure = valueFor("disclosure");
-  for (const category of [
-    "Score",
-    "correctness",
-    "Question Answer",
-    "Explanation",
-    "statistics",
-  ]) {
+  for (const category of ["Score", "correctness", "Question Answer", "Explanation", "statistics"]) {
     assert.match(disclosure, new RegExp(category));
   }
 });

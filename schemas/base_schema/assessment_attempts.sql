@@ -49,7 +49,6 @@ CREATE TABLE ple_private.assessment_attempt (
     assessment_attempt_limit integer,
     late_work_rule text NOT NULL CHECK (late_work_rule IN ('accept', 'mark_late', 'reject')),
     assessment_attempt_grade_rule text NOT NULL CHECK (assessment_attempt_grade_rule IN ('first', 'latest', 'highest', 'instructor_selected')),
-    question_pool_reuse_rule text NOT NULL CHECK (question_pool_reuse_rule IN ('reuse_selection', 'select_again')),
     question_variation_rule text NOT NULL CHECK (question_variation_rule IN ('reuse_variation', 'new_variation')),
     assessment_attempt_resume_rule text NOT NULL CHECK (assessment_attempt_resume_rule IN ('resumable', 'single_session')),
     assessment_question_display_rule text NOT NULL CHECK (assessment_question_display_rule IN ('all_questions', 'one_question_at_a_time')),
@@ -95,7 +94,6 @@ CREATE TABLE ple_private.question_pool_selection (
     question_pool_revision_number bigint NOT NULL,
     created_at timestamptz NOT NULL,
     selected_question_count integer NOT NULL CHECK (selected_question_count > 0),
-    reused_from_question_pool_selection_id uuid REFERENCES ple_private.question_pool_selection(question_pool_selection_id),
     UNIQUE (question_pool_selection_id, assessment_attempt_id, assessment_entry_id),
     UNIQUE (assessment_attempt_id, assessment_entry_id),
     FOREIGN KEY (question_pool_id, question_pool_revision_number)
@@ -239,7 +237,7 @@ BEGIN
        OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
        OR ROW(NEW.assessment_title, NEW.assessment_instructions, NEW.available_at, NEW.due_at, NEW.closes_at,
               NEW.assessment_attempt_time_limit_seconds, NEW.assessment_attempt_limit, NEW.late_work_rule,
-              NEW.assessment_attempt_grade_rule, NEW.question_pool_reuse_rule, NEW.question_variation_rule,
+              NEW.assessment_attempt_grade_rule, NEW.question_variation_rule,
               NEW.assessment_attempt_resume_rule, NEW.assessment_question_display_rule,
               NEW.assessment_navigation_rule, NEW.assessment_question_order_rule, NEW.feedback_score,
               NEW.feedback_per_item_correctness, NEW.feedback_submitted_response,
@@ -249,7 +247,7 @@ BEGIN
               NEW.assessment_attempt_limit_accommodation_id, NEW.assessment_attempt_limit_accommodation_edit_number)
            IS DISTINCT FROM ROW(OLD.assessment_title, OLD.assessment_instructions, OLD.available_at, OLD.due_at, OLD.closes_at,
               OLD.assessment_attempt_time_limit_seconds, OLD.assessment_attempt_limit, OLD.late_work_rule,
-              OLD.assessment_attempt_grade_rule, OLD.question_pool_reuse_rule, OLD.question_variation_rule,
+              OLD.assessment_attempt_grade_rule, OLD.question_variation_rule,
               OLD.assessment_attempt_resume_rule, OLD.assessment_question_display_rule,
               OLD.assessment_navigation_rule, OLD.assessment_question_order_rule, OLD.feedback_score,
               OLD.feedback_per_item_correctness, OLD.feedback_submitted_response,
@@ -265,24 +263,6 @@ END $$;
 CREATE FUNCTION ple_private.reject_immutable_student_work_change()
 RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
 BEGIN RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'Student Work evidence is immutable'; END $$;
-
-CREATE FUNCTION ple_private.validate_question_pool_selection_reuse()
-RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
-BEGIN
-    IF NEW.reused_from_question_pool_selection_id IS NOT NULL AND NOT EXISTS (
-        SELECT 1 FROM ple_private.question_pool_selection AS earlier
-        JOIN ple_private.assessment_attempt AS earlier_assessment_attempt ON earlier_assessment_attempt.assessment_attempt_id = earlier.assessment_attempt_id
-        JOIN ple_private.assessment_attempt AS current_assessment_attempt ON current_assessment_attempt.assessment_attempt_id = NEW.assessment_attempt_id
-        WHERE earlier.question_pool_selection_id = NEW.reused_from_question_pool_selection_id
-          AND earlier.assessment_entry_id = NEW.assessment_entry_id
-          AND earlier.question_pool_id = NEW.question_pool_id
-          AND earlier.question_pool_revision_number = NEW.question_pool_revision_number
-          AND earlier_assessment_attempt.student_record_id = current_assessment_attempt.student_record_id
-          AND earlier_assessment_attempt.assessment_id = current_assessment_attempt.assessment_id
-          AND earlier_assessment_attempt.assessment_attempt_number < current_assessment_attempt.assessment_attempt_number
-    ) THEN RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Reused Question Pool Selection requires earlier Student Work for the same Assessment Entry'; END IF;
-    RETURN NEW;
-END $$;
 
 CREATE FUNCTION ple_private.validate_question_pool_selected_item_member()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
@@ -396,8 +376,6 @@ CREATE TRIGGER issued_question_reproduction_matches_source BEFORE INSERT OR UPDA
 ON ple_private.issued_question FOR EACH ROW EXECUTE FUNCTION ple_private.validate_issued_question_reproduction();
 CREATE TRIGGER issued_question_delete_is_guarded BEFORE DELETE ON ple_private.issued_question
 FOR EACH ROW EXECUTE FUNCTION ple_private.reject_student_work_delete();
-CREATE TRIGGER question_pool_selection_reuse_is_valid BEFORE INSERT ON ple_private.question_pool_selection
-FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selection_reuse();
 CREATE CONSTRAINT TRIGGER question_pool_selection_has_exact_item_count AFTER INSERT ON ple_private.question_pool_selection
 DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION ple_private.validate_question_pool_selected_item_count();
 CREATE CONSTRAINT TRIGGER question_pool_selected_item_count_is_exact AFTER INSERT OR UPDATE OR DELETE ON ple_private.question_pool_selected_item
@@ -433,7 +411,7 @@ CREATE POLICY question_pool_selected_item_private_owner_access ON ple_private.qu
 CREATE POLICY issued_question_private_owner_access ON ple_private.issued_question FOR ALL TO ple_private_owner USING (true) WITH CHECK (true);
 REVOKE ALL ON FUNCTION ple_private.assert_student_assessment_accommodation_scope(), ple_private.assert_assessment_attempt_scope(),
     ple_private.enforce_student_assessment_accommodation_edit(), ple_private.reject_student_work_delete(), ple_private.reject_assessment_attempt_rewrite(),
-    ple_private.reject_immutable_student_work_change(), ple_private.validate_question_pool_selection_reuse(),
+    ple_private.reject_immutable_student_work_change(),
     ple_private.validate_question_pool_selected_item_count(), ple_private.validate_question_pool_selected_item_member(),
     ple_private.validate_question_pool_selection_issues(),
     ple_private.validate_issued_question_reproduction() FROM PUBLIC;

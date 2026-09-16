@@ -150,7 +150,25 @@ bounded work item.
 | Container-backed behavior                  | `bash tests/e2e/e2e_<name>.sh`                             | The named disposable whole-system oracle.                            |
 | All named non-browser E2E checks           | `bash tests/e2e/e2e_run_all.sh`                            | The current build, CLI, contract, and named-service E2E collection.  |
 | Local stack diagnosis and lifecycle        | `source source_me.sh && python3 local_stack.py <command>`  | The scoped controller contract.                                      |
-| Current application screenshots            | `./devel/capture_screenshots.sh`                           | Rebuilds and recoverably publishes the complete manifest corpus.     |
+| Current application screenshots            | `./devel/capture_screenshots.sh [--verify] [--headed]`     | Rebuilds or verifies the complete manifest corpus.                   |
+
+Sysadmin captures use the ordinary Morgan MFA form. The capture wrapper prepares the owned
+stack's restricted setup-URI file and passes only its path to a separate local CLI authenticator
+(`python3 -m devel.local_demo_totp`). Only that child reads the seed; a current six-digit code
+crosses its private process pipe and is entered into the visible form. Fresh browser contexts
+wait for an unused 30-second counter; rejected authentication is not retried or bypassed.
+This helper accepts only Morgan's local-demo setup and automated entry is restricted to the local
+HTTPS sign-in page. It refuses terminal or regular-file code output. Do not print or store codes
+or seeds, enable browser tracing, or use this helper for production Accounts. The screenshot lane
+deliberately disables Playwright debug logging for its child process (`DEBUG` and `PWDEBUG`);
+direct runner invocation refuses nonempty debug settings before importing Playwright. It creates
+no browser traces or recordings. These safeguards apply equally to headed manual MFA.
+
+For intentional manual MFA, invoke the screenshot runner directly with `--headed` and without
+`PLE_LOCAL_DEMO_TOTP_SETUP_FILE`. After the owned capture stack starts, run
+`source source_me.sh && python3 local_stack.py authenticator --env-file
+local_stack_state/live_demo_browser/workspace/env.local` in another terminal, import the returned
+private setup-URI path into a separate local authenticator, and enter its current code in Chromium.
 
 `tests/playwright/` is browser-driven testing and `tests/e2e/` is non-browser whole-system
 orchestration. Both are intentionally excluded from `pytest tests/`; see

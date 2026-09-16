@@ -312,13 +312,13 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 		[
 			"cargo", "test", "--manifest-path", str(repository_root / "Cargo.toml"),
 			"-p", "learning-data-access", "--features", "postgres",
-			"--test", "assignment_access_postgres",
+			"--test", "assessment_access_postgres",
 			"access_reader_projects_one_authoritative_decision_and_effective_policy",
 			"--", "--ignored", "--exact", "--test-threads=1",
 		],
 		authoring_environment,
 		workspace,
-		"Student Assignment Access PostgreSQL acceptance",
+		"Student Assessment Access PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
 	_require_command(
@@ -344,7 +344,7 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 			"course_creation_rejects_a_term_after_its_active_lifetime",
 			"--", "--ignored", "--exact", "--test-threads=1",
 		],
-		application_environment,
+		authoring_environment,
 		workspace,
 		"Course Active-lifetime PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
@@ -377,7 +377,7 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 		security_argv,
 		migrator_environment,
 		repository_root,
-		"Assignment Attempt expiry PostgreSQL acceptance",
+		"Assessment Attempt expiry PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 		expiry_sql,
 	)
@@ -391,7 +391,7 @@ def _run_oracle(repository_root: pathlib.Path, workspace: pathlib.Path, port: in
 		],
 		authoring_environment,
 		workspace,
-		"direct Assignment Attempt finalization PostgreSQL acceptance",
+		"direct Assessment Attempt finalization PostgreSQL acceptance",
 		private_values + (admin_password, migrator_password, service_urls[0]),
 	)
 	owned_snapshot = local_stack_control.disposable_stack_adapter.require_current_resource_capability(

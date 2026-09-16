@@ -191,16 +191,18 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         }
         let revision_number = question_model::QuestionPoolRevisionNumber::new(
             u64::try_from(
-                row.try_get::<i64, _>("new_pool_revision")
+                row.try_get::<i64, _>("question_pool_revision_number")
                     .map_err(map_sqlx_error)?,
             )
             .map_err(|_| invalid("Assessment Pool fork Revision"))?,
         )
         .map_err(|_| invalid("Assessment Pool fork Revision"))?;
-        let metadata_etag = row.try_get("metadata_etag").map_err(map_sqlx_error)?;
+        let metadata_etag = row
+            .try_get("question_pool_metadata_etag")
+            .map_err(map_sqlx_error)?;
         let assessment_edit_number = question_model::AssessmentEditNumber::new(
             u64::try_from(
-                row.try_get::<i64, _>("assessment_edit")
+                row.try_get::<i64, _>("assessment_edit_number")
                     .map_err(map_sqlx_error)?,
             )
             .map_err(|_| invalid("Assessment Edit Number"))?,

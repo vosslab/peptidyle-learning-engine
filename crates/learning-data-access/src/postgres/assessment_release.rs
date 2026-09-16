@@ -16,7 +16,6 @@ use question_model::{
 use sqlx::{Postgres, Row, Transaction};
 
 use super::{
-    Pool,
     assessment_workspace_policy::{activity_rules, feedback_rules},
     assessment_workspace_save::{assessment_entries_json, assessment_values_json},
     connection::map_sqlx_error,
@@ -29,47 +28,36 @@ use crate::{
     SaveLiveAssessmentInput, SessionTokenHash, StoreError, UnreleasedLiveAssessment,
 };
 
-/// PostgreSQL Store for the direct-Instructor Assessment Workspace.
-#[derive(Clone)]
-pub struct PostgresLiveAssessmentStore {
-    pool: Pool,
-}
-
-impl PostgresLiveAssessmentStore {
-    /// Binds the attested API pool to Assessment Workspace procedures.
-    pub fn new(pool: Pool) -> Self {
-        Self { pool }
-    }
-
-    async fn begin(
-        &self,
-        token: SessionTokenHash,
-    ) -> Result<Transaction<'_, Postgres>, StoreError> {
-        let mut transaction = self.pool.begin().await.map_err(map_sqlx_error)?;
-        sqlx::query("SET LOCAL ROLE ple_auth")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        let session = sqlx::query(
-            "SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))",
-        )
-        .bind(token.to_string())
-        .fetch_optional(&mut *transaction)
-        .await
-        .map_err(map_sqlx_error)?;
-        if session.is_none() {
-            return Err(StoreError::Forbidden);
-        }
-        sqlx::query("SET LOCAL ROLE ple_app")
-            .execute(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
-        Ok(transaction)
-    }
-}
+pub use super::assessment_workspace_connection::PostgresLiveAssessmentStore;
 
 #[async_trait]
 impl LiveAssessmentStore for PostgresLiveAssessmentStore {
+    async fn review_course_blueprint_update(
+        &self,
+        token: SessionTokenHash,
+        course: CourseInstanceReference,
+    ) -> Result<crate::CourseBlueprintUpdateReview, StoreError> {
+        super::assessment_blueprint_update::review_course(self, token, course).await
+    }
+
+    async fn review_assessment_blueprint_update(
+        &self,
+        token: SessionTokenHash,
+        course: CourseInstanceReference,
+        assessment: AssessmentReference,
+    ) -> Result<crate::AssessmentBlueprintUpdateReview, StoreError> {
+        super::assessment_blueprint_update::review(self, token, course, assessment).await
+    }
+
+    async fn apply_assessment_blueprint_update(
+        &self,
+        token: SessionTokenHash,
+        course: CourseInstanceReference,
+        assessment: AssessmentReference,
+        input: crate::ApplyAssessmentBlueprintUpdateInput,
+    ) -> Result<LiveAssessmentWorkspace, StoreError> {
+        super::assessment_blueprint_update::apply(self, token, course, assessment, input).await
+    }
     async fn list_assessments_due_soon(
         &self,
         token: SessionTokenHash,

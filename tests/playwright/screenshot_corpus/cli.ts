@@ -57,13 +57,14 @@ async function verifyPublished(): Promise<PublishedContract> {
 async function replay(
   mode: "publish" | "verify",
   entryArgument: string | undefined,
+  headed: boolean,
 ): Promise<void> {
   const publishedBefore = mode === "verify" ? await verifyPublished() : undefined;
   const contract = publishedBefore ?? (await loadContract());
   const entryUrl = requireEntryUrl(entryArgument);
   const outputRoot = path.join(resultRoot, mode === "publish" ? "staging" : "verify");
   await prepareOutputRoot(outputRoot);
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({ headless: !headed });
   try {
     const runtime = createScenarioRuntime({
       browser,
@@ -120,14 +121,20 @@ async function replay(
 }
 
 export async function main(arguments_: ReadonlyArray<string>): Promise<void> {
-  const [mode, entryArgument, ...extra] = arguments_;
-  if (extra.length > 0) throw new Error("unexpected screenshot runner arguments");
-  if (mode === "--verify-static" && entryArgument === undefined) {
+  const [mode, firstArgument, secondArgument, ...extra] = arguments_;
+  if (mode === "--verify-static" && firstArgument === undefined) {
     await verifyPublished();
     console.log("Static screenshot corpus verification passed.");
     return;
   }
-  if (mode === "--publish") return replay("publish", entryArgument);
-  if (mode === "--verify") return replay("verify", entryArgument);
-  throw new Error("usage: capture_live_demo_screenshots.mjs --publish|--verify ENTRY_URL");
+  const headed = firstArgument === "--headed";
+  const entryArgument = headed ? secondArgument : firstArgument;
+  if (extra.length > 0 || (headed ? secondArgument === undefined : secondArgument !== undefined)) {
+    throw new Error("unexpected screenshot runner arguments");
+  }
+  if (mode === "--publish") return replay("publish", entryArgument, headed);
+  if (mode === "--verify") return replay("verify", entryArgument, headed);
+  throw new Error(
+    "usage: capture_live_demo_screenshots.mjs --publish|--verify [--headed] ENTRY_URL",
+  );
 }

@@ -12,6 +12,52 @@ import type { AssessmentActivityRules } from "../../generated/api/AssessmentActi
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { BlueprintRevision } from "../../generated/api/BlueprintRevision";
+import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
+import type { BlueprintAssessmentDefaults } from "../../generated/api/BlueprintAssessmentDefaults";
+import type { FixedQuestionAssessmentEntry } from "../../generated/api/FixedQuestionAssessmentEntry";
+import type { QuestionPoolAssessmentEntry } from "../../generated/api/QuestionPoolAssessmentEntry";
+
+export type AssessmentBlueprintUpdateEntry =
+  | ({ readonly kind: "fixedQuestion" } & Omit<FixedQuestionAssessmentEntry, "id" | "availability">)
+  | ({ readonly kind: "questionPool" } & Omit<QuestionPoolAssessmentEntry, "id" | "availability">);
+
+export interface AssessmentBlueprintUpdateContent {
+  readonly assessmentType: AssessmentType;
+  readonly title: string;
+  readonly instructions: string;
+  readonly defaults: BlueprintAssessmentDefaults;
+  readonly entries: ReadonlyArray<AssessmentBlueprintUpdateEntry>;
+}
+
+export interface AssessmentBlueprintUpdateReview {
+  readonly assessment: LiveAssessmentWorkspace;
+  readonly sourceRevision: BlueprintRevision;
+  readonly proposed: AssessmentBlueprintUpdateContent | null;
+  readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
+}
+
+/** One current adopted Assessment correspondence; direct local Assessments are omitted. */
+export interface CourseAssessmentBlueprintUpdateSummary {
+  readonly assessmentReference: AssessmentReference;
+  readonly title: string;
+  readonly assessmentType: AssessmentType;
+  readonly matchesSource: boolean;
+  readonly cannotApplyReason: "retainedSourceMissing" | "assessmentTypeMismatch" | null;
+}
+
+/** Derived together from one parent Revision; adoptedRevision is the immutable creation pin. */
+export interface CourseBlueprintUpdateReview {
+  readonly blueprintReference: BlueprintCourseReference;
+  readonly adoptedRevision: BlueprintRevision;
+  readonly sourceRevision: BlueprintRevision;
+  readonly assessments: ReadonlyArray<CourseAssessmentBlueprintUpdateSummary>;
+}
+
+export interface ApplyAssessmentBlueprintUpdateInput {
+  readonly expectedSourceRevision: BlueprintRevision;
+  readonly expectedEditNumber: AssessmentEditNumber;
+}
 
 export type LiveAssessmentStatus = "unreleased" | "released" | "closed" | "archived";
 
@@ -162,6 +208,18 @@ export interface UnreleasedLiveAssessment {
 
 /** Same-origin direct-Instructor Assessment Workspace boundary. */
 export interface LiveAssessmentReleaseClient {
+  readonly getCourseBlueprintUpdateReview: (
+    course: CourseInstanceReference,
+  ) => Promise<CourseBlueprintUpdateReview>;
+  readonly getAssessmentBlueprintUpdateReview: (
+    course: CourseInstanceReference,
+    assessment: AssessmentReference,
+  ) => Promise<AssessmentBlueprintUpdateReview>;
+  readonly applyAssessmentBlueprintUpdate: (
+    course: CourseInstanceReference,
+    assessment: AssessmentReference,
+    input: ApplyAssessmentBlueprintUpdateInput,
+  ) => Promise<LiveAssessmentWorkspaceResponse>;
   readonly listAssessmentsDueSoon: () => Promise<DueSoonAssessments>;
   readonly listCourseAssessments: (
     course: CourseInstanceReference,

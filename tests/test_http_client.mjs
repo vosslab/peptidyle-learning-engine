@@ -157,7 +157,7 @@ test("Student Question Attempt decoding rejects legacy reproduction fields", () 
 
 test("iMathAS Question Backend launch returns its strict same-origin Assessment route", async () => {
   const course = publishedQuestionFixture.course;
-  const assessment = publishedQuestionFixture.assignment;
+  const assessment = publishedQuestionFixture.assessment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const launchUrl = `/api/courses/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;
@@ -179,7 +179,7 @@ test("iMathAS Question Backend launch returns its strict same-origin Assessment 
 
 test("iMathAS Question Backend launch rejects noncanonical Assessment routes", async () => {
   const course = publishedQuestionFixture.course;
-  const assessment = publishedQuestionFixture.assignment;
+  const assessment = publishedQuestionFixture.assessment;
   const attempt = publishedQuestionFixture.attempts[0];
   assert.ok(attempt);
   const expected = `/api/courses/${course.id}/assessments/${assessment.id}/attempts/${attempt.id}/imathas-question-backend/launch`;

@@ -17,8 +17,11 @@
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_edit_number` is current-state concurrency data, separate from `question_revision`.
 - [x] Saving a Draft Question replaces its previous working state.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `save_authoring_draft` replaces the current draft aggregate values.
-- [ ] Instructors may delete Draft Questions they no longer need.
-  - Mismatch: draft creation and save operations exist, but no owned draft deletion operation was found.
+- [x] Instructors may delete Draft Questions they no longer need.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `delete_draft_question` resolves only the current Instructor-owned Draft, locks and compares its Edit Number, then deletes that private aggregate without considering the separate Published Question lineage.
+  - Evidence (source): `crates/learning-data-access/src/postgres/authoring.rs` `delete_authoring_draft` carries the SQL compare-and-swap through the authenticated Store.
+  - Evidence (source): `crates/server/src/authoring.rs` `delete_draft` requires the parsed `If-Match` Edit Number and maps a concurrent change to 412; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` supplies explicit Keep/Delete confirmation.
+  - Evidence (runtime): `crates/server/src/authoring.rs` `delete_draft` passed accepted isolated PostgreSQL 17/MinIO actual-server and focused browser proof: cancel, confirm, and list reload; valid-current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous 404 denials while owner source/Edit Number remained unchanged; 428 missing, 400 malformed, and 412 stale preconditions; preserved parsed Published Question lineage and Revision JSON after a published-origin Draft deletion; and 404 repeat DELETE/PUT. Artifact: `/private/tmp/ple-draft-delete-artifacts.km9ybM`.
 - N/A PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
   - Reason: Automated abandoned-Draft cleanup is an explicitly optional future capability; HG sets no clock or durations.
 
@@ -47,8 +50,10 @@
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` is the single internal reader for stored PLE JSON.
 - [x] The native PLE JSON Question format is a strictly validated internal source shape without an external API.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` validates the internal source document.
-- [ ] Native JSON Questions are static, not algorithmic nor random, and receive no random seed.
-  - Mismatch: `crates/server/src/assignment_delivery.rs` `issue_new_presentations` requires and persists a `QuestionSeed` for every native PLE issue, and `crates/adapters/ple/src/lib/question_json_source.rs` `PleQuestionBackend::issue_question_json` accepts it. The source is static, but the delivered native Question still receives a seed. `randomizeChoices` is separately compiled to server-only `NativeChoiceOrder::NonceRandomized` in `crates/adapters/ple/src/question_json/source_document.rs` `compile_choices`; `crates/question_model/src/presentation/choice_order.rs` `nonce_randomized_choices` uses the durable presentation nonce only to permute stable authored choice IDs. That presentation behavior is not algorithmic Question generation, but it does not cure the seed mismatch.
+- [x] Native JSON Questions are static, not algorithmic nor random, and receive no random seed.
+  - Evidence (source): `crates/question_model/src/generation.rs` `QuestionReproduction` distinguishes static source reproduction from the inseparable seeded generator pair; `crates/adapters/ple/src/lib/question_json_source.rs` `presentation` issues native PLE JSON with `QuestionReproduction::Static`.
+  - Evidence (source): `schemas/base_schema/assessment_attempts.sql` `validate_issued_question_reproduction` rejects a seed for a `ple` source and requires one for renderer-backed sources.
+  - Evidence (runtime): `schemas/base_schema/assessment_attempts.sql` `validate_issued_question_reproduction` passed in `/private/tmp/ple-native-seed-proof.sh --isolated --native-seed-http` against PostgreSQL 17: shuffled-position-2 native seed/hash were null, real WeBWorK retained numeric seed/64-character hash privately, public start/read/save/resume/restored payloads omitted both fields, resume retained the same issued Questions and saved native response, and invalid native seed insertion failed. Artifact: `/private/tmp/ple-native-seed-artifacts.KfY7Op`.
 - [x] Native PLE JSON supports MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonResponse` defines all eight native types.
 - [x] External URLs used by native JSON Questions are explicitly recorded and reviewable.
@@ -146,68 +151,92 @@
   - Mismatch: needs test or runtime scoring evidence.
 - [ ] Changing Question point values recalculates scores without another Question Backend interaction.
   - Mismatch: needs test or runtime rescoring evidence.
-- [ ] Preserve the distinction between WeBWorK PG and PGML source. A Question should be identified as PGML only when its source is fully PGML-compliant; otherwise identify it as PG.
-  - Evidence (runtime): the accepted canonical-source inventory records 42 parameterized BiologyProblems.org sources with explicit `pgml` format and matching `.pgml` paths; C910 also proved an explicit `webworkPgml` Draft binding persists across immutable feedback-only publication.
-  - Mismatch: the remaining bundled static families have not completed canonical import, publication, and catalog migration, so the product-wide classification is unverified.
-- [ ] BiologyProblems.org imports should preserve whether the canonical algorithmic source is PG or PGML rather than treating both formats generically as PG/PGML.
-  - Evidence (source): `content/genetics/manifest.yaml` now registers 42 accepted canonical parameterized sources with explicit PGML paths and format metadata.
-  - Mismatch: the current static-bank import/catalog migration remains incomplete, so this end-to-end import behavior is unverified.
-- [ ] When parameterized WeBWorK PG or PGML source exists, prefer it to importing static variants.
-  - Mismatch: no selection policy enforcement or test was found.
-- [ ] Preserve backend-native algorithmic variation rather than expanding one algorithmic Question into static variants.
-  - Mismatch: `content/genetics` still contains generated static WeBWorK expansions; C824--C841 own the forward replacement.
-- [ ] One algorithmic Question remains one Published Question regardless of how many variants its Question Backend can generate.
-  - Mismatch: no completed per-family publication and catalog transition proves this lineage boundary.
-- [ ] Use a Question Pool with algorithmic Questions only when the Instructor wants selection among distinct Questions, not to represent variants of one algorithmic Question.
-  - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor workflow proves the distinct-Question purpose and preserves independent backend variation.
-- [ ] BiologyProblems.org WeBWorK problems should be imported from their canonical algorithmic PG or PGML source rather than from generated static variants.
-  - Evidence (runtime): C839 accepted 42 canonical PGML sources (41 official biologyproblems-website sources plus HLA) with provenance, format/path, representative render/lint, and deterministic grading evidence.
-  - Mismatch: redundant static source files were removed, but ordinary publication and catalog reconciliation remain unverified; C840--C841 own that work.
-- [ ] Multiple static BiologyProblems.org questions generated from one algorithmic source represent one Published Question, not separate Published Questions or a Question Pool.
-  - Evidence (runtime): C839's 42-source acceptance establishes candidate canonical sources, not a Published-Question lineage.
-  - Mismatch: source removal does not prove a per-family Published-Question lineage or catalog migration; C840--C841 remain open.
+- [x] Preserve the distinction between WeBWorK PG and PGML source. A Question should be identified as PGML only when its source is fully PGML-compliant; otherwise identify it as PG.
+  - Evidence (source): `crates/project-tools/src/pilot_content.rs` `validated_question_format` maps only explicit PG or PGML declarations with matching extensions.
+  - Evidence (test): `crates/project-tools/src/pilot_content/tests.rs` `pilot_publication_preserves_explicit_source_formats` exercises the format/extension refusals.
+  - Evidence (runtime): `crates/project-tools/src/pilot_content/publication.rs` `existing_publication` passed accepted Pilot binding proof preserving source SHA, size, path, and exact explicit format through immutable replay; format/path refusal remains static-only. Artifact: `/private/tmp/ple-pilot-format-binding-artifacts.CKzka1`.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content.rs` `validate_selected_parameterized_manifest` passed selected ordinary-Instructor CLI proof publishing one canonical PGML source with exact bytes, checksum, and provenance; replay made no additional publication. Artifact: `/private/tmp/ple-canonical-family-artifacts.TOOlBJ`.
+- [x] BiologyProblems.org imports should preserve whether the canonical algorithmic source is PG or PGML rather than treating both formats generically as PG/PGML.
+  - Evidence (source): `crates/project-tools/src/curriculum_content.rs` `validate_selected_parameterized_manifest` validates each explicit source format/path pair.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted fresh Genetics publication reading all 42 canonical entries as explicit PGML source paths and ordinary WeBWorK Question lineages. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
+- [x] When parameterized WeBWorK PG or PGML source exists, prefer it to importing static variants.
+  - Evidence (source): `crates/project-tools/src/curriculum_content/publication.rs` `validate_loaded_content` requires direct Fixed Question entries.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted fresh Genetics publication using its 42 canonical parameterized PGML sources as direct Fixed entries rather than generated static variants. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
+- [x] Preserve backend-native algorithmic variation rather than expanding one algorithmic Question into static variants.
+  - Evidence (source): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_source` publishes a parameterized source without static expansion.
+  - Evidence (runtime): `docs/active_plans/active/human_guidance_implementation_compliance_plan.md` `C839` accepts canonical source hashes with repeatable/reseeded renderer variation and deterministic grading.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_source` passed fresh publication of 42 ordinary WeBWorK lineages, and exact replay made no mutation. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
+- [x] One algorithmic Question remains one Published Question regardless of how many variants its Question Backend can generate.
+  - Evidence (source): `crates/project-tools/src/curriculum_content/publication.rs` `existing_source_revisions` resolves one ordinary lineage per canonical source.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted canonical installation creating 42 Question lineages and 42 Revision 1 records from 42 sources, with no variant expansion. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_selected_with_context` and `publish_source` passed selected ordinary-Instructor CLI proof publishing one available Revision-1 Question from one canonical source, with no Pool or Blueprint; replay made no additional publication. Artifact: `/private/tmp/ple-canonical-family-artifacts.TOOlBJ`.
+- [x] Use a Question Pool with algorithmic Questions only when the Instructor wants selection among distinct Questions, not to represent variants of one algorithmic Question.
+  - Evidence (source): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` resolves selected Published Question Revisions and requires the Instructor's interchangeability attestation; `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` selects distinct immutable members without backend-specific variant expansion.
+  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted fresh PostgreSQL 17/MinIO actual-server and private bundled-main HTTP-proxy browser proof: 42 canonical Genetics Questions installed with zero implicit Pools, then the Instructor visibly selected distinct DNA structure and nucleotide components Revision-1 PGML Questions, attested interchangeability, created a reusable Pool, and imported a distinct Assessment-owned fork with `selection_count=1`. Real WeBWorK rendering, radio-response save/resume, exact fork Pool/Question Revision, issued ID, seed/hash preservation, whole-Attempt submit, and fresh new-Attempt selection/issued IDs passed; a new Attempt may select the same Question and need not have different seeds. Artifact: `/private/tmp/ple-algorithmic-pool-artifacts.K2Kk6Z`. Release used a 3600-second time limit and Correct answer Never; answer disclosure, full Live Demo/authentication/TLS, and all-backend acceptance are outside this receipt. Browser error arrays were empty after route teardown completed.
+- [x] BiologyProblems.org WeBWorK problems should be imported from their canonical algorithmic PG or PGML source rather than from generated static variants.
+  - Evidence (source): `crates/project-tools/src/curriculum_content.rs` `validate_selected_parameterized_manifest` validates canonical source pins before publication.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted fresh Genetics publication importing all 42 C839-accepted canonical PGML sources (41 BiologyProblems.org sources plus HLA), preserving source pins and producing ordinary available WeBWorK Question lineages. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
+- [x] Multiple static BiologyProblems.org questions generated from one algorithmic source represent one Published Question, not separate Published Questions or a Question Pool.
+  - Evidence (source): `crates/project-tools/src/curriculum_content/publication.rs` `validate_loaded_content` rejects non-Fixed entries in the canonical Blueprint.
+  - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted fresh Genetics publication creating one Revision-1 Question lineage per canonical source, 42 direct Fixed entries, and zero Pools; exact replay was unchanged and a same-short-name conflict made no mutation. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
 
 ### Question Pools
 
-- [ ] A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
-  - Mismatch: current pools are Assignment entries, not independent published Question Library objects.
-- [ ] Pool contents should represent reasonably interchangeable assessments of the intended learning.
-  - Mismatch: no interchangeability validation was found.
+- [x] A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `create_question_pool` persists an ordered nonempty set of exact Published Question Revision members, and `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` selects from that Pool for Student delivery.
+  - Evidence (runtime): `crates/server/src/assessment_delivery.rs` `start` passed accepted actual-server proof that selected an exact Pool member for Student Attempt 1, preserved it on resume, and selected again for Attempt 2. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
+- [x] Pool contents should represent reasonably interchangeable assessments of the intended learning.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `create_question_pool` requires the creating Instructor's true `interchangeability_attested` value; it does not substitute an automatic pedagogical evaluator.
+  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that required the Instructor's attestation before creating the ordered reusable Pool and before its later Assessment-owned reorder. Artifacts: `/private/tmp/ple-course-empty-artifacts.bzwXEa` and `/private/tmp/ple-course-empty-artifacts.lgyOMK`.
+  - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that false or missing attestation returned 422 and left no Pool behind. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
 - [ ] Question Pools may contain Questions from any Question Backend.
   - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor Pool workflow proves this behavior.
 - [x] Each member of a Question Pool is a **Published Question**.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
-- [ ] Question Pools are always published and have no draft or unpublished state.
-  - Mismatch: current Question Pools are editable Assignment content rather than published library lineages.
-- [ ] A Question Pool is an independently reusable Question Library object.
-  - Mismatch: current pools are Assignment entries rather than Library objects.
-- [ ] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
-  - Mismatch: no published Question Pool lineage or public Pool ID exists.
-- [ ] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
-  - Mismatch: no independent Pool import-and-fork operation was found.
-- [ ] The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
-  - Mismatch: no independent Question Pool fork model was found.
-- [ ] Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
-  - Mismatch: no Question Pool fork model exists; current Question IDs use a different display grouping.
+- [x] Question Pools are always published and have no draft or unpublished state.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` model only a stable published lineage and immutable Revisions, with no draft, publication-status, or unpublished state.
+  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main Instructor proof: it created a reusable Pool from two Published Questions and immediately read its server-issued Revision 1; the UI and API expose no draft or publish transition.
+- [x] A Question Pool is an independently reusable Question Library object.
+  - Evidence (source): `crates/server/src/question_pool_library.rs` `current_pool` reads a Pool independently of any Assessment.
+  - Evidence (runtime): `crates/server/src/question_pool_library.rs` `current_pool` passed accepted actual-main Instructor proof: Pool `SBQR-N5RE` was created from the Question Library and its ordered member pins were read through `/api/question-pools/SBQR-N5RE`; separate actual-server proof then imported another reusable Pool into an Assessment.
+- [x] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` stores the unique compact public Pool ID, while `question_pool_revision` and `question_pool_revision_member` have immutable update/delete triggers and ordered exact member pins.
+  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that returned canonical Pool ID `SBQR-N5RE`, Revision 1, then read the same identity and exact ordered Question Revision pins.
+- [x] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
+  - Evidence (source): `schemas/base_schema/assessment_pool_forks.sql` `import_assessment_question_pool_fork` atomically creates a fresh child Pool Revision and Assessment Entry from an exact reusable source Revision without accepting raw member pins.
+  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that imported source Pool `P8H3-QYX9` into a direct Assessment and returned distinct fork `VFH9-CQKS`, Revision 1, at Assessment Edit 2.
+- [x] The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
+  - Evidence (source): `schemas/base_schema/assessments.sql` `assessment_question_pool_fork` owns each child Pool through exactly one Assessment Entry, and `schemas/base_schema/question_pools.sql` retains exact source-Revision provenance.
+  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `append_fork_revision` passed accepted actual-server proof that appended the fork's Revision 2 with the two exact member pins reversed, then reread the reusable source unchanged at Revision 1 with its original order. Artifact: `/private/tmp/ple-course-empty-artifacts.BbKFFd`.
+- [x] Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` pins each ordered public Question identity and Revision, and `import_assessment_question_pool_fork` copies those exact immutable source members.
+  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that returned both source Question IDs and Revision 1 pins unchanged and in order in the fresh fork; subsequent Student selection retained one exact member pin.
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
-- [ ] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
-  - Mismatch: canonical Instructor Question Pool authoring and selection-count workflow integration remains pending.
+- [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
+  - Evidence (source): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` submits the Instructor's ordered current Published Question Revisions with interchangeability attestation; `src/pages/assessment_workspace/assessment_pool_entry_editor.tsx` `AssessmentPoolEntryEditor` exposes the Assessment-owned fork's exact members and bounded selection count.
+  - Evidence (runtime): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `updatePoolSelectionCount` passed accepted actual-main proof that created the reusable Pool from ordered Published Questions, then imported it, changed its selection count from 2 to 1, attested and reordered its exact members, and reloaded its Revision 2 while the source remained unchanged. Artifacts: `/private/tmp/ple-course-empty-artifacts.bzwXEa` and `/private/tmp/ple-course-empty-artifacts.lgyOMK`.
 - [x] PLE selects from the Question Pool; the selected Question Backend controls the Question interaction.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` performs server-owned selection.
 - [x] Question Pool selection and backend-native randomization are separate forms of variation.
   - Evidence (source): `crates/domain/src/question_pool_selection.rs` `QuestionPoolSelectionEntropy` is separate from Question backend state.
 - [x] Returning to an Attempt preserves the Question Pool selections already made.
-  - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_reusable_question_pool_selection` reads durable selections.
-  - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks exact retained selections.
-- [ ] Starting a new Attempt makes fresh selections from its Question Pools.
-  - Mismatch: `crates/learning-data-access/src/postgres/assignment_delivery_start.rs` `current_attempt_start_from_rows` calls `reusable_pool_selection` when the persisted `question_pool_reuse_rule` is `reuse_selection`; `schemas/base_schema/attempt_access.sql` `read_reusable_question_pool_selection` returns the latest prior selection for the same Student and Assignment. `schemas/base_schema/attempts.sql` `question_pool_reuse_rule` permits that mode, so a new Attempt can reuse rather than freshly select its pool membership.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `assessment_attempt_start_gate` returns an unfinished resumable Attempt before new issuance, while `crates/server/src/assessment_delivery.rs` `issue_native_assessment_batch` returns its retained committed presentations rather than selecting again.
+  - Evidence (runtime): `crates/server/src/assessment_delivery.rs` `issue_native_assessment_batch` passed accepted actual-server proof that returned Attempt 1 with `resumed: true`, the same selected pin, and the same presentation nonce after its first start. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
+- [x] Starting a new Attempt makes fresh selections from its Question Pools.
+  - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `assessment_attempt_start_gate` has no prior-Pool-selection reuse branch; after a submitted Attempt it authorizes a new Attempt, whose new selection payload is persisted by `start_assessment_attempt`.
+  - Evidence (runtime): `crates/server/src/assessment_delivery.rs` `start` passed accepted actual-server proof that submitted Attempt 1, then started Attempt 2 with `resumed: false`, a distinct Pool selection ID, and a new presentation nonce. The same selected member remained valid with a two-member Pool. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
 - [x] Student Work preserves the exact Question Pool Revision and Published Question Revision delivered.
   - Evidence (source): `crates/question_model/src/student_work.rs` `QuestionPoolSelection` retains issued Question revision references.
   - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the issued revision link.
 - [x] Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
   - Evidence (source): `schemas/base_schema/assessment_attempt_history.sql` `read_student_assessment_attempt_history_response_sources` retains `question_id` and `revision_number`.
   - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
+- [x] Each member of a Question Pool is a **Published Question**.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
+  - Owner: The first Question Pools occurrence owns this duplicate status.
+- [ ] Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
+  - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 
 ### Question Library
 
@@ -217,10 +246,12 @@
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question` is not course-scoped.
 - [x] **Published Questions** are available to all vetted **Instructors**.
   - Evidence (source): `schemas/base_schema/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
-- [ ] Published Question Pools are available to all vetted **Instructors**.
-  - Mismatch: published Question Pool library objects do not exist.
-- [ ] **Students** access Question content through their Coursework rather than through the Question Library.
-  - Mismatch: the Student landing component is source evidence only; no browser or behavior test verifies that Students cannot reach the Question Library.
+- [x] Published Question Pools are available to all vetted **Instructors**.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
+  - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
+- [x] **Students** access Question content through their Coursework rather than through the Question Library.
+  - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` reserves both Question Library routes for Instructors, and `src/route_access_boundary.tsx` `withRouteAccessBoundary` fail-closes every protected route before its page component mounts.
+  - Evidence (runtime): `src/route_access_boundary.tsx` `withRouteAccessBoundary` passed accepted actual-main Student proof that denied three Library routes without any Question Library API request, while the Student Ribbon allowed Coursework navigation to a Released Assessment. Earlier accepted native Student Attempt proof delivered Question content through that Assessment. Artifacts: `/private/tmp/ple-course-empty-artifacts.9s89JA` and `/private/tmp/ple-course-empty-artifacts.ZquNiI`.
 - [x] Published content remains discoverable when used by a private **Course Instance**.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionSearchResult` is global and separately reports course use.
 - [ ] With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
@@ -228,23 +259,26 @@
 - [ ] Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
   - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
   - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
-- [ ] Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
+- [x] Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
   - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionSharedMetadata` is the closed shared-metadata DTO; generated contracts bound its collection to 1,000 items.
   - Evidence (source): `crates/server/src/question_library/shared_metadata.rs` `load_current_shared_metadata` owns the no-store current-metadata read; `crates/server/src/question_bulk_metadata.rs` owns the bounded all-or-none update command and validates canonical IDs before Store access.
-  - Evidence (runtime): fresh PostgreSQL 17 SQL/API proofs, independently rerun, covered read/write/read, stale all-or-none denial, clear, unauthorized, unvetted, archived, missing, and duplicate concealment, unchanged Revision count, and private-helper denial. Source review establishes once-only `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start; separate PostgreSQL proof uses explicit initial tags, rejects null elements without database/publication/object side effects, and preserves an intentional empty clear in a successor Revision.
-  - Evidence (test): temporary compiled Chromium component and strict-client proof accepted the selected metadata workflow, including stale and ambiguous refresh with no automatic second write; its mock/injected transport was not server-connected and the proof was removed.
-  - Mismatch: the connected HTTP route and discovery/search projection have not run. C366/C368, the 13k practical-cleanup row, and field-grammar C58 remain open.
+  - Evidence (runtime): `crates/server/src/question_bulk_metadata.rs` `bulk_replace_metadata` passed fresh PostgreSQL 17 SQL/API proofs, independently rerun, covering read/write/read, stale all-or-none denial, clear, unauthorized, unvetted, archived, missing, and duplicate concealment, unchanged Revision count, and private-helper denial. Source review establishes once-only `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start; separate PostgreSQL proof uses explicit initial tags, rejects null elements without database/publication/object side effects, and preserves an intentional empty clear in a successor Revision.
+  - Evidence (test): `src/components/question_bulk_metadata_editor.tsx` `QuestionBulkMetadataEditor` passed temporary compiled Chromium component and strict-client proof for the selected metadata workflow, including stale and ambiguous refresh with no automatic second write; its mock/injected transport was not server-connected and the proof was removed.
+  - Evidence (runtime): `src/pages/library_page.tsx` `QuestionBulkMetadataEditor` passed accepted isolated actual-server HTTP and private exact-main browser proof: selected Published Questions read current metadata/Edit Numbers, replaced tags and subject, cleared subject, and observed the search projection. An authorized second Instructor advanced one selected Question; a stale two-Question update returned 412 with no partial write, and the browser refreshed current values without automatically writing again. HTTP responses were `no-store`; anonymous and Student calls were denied. Source, Revision, and availability remained unchanged. The three-Question fixture does not establish thousands-Question or 13k cleanup practicality, backend rendering, or a canonical screenshot corpus; C366 and the practical-scale rows remain open.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
   - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
 
 #### Published Question identity
 
-- [ ] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
-  - Mismatch: `QuestionId` renders `AAA-BBBB`, not the HG-required `AAAA-ZBBB` grouping.
-- [ ] Published Questions and published Question Pools have public Crockford Base32 IDs.
-  - Mismatch: published Question Pools and their public IDs do not exist.
-- [ ] Public IDs use the form `AAAA-ZBBB`.
-  - Mismatch: current `QuestionId` uses `AAA-BBBB`, not the HG-required `AAAA-ZBBB` grouping.
+- [x] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` defines and displays the canonical `AAAA-ZBBB` public Question ID; `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` issues it for a new Published Question lineage.
+  - Evidence (runtime): `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` passed accepted actual-server proof that published two native Questions, whose exact public IDs then formed a reusable Pool's members. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
+- [x] Published Questions and published Question Pools have public Crockford Base32 IDs.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` is the common public ID model, while `schemas/base_schema/question_pools.sql` `question_pool` stores a unique public Pool ID.
+  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that displayed a server-issued public Pool ID alongside ordered exact public Question IDs. Artifact: `/private/tmp/ple-course-empty-artifacts.bzwXEa`.
+- [x] Public IDs use the form `AAAA-ZBBB`.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` documents and formats the canonical `AAAA-ZBBB` display form, including the middle validation character.
+  - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that returned a canonical public Pool ID at Revision 1. Artifact: `/private/tmp/ple-course-empty-artifacts.BhKHDp`.
 - [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
   - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` derives the identifier from random bytes.
 - [x] The middle character is an HMAC-derived check character calculated from the seven identity characters.

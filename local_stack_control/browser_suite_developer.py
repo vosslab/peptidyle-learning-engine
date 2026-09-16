@@ -255,12 +255,19 @@ def _redact_supervisor_diagnostic(detail: str) -> str:
 	text = " ".join(text.split())
 	if text == "":
 		text = "supervisor ended before publishing readiness"
-	return text[-MAXIMUM_FAILURE_DIAGNOSTIC_CHARACTERS:]
+	return text[:MAXIMUM_FAILURE_DIAGNOSTIC_CHARACTERS]
 
 
 #============================================
 def _launch_diagnostic(output: str) -> str:
-	"""Project only controller error lines from a private child transcript."""
+	"""Prefer an actionable child error over wrapper and provider diagnostics."""
+	actionable = "\n".join(
+		line for line in output.splitlines()
+		if re.match(r"^\s*(?:Error:|Caused by:)", line)
+		and re.search(r"(?i)^\s*Error:\s+executing\b.*\bexit status\b", line) is None
+	)
+	if actionable != "":
+		return _redact_supervisor_diagnostic(actionable)
 	lines = (
 		line for line in output.splitlines()
 		if re.search(r"(?i)(error:|caused by:|failed|invalid|unavailable|not found|no such file)", line)

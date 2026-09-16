@@ -19,7 +19,6 @@ export interface AssessmentTemplateDraft {
   readonly attemptLimit: string;
   readonly lateWorkRule: LateWorkRule;
   readonly gradeRule: AssessmentTemplateSettings["activityRules"]["assessmentAttemptGradeRule"];
-  readonly poolReuseRule: AssessmentTemplateSettings["activityRules"]["questionPoolReuseRule"];
   readonly variationRule: AssessmentTemplateSettings["activityRules"]["questionVariationRule"];
   readonly resumeRule: AssessmentTemplateSettings["activityRules"]["assessmentAttemptResumeRule"];
   readonly displayRule: AssessmentTemplateSettings["activityRules"]["assessmentQuestionDisplayRule"];
@@ -48,7 +47,6 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
       : (template.settings.attemptLimit?.toString() ?? ""),
     lateWorkRule: template.settings.lateWorkRule,
     gradeRule: rules.assessmentAttemptGradeRule,
-    poolReuseRule: rules.questionPoolReuseRule,
     variationRule: rules.questionVariationRule,
     resumeRule: rules.assessmentAttemptResumeRule,
     displayRule: rules.assessmentQuestionDisplayRule,
@@ -77,7 +75,6 @@ export function assessmentTemplateSettings(
     lateWorkRule: draft.lateWorkRule,
     activityRules: {
       assessmentAttemptGradeRule: draft.gradeRule,
-      questionPoolReuseRule: draft.poolReuseRule,
       questionVariationRule: draft.variationRule,
       assessmentAttemptResumeRule: draft.resumeRule,
       assessmentQuestionDisplayRule: draft.displayRule,

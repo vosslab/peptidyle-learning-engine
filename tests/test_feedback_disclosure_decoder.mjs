@@ -20,18 +20,10 @@ function currentStudentQuestionAttempt(index = 0) {
 
 function currentStudentIssuedQuestion(index = 0) {
   const {
-    assignmentAttempt,
-    assignmentEntry,
-    assignmentContentEntryIndex,
     sourceSelection: _sourceSelection,
     ...issuedQuestion
   } = structuredClone(publishedQuestionFixture.issuedQuestions[index]);
-  return {
-    ...issuedQuestion,
-    assessmentAttempt: assignmentAttempt,
-    assessmentEntry: assignmentEntry,
-    assessmentContentEntryIndex: assignmentContentEntryIndex,
-  };
+  return issuedQuestion;
 }
 
 test("disclosed feedback preserves allowed accessible blocks and optional omission", () => {

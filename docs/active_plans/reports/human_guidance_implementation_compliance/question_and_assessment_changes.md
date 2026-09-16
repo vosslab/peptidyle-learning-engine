@@ -13,8 +13,79 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
-- C365/C367/C893 now have accepted bounded backend evidence, not a Question Library workflow
-  closure. `PublishedQuestionSharedMetadata` is a closed DTO with generated 1,000-item bounds;
+- Three automatic-new Blueprint Assessment rows and two existing-Assessment non-silent-change
+  negative invariants are verified by the normal PostgreSQL Store Save
+  and the extended existing permanent lifecycle test invoking the append helper. Exact
+  settings/Revision pins, fresh daughter Pool identities,
+  Unreleased state, unset dates, an inactive daughter, unrelated empty-Course nonmutation,
+  existing actual Student Work, and the
+  original adoption pin are preserved; replay/no-op/stale saves do not duplicate new Assessments.
+  A retained source title change leaves existing daughter content, entries, and actual Student Work
+  unchanged; this does not establish existing-Assessment review/approval/update offers.
+  Accepted supplemental malformed-payload rollback stays outside Git:
+  `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`. Existing connected adoption lifecycle
+  regression passed 1 test with 0 ignored:
+  `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`. This is not C410 existing-Assessment
+  update-offer acceptance, full Student delivery, or whole Course/Assessment milestone completion.
+
+- The four Assessment-content rows are verified. `AssessmentWorkspaceQuestionsPage` and the
+  authorized save/read SQL preserve a mixed ordered sequence of distinct Fixed Questions and
+  Assessment-owned Pools. Accepted actual-server/private bundled-main browser proof added both
+  kinds, moved the Pool across a Fixed Question, saved/reloaded exact IDs and Revision pins, removed
+  Fixed B and the Pool from current content while retaining private retired IDs/old Pool Revision,
+  and reimported distinct fork identities with source Pool JSON unchanged. Student direct real HTTP
+  returned 404 without current-state change; browser error arrays were empty. Artifact:
+  `/private/tmp/ple-assessment-mixed-entries-artifacts.CogOX1`. The SQL corrections permit atomic
+  current-position swaps/retired-position reuse and filter retired workspace entries. Existing
+  connected adoption regression passed 1 test with 0 ignored under the new SQL; two supplemental
+  Type projections retained unchanged pins: `/private/tmp/ple-shared-assessment-adoption-artifacts.UmP416`.
+  The exact **Randomize question order** label relies separately on the earlier accepted part 04
+  actual-main/HTTP checkbox save/reload receipt at `AssessmentWorkspacePoliciesPage`. No Student
+  Work history, authentication/TLS, full Live Demo, WeBWorK delivery, C505 filename rename, or
+  whole-milestone completion is claimed. No permanent tests were added; proof artifacts stay outside Git.
+
+- Ten bounded Assessment Type purpose/capability rows are verified. The real
+  `ASSESSMENT_TYPE_PRESENTATIONS` descriptions are rendered in Course and Blueprint creation;
+  Instructor-selected pedagogical purposes do not require machine inference of material age or
+  an Instructor exam calendar. Current editable points/extra-credit scoring, Student instructions,
+  fixed Quiz/Exam one-Attempt controls, and Exam timing/availability/feedback controls establish
+  the corresponding capabilities. Neighboring accepted Bonus `8 / 0` and one-Attempt runtime
+  receipts are separate evidence, not new all-settings runtime acceptance. The broad appropriate-
+  defaults row and cross-backend Practice immediate-answer row remain open. This docs-only update
+  adds no collaboration-policy field/enforcement or arbitrary numeric definition of small.
+
+- The shared underlying Assessment-model row is verified. `BlueprintAssessmentContent` and
+  `LiveAssessmentWorkspace` use canonical teaching types, and normal adoption materializes
+  `SaveLiveAssessmentInput` through `assessment_values_json` into ordinary `ple_data.assessment`.
+  Separate reusable and delivery storage/lifecycle projections are intentional, not separate
+  pedagogical models. Accepted fresh PostgreSQL 17 connected adoption proof passed 1 test with
+  0 ignored, preserving mixed ordered Pool/Fixed entries, nondefault points/scoring/retry/timing/
+  activity/feedback rules, exact Revision pins, independent daughter Pool IDs, and unset dates.
+  Read-only SQL also verified two Unreleased adopted Regular Assignments retained the source Type
+  with null dates. Artifact: `/private/tmp/ple-shared-assessment-adoption-artifacts.IkYuXY`.
+  This closes only the architecture row, not every Type's Student delivery or completion.
+
+- HG608's distinct algorithmic-Question Pool purpose is verified. Accepted fresh PostgreSQL
+  17/MinIO actual-server and private bundled-main HTTP-proxy browser proof started with 42
+  canonical Genetics Questions and zero implicit Pools, then selected distinct DNA structure
+  and nucleotide components Revision-1 PGML Questions with explicit Instructor interchangeability
+  attestation. The reusable Pool's distinct Assessment-owned fork selected one Question; real
+  WeBWorK rendering and radio-response save/resume retained exact Pool/Question Revisions, issued
+  ID, seed/hash, and choice. Whole-Attempt submit and fresh new-Attempt selection/issued IDs passed;
+  repeated Question selection or seeds are allowed. Artifact:
+  `/private/tmp/ple-algorithmic-pool-artifacts.K2Kk6Z`. The 3600-second release used Correct answer
+  Never; this does not close answer disclosure, full Live Demo/authentication/TLS, all-backend
+  acceptance, or any other HG row.
+
+- The bounded Course Instance Assessment initial-state row is verified. `ple_data.assessment`
+  defaults to Unreleased for manual, Blueprint-adopted, and Template-copy creation. Accepted private
+  actual-HTTP/exact-main browser proof saw the adopted Practice Assessment Unreleased at creation
+  and a direct Practice Assessment Unreleased before its later saved-Question, validated release.
+  This initial-state fact does not establish Student delivery, Pool copying, grading, or complete
+  release-validation coverage.
+
+- C365/C367/C893 now have accepted bounded backend evidence, and C368's shared-metadata behavior
+  has a connected closure. `PublishedQuestionSharedMetadata` is a closed DTO with generated 1,000-item bounds;
   the current-metadata read and typed update path validate canonical-ID HMAC before Store access,
   use no-store responses, and retain only the all-or-none current-state contract. Fresh PostgreSQL
   17 SQL/API proof and an independent rerun covered read/write/read, stale denial with no
@@ -26,11 +97,15 @@ The authoritative exhaustive record is the
   compiled Chromium component and strict-client evidence accepted sorted selection/Edit Numbers,
   closed replace/clear, virtualization, stale/ambiguous refresh with no automatic second write,
   generic denial, filter clearing, and zero critical/serious axe findings; it used mock/injected
-  transport, not a connected server, and the proof was removed. The bulk-metadata connected HTTP
-  and discovery projection remains unverified. Separately, C58 now has accepted private PostgreSQL
+  transport, not a connected server, and the proof was removed. Accepted isolated actual-server
+  HTTP and private exact-main browser proof then covered selected Published Questions, tag and
+  subject replacement, subject clear, search projection, authorized nonowner Public Published
+  access, stale two-Question 412 with no partial write, refresh without an automatic second write,
+  anonymous/Student denial, and unchanged source/Revision/availability. The three-Question proof
+  does not close C366's thousands-Question practicality or the 13k cleanup claim. Separately, C58 now has accepted private PostgreSQL
   17 and actual-server HTTP evidence for ordinary words, quoted phrases, minus exclusion, all five
   PLE fields, active-vetted-Instructor access, anonymous and Student concealment, and `no-store`.
-  That bounded search proof does not close C366/C368 or C337/C340.
+  That bounded search proof does not close C366 or C337/C340.
 
 - C59 now provides native Search tips beside the ordinary search input. An accepted corrected desktop
   component proof showed words, quotes, minus, PLE fields, and examples without obscuring normal
@@ -137,16 +212,17 @@ The authoritative exhaustive record is the
   opaque, transient, no-store answer document after the completed-Attempt policy decision. The user
   directed that the sibling renderer remain unchanged, so this gap stays open.
 
-- C525 is open implementation work. The release cohort uses current Student Course relationships:
-  pending invitations are excluded; accepted enrollment joins; ended or withdrawn relationships and
-  deactivated Course access exit; Account deactivation preserves membership; never-started Work
-  without a submission blocks release; and Course end is not completion. Existing
-  `assessment_submission` evidence makes every Assessment Attempt complete on whole Student
-  submission or expiry automatic submission, independently of score or correctness. Another
-  Attempt follows the configured Attempt limit: unlimited remains unlimited after a perfect score,
-  and Quiz and Exam permit exactly one Attempt. This needs implementation at the existing
-  submission and cohort boundaries, without a completion snapshot, latch, new DAG, or bookkeeping
-  machinery.
+- C525 remains open, with corrected current-boundary evidence. `history_decision` calls
+  `gate_quiz_exam_answers_for_current_cohort`, and `project_released_content` applies its result.
+  Accepted independent PostgreSQL 17 installed-predicate proof with administrator-inserted synthetic
+  fixtures establishes never-started blocking, pending-invitation exclusion, joined-current-membership
+  blocking, Account-deactivation membership preservation, Course-end noncompletion, ended-episode
+  exit/new-episode rejoin, and retained submission behavior:
+  `/private/tmp/ple-assessment-cohort-transition-artifacts.nWdHzT`. This is not a public membership
+  API, whole-submit pipeline, or HTTP answer-withholding receipt. The opaque WeBWorK answer-display
+  path remains unimplemented; connected HTTP withholding/display verification is pending. The two
+  correct-answer HG rows therefore remain open; no completion snapshot, latch, new DAG, or
+  bookkeeping machinery is added.
 
 - C512 has accepted the canonical label, semantic color, theme-scope, and icon-name presentation.
   Genuine Free-package glyphs are bundled for all five Assessment Types: `pen-to-square`,
@@ -164,16 +240,38 @@ The authoritative exhaustive record is the
   independent of answer disclosure; the runtime WeBWorK fixture supplied no transient backend
   feedback and proves no renderer-feedback preservation or reconstruction.
 
-- C839 has accepted temporary canonical-source evidence for 42 PGML sources (41 official
-  biologyproblems-website sources plus HLA). Manifest registration, provenance and checksums,
-  render/lint/whitelist, repeatable/reseeded variation, and representative grading passed. This
-  does not publish them or reconcile the catalog. The current publisher now compiles, and an
-  isolated PostgreSQL 17/MinIO fixture passed one real ordered Pool, one accepted Fixed
-  replacement, and exact retained replay, but its synthetic sources prove only publication/pin
-  plumbing. The redundant static source bulk has been removed. Bundled validation now identifies
-  76 unreplaced banks that still reference 13,434 removed generated PG files; canonical-source
-  migration remains open, without restoring those expansions. C840--C841 remain open for ordinary
-  canonical publication and catalog reconciliation.
+- C838/C839 accepted the fresh canonical Genetics publication. Isolated PostgreSQL 17/MinIO
+  evidence published all 42 canonical PGML sources (41 official biologyproblems-website sources
+  plus HLA) as ordinary available WeBWorK Question lineages at Revision 1 across nine topics,
+  with 42 direct Fixed entries and zero Pools. The canonical Blueprint replay was unchanged; a
+  same-short-name conflict made no mutation. Pilot's `validated_question_format` source boundary
+  and four focused tests enforce explicit PG/PGML format and matching extension; accepted connected
+  binding proof then preserved source SHA/size/path, immutable replay, and stale refusal after an
+  intervening metadata edit. Artifacts:
+  `/private/tmp/ple-fresh-genetics-artifacts.5ERV83` and
+  `/private/tmp/ple-pilot-format-binding-artifacts.CKzka1`.
+
+  Chargaff remains unaccepted. The 76 banks and 13,434 old generated rows remain unresolved
+  non-published import inventory. C840--C841 remain conditional retained-database work; this
+  fresh-install receipt does not claim migration, historical rewrite, static-row equivalence, or
+  Pool retirement.
+
+- Focused selected-source CLI evidence additionally published the manifest entry
+  `topic05-degrees-of-dominance-which-one` as one available WeBWorK PGML Question Revision 1,
+  preserving exact bytes, checksum, and source provenance without a Pool or Blueprint. Replay made
+  no additional publication; unknown source, hash mismatch, and missing-path inputs failed before
+  writes. The private vetted-Instructor/audit seed is explicitly privileged, while publication
+  used an ordinary-Instructor session. Artifact: `/private/tmp/ple-canonical-family-artifacts.TOOlBJ`.
+  This does not claim Sysadmin authentication, rendering, browser acceptance, or a retained catalog.
+
+- C831 has accepted isolated PostgreSQL 17 native-reproduction evidence. The actual PLE Question
+  at shuffled position 2 retained null seed and hash, while the real WeBWorK Question retained a
+  numeric seed and 64-character hash privately. Public start/read/save/resume/restored payloads
+  omitted those reproduction fields; the same issued vector and saved native response restored on
+  resume. An invalid native seed insertion was rejected through
+  `validate_issued_question_reproduction`. This is one-time evidence for the exact static-native
+  row, not JavaScript support, backend parity, or a general randomness claim. Artifact:
+  `/private/tmp/ple-native-seed-artifacts.KfY7Op`.
 
 ## Topical inventory
 
@@ -186,6 +284,17 @@ The authoritative exhaustive record is the
 
 - Instructors may delete Draft Questions they no longer need.
   - Source: `docs/HUMAN_GUIDANCE.md:523`
+
+  Accepted isolated PostgreSQL 17/MinIO actual-server and focused browser evidence establishes the
+  manual owner-delete boundary. The browser cancelled once, then confirmed deletion and reloaded the
+  list without the Draft. The source path locks the owner-owned Draft and applies Edit Number CAS;
+  current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous deletes were
+  concealed as 404 without changing owner source or Edit Number. Missing, malformed, and stale
+  preconditions returned 428, 400, and 412. Deleting a published-origin Draft retained parsed
+  Published Question lineage and Revision JSON; repeat DELETE and PUT returned 404. Artifact:
+  `/private/tmp/ple-draft-delete-artifacts.km9ybM`. This does not establish physical object-storage
+  erasure, automated cleanup, authentication acceptance, full Live Demo browser acceptance, or
+  healthy backend behavior with the renderer disabled.
 
 - PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
   - Source: `docs/HUMAN_GUIDANCE.md:524`
@@ -320,6 +429,42 @@ The authoritative exhaustive record is the
 - Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
   - Source: `docs/HUMAN_GUIDANCE.md:600`
 
+Accepted actual-server and exact-main Instructor proof covers the published reusable Pool boundary:
+the Question Library created a canonical Pool ID at immutable Revision 1 from two ordered Published
+Question pins; a separate direct Assessment import created a distinct Assessment-owned fork with the
+same ordered public Question IDs/Revisions. A follow-up actual-server append created fork Revision 2
+with those pins reversed while an independent reread retained the source at Revision 1 and its
+original order. Separate accepted Student evidence resumed Attempt 1 with its retained selection and
+presentation nonce, then submitted it and started Attempt 2 with a distinct selection ID and nonce.
+Accepted actual-main Instructor evidence then created the reusable Pool, imported it into an
+Assessment, reduced its count from 2 to 1, attested and reordered its two exact Revision 1 members,
+and reloaded the Assessment-owned Pool at Revision 2 while the reusable source remained unchanged.
+Artifacts:
+`/private/tmp/ple-course-empty-artifacts.bzwXEa`,
+`/private/tmp/ple-course-empty-artifacts.BhKHDp`, and
+`/private/tmp/ple-course-empty-artifacts.BbKFFd`, and
+`/private/tmp/ple-course-empty-artifacts.JTjOJ3`, and
+`/private/tmp/ple-course-empty-artifacts.lgyOMK`.
+
+The Pool is an ordered set of exact Published Question Revisions selected for Student delivery.
+Its required Instructor attestation records reasonable interchangeability without claiming an
+automatic pedagogical evaluation. The common `QuestionId` display and both accepted Question/Pool
+creation receipts use public `AAAA-ZBBB` Crockford IDs. Collision handling and backend-uniform
+behavior remain outside this evidence.
+
+Accepted actual-server sharing evidence independently authenticated a second vetted Instructor to
+list and read both a root and child published Pool with exact public pins and no Course facts. It
+also denied a nonmember Assessment-fork mutation without change, and denied Student and anonymous
+Pool list/read requests. This closes vetted-Instructor Pool availability only; Student Library
+access is not closed here. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
+
+Accepted actual-main Student evidence denied three Question Library routes without Library API calls,
+while Coursework navigation reached a Released Assessment; the earlier accepted native Student
+Attempt proof delivered its Question content through that Assessment path. This is an access-boundary
+and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
+`/private/tmp/ple-course-empty-artifacts.9s89JA` and
+`/private/tmp/ple-course-empty-artifacts.ZquNiI`.
+
 - Question Pools work the same way regardless of the Question Backend.
   - Source: `docs/HUMAN_GUIDANCE.md:601`
 
@@ -339,9 +484,6 @@ The authoritative exhaustive record is the
 
 - Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
   - Source: `docs/HUMAN_GUIDANCE.md:619`
-
-- Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
-  - Source: `docs/HUMAN_GUIDANCE.md:620`
 
 - Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
   - Source: `docs/HUMAN_GUIDANCE.md:621`
@@ -429,9 +571,6 @@ The authoritative exhaustive record is the
 - Course Instance Assessments deliver Questions to **Students**.
   - Source: `docs/HUMAN_GUIDANCE.md:830`
 
-- All Assessments use the same underlying Assessment model.
-  - Source: `docs/HUMAN_GUIDANCE.md:831`
-
 - **Assignment** is not a separate object or category. The word appears only in the names
   **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
   - Source: `docs/HUMAN_GUIDANCE.md:832`
@@ -455,39 +594,9 @@ The authoritative exhaustive record is the
 - Assessment Type describes the pedagogical purpose of an Assessment and provides appropriate defaults.
   - Source: `docs/HUMAN_GUIDANCE.md:845`
 
-- **Regular Assignments** give **Students** regular practice applying course ideas outside class.
-  - Source: `docs/HUMAN_GUIDANCE.md:851`
-
-- Regular Assignments reinforce current learning and may also introduce new topics.
-  - Source: `docs/HUMAN_GUIDANCE.md:852`
-
-- Regular Assignments are designed as practice for learning, not merely as one-time assessments.
-  - Source: `docs/HUMAN_GUIDANCE.md:853`
-
-- **Practice Question Assignments** provide focused review or study-guide practice using material already covered.
-  - Source: `docs/HUMAN_GUIDANCE.md:854`
-
-- Practice Question Assignments may be worth a small number of points or a small amount of extra credit.
-  - Source: `docs/HUMAN_GUIDANCE.md:855`
-
 - Practice Question Assignments use the same whole-Attempt submission boundary as every other
   Assessment and show the correct answer immediately after that Assessment Attempt is submitted.
   - Source: `docs/HUMAN_GUIDANCE.md:856`
-
-- **Bonus Assignments** provide optional extra credit.
-  - Source: `docs/HUMAN_GUIDANCE.md:858`
-
-- **Quizzes** assess understanding of recent material.
-  - Source: `docs/HUMAN_GUIDANCE.md:860`
-
-- Quizzes may use more restrictive Attempt and collaboration settings than Regular Assignments.
-  - Source: `docs/HUMAN_GUIDANCE.md:861`
-
-- **Exams** are individual assessments associated with scheduled exam periods.
-  - Source: `docs/HUMAN_GUIDANCE.md:862`
-
-- Exams may use more restrictive Attempt, timing, availability, and feedback settings.
-  - Source: `docs/HUMAN_GUIDANCE.md:863`
 
 ### Assessments -- Assessment type appearance
 
@@ -519,9 +628,6 @@ The authoritative exhaustive record is the
 - Course Instance Assessments also have delivery settings such as due dates, release status, and Student availability.
   - Source: `docs/HUMAN_GUIDANCE.md:895`
 
-- Newly added Blueprint Assessments are automatically copied to daughter Course Instances as unreleased Course Instance Assessments.
-  - Source: `docs/HUMAN_GUIDANCE.md:897`
-
 ### Assessments -- Assessment Templates
 
 - An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
@@ -552,9 +658,6 @@ The authoritative exhaustive record is the
   - Source: `docs/HUMAN_GUIDANCE.md:909`
 
 ### Assessments -- Course Instance Assessment release and defaults
-
-- Course Instance Assessments start unreleased.
-  - Source: `docs/HUMAN_GUIDANCE.md:914`
 
 - Assessment Release Validation checks the Assessment settings and data required for release.
   - Source: `docs/HUMAN_GUIDANCE.md:916`

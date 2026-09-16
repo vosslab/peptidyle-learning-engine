@@ -164,44 +164,6 @@ RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE S
     SELECT assessment_attempt.reference_number FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE p_course_reference_number BETWEEN 1 AND 2147483647 AND ple_api.course_reference_number_for_assessment_attempt(assessment.course_id) = p_course_reference_number AND assessment.public_reference = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.current_session_account_owns_student_record(assessment.course_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
 $$;
 
-CREATE FUNCTION ple_private.read_reusable_question_pool_selection(p_assessment_id uuid, p_student_record_id uuid, p_assessment_entry_id uuid)
-RETURNS TABLE (question_pool_selection_id uuid, selection_position integer, question_pool_id uuid, question_pool_public_id text, question_pool_revision_number bigint, member_position integer, question_id text, revision_number integer)
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-DECLARE course_id_value uuid;
-BEGIN
-    SELECT assessment.course_id INTO course_id_value FROM ple_data.assessment AS assessment WHERE assessment.assessment_id = p_assessment_id;
-    IF NOT FOUND OR NOT ple_api.current_session_account_owns_student_record(course_id_value, p_student_record_id) THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Question Pool Selection is unavailable'; END IF;
-    RETURN QUERY
-        WITH latest AS (
-            SELECT selection.question_pool_selection_id
-            FROM ple_private.question_pool_selection AS selection
-            JOIN ple_private.assessment_attempt AS assessment_attempt
-                ON assessment_attempt.assessment_attempt_id = selection.assessment_attempt_id
-            WHERE assessment_attempt.student_record_id = p_student_record_id
-                AND assessment_attempt.assessment_id = p_assessment_id
-                AND selection.assessment_entry_id = p_assessment_entry_id
-            ORDER BY assessment_attempt.assessment_attempt_number DESC,
-                selection.created_at DESC,
-                selection.question_pool_selection_id DESC
-            LIMIT 1
-        )
-        SELECT selected.question_pool_selection_id,
-            selected.selection_position,
-            selection.question_pool_id,
-            pool.public_question_pool_id,
-            selection.question_pool_revision_number,
-            selected.member_position,
-            selected.question_id,
-            selected.revision_number
-        FROM latest
-        JOIN ple_private.question_pool_selection AS selection
-            ON selection.question_pool_selection_id = latest.question_pool_selection_id
-        JOIN ple_data.question_pool AS pool ON pool.question_pool_id = selection.question_pool_id
-        JOIN ple_private.question_pool_selected_item AS selected
-            ON selected.question_pool_selection_id = latest.question_pool_selection_id
-        ORDER BY selected.selection_position;
-END $$;
-
 -- Pool-member selection is immutable Student Work evidence.  The start
 -- operation writes the exact C353 QuestionRevisionReferences in the same
 -- transaction as its Assessment Attempt; this read accepts only an opaque Assessment Attempt route
@@ -287,16 +249,15 @@ BEGIN
 END
 $$;
 
-REVOKE ALL ON FUNCTION ple_private.assessment_start_decision(text, timestamptz, timestamptz, timestamptz, integer, integer, text, timestamptz), ple_private.read_student_assessment_access(bigint, text), ple_private.read_active_student_assessment_attempt_reference(bigint, text), ple_private.read_reusable_question_pool_selection(uuid, uuid, uuid), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_access(bigint, text), ple_private.read_active_student_assessment_attempt_reference(bigint, text), ple_private.read_reusable_question_pool_selection(uuid, uuid, uuid), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.assessment_start_decision(text, timestamptz, timestamptz, timestamptz, integer, integer, text, timestamptz), ple_private.read_student_assessment_access(bigint, text), ple_private.read_active_student_assessment_attempt_reference(bigint, text), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.read_student_assessment_access(bigint, text), ple_private.read_active_student_assessment_attempt_reference(bigint, text), ple_private.read_student_assessment_attempt_pool_selection(bigint), ple_private.read_student_assessment_attempt_context(bigint) TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.read_student_assessment_access(text, text) RETURNS TABLE (start_decision text, assessment_title text, assessment_type text, question_count integer, points_possible double precision, assessment_attempt_time_limit_seconds integer, available_at timestamptz, due_at timestamptz, closes_at timestamptz, assessment_attempt_limit integer, late_work_rule text, evaluated_at timestamptz, display_time_zone text, previous_assessment_attempts jsonb) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_student_assessment_access((SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1), $2) $$;
 CREATE FUNCTION ple_api.read_active_student_assessment_attempt_reference(text, text) RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$ SELECT * FROM ple_private.read_active_student_assessment_attempt_reference((SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1), $2) $$;
-CREATE FUNCTION ple_api.read_reusable_question_pool_selection(uuid, uuid, uuid) RETURNS TABLE (question_pool_selection_id uuid, selection_position integer, question_pool_id uuid, question_pool_public_id text, question_pool_revision_number bigint, member_position integer, question_id text, revision_number integer) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_reusable_question_pool_selection($1, $2, $3) $$;
 CREATE FUNCTION ple_api.read_student_assessment_attempt_pool_selection(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_entry_id uuid, question_pool_selection_id uuid, selection_position integer, question_pool_id uuid, question_pool_public_id text, question_pool_revision_number bigint, member_position integer, question_id text, revision_number integer) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_pool_selection($1) $$;
 CREATE FUNCTION ple_api.read_student_assessment_attempt_context(bigint) RETURNS TABLE (assessment_attempt_reference_number bigint, assessment_attempt_number integer, course_reference_number text, course_short_name text, course_long_name text, course_theme text, assessment_reference_number text, assessment_title text, display_time_zone text, expires_at_millis bigint, timer_remaining_milliseconds bigint) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$ SELECT * FROM ple_private.read_student_assessment_attempt_context($1) $$;
-REVOKE ALL ON FUNCTION ple_api.read_student_assessment_access(text, text), ple_api.read_active_student_assessment_attempt_reference(text, text), ple_api.read_reusable_question_pool_selection(uuid, uuid, uuid), ple_api.read_student_assessment_attempt_pool_selection(bigint), ple_api.read_student_assessment_attempt_context(bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_access(text, text), ple_api.read_active_student_assessment_attempt_reference(text, text), ple_api.read_reusable_question_pool_selection(uuid, uuid, uuid), ple_api.read_student_assessment_attempt_pool_selection(bigint), ple_api.read_student_assessment_attempt_context(bigint) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.read_student_assessment_access(text, text), ple_api.read_active_student_assessment_attempt_reference(text, text), ple_api.read_student_assessment_attempt_pool_selection(bigint), ple_api.read_student_assessment_attempt_context(bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_access(text, text), ple_api.read_active_student_assessment_attempt_reference(text, text), ple_api.read_student_assessment_attempt_pool_selection(bigint), ple_api.read_student_assessment_attempt_context(bigint) TO ple_app;
 RESET ROLE;

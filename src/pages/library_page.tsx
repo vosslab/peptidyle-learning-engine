@@ -5,15 +5,21 @@ import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } f
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
+import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
+import type { QuestionDetails } from "../../generated/api/QuestionDetails";
+import type { QuestionId } from "../../generated/api/QuestionId";
 import type { PublishedQuestionSharedMetadata } from "../../generated/api/PublishedQuestionSharedMetadata";
 import type {
   QuestionBulkMetadataClient,
   QuestionBulkMetadataUpdateResult,
 } from "../api/question_bulk_metadata";
+import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
 import { useSessionBootstrap } from "../auth/session_context";
+import { buildRoutePath } from "../ribbon/ribbon_contract";
 import "./library_page.css";
+import { LibraryBrowseControls } from "./library_browse_controls";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   NO_QUESTION_LIBRARY_FACET_TRUNCATION,
@@ -37,7 +43,7 @@ import {
  * Keep this fallback aligned with --ple-question-library-row-block-size in src/style.css. */
 const FALLBACK_ROW_HEIGHT_PX = 112;
 const OVERSCAN_ROWS = 5;
-
+const DRAFT_QUESTIONS_PATH = buildRoutePath("questionDrafts", {});
 function questionLink(row: QuestionLibraryBrowseRow, returnToken: string): string {
   return `/library/${encodeURIComponent(row.displayId)}?${new URLSearchParams({
     [QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]: returnToken,
@@ -92,6 +98,8 @@ export interface LibraryPageProps {
   readonly mode: "search" | "browse";
   readonly repository: QuestionLibraryBrowseRepository;
   readonly metadataClient: QuestionBulkMetadataClient;
+  readonly questionPoolClient: QuestionPoolCreationClient;
+  readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
 }
 
 function queryParameterValues(value: string | ReadonlyArray<string> | undefined): Array<string> {
@@ -170,6 +178,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
   const [editorBusy, setEditorBusy] = createSignal(false);
   const [updateResults, setUpdateResults] =
     createSignal<ReadonlyArray<QuestionBulkMetadataUpdateResult> | null>(null);
+  const [questionPoolCreateOpen, setQuestionPoolCreateOpen] = createSignal(false);
   let pendingScrollRestore = returnState?.scrollTop ?? null;
   const questionReturnTokens = new Map<string, string>();
   const session = new QuestionLibraryBrowseSession(props.repository, setState);
@@ -413,6 +422,18 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           ? "Explore what the library contains, then narrow from a broad subject to exact topics."
           : "Find a current published question to study, reuse, or assign."}
       </p>
+      <Show when={sessionScope.account.productRole === "instructor"}>
+        <p>
+          <button
+            type="button"
+            class="primary-action"
+            disabled={editorBusy()}
+            onClick={() => setQuestionPoolCreateOpen(true)}
+          >
+            Create Question Pool
+          </button>
+        </p>
+      </Show>
       <p class="sr-only" role="status" aria-live="polite">
         {state().kind === "loading" ? "Loading Question Library results." : ""}
       </p>
@@ -678,138 +699,17 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
         </form>
       </Show>
       <Show when={props.mode === "browse"}>
-        <section class="question-library-browse-controls" aria-label="Browse Question Library">
-          <div class="question-library-browse-heading">
-            <div>
-              <h2>{hasExactBrowseFilters(query()) ? "Narrow these results" : "Choose a path"}</h2>
-              <p>
-                Counts describe all authorized Questions matching the current choices, not only the
-                rows loaded below.
-              </p>
-            </div>
-            <Show when={hasExactBrowseFilters(query())}>
-              <A class="primary-action" href={searchWithinResultsPath(query())}>
-                Search within results
-              </A>
-            </Show>
-          </div>
-          <Show when={browsingGroupsLoading()}>
-            <p class="loading-state" role="status">
-              Loading Question Library groups...
-            </p>
-          </Show>
-          <Show when={hasExactBrowseFilters(query())}>
-            <div class="question-library-browse-active" aria-label="Current browse filters">
-              <span>Browsing:</span>
-              <For each={query().subjects}>{(subject) => <strong>{subject}</strong>}</For>
-              <For each={query().topics}>{(topic) => <strong>{topic}</strong>}</For>
-              <Show when={query().tag}>{(tag) => <strong>Tag: {tag()}</strong>}</Show>
-              <Show when={query().questionType}>
-                {(questionType) => <strong>{questionTypeLabel(questionType())}</strong>}
-              </Show>
-              <button
-                class="quiet-action"
-                type="button"
-                onClick={() => changeQuery(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY)}
-              >
-                Start over
-              </button>
-            </div>
-          </Show>
-          <div class="question-library-browse-groups">
-            <section aria-labelledby="question-library-subjects-heading">
-              <h3 id="question-library-subjects-heading">Subjects</h3>
-              <div class="question-library-facet-choices">
-                <For each={browseFacets("subject")()}>
-                  {(facet) => (
-                    <button
-                      type="button"
-                      aria-pressed={query().subjects.includes(facet.value)}
-                      onClick={() =>
-                        changeQuery({
-                          subjects: [facet.value],
-                          topics: [],
-                        })
-                      }
-                    >
-                      <span>{facet.value}</span>
-                      <strong>{facet.count}</strong>
-                    </button>
-                  )}
-                </For>
-              </div>
-              <Show when={facetTruncation().subjects}>
-                <p class="question-library-facet-truncated">
-                  More subjects are available. Choose one shown here or use Search Question Library
-                  to find a narrower match.
-                </p>
-              </Show>
-            </section>
-            <Show when={query().subjects.length > 0}>
-              <section aria-labelledby="question-library-topics-heading">
-                <h3 id="question-library-topics-heading">Topics in this subject</h3>
-                <div class="question-library-facet-choices">
-                  <For each={browseFacets("topic")()}>
-                    {(facet) => (
-                      <button
-                        type="button"
-                        aria-pressed={query().topics.includes(facet.value)}
-                        onClick={() => changeQuery({ topics: [facet.value] })}
-                      >
-                        <span>{facet.value}</span>
-                        <strong>{facet.count}</strong>
-                      </button>
-                    )}
-                  </For>
-                </div>
-                <Show when={facetTruncation().topics}>
-                  <p class="question-library-facet-truncated">
-                    More topics match. Search within these results to reach a topic not shown here.
-                  </p>
-                </Show>
-              </section>
-            </Show>
-            <section aria-labelledby="question-library-tags-heading">
-              <h3 id="question-library-tags-heading">Tags</h3>
-              <div class="question-library-facet-choices">
-                <For each={browseFacets("tag")()}>
-                  {(facet) => (
-                    <button
-                      type="button"
-                      aria-pressed={query().tag === facet.value}
-                      onClick={() => changeQuery({ tag: facet.value })}
-                    >
-                      <span>{facet.value}</span>
-                      <strong>{facet.count}</strong>
-                    </button>
-                  )}
-                </For>
-              </div>
-              <Show when={facetTruncation().tags}>
-                <p class="question-library-facet-truncated">
-                  More tags match. Search within these results to reach a tag not shown here.
-                </p>
-              </Show>
-            </section>
-            <section aria-labelledby="question-library-types-heading">
-              <h3 id="question-library-types-heading">Question Types</h3>
-              <div class="question-library-facet-choices">
-                <For each={browseFacets("questionType")()}>
-                  {(facet) => (
-                    <button
-                      type="button"
-                      aria-pressed={query().questionType === facet.value}
-                      onClick={() => changeQuery({ questionType: facet.value })}
-                    >
-                      <span>{questionTypeLabel(facet.value)}</span>
-                      <strong>{facet.count}</strong>
-                    </button>
-                  )}
-                </For>
-              </div>
-            </section>
-          </div>
-        </section>
+        <LibraryBrowseControls
+          query={query}
+          hasExactBrowseFilters={() => hasExactBrowseFilters(query())}
+          searchWithinResultsPath={() => searchWithinResultsPath(query())}
+          browsingGroupsLoading={browsingGroupsLoading}
+          browseFacets={browseFacets}
+          facetTruncation={facetTruncation}
+          questionTypeLabel={questionTypeLabel}
+          changeQuery={changeQuery}
+          startOver={() => changeQuery(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY)}
+        />
       </Show>
       <Show when={displayedRows().length > 0 || selectedIds().size > 0}>
         <section class="question-library-bulk-toolbar" aria-label="Bulk Question actions">
@@ -849,6 +749,14 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             {MAX_BULK_QUESTION_METADATA_ITEMS}.
           </p>
         </section>
+      </Show>
+      <Show when={questionPoolCreateOpen()}>
+        <QuestionPoolCreateDialog
+          questionPoolClient={props.questionPoolClient}
+          questionLibrary={props.repository}
+          getQuestionDetails={props.getQuestionDetails}
+          onClose={() => setQuestionPoolCreateOpen(false)}
+        />
       </Show>
       <Show when={selectionNotice()}>{(notice) => <p role="status">{notice()}</p>}</Show>
       <Show when={editorLoading()}>
@@ -896,7 +804,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       <Show when={state().kind === "empty"}>
         <section class="empty-state" aria-label="No matching published questions">
           <h2>No published questions match these filters</h2>
+          <p>Use the global Question Library to find and reuse published Questions.</p>
           <p>Try a shorter search or choose a broader topic.</p>
+          <Show when={DRAFT_QUESTIONS_PATH}>
+            {(path) => (
+              <A class="primary-action" href={path()} children="Create a Draft Question" />
+            )}
+          </Show>
         </section>
       </Show>
       <Show when={displayedRows().length > 0}>

@@ -5,7 +5,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
-import { decodeCourseInstanceList } from "../src/api/decoders/course_instance.ts";
+import {
+  decodeCourseInstanceList,
+  decodeCreateCourseInstanceInput,
+} from "../src/api/decoders/course_instance.ts";
 import { courseThemeTokens } from "../src/features/course_appearance/course_theme_registry.ts";
 
 function courseSummary(theme = "forest") {
@@ -49,6 +52,47 @@ test("the Course-list decoder rejects missing, surplus, and unknown theme data",
         items: [{ ...courseSummary(), privateAppearance: "must-not-cross" }],
         nextCursor: null,
       }),
+    DecodeError,
+  );
+});
+
+test("Course creation accepts only the two current source wires", () => {
+  const common = {
+    shortName: "Genetics",
+    longName: "Advanced Genetics",
+    term: { startDate: "2026-09-01", endDate: "2026-12-18" },
+  };
+  assert.deepEqual(
+    decodeCreateCourseInstanceInput({ ...common, source: { kind: "empty" } }).source,
+    {
+      kind: "empty",
+    },
+  );
+  assert.deepEqual(
+    decodeCreateCourseInstanceInput({
+      ...common,
+      source: { kind: "adopted", blueprintCourse: "BP6F2R8T", blueprintRevision: "2" },
+    }).source,
+    { kind: "adopted", blueprintCourse: "BP6F2R8T", blueprintRevision: "2" },
+  );
+  assert.throws(
+    () =>
+      decodeCreateCourseInstanceInput({
+        ...common,
+        source: { kind: "empty", blueprintCourse: "BP6F2R8T" },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeCreateCourseInstanceInput({
+        ...common,
+        source: { kind: "adopted", blueprint_course: "BP6F2R8T", blueprint_revision: 2 },
+      }),
+    DecodeError,
+  );
+  assert.throws(
+    () => decodeCreateCourseInstanceInput({ ...common, blueprintCourse: "BP6F2R8T" }),
     DecodeError,
   );
 });

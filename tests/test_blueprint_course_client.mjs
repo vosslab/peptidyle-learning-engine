@@ -26,7 +26,7 @@ function contentInput() {
     entries: [
       {
         kind: "fixed",
-        question_id: publishedQuestion.questionId,
+        published_question: publishedQuestion.latestQuestionRevision,
         points_possible: "2",
         scoring_rule: "normal",
         question_attempt_limit: { maxAttempts: null },
@@ -39,7 +39,6 @@ function contentInput() {
       late_work_rule: "accept",
       activity_rules: {
         assessmentAttemptGradeRule: "highest",
-        questionPoolReuseRule: "reuseSelection",
         questionVariationRule: "newVariation",
         assessmentAttemptResumeRule: "resumable",
         assessmentQuestionDisplayRule: "allQuestions",
@@ -72,6 +71,7 @@ function modules() {
               {
                 kind: "fixed",
                 question: {
+                  reference: publishedQuestion.latestQuestionRevision,
                   question_library: {
                     summary: publishedQuestion,
                     evidence: { state: "unavailable" },
@@ -99,6 +99,7 @@ function blueprint(revision = "3") {
     availability: "private",
     metadata_etag: metadataEtag,
     current_revision: { reference: "BP7K3M2Q", revision },
+    fork_source: null,
     read_access: "blueprint_course_owner",
     modules: modules(),
   };
@@ -172,6 +173,24 @@ test("B1 Blueprint Course decoder exposes one current Revision and opaque metada
   const retired = structuredClone(blueprint());
   retired.draft = { edit_number: "7", modules: [] };
   assert.throws(() => decodeBlueprintCourseView(retired), DecodeError);
+});
+
+// Protect the explicit history choice; failure means repair request encoding, not normal discovery.
+test("Blueprint discovery requests Archived history only when explicitly included", async () => {
+  const paths = [];
+  const client = createHttpApiClient({
+    fetch: async (input) => {
+      paths.push(new URL(input.toString(), "https://ple.example"));
+      return noStoreJson({ items: [], nextCursor: null });
+    },
+  });
+  await client.listBlueprintCourses();
+  await client.listBlueprintCourses(undefined, 50, false);
+  await client.listBlueprintCourses(undefined, 50, true);
+  assert.equal(paths[0].searchParams.has("includeArchived"), false);
+  assert.equal(paths[1].searchParams.has("includeArchived"), false);
+  assert.equal(paths[2].searchParams.get("includeArchived"), "true");
+  assert.equal(paths[2].searchParams.get("pageSize"), "50");
 });
 
 test("B1 client sends Revision and metadata validators to their separate routes", async () => {

@@ -117,7 +117,6 @@ RETURNS TABLE (
     attempt_limit integer,
     late_work_rule text,
     assessment_attempt_grade_rule text,
-    question_pool_reuse_rule text,
     question_variation_rule text,
     assessment_attempt_resume_rule text,
     assessment_question_display_rule text,
@@ -172,7 +171,6 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.assessment_attempt_limit,
            assessment.late_work_rule,
            assessment.assessment_attempt_grade_rule,
-           assessment.question_pool_reuse_rule,
            assessment.question_variation_rule,
            assessment.assessment_attempt_resume_rule,
            assessment.assessment_question_display_rule,
@@ -208,7 +206,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
       LEFT JOIN ple_data.blueprint_course AS blueprint
         ON blueprint.reference_number = assessment.source_blueprint_course_reference_number
-      LEFT JOIN ple_data.assessment_entry AS entry ON entry.assessment_id = assessment.assessment_id
+      LEFT JOIN ple_data.assessment_entry AS entry
+        ON entry.assessment_id = assessment.assessment_id
+       AND entry.availability = 'available'
       LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
       LEFT JOIN ple_data.question_pool_revision_member AS item
         ON item.question_pool_id = entry.question_pool_id

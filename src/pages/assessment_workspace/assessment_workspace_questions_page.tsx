@@ -6,7 +6,11 @@ import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
-import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
+import type {
+  AssessmentQuestionPickerEntry,
+  AssessmentBlueprintUpdateReview,
+} from "../../api/assessment_release";
+import { ApiRequestError } from "../../api/http_client/error";
 import { useApplicationApi } from "../../api/application_api";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
@@ -21,6 +25,11 @@ import {
   removeAssessmentEntry,
 } from "./assessment_workspace_questions_model";
 import { UnsavedChangesGuard } from "./unsaved_changes_guard";
+import {
+  AssessmentEntrySummary,
+  AssessmentBlueprintContentSummary,
+  currentBlueprintUpdateContent,
+} from "./assessment_blueprint_update_review";
 
 const MAX_ASSIGNMENT_ENTRIES = 1024;
 
@@ -49,27 +58,6 @@ function questionPoolEntry(
   return entry.kind === "questionPool" ? entry : undefined;
 }
 
-function AssessmentEntrySummary(props: {
-  readonly entry: AssessmentEntry;
-  readonly description: (reference: AssessmentQuestionPickerEntry["reference"]) => string;
-}): JSX.Element {
-  if (props.entry.kind === "questionPool") {
-    return (
-      <>
-        <strong>Question Pool</strong> - {props.entry.selectionCount} selected from its exact pinned
-        Pool Revision
-      </>
-    );
-  }
-  return (
-    <>
-      <strong>{props.entry.reference.questionId}</strong> * Revision{" "}
-      {props.entry.reference.revisionNumber}: {props.description(props.entry.reference)} (
-      {props.entry.availability})
-    </>
-  );
-}
-
 /** Edits the complete normalized content owned by the current Assessment. */
 export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const workspace = useAssessmentWorkspace();
@@ -82,6 +70,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
   const [dirty, setDirty] = createSignal(false);
+  const [blueprintReview, setBlueprintReview] = createSignal<AssessmentBlueprintUpdateReview>();
   const [poolForks, setPoolForks] = createSignal<
     ReadonlyMap<AssessmentEntryId, AssessmentQuestionPoolForkView>
   >(new Map());
@@ -218,6 +207,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   async function save(): Promise<boolean> {
+    setBlueprintReview(undefined);
     if (needsReload()) {
       setMessage("Reload the latest assessment before saving. Your current Entries remain here.");
       return false;
@@ -244,6 +234,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   }
 
   async function reload(discardLocalChanges = false): Promise<void> {
+    setBlueprintReview(undefined);
     if (dirty() && !discardLocalChanges) {
       setMessage(
         "Your unsaved Assessment changes remain here. Discard them explicitly before reloading.",
@@ -267,6 +258,68 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       }
     } catch {
       setMessage("The latest assessment could not load. Your current Entries remain here.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reviewBlueprintUpdate(): Promise<void> {
+    if (busy() || dirty() || needsReload()) return;
+    setBusy(true);
+    setBlueprintReview(undefined);
+    setMessage("Loading Blueprint update review...");
+    try {
+      const review = await applicationApi.client.getAssessmentBlueprintUpdateReview(
+        workspace.courseReference,
+        workspace.assessmentReference,
+      );
+      setBlueprintReview(review);
+      setMessage(
+        "Review the saved current content and proposed Blueprint content before applying.",
+      );
+    } catch {
+      setMessage(
+        "Blueprint update review is unavailable. Your Assessment has not changed. Try reviewing again.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function applyBlueprintUpdate(): Promise<void> {
+    const review = blueprintReview();
+    if (
+      busy() ||
+      dirty() ||
+      review === undefined ||
+      review.cannotApplyReason !== null ||
+      review.proposed === null
+    )
+      return;
+    setBusy(true);
+    try {
+      // ASVS 2.3.1: apply only the source Revision and saved Edit Number explicitly reviewed.
+      await applicationApi.client.applyAssessmentBlueprintUpdate(
+        workspace.courseReference,
+        workspace.assessmentReference,
+        {
+          expectedSourceRevision: review.sourceRevision,
+          expectedEditNumber: review.assessment.editNumber,
+        },
+      );
+      setBlueprintReview(undefined);
+      await refreshAfterPoolMutation(
+        "Blueprint update applied. Dates, release status, and existing Student Work were preserved.",
+      );
+    } catch (error: unknown) {
+      const stale =
+        error instanceof ApiRequestError && (error.status === 409 || error.status === 412);
+      setBlueprintReview(undefined);
+      setMessage(
+        stale
+          ? "The Assessment or parent Blueprint changed after this review. Review the Blueprint update again before applying. Nothing was applied."
+          : "Blueprint update could not be applied. Review the update again before retrying. Your current Assessment remains here.",
+      );
     } finally {
       setBusy(false);
     }
@@ -416,6 +469,91 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
             {value()}
           </p>
         )}
+      </Show>
+      <Show when={workspace.assessment().workspace.origin.kind === "adopted"}>
+        <section class="assessment-editor-panel" aria-labelledby="blueprint-update-heading">
+          <h2 id="blueprint-update-heading">Blueprint update</h2>
+          <p>Existing Assessment content changes only when you review and apply an update.</p>
+          <Show when={dirty()}>
+            <p>
+              Save your unsaved Question changes below, or explicitly discard them before reviewing.
+            </p>
+            <button type="button" disabled={busy()} onClick={() => void reload(true)}>
+              Discard local changes and reload latest Assessment
+            </button>
+          </Show>
+          <button
+            type="button"
+            disabled={busy() || dirty() || needsReload()}
+            onClick={() => void reviewBlueprintUpdate()}
+          >
+            Review Blueprint update
+          </button>
+          <Show when={blueprintReview()}>
+            {(review) => (
+              <>
+                <h3>Review Blueprint Revision {review().sourceRevision}</h3>
+                <p>
+                  Apply replaces this Assessment's title, instructions, reusable settings, and
+                  ordered Questions and Question Pools, including local customizations. Dates,
+                  release status, and existing Student Work are preserved. New Attempts use the
+                  updated content. For each proposed Library source Question Pool, Apply creates a
+                  replacement Assessment-owned fork from the exact source Pool Revision shown below.
+                </p>
+                <div class="assessment-workspace-grid">
+                  <AssessmentBlueprintContentSummary
+                    heading="Current saved Assessment"
+                    poolRole="assessmentOwned"
+                    content={currentBlueprintUpdateContent(review().assessment)}
+                    description={description}
+                  />
+                  <Show when={review().proposed}>
+                    {(content) => (
+                      <AssessmentBlueprintContentSummary
+                        heading="Proposed Blueprint Assessment"
+                        poolRole="librarySource"
+                        content={content()}
+                        description={description}
+                      />
+                    )}
+                  </Show>
+                </div>
+                <Show when={review().cannotApplyReason !== null}>
+                  <p role="alert">
+                    {review().cannotApplyReason === "retainedSourceMissing"
+                      ? "This Assessment's retained source is no longer in the parent Blueprint Revision. This update cannot be applied."
+                      : "The parent Blueprint Assessment has a different Assessment Type. This update cannot be applied."}
+                  </p>
+                </Show>
+                <p class="assessment-editor-actions">
+                  <button
+                    class="primary-action"
+                    type="button"
+                    disabled={
+                      busy() ||
+                      dirty() ||
+                      review().cannotApplyReason !== null ||
+                      review().proposed === null
+                    }
+                    onClick={() => void applyBlueprintUpdate()}
+                  >
+                    Apply Blueprint update
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy()}
+                    onClick={() => {
+                      setBlueprintReview(undefined);
+                      setMessage("Blueprint review cancelled. No update was applied.");
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </p>
+              </>
+            )}
+          </Show>
+        </section>
       </Show>
       <label class="assessment-editor-field">
         Assessment title

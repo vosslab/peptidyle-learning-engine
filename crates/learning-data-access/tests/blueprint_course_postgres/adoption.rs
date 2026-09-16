@@ -1,36 +1,121 @@
 //! Stable relational oracle for exact Blueprint-to-Course adoption.
 
-use sqlx::{PgPool, Row};
+use sqlx::{Connection, PgConnection, Row};
 
 /// The adopted Course must preserve the sealed source Revision's policy,
 /// Question pins, and immutable Pool-fork provenance. This is a durable
 /// teaching-data integrity contract. If it fails, repair adoption persistence.
 pub(super) async fn assert_adoption_projection(
-    audit_inspection: &PgPool,
+    audit_inspection: &mut PgConnection,
     course_reference: i64,
     blueprint_reference: i64,
     blueprint_revision: i64,
     independent_course_reference: i64,
 ) {
+    assert_projection(
+        audit_inspection,
+        course_reference,
+        blueprint_reference,
+        blueprint_revision,
+        independent_course_reference,
+        false,
+        blueprint_revision,
+    )
+    .await;
+}
+
+pub(super) async fn assert_append_projection(
+    inspection: &mut PgConnection,
+    course: i64,
+    blueprint: i64,
+    revision: i64,
+    independent_course: i64,
+    adoption_revision: i64,
+) {
+    assert_projection(
+        inspection,
+        course,
+        blueprint,
+        revision,
+        independent_course,
+        true,
+        adoption_revision,
+    )
+    .await;
+}
+
+async fn assert_projection(
+    audit_inspection: &mut PgConnection,
+    course_reference: i64,
+    blueprint_reference: i64,
+    blueprint_revision: i64,
+    independent_course_reference: i64,
+    appended_only: bool,
+    adoption_revision: i64,
+) {
     let mut inspection = audit_inspection
         .begin()
         .await
         .expect("adoption inspection transaction");
+    // FORCE RLS grants sealed Blueprint reads to the API owner, not the data owner.
+    sqlx::query("SET LOCAL ROLE ple_api_owner")
+        .execute(&mut *inspection)
+        .await
+        .expect("sealed Blueprint inspection role");
+    let source_content: serde_json::Value = sqlx::query_scalar(
+        "SELECT content FROM ple_data.blueprint_course_revision \
+         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = $2",
+    )
+    .bind(blueprint_reference)
+    .bind(blueprint_revision)
+    .fetch_one(&mut *inspection)
+    .await
+    .expect("sealed Blueprint source exists");
+    let prior_sources: Vec<String> = sqlx::query_scalar(
+        "SELECT blueprint_assessment_reference::text FROM ple_data.blueprint_revision_assessment \
+         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number < $2",
+    )
+    .bind(blueprint_reference)
+    .bind(blueprint_revision)
+    .fetch_all(&mut *inspection)
+    .await
+    .expect("prior sealed Blueprint Assessment identities");
+    let provenance_matches: bool = sqlx::query_scalar(
+        "SELECT count(*) = 1 AND bool_and(course.source_kind = 'adopted' \
+         AND course.blueprint_course_reference_number = $2 AND course.blueprint_revision_number = $3 \
+         AND origin.source_kind = 'adopted' AND origin.blueprint_course_reference_number = $2 \
+         AND origin.blueprint_revision_number = $3 AND origin.source_course_id IS NULL) \
+         FROM ple_data.course_instance course JOIN ple_data.course_origin origin ON origin.course_id = course.course_id \
+         WHERE course.reference_number = $1",
+    )
+    .bind(course_reference)
+    .bind(blueprint_reference)
+    .bind(adoption_revision)
+    .fetch_one(&mut *inspection)
+    .await
+    .expect("Course adoption provenance projection");
+    assert!(
+        provenance_matches,
+        "Course adoption provenance preserves its original Revision"
+    );
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *inspection)
+        .await
+        .expect("adoption data inspection role");
     let row = sqlx::query(
         r#"
 WITH source_assessment AS (
     SELECT assessment_row.assessment ->> 'blueprint_assessment_reference' AS source,
            assessment_row.assessment -> 'content' AS content
-      FROM ple_data.blueprint_course_revision AS revision
-      CROSS JOIN LATERAL jsonb_array_elements(revision.content -> 'modules') AS module_row(module)
+      FROM jsonb_array_elements($6::jsonb -> 'modules') AS module_row(module)
       CROSS JOIN LATERAL jsonb_array_elements(module_row.module -> 'assessments') AS assessment_row(assessment)
-     WHERE revision.blueprint_course_reference_number = $2
-       AND revision.blueprint_revision_number = $3
+     WHERE NOT $5 OR NOT ((assessment_row.assessment ->> 'blueprint_assessment_reference') = ANY($7::text[]))
 ), target_assessment AS (
     SELECT assessment.*
       FROM ple_data.assessment AS assessment
       JOIN ple_data.course_instance AS course ON course.course_id = assessment.course_id
      WHERE course.reference_number = $1
+       AND (NOT $5 OR assessment.source_blueprint_revision_number = $3)
 ), policy_matches AS (
     SELECT count(*) = (SELECT count(*) FROM source_assessment)
        AND bool_and(
@@ -39,6 +124,7 @@ WITH source_assessment AS (
            AND target.source_blueprint_course_reference_number = $2
            AND target.source_blueprint_revision_number = $3
            AND target.source_blueprint_assessment_reference::text = source.source
+           AND target.assessment_type = source.content ->> 'assessment_type'
            AND target.assessment_title = source.content ->> 'title'
            AND target.assessment_instructions = source.content ->> 'instructions'
            AND target.assessment_status = 'unreleased'
@@ -54,8 +140,6 @@ WITH source_assessment AS (
            AND target.assessment_attempt_grade_rule = CASE source.content #>> '{defaults,activity_rules,assessmentAttemptGradeRule}'
                WHEN 'first' THEN 'first' WHEN 'latest' THEN 'latest' WHEN 'highest' THEN 'highest'
                WHEN 'instructorSelected' THEN 'instructor_selected' END
-           AND target.question_pool_reuse_rule = CASE source.content #>> '{defaults,activity_rules,questionPoolReuseRule}'
-               WHEN 'reuseSelection' THEN 'reuse_selection' WHEN 'selectAgain' THEN 'select_again' END
            AND target.question_variation_rule = CASE source.content #>> '{defaults,activity_rules,questionVariationRule}'
                WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END
            AND target.assessment_attempt_resume_rule = CASE source.content #>> '{defaults,activity_rules,assessmentAttemptResumeRule}'
@@ -170,15 +254,6 @@ WITH source_assessment AS (
         ON root_revision.question_pool_id = root.question_pool_id
        AND root_revision.revision_number = child.source_question_pool_revision_number
      WHERE source.entry ->> 'kind' = 'pool'
-), provenance_matches AS (
-    SELECT count(*) = 1
-       AND bool_and(course.source_kind = 'adopted'
-           AND course.blueprint_course_reference_number = $2 AND course.blueprint_revision_number = $3
-           AND origin.source_kind = 'adopted' AND origin.blueprint_course_reference_number = $2
-           AND origin.blueprint_revision_number = $3 AND origin.source_course_id IS NULL) AS matches
-      FROM ple_data.course_instance AS course
-      JOIN ple_data.course_origin AS origin ON origin.course_id = course.course_id
-     WHERE course.reference_number = $1
 ), independent_pool_forks AS (
     SELECT NOT EXISTS (
         SELECT 1
@@ -192,10 +267,12 @@ WITH source_assessment AS (
     ) AS matches
 )
 SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
+       (SELECT jsonb_agg(jsonb_build_object('source', source.content, 'target', to_jsonb(target)))
+          FROM source_assessment source JOIN target_assessment target
+            ON target.source_blueprint_assessment_reference::text = source.source) AS policy_projection,
        COALESCE((SELECT matches FROM entry_count_matches), false) AS entry_count_matches,
        COALESCE((SELECT matches FROM fixed_entries_match), false) AS fixed_entries_match,
        COALESCE((SELECT matches FROM pool_forks_match), false) AS pool_forks_match,
-       COALESCE((SELECT matches FROM provenance_matches), false) AS provenance_matches,
        COALESCE((SELECT matches FROM independent_pool_forks), false) AS independent_pool_forks
 "#,
     )
@@ -203,24 +280,40 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
     .bind(blueprint_reference)
     .bind(blueprint_revision)
     .bind(independent_course_reference)
+    .bind(appended_only)
+    .bind(source_content)
+    .bind(prior_sources)
     .fetch_one(&mut *inspection)
     .await
     .expect("relational adoption projection");
-    assert!(row.get::<bool, _>("policy_matches"));
+    assert!(
+        row.get::<bool, _>("policy_matches"),
+        "adopted policy differs from sealed source: {:?}",
+        row.get::<Option<serde_json::Value>, _>("policy_projection")
+    );
     assert!(row.get::<bool, _>("entry_count_matches"));
     assert!(row.get::<bool, _>("fixed_entries_match"));
     assert!(row.get::<bool, _>("pool_forks_match"));
-    assert!(row.get::<bool, _>("provenance_matches"));
     assert!(row.get::<bool, _>("independent_pool_forks"));
     inspection
         .commit()
         .await
         .expect("adoption inspection commit");
 
-    let mut audit_inspection = audit_inspection
+    let mut audit_transaction = audit_inspection
         .begin()
         .await
         .expect("adoption audit inspection transaction");
+    sqlx::query("SET LOCAL ROLE ple_audit_owner")
+        .execute(&mut *audit_transaction)
+        .await
+        .expect("adoption audit inspection role");
+    // The audit owner has only an INSERT policy under FORCE RLS. As in the
+    // controlled tamper oracle, permit owner inspection only until rollback.
+    sqlx::query("ALTER TABLE ple_audit.course_instance_creation_event NO FORCE ROW LEVEL SECURITY")
+        .execute(&mut *audit_transaction)
+        .await
+        .expect("controlled audit owner inspection");
     let audit_matches: bool = sqlx::query_scalar(
         "SELECT count(*) = 1 FROM ple_audit.course_instance_creation_event \
          WHERE course_reference_number = $1 AND source_kind = 'adopted' \
@@ -228,13 +321,22 @@ SELECT COALESCE((SELECT matches FROM policy_matches), false) AS policy_matches,
     )
     .bind(course_reference)
     .bind(blueprint_reference)
-    .bind(blueprint_revision)
-    .fetch_one(&mut *audit_inspection)
+    .bind(adoption_revision)
+    .fetch_one(&mut *audit_transaction)
     .await
     .expect("adoption audit projection");
     assert!(audit_matches);
-    audit_inspection
-        .commit()
+    audit_transaction
+        .rollback()
         .await
-        .expect("adoption audit inspection commit");
+        .expect("restore forced audit RLS after inspection");
+    let forced: bool = sqlx::query_scalar(
+        "SELECT relation.relforcerowsecurity FROM pg_catalog.pg_class relation \
+         JOIN pg_catalog.pg_namespace namespace ON namespace.oid = relation.relnamespace \
+         WHERE namespace.nspname = 'ple_audit' AND relation.relname = 'course_instance_creation_event'",
+    )
+    .fetch_one(audit_inspection)
+    .await
+    .expect("audit forced-RLS restoration inspection");
+    assert!(forced, "privileged audit inspection restores forced RLS");
 }

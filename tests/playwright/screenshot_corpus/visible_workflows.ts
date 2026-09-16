@@ -2,6 +2,8 @@
 
 import type { Locator, Page } from "playwright";
 
+import { localDemoAuthenticationCode } from "./local_demo_authenticator";
+
 import {
   chooseSeededIdentityAtSignIn,
   courseChoice,
@@ -10,7 +12,8 @@ import {
 } from "../e2e/real_stack_ui";
 
 export const COURSE_TITLE = "Biochemistry 301: Proteins and Peptides";
-export const ASSIGNMENT_TITLE = "Peptide Structure Practice";
+export const ASSIGNMENT_TITLE = "Chapter 1 Pilot Practice";
+export const ASSESSMENT_TYPE_LABEL = "Regular Assignment";
 
 export type SeededPersona =
   "Elena Rivera" | "Mary Okafor" | "Jack Nguyen" | "Avery Thompson" | "Morgan Delgado";
@@ -48,13 +51,41 @@ export async function openInstructorCourse(
 }
 
 export async function openStudentCourse(page: Page, title: string = COURSE_TITLE): Promise<void> {
-  const entry = await waitForStudentCourseEntry(page, title);
+  const canonicalEntry = await page.waitForFunction((expectedTitle) => {
+    for (const heading of document.querySelectorAll("h1")) {
+      const style = window.getComputedStyle(heading);
+      if (
+        heading.textContent?.trim() === expectedTitle &&
+        style.visibility !== "hidden" &&
+        style.display !== "none"
+      ) {
+        return "course";
+      }
+    }
+
+    if (window.location.pathname !== "/student") return null;
+    const cards = [...document.querySelectorAll("article.course-card")].filter((card) => {
+      const style = window.getComputedStyle(card);
+      return style.visibility !== "hidden" && style.display !== "none";
+    });
+    const hasExpectedCourse = cards.some((card) =>
+      [...card.querySelectorAll("h2")].some(
+        (heading) => heading.textContent?.trim() === expectedTitle,
+      ),
+    );
+    const choosingCourses = new URLSearchParams(window.location.search).get("choose") === "1";
+    return hasExpectedCourse && (choosingCourses || cards.length > 1) ? "chooser" : null;
+  }, title);
+  const entry = await canonicalEntry.jsonValue();
   if (entry === "chooser") {
     const card = courseCard(page, title);
     await card.waitFor();
     await card.getByRole("link", { name: "Open assigned work", exact: true }).click();
     await studentCourseHeading(page, title).waitFor();
+    return;
   }
+  if (entry === "course") return;
+  throw new Error("Student Course entry did not reach a visible Course or chooser state.");
 }
 
 /** Opens the visible chooser from the one-Course landing without bypassing normal navigation. */
@@ -62,7 +93,9 @@ export async function openStudentCourseChooser(page: Page): Promise<void> {
   const entry = await waitForStudentCourseEntry(page, COURSE_TITLE);
   if (entry === "course") {
     await page.getByRole("link", { name: "Your courses", exact: true }).click();
-    await page.waitForURL((url) => url.pathname === "/" && url.searchParams.get("choose") === "1");
+    await page.waitForURL(
+      (url) => url.pathname === "/student" && url.searchParams.get("choose") === "1",
+    );
     await studentCourseChooserHeading(page).waitFor();
   }
 }
@@ -77,16 +110,16 @@ function studentCourseChooserHeading(page: Page): Locator {
 
 export async function openStudentAssignment(page: Page): Promise<void> {
   const card = assignmentCard(page);
-  await card.getByRole("link", { name: "Open Assignment", exact: true }).click();
-  await page.locator('[data-route-surface="assignmentOverview"]').waitFor();
-  await page.getByRole("button", { name: "Start Assignment", exact: true }).waitFor();
+  await card.getByRole("link", { name: `Open ${ASSESSMENT_TYPE_LABEL}`, exact: true }).click();
+  await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
+  await page.getByRole("button", { name: `Start ${ASSESSMENT_TYPE_LABEL}`, exact: true }).waitFor();
 }
 
 /** Opens the active Attempt through its Student Course landing and Assignment card. */
 export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> {
   const card = assignmentCard(page);
-  await card.getByRole("link", { name: "Open Assignment", exact: true }).click();
-  await page.locator('[data-route-surface="assignmentAttempt"]').waitFor();
+  await card.getByRole("link", { name: `Open ${ASSESSMENT_TYPE_LABEL}`, exact: true }).click();
+  await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
 }
 
 export async function enterInstructor(page: Page): Promise<void> {
@@ -95,6 +128,57 @@ export async function enterInstructor(page: Page): Promise<void> {
 }
 
 export async function enterSysadmin(page: Page): Promise<void> {
-  await choosePersona(page, "Morgan Delgado");
-  await page.getByRole("heading", { name: "Your Course Instances", exact: true }).waitFor();
+  const setupFile = process.env["PLE_LOCAL_DEMO_TOTP_SETUP_FILE"];
+  if (setupFile === undefined && !process.argv.includes("--headed")) {
+    throw new Error("Headless Sysadmin capture requires the owned local CLI authenticator path.");
+  }
+  if (setupFile !== undefined) {
+    const entry = new URL(page.url());
+    // ASVS 6.3.4, 14.2.3: this authenticator is only for the local demo entry.
+    if (
+      entry.protocol !== "https:" ||
+      entry.hostname !== "localhost" ||
+      entry.pathname !== "/sign-in" ||
+      entry.search ||
+      entry.hash ||
+      entry.username ||
+      entry.password
+    ) {
+      throw new Error("Automated demonstration MFA requires the local HTTPS sign-in entry.");
+    }
+  }
+  const home = page.getByRole("heading", { name: "System administration", exact: true });
+  const mfa = page.getByRole("heading", {
+    level: 3,
+    name: "Verify Morgan Delgado's administrator access",
+    exact: true,
+  });
+  await page.getByRole("button", { name: /Assume the role of .*Morgan Delgado/u }).click();
+  await Promise.race([home.waitFor(), mfa.waitFor()]);
+  if (await home.isVisible()) return;
+  if (setupFile !== undefined) {
+    const code = await localDemoAuthenticationCode(setupFile);
+    try {
+      await page.getByLabel("Authentication code", { exact: true }).fill(code);
+      await page
+        .getByRole("button", {
+          name: "Verify and open administrator tools",
+          exact: true,
+        })
+        .click();
+      await home.waitFor();
+    } catch {
+      // Playwright fill diagnostics may include a code; publish only this safe failure.
+      throw new Error("Morgan's ordinary MFA form did not reach administrator tools.");
+    }
+    return;
+  }
+  try {
+    await home.waitFor({ timeout: 120_000 });
+  } catch {
+    throw new Error(
+      "Sysadmin screenshots require --headed and a prepared local authenticator; " +
+        "enter the current Authentication code in the visible Morgan Delgado MFA form.",
+    );
+  }
 }

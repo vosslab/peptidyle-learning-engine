@@ -7,7 +7,10 @@ use learning_data_access::{
     SessionLifetime, SessionStore, SessionTokenHash,
     postgres::{PostgresSessionStore, ProductionLoginProfile},
 };
-use question_model::AccountId;
+use question_model::{
+    AccountId, AssessmentAttemptReference, AssessmentReference, AssessmentType,
+    CourseInstanceReference,
+};
 use reqwest::{Method, StatusCode, header};
 use serde_json::{Map, Value, json};
 use server_core::auth::{self, CookieTransport, SessionConfig};
@@ -369,23 +372,28 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
     let course_items = closed_array_field(&courses, &["items", "nextCursor"], "items", "Course")?;
     let courses = course_items
         .iter()
-        .filter_map(|item| {
+        .map(|item| {
             let object = closed_object(
                 item,
                 &["reference", "shortName", "longName", "term", "theme"],
                 "Course",
-            )
-            .ok()?;
-            (object.get("shortName")?.as_str() == Some(LIVE_DEMO_COURSE_SHORT_NAME)
-                && object.get("longName")?.as_str() == Some(LIVE_DEMO_COURSE_LONG_NAME))
-            .then_some(object)
+            )?;
+            Ok((object.get("shortName").and_then(Value::as_str)
+                == Some(LIVE_DEMO_COURSE_SHORT_NAME)
+                && object.get("longName").and_then(Value::as_str)
+                    == Some(LIVE_DEMO_COURSE_LONG_NAME))
+            .then_some(object))
         })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
         .collect::<Vec<_>>();
     ensure!(
         courses.len() == 1,
         "Live Demo Course is missing or ambiguous"
     );
-    let course = public_reference(courses[0].get("reference"), "C-", "Course")?;
+    let course =
+        public_reference::<CourseInstanceReference>(courses[0].get("reference"), "Course")?;
 
     let assessments = expect_status(
         api.request(
@@ -404,11 +412,12 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
         .context("Live Demo Assessment projection is invalid")?;
     let assessments = assessment_items
         .iter()
-        .filter_map(|item| {
+        .map(|item| {
             let object = closed_object(
                 item,
                 &[
                     "reference",
+                    "assessmentType",
                     "title",
                     "dueAt",
                     "displayTimeZone",
@@ -416,18 +425,23 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                     "editNumber",
                 ],
                 "Assessment",
-            )
-            .ok()?;
-            (object.get("title")?.as_str() == Some(LIVE_DEMO_ASSESSMENT_TITLE)
-                && object.get("status")?.as_str() == Some("released"))
-            .then_some(object)
+            )?;
+            Ok((object.get("assessmentType").and_then(Value::as_str)
+                == Some(AssessmentType::RegularAssignment.as_str())
+                && object.get("title").and_then(Value::as_str) == Some(LIVE_DEMO_ASSESSMENT_TITLE)
+                && object.get("status").and_then(Value::as_str) == Some("released"))
+            .then_some(object))
         })
+        .collect::<Result<Vec<_>>>()?
+        .into_iter()
+        .flatten()
         .collect::<Vec<_>>();
     ensure!(
         assessments.len() == 1,
         "Live Demo Assessment is missing or ambiguous"
     );
-    let assessment = public_reference(assessments[0].get("reference"), "A-", "Assessment")?;
+    let assessment =
+        public_reference::<AssessmentReference>(assessments[0].get("reference"), "Assessment")?;
     Ok(DemoGraph { course, assessment })
 }
 
@@ -457,13 +471,15 @@ async fn student_attempt_state(
                 &[
                     "reference",
                     "title",
+                    "assessmentType",
                     "decision",
                     "assessmentAttemptNumber",
                     "assessmentAttemptCompletion",
+                    "canResumeAssessmentAttempt",
                     "gradedQuestionCount",
                     "questionCount",
                 ],
-                &["score"],
+                &["assessmentScore"],
                 "Student Assessment",
             )
             .ok()?;
@@ -547,6 +563,7 @@ async fn assessment_access(
             "decision",
             "activeAssessmentAttempt",
             "title",
+            "assessmentType",
             "questionCount",
             "pointsPossible",
             "previousAttempts",
@@ -621,7 +638,11 @@ async fn prepare_attempt(
                 .is_some_and(|items| items.len() == LIVE_DEMO_QUESTION_COUNT as usize),
         "Live Demo {student_name} Assessment Attempt is invalid"
     );
-    public_reference(object.get("assessmentAttempt"), "R-", "Assessment Attempt").map(Some)
+    public_reference::<AssessmentAttemptReference>(
+        object.get("assessmentAttempt"),
+        "Assessment Attempt",
+    )
+    .map(Some)
 }
 
 async fn save_responses(
@@ -841,17 +862,17 @@ fn closed_object_with_optional<'a>(
     Ok(object)
 }
 
-fn public_reference(value: Option<&Value>, prefix: &str, label: &'static str) -> Result<String> {
+fn public_reference<Reference>(value: Option<&Value>, label: &'static str) -> Result<String>
+where
+    Reference: std::str::FromStr,
+{
+    // ASVS 2.2.1: validate each API projection with its canonical domain parser.
     let value = value
         .and_then(Value::as_str)
         .context("Live Demo public reference is invalid")?;
-    let digits = value.strip_prefix(prefix).filter(|digits| {
-        !digits.is_empty()
-            && digits.len() <= 10
-            && !digits.starts_with('0')
-            && digits.bytes().all(|byte| byte.is_ascii_digit())
-    });
-    ensure!(digits.is_some(), "Live Demo {label} reference is invalid");
+    value
+        .parse::<Reference>()
+        .map_err(|_| anyhow::anyhow!("Live Demo {label} reference is invalid"))?;
     Ok(value.to_owned())
 }
 

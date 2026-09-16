@@ -11,6 +11,8 @@ import type {
   UnreleasedLiveAssessment,
 } from "../assessment_release";
 import {
+  decodeAssessmentBlueprintUpdateReview,
+  decodeApplyAssessmentBlueprintUpdateInput,
   decodeAssessmentQuestionPicker,
   decodeAssessmentReleaseValidation,
   decodeAssessmentUnreleaseImpact,
@@ -25,6 +27,7 @@ import {
   decodeUnreleasedLiveAssessment,
 } from "../decoders/assessment_release";
 import { ApiProtocolError, ApiRequestError } from "./error";
+import { decodeCourseBlueprintUpdateReview } from "../decoders/course_blueprint_update";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import {
@@ -104,6 +107,48 @@ export function createLiveAssessmentReleaseClient(
   basePath: string,
 ): Pick<ApiClient, keyof LiveAssessmentReleaseClient> {
   return {
+    getCourseBlueprintUpdateReview: async (course) =>
+      (
+        await assessmentJson(
+          fetchImplementation,
+          basePath,
+          `${coursePath(course)}/blueprint-update-review`,
+          decodeCourseBlueprintUpdateReview,
+          { status: 200 },
+        )
+      ).body,
+    getAssessmentBlueprintUpdateReview: async (course, assessment) =>
+      (
+        await assessmentJson(
+          fetchImplementation,
+          basePath,
+          `${assessmentPath(course, assessment)}/blueprint-update`,
+          decodeAssessmentBlueprintUpdateReview,
+          { status: 200 },
+        )
+      ).body,
+    applyAssessmentBlueprintUpdate: async (
+      course,
+      assessment,
+      input,
+    ): Promise<LiveAssessmentWorkspaceResponse> => {
+      const path = `${assessmentPath(course, assessment)}/blueprint-update`;
+      const result = await assessmentJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeLiveAssessmentWorkspace,
+        {
+          method: "POST",
+          body: decodeApplyAssessmentBlueprintUpdateInput(input),
+          status: 200,
+        },
+      );
+      return {
+        workspace: result.body,
+        etag: requireWorkspaceEtag(result.response, result.body.editNumber, path),
+      };
+    },
     listAssessmentsDueSoon: async (): Promise<DueSoonAssessments> =>
       (
         await assessmentJson(

@@ -13,6 +13,110 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- C881/C882 preserve bounded prior Blueprint fork review proof. An authorized Instructor sees known forks
+  with their owners, opens one from the source known-fork row, and lazily compares current source
+  and fork heads against the recorded origin baseline. The compiled UI distinguishes retained IDs,
+  source-only, and fork-only changes; retry recovers a failed review request. Accepted actual
+  server receipts are `/private/tmp/ple-fork-reader-artifacts.nRikDO` and
+  `/private/tmp/ple-fork-review-http-artifacts.LTUgsF`. Root visual review accepted 1280 by 800
+  and the initial 390px narrow view. The actual review is GET-only, `no-store`, and leaves all
+  `ple_data` unchanged. Canonical JSON is calculated only when review is requested. The direct
+  fork page has no Compare entry. C883 has verified backend contributor evidence, while its browser
+  Apply workflow and C413's whole workflow remain open.
+
+- Latest Blueprint authority reconciliation (2026-09-16): known-fork discovery, newest-head review,
+  ordinary visibility and on-request canonical JSON retain valid evidence. The recorded-origin
+  baseline is provenance/implementation history, not a current HG comparison requirement. The
+  direct-source/internal-Assessment-ID review does not establish any-visible-related-pair comparison
+  in the same lineage, shared-Question-ID Assessment relationships, required shared/added/removed
+  correspondence, or useful matching through renamed/reordered/restructured Assessments. These
+  remain open, as do history availability, obvious newer-source/downstream indications and connected
+  owner-selected Apply. Prior artifacts prove only their recorded read-only scope.
+  The user's identity clarification additionally requires fresh local Assessment IDs on forks,
+  no persistent cross-Blueprint Assessment lineage/history, and unmatched disjoint Question sets.
+  C883's previous proof is historical contributor evidence where it depends on shared internal IDs;
+  fork creation and Apply need reconciliation before corrected-contract closure.
+
+- The Archived Blueprint read-only row is verified. Owner Save and rename lock the Blueprint and
+  reject Archived state before replay, CAS, or no-op handling. Accepted actual HTTP proof recorded
+  five `409` denials with unchanged Blueprint state, `200` owner/nonowner historical reads, `404`
+  nonowner writes, and `200` restored Private/Public writes:
+  `/private/tmp/ple-daughter-revision-notice-artifacts.JhV6aj/archived-blueprint-http-proof.json`.
+  Explicit-include Archived browsing, forking, adoption, populated daughters, and concurrency are
+  outside this receipt.
+
+- Two Archived Blueprint discovery rows are verified. The default list excludes Archived Blueprints;
+  explicit `includeArchived=true` returns the Archived record to owner and nonowner active vetted
+  Instructors while retaining owner-only Private visibility. Accepted HTTP proof also records
+  nonowner Archived `200`, Private `404`, Student list/detail `404`, and invalid query `400`.
+  Accepted compiled-main browser proof covers default off, Include Archived, a read-only Archived
+  detail, return to off, eight GETs, and zero writes. Artifacts:
+  `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json` and
+  `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-browser-proof.json`.
+  Fixture sessions and privileged Published-Question seed data do not establish login, TLS,
+  pagination, concurrency, publisher-caller preservation, forking, adoption, or a broader Course
+  workflow.
+
+- Six Course-update rows are verified by the accepted Course-summary workflow. The lazy authorized
+  summary provides changed, matching, removed-source, Type-mismatch, and automatically-added
+  adopted-Assessment rows, excluding direct local Assessments. Accepted actual-server and
+  compiled-main proof covered 1280 by 900 and 390 by 844 lazy open/reopen behavior, per-read
+  summary coherence, Course-to-detail review, zero POST on Cancel, exact source Revision 2 plus
+  daughter Edit CAS on Apply, and a refreshed matching row. Student/unrelated reads were `404
+  no-store`; the privileged-availability fixture concealed a private parent from another
+  Instructor; Archived review remained available and new adoption was denied. Artifact:
+  `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`. The earlier per-Assessment receipt
+  separately establishes exact pins, stale/no-op/invalid-Released cases, dates, status, origin,
+  and one populated Assessment Attempt hash: `/private/tmp/ple-daughter-revision-notice-artifacts.kE8MnT`.
+  Neither receipt covers direct Assessments or all Student Work. No persisted offer, receipt,
+  comparison baseline, new update table, or whole-Course lifecycle completion is claimed.
+
+- Two bounded older-Blueprint-Revision indication rows are verified. The existing authorized Course
+  load returns the origin's adopted and current Revision numbers; the strict browser decoder and
+  Course page render both values and a visible stale notice only when the current Revision is newer.
+  Accepted independent actual-server/exact-main proof covered empty, current, newer, and explicit
+  synthetic Private-origin states. The newer capture was visually inspected; unauthorized Student
+  and unrelated-Instructor reads were nonenumerating `404 no-store`, with no extra Blueprint fetch,
+  write, or browser error. Original adoption pin, Assessment, and entries remained unchanged; Work
+  tables were empty, so no populated-Student-Work claim follows. Artifact:
+  `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`. This read-only indication does not
+  close Blueprint update offer, review, approval, or apply work.
+
+- C7/C424 close the two exact Instructor Course creation alternatives and their creation-only
+  composite. `CourseInstanceCreationSource` and the
+  browser decoder use one strict Empty-or-exact-Adopted wire; the Instructor Course form defaults
+  to Empty and activates Blueprint discovery only for adoption. Accepted private actual HTTP and
+  exact-main browser proof created, persisted, and displayed an Empty Course with zero Blueprint-
+  list requests, `no-store` responses, and Student creation denial. A separate Public Blueprint
+  exact-Revision adoption then produced a visible daughter Course and Unreleased Practice
+  Assessment with one fixed Question Revision, finite Attempt limit, and dates unset. A follow-up
+  actual-main/HTTP proof used the Empty Course's **Create Assessment** action to create an
+  Unreleased direct-origin Practice Assessment with all delivery dates unset, then saw it on the
+  Course list. A further accepted actual-main/HTTP run added and saved one available Published
+  Question's exact Revision and point pin, saved a valid Due/time limit through Properties, passed
+  release readiness, and released the direct Assessment. Accepted real roster import/Student claim
+  and isolated actual-server/exact-main browser proof then showed the Released direct Assessment
+  and its pre-start title, Practice Type, one Question/point, one-hour limit, and explicit zero-
+  previous-Attempts state to its member; an Unreleased sibling was omitted and an outsider denied.
+  The composite Course definition, Pool copying, other backend delivery/grading, and complete
+  teaching lifecycle remain open.
+
+- A separate isolated actual-server/native fixed-Question Attempt proof published the checked-in
+  Genetics PKU JSON through Draft authoring, added its exact Available Revision to a direct
+  Practice Assessment through the actual-main Instructor page, and enrolled the Student by real
+  roster claim. Student HTTP Start issued the native four-choice Question; the selected opaque PKU
+  response saved, restored after a second read, and whole-submitted. Submitted history disclosed
+  a graded 1/1 result; a distinct second unlimited Practice Attempt started despite that perfect
+  score. The history reader first omitted that saved response because it supplied the presentation
+  checksum as `\\x`-prefixed bytea text instead of bare hex; a one-line
+  `assessment_attempt_history.sql` encoding correction passed the same fresh-schema run and
+  restored the readable PKU response. Accepted actual-main Student browser proof then reopened
+  the Assessment before a second Start and showed all six pre-start facts with real Attempt 1
+  Submitted history, the Coursework/"Before you start"/Attempt history Ribbon language, and a
+  clicked summary with separately visible recorded response and 1/1 score. This is one native
+  fixed-Question path, not a Pool case, every Student viewport, another backend, or a Regular
+  Assignment default proof.
+
 - C57 closes the three Question Library Search-landing and return-state rows. `LibraryPage` begins
   with only the Search entry, then starts the result workflow after input. Its session-bound,
   single-use in-document return snapshot restored query, filter, 80 loaded rows, and virtual-list
@@ -35,15 +139,18 @@ The authoritative exhaustive record is the
   narrowed rows, and Search screenshots. Test asset transport is not deployment-gateway or WASM-
   runtime evidence.
 
-- C61 closes three more Assessments Due Soon rows. Accepted private PostgreSQL 17, actual-server,
+- C61 closes its sixth and final G-A4-17 row. Accepted private PostgreSQL 17, actual-server,
   and exact-main browser evidence returned two upcoming Assessments across the Instructor's two
   Courses, excluded an outsider Course, preserved anonymous/Student concealment, and matched each
-  visible Due value to the actual HTTP instant in the returned Account zone. The broad Assessment-
-  list scanability row remains open. Follow-up exact-main browser evidence rendered readable
-  Chicago Account-zone local Due values in a three-row Course list at 1280px and 720px while the
-  browser used Los Angeles time; representative proof across multiple Course lists is still
-  pending. Empty/error states, release workflow, WASM runtime, and deployment gateway were not
-  exercised.
+  visible Due value to the actual HTTP instant in the returned Account zone. Follow-up exact-main
+  browser evidence retained readable Chicago Account-zone local Due values in a three-row Course
+  list at 1280px and 720px while the browser used Los Angeles time. A second owned Course then
+  showed three mixed Released/Unreleased rows with distinct Due values matched to its actual
+  200/`no-store` Assessment-list response; the Course heading qualified each row. Root manager
+  visual review and independent artifact review accepted this bounded scanning behavior. The
+  broader spreadsheet-like Course/Assessment collection-density judgment remains open under C44.
+  Empty/error states, release workflow, WASM runtime, deployment gateway, and connected Template
+  delivery were not exercised.
 
 - C62 closes all five Assessment-editor-shell rows. Accepted private actual-HTTP and exact-main
   browser evidence navigated the distinct Question and Properties tasks, added, moved, removed,
@@ -397,9 +504,6 @@ The authoritative exhaustive record is the
 - Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
   - Source: `docs/HUMAN_GUIDANCE.md:375`
 
-- The Student Ribbon should use familiar Student language rather than internal PLE terms such as Assessment.
-  - Source: `docs/HUMAN_GUIDANCE.md:376`
-
 - Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
   **Bonus Assignments**, **Quizzes**, and **Exams**.
   - Source: `docs/HUMAN_GUIDANCE.md:377`
@@ -418,9 +522,6 @@ The authoritative exhaustive record is the
 
 - Student navigation and pages should contain only Student interfaces and capabilities.
   - Source: `docs/HUMAN_GUIDANCE.md:385`
-
-- Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
-  - Source: `docs/HUMAN_GUIDANCE.md:390`
 
 - The complete Student Ribbon task layout does not have a locked-in design yet.
   - Source: `docs/HUMAN_GUIDANCE.md:401`
@@ -477,9 +578,6 @@ The authoritative exhaustive record is the
 - **Blueprint Courses** provide reusable course designs for creating Course Instances.
   - Source: `docs/HUMAN_GUIDANCE.md:687`
 
-- Course Instances may be created from a Blueprint Course or started empty.
-  - Source: `docs/HUMAN_GUIDANCE.md:688`
-
 - A Course can have multiple co-**Instructors** with equal teaching authority.
   - Source: `docs/HUMAN_GUIDANCE.md:689`
 
@@ -515,15 +613,6 @@ The authoritative exhaustive record is the
 - Public Blueprint Courses can be adopted to create daughter Course Instances.
   - Source: `docs/HUMAN_GUIDANCE.md:712`
 
-- Archived Blueprint Courses are read-only and no longer actively maintained.
-  - Source: `docs/HUMAN_GUIDANCE.md:713`
-
-- Archived Blueprint Courses remain visible by every vetted **Instructor**.
-  - Source: `docs/HUMAN_GUIDANCE.md:714`
-
-- Archived Blueprint Courses are excluded from normal search results unless the search explicitly includes them.
-  - Source: `docs/HUMAN_GUIDANCE.md:715`
-
 - Archived Blueprint Courses can be forked but not adopted.
   - Source: `docs/HUMAN_GUIDANCE.md:717`
 
@@ -554,17 +643,8 @@ The authoritative exhaustive record is the
 - Stars and Watches belong to the Blueprint Course across all of its Revisions.
   - Source: `docs/HUMAN_GUIDANCE.md:741`
 
-- New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review and approval.
-  - Source: `docs/HUMAN_GUIDANCE.md:747`
-
-- Routine Blueprint updates should be quick for an **Instructor** to review and approve.
-  - Source: `docs/HUMAN_GUIDANCE.md:748`
-
 - It should be obvious when a Course Instance is using an older Blueprint Revision.
   - Source: `docs/HUMAN_GUIDANCE.md:749`
-
-- Changes to existing Assessments follow the Blueprint Revision update workflow.
-  - Source: `docs/HUMAN_GUIDANCE.md:750`
 
 - Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
   - Source: `docs/HUMAN_GUIDANCE.md:751`
@@ -633,12 +713,6 @@ The authoritative exhaustive record is the
   - Source: `docs/HUMAN_GUIDANCE.md:781`
 
 ### Courses -- Course Instances
-
-- An **Instructor** can create a Course Instance from a Public Blueprint Course.
-  - Source: `docs/HUMAN_GUIDANCE.md:787`
-
-- **Instructors** can also create a new empty Course Instance without a parent Blueprint Course.
-  - Source: `docs/HUMAN_GUIDANCE.md:788`
 
 - Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
   - Source: `docs/HUMAN_GUIDANCE.md:789`

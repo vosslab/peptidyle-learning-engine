@@ -10,7 +10,6 @@ import { optionalPositiveIntegerDraft } from "./assessment_workspace_policy_mode
 export type AssessmentPolicySummaryKey =
   | "savedDelivery"
   | "assessmentAttemptGradeRule"
-  | "questionPoolReuseRule"
   | "questionVariationRule"
   | "disclosure"
   | "assessmentStatus"
@@ -113,10 +112,6 @@ export function assessmentPolicyDraftSummary(
     first: "First Assessment Attempt score",
     instructorSelected: "Instructor-selected Assessment Attempt",
   } as const;
-  const questionPoolReuseRule = {
-    reuseSelection: "Reuse the previous Question Pool Selection",
-    selectAgain: "Select Questions again from each Question Pool",
-  } as const;
   const questionVariationRule = {
     reuseVariation: "Reuse the previous Question Variations",
     newVariation: "Use new Question Variations",
@@ -141,11 +136,6 @@ export function assessmentPolicyDraftSummary(
       key: "assessmentAttemptGradeRule",
       label: "Assessment Attempt grade rule",
       value: grade[input.policies.assessmentAttemptGradeRule],
-    },
-    {
-      key: "questionPoolReuseRule",
-      label: "Question Pool reuse",
-      value: questionPoolReuseRule[input.policies.questionPoolReuseRule],
     },
     {
       key: "questionVariationRule",

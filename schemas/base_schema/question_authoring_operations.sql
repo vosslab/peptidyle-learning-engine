@@ -431,25 +431,50 @@ BEGIN
 END
 $$;
 
--- Any active Instructor may remove a Draft Question.  Publication lineages
--- are in ple_data and are never considered by this Draft-only operation.
+-- ASVS 1.2.4, 2.2.1-2.2.2, and 2.3.1-2.3.4: resolve the bounded public
+-- reference under current owner authority, lock the Draft, enforce its exact
+-- Edit Number, and delete the private aggregate atomically.  Published
+-- Question lineages are separate ple_data state and are never considered.
 CREATE FUNCTION ple_private.delete_draft_question(
-    p_draft_question_uuid uuid
+    p_reference_number bigint,
+    p_expected_edit_number bigint
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
+DECLARE
+    v_draft_question_uuid uuid;
+    v_current_edit_number bigint;
 BEGIN
-    IF p_draft_question_uuid IS NULL
-       OR NOT ple_api.current_session_account_is_instructor() THEN
-        RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Draft Question deletion requires an active Instructor';
+    IF p_reference_number IS NULL OR p_reference_number NOT BETWEEN 1 AND 2147483647
+       OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Draft Question deletion arguments are invalid';
     END IF;
-    PERFORM pg_catalog.set_config(
-        'ple.authorized_draft_delete_uuid', p_draft_question_uuid::text, true);
-    DELETE FROM ple_private.draft_question
-     WHERE draft_question_uuid = p_draft_question_uuid;
+    IF NOT ple_api.current_session_account_is_instructor() THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Draft Question deletion requires its current owner';
+    END IF;
+    SELECT question.draft_question_uuid, question.draft_question_edit_number
+      INTO v_draft_question_uuid, v_current_edit_number
+      FROM ple_private.draft_question AS question
+     WHERE question.reference_number = p_reference_number
+       AND ple_private.current_session_account_owns_draft_question(
+               question.draft_question_uuid)
+     FOR UPDATE OF question;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Draft Question deletion requires an active Instructor and Draft Question';
+            MESSAGE = 'Draft Question deletion requires its current owner';
+    END IF;
+    IF v_current_edit_number <> p_expected_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001',
+            MESSAGE = 'Draft Question Edit Number is stale';
+    END IF;
+    PERFORM pg_catalog.set_config(
+        'ple.authorized_draft_delete_uuid', v_draft_question_uuid::text, true);
+    DELETE FROM ple_private.draft_question
+     WHERE draft_question_uuid = v_draft_question_uuid;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Draft Question deletion requires its current owner';
     END IF;
 END
 $$;
@@ -461,7 +486,7 @@ REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
     ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
     ple_private.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_private.delete_draft_question(uuid)
+    ple_private.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid),
@@ -470,7 +495,7 @@ GRANT EXECUTE ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
     ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
     ple_private.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_private.delete_draft_question(uuid)
+    ple_private.delete_draft_question(bigint, bigint)
     TO ple_api_owner;
 RESET ROLE;
 
@@ -555,10 +580,11 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_reference_number, p_expected_edit_number, p_general_feedback)
 $$;
 CREATE FUNCTION ple_api.delete_draft_question(
-    p_draft_question_uuid uuid
+    p_reference_number bigint,
+    p_expected_edit_number bigint
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT ple_private.delete_draft_question(p_draft_question_uuid)
+    SELECT ple_private.delete_draft_question(p_reference_number, p_expected_edit_number)
 $$;
 REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid),
@@ -567,7 +593,7 @@ REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
     ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
     ple_api.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_api.delete_draft_question(uuid)
+    ple_api.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid),
@@ -576,6 +602,6 @@ GRANT EXECUTE ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
     ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text),
     ple_api.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_api.delete_draft_question(uuid)
+    ple_api.delete_draft_question(bigint, bigint)
     TO ple_app;
 RESET ROLE;

@@ -144,7 +144,7 @@ pub struct AssessmentSummary {
     pub entries: Vec<AssessmentEntrySummary>,
     /// Assessment-owned student-facing disclosure schedule.
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
-    /// Nine independent Assessment Activity Rules.
+    /// Six independent Assessment Activity Rules.
     pub policies: AssessmentActivityRules,
 }
 
@@ -163,8 +163,6 @@ pub struct AssessmentOverview {
     pub instructions: AssessmentInstructions,
     /// Number of active questions a student receives in one Assessment Attempt.
     pub questions_per_assessment_attempt: u32,
-    /// Student-visible Question Pool Reuse Rule.
-    pub question_pool_reuse_rule: crate::QuestionPoolReuseRule,
     /// Student-visible Question Variation Rule.
     pub question_variation_rule: AssessmentQuestionVariationRule,
     /// Student-visible disclosure schedule.
@@ -337,7 +335,6 @@ mod tests {
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
                 assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },
@@ -361,7 +358,6 @@ mod tests {
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
                 assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },
@@ -382,7 +378,6 @@ mod tests {
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
                 assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
-                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },
@@ -394,7 +389,6 @@ mod tests {
                 instructions: AssessmentInstructions::try_new("Read the legend.".to_string())
                     .expect("valid instructions"),
                 questions_per_assessment_attempt: 0,
-                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             },

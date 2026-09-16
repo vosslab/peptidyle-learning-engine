@@ -24,7 +24,7 @@ def redacted_failure_detail(
 	excerpts = []
 	# ASVS 13.3.2, 16.2.5, and 16.5.1: redact each stream before retaining
 	# its bounded diagnostic excerpt for the local operator.
-	for stream_text in (result.stdout, result.stderr):
+	for stream_text in (result.stderr, result.stdout):
 		redacted = stream_text
 		for value in private_markers:
 			if value != "":

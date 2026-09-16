@@ -132,7 +132,7 @@ assignment = {
   "title": "Course Instance source assignment",
   "instructions": "Use the published Question in reusable course structure.",
   "entries": [{"kind":"fixed","question_id":question_id,"points_possible":"1","scoring_rule":"normal","question_attempt_limit":{"maxAttempts":None},"question_attempt_time_limit":{"kind":"unlimited"}}],
-  "defaults": {"assignment_attempt_time_limit_seconds":None,"attempt_limit":2,"late_work_rule":"accept","activity_rules":{"assignmentCompletionRule":{"kind":"answerAll"},"assignmentAttemptGradeRule":"highest","assignmentAttemptContinuationRule":{"kind":"unlimited"},"questionPoolReuseRule":"reuseSelection","questionVariationRule":"newVariation","assignmentAttemptResumeRule":"resumable","assignmentQuestionDisplayRule":"allQuestions","assignmentNavigationRule":"freeNavigation","assignmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
+  "defaults": {"assignment_attempt_time_limit_seconds":None,"attempt_limit":2,"late_work_rule":"accept","activity_rules":{"assignmentCompletionRule":{"kind":"answerAll"},"assignmentAttemptGradeRule":"highest","assignmentAttemptContinuationRule":{"kind":"unlimited"},"questionVariationRule":"newVariation","assignmentAttemptResumeRule":"resumable","assignmentQuestionDisplayRule":"allQuestions","assignmentNavigationRule":"freeNavigation","assignmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
   "schedule":{"available_at":None,"due_at":None,"closes_at":None},
 }
 print(json.dumps({"short_name":"M8 source","long_name":"M8 exact Blueprint source","modules":[{"label":"M8 module","assignments":[assignment]}]}, separators=(",",":")))
@@ -195,7 +195,7 @@ assert_instructor_view() {
 	python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-if set(value) != {"course", "activeInstructorCount"}:
+if set(value) != {"course", "activeInstructorCount", "blueprintOrigin"}:
     raise SystemExit("Course Instance teaching-team view was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
@@ -208,6 +208,18 @@ if course["shortName"] != sys.argv[3] or course["longName"] != sys.argv[4]:
     raise SystemExit("Course Instance teaching-team view did not retain both names")
 if not isinstance(value["activeInstructorCount"], int) or value["activeInstructorCount"] < 1:
     raise SystemExit("Course Instance teaching-team view lacks active Instructor evidence")
+origin = value["blueprintOrigin"]
+if origin is not None and (
+    not isinstance(origin, dict)
+    or set(origin) != {"reference", "adoptedRevision", "currentRevision"}
+    or not re.fullmatch(r"BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}", origin["reference"])
+    or not isinstance(origin["adoptedRevision"], str)
+    or not isinstance(origin["currentRevision"], str)
+    or not re.fullmatch(r"[1-9][0-9]*", origin["adoptedRevision"])
+    or not re.fullmatch(r"[1-9][0-9]*", origin["currentRevision"])
+    or not 0 < int(origin["adoptedRevision"]) <= int(origin["currentRevision"])
+):
+    raise SystemExit("Course Instance Blueprint origin was not a closed ordered provenance")
 forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}
 if forbidden.intersection(value) or forbidden.intersection(course):
     raise SystemExit("Course Instance teaching-team view exposed future or private state")

@@ -88,6 +88,14 @@
   flex-wrap: wrap;
 }
 
+.blueprint-course-archive-filter {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  color: var(--ple-muted);
+  font-weight: 680;
+}
+
 .blueprint-course-summary-list,
 .blueprint-course-entry-list {
   display: grid;

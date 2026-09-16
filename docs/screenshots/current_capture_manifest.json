@@ -56,7 +56,7 @@
       "id": "instructor_course_list_laptop",
       "path": "instructor/course_list_laptop.png",
       "role": "instructor",
-      "routeId": "courses",
+      "routeId": "instructorHome",
       "area": "courses",
       "workflow": "seeded teaching course",
       "state": "course list",
@@ -206,6 +206,132 @@
       "viewport": "laptop",
       "privacyProfile": "instructor_answer_free",
       "gallery": { "order": 230, "caption": "Published Question detail" }
+    },
+    {
+      "id": "instructor_question_pool_creation_review_laptop",
+      "path": "instructor/question_pool_creation_review_laptop.png",
+      "role": "instructor",
+      "routeId": "library",
+      "area": "question library",
+      "workflow": "question pool creation",
+      "state": "selected Question review",
+      "scenario": "instructor_pools",
+      "checkpoint": "pool_creation_review",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 240, "caption": "Question Pool creation review" }
+    },
+    {
+      "id": "instructor_webwork_generated_example_laptop",
+      "path": "instructor/webwork_generated_example_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "rendered WeBWorK example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "generated_example_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 250, "caption": "Answer-free WeBWorK generated example" }
+    },
+    {
+      "id": "instructor_webwork_hla_genotype_laptop",
+      "path": "instructor/webwork_hla_genotype_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "HLA haplotype inheritance example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "hla_genotype_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 260, "caption": "HLA offspring genotype generated example" }
+    },
+    {
+      "id": "instructor_webwork_monohybrid_matching_laptop",
+      "path": "instructor/webwork_monohybrid_matching_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "monohybrid genotype matching example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "monohybrid_matching_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 270, "caption": "Monohybrid genotype matching generated example" }
+    },
+    {
+      "id": "instructor_webwork_x_linked_counts_laptop",
+      "path": "instructor/webwork_x_linked_counts_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "X-linked offspring count table example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "x_linked_counts_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 280, "caption": "X-linked offspring count table generated example" }
+    },
+    {
+      "id": "instructor_webwork_dna_structure_laptop",
+      "path": "instructor/webwork_dna_structure_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "True/False Statements About DNA Structure generated example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "dna_structure_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 1240, "caption": "True/False Statements About DNA Structure generated example" }
+    },
+    {
+      "id": "instructor_webwork_meiosis_prophase_laptop",
+      "path": "instructor/webwork_meiosis_prophase_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "Matching Meiosis Prophase I Stages to Descriptions generated example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "meiosis_prophase_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 1250, "caption": "Matching Meiosis Prophase I Stages to Descriptions generated example" }
+    },
+    {
+      "id": "instructor_webwork_chi_square_laptop",
+      "path": "instructor/webwork_chi_square_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "True/False Statements About Chi-Square Tests generated example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "chi_square_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 1260, "caption": "True/False Statements About Chi-Square Tests generated example" }
+    },
+    {
+      "id": "instructor_webwork_chromosome_shapes_laptop",
+      "path": "instructor/webwork_chromosome_shapes_laptop.png",
+      "role": "instructor",
+      "routeId": "questionDetail",
+      "area": "question library",
+      "workflow": "generated Question preview",
+      "state": "Matching Chromosome Shapes to Descriptions generated example",
+      "scenario": "instructor_webwork",
+      "checkpoint": "chromosome_shapes_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 1270, "caption": "Matching Chromosome Shapes to Descriptions generated example" }
     },
 
     {
@@ -364,12 +490,26 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": { "order": 540, "caption": "Released Assignment Policies", "featured": true }
     },
+    {
+      "id": "instructor_assessment_template_editor_laptop",
+      "path": "instructor/assessment_template_editor_laptop.png",
+      "role": "instructor",
+      "routeId": "assessmentTemplates",
+      "area": "assignments",
+      "workflow": "assessment template creation",
+      "state": "editable template",
+      "scenario": "instructor_templates",
+      "checkpoint": "template_editor",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 550, "caption": "Editable Assessment Template" }
+    },
 
     {
       "id": "student_course_list_laptop",
       "path": "student/course_list_laptop.png",
       "role": "student",
-      "routeId": "courses",
+      "routeId": "studentHome",
       "area": "courses",
       "workflow": "course navigation",
       "state": "course list",
@@ -383,7 +523,7 @@
       "id": "student_course_list_phone",
       "path": "student/course_list_phone.png",
       "role": "student",
-      "routeId": "courses",
+      "routeId": "studentHome",
       "area": "courses",
       "workflow": "course navigation",
       "state": "course list",
@@ -567,14 +707,14 @@
       "id": "student_assignment_attempt_submitted_phone",
       "path": "student/assignment_attempt_submitted_phone.png",
       "role": "student",
-      "routeId": "assessmentAttempt",
+      "routeId": "assessmentAttemptSummary",
       "area": "assignments",
       "workflow": "assignment attempt",
       "state": "submitted",
       "scenario": "student_assignment_attempt",
       "checkpoint": "submitted",
       "viewport": "phone",
-      "privacyProfile": "student_self",
+      "privacyProfile": "student_feedback_released",
       "gallery": { "order": 850, "caption": "Submitted Student Assignment on a phone" }
     },
     {
@@ -588,7 +728,7 @@
       "scenario": "student_assignment_history",
       "checkpoint": "selected_history",
       "viewport": "laptop",
-      "privacyProfile": "student_self",
+      "privacyProfile": "student_feedback_released",
       "gallery": { "order": 860, "caption": "Selected Assignment history" }
     },
     {
@@ -622,17 +762,17 @@
 
     {
       "id": "sysadmin_course_list_laptop",
-      "path": "sysadmin/course_list_laptop.png",
+      "path": "sysadmin/system_administration_home_laptop.png",
       "role": "sysadmin",
-      "routeId": "courses",
-      "area": "courses",
-      "workflow": "role navigation",
-      "state": "course list",
+      "routeId": "sysadminHome",
+      "area": "system administration",
+      "workflow": "system administration",
+      "state": "system administration home",
       "scenario": "sysadmin_courses",
       "checkpoint": "course_list",
       "viewport": "laptop",
       "privacyProfile": "sysadmin_account",
-      "gallery": { "order": 1110, "caption": "Sysadmin Courses page", "featured": true }
+      "gallery": { "order": 1110, "caption": "System administration home", "featured": true }
     },
     {
       "id": "sysadmin_instructor_accounts_initial_laptop",
@@ -695,27 +835,23 @@
     "routes": [
       {
         "routeId": "courses",
-        "status": "captured",
-        "captureIds": [
-          "instructor_course_list_laptop",
-          "student_course_list_laptop",
-          "sysadmin_course_list_laptop"
-        ]
+        "status": "deferred",
+        "reason": "The root route is only signed-in Product Role resolution; current canonical captures use their role-owned home routes."
       },
       {
         "routeId": "instructorHome",
-        "status": "deferred",
-        "reason": "The new explicit Instructor home requires a fresh Live Demo capture before visual evidence is claimed."
+        "status": "captured",
+        "captureIds": ["instructor_course_list_laptop"]
       },
       {
         "routeId": "studentHome",
-        "status": "deferred",
-        "reason": "The new explicit Student home requires a fresh Live Demo capture before visual evidence is claimed."
+        "status": "captured",
+        "captureIds": ["student_course_list_laptop", "student_course_list_phone"]
       },
       {
         "routeId": "sysadminHome",
-        "status": "deferred",
-        "reason": "The new explicit Sysadmin home requires a fresh Live Demo capture before visual evidence is claimed."
+        "status": "captured",
+        "captureIds": ["sysadmin_course_list_laptop"]
       },
       {
         "routeId": "profile",
@@ -745,19 +881,24 @@
         "status": "captured",
         "captureIds": [
           "student_assignment_attempt_saved_laptop",
-          "student_assignment_attempt_resumed_tablet",
-          "student_assignment_attempt_submitted_phone"
+          "student_assignment_attempt_resumed_tablet"
         ]
       },
       {
         "routeId": "assessmentAttemptSummary",
         "status": "captured",
-        "captureIds": ["student_assignment_attempt_summary_laptop"]
+        "captureIds": [
+          "student_assignment_attempt_submitted_phone",
+          "student_assignment_attempt_summary_laptop"
+        ]
       },
       {
         "routeId": "library",
         "status": "captured",
-        "captureIds": ["instructor_question_library_laptop"]
+        "captureIds": [
+          "instructor_question_library_laptop",
+          "instructor_question_pool_creation_review_laptop"
+        ]
       },
       {
         "routeId": "libraryBrowse",
@@ -767,7 +908,17 @@
       {
         "routeId": "questionDetail",
         "status": "captured",
-        "captureIds": ["instructor_published_question_detail_laptop"]
+        "captureIds": [
+          "instructor_published_question_detail_laptop",
+          "instructor_webwork_generated_example_laptop",
+          "instructor_webwork_hla_genotype_laptop",
+          "instructor_webwork_monohybrid_matching_laptop",
+          "instructor_webwork_x_linked_counts_laptop",
+          "instructor_webwork_dna_structure_laptop",
+          "instructor_webwork_meiosis_prophase_laptop",
+          "instructor_webwork_chi_square_laptop",
+          "instructor_webwork_chromosome_shapes_laptop"
+        ]
       },
       {
         "routeId": "questionDrafts",
@@ -902,7 +1053,18 @@
       {
         "id": "tab:questions",
         "status": "captured",
-        "captureIds": ["instructor_question_library_laptop"]
+        "captureIds": [
+          "instructor_question_library_laptop",
+          "instructor_question_pool_creation_review_laptop",
+          "instructor_webwork_generated_example_laptop",
+          "instructor_webwork_hla_genotype_laptop",
+          "instructor_webwork_monohybrid_matching_laptop",
+          "instructor_webwork_x_linked_counts_laptop",
+          "instructor_webwork_dna_structure_laptop",
+          "instructor_webwork_meiosis_prophase_laptop",
+          "instructor_webwork_chi_square_laptop",
+          "instructor_webwork_chromosome_shapes_laptop"
+        ]
       },
       {
         "id": "tab:productAssessments",

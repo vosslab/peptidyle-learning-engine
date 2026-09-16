@@ -39,6 +39,29 @@ REVOKE ALL ON FUNCTION ple_api.load_course_instance_blueprint(text, bigint) FROM
 GRANT EXECUTE ON FUNCTION ple_api.load_course_instance_blueprint(text, bigint) TO ple_app;
 RESET ROLE;
 
+SET LOCAL ROLE ple_api_owner;
+-- The automatic append is authorized by Blueprint ownership, not daughter
+-- teaching membership or current Course Instance activity.
+CREATE FUNCTION ple_api.load_blueprint_assessment_copy_source(p_reference bigint, p_revision bigint)
+RETURNS TABLE(content jsonb, content_checksum bytea)
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT revision.content, revision.content_checksum
+      FROM ple_data.blueprint_course AS blueprint
+      JOIN ple_data.blueprint_course_revision AS revision
+        ON revision.blueprint_course_reference_number = blueprint.reference_number
+       AND revision.blueprint_revision_number = p_revision
+     WHERE blueprint.reference_number = p_reference
+       AND ((blueprint.availability IN ('public', 'archived')
+             AND (ple_api.current_session_account_is_instructor()
+                  OR ple_api.current_session_account_is_sysadmin()))
+            OR (blueprint.owner_account_id = ple_api.current_session_account_id()
+                AND ple_api.current_session_account_is_instructor()))
+$$;
+REVOKE ALL ON FUNCTION ple_api.load_blueprint_assessment_copy_source(bigint, bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.load_blueprint_assessment_copy_source(bigint, bigint) TO ple_data_owner;
+RESET ROLE;
+
 SET LOCAL ROLE ple_data_owner;
 
 -- ASVS 2.3.1 and 2.3.3: course adoption is one atomic business operation.
@@ -63,7 +86,7 @@ BEGIN
     END IF;
     FOR member IN SELECT value FROM jsonb_array_elements(p_assessments) LOOP
         SELECT assessment_row.assessment -> 'content' INTO source_content
-          FROM ple_api.load_course_instance_blueprint(
+          FROM ple_api.load_blueprint_assessment_copy_source(
               p_blueprint_reference, p_blueprint_revision
           ) AS revision
           CROSS JOIN LATERAL jsonb_array_elements(revision.content -> 'modules')
@@ -92,8 +115,6 @@ BEGIN
             'assessment_attempt_grade_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentAttemptGradeRule}')
                 WHEN 'first' THEN 'first' WHEN 'latest' THEN 'latest' WHEN 'highest' THEN 'highest'
                 WHEN 'instructorSelected' THEN 'instructor_selected' END,
-            'question_pool_reuse_rule', CASE (source_content #>> '{defaults,activity_rules,questionPoolReuseRule}')
-                WHEN 'reuseSelection' THEN 'reuse_selection' WHEN 'selectAgain' THEN 'select_again' END,
             'question_variation_rule', CASE (source_content #>> '{defaults,activity_rules,questionVariationRule}')
                 WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END,
             'assessment_attempt_resume_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentAttemptResumeRule}')
@@ -124,9 +145,9 @@ BEGIN
         LOOP
             proposed_entry := member -> 'entries' -> entry_index;
             IF source_entry ->> 'kind' = 'fixed' THEN
-                IF proposed_entry ->> 'kind' <> 'fixed_question'
-                   OR proposed_entry ->> 'availability' <> 'available'
-                   OR proposed_entry ->> 'authoredPosition' <> entry_index::text
+                IF proposed_entry ->> 'kind' IS DISTINCT FROM 'fixed_question'
+                   OR proposed_entry ->> 'availability' IS DISTINCT FROM 'available'
+                   OR proposed_entry ->> 'authoredPosition' IS DISTINCT FROM entry_index::text
                    -- C842/C843 store Question IDs compactly. The sealed JSON
                    -- uses the model's display serialization (AAAA-ZBBB), so
                    -- remove only that presentation separator at this trusted
@@ -147,9 +168,9 @@ BEGIN
                         MESSAGE = 'Blueprint Fixed Question differs from its exact Revision';
                 END IF;
             ELSIF source_entry ->> 'kind' = 'pool' THEN
-                IF proposed_entry ->> 'kind' <> 'question_pool'
-                   OR proposed_entry ->> 'availability' <> 'available'
-                   OR proposed_entry ->> 'authoredPosition' <> entry_index::text
+                IF proposed_entry ->> 'kind' IS DISTINCT FROM 'question_pool'
+                   OR proposed_entry ->> 'availability' IS DISTINCT FROM 'available'
+                   OR proposed_entry ->> 'authoredPosition' IS DISTINCT FROM entry_index::text
                    OR proposed_entry ->> 'sourceQuestionPoolId' IS DISTINCT FROM
                         replace(source_entry #>> '{question_pool_revision,questionPoolId}', '-', '')
                    OR proposed_entry ->> 'sourceQuestionPoolRevisionNumber' IS DISTINCT FROM
@@ -184,7 +205,7 @@ BEGIN
 END;
 $$;
 
-CREATE FUNCTION ple_data.initialize_course_assessments(
+CREATE FUNCTION ple_data.append_course_assessments(
     p_course_id uuid, p_blueprint_reference bigint, p_blueprint_revision bigint, p_assessments jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
@@ -197,14 +218,21 @@ DECLARE
     source_question_pool_id uuid;
     forked record;
 BEGIN
-    IF EXISTS (SELECT 1 FROM ple_data.assessment WHERE course_id = p_course_id)
-       OR jsonb_typeof(p_assessments) IS DISTINCT FROM 'array' THEN
+    IF jsonb_typeof(p_assessments) IS DISTINCT FROM 'array' THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course initial assessments are invalid';
     END IF;
     PERFORM ple_data.validate_course_blueprint_adoption(
         p_blueprint_reference, p_blueprint_revision, p_assessments
     );
     FOR member IN SELECT value FROM jsonb_array_elements(p_assessments) LOOP
+        -- Stable provenance makes a repeated append harmless, without touching
+        -- the existing daughter copy's policies, release state, or Student Work.
+        IF EXISTS (
+            SELECT 1 FROM ple_data.assessment
+             WHERE course_id = p_course_id
+               AND source_blueprint_course_reference_number = p_blueprint_reference
+               AND source_blueprint_assessment_reference = (member ->> 'source')::uuid
+        ) THEN CONTINUE; END IF;
         IF jsonb_typeof(member -> 'entries') IS DISTINCT FROM 'array'
            OR jsonb_array_length(member -> 'entries') = 0 THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint Assessment requires its Questions';
@@ -228,7 +256,6 @@ BEGIN
             assessment_attempt_limit,
             late_work_rule,
             assessment_attempt_grade_rule,
-            question_pool_reuse_rule,
             question_variation_rule,
             assessment_attempt_resume_rule,
             assessment_question_display_rule,
@@ -254,7 +281,6 @@ BEGIN
             candidate.assessment_attempt_limit,
             candidate.late_work_rule,
             candidate.assessment_attempt_grade_rule,
-            candidate.question_pool_reuse_rule,
             candidate.question_variation_rule,
             candidate.assessment_attempt_resume_rule,
             candidate.assessment_question_display_rule,
@@ -333,6 +359,156 @@ BEGIN
 END
 $$;
 
+REVOKE ALL ON FUNCTION ple_data.append_course_assessments(uuid, bigint, bigint, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_data.append_course_assessments(uuid, bigint, bigint, jsonb) TO ple_api_owner;
+
+CREATE FUNCTION ple_data.initialize_course_assessments(
+    p_course_id uuid, p_blueprint_reference bigint, p_blueprint_revision bigint, p_assessments jsonb
+)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM ple_data.assessment WHERE course_id = p_course_id) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course initial assessments are invalid';
+    END IF;
+    PERFORM ple_data.append_course_assessments(
+        p_course_id, p_blueprint_reference, p_blueprint_revision, p_assessments
+    );
+END
+$$;
 REVOKE ALL ON FUNCTION ple_data.initialize_course_assessments(uuid, bigint, bigint, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_data.initialize_course_assessments(uuid, bigint, bigint, jsonb) TO ple_api_owner;
+RESET ROLE;
+
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.list_blueprint_daughter_course_ids(p_reference text)
+RETURNS TABLE(course_id uuid)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    PERFORM 1 FROM ple_data.blueprint_course
+     WHERE public_reference = p_reference
+       AND owner_account_id = ple_api.current_session_account_id()
+       AND ple_api.current_session_account_is_instructor()
+     FOR UPDATE;
+    RETURN QUERY SELECT daughter.course_id
+      FROM ple_data.course_instance AS daughter
+      JOIN ple_data.blueprint_course AS blueprint
+        ON blueprint.reference_number = daughter.blueprint_course_reference_number
+     WHERE blueprint.public_reference = p_reference
+       AND blueprint.owner_account_id = ple_api.current_session_account_id()
+       AND ple_api.current_session_account_is_instructor()
+     ORDER BY daughter.course_id;
+END
+$$;
+
+CREATE FUNCTION ple_api.append_new_blueprint_assessments(
+    p_reference text, p_prior_revision bigint, p_saved_revision bigint,
+    p_course_id uuid, p_assessments jsonb
+)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+DECLARE
+    blueprint ple_data.blueprint_course%ROWTYPE;
+    expected_sources jsonb;
+    proposed_sources jsonb;
+BEGIN
+    -- ASVS 8.2.1, 8.2.2: the owner may append only to daughters of this parent.
+    -- ASVS 2.3.1, 2.3.3: this runs before the Store commits the Save,
+    -- under the same Blueprint lock used by Save and Course adoption.
+    SELECT * INTO blueprint FROM ple_data.blueprint_course
+     WHERE public_reference = p_reference
+       AND owner_account_id = ple_api.current_session_account_id()
+       AND ple_api.current_session_account_is_instructor()
+     FOR UPDATE;
+    IF NOT FOUND OR p_saved_revision <> p_prior_revision + 1
+       OR blueprint.current_blueprint_revision_number < p_saved_revision
+       OR jsonb_typeof(p_assessments) IS DISTINCT FROM 'array'
+       OR NOT EXISTS (
+           SELECT 1 FROM ple_data.course_instance
+            WHERE course_id = p_course_id
+              AND blueprint_course_reference_number = blueprint.reference_number
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint Assessment append is invalid';
+    END IF;
+    SELECT COALESCE(jsonb_agg(added.blueprint_assessment_reference::text
+                             ORDER BY added.blueprint_assessment_reference::text), '[]'::jsonb)
+      INTO expected_sources
+      FROM ple_data.blueprint_revision_assessment AS added
+     WHERE added.blueprint_course_reference_number = blueprint.reference_number
+       AND added.blueprint_revision_number = p_saved_revision
+       AND NOT EXISTS (
+           SELECT 1 FROM ple_data.blueprint_revision_assessment AS prior
+            WHERE prior.blueprint_course_reference_number = blueprint.reference_number
+              AND prior.blueprint_revision_number = p_prior_revision
+              AND prior.blueprint_assessment_reference = added.blueprint_assessment_reference
+       );
+    SELECT COALESCE(jsonb_agg(value ->> 'source' ORDER BY value ->> 'source'), '[]'::jsonb)
+      INTO proposed_sources FROM jsonb_array_elements(p_assessments);
+    IF proposed_sources IS DISTINCT FROM expected_sources THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint append must contain only newly added Assessments';
+    END IF;
+    PERFORM ple_data.append_course_assessments(
+        p_course_id, blueprint.reference_number, p_saved_revision, p_assessments
+    );
+END
+$$;
+REVOKE ALL ON FUNCTION ple_api.list_blueprint_daughter_course_ids(text),
+    ple_api.append_new_blueprint_assessments(text, bigint, bigint, uuid, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.list_blueprint_daughter_course_ids(text) TO ple_app;
+
+-- Only this complete Save operation is callable by the application role.
+REVOKE ALL ON FUNCTION ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea) FROM PUBLIC, ple_app;
+CREATE FUNCTION ple_api.save_blueprint_course(
+    p_reference text, p_expected_blueprint_revision_number bigint,
+    p_request_checksum bytea, p_content jsonb, p_content_checksum bytea,
+    p_daughters jsonb
+)
+RETURNS TABLE(resulting_blueprint_revision_number bigint, changed boolean,
+              accepted_at timestamp with time zone)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+DECLARE
+    receipt record;
+    replay boolean;
+    daughter jsonb;
+    expected_daughters jsonb;
+    proposed_daughters jsonb;
+BEGIN
+    SELECT COALESCE(jsonb_agg(course_id::text ORDER BY course_id::text), '[]'::jsonb)
+      INTO expected_daughters FROM ple_api.list_blueprint_daughter_course_ids(p_reference);
+    SELECT EXISTS (
+        SELECT 1 FROM ple_data.blueprint_course_save_receipt AS prior_receipt
+        JOIN ple_data.blueprint_course AS blueprint
+          ON blueprint.reference_number = prior_receipt.blueprint_course_reference_number
+        WHERE blueprint.public_reference = p_reference
+          AND prior_receipt.actor_account_id = ple_api.current_session_account_id()
+          AND prior_receipt.request_checksum = p_request_checksum
+    ) INTO replay;
+    SELECT * INTO receipt FROM ple_api.save_blueprint_course(
+        p_reference, p_expected_blueprint_revision_number, p_request_checksum,
+        p_content, p_content_checksum
+    );
+    IF receipt.changed AND NOT replay THEN
+        IF jsonb_typeof(p_daughters) IS DISTINCT FROM 'array' THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint daughters are invalid';
+        END IF;
+        SELECT COALESCE(jsonb_agg(value ->> 'course_id' ORDER BY value ->> 'course_id'), '[]'::jsonb)
+          INTO proposed_daughters FROM jsonb_array_elements(p_daughters);
+        IF proposed_daughters IS DISTINCT FROM expected_daughters THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Blueprint Save requires every daughter Course Instance';
+        END IF;
+        FOR daughter IN SELECT value FROM jsonb_array_elements(p_daughters) LOOP
+            PERFORM ple_api.append_new_blueprint_assessments(
+                p_reference, p_expected_blueprint_revision_number,
+                receipt.resulting_blueprint_revision_number,
+                (daughter ->> 'course_id')::uuid, daughter -> 'assessments'
+            );
+        END LOOP;
+    END IF;
+    RETURN QUERY SELECT receipt.resulting_blueprint_revision_number, receipt.changed, receipt.accepted_at;
+END
+$$;
+REVOKE ALL ON FUNCTION ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea, jsonb) TO ple_app;
 RESET ROLE;

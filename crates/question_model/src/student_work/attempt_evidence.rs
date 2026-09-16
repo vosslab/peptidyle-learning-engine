@@ -56,7 +56,7 @@ pub enum AssessmentAttemptPolicySource {
 /// Student Accommodation adjustments can change.
 ///
 /// Schedule covers available, due, and close instants. The Assessment policy
-/// remains the source for all activity, feedback, ordering, reuse, variation,
+/// remains the source for all activity, feedback, ordering, variation,
 /// and late-work rules because no current adjustment can change
 /// those facts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -139,11 +139,6 @@ impl AssessmentAttempt {
         } else {
             AssessmentAttemptCompletion::InProgress
         }
-    }
-
-    /// Returns the frozen Question Pool selection policy for this Attempt.
-    pub fn question_pool_reuse_rule(&self) -> crate::QuestionPoolReuseRule {
-        self.evidence.activity_rules.question_pool_reuse_rule
     }
 
     /// Returns the frozen Question Variation policy for this Attempt.

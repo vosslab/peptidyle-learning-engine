@@ -143,7 +143,7 @@ RETURNS TABLE (
     question_pool_public_id text, question_pool_revision_number bigint, member_position integer,
     pool_question_id text, pool_revision_number integer, question_backend text,
     selection_count integer,
-    pool_selection_rule text, question_pool_reuse_rule text,
+    pool_selection_rule text,
     question_variation_rule text, assessment_question_order_rule text
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$

@@ -139,6 +139,18 @@
   overflow-wrap: anywhere;
 }
 
+.assessment-history__list {
+  display: grid;
+  gap: var(--ple-list-row-gap);
+}
+
+.assessment-history__list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-list-row-gap);
+  align-items: baseline;
+}
+
 @media (max-width: 56rem) {
   .student-time-zone-control,
   .student-time-zone-control form {

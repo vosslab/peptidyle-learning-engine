@@ -1,17 +1,18 @@
 //! Materialize all immutable Blueprint members with fresh teaching identities.
 
 use question_model::{
-    AssessmentEditNumber, AssessmentEntry, AssessmentEntryAvailability, AssessmentEntryId,
-    AssessmentTitle, FixedQuestionAssessmentEntry, QuestionAttemptTimeLimit,
+    AssessmentEditNumber, AssessmentEntryId, AssessmentTitle, QuestionAttemptTimeLimit,
     QuestionPoolSelectedQuestionOrder,
 };
 use serde_json::{Value, json};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use uuid::Uuid;
 
-use super::assessment_workspace_save::{assessment_entries_json, assessment_values_json};
+use super::assessment_workspace_save::assessment_values_json;
 use super::connection::map_sqlx_error;
-use crate::blueprint_course::{StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry};
+use crate::blueprint_course::{
+    StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry,
+};
 use crate::{
     CourseInstanceCreationSource, CourseInstancePoolIdIssuer, CreateCourseInstanceInput,
     SaveLiveAssessmentInput, StoreError, StoredBlueprintCourseContent,
@@ -45,61 +46,84 @@ pub(super) async fn creation_assessments(
     materialize(&content, pool_id_issuer)
 }
 
-fn materialize(
+pub(super) fn materialize(
     content: &StoredBlueprintCourseContent,
     pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
 ) -> Result<Value, StoreError> {
     let mut assessments = Vec::new();
     for module in &content.modules {
         for assessment in &module.assessments {
-            let input = assessment_input(&assessment.content)?;
-            let mut values = assessment_values_json(&input)?;
-            values["assessment_type"] = json!(assessment.content.assessment_type);
-            let mut entries = Vec::with_capacity(assessment.content.entries.len());
-            // ASVS 2.2.1 and 2.2.3: serialize each closed, typed source
-            // variant at its exact Blueprint position.  The database compares
-            // this complete ordered projection to the sealed Revision again.
-            for (position, entry) in assessment.content.entries.iter().enumerate() {
-                entries.push(match entry {
-                    StoredBlueprintAssessmentEntry::Fixed { .. } => {
-                        fixed_entry_json(position, entry)?
-                    }
-                    StoredBlueprintAssessmentEntry::Pool {
-                        question_pool_revision,
-                        selection_count,
-                        points_per_item,
-                        scoring_rule,
-                        selection_rule,
-                        question_attempt_limit,
-                        question_attempt_time_limit,
-                    } => {
-                        let issuer = pool_id_issuer.ok_or_else(|| {
-                            StoreError::Unavailable(
-                                "Question Pool fork identity issuer is unavailable".to_string(),
-                            )
-                        })?;
-                        pool_entry_json(
-                            position,
-                            question_pool_revision,
-                            *selection_count,
-                            points_per_item,
-                            *scoring_rule,
-                            selection_rule.selected_question_order,
-                            *question_attempt_limit,
-                            *question_attempt_time_limit,
-                            issuer.issue_question_pool_id()?,
-                        )?
-                    }
-                });
-            }
-            assessments.push(json!({
-                "source": assessment.blueprint_assessment_reference,
-                "values": values,
-                "entries": entries,
-            }));
+            assessments.push(materialize_assessment(assessment, pool_id_issuer)?);
         }
     }
     Ok(Value::Array(assessments))
+}
+
+/// Exact reusable projection, deliberately independent of fresh identity issuance.
+pub(super) fn reusable_assessment_projection(
+    assessment: &StoredBlueprintAssessment,
+) -> Result<Value, StoreError> {
+    let input = assessment_input(&assessment.content)?;
+    let mut values = assessment_values_json(&input)?;
+    values["assessment_type"] = json!(assessment.content.assessment_type);
+    let mut entries = Vec::with_capacity(assessment.content.entries.len());
+    // ASVS 2.2.1 and 2.2.3: serialize each closed, typed source
+    // variant at its exact Blueprint position.  The database compares
+    // this complete ordered projection to the sealed Revision again.
+    for (position, entry) in assessment.content.entries.iter().enumerate() {
+        entries.push(match entry {
+            StoredBlueprintAssessmentEntry::Fixed { .. } => fixed_entry_json(position, entry)?,
+            StoredBlueprintAssessmentEntry::Pool {
+                question_pool_revision,
+                selection_count,
+                points_per_item,
+                scoring_rule,
+                selection_rule,
+                question_attempt_limit,
+                question_attempt_time_limit,
+            } => pool_entry_json(
+                position,
+                question_pool_revision,
+                *selection_count,
+                points_per_item,
+                *scoring_rule,
+                selection_rule.selected_question_order,
+                *question_attempt_limit,
+                *question_attempt_time_limit,
+            )?,
+        });
+    }
+    Ok(json!({
+        "source": assessment.blueprint_assessment_reference,
+        "values": values,
+        "entries": entries,
+    }))
+}
+
+/// Materializes one retained member with new teaching identities only after semantic comparison.
+pub(super) fn materialize_assessment(
+    assessment: &StoredBlueprintAssessment,
+    pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+) -> Result<Value, StoreError> {
+    let mut member = reusable_assessment_projection(assessment)?;
+    let entries = member["entries"]
+        .as_array_mut()
+        .ok_or_else(|| invalid("Assessment Entries"))?;
+    for entry in entries {
+        entry["assessmentEntryId"] =
+            json!(AssessmentEntryId::from_uuid(random_uuid()?).to_string());
+        if entry["kind"] == "question_pool" {
+            let issuer = pool_id_issuer.ok_or_else(|| {
+                StoreError::Unavailable(
+                    "Question Pool fork identity issuer is unavailable".to_string(),
+                )
+            })?;
+            entry["forkQuestionPoolId"] = json!(random_uuid()?.to_string());
+            entry["forkPublicQuestionPoolId"] =
+                json!(issuer.issue_question_pool_id()?.as_compact_str());
+        }
+    }
+    Ok(member)
 }
 
 fn assessment_input(
@@ -128,39 +152,28 @@ fn fixed_entry_json(
     position: usize,
     entry: &StoredBlueprintAssessmentEntry,
 ) -> Result<Value, StoreError> {
-    let encoded = assessment_entries_json(&[instantiate_fixed_entry(entry)?])?;
-    let Value::Array(mut encoded) = encoded else {
-        return Err(invalid("Assessment Entries"));
-    };
-    let mut encoded = encoded.pop().ok_or_else(|| invalid("Assessment Entries"))?;
-    encoded["authoredPosition"] =
-        json!(i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?);
-    Ok(encoded)
-}
-
-fn instantiate_fixed_entry(
-    entry: &StoredBlueprintAssessmentEntry,
-) -> Result<AssessmentEntry, StoreError> {
-    let id = AssessmentEntryId::from_uuid(random_uuid()?);
-    let availability = AssessmentEntryAvailability::Available;
-    Ok(match entry {
+    match entry {
         StoredBlueprintAssessmentEntry::Fixed {
             question_revision,
             points_possible,
             scoring_rule,
             question_attempt_limit,
             question_attempt_time_limit,
-        } => AssessmentEntry::FixedQuestion(FixedQuestionAssessmentEntry {
-            id,
-            availability,
-            reference: question_revision.clone(),
-            points_possible: *points_possible,
-            scoring_rule: *scoring_rule,
-            question_attempt_limit: *question_attempt_limit,
-            question_attempt_time_limit: *question_attempt_time_limit,
-        }),
+        } => {
+            let (seconds, grace_seconds) = pool_time_limit(*question_attempt_time_limit);
+            Ok(
+                json!({"authoredPosition": i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?,
+                "kind": "fixed_question", "availability": "available",
+                "questionId": question_revision.question_id.as_compact_str(),
+                "revisionNumber": question_revision.revision_number.get(),
+                "pointsPossible": points_possible.to_string(),
+                "scoringRule": pool_scoring_rule(*scoring_rule),
+                "questionAttemptLimit": question_attempt_limit.max_attempts,
+                "questionAttemptTimeLimitSeconds": seconds, "questionAttemptGraceSeconds": grace_seconds}),
+            )
+        }
         StoredBlueprintAssessmentEntry::Pool { .. } => unreachable!("pool entries use fork import"),
-    })
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -173,19 +186,15 @@ fn pool_entry_json(
     selected_question_order: QuestionPoolSelectedQuestionOrder,
     question_attempt_limit: question_model::QuestionAttemptLimit,
     question_attempt_time_limit: QuestionAttemptTimeLimit,
-    fork_public_question_pool_id: question_model::QuestionId,
 ) -> Result<Value, StoreError> {
     let position = i32::try_from(position).map_err(|_| invalid("Assessment Entry position"))?;
     let (seconds, grace_seconds) = pool_time_limit(question_attempt_time_limit);
     Ok(json!({
-        "assessmentEntryId": AssessmentEntryId::from_uuid(random_uuid()?).to_string(),
         "authoredPosition": position,
         "kind": "question_pool",
         "availability": "available",
         "sourceQuestionPoolId": source.question_pool_id.as_compact_str(),
         "sourceQuestionPoolRevisionNumber": source.revision_number.get(),
-        "forkQuestionPoolId": random_uuid()?.to_string(),
-        "forkPublicQuestionPoolId": fork_public_question_pool_id.as_compact_str(),
         "selectionCount": selection_count.get(),
         "pointsPerItem": points_per_item.to_string(),
         "scoringRule": pool_scoring_rule(scoring_rule),

@@ -41,12 +41,12 @@ test("issued-question transport uses the explicit nested course and Assessment r
   const { attempt, client, requests } = clientWithIssuedQuestion(() => {});
   await client.getIssuedQuestion(
     publishedQuestionFixture.course.id,
-    publishedQuestionFixture.assignment.id,
+    publishedQuestionFixture.assessment.id,
     attempt.id,
   );
   assert.equal(
     requests[1]?.url,
-    `https://client.example.test/api/courses/${publishedQuestionFixture.course.id}/assessments/${publishedQuestionFixture.assignment.id}/attempts/${attempt.id}/question`,
+    `https://client.example.test/api/courses/${publishedQuestionFixture.course.id}/assessments/${publishedQuestionFixture.assessment.id}/attempts/${attempt.id}/question`,
   );
 });
 
@@ -62,7 +62,7 @@ test("issued-question transport preserves a concealed nested-route 404 without a
   await assert.rejects(
     client.getIssuedQuestion(
       publishedQuestionFixture.course.id,
-      publishedQuestionFixture.assignment.id,
+      publishedQuestionFixture.assessment.id,
       attempt.id,
     ),
     (error) => error instanceof ApiRequestError && error.status === 404,
@@ -81,7 +81,7 @@ test("issued-question transport rejects a response that carries a server-only fi
   await assert.rejects(
     client.getIssuedQuestion(
       publishedQuestionFixture.course.id,
-      publishedQuestionFixture.assignment.id,
+      publishedQuestionFixture.assessment.id,
       attempt.id,
     ),
     (error) =>
@@ -222,7 +222,7 @@ test("issued-question transport rejects server-only data from a Question Present
     await assert.rejects(
       client.getIssuedQuestion(
         publishedQuestionFixture.course.id,
-        publishedQuestionFixture.assignment.id,
+        publishedQuestionFixture.assessment.id,
         attempt.id,
       ),
       (error) =>

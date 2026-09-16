@@ -66,7 +66,7 @@ later co-Instructor.
 
 The ordinary publisher makes all eight reviewed Pilot Questions available in
 the Question Library, including the four WeBWorK Questions described in
-[`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml).
+[`content/pilot/chapter_1_assessments.yaml`](../content/pilot/chapter_1_assessments.yaml).
 Its released Assessment, **Chapter 1 Pilot Practice**, has Type **Practice
 Question Assignment** and uses the four
 PLE-native PLE Question JSON Pilot Questions. Each entry pins the exact

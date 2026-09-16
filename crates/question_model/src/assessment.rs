@@ -690,7 +690,6 @@ mod tests {
                 },
                 "activityRules": {
                     "assessmentAttemptGradeRule": "highest",
-                    "questionPoolReuseRule": "reuseSelection",
                     "questionVariationRule": "newVariation",
                     "assessmentAttemptResumeRule": "resumable",
                     "assessmentQuestionDisplayRule": "allQuestions",

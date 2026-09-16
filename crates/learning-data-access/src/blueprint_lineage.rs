@@ -2,10 +2,42 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AccountId, BlueprintMetadataEtag, BlueprintRevisionReference, RequestChecksum, Timestamp,
+    AccountId, BlueprintAvailability, BlueprintCourseReference, BlueprintMetadataEtag,
+    BlueprintRevision, BlueprintRevisionReference, QuestionPoolRevisionReference,
+    QuestionRevisionReference, RequestChecksum, Timestamp,
 };
+use std::collections::BTreeMap;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{SessionTokenHash, StoreError, StoredBlueprintRevision};
+
+/// One direct fork readable by the caller, with its verified owning Instructor name.
+/// Private children of another Instructor never appear, including to the source owner.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StoredKnownBlueprintFork {
+    pub reference: BlueprintCourseReference,
+    pub short_name: String,
+    pub long_name: String,
+    pub availability: BlueprintAvailability,
+    pub current_revision: BlueprintRevision,
+    /// Immutable source Revision used when this direct fork was created.
+    pub source_revision: BlueprintRevision,
+    pub owner_display_name: String,
+}
+
+/// Authorized exact content and current names for a Blueprint fork review.
+/// Name ETags reuse the ordinary lineage metadata concurrency boundary.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BlueprintComparisonSources {
+    pub left: StoredBlueprintRevision,
+    pub right: StoredBlueprintRevision,
+    pub left_short_name: String,
+    pub left_long_name: String,
+    pub right_short_name: String,
+    pub right_long_name: String,
+    pub left_metadata_etag: BlueprintMetadataEtag,
+    pub right_metadata_etag: BlueprintMetadataEtag,
+    pub pool_memberships: BTreeMap<QuestionPoolRevisionReference, Vec<QuestionRevisionReference>>,
+}
 
 /// Immutable source fact retained by a forked Blueprint lineage.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,6 +59,23 @@ pub struct ForkBlueprintCourseReceipt {
 /// Closed persistence boundary for a new independent Blueprint fork.
 #[async_trait]
 pub trait BlueprintLineageStore: Send + Sync {
+    /// Lists only readable direct children of a currently readable source.
+    /// Missing or unreadable sources are NotFound; no readable children is empty.
+    async fn list_known_blueprint_forks(
+        &self,
+        session: SessionTokenHash,
+        source: BlueprintCourseReference,
+    ) -> Result<Vec<StoredKnownBlueprintFork>, StoreError>;
+
+    /// Loads visible current heads of two related Courses and exact Pool membership.
+    /// Missing, hidden or unrelated selections are uniformly NotFound.
+    async fn load_blueprint_comparison_sources(
+        &self,
+        session: SessionTokenHash,
+        left: BlueprintCourseReference,
+        right: BlueprintCourseReference,
+    ) -> Result<BlueprintComparisonSources, StoreError>;
+
     /// Forks one exact Public or Archived source Revision into a distinct,
     /// actor-owned Private Blueprint with Revision 1. A checksum retry returns
     /// the original child, and this operation never creates Stars or Watches.

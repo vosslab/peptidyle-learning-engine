@@ -6,6 +6,7 @@ use std::path::{Component, Path, PathBuf};
 
 use adapter_ple::question_json::PleQuestionJsonDocument;
 use anyhow::{Context, Result, bail};
+use question_model::QuestionFormat;
 use question_model::response::{
     QuestionType, ResponseItemReference, StudentMatch, StudentResponse,
 };
@@ -60,6 +61,7 @@ pub(crate) struct Question {
     pub(crate) question_description: String,
     pub(crate) language: String,
     pub(crate) backend: Backend,
+    source_format: Option<WebworkSourceFormat>,
     pub(crate) question_type: PilotQuestionType,
     pub(crate) points: u32,
     pub(crate) source: PathBuf,
@@ -83,6 +85,13 @@ pub(crate) enum Backend {
     PleQuestionJson,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum WebworkSourceFormat {
+    Pg,
+    Pgml,
+}
+
 /// The Question Types present in the deliberately small Pilot Question Set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -103,6 +112,7 @@ pub(crate) struct PublicationSource {
     pub(crate) question_description: String,
     pub(crate) language: String,
     pub(crate) backend: Backend,
+    pub(crate) question_format: QuestionFormat,
     pub(crate) question_type: PilotQuestionType,
     pub(crate) source_bytes: Vec<u8>,
     pub(crate) source_sha256: String,
@@ -178,6 +188,7 @@ pub(crate) fn publication_plan() -> Result<PublicationPlan> {
                 question_description: question.question_description.clone(),
                 language: question.language.clone(),
                 backend: question.backend,
+                question_format: validated_question_format(question)?,
                 question_type: question.question_type,
                 source_bytes,
                 source_sha256,
@@ -360,6 +371,7 @@ fn validate_question(
     question: &Question,
     identity: u128,
 ) -> Result<()> {
+    validated_question_format(question)?;
     if question.question_title.trim().is_empty() || question.slug.trim().is_empty() {
         bail!("pilot Question Title and slug must not be blank");
     }
@@ -392,12 +404,33 @@ fn validate_question(
     }
 }
 
+fn validated_question_format(question: &Question) -> Result<QuestionFormat> {
+    // ASVS 2.2.1, 2.2.3: accept only explicit formats compatible with the backend.
+    if let Some(source_format) = question.source_format {
+        let extension = match source_format {
+            WebworkSourceFormat::Pg => "pg",
+            WebworkSourceFormat::Pgml => "pgml",
+        };
+        if question.source.extension().and_then(|value| value.to_str()) != Some(extension) {
+            bail!("Pilot declared source_format must match its source extension");
+        }
+    }
+    match (question.backend, question.source_format) {
+        (Backend::Webwork, Some(WebworkSourceFormat::Pg)) => Ok(QuestionFormat::WebworkPg),
+        (Backend::Webwork, Some(WebworkSourceFormat::Pgml)) => Ok(QuestionFormat::WebworkPgml),
+        (Backend::PleQuestionJson, None) => Ok(QuestionFormat::PleQuestionJson),
+        _ => bail!(
+            "Pilot source_format must be pg or pgml for WeBWorK and absent for PLE Question JSON"
+        ),
+    }
+}
+
 fn validate_webwork(question: &Question, source: &Path) -> Result<()> {
     if question.source_item.is_some()
         || question.payload.is_some()
         || question.payload_sha256.is_some()
     {
-        bail!("WeBWorK pilot entries must use their PGML source directly");
+        bail!("WeBWorK pilot entries must use their declared source directly");
     }
     let upstream = question
         .upstream_sha256
@@ -411,15 +444,13 @@ fn validate_webwork(question: &Question, source: &Path) -> Result<()> {
     }
     let text = std::fs::read_to_string(source)
         .with_context(|| format!("reading WeBWorK source {}", source.display()))?;
-    for marker in [
-        "## DESCRIPTION",
-        "DOCUMENT();",
-        "BEGIN_PGML",
-        "ENDDOCUMENT();",
-    ] {
+    for marker in ["## DESCRIPTION", "DOCUMENT();", "ENDDOCUMENT();"] {
         if !text.contains(marker) {
             bail!("WeBWorK source {} lacks {marker}", source.display());
         }
+    }
+    if question.source_format == Some(WebworkSourceFormat::Pgml) && !text.contains("BEGIN_PGML") {
+        bail!("declared PGML source {} lacks BEGIN_PGML", source.display());
     }
     if text.contains("\\'") {
         bail!(

@@ -129,6 +129,28 @@ new_session() {
     printf '%s\n' "__Host-ple_session=$token"
 }
 
+new_sysadmin_session() {
+    local account_id="$1" token hash session_id attestation_id binding_hash
+    read -r token hash session_id attestation_id binding_hash < <(python3 -c 'import base64, hashlib, os, uuid; token=os.urandom(32); print(base64.urlsafe_b64encode(token).decode().rstrip("="), hashlib.sha256(token).hexdigest(), uuid.uuid4(), uuid.uuid4(), hashlib.sha256(os.urandom(32)).hexdigest())')
+    # This database fixture supplies the trusted primary-authentication fact;
+    # it uses the ordinary bound, one-use transition rather than generic issuance.
+    # TOTP verification itself is covered by the authentication acceptance lane.
+    podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -c "
+        BEGIN;
+        SET LOCAL ROLE ple_private_owner;
+        INSERT INTO ple_private.sysadmin_totp_attestation (
+            attestation_id, account_id, browser_binding_hash, created_at, expires_at
+        ) VALUES ('$attestation_id'::uuid, '$account_id'::uuid, decode('$binding_hash', 'hex'),
+                  transaction_timestamp(), transaction_timestamp() + interval '5 minutes');
+        SET LOCAL ROLE ple_auth;
+        SELECT ple_api.consume_sysadmin_totp_attestation_into_session(
+            '$attestation_id'::uuid, decode('$binding_hash', 'hex'), 0,
+            '$session_id'::uuid, decode('$hash', 'hex'), 28800);
+        COMMIT;
+    " >/dev/null
+    printf '%s\n' "__Host-ple_session=$token"
+}
+
 require_status() {
     local label="$1" response="$2" expected="$3"
     [[ "$(status "$response")" == "$expected" ]] || {
@@ -138,7 +160,7 @@ require_status() {
 }
 assert_concealed() { require_status "$1" "$2" 404; }
 
-sysadmin_cookie="$(new_session 00000000-0000-0000-0000-00000000c831)"
+sysadmin_cookie="$(new_sysadmin_session 00000000-0000-0000-0000-00000000c831)"
 student_cookie="$(new_session 00000000-0000-0000-0000-00000000c832)"
 inactive_cookie="$(new_session 00000000-0000-0000-0000-00000000c833)"
 podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -c "

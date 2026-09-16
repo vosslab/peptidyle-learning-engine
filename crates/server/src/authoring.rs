@@ -18,12 +18,12 @@ use axum::{
         header::{CONTENT_TYPE, COOKIE, ETAG, IF_MATCH},
     },
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
 };
 use learning_data_access::{
-    AuthoringDraft, AuthoringDraftStore, CreateAuthoringDraftInput, DraftQuestionEditNumber,
-    DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
-    SessionTokenHash, StoreError,
+    AuthoringDraft, AuthoringDraftStore, CreateAuthoringDraftInput, DeleteAuthoringDraftInput,
+    DraftQuestionEditNumber, DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput,
+    SaveAuthoringDraftInput, SessionTokenHash, StoreError,
     postgres::{
         PostgresAuthoringDraftStore, PostgresDraftQuestionSourceBindingStore, PostgresSessionStore,
     },
@@ -67,6 +67,7 @@ pub fn authoring_router(
 ) -> Router {
     Router::new()
         .route("/api/authoring/drafts", get(list_drafts).post(create_draft))
+        .route("/api/authoring/drafts/{reference}", delete(delete_draft))
         .route(
             "/api/authoring/drafts/{reference}/source",
             get(load_source).put(save_source),
@@ -233,6 +234,43 @@ async fn create_draft(
                 }),
             )
                 .into_response(),
+        ),
+        Err(error) => private_store_error(error),
+    }
+}
+
+async fn delete_draft(
+    State(state): State<AuthoringRouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+) -> Response {
+    let reference = match parse_reference(&reference) {
+        Ok(reference) => reference,
+        Err(response) => return *response,
+    };
+    let expected_edit_number = match expected_edit_number(&headers) {
+        Ok(number) => number,
+        Err(response) => return *response,
+    };
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    match state
+        .drafts
+        .delete_authoring_draft(
+            session_hash,
+            DeleteAuthoringDraftInput {
+                reference,
+                expected_edit_number,
+            },
+        )
+        .await
+    {
+        Ok(()) => crate::auth::no_store(StatusCode::NO_CONTENT.into_response()),
+        Err(StoreError::Conflict | StoreError::RetryableTransaction) => private_error(
+            StatusCode::PRECONDITION_FAILED,
+            "Draft Question changed before deletion",
         ),
         Err(error) => private_store_error(error),
     }

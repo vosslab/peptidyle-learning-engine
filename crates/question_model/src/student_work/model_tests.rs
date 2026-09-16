@@ -35,7 +35,6 @@ fn assessment_attempt_retains_interpretation_evidence() {
     let mut evidence = attempt_evidence();
     evidence.effective_policy_sources.schedule =
         AssessmentAttemptPolicySource::Accommodation { accommodation };
-    evidence.activity_rules.question_pool_reuse_rule = crate::QuestionPoolReuseRule::SelectAgain;
     evidence.activity_rules.question_variation_rule =
         crate::AssessmentQuestionVariationRule::ReuseVariation;
     let mut attempt = AssessmentAttempt {
@@ -68,10 +67,6 @@ fn assessment_attempt_retains_interpretation_evidence() {
     assert!(attempt_wire.get("submittedAt").is_some());
     assert!(attempt_wire.get("completedAt").is_none());
     assert_eq!(attempt.evidence.title.as_str(), "Assessment");
-    assert_eq!(
-        attempt.question_pool_reuse_rule(),
-        crate::QuestionPoolReuseRule::SelectAgain
-    );
     assert_eq!(
         attempt.question_variation_rule(),
         crate::AssessmentQuestionVariationRule::ReuseVariation
@@ -112,7 +107,6 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
         question_pool_revision: pool_revision,
         created_at: Timestamp::from_unix_millis(1_000),
         selected_question_count: 1,
-        reused_from_question_pool_selection: None,
         selected_items: vec![QuestionPoolSelectedItem {
             pool_revision_member: pool_revision_member.clone(),
             reference: reference.clone(),
@@ -139,57 +133,6 @@ fn question_pool_selection_retains_exact_entries_and_issued_question_link() {
     assert_eq!(
         issued_question.pool_revision_member,
         Some(pool_revision_member)
-    );
-
-    let reused = selection
-        .reused_for_later_attempt(
-            QuestionPoolSelectionId::from_uuid(Uuid::from_u128(15)),
-            AssessmentAttemptId::from_uuid(Uuid::from_u128(16)),
-            selection.question_pool_assessment_entry,
-            Timestamp::from_unix_millis(2_000),
-        )
-        .expect("same Question Pool may retain its exact Question Pool Items");
-    assert_eq!(
-        reused.reused_from_question_pool_selection,
-        Some(selection.id)
-    );
-    assert_eq!(reused.selected_items, selection.selected_items);
-}
-
-#[test]
-fn question_pool_selection_refuses_reuse_for_a_different_entry_or_same_attempt() {
-    let selection = QuestionPoolSelection {
-        id: QuestionPoolSelectionId::from_uuid(Uuid::from_u128(1)),
-        assessment_attempt: AssessmentAttemptId::from_uuid(Uuid::from_u128(2)),
-        question_pool_assessment_entry: AssessmentEntryId::from_uuid(Uuid::from_u128(3)),
-        question_pool_revision: crate::QuestionPoolRevisionReference {
-            question_pool_id: "7654-X321".parse().expect("valid Pool ID"),
-            revision_number: crate::QuestionPoolRevisionNumber::new(1)
-                .expect("positive Pool Revision"),
-        },
-        created_at: Timestamp::from_unix_millis(1_000),
-        selected_question_count: 1,
-        reused_from_question_pool_selection: None,
-        selected_items: Vec::new(),
-    };
-
-    assert_eq!(
-        selection.reused_for_later_attempt(
-            QuestionPoolSelectionId::from_uuid(Uuid::from_u128(4)),
-            selection.assessment_attempt,
-            selection.question_pool_assessment_entry,
-            Timestamp::from_unix_millis(2_000),
-        ),
-        Err(QuestionPoolSelectionReuseError::SameAssessmentAttempt),
-    );
-    assert_eq!(
-        selection.reused_for_later_attempt(
-            QuestionPoolSelectionId::from_uuid(Uuid::from_u128(4)),
-            AssessmentAttemptId::from_uuid(Uuid::from_u128(5)),
-            AssessmentEntryId::from_uuid(Uuid::from_u128(6)),
-            Timestamp::from_unix_millis(2_000),
-        ),
-        Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolAssessmentEntry),
     );
 }
 

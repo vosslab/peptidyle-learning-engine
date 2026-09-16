@@ -1,0 +1,56 @@
+//! Scoped, answer-free reads of the current Blueprint Assessment's pinned Pool.
+
+use axum::{
+    Json,
+    extract::{Path, State},
+    http::HeaderMap,
+    response::{IntoResponse, Response},
+};
+use browser_api_contract::blueprint_course::BlueprintPoolMembersView;
+use learning_data_access::BlueprintCourseStore;
+use question_model::{BlueprintAssessmentReference, QuestionId};
+
+use super::{
+    BlueprintCourseRouteState, concealed, instructor_session_hash, parse_reference,
+    store_error_response,
+};
+
+pub(super) async fn load_pool_members(
+    State(state): State<BlueprintCourseRouteState>,
+    headers: HeaderMap,
+    Path((reference, assessment, pool)): Path<(String, String, String)>,
+) -> Response {
+    let reference = match parse_reference(&reference) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 2.2.1/2: validate typed identities and the deployment's QID HMAC.
+    let assessment = match assessment.parse::<BlueprintAssessmentReference>() {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let pool = match pool.parse::<QuestionId>() {
+        Ok(value) if state.question_id_issuer.validates_question_id(&value) => value,
+        _ => return concealed(),
+    };
+    let session = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 8.2.2/3, 8.3.1: Store enforces ordinary Blueprint visibility and
+    // current Assessment membership; this is not an arbitrary Revision reader.
+    match state
+        .blueprints
+        .load_blueprint_pool_members(session, reference, assessment, pool)
+        .await
+    {
+        Ok(value) => crate::auth::no_store(
+            Json(BlueprintPoolMembersView {
+                question_pool_revision: value.question_pool_revision,
+                members: value.members,
+            })
+            .into_response(),
+        ),
+        Err(error) => store_error_response(error),
+    }
+}

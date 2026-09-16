@@ -15,7 +15,13 @@ import {
 } from "../src/features/blueprint_course/blueprint_course_model.ts";
 
 function selection(...questionIds) {
-  return { questionIds, questions: [] };
+  return {
+    questionIds,
+    questions: questionIds.map((questionId) => ({
+      questionId,
+      row: { questionRevision: { questionId, revisionNumber: 1 } },
+    })),
+  };
 }
 
 test("new Blueprint Assessment working state keeps answer-bearing feedback private", () => {
@@ -122,7 +128,12 @@ test("Blueprint Course creation requires separate short and long lineage names",
   const assignment = {
     ...emptyReusableContent("regular_assignment", "Ready assignment"),
     entries: [
-      { kind: "fixed", question_id: "AAAA-ZBBB", points_possible: "1", scoring_rule: "normal" },
+      {
+        kind: "fixed",
+        published_question: { questionId: "AAAA-ZBBB", revisionNumber: 1 },
+        points_possible: "1",
+        scoring_rule: "normal",
+      },
     ],
   };
   assert.equal(

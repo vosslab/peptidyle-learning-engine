@@ -672,8 +672,10 @@ pub(crate) async fn answer_free_reusable_question_view(
         question_model::QuestionAvailability::Available => ReusableSelectionAvailability::Available,
         question_model::QuestionAvailability::Archived => ReusableSelectionAvailability::Retained,
     };
+    let reference = entry.question_revision.clone();
     let resolved = answer_free_question_library_entry(objects, entry).await?;
     Ok(ReusableQuestionView {
+        reference,
         question_library: QuestionSearchResult {
             summary: resolved.summary,
             evidence: QuestionStatistics::Unavailable,

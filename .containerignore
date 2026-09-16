@@ -1,4 +1,4 @@
-# The API image consumes only the Rust workspace manifests and crate sources.
+# The API image consumes Rust sources plus the exact reviewed embedded RDKit pair.
 # Keep host build products, generated artifacts, credentials, documentation,
 # and unrelated toolchains outside the build context entirely.
 **
@@ -6,6 +6,11 @@
 !Cargo.lock
 !crates
 !crates/**
+!assets
+!assets/author-content-dependencies
+!assets/author-content-dependencies/rdkit
+!assets/author-content-dependencies/rdkit/RDKit_minimal.js
+!assets/author-content-dependencies/rdkit/RDKit_minimal.wasm
 !containers
 !containers/Containerfile.api
 !containers/Containerfile.gateway

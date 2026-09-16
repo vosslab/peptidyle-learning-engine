@@ -172,6 +172,7 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
           },
         },
         activeInstructorCount: 1,
+        blueprintOrigin: null,
       });
     },
     listCourseAssessments: (): Promise<ReadonlyArray<CourseAssessmentSummary>> => {

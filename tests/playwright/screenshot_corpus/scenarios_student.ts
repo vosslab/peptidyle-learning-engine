@@ -1,8 +1,8 @@
 // scenarios_student.ts - Student course, invitation, delivery, and denial survey.
-// Selector contract: shared Course and Assignment actions live in visible_workflows.ts:47; Student
+// Selector contract: shared Course and Assessment actions live in visible_workflows.ts:47; Student
 // headings and controls are owned by src/pages/student_courses_page.tsx:29,
-// src/pages/student_course_invitation_page.tsx:42, src/pages/assignment_overview_page.tsx:95,
-// src/pages/assignment_attempt_page.tsx:322, and src/pages/assignment_attempt_summary_page.tsx:55.
+// src/pages/student_course_invitation_page.tsx:42, src/pages/assessment_overview_page.tsx,
+// src/pages/assessment_attempt_page.tsx, and src/pages/assessment_attempt_summary_page.tsx.
 
 import type { Locator } from "playwright";
 
@@ -10,6 +10,8 @@ import type { CaptureRecord } from "./manifest";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
 import {
+  ASSESSMENT_TYPE_LABEL,
+  ASSIGNMENT_TITLE,
   COURSE_TITLE,
   assignmentCard,
   choosePersona,
@@ -66,8 +68,9 @@ async function prepareStudentInvitation(
       .getByRole("link", { name: "Courses", exact: true })
       .click();
     await page.getByRole("heading", { name: "Course Instances you teach", exact: true }).waitFor();
+    await page.getByRole("combobox", { name: "Start with", exact: true }).selectOption("adopted");
     await page
-      .getByLabel("Blueprint Course Revision")
+      .getByRole("combobox", { name: "Blueprint Course", exact: true })
       .selectOption({ label: `${COURSE_TITLE} · Revision 1` });
     await page.getByLabel("Course short name").fill(INVITATION_COURSE_SHORT_NAME);
     await page.getByLabel("Course long name").fill(INVITATION_COURSE_LONG_NAME);
@@ -130,7 +133,11 @@ async function captureLanding(
   try {
     await choosePersona(session.page, persona);
     await openStudentCourse(session.page);
-    await assignmentCard(session.page).getByText(expectedState, { exact: true }).waitFor();
+    await assignmentCard(session.page)
+      .locator(".student-coursework-card__facts > div")
+      .filter({ has: session.page.getByText("Completion", { exact: true }) })
+      .getByText(expectedState, { exact: true })
+      .waitFor();
     await captureCheckpoint(runtime, scenario, checkpoint, session);
   } finally {
     await runtime.close(session);
@@ -140,7 +147,7 @@ async function captureLanding(
 async function studentLandings(runtime: ScenarioRuntime): Promise<void> {
   await captureLanding(runtime, "not_started_laptop", "Avery Thompson", "Not started");
   await captureLanding(runtime, "in_progress_laptop", "Jack Nguyen", "In progress");
-  await captureLanding(runtime, "completed_laptop", "Mary Okafor", "Completed and scored");
+  await captureLanding(runtime, "completed_laptop", "Mary Okafor", "Completed");
   await captureLanding(runtime, "not_started_phone", "Avery Thompson", "Not started");
 }
 
@@ -158,11 +165,10 @@ async function captureAssignmentOverview(
     await openStudentCourse(session.page);
     await assignmentCard(session.page).getByText(expectedCourseState, { exact: true }).waitFor();
     await openStudentAssignment(session.page);
+    await session.page.getByRole("heading", { level: 1, name: ASSIGNMENT_TITLE }).waitFor();
     await session.page
-      .getByRole("heading", { level: 1, name: "Peptide Structure Practice" })
+      .getByRole("button", { name: `Start ${ASSESSMENT_TYPE_LABEL}`, exact: true })
       .waitFor();
-    await session.page.getByRole("heading", { name: "Before you start", exact: true }).waitFor();
-    await session.page.getByRole("button", { name: "Start Assignment", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, checkpoint, session);
   } finally {
     await runtime.close(session);
@@ -182,14 +188,16 @@ async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void>
     await choosePersona(session.page, "Mary Okafor");
     await openStudentCourse(session.page);
     const assignment = assignmentCard(session.page);
-    await assignment.getByRole("link", { name: "Open Assignment", exact: true }).click();
-    await session.page.locator('[data-route-surface="assignmentOverview"]').waitFor();
+    await assignment
+      .getByRole("link", { name: `Open ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+      .click();
+    await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
     await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
     const previousAttempt = session.page.getByRole("link", { name: "Attempt 1", exact: true });
     await previousAttempt.waitFor();
     await captureCheckpoint(runtime, scenario, "overview_history", session);
     await previousAttempt.click();
-    await session.page.locator('[data-route-surface="assignmentAttemptSummary"]').waitFor();
+    await session.page.locator('[data-route-surface="assessmentAttemptSummary"]').waitFor();
     await session.page.getByRole("heading", { name: "Your recorded work", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "selected_history", session);
   } finally {
@@ -198,27 +206,48 @@ async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void>
 }
 
 function attemptSurface(session: CaptureSession): Locator {
-  return session.page.locator('[data-route-surface="assignmentAttempt"]');
+  return session.page.locator('[data-route-surface="assessmentAttempt"]');
 }
 
 function attemptQuestion(session: CaptureSession, name: string): Locator {
   return session.page
-    .getByRole("navigation", { name: "Assignment questions", exact: true })
+    .getByRole("navigation", { name: "Assessment questions", exact: true })
     .getByRole("button", { name, exact: true });
 }
 
-async function saveCurrentRadioResponse(session: CaptureSession): Promise<void> {
+async function saveCurrentResponse(session: CaptureSession): Promise<void> {
   const responseControl = attemptSurface(session).locator("section.question-response-control");
-  await responseControl.getByRole("radio").first().check();
+  const responseChoices = responseControl.locator(
+    'input[type="radio"], input[type="checkbox"], button[role="radio"]',
+  );
+  await responseChoices.first().waitFor();
+  const matchingGroups = responseControl.locator('[role="group"]');
+  const matchingGroupCount = await matchingGroups.count();
+  if (matchingGroupCount > 0) {
+    for (let index = 0; index < matchingGroupCount; index += 1) {
+      const matchingGroup = matchingGroups.nth(index);
+      await matchingGroup.locator('button[role="radio"][aria-disabled="false"]').first().click();
+      await matchingGroup.locator('button[role="radio"][aria-checked="true"]').waitFor();
+    }
+  } else {
+    const nativeChoices = responseControl.locator('input[type="radio"], input[type="checkbox"]');
+    await nativeChoices.first().check();
+  }
   await responseControl.getByRole("button", { name: "Save response", exact: true }).click();
   await session.page.getByText("Response saved.", { exact: true }).waitFor();
 }
 
-async function saveCurrentNumericResponse(session: CaptureSession): Promise<void> {
+async function waitForRestoredResponse(session: CaptureSession): Promise<void> {
   const responseControl = attemptSurface(session).locator("section.question-response-control");
-  await responseControl.locator("input[type='number']").fill("1");
-  await responseControl.getByRole("button", { name: "Save response", exact: true }).click();
-  await session.page.getByText("Response saved.", { exact: true }).waitFor();
+  const matchingGroups = responseControl.locator('[role="group"]');
+  if ((await matchingGroups.count()) > 0) {
+    await responseControl.locator('button[role="radio"][aria-checked="true"]').first().waitFor();
+    return;
+  }
+  await responseControl
+    .locator('input[type="radio"]:checked, input[type="checkbox"]:checked')
+    .first()
+    .waitFor();
 }
 
 async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void> {
@@ -229,10 +258,12 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await choosePersona(savedSession.page, "Avery Thompson");
     await openStudentCourse(savedSession.page);
     await openStudentAssignment(savedSession.page);
-    await savedSession.page.getByRole("button", { name: "Start Assignment", exact: true }).click();
+    await savedSession.page
+      .getByRole("button", { name: `Start ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+      .click();
     await attemptSurface(savedSession).waitFor();
     await savedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
-    await saveCurrentRadioResponse(savedSession);
+    await saveCurrentResponse(savedSession);
     await attemptQuestion(savedSession, "Question 1: Saved, current").waitFor();
     await captureCheckpoint(runtime, scenario, "response_selected", savedSession);
   } finally {
@@ -249,25 +280,21 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
         const url = new URL(request.url());
         return (
           url.origin === runtime.entryUrl.origin &&
-          /^\/api\/assignment-attempts\/R-[1-9][0-9]{0,9}\/context$/u.test(url.pathname)
+          /^\/api\/assessment-attempts\/R-[1-9][0-9]{0,9}\/context$/u.test(url.pathname)
         );
       },
     });
     await resumeStudentAssignmentAttempt(resumedSession.page);
     await attemptContextLoaded;
     await resumedSession.page.getByText("Question 2 of 4", { exact: true }).waitFor();
-    await attemptSurface(resumedSession)
-      .locator("section.question-response-control")
-      .getByRole("radio")
-      .first()
-      .waitFor();
+    await attemptSurface(resumedSession).locator("section.question-response-control").waitFor();
     await resumedSession.privacy.settleResponses();
     await resumedSession.page.reload({ waitUntil: "commit" });
     await attemptSurface(resumedSession).waitFor();
     await attemptQuestion(resumedSession, "Question 1: Saved").waitFor();
     await attemptQuestion(resumedSession, "Question 1: Saved").click();
     await resumedSession.page.getByText("Question 1 of 4", { exact: true }).waitFor();
-    await attemptSurface(resumedSession).locator("input[type='radio']:checked").waitFor();
+    await waitForRestoredResponse(resumedSession);
     await resumedSession.page.getByText("Response saved.", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "resume_selected", resumedSession);
   } finally {
@@ -281,26 +308,24 @@ async function studentAssignmentAttempt(runtime: ScenarioRuntime): Promise<void>
     await openStudentCourse(submittedSession.page);
     await resumeStudentAssignmentAttempt(submittedSession.page);
     await attemptQuestion(submittedSession, "Question 2: Not answered, current").waitFor();
-    await saveCurrentRadioResponse(submittedSession);
+    await saveCurrentResponse(submittedSession);
     await attemptQuestion(submittedSession, "Question 2: Saved, current").waitFor();
     await attemptQuestion(submittedSession, "Question 3: Not answered").click();
     await attemptQuestion(submittedSession, "Question 3: Not answered, current").waitFor();
-    await saveCurrentNumericResponse(submittedSession);
+    await saveCurrentResponse(submittedSession);
     await attemptQuestion(submittedSession, "Question 3: Saved, current").waitFor();
     await attemptQuestion(submittedSession, "Question 4: Not answered").click();
     await attemptQuestion(submittedSession, "Question 4: Not answered, current").waitFor();
-    const responseControl = attemptSurface(submittedSession).locator(
-      "section.question-response-control",
-    );
-    await responseControl.locator("input[type='checkbox']:visible").first().check();
-    await responseControl.getByRole("button", { name: "Save response", exact: true }).click();
-    await submittedSession.page.getByText("Response saved.", { exact: true }).waitFor();
+    await saveCurrentResponse(submittedSession);
     await attemptQuestion(submittedSession, "Question 4: Saved, current").waitFor();
     await submittedSession.page
-      .getByRole("button", { name: "Submit Assignment", exact: true })
+      .getByRole("button", { name: "Submit Assessment", exact: true })
       .click();
     await submittedSession.page
-      .getByRole("heading", { name: "Your answers were accepted", exact: true })
+      .locator('[data-route-surface="assessmentAttemptSummary"]')
+      .waitFor();
+    await submittedSession.page
+      .getByRole("heading", { name: "Your recorded work", exact: true })
       .waitFor();
     await captureCheckpoint(runtime, scenario, "submitted", submittedSession);
   } finally {

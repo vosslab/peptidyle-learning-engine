@@ -130,6 +130,12 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
     END IF;
+    -- ASVS 8.3.1 / 2.3.1: enforce the lifecycle under the owner lock,
+    -- including retries and no-op Saves; restore to Public before writing.
+    IF v_course.availability = 'archived' THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Archived Blueprint Course is read-only';
+    END IF;
     SELECT receipt.resulting_blueprint_revision_number, receipt.changed, receipt.accepted_at
       INTO resulting_blueprint_revision_number, changed, accepted_at
       FROM ple_data.blueprint_course_save_receipt AS receipt
@@ -232,6 +238,11 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Blueprint Course is not available';
     END IF;
+    -- ASVS 8.3.1 / 2.3.1: lifecycle denial precedes CAS and no-op rename.
+    IF v_course.availability = 'archived' THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Archived Blueprint Course is read-only';
+    END IF;
     IF v_course.metadata_etag <> p_expected_metadata_etag THEN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
     END IF;
@@ -330,7 +341,7 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_api.list_blueprint_courses()
+CREATE FUNCTION ple_api.list_blueprint_courses(p_include_archived boolean DEFAULT false)
 RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
     metadata_etag uuid, current_blueprint_revision_number bigint, is_owner boolean,
@@ -354,8 +365,11 @@ BEGIN
       FROM ple_data.blueprint_course AS course
      WHERE ple_api.current_session_account_is_instructor()
        AND (
-           course.owner_account_id = ple_api.current_session_account_id()
-           OR course.availability = 'public'
+           -- ASVS 8.2.2/8.3.1: opt-in history never exposes another owner's Private course.
+           course.availability = 'public'
+           OR (course.owner_account_id = ple_api.current_session_account_id()
+               AND course.availability = 'private')
+           OR (p_include_archived AND course.availability = 'archived')
        )
      ORDER BY course.long_name, course.reference_number;
 END
@@ -365,7 +379,8 @@ CREATE FUNCTION ple_api.load_blueprint_course(p_reference text)
 RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
     metadata_etag uuid, current_blueprint_revision_number bigint,
-    content jsonb, content_checksum bytea, is_owner boolean
+    content jsonb, content_checksum bytea, is_owner boolean,
+    fork_source_reference text, fork_source_revision_number bigint
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
@@ -374,11 +389,22 @@ AS $$
            course.availability, course.metadata_etag,
            course.current_blueprint_revision_number,
            revision.content, revision.content_checksum,
-           course.owner_account_id = ple_api.current_session_account_id()
+           course.owner_account_id = ple_api.current_session_account_id(),
+           source.public_reference,
+           CASE WHEN source.reference_number IS NOT NULL
+                THEN ancestry.source_blueprint_revision_number END
       FROM ple_data.blueprint_course AS course
       JOIN ple_data.blueprint_course_revision AS revision
         ON revision.blueprint_course_reference_number = course.reference_number
        AND revision.blueprint_revision_number = course.current_blueprint_revision_number
+      LEFT JOIN ple_data.blueprint_course_fork AS ancestry
+        ON ancestry.blueprint_course_reference_number = course.reference_number
+      -- ASVS 8.2.2/3, 8.3.1/2: mask ancestry using current source visibility.
+      -- Roots and hidden sources share the same two null fields.
+      LEFT JOIN ple_data.blueprint_course AS source
+        ON source.reference_number = ancestry.source_blueprint_course_reference_number
+       AND (source.availability IN ('public', 'archived')
+            OR source.owner_account_id = ple_api.current_session_account_id())
      WHERE p_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
        AND course.public_reference = p_reference
        AND ple_api.current_session_account_is_instructor()
@@ -418,14 +444,13 @@ REVOKE ALL PRIVILEGES ON FUNCTION
     ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
-    ple_api.list_blueprint_courses(), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
     ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea),
-    ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
-    ple_api.list_blueprint_courses(), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) TO ple_app;
 
 SET LOCAL ROLE ple_data_owner;

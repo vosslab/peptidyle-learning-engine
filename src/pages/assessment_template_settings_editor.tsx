@@ -124,21 +124,6 @@ export function AssessmentTemplateSettingsEditor(
           </select>
         </label>
         <label class="assessment-template-field">
-          Question Pool on later Attempts
-          <select
-            value={props.draft.poolReuseRule}
-            onChange={(event) =>
-              props.onPatch({
-                poolReuseRule: event.currentTarget
-                  .value as AssessmentTemplateDraft["poolReuseRule"],
-              })
-            }
-          >
-            <option value="reuseSelection">Reuse selected Questions</option>
-            <option value="selectAgain">Select again from each Pool</option>
-          </select>
-        </label>
-        <label class="assessment-template-field">
           Question variations on later Attempts
           <select
             value={props.draft.variationRule}

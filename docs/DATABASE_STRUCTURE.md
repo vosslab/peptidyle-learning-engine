@@ -82,6 +82,12 @@ Question Pools use stable public identity plus immutable Pool Revisions.
 Assessment and Attempt records retain exact Question/Pool Revision evidence so
 later publication does not silently change Student Work.
 
+`question_pool_revision.created_in_transaction` is an internal `xid8` marker
+with default `pg_current_xact_id()`. It replaces a timestamp-based heuristic
+when a protected construction transaction must distinguish its newly created
+Pool Revisions from prior or concurrent committed rows. It is not a public
+Pool, Revision, Assessment, or browser/API field.
+
 ## Blueprint Courses
 
 Creation atomically produces a Private Blueprint and Revision 1. A meaningful

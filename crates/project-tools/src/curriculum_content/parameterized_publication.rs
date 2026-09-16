@@ -1,9 +1,8 @@
-//! Parameterized Genetics source publication through the ordinary Question lifecycle.
+//! Canonical Genetics source publication through the ordinary Question lifecycle.
 //!
-//! This is intentionally separate from the static curriculum publisher.  It
-//! consumes only C824's reviewed, pinned algorithmic-source manifest inventory and
-//! creates ordinary independent Question lineages; it neither selects an
-//! equivalent source nor mutates any Pool, Blueprint, archive, or history.
+//! The explicit selected-source command and the fresh catalog batch share this
+//! ordinary Draft-to-Published-Question path. It never creates a Pool or mutates
+//! a Blueprint, archive, or historical Revision.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -32,7 +31,7 @@ use uuid::Uuid;
 
 use super::{
     Manifest, ParameterizedSource, read_parameterized_pg_source, repository_root,
-    webwork_question_format,
+    validate_selected_parameterized_manifest, webwork_question_format,
 };
 
 const SESSION_HASH_ENV: &str = "PLE_CURRICULUM_PUBLICATION_SESSION_TOKEN_HASH";
@@ -40,8 +39,8 @@ const WORKSPACE_ENV: &str = "PLE_CURRICULUM_PUBLICATION_WORKSPACE_ID";
 const INITIAL_PUBLICATION_REASON: &str =
     "Initial publication from trusted parameterized curriculum import";
 
-/// Runs the explicitly selected parameterized-only ordinary publication.
-pub(crate) fn publish(manifest: Manifest) -> Result<()> {
+/// Runs one explicitly selected parameterized-only ordinary publication.
+pub(crate) fn publish_selected(manifest: Manifest) -> Result<()> {
     let session = required_session_hash()?;
     let workspace = required_workspace()?;
     let root = repository_root()?;
@@ -49,8 +48,9 @@ pub(crate) fn publish(manifest: Manifest) -> Result<()> {
         .enable_all()
         .build()
         .context("creating the parameterized curriculum publication runtime")?;
-    let receipt = runtime
-        .block_on(async move { publish_with_context(session, workspace, manifest, &root).await })?;
+    let receipt = runtime.block_on(async move {
+        publish_selected_with_context(session, workspace, manifest, &root).await
+    })?;
     println!("{receipt}");
     Ok(())
 }
@@ -73,6 +73,30 @@ pub(crate) async fn publish_with_context(
     // validate the exact bounded manifest, source pins, provenance, licenses,
     // and self-contained Question metadata before the first object-store write.
     super::validate(&manifest, root)?;
+    publish_validated_with_context(session, workspace, manifest, root).await
+}
+
+/// Publishes the one source retained by the selected-source loader.
+///
+/// This admission path intentionally does not validate unrelated static rows.
+/// It revalidates the exact selected metadata and source bytes before reading
+/// publication configuration, opening database connections, or writing.
+pub(crate) async fn publish_selected_with_context(
+    session: SessionTokenHash,
+    workspace: WorkspaceId,
+    manifest: Manifest,
+    root: &Path,
+) -> Result<Receipt> {
+    validate_selected_parameterized_manifest(&manifest, root)?;
+    publish_validated_with_context(session, workspace, manifest, root).await
+}
+
+async fn publish_validated_with_context(
+    session: SessionTokenHash,
+    workspace: WorkspaceId,
+    manifest: Manifest,
+    root: &Path,
+) -> Result<Receipt> {
     let database_url = required_environment("DATABASE_URL")?;
     let pool = lazy_pool(&database_url)
         .context("parameterized curriculum publication database URL is invalid")?;
@@ -94,12 +118,9 @@ pub(crate) async fn publish_with_context(
     ))
     .map_err(|_| anyhow::anyhow!("curriculum content license is not publishable"))?;
 
-    // Build a full admission plan before the first Object Store or authoring
-    // write.  A malformed late source must therefore leave no earlier C838
-    // lineage, Draft, or source object behind.  ASVS 2.3.1 and 2.3.3: this
-    // makes the bounded batch's validation phase sequential and fail-closed;
-    // individual ordinary publications remain their own atomic lifecycle
-    // transactions after this admission succeeds.
+    // Build the admission plan before the first Object Store or authoring
+    // write. ASVS 2.3.1 and 2.3.3: validation and recovery preflight are
+    // fail-closed; every actual write uses the ordinary atomic lifecycle.
     let prepared_sources = manifest
         .parameterized_sources
         .iter()
@@ -313,9 +334,11 @@ fn existing_publication(
         entry.question_title == context.title
             && entry.question_description == context.description
             && entry.backend == QuestionBackend::Webwork
+            && entry.question_format == webwork_question_format(source.source_format)
             && entry.question_type == context.question_type
             && entry.source_media_type == "text/x-wework-pg"
             && entry.source_object_checksum.as_str() == source.pg_sha256
+            && entry.webwork_pg_path.as_deref() == Some(source.webwork_pg_path.as_str())
             && entry.authorship == *authorship
             && entry.question_license == *license,
         "ordinary Question provenance conflicts with parameterized source {}",
@@ -356,7 +379,7 @@ async fn publish_source(
             source.source_id
         )
     })?;
-    bindings
+    let bound_edit_number = bindings
         .bind_draft_question_source(
             session,
             DraftQuestionSourceBindingInput {
@@ -376,16 +399,12 @@ async fn publish_source(
         )
         .await
         .context("binding ordinary parameterized curriculum Draft source evidence")?;
-    let bound = drafts
-        .load_authoring_draft(session, draft.reference)
-        .await
-        .context("reloading bound ordinary parameterized curriculum Draft")?;
     NewQuestionLineagePublisher::new(objects.clone(), bindings.clone(), issuer.clone())
         .publish(
             session,
             NewQuestionLineagePublicationCommand {
-                draft_question_uuid: bound.draft_question_uuid,
-                expected_draft_question_edit_number: bound.edit_number,
+                draft_question_uuid: draft.draft_question_uuid,
+                expected_draft_question_edit_number: bound_edit_number,
                 workspace,
                 question_authorship: authorship.clone(),
                 initial_shared_tags: Vec::new(),
@@ -446,7 +465,7 @@ async fn matching_or_new_draft(
         .context("creating ordinary parameterized curriculum Authoring Draft")
 }
 
-fn question_type(value: super::CurriculumQuestionType) -> QuestionType {
+pub(crate) fn question_type(value: super::CurriculumQuestionType) -> QuestionType {
     match value {
         super::CurriculumQuestionType::MultipleChoice => QuestionType::MultipleChoice,
         super::CurriculumQuestionType::MultipleAnswer => QuestionType::MultipleAnswer,
@@ -516,9 +535,7 @@ struct ReceiptSource {
 
 impl Receipt {
     /// Returns the immutable Question Revision produced for each admitted
-    /// source. The ordinary curriculum publisher consumes this only for a
-    /// reviewed C840 replacement mapping; it never derives a mapping from
-    /// source metadata or a filename.
+    /// source so the fresh publisher can construct direct Fixed entries.
     pub(crate) fn question_revisions(&self) -> BTreeMap<String, QuestionRevisionReference> {
         self.sources
             .iter()

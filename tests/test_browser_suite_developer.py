@@ -10,6 +10,7 @@ import pytest
 import local_stack_control.browser_suite_developer
 import local_stack_control.browser_suite_lease
 import local_stack_control.browser_suite_reset
+import local_stack_control.lifecycle_diagnostics
 import local_stack_control.models
 import local_stack_control.process
 
@@ -245,3 +246,26 @@ def test_failed_start_receipt_retains_only_redacted_operator_evidence(
 		"launch", 1, "Error: [private] [path]"
 	)
 	assert "private-value" not in receipt.diagnostic
+
+
+#============================================
+def test_launch_diagnostic_retains_the_first_actionable_error() -> None:
+	"""A redacted child failure survives receipts and trailing Podman boilerplate."""
+	result = local_stack_control.models.CommandResult(
+		("podman", "compose"),
+		1,
+		'{"biochemistry":{"sourceSha256":"private-value"}}\n' * 80,
+		"\x1b[4m>>>> Executing external compose provider <<<<\x1b[0m\n"
+		"Error: Live Demo Course discovery request did not complete: private-value\n"
+		"Error: executing podman compose: exit status 1\n",
+	)
+	detail = local_stack_control.lifecycle_diagnostics.redacted_failure_detail(
+		result, ("private-value",)
+	)
+	diagnostic = local_stack_control.browser_suite_developer._launch_diagnostic(
+		"developer browser stack launch failed: ERROR: Installation content provisioning failed "
+		f"({detail}); retained stack resources are available for diagnostics\n"
+		"Error: executing podman compose after failure: exit status 1\n"
+	)
+	assert diagnostic.startswith("Error: Live Demo Course discovery request did not complete")
+	assert "private-value" not in diagnostic

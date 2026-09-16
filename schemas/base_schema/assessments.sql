@@ -40,9 +40,6 @@ CREATE TABLE ple_data.assessment (
     assessment_attempt_grade_rule text NOT NULL CHECK (
         assessment_attempt_grade_rule IN ('first', 'latest', 'highest', 'instructor_selected')
     ),
-    question_pool_reuse_rule text NOT NULL CHECK (
-        question_pool_reuse_rule IN ('reuse_selection', 'select_again')
-    ),
     question_variation_rule text NOT NULL CHECK (
         question_variation_rule IN ('reuse_variation', 'new_variation')
     ),
@@ -110,6 +107,9 @@ CREATE TABLE ple_data.assessment_entry (
     authored_position integer NOT NULL CHECK (authored_position >= 0),
     entry_kind text NOT NULL CHECK (entry_kind IN ('fixed_question', 'question_pool')),
     availability text NOT NULL DEFAULT 'available' CHECK (availability IN ('available', 'retired')),
+    active_authored_position integer GENERATED ALWAYS AS (
+        CASE WHEN availability = 'available' THEN authored_position END
+    ) STORED,
     scoring_rule text NOT NULL CHECK (scoring_rule IN ('normal', 'full_credit', 'extra_credit', 'excluded')),
     question_id text,
     question_revision_number integer,
@@ -122,7 +122,10 @@ CREATE TABLE ple_data.assessment_entry (
     question_attempt_limit integer,
     question_attempt_time_limit_seconds integer,
     question_attempt_grace_seconds integer,
-    UNIQUE (assessment_id, authored_position),
+    -- ASVS 2.3.3: validate current positions after the atomic complete-content
+    -- save, allowing swaps while retired Entries retain their historical positions.
+    CONSTRAINT assessment_entry_active_authored_position_key
+        UNIQUE (assessment_id, active_authored_position) DEFERRABLE INITIALLY DEFERRED,
     UNIQUE (assessment_entry_id, assessment_id),
     FOREIGN KEY (question_id, question_revision_number)
         REFERENCES ple_data.question_revision(question_id, revision_number),
@@ -473,7 +476,7 @@ DECLARE
     allowed_keys text[] := ARRAY[
         'assessment_title', 'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'assessment_attempt_grade_rule', 'question_pool_reuse_rule', 'question_variation_rule',
+        'assessment_attempt_grade_rule', 'question_variation_rule',
         'assessment_attempt_resume_rule', 'assessment_question_display_rule',
         'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_answer',
@@ -519,8 +522,7 @@ BEGIN
         candidate.assessment_title, candidate.assessment_instructions, candidate.available_at,
         candidate.due_at, candidate.closes_at, candidate.assessment_attempt_time_limit_seconds,
         candidate.assessment_attempt_limit, candidate.late_work_rule,
-        candidate.assessment_attempt_grade_rule,
-        candidate.question_pool_reuse_rule, candidate.question_variation_rule,
+        candidate.assessment_attempt_grade_rule, candidate.question_variation_rule,
         candidate.assessment_attempt_resume_rule, candidate.assessment_question_display_rule,
         candidate.assessment_navigation_rule, candidate.assessment_question_order_rule,
         candidate.feedback_score, candidate.feedback_per_item_correctness,
@@ -532,7 +534,7 @@ BEGIN
         current_assessment.available_at, current_assessment.due_at, current_assessment.closes_at,
         current_assessment.assessment_attempt_time_limit_seconds, current_assessment.assessment_attempt_limit,
         current_assessment.late_work_rule, current_assessment.assessment_attempt_grade_rule,
-        current_assessment.question_pool_reuse_rule, current_assessment.question_variation_rule,
+        current_assessment.question_variation_rule,
         current_assessment.assessment_attempt_resume_rule,
         current_assessment.assessment_question_display_rule,
         current_assessment.assessment_navigation_rule,
@@ -553,7 +555,6 @@ BEGIN
             assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
             assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
             assessment_attempt_grade_rule = candidate.assessment_attempt_grade_rule,
-            question_pool_reuse_rule = candidate.question_pool_reuse_rule,
             question_variation_rule = candidate.question_variation_rule,
             assessment_attempt_resume_rule = candidate.assessment_attempt_resume_rule,
             assessment_question_display_rule = candidate.assessment_question_display_rule,
@@ -673,7 +674,7 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
     allowed_keys text[] := ARRAY[
         'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'assessment_attempt_grade_rule', 'question_pool_reuse_rule', 'question_variation_rule',
+        'assessment_attempt_grade_rule', 'question_variation_rule',
         'assessment_attempt_resume_rule', 'assessment_question_display_rule',
         'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response',
@@ -712,7 +713,6 @@ BEGIN
     values_changed := ROW(candidate.assessment_instructions, candidate.available_at, candidate.due_at,
         candidate.closes_at, candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
         candidate.late_work_rule, candidate.assessment_attempt_grade_rule,
-        candidate.question_pool_reuse_rule,
         candidate.question_variation_rule, candidate.assessment_attempt_resume_rule,
         candidate.assessment_question_display_rule, candidate.assessment_navigation_rule,
         candidate.assessment_question_order_rule, candidate.feedback_score, candidate.feedback_per_item_correctness,
@@ -722,7 +722,7 @@ BEGIN
         current_assessment.due_at, current_assessment.closes_at, current_assessment.assessment_attempt_time_limit_seconds,
         current_assessment.assessment_attempt_limit, current_assessment.late_work_rule,
         current_assessment.assessment_attempt_grade_rule,
-        current_assessment.question_pool_reuse_rule, current_assessment.question_variation_rule,
+        current_assessment.question_variation_rule,
         current_assessment.assessment_attempt_resume_rule, current_assessment.assessment_question_display_rule,
         current_assessment.assessment_navigation_rule, current_assessment.assessment_question_order_rule,
         current_assessment.feedback_score, current_assessment.feedback_per_item_correctness,
@@ -736,7 +736,6 @@ BEGIN
           assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
           assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
           assessment_attempt_grade_rule = candidate.assessment_attempt_grade_rule,
-          question_pool_reuse_rule = candidate.question_pool_reuse_rule,
           question_variation_rule = candidate.question_variation_rule,
           assessment_attempt_resume_rule = candidate.assessment_attempt_resume_rule,
           assessment_question_display_rule = candidate.assessment_question_display_rule,

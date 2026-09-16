@@ -109,7 +109,6 @@ pub use crate::assessment_activity_rules::{
     AssessmentActivityRules, AssessmentAttemptGradeRule, AssessmentAttemptResumeRule,
     AssessmentNavigationRule, AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule,
     AssessmentQuestionVariationRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    QuestionPoolPreviewNonce, QuestionPoolReuseRule, QuestionPoolSelectionInputs,
     StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
 };
 pub use crate::assessment_student_view::{
@@ -140,10 +139,11 @@ pub use crate::blueprint_course::{
     BlueprintCourseAssessmentContentView, BlueprintCourseReadAccess, BlueprintCourseSummaryView,
     BlueprintCourseTitleError, BlueprintCourseValidationError, BlueprintCourseView,
     BlueprintModuleEditChoice, BlueprintModuleReference, BlueprintModuleReplacementInput,
-    BlueprintModuleView, BlueprintRevision, CreateBlueprintCourseInput, CreateBlueprintModuleInput,
-    MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS, ReplaceBlueprintCourseContentInput,
-    ReusableFixedQuestionInput, ReusablePoolInput, ReusablePoolView, ReusableQuestionView,
-    ReusableSelectionAvailability, validate_blueprint_course_title,
+    BlueprintModuleView, BlueprintPoolInputChoice, BlueprintRevision, CreateBlueprintCourseInput,
+    CreateBlueprintModuleInput, MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS,
+    ReplaceBlueprintCourseContentInput, ReusableFixedQuestionInput, ReusablePoolInput,
+    ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
+    validate_blueprint_course_title,
 };
 pub use crate::blueprint_operations::*;
 pub use crate::capability::{
@@ -267,9 +267,9 @@ pub use crate::student_work::{
     QuestionAttemptReproductionDetails, QuestionAttemptState, QuestionAttemptTiming,
     QuestionBackendVersion, QuestionEvaluation, QuestionEvaluationError, QuestionGraderVersion,
     QuestionPoolSelectedItem, QuestionPoolSelection, QuestionPoolSelectionId,
-    QuestionPoolSelectionReuseError, QuestionRendererVersion, QuestionSubmission,
-    QuestionSubmissionId, RecordedCredit, SourceObjectChecksum, SourceObjectChecksumError,
-    SourceObjectReference, StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
+    QuestionRendererVersion, QuestionSubmission, QuestionSubmissionId, RecordedCredit,
+    SourceObjectChecksum, SourceObjectChecksumError, SourceObjectReference,
+    StudentAssessmentAttemptPosition, StudentAssessmentAttemptProgress,
     StudentAssessmentAttemptResponseState, StudentAssessmentGrade, StudentAssessmentProgress,
     StudentQuestionAttemptView, StudentRecordId, Timestamp,
 };

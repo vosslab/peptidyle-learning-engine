@@ -45,9 +45,6 @@ CREATE TABLE ple_private.assessment_template (
     assessment_attempt_grade_rule text NOT NULL CHECK (
         assessment_attempt_grade_rule IN ('first', 'latest', 'highest', 'instructor_selected')
     ),
-    question_pool_reuse_rule text NOT NULL CHECK (
-        question_pool_reuse_rule IN ('reuse_selection', 'select_again')
-    ),
     question_variation_rule text NOT NULL CHECK (
         question_variation_rule IN ('reuse_variation', 'new_variation')
     ),
@@ -158,8 +155,7 @@ BEGIN
             <> ARRAY[
                 'assessmentAttemptGradeRule', 'assessmentAttemptResumeRule',
                 'assessmentNavigationRule', 'assessmentQuestionDisplayRule',
-                'assessmentQuestionOrderRule', 'questionPoolReuseRule',
-                'questionVariationRule'
+                'assessmentQuestionOrderRule', 'questionVariationRule'
             ]::text[] THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Template settings are invalid';
@@ -168,8 +164,6 @@ BEGIN
     IF jsonb_typeof(activity_rules -> 'assessmentAttemptGradeRule') <> 'string'
        OR activity_rules ->> 'assessmentAttemptGradeRule'
             NOT IN ('first', 'latest', 'highest', 'instructorSelected')
-       OR jsonb_typeof(activity_rules -> 'questionPoolReuseRule') <> 'string'
-       OR activity_rules ->> 'questionPoolReuseRule' NOT IN ('reuseSelection', 'selectAgain')
        OR jsonb_typeof(activity_rules -> 'questionVariationRule') <> 'string'
        OR activity_rules ->> 'questionVariationRule' NOT IN ('reuseVariation', 'newVariation')
        OR jsonb_typeof(activity_rules -> 'assessmentAttemptResumeRule') <> 'string'
@@ -230,7 +224,7 @@ GRANT SELECT, INSERT ON TABLE ple_private.assessment_template TO ple_api_owner;
 GRANT UPDATE (
     assessment_template_edit_number, template_name, assessment_type, instructions,
     assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-    assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule,
+    assessment_attempt_grade_rule, question_variation_rule,
     assessment_attempt_resume_rule, assessment_question_display_rule,
     assessment_navigation_rule, assessment_question_order_rule, feedback_score,
     feedback_per_item_correctness, feedback_submitted_response,
@@ -277,8 +271,6 @@ BEGIN
                    'assessmentAttemptGradeRule', CASE template.assessment_attempt_grade_rule
                        WHEN 'instructor_selected' THEN 'instructorSelected'
                        ELSE template.assessment_attempt_grade_rule END,
-                   'questionPoolReuseRule', CASE template.question_pool_reuse_rule
-                       WHEN 'reuse_selection' THEN 'reuseSelection' ELSE 'selectAgain' END,
                    'questionVariationRule', CASE template.question_variation_rule
                        WHEN 'reuse_variation' THEN 'reuseVariation' ELSE 'newVariation' END,
                    'assessmentAttemptResumeRule', CASE template.assessment_attempt_resume_rule
@@ -366,7 +358,7 @@ BEGIN
     INSERT INTO ple_private.assessment_template (
         assessment_template_id, owner_account_id, template_name, assessment_type, instructions,
         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-        assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule,
+        assessment_attempt_grade_rule, question_variation_rule,
         assessment_attempt_resume_rule, assessment_question_display_rule,
         assessment_navigation_rule, assessment_question_order_rule, feedback_score,
         feedback_per_item_correctness, feedback_submitted_response,
@@ -379,8 +371,6 @@ BEGIN
         CASE activity_rules ->> 'assessmentAttemptGradeRule'
             WHEN 'instructorSelected' THEN 'instructor_selected'
             ELSE activity_rules ->> 'assessmentAttemptGradeRule' END,
-        CASE activity_rules ->> 'questionPoolReuseRule'
-            WHEN 'reuseSelection' THEN 'reuse_selection' ELSE 'select_again' END,
         CASE activity_rules ->> 'questionVariationRule'
             WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
         CASE activity_rules ->> 'assessmentAttemptResumeRule'
@@ -462,8 +452,6 @@ BEGIN
            assessment_attempt_grade_rule = CASE activity_rules ->> 'assessmentAttemptGradeRule'
                WHEN 'instructorSelected' THEN 'instructor_selected'
                ELSE activity_rules ->> 'assessmentAttemptGradeRule' END,
-           question_pool_reuse_rule = CASE activity_rules ->> 'questionPoolReuseRule'
-               WHEN 'reuseSelection' THEN 'reuse_selection' ELSE 'select_again' END,
            question_variation_rule = CASE activity_rules ->> 'questionVariationRule'
                WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
            assessment_attempt_resume_rule = CASE activity_rules ->> 'assessmentAttemptResumeRule'

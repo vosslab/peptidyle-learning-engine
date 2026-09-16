@@ -15,9 +15,11 @@ const ASSIGNED_INSTRUCTOR: u128 = 0xc701;
 const CO_INSTRUCTOR: u128 = 0xc702;
 const TARGET_INSTRUCTOR: u128 = 0xc703;
 const NONMEMBER_INSTRUCTOR: u128 = 0xc704;
+const LIFETIME_INSTRUCTOR: u128 = 0xc741;
 const ASSIGNED_SESSION: u128 = 0xc711;
 const CO_INSTRUCTOR_SESSION: u128 = 0xc712;
 const NONMEMBER_SESSION: u128 = 0xc713;
+const LIFETIME_SESSION: u128 = 0xc751;
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
@@ -79,8 +81,8 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountReference, AccountRefer
     .execute(&mut *transaction)
     .await
     .expect("fixture Instructor sessions");
-    let references: Vec<(Uuid, i64)> = sqlx::query_as(
-        "SELECT account_id, reference_number FROM ple_private.account \
+    let references: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT account_id, public_reference FROM ple_private.account \
          WHERE account_id IN ($1, $2) ORDER BY account_id",
     )
     .bind(id(CO_INSTRUCTOR))
@@ -91,12 +93,11 @@ async fn seed(admin: &sqlx::postgres::PgPool) -> (AccountReference, AccountRefer
     transaction.commit().await.expect("fixture commit");
 
     let reference_for = |account_id| {
-        references
+        let public_reference = references
             .iter()
-            .find_map(|(found, reference)| (*found == account_id).then_some(*reference))
-            .and_then(|reference| u64::try_from(reference).ok())
-            .and_then(AccountReference::new)
-            .expect("fixture Account reference")
+            .find_map(|(found, reference)| (*found == account_id).then_some(reference))
+            .expect("fixture Account public reference");
+        AccountReference::new(public_reference).expect("fixture Account reference")
     };
     (
         reference_for(id(CO_INSTRUCTOR)),
@@ -120,7 +121,7 @@ async fn malformed_empty_materialization_rejection(
         .execute(&mut *transaction)
         .await?;
     sqlx::query(
-        "SELECT reference_number FROM ple_api.create_course_instance( \
+        "SELECT public_reference FROM ple_api.create_course_instance( \
          $1, $2, $3, $4, 'empty', NULL, NULL, 'EMPTY-BAD', \
          'Rejected nonempty Empty Course', '2026-01-01'::date, '2026-05-01'::date, \
          NULL, jsonb_build_array(jsonb_build_object('source', $5::text)))",
@@ -136,8 +137,44 @@ async fn malformed_empty_materialization_rejection(
     Ok(())
 }
 
+async fn seed_lifetime_instructor(admin: &sqlx::postgres::PgPool) {
+    let mut transaction = admin
+        .begin()
+        .await
+        .expect("Active-lifetime fixture transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("Active-lifetime private fixture role");
+    sqlx::query(
+        "INSERT INTO ple_private.account (account_id, product_role, created_at) \
+         VALUES ($1, 'instructor', clock_timestamp())",
+    )
+    .bind(id(LIFETIME_INSTRUCTOR))
+    .execute(&mut *transaction)
+    .await
+    .expect("Active-lifetime fixture Instructor Account");
+    sqlx::query(
+        "INSERT INTO ple_private.authenticated_session \
+         (session_id, account_id, product_role, token_hash, created_at, expires_at) \
+         VALUES ($1, $2, 'instructor', decode($3, 'hex'), clock_timestamp(), \
+                 clock_timestamp() + interval '1 hour')",
+    )
+    .bind(id(LIFETIME_SESSION))
+    .bind(id(LIFETIME_INSTRUCTOR))
+    .bind(token(0xc4).to_string())
+    .execute(&mut *transaction)
+    .await
+    .expect("Active-lifetime fixture Instructor session");
+    transaction
+        .commit()
+        .await
+        .expect("Active-lifetime fixture commit");
+}
+
 async fn course_term_beyond_active_lifetime_rejection(
     application_url: &str,
+    session_token: SessionTokenHash,
 ) -> Result<(), sqlx::Error> {
     let mut connection = PgConnection::connect(application_url).await?;
     let mut transaction = connection.begin().await?;
@@ -145,14 +182,14 @@ async fn course_term_beyond_active_lifetime_rejection(
         .execute(&mut *transaction)
         .await?;
     sqlx::query("SELECT session_id FROM ple_api.resolve_and_install_session(decode($1, 'hex'))")
-        .bind(token(0xc1).to_string())
+        .bind(session_token.to_string())
         .fetch_one(&mut *transaction)
         .await?;
     sqlx::query("SET LOCAL ROLE ple_app")
         .execute(&mut *transaction)
         .await?;
     sqlx::query(
-        "SELECT reference_number FROM ple_api.create_course_instance( \
+        "SELECT public_reference FROM ple_api.create_course_instance( \
          $1, $2, $3, $4, 'empty', NULL, NULL, 'TERM-BAD', \
          'Rejected Active lifetime extension', \
          (transaction_timestamp() AT TIME ZONE 'UTC')::date, \
@@ -203,20 +240,35 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
         .expect("assigned Instructor Course workspace");
     assert_eq!(workspace.active_instructor_count, 1);
 
-    let inspection = lazy_pool(migration_url).expect("inspection pool");
+    let mut inspection = PgConnection::connect(migration_url)
+        .await
+        .expect("inspection connection");
+    let mut provenance_inspection = inspection
+        .begin()
+        .await
+        .expect("Empty Course provenance transaction");
+    // ASVS 8.2.1: this assertion uses the explicit data-owner fixture role.
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *provenance_inspection)
+        .await
+        .expect("Empty Course provenance fixture role");
     let provenance: (String, Option<i64>, Option<i64>, i64) = sqlx::query_as(
         "SELECT course.source_kind, course.blueprint_course_reference_number, \
                 course.blueprint_revision_number, count(assessment.assessment_id) \
            FROM ple_data.course_instance AS course \
            LEFT JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id \
-          WHERE course.reference_number = $1 \
+          WHERE course.public_reference = $1 \
           GROUP BY course.source_kind, course.blueprint_course_reference_number, \
                    course.blueprint_revision_number",
     )
-    .bind(i64::from(course.number()))
-    .fetch_one(&inspection)
+    .bind(course.as_string())
+    .fetch_one(&mut *provenance_inspection)
     .await
     .expect("Empty Course provenance");
+    provenance_inspection
+        .commit()
+        .await
+        .expect("Empty Course provenance inspection commit");
     assert_eq!(provenance, ("empty".to_owned(), None, None, 0));
 
     let mut provenance_mutation = inspection
@@ -229,9 +281,9 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
         .expect("provenance mutation role");
     let provenance_error = sqlx::query(
         "UPDATE ple_data.course_instance SET source_kind = 'adopted' \
-         WHERE reference_number = $1",
+         WHERE public_reference = $1",
     )
-    .bind(i64::from(course.number()))
+    .bind(course.as_string())
     .execute(&mut *provenance_mutation)
     .await
     .expect_err("Course source provenance is immutable");
@@ -270,7 +322,10 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
     assert_eq!(final_workspace.active_instructor_count, 3);
 
     admin.close().await;
-    inspection.close().await;
+    inspection
+        .close()
+        .await
+        .expect("inspection connection close");
 }
 
 /// Keeps the immutable six-month Active cutoff from being bypassed through a
@@ -284,9 +339,9 @@ async fn course_creation_rejects_a_term_after_its_active_lifetime() {
     let migration_url = runtime.migration_url().expose();
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let admin = lazy_pool(migration_url).expect("migration pool");
-    seed(&admin).await;
+    seed_lifetime_instructor(&admin).await;
 
-    let rejection = course_term_beyond_active_lifetime_rejection(&application_url)
+    let rejection = course_term_beyond_active_lifetime_rejection(&application_url, token(0xc4))
         .await
         .expect_err("Course term after the Active cutoff must be rejected");
     assert_eq!(error_code(&rejection).as_deref(), Some("22023"));

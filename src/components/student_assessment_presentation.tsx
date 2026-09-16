@@ -8,7 +8,6 @@ import type { ClassStatistics } from "../../generated/api/ClassStatistics";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFeedbackReleaseTiming";
 import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkStatus";
-import type { QuestionPoolReuseRule } from "../../generated/api/QuestionPoolReuseRule";
 import type { AssessmentQuestionVariationRule } from "../../generated/api/AssessmentQuestionVariationRule";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
@@ -37,7 +36,6 @@ export interface StudentAssessmentPresentationData {
   readonly displayTimeZone: string;
   readonly delivery: StudentAssessmentPresentationDelivery;
   readonly questionsPerAssessmentAttempt: number;
-  readonly questionPoolReuseRule?: QuestionPoolReuseRule;
   readonly questionVariationRule?: AssessmentQuestionVariationRule;
   readonly studentFeedbackReleaseRule?: StudentFeedbackReleaseRule;
 }
@@ -225,22 +223,15 @@ function formatStudentLateWorkStatus(value: StudentLateWorkStatus): string {
 }
 
 function formatLaterAttemptRules(
-  poolReuseRule: QuestionPoolReuseRule | undefined,
   variationRule: AssessmentQuestionVariationRule | undefined,
 ): string {
-  const selection =
-    poolReuseRule === "reuseSelection"
-      ? "keeps its previous Question Pool Selection"
-      : poolReuseRule === "selectAgain"
-        ? "selects Questions again from each Question Pool"
-        : "uses its Question Pool Reuse Rule";
   const variation =
     variationRule === "reuseVariation"
       ? "reuses the previous Question Variations"
       : variationRule === "newVariation"
         ? "uses new Question Variations"
         : "uses its Question Variation Rule";
-  return `A later Assessment Attempt ${selection} and ${variation}.`;
+  return `A later Assessment Attempt selects Questions again from each Question Pool and ${variation}.`;
 }
 
 function formatDisclosureTiming(timing: StudentFeedbackReleaseTiming): string {
@@ -374,12 +365,7 @@ export function StudentAssessmentPresentation(
       <dl class="assessment-facts">
         <div>
           <dt>Later Assessment Attempt</dt>
-          <dd>
-            {formatLaterAttemptRules(
-              props.assessment.questionPoolReuseRule,
-              props.assessment.questionVariationRule,
-            )}
-          </dd>
+          <dd>{formatLaterAttemptRules(props.assessment.questionVariationRule)}</dd>
         </div>
         <div>
           <dt>Student Feedback Release</dt>

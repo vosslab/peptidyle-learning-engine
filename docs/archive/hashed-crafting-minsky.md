@@ -3,8 +3,8 @@
 ## Context
 
 The Live Demo's five personas exist but are strangers to each other. `local_stack_control/live_demo_seed.py`
-installs exactly five Accounts, three Student Authentication Emails, and four Published Questions
-(PNE-0001..0004, authored by Elena). It creates no Blueprint Course, Course Instance, roster, Student
+installs exactly five Accounts, three Student Authentication Emails, and four seeded Published Questions
+authored by Elena. It creates no Blueprint Course, Course Instance, roster, Student
 Record, or Assignment -- a boundary `docs/LOCAL_STACK_OPERATIONS.md` lines 142-146 states outright.
 
 So "Continue as Mary Student" lands on an empty course list, and the seeded peptide questions are
@@ -23,7 +23,7 @@ Target state after `./launchers/run_live_demo.sh`, with no further commands:
 
 | Account | Course state | Assignment state | Demo purpose |
 | --- | --- | --- | --- |
-| Elena Rivera, Instructor | Instructor for the seeded Course Instance | Released Assignment with PNE-0001..0004 | Instructor workflow |
+| Elena Rivera, Instructor | Instructor for the seeded Course Instance | Released Assignment with four seeded Published Questions | Instructor workflow |
 | Mary Okafor, Student | Active enrollment | Completed and scored | Gradebook, completed work, Student results |
 | Jack Nguyen, Student | Active enrollment | Started, in progress | Active attempt and unfinished work |
 | Avery Thompson, Student | Active enrollment | Not started | Fresh Student experience |
@@ -420,8 +420,8 @@ number. Reuse the response encoders that `tests/e2e/e2e_live_demo_native_control
 exercises for the eight native PLE formats rather than writing a second encoder.
 
 **Choose the fixed responses once, from evidence.** A pattern chosen blind could land Mary on 0% or
-100%, either of which makes a poor Gradebook demonstration. Run the candidate responses against
-PNE-0001..0004 on a live stack, read the resulting grading out of the baseline report, and settle on
+100%, either of which makes a poor Gradebook demonstration. Run the candidate responses against the
+four seeded Published Questions on a live stack, read the resulting grading out of the baseline report, and settle on
 one deterministic set that produces a mixed result. Then pin it and assert that the real grading
 outcome for those fixed responses stays correct -- a stable expectation about known questions, not a
 provisioner that keeps searching for a flattering score. If no response set yields a mixed result,

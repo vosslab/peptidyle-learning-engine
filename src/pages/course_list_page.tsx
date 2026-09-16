@@ -1,14 +1,17 @@
-// course_list_page.tsx - live Course Instance creation from exact Blueprint Revisions.
+// course_list_page.tsx - live Course Instance creation, empty or from exact Blueprint Revisions.
 
 import { A, useSearchParams } from "@solidjs/router";
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
-import type { CourseInstanceSummary } from "../api/course_instance";
+import type { CourseInstanceCreationSource, CourseInstanceSummary } from "../api/course_instance";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { courseThemeTokens } from "../features/course_appearance/course_theme_registry";
-import { courseInstanceRouteReference } from "../navigation/public_route";
+import {
+  courseInstanceRouteReference,
+  parseBlueprintCourseReference,
+} from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 
 type AdoptableBlueprintCourse = BlueprintCourseSummaryView;
@@ -79,7 +82,7 @@ function BlueprintSourceSelect(props: {
   );
 }
 
-/** Course Instance list and Instructor self-assessment creation task. */
+/** Course Instance list and Instructor creation task. */
 function TeachingCourseListPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const [searchParams] = useSearchParams();
@@ -91,17 +94,22 @@ function TeachingCourseListPage(): JSX.Element {
   const [courses, { refetch: refetchCourses }] = createResource(isInstructor, async (instructor) =>
     instructor ? applicationApi.client.listCourseInstances() : [],
   );
-  const [blueprints, { refetch: refetchBlueprints }] = createResource(
-    isInstructor,
-    async (instructor) =>
-      instructor ? applicationApi.client.listBlueprintCourses() : { items: [] },
+  const [creationSource, setCreationSource] = createSignal<"empty" | "adopted">(
+    typeof searchParams.blueprint === "string" &&
+      parseBlueprintCourseReference(searchParams.blueprint) !== null
+      ? "adopted"
+      : "empty",
+  );
+  const [blueprints] = createResource(
+    () => isInstructor() && creationSource() === "adopted",
+    async (adopting) => (adopting ? applicationApi.client.listBlueprintCourses() : { items: [] }),
   );
   const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseInstanceSummary>>(
     [],
   );
-  const [sourceChoice, setSource] = createSignal<string>();
-  const source = (): string => {
-    const choice = sourceChoice();
+  const [blueprintChoice, setBlueprintChoice] = createSignal<string>();
+  const blueprintSource = (): string => {
+    const choice = blueprintChoice();
     if (choice !== undefined) return choice;
     const selected = adoptableBlueprints().find(
       (blueprint) => blueprint.reference === searchParams.blueprint,
@@ -124,18 +132,28 @@ function TeachingCourseListPage(): JSX.Element {
     });
   });
   const adoptableBlueprints = createMemo(() =>
-    (blueprints()?.items ?? []).filter(isAdoptableBlueprintCourse),
+    blueprints.error === undefined
+      ? (blueprints()?.items ?? []).filter(isAdoptableBlueprintCourse)
+      : [],
   );
 
   async function createCourseInstance(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     if (isCreating()) return;
-    const selected = adoptableBlueprints().find(
-      (blueprint) => blueprintSourceValue(blueprint) === source(),
-    );
-    if (selected === undefined) {
-      setCreationError("Choose the current Blueprint Course Revision for this Course Instance.");
-      return;
+    let source: CourseInstanceCreationSource = { kind: "empty" };
+    if (creationSource() === "adopted") {
+      const selected = adoptableBlueprints().find(
+        (blueprint) => blueprintSourceValue(blueprint) === blueprintSource(),
+      );
+      if (selected === undefined) {
+        setCreationError("Choose the current Blueprint Course Revision for this Course Instance.");
+        return;
+      }
+      source = {
+        kind: "adopted",
+        blueprintCourse: selected.reference,
+        blueprintRevision: selected.current_revision.revision,
+      };
     }
     if (
       shortName().trim() !== shortName() ||
@@ -154,20 +172,19 @@ function TeachingCourseListPage(): JSX.Element {
     setIsCreating(true);
     try {
       const created = await applicationApi.client.createCourseInstance({
-        blueprintCourse: selected.reference,
-        blueprintRevision: selected.current_revision.revision,
+        source,
         shortName: shortName(),
         longName: longName(),
         term: { startDate: startDate(), endDate: endDate() },
       });
       setCreatedCourses((current) => [created.course, ...current]);
-      setSource("");
+      setCreationSource("empty");
+      setBlueprintChoice("");
       setShortName("");
       setLongName("");
       setStartDate("");
       setEndDate("");
       void refetchCourses();
-      void refetchBlueprints();
       queueMicrotask(() =>
         document
           .getElementById(`course-open-${courseInstanceRouteReference(created.course.reference)}`)
@@ -185,8 +202,8 @@ function TeachingCourseListPage(): JSX.Element {
       <p class="eyebrow">Teaching</p>
       <h1>{isInstructor() ? "Course Instances you teach" : "Your Course Instances"}</h1>
       <p class="page-lede">
-        Adopt a Blueprint Course to create your Course Instance with all its assessments. Review
-        dates and settings before releasing assessments to students.
+        Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review
+        dates and settings before releasing Assessments to students.
       </p>
       <Show when={isInstructor()}>
         <form
@@ -197,70 +214,95 @@ function TeachingCourseListPage(): JSX.Element {
           onSubmit={(event) => void createCourseInstance(event)}
         >
           <h2>Create Course Instance</h2>
-          <Show
-            when={adoptableBlueprints().length > 0}
-            fallback={
-              <p class="empty-state">
-                Create a Blueprint Course before creating a Course Instance.
+          <label for="course-creation-source">
+            Start with
+            <select
+              id="course-creation-source"
+              name="creationSource"
+              value={creationSource()}
+              onInput={(event) => {
+                setCreationSource(event.currentTarget.value === "adopted" ? "adopted" : "empty");
+                setCreationError(null);
+              }}
+            >
+              <option value="empty">An empty Course Instance</option>
+              <option value="adopted">A Blueprint Course Revision</option>
+            </select>
+          </label>
+          <Show when={creationSource() === "adopted"}>
+            <Show when={blueprints.loading}>
+              <p class="loading-state">Loading Blueprint Courses...</p>
+            </Show>
+            <Show when={blueprints.error !== undefined}>
+              <p class="route-error" role="alert">
+                Blueprint Courses could not be loaded.
               </p>
-            }
-          >
-            <BlueprintSourceSelect
-              blueprints={adoptableBlueprints()}
-              value={source()}
-              onChange={setSource}
-            />
-            <label for="course-short-name">
-              Course short name
-              <input
-                id="course-short-name"
-                name="shortName"
-                type="text"
-                value={shortName()}
-                onInput={(event) => setShortName(event.currentTarget.value)}
-                autocomplete="off"
-                required
+            </Show>
+            <Show
+              when={adoptableBlueprints().length > 0}
+              fallback={
+                <Show when={!blueprints.loading && blueprints.error === undefined}>
+                  <p class="empty-state">No public Blueprint Courses are available to adopt.</p>
+                </Show>
+              }
+            >
+              <BlueprintSourceSelect
+                blueprints={adoptableBlueprints()}
+                value={blueprintSource()}
+                onChange={setBlueprintChoice}
               />
-              <small>For compact navigation; about 16 characters when practical.</small>
-            </label>
-            <label for="course-long-name">
-              Course long name
-              <input
-                id="course-long-name"
-                name="longName"
-                type="text"
-                value={longName()}
-                onInput={(event) => setLongName(event.currentTarget.value)}
-                autocomplete="off"
-                required
-              />
-            </label>
-            <label for="course-start-date">
-              Course Term start date
-              <input
-                id="course-start-date"
-                name="startDate"
-                type="date"
-                value={startDate()}
-                onInput={(event) => setStartDate(event.currentTarget.value)}
-                required
-              />
-            </label>
-            <label for="course-end-date">
-              Course Term end date
-              <input
-                id="course-end-date"
-                name="endDate"
-                type="date"
-                value={endDate()}
-                onInput={(event) => setEndDate(event.currentTarget.value)}
-                required
-              />
-            </label>
-            <button class="primary-action" type="submit" disabled={isCreating()}>
-              {isCreating() ? "Creating Course Instance..." : "Create Course Instance"}
-            </button>
+            </Show>
           </Show>
+          <label for="course-short-name">
+            Course short name
+            <input
+              id="course-short-name"
+              name="shortName"
+              type="text"
+              value={shortName()}
+              onInput={(event) => setShortName(event.currentTarget.value)}
+              autocomplete="off"
+              required
+            />
+            <small>For compact navigation; about 16 characters when practical.</small>
+          </label>
+          <label for="course-long-name">
+            Course long name
+            <input
+              id="course-long-name"
+              name="longName"
+              type="text"
+              value={longName()}
+              onInput={(event) => setLongName(event.currentTarget.value)}
+              autocomplete="off"
+              required
+            />
+          </label>
+          <label for="course-start-date">
+            Course Term start date
+            <input
+              id="course-start-date"
+              name="startDate"
+              type="date"
+              value={startDate()}
+              onInput={(event) => setStartDate(event.currentTarget.value)}
+              required
+            />
+          </label>
+          <label for="course-end-date">
+            Course Term end date
+            <input
+              id="course-end-date"
+              name="endDate"
+              type="date"
+              value={endDate()}
+              onInput={(event) => setEndDate(event.currentTarget.value)}
+              required
+            />
+          </label>
+          <button class="primary-action" type="submit" disabled={isCreating()}>
+            {isCreating() ? "Creating Course Instance..." : "Create Course Instance"}
+          </button>
           <p role="status" aria-live="polite" aria-atomic="true">
             {creationError() ?? ""}
           </p>

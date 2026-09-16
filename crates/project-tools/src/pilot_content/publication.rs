@@ -16,8 +16,8 @@ use learning_data_access::{
 use objects::{ObjectAddress, ObjectStore, PutObject};
 use question_model::{
     ObjectId, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionBackend,
-    QuestionFormat, QuestionLicense, QuestionRevisionReason, QuestionRevisionReference,
-    QuestionType, SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
+    QuestionLicense, QuestionRevisionReason, QuestionRevisionReference, QuestionType,
+    SourceObjectChecksum, SourceObjectReference, Timestamp, WorkspaceId,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -201,7 +201,7 @@ async fn publish_plan(
         .await?;
         let checksum = SourceObjectChecksum::parse(question.source_sha256.clone())
             .map_err(|_| anyhow::anyhow!("Pilot source checksum is invalid"))?;
-        services
+        let bound_edit_number = services
             .publication
             .bind_draft_question_source(
                 session,
@@ -210,7 +210,7 @@ async fn publish_plan(
                     expected_draft_question_edit_number: draft.edit_number,
                     workspace,
                     question_backend: question_backend(question.backend),
-                    question_format: question_format(question.backend),
+                    question_format: question.question_format,
                     question_type: question_type(question.question_type),
                     webwork_pg_path: question.webwork_pg_path.clone(),
                     draft_imathas_question_backend_binding: None,
@@ -222,11 +222,6 @@ async fn publish_plan(
             )
             .await
             .context("binding ordinary Pilot Draft source evidence")?;
-        let draft = services
-            .drafts
-            .load_authoring_draft(session, draft.reference)
-            .await
-            .context("reloading the bound ordinary Pilot Draft")?;
         let publisher = NewQuestionLineagePublisher::new(
             services.objects.clone(),
             services.publication.clone(),
@@ -237,7 +232,7 @@ async fn publish_plan(
                 session,
                 NewQuestionLineagePublicationCommand {
                     draft_question_uuid: draft.draft_question_uuid,
-                    expected_draft_question_edit_number: draft.edit_number,
+                    expected_draft_question_edit_number: bound_edit_number,
                     workspace,
                     question_authorship: authorship.clone(),
                     initial_shared_tags: initial_shared_tags(&question)?,
@@ -304,6 +299,8 @@ fn existing_publication(
     if entry.question_title != question.question_title
         || entry.question_description != question.question_description
         || entry.backend != question_backend(question.backend)
+        || entry.question_format != question.question_format
+        || entry.webwork_pg_path != question.webwork_pg_path
         || entry.question_type != question_type(question.question_type)
         || entry.source_media_type != question.source_media_type
         || entry.authorship != *authorship
@@ -341,6 +338,12 @@ async fn matching_or_new_draft(
         if draft.workspace == workspace
             && draft.source_record.sha256.to_string() == question.source_sha256
         {
+            ensure!(
+                draft.source_record.media_type == question.source_media_type
+                    && draft.question_type == question_type(question.question_type),
+                "ordinary Draft provenance conflicts with reviewed Pilot source {}",
+                question.slug
+            );
             return Ok(draft);
         }
     }
@@ -363,7 +366,7 @@ async fn matching_or_new_draft(
             CreateAuthoringDraftInput {
                 draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::now_v7()),
                 source_record,
-                question_format: question_format(question.backend),
+                question_format: question.question_format,
                 webwork_pg_path: question.webwork_pg_path.clone(),
                 question_type: question_type(question.question_type),
                 title: question.question_title.clone(),
@@ -379,13 +382,6 @@ fn question_backend(backend: Backend) -> QuestionBackend {
     match backend {
         Backend::Webwork => QuestionBackend::Webwork,
         Backend::PleQuestionJson => QuestionBackend::Ple,
-    }
-}
-
-fn question_format(backend: Backend) -> QuestionFormat {
-    match backend {
-        Backend::Webwork => QuestionFormat::WebworkPg,
-        Backend::PleQuestionJson => QuestionFormat::PleQuestionJson,
     }
 }
 

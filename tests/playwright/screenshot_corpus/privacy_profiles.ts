@@ -21,6 +21,12 @@ const SELF_AGGREGATE_KEYS = new Set([
   "pointsearned",
   "pointspossible",
 ]);
+const RELEASED_STUDENT_FEEDBACK_KEYS = new Set([
+  ...SELF_AGGREGATE_KEYS,
+  "choicefeedback",
+  "correctfeedback",
+  "incorrectfeedback",
+]);
 
 export const PRIVACY_PROFILES: Readonly<Record<PrivacyProfileId, PrivacyProfile>> = {
   public: {
@@ -52,6 +58,12 @@ export const PRIVACY_PROFILES: Readonly<Record<PrivacyProfileId, PrivacyProfile>
     selectedControl: "allowed",
     statusHeading: "allowed",
     allowedResponseKeys: SELF_AGGREGATE_KEYS,
+  },
+  student_feedback_released: {
+    allowFilledEmail: false,
+    selectedControl: "allowed",
+    statusHeading: "allowed",
+    allowedResponseKeys: RELEASED_STUDENT_FEEDBACK_KEYS,
   },
   authorization_denial: {
     allowFilledEmail: false,

@@ -43,7 +43,15 @@ export function AssessmentOverviewPage(): JSX.Element {
   async function startAssessment(): Promise<void> {
     const courseReference = course();
     const assessmentReference = assessment();
-    if (courseReference === null || assessmentReference === null || starting()) return;
+    const assessmentType = access()?.assessmentType;
+    if (
+      courseReference === null ||
+      assessmentReference === null ||
+      assessmentType === undefined ||
+      starting()
+    ) {
+      return;
+    }
     setStarting(true);
     setStartError(undefined);
     try {
@@ -54,7 +62,9 @@ export function AssessmentOverviewPage(): JSX.Element {
       const attemptReference = assessmentAttemptRouteReference(attempt.assessmentAttempt);
       navigate(`/assessment-attempts/${attemptReference}`, { replace: true });
     } catch (_error: unknown) {
-      setStartError("Assessment could not be started. Please try again.");
+      setStartError(
+        `${assessmentTypePresentation(assessmentType).label} could not be started. Please try again.`,
+      );
     } finally {
       setStarting(false);
     }

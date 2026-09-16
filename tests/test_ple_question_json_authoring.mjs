@@ -7,6 +7,7 @@ import {
   serializePleQuestionJsonSource,
 } from "../src/features/ple_question_json_authoring/question_json_codec.ts";
 import { createDefaultPleQuestionJsonSource } from "../src/features/ple_question_json_authoring/question_json_defaults.ts";
+import { setPleQuestionJsonQuestionTitle } from "../src/features/ple_question_json_authoring/question_json_editor_model.ts";
 import {
   createPleQuestionJsonClient,
   PleQuestionJsonConflictError,
@@ -44,6 +45,8 @@ function source() {
     tags: ["example"],
     questionLicense: "CC-BY-SA-4.0",
     questionCitation: null,
+    externalResources: [],
+    authorScript: null,
     language: "en-US",
   };
 }
@@ -149,6 +152,8 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
   const input = source();
   delete input.feedback;
   delete input.tags;
+  delete input.externalResources;
+  delete input.authorScript;
   const serialized = serializePleQuestionJsonSource(decodePleQuestionJsonSource(input));
   assert.equal(
     serialized,
@@ -156,8 +161,70 @@ test("codec aligns Rust top-level defaults and canonicalizes them on serializati
       ...source(),
       feedback: { correct: null, incorrect: null },
       tags: [],
+      externalResources: [],
+      authorScript: null,
     }),
   );
+});
+
+test("external resource inventory stays closed, validated, and preserved through save JSON", () => {
+  const externalResources = [
+    { url: "https://example.org/question/reference?part=1", kind: "link" },
+    { url: "https://cdn.example.org/diagram.svg", kind: "image" },
+    { url: "https://cdn.example.org/interaction.js", kind: "script" },
+    { url: "https://cdn.example.org/question.css", kind: "stylesheet" },
+    { url: "https://example.org/supporting-data", kind: "other" },
+  ];
+  const decoded = decodePleQuestionJsonSource({ ...source(), externalResources });
+  assert.deepEqual(decoded.externalResources, externalResources);
+  assert.deepEqual(parsePleQuestionJsonSource(serializePleQuestionJsonSource(decoded)), decoded);
+  const edited = setPleQuestionJsonQuestionTitle(decoded, "Edited title");
+  assert.deepEqual(
+    parsePleQuestionJsonSource(serializePleQuestionJsonSource(edited)).externalResources,
+    externalResources,
+  );
+
+  for (const invalidResource of [
+    { url: "http://example.org/insecure", kind: "link" },
+    { url: "https://user@example.org/private", kind: "link" },
+    { url: "https://:@example.org/private", kind: "link" },
+    { url: "https://example.org/bad%escape", kind: "link" },
+    { url: "https://example.org/file", kind: "unknown" },
+    { url: "https://example.org/file", kind: "link", fetch: true },
+  ]) {
+    assert.throws(() =>
+      decodePleQuestionJsonSource({ ...source(), externalResources: [invalidResource] }),
+    );
+  }
+  assert.throws(() =>
+    decodePleQuestionJsonSource({
+      ...source(),
+      externalResources: [externalResources[0], externalResources[0]],
+    }),
+  );
+});
+
+test("author script metadata stays closed and preserved without becoming an execution path", () => {
+  const authorScript = { source: "return { prompt: 'variant' };", libraries: ["rdkit"] };
+  const decoded = decodePleQuestionJsonSource({ ...source(), authorScript });
+  assert.deepEqual(decoded.authorScript, authorScript);
+  const edited = setPleQuestionJsonQuestionTitle(decoded, "Edited scripted title");
+  assert.deepEqual(
+    parsePleQuestionJsonSource(serializePleQuestionJsonSource(edited)).authorScript,
+    authorScript,
+  );
+
+  for (const invalidAuthorScript of [
+    { source: " ", libraries: [] },
+    { source: "return {};", libraries: null },
+    { source: "return {};", libraries: ["unknown"] },
+    { source: "return {};", libraries: ["rdkit", "rdkit"] },
+    { source: "return {};", libraries: [], execute: true },
+  ]) {
+    assert.throws(() =>
+      decodePleQuestionJsonSource({ ...source(), authorScript: invalidAuthorScript }),
+    );
+  }
 });
 
 test("codec enforces Unicode Question Title bounds", () => {

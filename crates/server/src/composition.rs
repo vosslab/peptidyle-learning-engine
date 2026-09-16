@@ -98,8 +98,6 @@ pub async fn production_router_from_env() -> Result<Router> {
     let question_forks = PostgresQuestionForkStore::new(pool.clone());
     let question_stars = PostgresQuestionStarStore::new(pool.clone());
     let question_watches = PostgresQuestionWatchStore::new(pool.clone());
-    let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone());
-    let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone());
     let blueprint_stewardship = PostgresBlueprintStewardshipStore::new(pool.clone());
     let course_themes = PostgresCourseThemeStore::new(pool.clone());
     let course_banners = PostgresCourseBannerStore::new(pool.clone());
@@ -111,7 +109,6 @@ pub async fn production_router_from_env() -> Result<Router> {
     let gradebook = PostgresCourseGradebookStore::new(pool.clone());
     let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
     let profile_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
-    let assessments = PostgresLiveAssessmentStore::new(pool.clone());
     let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
     let assessment_pool_selection_counts =
         PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
@@ -125,6 +122,12 @@ pub async fn production_router_from_env() -> Result<Router> {
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
     let question_id_issuer = question_id_issuer_from_env()?;
+    let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone())
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+    let assessments = PostgresLiveAssessmentStore::new(pool.clone())
+        .with_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+    let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone())
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
     let course_instances = PostgresCourseInstanceStore::new(pool.clone())
         .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
     let browser_boundary = production_browser_boundary_from_env()?;

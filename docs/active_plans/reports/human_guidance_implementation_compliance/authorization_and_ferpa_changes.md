@@ -15,6 +15,16 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- C15's higher-security Sysadmin row is verified. Private TOTP credentials and browser-bound,
+  expiring one-use attestations prevent generic stored-role Sysadmin session issuance. Accepted
+  independent SQL and actual-server HTTP proof covered genuine valid TOTP success, pending
+  no-session/protected denial, missing/wrong binding, bad codes, replay/expiry/counter reuse, and
+  a five-attempt lock refusing a fresh unused valid counter. Ordinary Student/Instructor sessions
+  and limited grants remain preserved. Artifacts:
+  `/private/tmp/ple-sysadmin-session-boundary-artifacts.kSMr1H` and
+  `/private/tmp/ple-sysadmin-session-boundary-http-artifacts.zexsoO`. Loopback HTTP is not deployed
+  TLS evidence; broader Sysadmin authority and full authentication acceptance remain outside scope.
+
 - Human-reference source review accepted typed `BP`, `CI`, `A`, and `U` parsing and browser/server
   read/use boundaries; `U` use is limited to authenticated Account-management paths in the reviewed
   code. This is not creation, randomness, collision-retry, or full authorization evidence, so the
@@ -37,9 +47,6 @@ The authoritative exhaustive record is the
 
 - **Students** are required to use their university or institutional (`.edu` in the USA) email accounts.
   - Source: `docs/HUMAN_GUIDANCE.md:94`
-
-- **Sysadmin** accounts should require higher security than other accounts, like TOTP authentication
-  - Source: `docs/HUMAN_GUIDANCE.md:95`
 
 - Instructor Accounts may be deactivated without deleting their authored content, Course relationships, or historical records.
   - Source: `docs/HUMAN_GUIDANCE.md:99`

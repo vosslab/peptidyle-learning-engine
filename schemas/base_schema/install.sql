@@ -21,6 +21,7 @@
 \ir question_assets.sql
 \ir blueprints.sql
 \ir blueprint_operations.sql
+\ir blueprint_pools.sql
 \ir blueprint_lineage.sql
 \ir blueprint_stewardship.sql
 \ir blueprint_revision_integrity.sql
@@ -43,6 +44,7 @@
 \ir assessment_pool_selection.sql
 \ir course_blueprint_adoption.sql
 \ir assessment_operations.sql
+\ir assessment_blueprint_updates.sql
 \ir assessment_student_view.sql
 \ir assessment_attempts.sql
 \ir assessment_attempt_interaction.sql

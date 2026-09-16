@@ -115,13 +115,6 @@ fn apply_live_demo() -> Result<()> {
         crate::installation_data_blueprint::create_live_demo_blueprint(token_hash, &publications)
             .context("creating the ordinary Live Demo Blueprint Course")?;
     ensure!(
-        live_demo_blueprint
-            .blueprint_reference
-            .bytes()
-            .all(|byte| byte.is_ascii_digit()),
-        "Live Demo Blueprint Store receipt is not a decimal reference"
-    );
-    ensure!(
         Uuid::parse_str(&live_demo_blueprint.assessment_reference)
             .is_ok_and(
                 |value| value.hyphenated().to_string() == live_demo_blueprint.assessment_reference
@@ -135,8 +128,8 @@ fn apply_live_demo() -> Result<()> {
             ("pilot_publication_session_id", session_id_text),
             ("pilot_question_publications", publications.clone()),
             (
-                "live_demo_blueprint_reference",
-                live_demo_blueprint.blueprint_reference,
+                "live_demo_blueprint_public_reference",
+                live_demo_blueprint.blueprint_public_reference,
             ),
             (
                 "live_demo_blueprint_assessment_reference",
@@ -440,7 +433,10 @@ mod tests {
                     "pilot_question_publications",
                     r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC1-X234","revisionNumber":1}}}"#.to_string(),
                 ),
-                ("live_demo_blueprint_reference", "12".to_string()),
+                (
+                    "live_demo_blueprint_public_reference",
+                    "BP00000C".to_string(),
+                ),
                 (
                     "live_demo_blueprint_assessment_reference",
                     "00000000-0000-0000-0000-000000000012".to_string(),
@@ -450,7 +446,9 @@ mod tests {
         .unwrap();
         assert!(script.contains("\\set pilot_publication_session_id"));
         assert!(script.contains("\\set pilot_question_publications"));
-        assert!(script.contains("\\set live_demo_blueprint_reference '12'"));
+        assert!(script.contains(
+            "\\set live_demo_blueprint_public_reference 'BP00000C'"
+        ));
         assert!(script.contains(
             "\\set live_demo_blueprint_assessment_reference '00000000-0000-0000-0000-000000000012'"
         ));

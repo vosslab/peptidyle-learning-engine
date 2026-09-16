@@ -125,12 +125,13 @@ impl DraftQuestionSourceBindingInput {
 /// Session-authorized persistence for Draft Question Source Bindings.
 #[async_trait]
 pub trait DraftQuestionSourceBindingStore: Send + Sync {
-    /// Binds immutable source-byte evidence to a Draft Question at its expected Edit Number.
+    /// Binds immutable source-byte evidence at the exact expected Edit Number,
+    /// returning the committed Edit Number for a subsequent publication attempt.
     async fn bind_draft_question_source(
         &self,
         session_token_hash: SessionTokenHash,
         input: DraftQuestionSourceBindingInput,
-    ) -> Result<(), StoreError>;
+    ) -> Result<DraftQuestionEditNumber, StoreError>;
 }
 
 /// Session-authorized resolution of the exact Draft Question Source selected

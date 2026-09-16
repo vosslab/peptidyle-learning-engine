@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-
 use anyhow::{Context, Result};
 use question_model::{QuestionBackend, QuestionRevisionReference, QuestionType};
 
-use super::{Manifest, ReplacementRevisions, question_type, replacement_source, source_key};
+use super::{Manifest, SourceRevisions};
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,59 +18,35 @@ pub(crate) struct Receipt {
 pub(super) struct ReceiptTopic {
     pub(super) source_key: String,
     pub(super) title: String,
-    pub(super) banks: Vec<ReceiptBank>,
+    pub(super) questions: Vec<ReceiptQuestion>,
 }
 
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct ReceiptBank {
-    pub(super) source_key: String,
-    pub(super) title: String,
-    pub(super) source_path: String,
-    pub(super) source_checksum: String,
-    pub(super) selection_count: u32,
-    pub(super) backend: QuestionBackend,
-    pub(super) canonical_source_id: Option<String>,
-    pub(super) canonical_question_revision: Option<QuestionRevisionReference>,
-    pub(super) rows: Vec<ReceiptRow>,
-    pub(super) pool_question_revisions: Vec<QuestionRevisionReference>,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct ReceiptRow {
-    pub(super) source_key: String,
-    pub(super) row_id: String,
+pub(super) struct ReceiptQuestion {
+    pub(super) source_id: String,
     pub(super) title: String,
     pub(super) source_path: String,
     pub(super) source_checksum: String,
     pub(super) backend: QuestionBackend,
     pub(super) question_type: QuestionType,
     pub(super) webwork_pg_path: String,
-    pub(super) pool_position: usize,
     pub(super) question_revision: QuestionRevisionReference,
 }
 
 impl Receipt {
     pub(crate) fn installation_summary(&self) -> String {
-        let bank_count = self
+        let question_count = self
             .topics
             .iter()
-            .map(|topic| topic.banks.len())
-            .sum::<usize>();
-        let row_count = self
-            .topics
-            .iter()
-            .flat_map(|topic| &topic.banks)
-            .map(|bank| bank.rows.len())
+            .map(|topic| topic.questions.len())
             .sum::<usize>();
         format!(
-            "Genetics Blueprint {} revision {}: {} topics, {} banks, {} Questions",
+            "Genetics Blueprint {} revision {}: {} topics, {} canonical Questions",
             self.blueprint_reference,
             self.blueprint_revision,
             self.topics.len(),
-            bank_count,
-            row_count
+            question_count
         )
     }
 
@@ -80,82 +54,46 @@ impl Receipt {
         reference: String,
         revision: u64,
         manifest: &Manifest,
-        published: &BTreeMap<String, QuestionRevisionReference>,
-        replacements: &ReplacementRevisions,
+        revisions: &SourceRevisions,
     ) -> Result<Self> {
+        let sources = manifest
+            .parameterized_sources
+            .iter()
+            .map(|source| (source.source_id.as_str(), source))
+            .collect::<std::collections::BTreeMap<_, _>>();
         let topics = manifest
             .topics
             .iter()
-            .map(|topic| -> Result<ReceiptTopic> {
+            .map(|topic| -> Result<_> {
+                let questions = topic
+                    .source_ids
+                    .iter()
+                    .map(|source_id| -> Result<_> {
+                        let source = sources.get(source_id.as_str()).with_context(|| {
+                            format!("curriculum receipt is missing source {source_id}")
+                        })?;
+                        let question_revision =
+                            revisions.get(source_id).cloned().with_context(|| {
+                                format!("curriculum receipt is missing revision for {source_id}")
+                            })?;
+                        Ok(ReceiptQuestion {
+                            source_id: source_id.clone(),
+                            title: source.question_title.clone(),
+                            source_path: source.pg_source.display().to_string(),
+                            source_checksum: source.pg_sha256.clone(),
+                            backend: QuestionBackend::Webwork,
+                            question_type: super::super::parameterized_publication::question_type(
+                                source.question_type,
+                            ),
+                            webwork_pg_path: source.webwork_pg_path.clone(),
+                            question_revision,
+                        })
+                    })
+                    .collect::<Result<Vec<_>>>()?;
                 Ok(ReceiptTopic {
                     source_key: topic.slug.clone(),
                     title: topic.title.clone(),
-                    banks: topic
-                        .banks
-                        .iter()
-                        .map(|bank| -> Result<ReceiptBank> {
-                            let replacement = replacement_source(manifest, topic, bank);
-                            let canonical_question_revision = replacement
-                                .map(|_source| {
-                                    replacements
-                                        .get(&(topic.slug.clone(), bank.slug.clone()))
-                                        .cloned()
-                                        .with_context(|| {
-                                            format!(
-                                                "curriculum receipt is missing canonical replacement for {}/{}",
-                                                topic.slug, bank.slug
-                                            )
-                                        })
-                                })
-                                .transpose()?;
-                            let rows = bank
-                                .rows
-                                .iter()
-                                .filter(|_| replacement.is_none())
-                                .enumerate()
-                                .map(|(pool_position, row)| -> Result<ReceiptRow> {
-                                    let source_key = source_key(topic, bank, row);
-                                    let question_revision = published
-                                        .get(&source_key)
-                                        .cloned()
-                                        .with_context(|| {
-                                            format!(
-                                                "curriculum receipt is missing a published revision for {}",
-                                                row.row_id
-                                            )
-                                        })?;
-                                    Ok(ReceiptRow {
-                                        source_key,
-                                        row_id: row.row_id.clone(),
-                                        title: row.question_title.clone(),
-                                        source_path: row.pg_source.display().to_string(),
-                                        source_checksum: row.pg_sha256.clone(),
-                                        backend: QuestionBackend::Webwork,
-                                        question_type: question_type(row.question_type),
-                                        webwork_pg_path: row.webwork_pg_path.clone(),
-                                        pool_position,
-                                        question_revision,
-                                    })
-                                })
-                                .collect::<Result<Vec<_>>>()?;
-                            Ok(ReceiptBank {
-                                source_key: format!("{}/{}", topic.slug, bank.slug),
-                                title: bank.title.clone(),
-                                source_path: bank.source.display().to_string(),
-                                source_checksum: bank.source_sha256.clone(),
-                                selection_count: bank.selection_count,
-                                backend: QuestionBackend::Webwork,
-                                canonical_source_id: replacement
-                                    .map(|source| source.source_id.clone()),
-                                canonical_question_revision,
-                                pool_question_revisions: rows
-                                    .iter()
-                                    .map(|row| row.question_revision.clone())
-                                    .collect(),
-                                rows,
-                            })
-                        })
-                        .collect::<Result<Vec<_>>>()?,
+                    questions,
                 })
             })
             .collect::<Result<Vec<_>>>()?;
@@ -170,9 +108,9 @@ impl Receipt {
 }
 
 impl std::fmt::Display for Receipt {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         serde_json::to_string(self)
             .map_err(|_| std::fmt::Error)?
-            .fmt(f)
+            .fmt(formatter)
     }
 }

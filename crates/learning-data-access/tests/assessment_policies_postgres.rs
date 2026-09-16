@@ -39,7 +39,7 @@ fn policy(expected_edit_number: u64, instructions: &str) -> SaveBaseAssessmentPo
     input
 }
 
-async fn seed(admin: &sqlx::postgres::PgPool) {
+async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
     let mut tx = admin.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
@@ -98,11 +98,19 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *tx)
         .await
         .expect("Assessment fixture role");
-    sqlx::query("INSERT INTO ple_data.assessment (assessment_id, reference_number, course_id, origin_kind, source_blueprint_course_reference_number, source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, updated_at, assessment_type, assessment_title, assessment_instructions, assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, assessment_attempt_resume_rule, assessment_question_display_rule, assessment_navigation_rule, assessment_question_order_rule, feedback_score, feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, 'adopted', 1, 1, $3, clock_timestamp(), clock_timestamp(), 'quiz', 'Title must survive policy save', 'before policy save', 300, 1, 'reject', 'highest', 'reuse_selection', 'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation', 'shuffled', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit')")
+    sqlx::query("INSERT INTO ple_data.assessment (assessment_id, reference_number, course_id, origin_kind, source_blueprint_course_reference_number, source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, updated_at, assessment_type, assessment_title, assessment_instructions, assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, assessment_attempt_grade_rule, question_variation_rule, assessment_attempt_resume_rule, assessment_question_display_rule, assessment_navigation_rule, assessment_question_order_rule, feedback_score, feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics) OVERRIDING SYSTEM VALUE VALUES ($1, 1, $2, 'adopted', 1, 1, $3, clock_timestamp(), clock_timestamp(), 'quiz', 'Title must survive policy save', 'before policy save', 300, 1, 'reject', 'highest', 'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation', 'shuffled', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit')")
         .bind(id(ASSESSMENT)).bind(id(COURSE)).bind(id(BLUEPRINT_ASSESSMENT)).execute(&mut *tx).await.expect("Assessment");
     sqlx::query("INSERT INTO ple_data.assessment_entry (assessment_entry_id, assessment_id, authored_position, entry_kind, availability, scoring_rule, question_id, question_revision_number, points_possible) VALUES ($1, $2, 0, 'fixed_question', 'available', 'normal', 'ABCDXEF0', 1, 2)")
         .bind(id(ASSESSMENT_ENTRY)).bind(id(ASSESSMENT)).execute(&mut *tx).await.expect("Assessment Entry");
+    let public_reference: String = sqlx::query_scalar(
+        "SELECT public_reference FROM ple_data.course_instance WHERE course_id = $1",
+    )
+    .bind(id(COURSE))
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Course public reference");
     tx.commit().await.expect("fixture commit");
+    CourseInstanceReference::new(public_reference).expect("Course reference")
 }
 
 #[tokio::test]
@@ -111,7 +119,7 @@ async fn policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let migration_url = runtime.migration_url().expose();
     let admin = lazy_pool(migration_url).expect("migration pool");
-    seed(&admin).await;
+    let course = seed(&admin).await;
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let store =
         PostgresLiveAssessmentStore::new(lazy_pool(&application_url).expect("application pool"));
@@ -122,7 +130,6 @@ async fn policy_save_is_isolated_conflict_checked_and_reports_unreleased_invalid
         .execute(&mut inspection)
         .await
         .expect("inspection role");
-    let course = CourseInstanceReference::new(1).expect("Course reference");
     let assessment = AssessmentReference::new("A7K3M2Q").expect("Assessment reference");
 
     let saved = store

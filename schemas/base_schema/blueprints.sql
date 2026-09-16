@@ -334,8 +334,8 @@ BEGIN
             activity_value := defaults_value -> 'activity_rules';
             feedback_value := defaults_value -> 'student_feedback_release_rule';
             IF NOT ple_data.blueprint_content_has_exact_keys(activity_value, ARRAY[
-                'assessmentAttemptGradeRule', 'questionPoolReuseRule',
-                'questionVariationRule', 'assessmentAttemptResumeRule',
+                'assessmentAttemptGradeRule', 'questionVariationRule',
+                'assessmentAttemptResumeRule',
                 'assessmentQuestionDisplayRule', 'assessmentNavigationRule',
                 'assessmentQuestionOrderRule'
             ]) OR NOT ple_data.blueprint_content_has_exact_keys(feedback_value, ARRAY[
@@ -563,5 +563,78 @@ GRANT EXECUTE ON FUNCTION ple_data.blueprint_content_question_pins(jsonb),
     ple_data.validate_blueprint_content(jsonb),
     ple_data.validate_blueprint_question_selection(bigint, bigint, jsonb)
 TO ple_api_owner;
+
+SET LOCAL ROLE ple_data_owner;
+
+CREATE TABLE ple_data.blueprint_course_fork (
+    blueprint_course_reference_number bigint PRIMARY KEY
+        REFERENCES ple_data.blueprint_course (reference_number),
+    source_blueprint_course_reference_number bigint NOT NULL,
+    source_blueprint_revision_number bigint NOT NULL CHECK (
+        source_blueprint_revision_number > 0
+    ),
+    forked_at timestamp with time zone NOT NULL,
+    CHECK (blueprint_course_reference_number <> source_blueprint_course_reference_number),
+    FOREIGN KEY (
+        source_blueprint_course_reference_number, source_blueprint_revision_number
+    ) REFERENCES ple_data.blueprint_course_revision (
+        blueprint_course_reference_number, blueprint_revision_number
+    )
+);
+
+-- An idempotent fork request is distinct from ordinary Blueprint creation:
+-- the receipt preserves the source fact and prevents a retry from creating a
+-- second child lineage.
+CREATE TABLE ple_data.blueprint_course_fork_receipt (
+    actor_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
+    request_checksum bytea NOT NULL CHECK (octet_length(request_checksum) = 32),
+    blueprint_course_reference_number bigint NOT NULL
+        REFERENCES ple_data.blueprint_course (reference_number),
+    source_blueprint_course_reference_number bigint NOT NULL,
+    source_blueprint_revision_number bigint NOT NULL CHECK (
+        source_blueprint_revision_number > 0
+    ),
+    metadata_etag uuid NOT NULL,
+    accepted_at timestamp with time zone NOT NULL,
+    PRIMARY KEY (actor_account_id, request_checksum),
+    FOREIGN KEY (
+        source_blueprint_course_reference_number, source_blueprint_revision_number
+    ) REFERENCES ple_data.blueprint_course_revision (
+        blueprint_course_reference_number, blueprint_revision_number
+    )
+);
+CREATE INDEX blueprint_course_fork_source_idx ON ple_data.blueprint_course_fork (
+    source_blueprint_course_reference_number, source_blueprint_revision_number
+);
+
+ALTER TABLE ple_data.blueprint_course_fork ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.blueprint_course_fork FORCE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.blueprint_course_fork_receipt ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ple_data.blueprint_course_fork_receipt FORCE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+    ple_data.blueprint_course_fork, ple_data.blueprint_course_fork_receipt
+TO ple_api_owner;
+CREATE POLICY blueprint_course_fork_api_owner_all ON ple_data.blueprint_course_fork
+    TO ple_api_owner USING (true) WITH CHECK (true);
+CREATE POLICY blueprint_course_fork_receipt_api_owner_all
+    ON ple_data.blueprint_course_fork_receipt
+    TO ple_api_owner USING (true) WITH CHECK (true);
+
+-- The source Course and source Revision are permanent ancestry facts.  The
+-- forked Blueprint's own content remains independently editable through its
+-- ordinary immutable Revision sequence.
+-- ASVS 8.2.2, 8.3.1: enforce this data-specific boundary in trusted PostgreSQL.
+CREATE FUNCTION ple_data.reject_blueprint_course_fork_change()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, ple_data AS $$
+BEGIN
+    RAISE EXCEPTION USING ERRCODE = '55000',
+        MESSAGE = 'Blueprint Course fork origin is immutable';
+END
+$$;
+CREATE TRIGGER blueprint_course_fork_origin_is_immutable
+BEFORE UPDATE OR DELETE ON ple_data.blueprint_course_fork
+FOR EACH ROW EXECUTE FUNCTION ple_data.reject_blueprint_course_fork_change();
+REVOKE ALL ON FUNCTION ple_data.reject_blueprint_course_fork_change() FROM PUBLIC;
 
 RESET ROLE;

@@ -122,7 +122,7 @@ export function mountStudentCourseEntryM6Harness(
       caseName === "landing"
         ? "/student/courses/CI7K3M2Q"
         : caseName === "choose"
-          ? "/?choose=1"
+          ? "/student?choose=1"
           : "/",
   });
   const courses = coursesFor(caseName);

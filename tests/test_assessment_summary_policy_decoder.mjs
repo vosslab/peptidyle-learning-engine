@@ -6,7 +6,6 @@ import { decodeAssessmentSummary } from "../src/api/decoders/question_library.ts
 
 const policies = {
   assessmentAttemptGradeRule: "highest",
-  questionPoolReuseRule: "reuseSelection",
   questionVariationRule: "newVariation",
   assessmentAttemptResumeRule: "resumable",
   assessmentQuestionDisplayRule: "oneQuestionAtATime",

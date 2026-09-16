@@ -3,6 +3,7 @@
 import { normalizeQuestionIdSyntax } from "../question_id";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS";
 import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
@@ -12,12 +13,15 @@ import {
   MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
   MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
   QUESTION_BACKENDS,
+  decodeQuestionRevisionReference,
 } from "../api/decoders/shared";
 
 /** A browser-safe current Question Library record. */
 export interface QuestionLibraryBrowseRow {
   /** Copy/paste identity used by instructors and the browser deduplication key. */
   readonly displayId: string;
+  /** Exact immutable revision selected by this browse result. */
+  readonly questionRevision: QuestionRevisionReference;
   readonly questionTitle: string;
   readonly summary: string;
   /** Immutable source representation, without source location or content.
@@ -311,6 +315,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "displayId",
       "questionLicense",
       "questionFormat",
+      "questionRevision",
       "summary",
       "questionTitle",
       "evidence",
@@ -324,8 +329,17 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     throw new Error(`${path}.displayId must be a canonical Question ID`);
   }
   const evidence = decodeBrowseEvidence(value["evidence"], `${path}.evidence`);
+  const questionRevision = decodeQuestionRevisionReference(
+    value["questionRevision"],
+    `${path}.questionRevision`,
+    true,
+  );
+  if (questionRevision.questionId !== displayId) {
+    throw new Error(`${path}.questionRevision.questionId must match displayId`);
+  }
   return {
     displayId,
+    questionRevision,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
     questionFormat: decodeQuestionFormat(value["questionFormat"], `${path}.questionFormat`),

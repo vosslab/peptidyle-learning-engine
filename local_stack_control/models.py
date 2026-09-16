@@ -174,6 +174,7 @@ DECLARED_BASE_VOLUMES = (
 	"ple_pgdata",
 	"ple_miniodata",
 	"ple_identity_runtime",
+	"ple_sysadmin_totp_runtime",
 )
 DECLARED_SMTP_VOLUMES = ("ple_smtp_runtime",)
 

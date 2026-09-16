@@ -95,6 +95,13 @@ pub struct SaveAuthoringDraftGeneralFeedbackInput {
     pub general_feedback: Option<String>,
 }
 
+/// Exact owner-only Draft Question deletion precondition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DeleteAuthoringDraftInput {
+    pub reference: DraftQuestionReference,
+    pub expected_edit_number: DraftQuestionEditNumber,
+}
+
 /// Confirms that the initial Draft Question binding has an explicit source
 /// format compatible with its media type. The database repeats this invariant
 /// inside the creation transaction before it records the mutable Draft state.
@@ -176,6 +183,14 @@ pub trait AuthoringDraftStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         input: SaveAuthoringDraftGeneralFeedbackInput,
     ) -> Result<AuthoringDraft, StoreError>;
+
+    /// Permanently removes one Draft owned by the current Instructor under
+    /// the ordinary Draft Edit Number compare-and-swap contract.
+    async fn delete_authoring_draft(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: DeleteAuthoringDraftInput,
+    ) -> Result<(), StoreError>;
 }
 
 #[cfg(all(test, feature = "postgres"))]

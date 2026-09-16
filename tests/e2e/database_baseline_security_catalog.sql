@@ -164,6 +164,35 @@ SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.account (account_id, product_role, created_at)
 VALUES ('00000000-0000-0000-0000-00000000c240', 'sysadmin', clock_timestamp());
 SET LOCAL ROLE ple_api_owner;
+-- C803: a primary-authentication caller cannot issue a Sysadmin session
+-- through the ordinary session boundary. If this fails, restore mandatory
+-- TOTP enforcement rather than relaxing the denial or adding a bypass.
+DO $$
+BEGIN
+    BEGIN
+        PERFORM ple_api.create_authenticated_session(
+            '00000000-0000-0000-0000-00000000c242'::uuid,
+            '00000000-0000-0000-0000-00000000c240'::uuid,
+            decode(repeat('24', 32), 'hex'), 900
+        );
+        RAISE EXCEPTION 'ordinary issuance bypassed mandatory Sysadmin TOTP';
+    EXCEPTION WHEN insufficient_privilege THEN
+        NULL;
+    END;
+END
+$$;
+SET LOCAL ROLE ple_private_owner;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM ple_private.authenticated_session
+        WHERE account_id = '00000000-0000-0000-0000-00000000c240'::uuid
+    ) THEN
+        RAISE EXCEPTION 'denied Sysadmin issuance left an authenticated session';
+    END IF;
+END
+$$;
+SET LOCAL ROLE ple_api_owner;
 SELECT pg_catalog.set_config(
     'ple.session_account_id', '00000000-0000-0000-0000-00000000c240', true
 );

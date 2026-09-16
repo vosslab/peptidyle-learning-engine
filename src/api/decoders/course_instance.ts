@@ -7,6 +7,7 @@ import type {
   CourseCreationInstructor,
   CourseInstanceSummary,
   CourseInstanceView,
+  CourseInstanceCreationSource,
   CreateCourseInstanceInput,
   CreatedCourseInstance,
 } from "../course_instance";
@@ -71,24 +72,41 @@ export function decodeCreateCourseInstanceInput(
   path = "request",
 ): CreateCourseInstanceInput {
   const record = decodeRecord(value, path);
+  // ASVS 1.5.2 and 2.2.1: exclude flat or mixed source fields before transport.
   requireOnlyFields(record, path, [
-    "blueprintCourse",
-    "blueprintRevision",
+    "source",
     "shortName",
     "longName",
     "term",
     "assignedInstructor",
   ]);
+  const sourcePath = `${path}.source`;
+  const sourceRecord = decodeRecord(field(record, "source", path), sourcePath);
+  const kind = decodeStringEnum(field(sourceRecord, "kind", sourcePath), `${sourcePath}.kind`, [
+    "empty",
+    "adopted",
+  ] as const);
+  let source: CourseInstanceCreationSource;
+  if (kind === "empty") {
+    requireOnlyFields(sourceRecord, sourcePath, ["kind"]);
+    source = { kind };
+  } else {
+    requireOnlyFields(sourceRecord, sourcePath, ["kind", "blueprintCourse", "blueprintRevision"]);
+    source = {
+      kind,
+      blueprintCourse: decodeBlueprintCourseReference(
+        field(sourceRecord, "blueprintCourse", sourcePath),
+        `${sourcePath}.blueprintCourse`,
+      ),
+      blueprintRevision: decodeBlueprintRevision(
+        field(sourceRecord, "blueprintRevision", sourcePath),
+        `${sourcePath}.blueprintRevision`,
+      ),
+    };
+  }
   const assignedInstructor = record["assignedInstructor"];
   const decoded = {
-    blueprintCourse: decodeBlueprintCourseReference(
-      field(record, "blueprintCourse", path),
-      `${path}.blueprintCourse`,
-    ),
-    blueprintRevision: decodeBlueprintRevision(
-      field(record, "blueprintRevision", path),
-      `${path}.blueprintRevision`,
-    ),
+    source,
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
     term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
@@ -113,13 +131,39 @@ export function decodeCourseInstanceList(
 
 export function decodeCourseInstanceView(value: unknown, path = "response"): CourseInstanceView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["course", "activeInstructorCount"]);
+  requireOnlyFields(record, path, ["course", "activeInstructorCount", "blueprintOrigin"]);
+  const originValue = field(record, "blueprintOrigin", path);
+  let blueprintOrigin: CourseInstanceView["blueprintOrigin"] = null;
+  if (originValue !== null) {
+    const originPath = `${path}.blueprintOrigin`;
+    const origin = decodeRecord(originValue, originPath);
+    requireOnlyFields(origin, originPath, ["reference", "adoptedRevision", "currentRevision"]);
+    blueprintOrigin = {
+      reference: decodeBlueprintCourseReference(
+        field(origin, "reference", originPath),
+        `${originPath}.reference`,
+      ),
+      adoptedRevision: decodeBlueprintRevision(
+        field(origin, "adoptedRevision", originPath),
+        `${originPath}.adoptedRevision`,
+      ),
+      currentRevision: decodeBlueprintRevision(
+        field(origin, "currentRevision", originPath),
+        `${originPath}.currentRevision`,
+      ),
+    };
+    // ASVS 2.2.3: a current source head cannot precede its original adoption.
+    if (BigInt(blueprintOrigin.currentRevision) < BigInt(blueprintOrigin.adoptedRevision)) {
+      throw new DecodeError(originPath, "a current Revision at or after the adopted Revision");
+    }
+  }
   return {
     course: summary(field(record, "course", path), `${path}.course`),
     activeInstructorCount: decodePositiveInteger(
       field(record, "activeInstructorCount", path),
       `${path}.activeInstructorCount`,
     ),
+    blueprintOrigin,
   };
 }
 

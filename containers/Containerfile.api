@@ -18,6 +18,9 @@ WORKDIR /build
 # edits. Without this split, every source change rebuilds every dependency.
 COPY Cargo.toml Cargo.lock ./
 COPY crates crates
+# The server embeds exactly the reviewed current RDKit JS/WASM pair at compile
+# time. Keep these two source files in the builder context, not the runtime image.
+COPY assets/author-content-dependencies/rdkit/RDKit_minimal.js assets/author-content-dependencies/rdkit/RDKit_minimal.wasm assets/author-content-dependencies/rdkit/
 # SQLx embeds the forward-migration directory in the server binary. The
 # database-migrator target also packages the canonical base manifest from this
 # explicit source instead of relying on a developer's wider working tree.

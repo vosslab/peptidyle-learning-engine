@@ -15,9 +15,11 @@
 - N/A Potential future user roles are **Course Observers**, **Student Observers**, and **Graders**.
   - Reason: explicitly future product possibility, not current implementation behavior.
 - [ ] **Students** are required to use their university or institutional (`.edu` in the USA) email accounts.
-  - Mismatch: `crates/learning-data-access/src/course_roster.rs` `CourseRosterImportInput::validate` accepts a syntactically valid email without an institutional-domain requirement.
-- [ ] **Sysadmin** accounts should require higher security than other accounts, like TOTP authentication
-  - Mismatch: `schemas/base_schema/authentication.sql` provides passkey and email authentication but no Sysadmin TOTP credential or ceremony.
+  - Verification pending: `crates/learning-data-access/src/course_roster.rs` `CourseRosterImportInput::validated_entries` rejects non-`.edu` addresses and lookalike suffixes before Account resolution. This USA roster-input boundary does not establish current runtime/global institutional-email policy or mailbox ownership across Student authentication paths; C14 remains open.
+- [x] **Sysadmin** accounts should require higher security than other accounts, like TOTP authentication
+  - Evidence (source): `schemas/base_schema/authentication.sql` `ple_private.sysadmin_totp_credential` stores private Sysadmin TOTP credentials alongside browser-bound expiring attestations, used counters, and bounded verification attempts; `ple_private.create_authenticated_session` rejects the stored Sysadmin role at the database generic-session boundary. `crates/server/src/auth/sysadmin_totp.rs` routes trusted Sysadmin primary outcomes to pending genuine TOTP verification before creating the ordinary Sysadmin session.
+  - Evidence (runtime): `schemas/base_schema/authentication.sql` `ple_private.sysadmin_totp_attestation` passed accepted independent SQL boundary proof (`/private/tmp/ple-sysadmin-session-boundary-artifacts.kSMr1H`), denying generic Sysadmin issuance while preserving ordinary Student/Instructor sessions and limited grants. Actual-server HTTP proof (`/private/tmp/ple-sysadmin-session-boundary-http-artifacts.zexsoO`) observed pending MFA with no session, protected denial, missing/wrong browser-binding and bad-code denial, one valid success, replay/expiry/counter-reuse denial, and a five-attempt lock denying a fresh unused valid counter.
+  - Decision: C15 closes only this higher-security row. The actual-server transport was loopback HTTP, not deployed TLS; full Live Demo authentication or broader Sysadmin authority is not claimed.
 - [x] Every Account has exactly one Product Role: **Student**, **Instructor**, or **Sysadmin**.
   - Evidence (source): `schemas/base_schema/accounts.sql` `product_role text NOT NULL CHECK (product_role IN ('student', 'instructor', 'sysadmin'))`.
 - [x] Product Role is locked and cannot change during the lifetime of an Account.
@@ -71,7 +73,7 @@
 - [x] A Student Account is global and is not owned by or permanently tied to a Course Instance.
   - Evidence (source): `schemas/base_schema/course_membership.sql` `student_record` maps global `student_account_id` to a Course.
 - [ ] Roster import uses institutional email to find an existing Student Account or create one when needed.
-  - Mismatch: `crates/learning-data-access/src/course_roster.rs` `CourseRosterImportInput::validate` accepts syntactically valid email without requiring an institutional domain.
+  - Verification pending: `crates/learning-data-access/src/course_roster.rs` `CourseRosterImportInput::validated_entries` requires USA `.edu` addresses before Account resolution; current connected proof of institutional-email lookup/create behavior and mailbox ownership is still needed. This row remains open.
 - [x] Each Course Instance has its own course-scoped Student Record and enrollment for the Student Account.
   - Evidence (source): `schemas/base_schema/course_membership.sql` `student_record` unique `(course_id, student_account_id)` and `course_membership`.
 - [ ] Student Work, Attempts, submissions, and grades follow Course retention independently of the Student Account.

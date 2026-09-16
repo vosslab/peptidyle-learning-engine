@@ -61,6 +61,13 @@ function expectedPrivacyProfile(capture) {
   if (capture.scenario === "student_authorization") return "authorization_denial";
   if (capture.checkpoint === "response_selected") return "student_selected_response";
   if (
+    (capture.scenario === "student_assignment_history" &&
+      capture.checkpoint === "selected_history") ||
+    (capture.scenario === "student_assignment_attempt" && capture.checkpoint === "submitted")
+  ) {
+    return "student_feedback_released";
+  }
+  if (
     capture.scenario === "student_assignment_overviews" ||
     capture.checkpoint.startsWith("question_unanswered_") ||
     capture.checkpoint === "numerical_response" ||

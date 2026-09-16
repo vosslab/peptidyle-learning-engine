@@ -3,8 +3,7 @@
 use question_model::{
     AssessmentActivityRules, AssessmentAttemptGradeRule, AssessmentAttemptResumeRule,
     AssessmentNavigationRule, AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule,
-    AssessmentQuestionVariationRule, QuestionPoolReuseRule, StudentFeedbackReleaseRule,
-    StudentFeedbackReleaseTiming,
+    AssessmentQuestionVariationRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
 };
 use sqlx::Row;
 
@@ -22,11 +21,6 @@ pub(super) fn activity_rules(
             "highest" => AssessmentAttemptGradeRule::Highest,
             "instructor_selected" => AssessmentAttemptGradeRule::InstructorSelected,
             _ => return Err(invalid("Assessment Attempt Grade Rule")),
-        },
-        question_pool_reuse_rule: match value("question_pool_reuse_rule")?.as_str() {
-            "reuse_selection" => QuestionPoolReuseRule::ReuseSelection,
-            "select_again" => QuestionPoolReuseRule::SelectAgain,
-            _ => return Err(invalid("Question Pool Reuse Rule")),
         },
         question_variation_rule: match value("question_variation_rule")?.as_str() {
             "reuse_variation" => AssessmentQuestionVariationRule::ReuseVariation,

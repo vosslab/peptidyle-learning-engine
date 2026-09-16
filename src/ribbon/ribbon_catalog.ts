@@ -165,7 +165,7 @@ export const TAB_CATALOG = [
   },
   {
     id: "studentAssessments",
-    label: "Assessments",
+    label: "Coursework",
     destination: { kind: "route", routeId: "studentCourseLanding" },
     requiredParams: ["courseRef"],
     role: "primary",
@@ -468,7 +468,7 @@ export const RIBBON_TASK_CATALOG = [
   },
   {
     id: "backToAssessments",
-    label: "Back to Assessments",
+    label: "Back to Coursework",
     destination: { kind: "route", routeId: "assessmentOverview" },
     requiredParams: ["courseRef", "assessmentRef"],
     taskGroup: "assessmentAttempt",

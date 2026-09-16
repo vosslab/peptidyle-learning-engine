@@ -32,11 +32,11 @@ const LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM: RequestChecksum = RequestChecksum::f
 
 /// Store-generated references consumed by the dependent Live Demo SQL graph.
 pub(crate) struct LiveDemoBlueprintManifestReferences {
-    pub(crate) blueprint_reference: String,
+    pub(crate) blueprint_public_reference: String,
     pub(crate) assessment_reference: String,
 }
 
-/// Creates, or replays, the immutable Revision 1 used by the Live Demo.
+/// Creates, or replays, and publishes the immutable Revision 1 used by the Live Demo.
 ///
 /// The input is built only from the validated Pilot publication mapping. The
 /// Store owns Question pinning, child identities, creation receipts, and the
@@ -71,8 +71,11 @@ pub(crate) fn create_live_demo_blueprint(
             .await
             .context("reloading the ordinary Live Demo Blueprint Course")?;
         ensure!(
-            blueprint.availability == BlueprintAvailability::Private,
-            "new Live Demo Blueprint Revision 1 is not Private"
+            matches!(
+                blueprint.availability,
+                BlueprintAvailability::Private | BlueprintAvailability::Public
+            ),
+            "Live Demo Blueprint is neither Private nor Public"
         );
         ensure!(
             blueprint.current_revision == BlueprintRevision::INITIAL,
@@ -84,8 +87,26 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint lineage names differ from the fixed course names"
         );
         let assessment_reference = validate_loaded_content(&blueprint.content, &input, &questions)?;
+        if blueprint.availability == BlueprintAvailability::Private {
+            store
+                .publish_blueprint(
+                    session,
+                    receipt.blueprint_revision.reference,
+                    blueprint.metadata_etag,
+                )
+                .await
+                .context("publishing the ordinary Live Demo Blueprint Course")?;
+        }
+        let blueprint = store
+            .load_blueprint_course(session, receipt.blueprint_revision.reference)
+            .await
+            .context("reloading the published Live Demo Blueprint Course")?;
+        ensure!(
+            blueprint.availability == BlueprintAvailability::Public,
+            "Live Demo Blueprint is not Public before Course adoption"
+        );
         Ok(LiveDemoBlueprintManifestReferences {
-            blueprint_reference: receipt.blueprint_revision.reference.to_string(),
+            blueprint_public_reference: receipt.blueprint_revision.reference.to_string(),
             assessment_reference: assessment_reference.to_string(),
         })
     })
@@ -145,7 +166,7 @@ fn validate_loaded_content(
             anyhow::bail!("Live Demo Blueprint entries must remain fixed Questions");
         };
         ensure!(
-            question_revision == question && expected_fixed.question_id == question.question_id,
+            question_revision == question && &expected_fixed.published_question == question,
             "Live Demo Blueprint Question pins differ from the reviewed Pilot publications"
         );
         ensure!(
@@ -182,7 +203,7 @@ fn live_demo_blueprint_input(
                     .into_iter()
                     .map(|question| {
                         BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                            question_id: question.question_id,
+                            published_question: question,
                             points_possible: AssessmentPointValue::from_whole(1),
                             scoring_rule: AssessmentEntryScoringRule::Normal,
                             question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
@@ -217,7 +238,7 @@ mod tests {
 
     fn question(number: u8) -> QuestionRevisionReference {
         QuestionRevisionReference {
-            question_id: format!("A{number}B-CDEF")
+            question_id: format!("ABCD-XEF{number}")
                 .parse()
                 .expect("test Question ID is valid"),
             revision_number: question_model::QuestionRevisionNumber::new(1)

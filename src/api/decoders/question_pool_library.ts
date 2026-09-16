@@ -62,8 +62,9 @@ function decodeQuestionPoolLibrarySummary(
 
 function decodeReusableQuestionView(value: unknown, path: string): ReusableQuestionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["question_library", "selection_availability"]);
+  requireOnlyFields(record, path, ["reference", "question_library", "selection_availability"]);
   return {
+    reference: decodeQuestionRevisionReference(field(record, "reference", path), `${path}.reference`),
     question_library: decodeQuestionSearchResult(
       field(record, "question_library", path),
       `${path}.question_library`,

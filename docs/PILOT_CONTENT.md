@@ -9,7 +9,7 @@ and Biochemistry Chapter 1 each contain exactly:
 - one static PLE PLE Question JSON matching question.
 
 The authoritative human-readable inventory is
-[`content/pilot/chapter_1_assignments.yaml`](../content/pilot/chapter_1_assignments.yaml). It uses
+[`content/pilot/chapter_1_assessments.yaml`](../content/pilot/chapter_1_assessments.yaml). It uses
 question slugs, titles, subject and course display names, point values, Question Types, and source paths
 rather than UUIDs. The publication seed reads that validated inventory instead of maintaining a
 second human-visible question list. The Instructor UI presents one canonical `AAAA-ZBBB` Crockford

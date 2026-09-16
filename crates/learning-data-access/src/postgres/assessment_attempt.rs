@@ -138,9 +138,6 @@ fn storage_selections(
                     "assessment_entry_id": selection.question_pool_assessment_entry.as_uuid(),
                     "question_pool_id": selection.question_pool_revision.question_pool_id.as_compact_str(),
                     "question_pool_revision_number": selection.question_pool_revision.revision_number.get(),
-                    "reused_from_question_pool_selection_id": selection
-                        .reused_from_question_pool_selection
-                        .map(|source| source.as_uuid()),
                     "selected_items": selection.selected_items.iter().map(|item| {
                         // PostgreSQL stores Pool Revision member positions one-based;
                         // the shared contract deliberately exposes them zero-based.

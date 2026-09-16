@@ -735,28 +735,49 @@ through the normal Blueprint update workflow.
 
 ### Blueprint fork updates are explicit selective saves
 
-**Decision.** A fork's existing immutable origin identifies its source Blueprint Course and exact
-source Blueprint Revision. Future update review compares that origin Revision, an explicitly chosen
-newer source Revision, and the fork's current immutable Revision. The comparison includes the
-complete reusable content tree: module labels, module and Assessment structure and order, and each
-Blueprint Assessment's settings, Questions, and Pools. Current short and long names participate as
-metadata. No separate per-unit JSON baseline or public comparison-state vocabulary is persisted.
+**Decision.** A fork's existing immutable origin records its source Blueprint Course and exact
+source Blueprint Revision as provenance, not a required comparison baseline. Human Guidance now
+requires any visible related Blueprint Courses in the same fork lineage to be comparable, normally
+using the newest source and fork Revisions. Shared Question IDs provide durable content
+relationships; Blueprint Assessments are matched by the shared Question IDs they contain, not
+internal Assessment identities. Comparison shows shared, added and removed Assessments and Question
+IDs and determinable canonical-JSON content changes, remaining useful through renames, reordering
+and structural changes. Assessment IDs are local to a Blueprint Course, forks receive
+fresh Assessment IDs, and no persistent cross-Blueprint Assessment lineage/history is introduced.
+Relationships are inferred only from shared Question IDs; disjoint Question sets remain unmatched.
+Prior fork/apply evidence that relies on shared internal Assessment IDs must be reconciled, not
+treated as corrected-contract closure. Comparison includes
+the complete reusable content tree: module labels, module and Assessment structure and order, and
+each Blueprint Assessment's settings, Questions, and Pools. Current short and long names participate
+as metadata. No separate per-unit JSON baseline or public comparison-state vocabulary is persisted.
 
-Only the fork owner may inspect a source that is Public or Archived. An unavailable or Private
-source remains nonenumerating. The Instructor explicitly selects which displayed changes to bring
-forward; no source change is applied automatically. One request may select several related changes.
-The server constructs and validates one coherent complete fork tree, then uses the ordinary
+Viewing and comparison follow ordinary Blueprint visibility for both fork and source: every vetted
+Instructor may view Public and Archived Blueprints; explicit Archived inclusion governs discovery,
+not permission to view a known Course. Private Blueprints are owner-only on either side. Ownership
+controls the fork's apply mutation. The Instructor explicitly selects which displayed changes to
+bring forward; no source change is applied automatically. One request may select several related
+changes. The server constructs and validates one coherent complete fork tree, then uses the ordinary
 expected-current Revision CAS to save all selected content changes as one new immutable Blueprint
 Revision. Selected name changes use the ordinary metadata ETag in the same authorized operation.
+
+**User correction (2026-09-16).** This clarifies the existing Human Guidance visibility boundary;
+it is not a new product decision. It removes the incorrect owner-only comparison restriction while
+leaving ordinary Private, Public, and Archived states unchanged.
 
 **Why.** A fork must remain independently controlled while newer source work is easy to discover,
 review, and selectively bring forward without a hidden overwrite or source-information leak.
 
-**Consequence.** C880-C884 remain open for the comparison, authorized review, selection, coherent
-save, and connected proof in the Human Guidance compliance plan. They reuse the existing origin and
+**Consequence.** Prior C880-C883 evidence remains valid contributor evidence for the internal-ID
+direct-source projection, ordinary visibility, current-head read, on-request calculation and
+selective-save backend. It does not close the newly authoritative same-lineage pair coverage or
+Question-ID-based Assessment matching; those corrections and connected proof remain open in the
+Human Guidance compliance plan. The old three-snapshot origin-based projection is implementation
+history, not the required comparison model. These boundaries reuse existing provenance and
 immutable Blueprint Revisions rather than adding sync-baseline persistence, a merge framework,
-candidate digests, replay receipts, or one-unit-per-request restrictions. C413 may provide the
-Instructor UI only after C884. Question-level hunk selection remains optional rather than a blocker.
+candidate digests, replay receipts, or one-unit-per-request restrictions. C413's read-only
+source-entry/known-forks/current-comparison slice has accepted evidence; direct fork discovery and
+apply UI remain open, and complete C413 closure still waits C884. Question-level hunk selection
+remains optional rather than a blocker.
 
 ### Canonical Blueprint JSON is the comparison and exchange form
 

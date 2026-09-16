@@ -155,7 +155,7 @@ export function StudentCourseLandingPage(): JSX.Element {
         {(current) => (
           <>
             <CourseEntryIdentity />
-            <A class="quiet-link" href="/?choose=1">
+            <A class="quiet-link" href="/student?choose=1">
               Your courses
             </A>
             <h2>Coursework</h2>

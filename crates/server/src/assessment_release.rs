@@ -13,8 +13,9 @@ use axum::{
     routing::{get, post, put},
 };
 use learning_data_access::{
-    CreateLiveAssessmentInput, LiveAssessmentStore, SaveBaseAssessmentPolicyInput,
-    SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput, SessionTokenHash, StoreError,
+    ApplyAssessmentBlueprintUpdateInput, CreateLiveAssessmentInput, LiveAssessmentStore,
+    SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
+    SessionTokenHash, StoreError,
     postgres::{PostgresLiveAssessmentStore, PostgresSessionStore},
 };
 use question_model::{
@@ -60,8 +61,16 @@ pub fn assessment_release_router(
         )
         .route("/api/assessments/due-soon", get(list_assessments_due_soon))
         .route(
+            "/api/course-instances/{course}/blueprint-update-review",
+            get(review_course_blueprint_update),
+        )
+        .route(
             "/api/course-instances/{course}/assessments/{assessment}",
             get(load_assessment).put(save_assessment),
+        )
+        .route(
+            "/api/course-instances/{course}/assessments/{assessment}/blueprint-update",
+            get(review_blueprint_update).post(apply_blueprint_update),
         )
         .route(
             "/api/course-instances/{course}/assessments/{assessment}/inline",
@@ -92,6 +101,87 @@ pub fn assessment_release_router(
             assessments,
             question_id_issuer,
         })
+}
+
+async fn review_course_blueprint_update(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path(course): Path<String>,
+) -> Response {
+    let course = match course_reference(&course) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let token = match instructor(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 8.2.2, 8.3.1, 14.3.2: direct Course authority and readable parent
+    // are checked together in the Store; every success and denial is no-store.
+    match state
+        .assessments
+        .review_course_blueprint_update(token, course)
+        .await
+    {
+        Ok(value) => crate::auth::no_store(Json(value).into_response()),
+        Err(error) => store_error(error),
+    }
+}
+
+async fn review_blueprint_update(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path((course, assessment)): Path<(String, String)>,
+) -> Response {
+    let (course, assessment) = match refs(&course, &assessment) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let token = match instructor(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 8.2.2, 8.3.1: scoped authorization remains in the trusted Store.
+    match state
+        .assessments
+        .review_assessment_blueprint_update(token, course, assessment)
+        .await
+    {
+        Ok(value) => crate::auth::no_store(Json(value).into_response()),
+        Err(error) => store_error(error),
+    }
+}
+
+async fn apply_blueprint_update(
+    State(state): State<StateData>,
+    headers: HeaderMap,
+    Path((course, assessment)): Path<(String, String)>,
+    input: Result<
+        Json<ApplyAssessmentBlueprintUpdateInput>,
+        axum::extract::rejection::JsonRejection,
+    >,
+) -> Response {
+    let (course, assessment) = match refs(&course, &assessment) {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let token = match instructor(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 1.5.2, 2.2.1: closed input carries only both CAS preconditions.
+    let input = match input {
+        Ok(Json(value)) => value,
+        Err(error) => return crate::auth::no_store(error.into_response()),
+    };
+    match state
+        .assessments
+        .apply_assessment_blueprint_update(token, course, assessment, input)
+        .await
+    {
+        Ok(value) => workspace_response(StatusCode::OK, &value),
+        Err(error) => store_error(error),
+    }
 }
 
 async fn list_assessments_due_soon(State(state): State<StateData>, headers: HeaderMap) -> Response {

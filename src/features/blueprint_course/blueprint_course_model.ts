@@ -10,7 +10,8 @@ import type { BlueprintAssessmentContentView } from "../../../generated/api/Blue
 import type { BlueprintAssessmentEntryInput } from "../../../generated/api/BlueprintAssessmentEntryInput";
 import type { BlueprintAssessmentEntryView } from "../../../generated/api/BlueprintAssessmentEntryView";
 import type { AssessmentType } from "../../../generated/api/AssessmentType";
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
+import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type { QuestionPickerSelection } from "../question_picker";
 
 export const MAX_REUSABLE_ENTRIES = 1024;
@@ -109,7 +110,6 @@ function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDef
     late_work_rule: "reject",
     activity_rules: {
       assessmentAttemptGradeRule: "highest",
-      questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
       assessmentQuestionDisplayRule: "oneQuestionAtATime",
@@ -158,16 +158,10 @@ export function emptyBlueprintCourseContent(
   };
 }
 
-function uniqueQuestionIds(selection: QuestionPickerSelection): ReadonlyArray<string> {
-  return selection.questionIds.filter(
-    (questionId, index, all) => all.indexOf(questionId) === index,
-  );
-}
-
-function fixedEntry(questionId: string): BlueprintAssessmentEntryInput {
+function fixedEntry(publishedQuestion: QuestionRevisionReference): BlueprintAssessmentEntryInput {
   return {
     kind: "fixed",
-    question_id: questionId,
+    published_question: publishedQuestion,
     points_possible: "1",
     scoring_rule: "normal",
     question_attempt_limit: { maxAttempts: null },
@@ -175,10 +169,12 @@ function fixedEntry(questionId: string): BlueprintAssessmentEntryInput {
   };
 }
 
-function poolEntry(questionPoolId: QuestionId): BlueprintAssessmentEntryInput {
+function poolEntry(
+  questionPoolRevision: QuestionPoolRevisionReference,
+): BlueprintAssessmentEntryInput {
   return {
     kind: "pool",
-    question_pool_id: questionPoolId,
+    pool: { kind: "import", questionPoolRevision },
     selection_count: 1,
     points_per_item: "1",
     scoring_rule: "normal",
@@ -195,16 +191,19 @@ export function appendPickedFixedEntries(
 ): BlueprintAssessmentContentInput {
   return {
     ...content,
-    entries: [...content.entries, ...uniqueQuestionIds(selection).map(fixedEntry)],
+    entries: [
+      ...content.entries,
+      ...selection.questions.map((question) => fixedEntry(question.row.questionRevision)),
+    ],
   };
 }
 
 /** Appends one Question Pool with Question Pool Item order selected by the Instructor. */
 export function appendPickedPool(
   content: BlueprintAssessmentContentInput,
-  questionPoolId: QuestionId,
+  questionPoolRevision: QuestionPoolRevisionReference,
 ): BlueprintAssessmentContentInput {
-  return { ...content, entries: [...content.entries, poolEntry(questionPoolId)] };
+  return { ...content, entries: [...content.entries, poolEntry(questionPoolRevision)] };
 }
 
 export function moveReusableEntry(
@@ -278,12 +277,49 @@ export function validateReusableContent(
     };
   }
   for (const entry of content.entries) {
+    if (entry.kind === "fixed") {
+      // ASVS 2.2.1: a fixed selection carries its complete immutable Revision identity.
+      if (
+        !entry.published_question?.questionId ||
+        !Number.isSafeInteger(entry.published_question.revisionNumber) ||
+        entry.published_question.revisionNumber < 1
+      ) {
+        return { valid: false, message: "Choose a fixed Question with a published Revision." };
+      }
+      continue;
+    }
     if (entry.kind !== "pool") continue;
-    if (!Number.isSafeInteger(entry.selection_count) || entry.selection_count < 1) {
+    if (
+      !Number.isSafeInteger(entry.selection_count) ||
+      entry.selection_count < 1 ||
+      entry.selection_count > 4_294_967_295
+    ) {
       return {
         valid: false,
         message: "Choose a positive whole Question Pool selection count.",
       };
+    }
+    if (entry.pool.kind === "retained" && entry.pool.members !== null) {
+      const members = entry.pool.members;
+      if (
+        members.length === 0 ||
+        members.length > MAX_REUSABLE_ENTRIES ||
+        entry.selection_count > members.length ||
+        new Set(members.map((member) => member.questionId)).size !== members.length ||
+        members.some(
+          (member) =>
+            !member.questionId ||
+            !Number.isSafeInteger(member.revisionNumber) ||
+            member.revisionNumber < 1,
+        ) ||
+        !entry.pool.interchangeabilityAttested
+      ) {
+        return {
+          valid: false,
+          message:
+            "Choose unique Pool members, review their interchangeability, and keep the selection count within the member count.",
+        };
+      }
     }
   }
   return { valid: true, message: null };
@@ -332,7 +368,12 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   if (entry.kind === "pool") {
     return {
       kind: "pool",
-      question_pool_id: entry.question_pool_revision.questionPoolId,
+      pool: {
+        kind: "retained",
+        questionPoolRevision: entry.question_pool_revision,
+        members: null,
+        interchangeabilityAttested: false,
+      },
       selection_count: entry.selection_count,
       points_per_item: entry.points_per_item,
       scoring_rule: entry.scoring_rule,
@@ -343,7 +384,7 @@ function entryInputFromView(entry: BlueprintAssessmentEntryView): BlueprintAsses
   }
   return {
     kind: "fixed",
-    question_id: entry.question.question_library.summary.questionId,
+    published_question: entry.question.reference,
     points_possible: entry.points_possible,
     scoring_rule: entry.scoring_rule,
     question_attempt_limit: entry.question_attempt_limit,

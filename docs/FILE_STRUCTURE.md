@@ -54,6 +54,7 @@ schemas/
 |  +- object_records.sql              Typed object-record ownership
 |  +- blueprints.sql                  Blueprint lineage, save-created Revisions, and availability
 |  +- course_blueprint_adoption.sql   Complete atomic Public Blueprint adoption into Course Instance Assessments
+|  +- assessment_blueprint_updates.sql Derived retained-Assessment review and explicit reusable-content update
 |  +- course_*.sql                    Course terms, membership, roster, operations, and media
 |  +- profile_media.sql               Instructor profile-media ownership
 |  +- assignments.sql                 Legacy-named current Assessment state and exact Question/Pool pins
@@ -104,6 +105,16 @@ migrations belong in `schemas/migrations/`. SQLx configuration belongs to
 | [crates/project-tools/](../crates/project-tools/)               | TypeScript generation, database lifecycle commands, Pilot publication, and installation-data tooling.                                           |
 | [crates/acceptance-runtime/](../crates/acceptance-runtime/)     | Disposable acceptance database connection handoff.                                                                                              |
 
+The Course Blueprint update review is split deliberately: its public Store types live in
+[assessment_release.rs](../crates/learning-data-access/src/assessment_release.rs), its PostgreSQL
+transaction lives in
+[assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs),
+and the matching base-schema boundary is
+[assessment_blueprint_updates.sql](../schemas/base_schema/assessment_blueprint_updates.sql). Its lazy
+Course summary lives in [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx)
+and lists adopted Assessment correspondences only. It introduces no persisted offer, receipt,
+comparison baseline, new update table, or whole-Course lifecycle module.
+
 WeBWorK's opaque adapter boundary is owned by
 [crates/adapters/webwork/](../crates/adapters/webwork/). Its renderer contract,
 HTTP client, source resolution, issuance, and stateless grading remain there;
@@ -143,6 +154,13 @@ src/
 +- routes.ts                    Executable route map
 `- application_shell.tsx        Shared application shell and accessibility boundary
 ```
+
+The Course-level adopted-Assessment summary is
+[course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx); it links to the
+existing detail review presentation,
+[assessment_blueprint_update_review.tsx](../src/pages/assessment_workspace/assessment_blueprint_update_review.tsx);
+the existing Question Editor owns its Review, Apply, and Cancel controls. The browser uses the
+existing Assessment release client rather than a separate update client.
 
 [src/api/decoders/](../src/api/decoders/) is the runtime DTO boundary. Generated declarations in
 `generated/api/` are derivative; modify their Rust source and regenerate rather

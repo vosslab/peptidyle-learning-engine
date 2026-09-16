@@ -16,6 +16,11 @@ type DraftSummary = {
   readonly questionDescription: string;
 };
 
+type PageMessage = {
+  readonly kind: "error" | "success";
+  readonly text: string;
+};
+
 async function listDrafts(): Promise<ReadonlyArray<DraftSummary>> {
   const response = await fetch("/api/authoring/drafts", {
     headers: { accept: "application/json" },
@@ -65,7 +70,10 @@ export function QuestionDraftsPage(): JSX.Element {
   const [drafts, { refetch }] = createResource(listDrafts);
   const draftsLoadFailed = createMemo(() => drafts.error !== undefined);
   const [creating, setCreating] = createSignal(false);
-  const [message, setMessage] = createSignal<string>();
+  const [deleting, setDeleting] = createSignal(false);
+  const [pendingDelete, setPendingDelete] = createSignal<DraftSummary>();
+  const [deleteMessage, setDeleteMessage] = createSignal<string>();
+  const [message, setMessage] = createSignal<PageMessage>();
 
   async function createDraft(): Promise<void> {
     if (creating()) return;
@@ -87,11 +95,69 @@ export function QuestionDraftsPage(): JSX.Element {
       if (reference === null) throw new Error("A new private draft returned an invalid response.");
       navigate(`/authoring/drafts/${encodeURIComponent(reference)}`);
     } catch (error: unknown) {
-      setMessage(
-        error instanceof Error ? error.message : "A new private draft could not be created.",
-      );
+      setMessage({
+        kind: "error",
+        text: error instanceof Error ? error.message : "A new private draft could not be created.",
+      });
     } finally {
       setCreating(false);
+    }
+  }
+
+  function cancelDelete(): void {
+    if (deleting()) return;
+    setDeleteMessage(undefined);
+    setPendingDelete(undefined);
+  }
+
+  function requestDelete(draft: DraftSummary): void {
+    if (deleting()) return;
+    setDeleteMessage(undefined);
+    setPendingDelete(draft);
+  }
+
+  async function refreshDrafts(): Promise<void> {
+    if (deleting()) return;
+    setDeleteMessage(undefined);
+    setPendingDelete(undefined);
+    await refetch();
+  }
+
+  async function deleteDraft(): Promise<void> {
+    const draft = pendingDelete();
+    if (draft === undefined || deleting()) return;
+    setDeleting(true);
+    setDeleteMessage(undefined);
+    try {
+      // ASVS 2.2.2: the server, not this UI, validates identity, ownership, and this precondition.
+      const response = await fetch(
+        `/api/authoring/drafts/${encodeURIComponent(draft.draftQuestion)}`,
+        {
+          method: "DELETE",
+          headers: {
+            accept: "application/json",
+            "if-match": `"${draft.editNumber}"`,
+          },
+          credentials: "same-origin",
+          cache: "no-store",
+        },
+      );
+      if (response.status === 412) {
+        setDeleteMessage("This Draft Question changed. Refresh the list before deleting it.");
+        return;
+      }
+      if (!response.ok) throw new Error("This private Draft Question could not be deleted.");
+      await refetch();
+      setPendingDelete(undefined);
+      setMessage({ kind: "success", text: "Private Draft Question deleted." });
+    } catch (error: unknown) {
+      setDeleteMessage(
+        error instanceof Error
+          ? error.message
+          : "This private Draft Question could not be deleted.",
+      );
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -116,8 +182,8 @@ export function QuestionDraftsPage(): JSX.Element {
       </p>
       <Show when={message()}>
         {(value) => (
-          <p class="inline-error" role="alert">
-            {value()}
+          <p class={value().kind === "error" ? "inline-error" : "calm-status"} role="status">
+            {value().text}
           </p>
         )}
       </Show>
@@ -153,11 +219,75 @@ export function QuestionDraftsPage(): JSX.Element {
                         {draft.draftQuestion} · Edit {draft.editNumber}
                       </small>
                     </A>
+                    <div class="action-row">
+                      <button
+                        class="quiet-action"
+                        type="button"
+                        disabled={deleting()}
+                        onClick={() => requestDelete(draft)}
+                      >
+                        Delete draft
+                      </button>
+                    </div>
                   </li>
                 )}
               </For>
             </ul>
           </Show>
+        )}
+      </Show>
+      <Show when={pendingDelete()}>
+        {(draft) => (
+          <dialog
+            class="confirmation-dialog"
+            aria-labelledby="delete-draft-heading"
+            aria-describedby="delete-draft-copy"
+            ref={(element) => queueMicrotask(() => element.showModal())}
+            onCancel={(event) => {
+              event.preventDefault();
+              cancelDelete();
+            }}
+          >
+            <h2 id="delete-draft-heading">Delete this Draft Question?</h2>
+            <p id="delete-draft-copy">
+              Delete <strong>{draft().questionTitle}</strong>? This permanently removes the private
+              draft.
+            </p>
+            <Show when={deleteMessage()}>
+              {(value) => (
+                <section class="inline-error" role="alert">
+                  <p>{value()}</p>
+                  <button
+                    class="quiet-action"
+                    type="button"
+                    disabled={deleting()}
+                    onClick={() => void refreshDrafts()}
+                  >
+                    Refresh drafts
+                  </button>
+                </section>
+              )}
+            </Show>
+            <div class="action-row">
+              <button
+                ref={(element) => queueMicrotask(() => element.focus())}
+                class="quiet-action"
+                type="button"
+                disabled={deleting()}
+                onClick={cancelDelete}
+              >
+                Keep draft
+              </button>
+              <button
+                class="primary-action"
+                type="button"
+                disabled={deleting()}
+                onClick={() => void deleteDraft()}
+              >
+                {deleting() ? "Deleting private draft..." : "Delete draft"}
+              </button>
+            </div>
+          </dialog>
         )}
       </Show>
     </main>

@@ -14,11 +14,7 @@ export const PUBLIC_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
       const laptop = await runtime.open(laptopRecord);
       try {
         await runtime.capture(laptop, laptopRecord);
-        const libraryLoaded = laptop.page.waitForEvent("requestfinished", {
-          predicate: (request) => new URL(request.url()).pathname === "/api/questions/search",
-        });
         await enterInstructor(laptop.page);
-        await libraryLoaded;
         await laptop.privacy.settleResponses();
         await laptop.context.clearCookies();
         await laptop.page.reload({ waitUntil: "commit" });

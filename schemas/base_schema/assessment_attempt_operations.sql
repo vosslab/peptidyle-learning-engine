@@ -208,7 +208,7 @@ BEGIN
         assessment_attempt_id, student_record_id, assessment_id, assessment_attempt_number, started_at, expires_at,
         assessment_title, assessment_instructions, available_at, due_at, closes_at,
         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-        assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule,
+        assessment_attempt_grade_rule, question_variation_rule,
         assessment_attempt_resume_rule, assessment_question_display_rule,
         assessment_navigation_rule, assessment_question_order_rule, feedback_score,
         feedback_per_item_correctness, feedback_submitted_response,
@@ -243,7 +243,7 @@ BEGIN
         COALESCE(accommodation_row.assessment_attempt_time_limit_seconds, assessment_row.assessment_attempt_time_limit_seconds),
         effective_assessment_attempt_limit,
         assessment_row.late_work_rule, assessment_row.assessment_attempt_grade_rule,
-        assessment_row.question_pool_reuse_rule, assessment_row.question_variation_rule,
+        assessment_row.question_variation_rule,
         assessment_row.assessment_attempt_resume_rule, assessment_row.assessment_question_display_rule,
         assessment_row.assessment_navigation_rule, assessment_row.assessment_question_order_rule,
         assessment_row.feedback_score, assessment_row.feedback_per_item_correctness,
@@ -277,12 +277,11 @@ BEGIN
         END IF;
         INSERT INTO ple_private.question_pool_selection(
             question_pool_selection_id, assessment_attempt_id, assessment_entry_id,
-            question_pool_id, question_pool_revision_number, created_at, selected_question_count,
-            reused_from_question_pool_selection_id
+            question_pool_id, question_pool_revision_number, created_at, selected_question_count
         ) VALUES (
             selection_id, p_assessment_attempt_id, selection_entry_id,
             entry_row.question_pool_id, entry_row.question_pool_revision_number, now_value,
-            entry_row.selection_count, NULLIF(selection ->> 'reused_from_question_pool_selection_id', '')::uuid
+            entry_row.selection_count
         );
         INSERT INTO ple_private.question_pool_selected_item(
             question_pool_selection_id, member_position, selection_position, question_id, revision_number
@@ -297,36 +296,6 @@ BEGIN
         IF (SELECT count(*) FROM ple_private.question_pool_selected_item WHERE question_pool_selection_id = selection_id)
              <> entry_row.selection_count THEN
             RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Question Pool Selection contains an unavailable or repeated Item';
-        END IF;
-        -- A reused Selection retains its exact ordered prior membership.  The
-        -- reference link records provenance; this equality check prevents a
-        -- caller from labelling a newly selected set as reused.
-        IF NULLIF(selection ->> 'reused_from_question_pool_selection_id', '') IS NOT NULL
-           AND EXISTS (
-               (SELECT selected.selection_position, selected.member_position,
-                       selected.question_id, selected.revision_number
-                  FROM ple_private.question_pool_selected_item AS selected
-                 WHERE selected.question_pool_selection_id = selection_id
-                EXCEPT
-                SELECT earlier.selection_position, earlier.member_position,
-                       earlier.question_id, earlier.revision_number
-                  FROM ple_private.question_pool_selected_item AS earlier
-                 WHERE earlier.question_pool_selection_id =
-                       (selection ->> 'reused_from_question_pool_selection_id')::uuid)
-               UNION ALL
-               (SELECT earlier.selection_position, earlier.member_position,
-                       earlier.question_id, earlier.revision_number
-                  FROM ple_private.question_pool_selected_item AS earlier
-                 WHERE earlier.question_pool_selection_id =
-                       (selection ->> 'reused_from_question_pool_selection_id')::uuid
-                EXCEPT
-                SELECT selected.selection_position, selected.member_position,
-                       selected.question_id, selected.revision_number
-                  FROM ple_private.question_pool_selected_item AS selected
-                 WHERE selected.question_pool_selection_id = selection_id)
-           ) THEN
-            RAISE EXCEPTION USING ERRCODE = '23514',
-                MESSAGE = 'Reused Question Pool Selection must retain its exact prior Items';
         END IF;
     END LOOP;
 
@@ -544,7 +513,6 @@ CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
     question_backend text,
     selection_count integer,
     pool_selection_rule text,
-    question_pool_reuse_rule text,
     question_variation_rule text,
     assessment_question_order_rule text
 )
@@ -603,7 +571,6 @@ BEGIN
            COALESCE(fixed_source.backend, pool_source.backend),
            entry.selection_count,
            entry.selected_question_order,
-           assessment_row.question_pool_reuse_rule,
            assessment_row.question_variation_rule,
            assessment_row.assessment_question_order_rule
       FROM ple_data.assessment_entry AS entry

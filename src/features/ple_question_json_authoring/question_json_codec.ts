@@ -12,8 +12,12 @@ import {
   createPleQuestionJsonMatchingChoice,
   createPleQuestionJsonMatchingPrompt,
   createPleQuestionJsonOrderingItem,
+  type PleQuestionJsonAuthorScript,
+  type PleQuestionJsonAuthorScriptLibrary,
   type PleQuestionJsonBlank,
   type PleQuestionJsonChoice,
+  type PleQuestionJsonExternalResource,
+  type PleQuestionJsonExternalResourceKind,
   type PleQuestionJsonHotspotRegion,
   type PleQuestionJsonHotspotSurface,
   type PleQuestionJsonMatchingChoice,
@@ -40,6 +44,10 @@ const MAX_TEXT_RESPONSE_CHARS = 16_384;
 const MAX_NORMALIZED_COORDINATE = 10_000;
 const MAX_TAG_CHARS = 128;
 const MAX_METADATA_CHARS = 256;
+const MAX_EXTERNAL_RESOURCES = 100;
+const MAX_EXTERNAL_RESOURCE_URL_CHARS = 4_096;
+const MAX_AUTHOR_SCRIPT_CHARS = 65_536;
+const MAX_AUTHOR_SCRIPT_LIBRARIES = 16;
 function field(record: Record<string, unknown>, key: string, path: string): unknown {
   if (!(key in record)) throw new DecodeError(`${path}.${key}`, "present");
   return record[key];
@@ -95,6 +103,120 @@ function finiteNonnegative(value: unknown, path: string): number {
     throw new DecodeError(path, "a finite nonnegative number");
   }
   return value;
+}
+
+function hasValidPercentEscapes(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] !== "%") continue;
+    const escape = value.slice(index + 1, index + 3);
+    if (!/^[0-9a-f]{2}$/iu.test(escape)) return false;
+    index += 2;
+  }
+  return true;
+}
+
+function decodeExternalResourceKind(
+  value: unknown,
+  path: string,
+): PleQuestionJsonExternalResourceKind {
+  const kind = string(value, path);
+  if (
+    kind === "link" ||
+    kind === "image" ||
+    kind === "script" ||
+    kind === "stylesheet" ||
+    kind === "other"
+  ) {
+    return kind;
+  }
+  throw new DecodeError(path, "a known external resource kind");
+}
+
+function hasAuthorityUserInformation(value: string): boolean {
+  const authority = /^[a-z][a-z0-9+.-]*:\/\/([^/?#]*)/iu.exec(value)?.[1];
+  return authority?.includes("@") === true;
+}
+
+function decodeExternalResource(value: unknown, path: string): PleQuestionJsonExternalResource {
+  const record = decodeRecord(value, path);
+  onlyFields(record, path, ["url", "kind"]);
+  const url = string(field(record, "url", path), `${path}.url`);
+  if (
+    Array.from(url).length > MAX_EXTERNAL_RESOURCE_URL_CHARS ||
+    /\s/u.test(url) ||
+    /\p{Cc}/u.test(url) ||
+    !hasValidPercentEscapes(url)
+  ) {
+    throw new DecodeError(`${path}.url`, "a bounded printable absolute HTTPS URL");
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new DecodeError(`${path}.url`, "a valid absolute HTTPS URL");
+  }
+  if (
+    parsed.protocol !== "https:" ||
+    parsed.hostname === "" ||
+    hasAuthorityUserInformation(url) ||
+    parsed.username !== "" ||
+    parsed.password !== ""
+  ) {
+    throw new DecodeError(`${path}.url`, "an absolute HTTPS URL without user information");
+  }
+  return {
+    url,
+    kind: decodeExternalResourceKind(field(record, "kind", path), `${path}.kind`),
+  };
+}
+
+function decodeExternalResources(
+  value: unknown,
+  path: string,
+): ReadonlyArray<PleQuestionJsonExternalResource> {
+  if (!Array.isArray(value) || value.length > MAX_EXTERNAL_RESOURCES) {
+    throw new DecodeError(path, `an array of at most ${MAX_EXTERNAL_RESOURCES} external resources`);
+  }
+  // ASVS 1.5.2 and 2.2.1: narrow every untrusted JSON member through a closed shape and allowlists.
+  const resources = value.map((resource, index) =>
+    decodeExternalResource(resource, `${path}[${index}]`),
+  );
+  if (new Set(resources.map((resource) => resource.url)).size !== resources.length) {
+    throw new DecodeError(path, "unique external resource URLs");
+  }
+  return resources;
+}
+
+function decodeAuthorScriptLibrary(
+  value: unknown,
+  path: string,
+): PleQuestionJsonAuthorScriptLibrary {
+  if (value === "rdkit") return value;
+  throw new DecodeError(path, "a known author script library");
+}
+
+function decodeAuthorScript(value: unknown, path: string): PleQuestionJsonAuthorScript {
+  const record = decodeRecord(value, path);
+  onlyFields(record, path, ["source", "libraries"]);
+  const source = boundedText(
+    field(record, "source", path),
+    `${path}.source`,
+    MAX_AUTHOR_SCRIPT_CHARS,
+  );
+  const librariesValue = record.libraries === undefined ? [] : record.libraries;
+  if (!Array.isArray(librariesValue) || librariesValue.length > MAX_AUTHOR_SCRIPT_LIBRARIES) {
+    throw new DecodeError(
+      `${path}.libraries`,
+      `an array of at most ${MAX_AUTHOR_SCRIPT_LIBRARIES} author script libraries`,
+    );
+  }
+  const libraries = librariesValue.map((library, index) =>
+    decodeAuthorScriptLibrary(library, `${path}.libraries[${index}]`),
+  );
+  if (new Set(libraries).size !== libraries.length) {
+    throw new DecodeError(`${path}.libraries`, "unique author script libraries");
+  }
+  return { source, libraries };
 }
 
 function decodeChoice(value: unknown, path: string): PleQuestionJsonChoice {
@@ -585,6 +707,8 @@ export function decodePleQuestionJsonSource(
     "tags",
     "questionLicense",
     "questionCitation",
+    "externalResources",
+    "authorScript",
     "language",
   ]);
   if (field(record, "format", path) !== PLE_QUESTION_JSON_FORMAT) {
@@ -716,6 +840,14 @@ export function decodePleQuestionJsonSource(
       field(record, "questionCitation", path),
       `${path}.questionCitation`,
     ),
+    externalResources:
+      record.externalResources === undefined
+        ? []
+        : decodeExternalResources(record.externalResources, `${path}.externalResources`),
+    authorScript:
+      record.authorScript === undefined || record.authorScript === null
+        ? null
+        : decodeAuthorScript(record.authorScript, `${path}.authorScript`),
     language: boundedText(field(record, "language", path), `${path}.language`, MAX_METADATA_CHARS),
   };
 }

@@ -39,6 +39,9 @@ CREATE TABLE ple_data.question_pool_revision (
         REFERENCES ple_private.account(account_id),
     interchangeability_attested_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL,
+    -- ASVS 2.3.3: private immutable provenance for transaction-local child attachment.
+    -- Full top-level XIDs survive savepoint release without xmin's frozen-row aliasing.
+    created_in_transaction xid8 NOT NULL DEFAULT pg_current_xact_id(),
     PRIMARY KEY (question_pool_id, revision_number)
 );
 

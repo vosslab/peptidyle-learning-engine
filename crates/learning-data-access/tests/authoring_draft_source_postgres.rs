@@ -7,7 +7,8 @@ use learning_data_access::postgres::{
 };
 use learning_data_access::{
     AuthoringDraftStore, CreateAuthoringDraftInput, DraftQuestionSourceBindingInput,
-    DraftQuestionSourceBindingStore, DraftQuestionUuid, SessionTokenHash, StoreError,
+    DraftQuestionSourceBindingStore, DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput,
+    SessionTokenHash, StoreError,
 };
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
@@ -231,17 +232,62 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         source_object_checksum: SourceObjectChecksum::parse(source_record.sha256.to_string())
             .expect("source checksum"),
     };
-    bindings
+    let first_edit = bindings
         .bind_draft_question_source(session, confirmation.clone())
         .await
         .expect("initial Pilot binding confirms creation tuple");
-    bindings
-        .bind_draft_question_source(session, confirmation)
+    assert_eq!(first_edit, draft.edit_number);
+    let replay_edit = bindings
+        .bind_draft_question_source(session, confirmation.clone())
         .await
         .expect("replayed Pilot binding remains a no-op");
+    assert_eq!(replay_edit, first_edit);
     let confirmed = drafts
         .load_authoring_draft(session, draft.reference)
         .await
         .expect("confirmed Draft Question");
     assert_eq!(confirmed.edit_number, draft.edit_number);
+
+    let edited = drafts
+        .save_authoring_draft_general_feedback(
+            session,
+            SaveAuthoringDraftGeneralFeedbackInput {
+                reference: draft.reference,
+                expected_edit_number: first_edit,
+                general_feedback: Some("Reviewed general feedback.".to_owned()),
+            },
+        )
+        .await
+        .expect("intervening metadata-only edit");
+    assert!(matches!(
+        bindings
+            .bind_draft_question_source(session, confirmation.clone())
+            .await,
+        Err(StoreError::RetryableTransaction)
+    ));
+    let mut changed_binding = confirmation;
+    changed_binding.expected_draft_question_edit_number = edited.edit_number;
+    changed_binding.webwork_pg_path = Some("Library/Genetics/linked_traits_reviewed.pg".to_owned());
+    let changed_edit = bindings
+        .bind_draft_question_source(session, changed_binding.clone())
+        .await
+        .expect("current binding change returns committed edit");
+    assert_eq!(
+        changed_edit.as_postgres_bigint(),
+        edited.edit_number.as_postgres_bigint() + 1
+    );
+    assert!(matches!(
+        bindings
+            .bind_draft_question_source(session, changed_binding.clone())
+            .await,
+        Err(StoreError::RetryableTransaction)
+    ));
+    changed_binding.expected_draft_question_edit_number = changed_edit;
+    assert_eq!(
+        bindings
+            .bind_draft_question_source(session, changed_binding)
+            .await
+            .expect("exact current no-op"),
+        changed_edit
+    );
 }

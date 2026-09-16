@@ -1,5 +1,26 @@
 /* Course Instance owns the presentation of its semantic Course actions nav. */
 
+.course-blueprint-update-review {
+  margin-block: var(--ple-space-3);
+}
+
+.course-blueprint-update-review__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ple-space-2);
+}
+
+.course-blueprint-update-review__row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+@media (max-width: 48rem) {
+  .course-blueprint-update-review__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .instructor-list__row--assignment {
   grid-template-columns: minmax(0, 1fr) auto;
 }

@@ -1,15 +1,16 @@
-// scenarios_sysadmin.ts - Sysadmin Courses and Account lifecycle states.
-// Selector contract: role navigation is shared through visible_workflows.ts:80; Sysadmin surfaces
-// are owned by src/pages/course_list_page.tsx:149, src/pages/instructor_accounts_page.tsx:126,
-// and src/pages/instructor_accounts_page.tsx:126.
+// scenarios_sysadmin.ts - Sysadmin home and Instructor Account lifecycle states.
+// Selector contract: role navigation is shared through visible_workflows.ts; Sysadmin surfaces are
+// owned by src/pages/role_home_pages.tsx and src/pages/instructor_accounts_page.tsx.
 
 import type { Locator, Page } from "playwright";
 
+import { isCanonicalAccountReference } from "../../../src/api/decoders/instructor_account";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
 import { enterSysadmin, scrollTop } from "./visible_workflows";
 
 const CREATED_EMAIL = "screenshot.instructor@live-demo.invalid";
+const VERIFIED_INSTRUCTOR_DISPLAY_NAME = "Screenshot Instructor";
 
 async function captureCheckpoint(
   runtime: ScenarioRuntime,
@@ -45,7 +46,7 @@ async function openInstructorAccounts(page: Page): Promise<void> {
 
 function instructorAccount(page: Page, reference: string): Locator {
   return page
-    .locator('section[aria-label="Instructor Accounts"] > .auth-panel')
+    .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: reference, exact: true }) });
 }
 
@@ -75,11 +76,14 @@ async function sysadminAccounts(runtime: ScenarioRuntime): Promise<void> {
     await page.getByLabel("Instructor Authentication Email").fill("");
     await captureCheckpoint(runtime, scenario, "account_validation", session);
     await page.getByLabel("Instructor Authentication Email").fill(CREATED_EMAIL);
+    await page
+      .getByLabel("Verified Instructor Display Name")
+      .fill(VERIFIED_INSTRUCTOR_DISPLAY_NAME);
     await page.getByRole("button", { name: "Create Instructor Account", exact: true }).click();
     await page.getByText("Instructor Account created.", { exact: true }).waitFor();
-    const newest = page.locator('section[aria-label="Instructor Accounts"] > .auth-panel').first();
-    const reference = await newest.locator("h2").textContent();
-    if (reference === null || !/^U-[1-9][0-9]{0,9}$/u.test(reference)) {
+    const newest = page.getByRole("article").first();
+    const reference = (await newest.getByRole("heading", { level: 2 }).innerText()).trim();
+    if (!isCanonicalAccountReference(reference)) {
       throw new Error("created Instructor Account lacks a canonical public reference");
     }
     await reloadInstructorAccounts(page);

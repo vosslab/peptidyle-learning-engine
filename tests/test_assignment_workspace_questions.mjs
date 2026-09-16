@@ -98,7 +98,6 @@ test("Policy save retains normalized Entries and the current availability and cl
     attemptLimit: null,
     activityRules: {
       assessmentAttemptGradeRule: "latest",
-      questionPoolReuseRule: "selectAgain",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
       assessmentQuestionDisplayRule: "allQuestions",

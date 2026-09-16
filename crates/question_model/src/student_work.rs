@@ -124,70 +124,8 @@ pub struct QuestionPoolSelection {
     /// incomplete Selection at transaction commit without consulting mutable
     /// Assessment content.
     pub selected_question_count: u32,
-    /// Earlier Selection whose exact Question Pool Items this later Assessment Attempt retained.
-    ///
-    /// A reused Selection is still an immutable result owned by this Assessment
-    /// Attempt. This link preserves the reason its selected Question Pool Item membership repeats
-    /// without treating the earlier Attempt's record as mutable shared state.
-    pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
     /// Exact selected Question Pool Items in their frozen delivery order.
     pub selected_items: Vec<QuestionPoolSelectedItem>,
-}
-
-/// A requested later-Attempt Selection does not match its earlier source.
-#[doc(hidden)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum QuestionPoolSelectionReuseError {
-    /// A Question Pool Selection can only be retained for the same Assessment Entry.
-    DifferentQuestionPoolAssessmentEntry,
-    /// A Selection cannot use itself as an earlier Assessment Attempt's source.
-    SameAssessmentAttempt,
-}
-
-impl std::fmt::Display for QuestionPoolSelectionReuseError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::DifferentQuestionPoolAssessmentEntry => formatter
-                .write_str("Question Pool Selection reuse requires the same Assessment Entry"),
-            Self::SameAssessmentAttempt => formatter
-                .write_str("Question Pool Selection reuse requires a later Assessment Attempt"),
-        }
-    }
-}
-
-impl std::error::Error for QuestionPoolSelectionReuseError {}
-
-impl QuestionPoolSelection {
-    /// Copies this immutable Question Pool Selection into a later Assessment Attempt.
-    ///
-    /// Storage additionally verifies that both attempts belong to the same
-    /// Student and Assessment, and that the target attempt number is later.
-    /// Keeping those relational checks in storage prevents a caller from
-    /// supplying an unrelated Student Work identifier.
-    pub fn reused_for_later_attempt(
-        &self,
-        id: QuestionPoolSelectionId,
-        assessment_attempt: AssessmentAttemptId,
-        question_pool_assessment_entry: AssessmentEntryId,
-        created_at: Timestamp,
-    ) -> Result<Self, QuestionPoolSelectionReuseError> {
-        if question_pool_assessment_entry != self.question_pool_assessment_entry {
-            return Err(QuestionPoolSelectionReuseError::DifferentQuestionPoolAssessmentEntry);
-        }
-        if assessment_attempt == self.assessment_attempt {
-            return Err(QuestionPoolSelectionReuseError::SameAssessmentAttempt);
-        }
-        Ok(Self {
-            id,
-            assessment_attempt,
-            question_pool_assessment_entry,
-            question_pool_revision: self.question_pool_revision.clone(),
-            created_at,
-            selected_question_count: self.selected_question_count,
-            reused_from_question_pool_selection: Some(self.id),
-            selected_items: self.selected_items.clone(),
-        })
-    }
 }
 
 /// Immutable question selection and issued order for one Assessment Attempt.

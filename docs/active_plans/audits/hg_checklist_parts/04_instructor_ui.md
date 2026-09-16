@@ -52,6 +52,9 @@
   - Mismatch: no Public Blueprint Course search route or query controls exist.
 - [x] A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
+
+###### Blueprint Course editing
+
 - [ ] Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.
   - Mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` opens a Course Editor but names the selected editor a Blueprint Assignment editor, not a Blueprint Assessment Editor.
 - [x] The Course Editor should show the Blueprint Course structure without editing every Question on one page.
@@ -66,6 +69,9 @@
   - Mismatch: `src/features/blueprint_course/blueprint_assignment_content_editor.tsx` supplies reusable defaults but not the required separate Blueprint Assessment Properties Editor.
 - [x] Blueprint Courses should not contain Assessment dates or relative Assessment schedules.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` describes reusable structure without deadlines or course delivery settings.
+
+###### Blueprint Course lifecycle
+
 - [ ] Blueprint Courses follow the lifecycle **Private -> Public -> Archived**.
   - Mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` exposes only available/archive states, not the required Private/Public lifecycle.
 - [ ] New and forked Blueprint Courses start **Private**.
@@ -76,16 +82,91 @@
   - Mismatch: no Private availability workflow is implemented in the visible Blueprint Course controls.
 - [ ] Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection.
   - Mismatch: no Public transition or shared Public collection is implemented.
+- [ ] Public Blueprint Courses are visible to all **Instructors**.
+  - Mismatch: no verified Public Blueprint Course interface or shared-collection workflow exists.
 - [ ] A Public Blueprint Course with no adoptions may return to **Private**.
   - Mismatch: no Public-to-Private transition is implemented.
 - [ ] A Public Blueprint Course with one or more adoptions remains **Public**.
   - Mismatch: no Public availability model is implemented.
 - [x] Archived Blueprint Courses leave normal discovery but remain available where needed for history.
   - Evidence (source): `crates/server/src/blueprint_course.rs` `archive_blueprint` and discovery query comments retain historical pins while excluding archived discovery.
-- [ ] Instructors may fork a Public Blueprint Course to continue development privately.
-  - Mismatch: no Public Blueprint Course fork action or Private fork lifecycle is implemented.
+- [ ] Archived Blueprint Courses remain viewable when accessed directly or through their history.
+  - Mismatch: no accepted direct-or-history UI workflow verifies Archived Blueprint Course visibility.
 - [ ] Blueprint Courses do not have a separate Draft state.
   - Mismatch: no source-level lifecycle test establishes the absence of a Draft state across Blueprint Course APIs and UI.
+- [ ] Public Blueprint Courses and their Revision history are visible to all **Instructors**.
+  - Verification pending: ordinary current Public detail reads are verified; full Revision history visibility is not established.
+- [ ] Archived Blueprint Courses and their Revision history remain visible to all **Instructors**, but
+  do not appear in normal Blueprint Course discovery.
+  - Verification pending: accepted Archived discovery/detail proof establishes default exclusion and known-detail visibility, not full Revision history.
+- [ ] Blueprint Course visibility includes its content, Revision history, and recorded changes.
+  - Verification pending: current content reads are verified, but complete Revision history and recorded-change presentation remain unverified.
+- [ ] The owning **Instructor** controls changes to a Blueprint Course; visibility does not grant
+  editing authority.
+  - Verification pending: prior C883 owner/nonowner Apply denials are contributor evidence; complete owner mutation boundaries and connected workflow need current-authority verification.
+
+###### Blueprint Course forks and changes
+
+- [ ] Instructors may fork a Public Blueprint Course to continue development privately.
+  - Mismatch: no Public Blueprint Course fork action or Private fork lifecycle is implemented.
+- [ ] Forking a Blueprint Course creates an independent Private Blueprint Course owned by the Instructor who created the fork.
+  - Mismatch: no authorized fork creation workflow or persisted fork-owner presentation is verified.
+- [ ] Forking a Blueprint Course creates new Blueprint Assessments populated with the same Published
+  Question IDs and forks of the source Question Pools.
+  - Mismatch: Independent Question Pool forks are not yet implemented; historical pin-preserving evidence does not verify this fork behavior.
+- [ ] Forked Question Pools preserve the Published Question IDs contained in their source Question Pools.
+  - Mismatch: Independent Question Pool forks are not yet implemented; historical pin-preserving evidence does not verify this behavior.
+- [ ] A Blueprint Course fork records the Blueprint Course and Revision it was forked from.
+  - Mismatch: no accepted lineage read or fork-creation evidence verifies the recorded source Course and Revision.
+- [ ] Blueprint Course forks develop independently after they are created.
+  - Mismatch: no created-fork workflow verifies independent later Revision development.
+- [x] A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
+  - Evidence (runtime): accepted C881 actual-server proof at `/private/tmp/ple-fork-reader-artifacts.nRikDO` exercises `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks`, returns each fork's owner and recorded origin, and conceals unrelated Instructors with `404 no-store`.
+  - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` and `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` present authorized known-fork rows and owner names.
+- [ ] A fork does not automatically receive later changes from its source Blueprint Course.
+  - Mismatch: no created-fork runtime evidence verifies that later source changes leave the fork unchanged.
+- [ ] PLE should make it clear when a source Blueprint Course has newer Revisions than its forks.
+  - Mismatch: current-head review evidence does not verify an obvious source-newer indication in the fork workflow.
+- [ ] PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
+  - Mismatch: known-fork rows expose current Revision numbers, but no accepted newer-downstream indication proof establishes this behavior.
+- [ ] The fork owner decides whether to incorporate source changes into the fork.
+  - Verification pending: C883's explicit owner-authorized selective-save backend is contributor-verified; connected Instructor Apply evidence remains open under C884/C413.
+- [ ] PLE should make it easy for the fork owner to incorporate selected source changes into the fork.
+  - Verification pending: C883 backend evidence does not establish an easy connected Instructor selection and Apply workflow.
+
+###### Blueprint Course comparison
+
+- [ ] Any **Instructor** can compare related Blueprint Courses in the same fork lineage when those
+  Blueprint Courses are visible to that Instructor.
+  - Mismatch: `crates/server/src/blueprint_course/fork_review.rs` `load_fork_review` reviews a fork with its direct source only; accepted C882 proof does not cover other visible related pairs in the same lineage.
+  - Evidence (runtime): accepted C882 actual HTTP proof at `/private/tmp/ple-fork-review-http-artifacts.LTUgsF` remains useful direct-source evidence: ordinary visibility, GET-only `no-store`, zero `ple_data` mutations, lazy review and retry at 1280 by 800 and initially 390px.
+- [x] Fork comparison normally compares the newest Revision of the source Blueprint Course with the
+  newest Revision of the fork.
+  - Evidence (runtime): C881 records corrected current heads, including source equal to origin; C882 exercises `src/api/decoders/blueprint_course.ts` `decodeBlueprintComparisonView` to return current source and fork names, ETags, and revisions.
+  - Evidence (source): `src/api/decoders/blueprint_course.ts` `decodeBlueprintComparisonView` requires the current source and fork Revision references.
+- [ ] Older Revisions remain available through Blueprint history but are not the normal comparison
+  workflow.
+  - Mismatch: current-head review exists, but no accepted Blueprint history workflow establishes older-Revision availability.
+- [x] Blueprint Course differences are calculated from canonical JSON when the Instructor requests
+  the comparison.
+  - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` requests C880's canonical comparison projection on demand rather than persisting comparison state.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` compares canonical Blueprint snapshots.
+  - Evidence (runtime): C882's actual HTTP receipt exercises `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` as a real GET-only `no-store` review with zero `ple_data` mutations.
+- [ ] Shared Question IDs provide the durable content relationships between compared Blueprint Courses.
+  - Mismatch: C880's `compare_blueprint_fork` matches Blueprint Assessments by internal Assessment IDs; retained-ID evidence is not proof of Question-ID content relationships.
+- [ ] Blueprint Assessments are matched by the shared Question IDs they contain.
+  - Mismatch: `crates/question_model/src/blueprint_course/fork_comparison.rs` uses internal Assessment IDs instead of matching Assessments by shared Question IDs.
+- [ ] Blueprint Course comparison does not require Blueprint Assessment identity or history across
+  forks; Assessment relationships are determined from the shared Question IDs they contain.
+  - Verification pending: the new Assessment and Pool fork pair needs proof that comparison uses shared Published Question IDs without Blueprint Assessment identity or history across forks.
+- [ ] Comparison should show shared, added, and removed Assessments and Question IDs, plus changed
+  content where those differences can be determined from canonical JSON.
+  - Mismatch: accepted C880/C882 evidence covers internal-ID source-only/fork-only changes, not the required shared-Question-ID Assessment and Question correspondence.
+- [ ] Comparison should remain useful when Assessment names, order, or structure have changed.
+  - Verification pending: previous module-parent, name and order evidence remains useful, but does not verify shared-Question-ID matching after those changes or independently assigned Assessment IDs.
+- [x] Comparison visibility follows Blueprint Course visibility rather than fork ownership.
+  - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` uses ordinary Blueprint visibility for read-only direct-source review.
+  - Evidence (runtime): C881/C882 accepted `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` ordinary-visibility direct-source review at `/private/tmp/ple-fork-reader-artifacts.nRikDO` and `/private/tmp/ple-fork-review-http-artifacts.LTUgsF` permits visible Public/Archived sides and conceals unauthorized Private sides; ownership restricts Apply, not comparison.
 
 ##### Course Instances
 
@@ -233,9 +314,9 @@
 - [x] **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` presents upcoming deadlines across Courses the Instructor teaches.
   - Evidence (runtime): accepted private full-app evidence exercised `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` against actual HTTP and visibly emphasized the seven-day Account-zone window, release state, and Due group for each upcoming Assessment.
-- [ ] Assessment lists should make Course, release status, due date, and other important state easy to scan.
-  - Evidence (runtime): accepted private exact-main browser evidence rendered both the cross-Course Due Soon list and one Course's Assessment list with visible release state and due data.
-  - Mismatch: `src/pages/course_instance_page.tsx` `AssessmentRow` exposes the due value as a raw local ISO string, so readable scanning across production Assessment lists remains incomplete; the one-row Course fixture also does not establish a representative dense list.
+- [x] Assessment lists should make Course, release status, due date, and other important state easy to scan.
+  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` presents each Assessment with its Course, release state, and Account-zone Due; `src/pages/course_instance_page.tsx` `AssessmentRow` presents title, release state, and readable Account-zone Due under the Course heading.
+  - Evidence (runtime): accepted private actual-server and exact-main browser proof exercised `src/pages/course_instance_page.tsx` `CourseInstancePage` alongside Due Soon. The first owned Course retained three readable rows at 1280px and 720px in a Los Angeles browser with a Chicago Account zone; a second owned Course showed three Assessment rows with Released/Unreleased states and distinct Due values matched row-by-row to its actual 200/`no-store` Assessment-list response. The Due Soon list separately showed Course identity on each cross-Course row. The fixture used privileged projection state for Released rows, not the release workflow.
 - [x] **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
   - Evidence (source): `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` foregrounds reusable Assessment settings and excludes Questions, Pools, and Course dates.
   - Evidence (runtime): accepted independent `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` proof verified the heading, lede, legend, and normal Ribbon route without claiming HTTP, CRUD, or copy workflow acceptance.

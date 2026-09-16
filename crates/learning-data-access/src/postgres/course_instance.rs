@@ -4,13 +4,14 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use question_model::{
-    AccountReference, CourseId, CourseInstanceReference, CourseMembershipRole, CourseSummary,
-    CourseTerm, CourseTheme,
+    AccountReference, BlueprintRevision, CourseId, CourseInstanceReference, CourseMembershipRole,
+    CourseSummary, CourseTerm, CourseTheme,
 };
 use sqlx::{Postgres, Row, Transaction};
 
 use super::Pool;
 use super::connection::map_sqlx_error;
+use crate::course_instance::CourseInstanceBlueprintOrigin;
 use crate::{
     CourseCreationInstructor, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
     CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput,
@@ -276,7 +277,8 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
              term_ends_on::text AS term_ends_on, course_theme, \
-             active_instructor_count FROM ple_api.load_course_instance($1)",
+             active_instructor_count, blueprint_reference, adopted_blueprint_revision, \
+             current_blueprint_revision FROM ple_api.load_course_instance($1)",
         )
         .bind(reference.as_string())
         .fetch_optional(&mut *transaction)
@@ -350,10 +352,39 @@ fn decode_view(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceView, StoreE
     let active_instructor_count: i64 = row
         .try_get("active_instructor_count")
         .map_err(map_sqlx_error)?;
+    let blueprint_reference: Option<String> =
+        row.try_get("blueprint_reference").map_err(map_sqlx_error)?;
+    let adopted_revision: Option<i64> = row
+        .try_get("adopted_blueprint_revision")
+        .map_err(map_sqlx_error)?;
+    let current_revision: Option<i64> = row
+        .try_get("current_blueprint_revision")
+        .map_err(map_sqlx_error)?;
+    // ASVS 2.2.3: the nullable projection is all-or-nothing and revisions remain ordered.
+    let blueprint_origin = match (blueprint_reference, adopted_revision, current_revision) {
+        (None, None, None) => None,
+        (Some(reference), Some(adopted), Some(current)) if current >= adopted => {
+            let revision = |value| {
+                u64::try_from(value)
+                    .ok()
+                    .and_then(BlueprintRevision::new)
+                    .ok_or_else(|| invalid("Blueprint Revision"))
+            };
+            Some(CourseInstanceBlueprintOrigin {
+                reference: reference
+                    .parse()
+                    .map_err(|_| invalid("Blueprint Course Reference"))?,
+                adopted_revision: revision(adopted)?,
+                current_revision: revision(current)?,
+            })
+        }
+        _ => return Err(invalid("Blueprint origin")),
+    };
     Ok(CourseInstanceView {
         course: decode_summary(row)?,
         active_instructor_count: u32::try_from(active_instructor_count)
             .map_err(|_| invalid("Teaching Team size"))?,
+        blueprint_origin,
     })
 }
 

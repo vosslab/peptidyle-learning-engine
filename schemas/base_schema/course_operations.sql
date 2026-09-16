@@ -255,14 +255,25 @@ $$;
 CREATE FUNCTION ple_api.load_course_instance(p_reference text)
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, course_theme text,
-              active_instructor_count bigint)
+              active_instructor_count bigint, blueprint_reference text,
+              adopted_blueprint_revision bigint, current_blueprint_revision bigint)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.public_reference, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, course.course_theme,
            (SELECT count(*) FROM ple_data.course_membership AS teammate
              WHERE teammate.course_id = course.course_id AND teammate.role = 'instructor'
-               AND ple_data.course_membership_is_active(teammate.membership_id))
+               AND ple_data.course_membership_is_active(teammate.membership_id)),
+           readable_blueprint.public_reference,
+           CASE WHEN readable_blueprint.public_reference IS NOT NULL
+                THEN course.blueprint_revision_number END,
+           readable_blueprint.current_blueprint_revision_number
       FROM ple_data.course_instance AS course
+      LEFT JOIN ple_data.blueprint_course AS parent_blueprint
+        ON parent_blueprint.reference_number = course.blueprint_course_reference_number
+      -- ASVS 8.2.3 and 8.3.1: Course access never grants source metadata access;
+      -- reuse the Blueprint reader's current actor and lifecycle capability.
+      LEFT JOIN LATERAL ple_api.load_blueprint_course(parent_blueprint.public_reference)
+        AS readable_blueprint ON true
       JOIN ple_data.course_membership AS membership
         ON membership.course_id = course.course_id
        AND membership.account_id = ple_api.current_session_account_id()

@@ -242,6 +242,7 @@ function pickerPageOffset(cursor: string | null): number {
 function reusableQuestionLibraryRow(item: {
   readonly summary: {
     readonly questionId: string;
+    readonly latestQuestionRevision: QuestionLibraryBrowseRow["questionRevision"];
     readonly questionFormat: QuestionFormat;
     readonly metadata: {
       readonly questionTitle: string;
@@ -257,6 +258,7 @@ function reusableQuestionLibraryRow(item: {
   const evidence = { state: "unavailable" as const };
   return {
     displayId: summary.questionId,
+    questionRevision: summary.latestQuestionRevision,
     questionTitle: summary.metadata.questionTitle,
     summary: summary.metadata.questionDescription,
     questionFormat: summary.questionFormat,

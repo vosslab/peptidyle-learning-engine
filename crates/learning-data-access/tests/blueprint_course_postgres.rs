@@ -26,7 +26,8 @@ use question_model::{
     BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevision,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
-    ReplaceBlueprintCourseContentInput, ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
+    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, ReusableFixedQuestionInput,
+    StudentFeedbackReleaseRule,
 };
 use sqlx::{Connection, PgConnection, Row};
 use tokio::sync::oneshot;
@@ -38,6 +39,8 @@ mod blueprint_course_postgres_support;
 use blueprint_course_postgres_support::*;
 #[path = "blueprint_course_postgres/adoption.rs"]
 mod blueprint_course_postgres_adoption;
+#[path = "blueprint_course_postgres/append.rs"]
+mod blueprint_course_postgres_append;
 
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
@@ -66,13 +69,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "create request replay returns its original Revision"
     );
 
-    let blueprint_reference = format!("BP-{reference}")
+    let blueprint_reference = blueprint_public_reference(reference)
+        .await
         .parse::<BlueprintCourseReference>()
         .expect("Blueprint reference");
-    let owner_store =
-        PostgresBlueprintCourseStore::new(lazy_pool(&application_url).expect("owner pool"));
-    let reader_store =
-        PostgresBlueprintCourseStore::new(lazy_pool(&application_url).expect("reader pool"));
+    let application_pool = lazy_pool(&application_url).expect("application fixture pool");
+    let owner_store = PostgresBlueprintCourseStore::new(application_pool.clone());
+    let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
     // Regression: a refactor could disclose Private immutable content or let
     // an adoption hide its source. These owner/non-owner lifecycle rules are
     // deliberate product and authorization contracts, so this connected
@@ -84,8 +87,26 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .expect("owner reads a new Private Blueprint");
     assert_eq!(owner_private.availability, BlueprintAvailability::Private);
     assert!(
+        owner_store
+            .list_blueprint_courses(token(), false)
+            .await
+            .expect("owner Private Blueprint list")
+            .iter()
+            .any(|summary| summary.reference == blueprint_reference),
+        "owner's Private Blueprint remains in normal discovery"
+    );
+    assert!(
         reader_store
-            .list_blueprint_courses(reader_token())
+            .list_blueprint_courses(reader_token(), true)
+            .await
+            .expect("non-owner discovery including Archived")
+            .iter()
+            .all(|summary| summary.reference != blueprint_reference),
+        "including Archived never discloses another owner's Private Blueprint"
+    );
+    assert!(
+        reader_store
+            .list_blueprint_courses(reader_token(), false)
             .await
             .expect("non-owner Private Blueprint list")
             .iter()
@@ -128,9 +149,8 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .availability,
         BlueprintAvailability::Public
     );
-    let instance_store =
-        PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("adoption pool"))
-            .with_question_pool_id_issuer(Arc::new(FixturePoolIdIssuer(AtomicUsize::new(0))));
+    let instance_store = PostgresCourseInstanceStore::new(application_pool.clone())
+        .with_question_pool_id_issuer(Arc::new(FixturePoolIdIssuer(AtomicUsize::new(0))));
     let adoption_term = near_now_term(&application_url).await;
     let adopted = instance_store
         .create_course_instance(
@@ -178,6 +198,19 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .load_blueprint_course(token(), blueprint_reference)
         .await
         .expect("owner reads adopted Public Blueprint");
+    let public_save_checksum = request(0x19);
+    assert_eq!(
+        save(
+            &application_url,
+            reference,
+            1,
+            public_save_checksum.clone(),
+            &revision_one
+        )
+        .await
+        .expect("Public Blueprint accepts a no-op Save"),
+        (1, false)
+    );
     let archived = owner_store
         .archive_blueprint(
             token(),
@@ -188,6 +221,50 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("owner archives Blueprint after adoption");
     assert_eq!(archived.availability, BlueprintAvailability::Archived);
+    // Regression: Archived writes must not succeed through receipt replay or
+    // no-op shortcuts. Failure action: repair the locked lifecycle boundary,
+    // preserving readable history and Public writes after restore.
+    let archived_write_state = blueprint_write_state(reference).await;
+    let mut changed_archived_content = revision_one.clone();
+    changed_archived_content.modules[0].label = "Denied Archived edit".to_owned();
+    for (checksum, content) in [
+        (public_save_checksum, &revision_one),
+        (request(0x1a), &revision_one),
+        (request(0x1b), &changed_archived_content),
+    ] {
+        let denied = save(&application_url, reference, 1, checksum, content)
+            .await
+            .expect_err("Archived Save is denied");
+        assert_eq!(
+            error_code(&denied).as_deref(),
+            Some("55000"),
+            "Archived Blueprint denies replay, no-op and changed Saves"
+        );
+    }
+    for short_name in ["REV-ACC", "DENIED"] {
+        assert!(
+            matches!(
+                owner_store
+                    .rename_blueprint_course(
+                        token(),
+                        blueprint_reference,
+                        archived.metadata_etag,
+                        RenameBlueprintCourseInput {
+                            short_name: short_name.to_owned(),
+                            long_name: "Revision acceptance Blueprint".to_owned(),
+                        },
+                    )
+                    .await,
+                Err(StoreError::LifecycleConflict)
+            ),
+            "Archived Blueprint denies no-op and changed renames"
+        );
+    }
+    assert_eq!(
+        blueprint_write_state(reference).await,
+        archived_write_state,
+        "denied Archived writes leave metadata, content, Revisions, events and receipts unchanged"
+    );
     assert_eq!(
         reader_store
             .load_blueprint_course(reader_token(), blueprint_reference)
@@ -198,13 +275,33 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     assert!(
         reader_store
-            .list_blueprint_courses(reader_token())
+            .list_blueprint_courses(reader_token(), false)
             .await
             .expect("ordinary Public discovery after archive")
             .iter()
             .all(|summary| summary.reference != blueprint_reference),
         "Archived Blueprint leaves ordinary discovery"
     );
+    assert!(
+        owner_store
+            .list_blueprint_courses(token(), false)
+            .await
+            .expect("owner normal discovery after archive")
+            .iter()
+            .all(|summary| summary.reference != blueprint_reference),
+        "even an owner's Archived Blueprint leaves normal discovery"
+    );
+    for session in [token(), reader_token()] {
+        assert!(
+            reader_store
+                .list_blueprint_courses(session, true)
+                .await
+                .expect("explicit Archived discovery")
+                .iter()
+                .any(|summary| summary.reference == blueprint_reference),
+            "Instructors can explicitly include Archived Blueprint history"
+        );
+    }
     assert!(
         reader_store
             .load_blueprint_revision(
@@ -245,18 +342,46 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("owner restores Archived Blueprint to Public");
     assert_eq!(restored.availability, BlueprintAvailability::Public);
-    // The disposable C73 harness may provide its administrator URL solely for
-    // this post-operation relational oracle. Product writes above remain the
-    // normal authenticated application path.
-    let inspection_url = std::env::var("C73_ADOPTION_INSPECTION_DATABASE_URL")
-        .unwrap_or_else(|_| migration_url.to_owned());
-    let inspection = lazy_pool(&inspection_url).expect("adoption inspection pool");
+    assert_eq!(
+        save(&application_url, reference, 1, request(0x1c), &revision_one)
+            .await
+            .expect("restored Public Blueprint accepts Save"),
+        (1, false)
+    );
+    let renamed = owner_store
+        .rename_blueprint_course(
+            token(),
+            blueprint_reference,
+            restored.metadata_etag,
+            RenameBlueprintCourseInput {
+                short_name: "RESTORED".to_owned(),
+                long_name: "Revision acceptance Blueprint".to_owned(),
+            },
+        )
+        .await
+        .expect("restored Public Blueprint accepts rename");
+    assert_eq!(renamed.short_name, "RESTORED");
+    let mut inspection = adoption_inspection_connection().await;
+    let adopted_course_reference_number: i64 = sqlx::query_scalar(
+        "SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1",
+    )
+    .bind(adopted.course.reference.as_string())
+    .fetch_one(&mut inspection)
+    .await
+    .expect("adopted Course relational identity");
+    let independently_adopted_course_reference_number: i64 = sqlx::query_scalar(
+        "SELECT reference_number FROM ple_data.course_instance WHERE public_reference = $1",
+    )
+    .bind(independently_adopted.course.reference.as_string())
+    .fetch_one(&mut inspection)
+    .await
+    .expect("independently adopted Course relational identity");
     blueprint_course_postgres_adoption::assert_adoption_projection(
-        &inspection,
-        i64::from(adopted.course.reference.number()),
+        &mut inspection,
+        adopted_course_reference_number,
         reference,
         1,
-        i64::from(independently_adopted.course.reference.number()),
+        independently_adopted_course_reference_number,
     )
     .await;
     let mut enrollment = inspection.begin().await.expect("enrollment fixture");
@@ -265,9 +390,9 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("membership owner");
     let course_id: Uuid = sqlx::query_scalar(
-        "SELECT course_id FROM ple_data.course_instance WHERE reference_number=$1",
+        "SELECT course_id FROM ple_data.course_instance WHERE public_reference = $1",
     )
-    .bind(i64::from(adopted.course.reference.number()))
+    .bind(adopted.course.reference.as_string())
     .fetch_one(&mut *enrollment)
     .await
     .expect("adopted course identity");
@@ -283,10 +408,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .commit()
         .await
         .expect("enrollment fixture commit");
-    inspection.close().await;
+    inspection.close().await.expect("adoption inspection close");
 
     let reader_list = reader_store
-        .list_blueprint_courses(reader_token())
+        .list_blueprint_courses(reader_token(), false)
         .await
         .expect("non-owner Instructor Blueprint list");
     let reader_summary = reader_list
@@ -414,18 +539,28 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             },
         ],
     };
-    let moved_content =
-        StoredBlueprintCourseContent::from_replace(moved_input, &current_content, &pins())
-            .expect("retained Assessment may move into a new Module");
-    let moved = save(
-        &application_url,
-        reference,
-        2,
-        request(0x15),
-        &moved_content,
-    )
-    .await
-    .expect("Save moving retained Assessment");
+    let append_store = PostgresBlueprintCourseStore::new(application_pool.clone())
+        .with_question_pool_id_issuer(Arc::new(FixturePoolIdIssuer(AtomicUsize::new(2))));
+    let moved_receipt = append_store
+        .save_blueprint_course(
+            token(),
+            blueprint_reference,
+            BlueprintRevision::new(2).expect("Revision two"),
+            question_model::RequestChecksum::from_bytes([0x15; 32]),
+            moved_input,
+        )
+        .await
+        .expect("Save moving retained Assessment and materializing a new daughter Assessment");
+    assert_eq!(
+        moved_receipt.blueprint_revision.revision,
+        BlueprintRevision::new(3).expect("Revision three")
+    );
+    let moved = (3, moved_receipt.changed);
+    let moved_content = append_store
+        .load_blueprint_revision(token(), moved_receipt.blueprint_revision)
+        .await
+        .expect("sealed moved content")
+        .content;
     assert_eq!(moved, (3, true));
     let moved_replay = save(
         &application_url,
@@ -469,9 +604,9 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_immutable_child(&mut inspection, sealed_update, reference, 3).await;
     assert_immutable_child(&mut inspection, sealed_delete, reference, 3).await;
 
-    let store =
-        PostgresBlueprintCourseStore::new(lazy_pool(&application_url).expect("application pool"));
-    let blueprint_reference = format!("BP-{reference}")
+    let store = PostgresBlueprintCourseStore::new(application_pool.clone());
+    let blueprint_reference = blueprint_public_reference(reference)
+        .await
         .parse::<BlueprintCourseReference>()
         .expect("Blueprint reference");
     let exact_revision = BlueprintRevision::new(3).expect("Revision three");
@@ -537,6 +672,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .await,
         Err(StoreError::InvalidRecord(_))
     ));
+    // These store operations are finished. Close their shared fixture pool
+    // before the two direct application connections required by the head race;
+    // retaining unrelated idle pools must not consume the login's real limit.
+    application_pool.close().await;
 
     // Hold the old head exclusively, let Course Instance creation block behind
     // it, then advance the head. The blocked creator must recheck and reject
@@ -571,6 +710,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let (save_pid_sender, save_pid_receiver) = oneshot::channel();
     let save_url = application_url.clone();
     let save_content = revision_four_content.clone();
+    let save_reference = blueprint_public_reference(reference).await;
     let saver = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&save_url)
             .await
@@ -582,11 +722,25 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .await
             .expect("Save backend PID");
         save_pid_sender.send(save_pid).expect("Save PID receiver");
-        let row = sqlx::query("SELECT resulting_blueprint_revision_number, changed FROM ple_api.save_blueprint_course($1, 3, $2, $3, $4)")
-            .bind(reference).bind(request(0x16))
-            .bind(serde_json::to_value(&save_content).expect("content JSON"))
-            .bind(save_content.checksum().expect("content checksum").as_bytes().to_vec())
-            .fetch_one(&mut *transaction).await?;
+        let row = sqlx::query(
+            "SELECT resulting_blueprint_revision_number, changed \
+            FROM ple_api.save_blueprint_course($1, 3, $2, $3, $4, \
+                (SELECT COALESCE(jsonb_agg(jsonb_build_object( \
+                    'course_id', course_id, 'assessments', '[]'::jsonb)), '[]'::jsonb) \
+                   FROM ple_api.list_blueprint_daughter_course_ids($1)))",
+        )
+        .bind(save_reference)
+        .bind(request(0x16))
+        .bind(serde_json::to_value(&save_content).expect("content JSON"))
+        .bind(
+            save_content
+                .checksum()
+                .expect("content checksum")
+                .as_bytes()
+                .to_vec(),
+        )
+        .fetch_one(&mut *transaction)
+        .await?;
         transaction.commit().await?;
         Ok::<_, sqlx::Error>(row)
     });
@@ -610,6 +764,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     let (creator_pid_sender, creator_pid_receiver) = oneshot::channel();
     let create_url = application_url.clone();
+    let create_reference = blueprint_public_reference(reference).await;
     let creator = tokio::spawn(async move {
         let mut connection = PgConnection::connect(&create_url)
             .await
@@ -622,7 +777,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .expect("creator backend PID");
         creator_pid_sender.send(pid).expect("creator PID receiver");
         sqlx::query(
-            "SELECT reference_number FROM ple_api.create_course_instance(\
+            "SELECT public_reference FROM ple_api.create_course_instance(\
              '00000000-0000-0000-0000-00000000b130', \
              '00000000-0000-0000-0000-00000000b131', \
              '00000000-0000-0000-0000-00000000b132', \
@@ -630,7 +785,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
              'adopted', $1, 3, 'RACE-C', 'Concurrent head Course', \
              current_date, current_date + 1, NULL, '[]'::jsonb)",
         )
-        .bind(reference)
+        .bind(create_reference)
         .fetch_one(&mut *transaction)
         .await
     });
@@ -770,6 +925,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         ),
         "concurrent child append is rejected before construction visibility or after sealing"
     );
+    construction_connection
+        .close()
+        .await
+        .expect("release construction fixture connection");
     let mut final_inspection = PgConnection::connect(migration_url)
         .await
         .expect("final inspection connection");
@@ -790,4 +949,9 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         competing_rows, 0,
         "rejected child did not enter the sealed Revision"
     );
+    final_inspection
+        .close()
+        .await
+        .expect("release final inspection before append fixture");
+    blueprint_course_postgres_append::assert_new_assessment_save_preserves_daughter_work().await;
 }

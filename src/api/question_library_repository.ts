@@ -208,6 +208,7 @@ export function createQuestionLibraryRepository(
       return {
         items: page.items.map((item) => ({
           displayId: item.summary.questionId,
+          questionRevision: item.summary.latestQuestionRevision,
           questionTitle: item.summary.metadata.questionTitle,
           summary: item.summary.metadata.questionDescription,
           questionFormat: item.summary.questionFormat,

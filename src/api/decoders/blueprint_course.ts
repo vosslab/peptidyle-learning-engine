@@ -1,7 +1,8 @@
 // Strict browser decoding and local command validation for reusable Blueprint Courses.
 
-import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
+import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/api/MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS";
+import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import { ASSESSMENT_TYPE_VALUES, type AssessmentType } from "../../../generated/api/AssessmentType";
 import { MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS } from "../../../generated/api/MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
@@ -10,6 +11,7 @@ import type { BlueprintCourseReference } from "../../../generated/api/BlueprintC
 import type { BlueprintAvailability } from "../../../generated/api/BlueprintAvailability";
 import type { BlueprintRevisionReference } from "../../../generated/api/BlueprintRevisionReference";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
+import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintModuleView } from "../../../generated/api/BlueprintModuleView";
 import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
 import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
@@ -19,6 +21,8 @@ import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/
 import type { CursorPage } from "../contracts";
 import {
   DecodeError,
+  decodeArray,
+  decodeBoolean,
   decodeNonemptyString,
   decodeNullable,
   decodePositiveInteger,
@@ -30,14 +34,20 @@ import {
 import { decodeStudentFeedbackReleaseRule } from "./assessment_policy";
 import { decodeQuestionSearchResult } from "./question_library";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
-import { decodeBoundedArray, decodeCursor, field, requireOnlyFields } from "./shared";
+import {
+  decodeBoundedArray,
+  decodeCursor,
+  decodeQuestionRevisionReference,
+  field,
+  requireOnlyFields,
+} from "./shared";
 import { normalizeQuestionIdSyntax } from "../../question_id";
 
 const MAX_PAGE_SIZE = 100;
 const POSITIVE_REVISION = /^[1-9][0-9]*$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
-function text(value: unknown, path: string): string {
+export function text(value: unknown, path: string): string {
   const decoded = decodeNonemptyString(value, path);
   if (
     decoded !== decoded.trim() ||
@@ -64,7 +74,7 @@ function revision(value: unknown, path: string): string {
   return decoded;
 }
 
-function questionId(value: unknown, path: string): string {
+export function questionId(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   const canonicalQuestionId = normalizeQuestionIdSyntax(decoded);
   if (canonicalQuestionId === null || canonicalQuestionId !== decoded)
@@ -77,7 +87,7 @@ function questionPoolId(value: unknown, path: string): string {
   return decoded;
 }
 
-function pointValue(value: unknown, path: string): string {
+export function pointValue(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   if (!/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,4})?$/u.test(decoded)) {
     throw new DecodeError(path, "a canonical nonnegative point decimal with at most four places");
@@ -85,7 +95,7 @@ function pointValue(value: unknown, path: string): string {
   return decoded;
 }
 
-function defaults(value: unknown, path: string): unknown {
+export function defaults(value: unknown, path: string): unknown {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "assessment_attempt_time_limit_seconds",
@@ -97,7 +107,6 @@ function defaults(value: unknown, path: string): unknown {
   const policies = decodeRecord(field(record, "activity_rules", path), `${path}.activity_rules`);
   requireOnlyFields(policies, `${path}.activity_rules`, [
     "assessmentAttemptGradeRule",
-    "questionPoolReuseRule",
     "questionVariationRule",
     "assessmentAttemptResumeRule",
     "assessmentQuestionDisplayRule",
@@ -125,11 +134,6 @@ function defaults(value: unknown, path: string): unknown {
         field(policies, "assessmentAttemptGradeRule", `${path}.activity_rules`),
         `${path}.activity_rules.assessmentAttemptGradeRule`,
         ["first", "latest", "highest", "instructorSelected"],
-      ),
-      questionPoolReuseRule: decodeStringEnum(
-        field(policies, "questionPoolReuseRule", `${path}.activity_rules`),
-        `${path}.activity_rules.questionPoolReuseRule`,
-        ["reuseSelection", "selectAgain"],
       ),
       questionVariationRule: decodeStringEnum(
         field(policies, "questionVariationRule", `${path}.activity_rules`),
@@ -170,13 +174,17 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   if (kind === "fixed") {
     requireOnlyFields(record, path, [
       "kind",
-      "question_id",
+      "published_question",
       "points_possible",
       "scoring_rule",
       "question_attempt_limit",
       "question_attempt_time_limit",
     ]);
-    questionId(field(record, "question_id", path), `${path}.question_id`);
+    // ASVS 1.5.2 and 2.2.1: accept the exact reference, never an ID-only fallback.
+    decodeQuestionRevisionReference(
+      field(record, "published_question", path),
+      `${path}.published_question`,
+    );
     pointValue(field(record, "points_possible", path), `${path}.points_possible`);
     decodeStringEnum(field(record, "scoring_rule", path), `${path}.scoring_rule`, [
       "normal",
@@ -198,7 +206,7 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   }
   requireOnlyFields(record, path, [
     "kind",
-    "question_pool_id",
+    "pool",
     "selection_count",
     "points_per_item",
     "scoring_rule",
@@ -206,8 +214,13 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
     "question_attempt_limit",
     "question_attempt_time_limit",
   ]);
-  questionPoolId(field(record, "question_pool_id", path), `${path}.question_pool_id`);
-  decodePositiveInteger(field(record, "selection_count", path), `${path}.selection_count`);
+  const selectionCount = decodePositiveInteger(
+    field(record, "selection_count", path),
+    `${path}.selection_count`,
+  );
+  if (selectionCount > 4_294_967_295)
+    throw new DecodeError(`${path}.selection_count`, "a positive u32 selection count");
+  authoringPool(field(record, "pool", path), `${path}.pool`, selectionCount);
   pointValue(field(record, "points_per_item", path), `${path}.points_per_item`);
   selectionRule(field(record, "selection_rule", path), `${path}.selection_rule`);
   decodeQuestionAttemptLimit(
@@ -223,7 +236,60 @@ function assessmentEntry(value: unknown, path: string): { kind: "fixed" | "pool"
   return { kind };
 }
 
-function selectionRule(value: unknown, path: string): void {
+function authoringPool(value: unknown, path: string, selectionCount: number): void {
+  // ASVS 1.5.2, 2.2.1: closed input alternatives; no obsolete Pool ID alias.
+  const record = decodeRecord(value, path);
+  const kind = decodeStringEnum(field(record, "kind", path), `${path}.kind`, [
+    "import",
+    "retained",
+  ]);
+  requireOnlyFields(
+    record,
+    path,
+    kind === "import"
+      ? ["kind", "questionPoolRevision"]
+      : ["kind", "questionPoolRevision", "members", "interchangeabilityAttested"],
+  );
+  questionPoolRevisionReference(
+    field(record, "questionPoolRevision", path),
+    `${path}.questionPoolRevision`,
+  );
+  if (kind === "import") return;
+  const attested = decodeBoolean(
+    field(record, "interchangeabilityAttested", path),
+    `${path}.interchangeabilityAttested`,
+  );
+  const members = decodeNullable(
+    field(record, "members", path),
+    `${path}.members`,
+    (memberValue, memberPath) =>
+      decodeBoundedArray(
+        memberValue,
+        memberPath,
+        MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY,
+        (item, itemPath) => {
+          const member = decodeQuestionRevisionReference(item, itemPath, true);
+          if (member.revisionNumber > 4_294_967_295)
+            throw new DecodeError(
+              `${itemPath}.revisionNumber`,
+              "a positive u32 Question Revision Number",
+            );
+          return member;
+        },
+      ),
+  );
+  if (members === null) return;
+  if (members.length === 0) throw new DecodeError(`${path}.members`, "at least one Pool member");
+  // ASVS 2.2.3: related member count, identity and review must agree.
+  if (new Set(members.map((member) => member.questionId)).size !== members.length)
+    throw new DecodeError(`${path}.members`, "unique Question IDs");
+  if (selectionCount > members.length)
+    throw new DecodeError(path, "a selection count within the authored member count");
+  if (!attested)
+    throw new DecodeError(`${path}.interchangeabilityAttested`, "true for authored members");
+}
+
+export function selectionRule(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["selectedQuestionOrder"]);
   decodeStringEnum(field(record, "selectedQuestionOrder", path), `${path}.selectedQuestionOrder`, [
@@ -232,7 +298,7 @@ function selectionRule(value: unknown, path: string): void {
   ]);
 }
 
-function assessmentType(value: unknown, path: string): AssessmentType {
+export function assessmentType(value: unknown, path: string): AssessmentType {
   return decodeStringEnum(value, path, ASSESSMENT_TYPE_VALUES);
 }
 
@@ -346,7 +412,8 @@ export function decodeReplaceBlueprintCourseContentInput(
 
 function questionView(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["question_library", "selection_availability"]);
+  requireOnlyFields(record, path, ["reference", "question_library", "selection_availability"]);
+  decodeQuestionRevisionReference(field(record, "reference", path), `${path}.reference`);
   decodeQuestionSearchResult(field(record, "question_library", path), `${path}.question_library`);
   decodeStringEnum(
     field(record, "selection_availability", path),
@@ -441,7 +508,7 @@ function contentView(value: unknown, path: string): void {
   );
 }
 
-function questionPoolRevisionReference(value: unknown, path: string): void {
+export function questionPoolRevisionReference(value: unknown, path: string): void {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["questionPoolId", "revisionNumber"]);
   questionPoolId(field(record, "questionPoolId", path), `${path}.questionPoolId`);
@@ -455,13 +522,13 @@ function availability(value: unknown, path: string): BlueprintAvailability {
   return decodeStringEnum(value, path, ["private", "public", "archived"]);
 }
 
-function metadataEtag(value: unknown, path: string): string {
+export function metadataEtag(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
   if (!UUID.test(decoded)) throw new DecodeError(path, "a canonical opaque metadata UUID");
   return decoded;
 }
 
-function revisionReference(value: unknown, path: string): BlueprintRevisionReference {
+export function revisionReference(value: unknown, path: string): BlueprintRevisionReference {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, ["reference", "revision"]);
   return {
@@ -555,6 +622,7 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
     "availability",
     "metadata_etag",
     "current_revision",
+    "fork_source",
     "read_access",
     "modules",
   ]);
@@ -572,6 +640,11 @@ export function decodeBlueprintCourseView(value: unknown, path = "response"): Bl
       "blueprint_course_owner",
       "active_instructor",
     ]),
+    fork_source: decodeNullable(
+      field(record, "fork_source", path),
+      `${path}.fork_source`,
+      revisionReference,
+    ),
     modules: modules(field(record, "modules", path), `${path}.modules`),
   };
 }
@@ -638,6 +711,48 @@ export function decodeBlueprintCourseReference(
   path = "reference",
 ): BlueprintCourseReference {
   return blueprintReference(value, path);
+}
+
+function knownBlueprintFork(value: unknown, path: string): BlueprintKnownForkView {
+  const record = decodeRecord(value, path);
+  // ASVS 2.2.1, 8.2.3: reject substitute identities and hidden-child metadata.
+  requireOnlyFields(record, path, [
+    "reference",
+    "shortName",
+    "longName",
+    "availability",
+    "currentRevision",
+    "sourceRevision",
+    "ownerDisplayName",
+  ]);
+  const ownerDisplayName = decodeNonemptyString(
+    field(record, "ownerDisplayName", path),
+    `${path}.ownerDisplayName`,
+  );
+  if (
+    ownerDisplayName !== ownerDisplayName.trim() ||
+    /[\p{Cc}]/u.test(ownerDisplayName) ||
+    Array.from(ownerDisplayName).length > 200
+  ) {
+    throw new DecodeError(`${path}.ownerDisplayName`, "one verified Instructor display name");
+  }
+  return {
+    reference: blueprintReference(field(record, "reference", path), `${path}.reference`),
+    shortName: text(field(record, "shortName", path), `${path}.shortName`),
+    longName: text(field(record, "longName", path), `${path}.longName`),
+    availability: availability(field(record, "availability", path), `${path}.availability`),
+    currentRevision: revision(field(record, "currentRevision", path), `${path}.currentRevision`),
+    sourceRevision: revision(field(record, "sourceRevision", path), `${path}.sourceRevision`),
+    ownerDisplayName,
+  };
+}
+
+/** Decodes only visible direct forks, without counts or pagination state. */
+export function decodeKnownBlueprintForks(
+  value: unknown,
+  path = "response",
+): readonly BlueprintKnownForkView[] {
+  return decodeArray(value, path, knownBlueprintFork);
 }
 
 export function decodeBlueprintRevision(value: unknown, path = "revision"): string {

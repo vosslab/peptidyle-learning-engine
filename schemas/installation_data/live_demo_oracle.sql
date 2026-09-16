@@ -110,9 +110,17 @@ DECLARE
     blueprint_reference bigint;
     expected_blueprint_assessment_reference uuid;
 BEGIN
-    blueprint_reference := current_setting(
-        'ple.installation_live_demo_blueprint_reference'
-    )::bigint;
+    -- ASVS 1.2.4 and 8.2.2: the installer carries only the opaque public
+    -- Blueprint reference; this owner resolves its internal key exactly here.
+    SELECT reference_number INTO blueprint_reference
+      FROM ple_data.blueprint_course
+     WHERE public_reference = current_setting(
+        'ple.installation_live_demo_blueprint_public_reference'
+     );
+    IF blueprint_reference IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Live Demo Blueprint public reference is unavailable';
+    END IF;
     expected_blueprint_assessment_reference := current_setting(
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
@@ -249,13 +257,22 @@ RESET ROLE;
 SET LOCAL ROLE ple_data_owner;
 DO $$
 DECLARE
-    blueprint_reference bigint := current_setting(
-        'ple.installation_live_demo_blueprint_reference'
-    )::bigint;
+    blueprint_reference bigint;
     expected_blueprint_assessment_reference uuid := current_setting(
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
+    -- ASVS 1.2.4 and 8.2.2: resolve the internal key only from the exact
+    -- canonical public reference at this privileged installation boundary.
+    SELECT reference_number INTO blueprint_reference
+      FROM ple_data.blueprint_course
+     WHERE public_reference = current_setting(
+        'ple.installation_live_demo_blueprint_public_reference'
+     );
+    IF blueprint_reference IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Live Demo Blueprint public reference is unavailable';
+    END IF;
     IF (SELECT count(*) FROM ple_data.assessment
              WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
                AND assessment_status = 'released'

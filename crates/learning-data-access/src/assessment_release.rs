@@ -19,6 +19,92 @@ use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
 
+/// Derived review of one retained daughter Assessment against its parent's current Revision.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssessmentBlueprintUpdateReview {
+    pub assessment: LiveAssessmentWorkspace,
+    pub source_revision: question_model::BlueprintRevision,
+    pub proposed: Option<AssessmentBlueprintUpdateContent>,
+    pub cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
+}
+
+/// Course-wide discovery derived from one current parent Revision and current daughter content.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CourseBlueprintUpdateReview {
+    pub blueprint_reference: question_model::BlueprintCourseReference,
+    /// Immutable creation pin, not a claim that the whole Course has applied a Revision.
+    pub adopted_revision: question_model::BlueprintRevision,
+    pub source_revision: question_model::BlueprintRevision,
+    pub assessments: Vec<CourseAssessmentBlueprintUpdateSummary>,
+}
+
+/// One adopted Assessment; direct local Assessments are outside the parent correspondence.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CourseAssessmentBlueprintUpdateSummary {
+    pub assessment_reference: AssessmentReference,
+    pub title: AssessmentTitle,
+    pub assessment_type: AssessmentType,
+    pub matches_source: bool,
+    pub cannot_apply_reason: Option<AssessmentBlueprintUpdateCannotApplyReason>,
+}
+
+/// The two unsupported source changes in the retained-Assessment update boundary.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum AssessmentBlueprintUpdateCannotApplyReason {
+    RetainedSourceMissing,
+    AssessmentTypeMismatch,
+}
+
+/// Complete reusable content, without Course dates or new teaching identities.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssessmentBlueprintUpdateContent {
+    pub assessment_type: AssessmentType,
+    pub title: String,
+    pub instructions: AssessmentInstructions,
+    pub defaults: question_model::BlueprintAssessmentDefaults,
+    pub entries: Vec<AssessmentBlueprintUpdateEntry>,
+}
+
+/// Ordered immutable pins and reusable per-entry settings for explicit review.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum AssessmentBlueprintUpdateEntry {
+    FixedQuestion {
+        reference: QuestionRevisionReference,
+        points_possible: question_model::AssessmentPointValue,
+        scoring_rule: question_model::AssessmentEntryScoringRule,
+        question_attempt_limit: question_model::QuestionAttemptLimit,
+        question_attempt_time_limit: question_model::QuestionAttemptTimeLimit,
+    },
+    QuestionPool {
+        question_pool_revision: question_model::QuestionPoolRevisionReference,
+        selection_count: NonZeroU32,
+        points_per_item: question_model::AssessmentPointValue,
+        scoring_rule: question_model::AssessmentEntryScoringRule,
+        selection_rule: question_model::QuestionPoolSelectionRule,
+        question_attempt_limit: question_model::QuestionAttemptLimit,
+        question_attempt_time_limit: question_model::QuestionAttemptTimeLimit,
+    },
+}
+
+/// Approval accepts only the two qualified compare-and-swap preconditions.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ApplyAssessmentBlueprintUpdateInput {
+    // ASVS 1.5.2, 2.2.1: the browser cannot choose source identities or content.
+    pub expected_source_revision: question_model::BlueprintRevision,
+    pub expected_edit_number: AssessmentEditNumber,
+}
+
 /// Bounded initial authored content for one new Course-owned Assessment.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -453,6 +539,45 @@ pub struct UnreleasedLiveAssessment {
 /// Store boundary for Assessment Workspace and release operations.
 #[async_trait]
 pub trait LiveAssessmentStore: Send + Sync {
+    /// Reviews every adopted member together, without applying or persisting an offer.
+    async fn review_course_blueprint_update(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+    ) -> Result<CourseBlueprintUpdateReview, StoreError> {
+        let _ = (session_token_hash, course);
+        Err(StoreError::Unavailable(
+            "Course Blueprint updates are unavailable".to_string(),
+        ))
+    }
+
+    /// Derives one review from immutable origin and the current visible parent Revision.
+    async fn review_assessment_blueprint_update(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        assessment: AssessmentReference,
+    ) -> Result<AssessmentBlueprintUpdateReview, StoreError> {
+        let _ = (session_token_hash, course, assessment);
+        Err(StoreError::Unavailable(
+            "Blueprint Assessment updates are unavailable".to_string(),
+        ))
+    }
+
+    /// Applies only reusable content; dates, release state, provenance and Work remain local.
+    async fn apply_assessment_blueprint_update(
+        &self,
+        session_token_hash: SessionTokenHash,
+        course: CourseInstanceReference,
+        assessment: AssessmentReference,
+        input: ApplyAssessmentBlueprintUpdateInput,
+    ) -> Result<LiveAssessmentWorkspace, StoreError> {
+        let _ = (session_token_hash, course, assessment, input);
+        Err(StoreError::Unavailable(
+            "Blueprint Assessment updates are unavailable".to_string(),
+        ))
+    }
+
     /// Lists ordinary current Assessments due in the caller's rolling next-seven-days window.
     async fn list_assessments_due_soon(
         &self,

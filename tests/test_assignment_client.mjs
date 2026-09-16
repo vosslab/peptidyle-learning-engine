@@ -34,7 +34,6 @@ function savedPolicyWorkspace() {
     attemptLimit: null,
     activityRules: {
       assessmentAttemptGradeRule: "highest",
-      questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
       assessmentQuestionDisplayRule: "oneQuestionAtATime",
@@ -66,7 +65,6 @@ function baseAssessmentPolicy() {
     attemptLimit: null,
     activityRules: {
       assessmentAttemptGradeRule: "highest",
-      questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
       assessmentQuestionDisplayRule: "oneQuestionAtATime",

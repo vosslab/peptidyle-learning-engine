@@ -284,7 +284,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            question_attempt.question_seed::text,
            question_attempt.generated_parameter_sha256,
            presentation.presentation_nonce,
-           presentation.presentation_checksum,
+           encode(presentation.presentation_checksum, 'hex'),
            presentation.presentation,
            presentation.author_content,
            COALESCE(asset_renditions.question_asset_renditions, '[]'::jsonb),

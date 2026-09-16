@@ -348,7 +348,6 @@ function decodeAssessmentActivityRules(
   if (strict) {
     requireOnlyFields(record, path, [
       "assessmentAttemptGradeRule",
-      "questionPoolReuseRule",
       "questionVariationRule",
       "assessmentAttemptResumeRule",
       "assessmentQuestionDisplayRule",
@@ -361,11 +360,6 @@ function decodeAssessmentActivityRules(
       field(record, "assessmentAttemptGradeRule", path),
       `${path}.assessmentAttemptGradeRule`,
       ["first", "latest", "highest", "instructorSelected"],
-    ),
-    questionPoolReuseRule: decodeStringEnum(
-      field(record, "questionPoolReuseRule", path),
-      `${path}.questionPoolReuseRule`,
-      ["reuseSelection", "selectAgain"],
     ),
     questionVariationRule: decodeStringEnum(
       field(record, "questionVariationRule", path),

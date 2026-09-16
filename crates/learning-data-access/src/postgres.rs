@@ -10,6 +10,7 @@ mod account_time_zone;
 mod assessment_attempt;
 #[cfg(feature = "postgres")]
 mod assessment_attempt_context;
+mod assessment_blueprint_update;
 #[cfg(feature = "postgres")]
 mod assessment_delivery;
 #[cfg(feature = "postgres")]
@@ -34,6 +35,7 @@ mod assessment_release;
 mod assessment_student_view;
 #[cfg(feature = "postgres")]
 mod assessment_template;
+mod assessment_workspace_connection;
 #[cfg(feature = "postgres")]
 mod assessment_workspace_policy;
 #[cfg(feature = "postgres")]
@@ -44,6 +46,8 @@ mod attempt_expiry;
 mod authoring;
 #[cfg(feature = "postgres")]
 mod blueprint_course;
+mod blueprint_pools;
+mod blueprint_fork_apply;
 #[cfg(feature = "postgres")]
 mod blueprint_lineage;
 #[cfg(feature = "postgres")]

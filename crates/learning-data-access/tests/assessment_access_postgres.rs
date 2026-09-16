@@ -38,10 +38,6 @@ const BLUEPRINT_ASSESSMENT: u128 = 0xec03;
 const ASSESSMENT: u128 = 0xed01;
 const ASSESSMENT_ENTRY: u128 = 0xed02;
 const OTHER_STUDENT_ACCOMMODATION: u128 = 0xed03;
-const REFERENCE_NUMBER: i64 = 920_001;
-const COURSE_REFERENCE: &str = "CI92ABCD";
-const OTHER_COURSE_REFERENCE: &str = "CI92ABCE";
-const ASSESSMENT_REFERENCE_PLACEHOLDER: &str = "A92ABCD";
 
 fn id(value: u128) -> Uuid {
     Uuid::from_u128(value)
@@ -164,17 +160,16 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .execute(&mut *tx)
         .await
         .expect("API fixture role");
-    sqlx::query(
+    let blueprint_reference_number: i64 = sqlx::query_scalar(
         "INSERT INTO ple_data.blueprint_course \
-         (blueprint_id, reference_number, owner_account_id, short_name, long_name, \
-          metadata_etag, created_at) OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, $3, 'ACCESS', 'Assessment Access Blueprint', \
-                 '00000000-0000-0000-0000-00000000ec04', clock_timestamp())",
+         (blueprint_id, owner_account_id, short_name, long_name, metadata_etag, created_at) \
+         VALUES ($1, $2, 'ACCESS', 'Assessment Access Blueprint', \
+                 '00000000-0000-0000-0000-00000000ec04', clock_timestamp()) \
+         RETURNING reference_number",
     )
     .bind(id(BLUEPRINT))
-    .bind(REFERENCE_NUMBER)
     .bind(id(INSTRUCTOR))
-    .execute(&mut *tx)
+    .fetch_one(&mut *tx)
     .await
     .expect("Blueprint Course");
     sqlx::query(
@@ -183,7 +178,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
           content_checksum, saved_at) \
          VALUES ($1, 1, '{}'::jsonb, decode(repeat('0', 64), 'hex'), clock_timestamp())",
     )
-    .bind(REFERENCE_NUMBER)
+    .bind(blueprint_reference_number)
     .execute(&mut *tx)
     .await
     .expect("Blueprint Revision");
@@ -192,7 +187,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
          (blueprint_course_reference_number, blueprint_revision_number, \
           blueprint_module_reference, module_position) VALUES ($1, 1, $2, 1)",
     )
-    .bind(REFERENCE_NUMBER)
+    .bind(blueprint_reference_number)
     .bind(id(BLUEPRINT_MODULE))
     .execute(&mut *tx)
     .await
@@ -203,7 +198,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
           blueprint_module_reference, blueprint_assessment_reference, assessment_position) \
          VALUES ($1, 1, $2, $3, 1)",
     )
-    .bind(REFERENCE_NUMBER)
+    .bind(blueprint_reference_number)
     .bind(id(BLUEPRINT_MODULE))
     .bind(id(BLUEPRINT_ASSESSMENT))
     .execute(&mut *tx)
@@ -215,42 +210,37 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
           request_checksum, occurred_at) \
          VALUES ($1, 1, $2, decode(repeat('ec', 32), 'hex'), clock_timestamp())",
     )
-    .bind(REFERENCE_NUMBER)
+    .bind(blueprint_reference_number)
     .bind(id(INSTRUCTOR))
     .execute(&mut *tx)
     .await
     .expect("Blueprint Revision Event");
     sqlx::query(
         "INSERT INTO ple_data.course_instance \
-         (course_id, reference_number, public_reference, source_kind, blueprint_course_reference_number, \
+         (course_id, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
           course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
-         OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, $4, 'adopted', $2, 1, $3, 'instructor', 'ACCESS', \
+         VALUES ($1, 'adopted', $2, 1, $3, 'instructor', 'ACCESS', \
                  'Assessment Access Course', current_date, current_date + 1, clock_timestamp())",
     )
     .bind(id(COURSE))
-    .bind(REFERENCE_NUMBER)
+    .bind(blueprint_reference_number)
     .bind(id(INSTRUCTOR))
-    .bind(COURSE_REFERENCE)
     .execute(&mut *tx)
     .await
     .expect("Course Instance");
     sqlx::query(
         "INSERT INTO ple_data.course_instance \
-         (course_id, reference_number, public_reference, source_kind, blueprint_course_reference_number, \
+         (course_id, source_kind, blueprint_course_reference_number, \
           blueprint_revision_number, assigned_instructor_account_id, assigned_instructor_role, \
           course_short_name, course_long_name, term_starts_on, term_ends_on, created_at) \
-         OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, $5, 'adopted', $3, 1, $4, 'instructor', 'ACCESS-OTHER', \
+         VALUES ($1, 'adopted', $2, 1, $3, 'instructor', 'ACCESS-OTHER', \
                  'Other Course for exact Student Work scope', current_date, current_date + 1, \
                  clock_timestamp())",
     )
     .bind(id(OTHER_COURSE))
-    .bind(REFERENCE_NUMBER + 1)
-    .bind(REFERENCE_NUMBER)
+    .bind(blueprint_reference_number)
     .bind(id(INSTRUCTOR))
-    .bind(OTHER_COURSE_REFERENCE)
     .execute(&mut *tx)
     .await
     .expect("other Course Instance");
@@ -344,31 +334,30 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
         .expect("Assessment fixture role");
     sqlx::query(
         "INSERT INTO ple_data.assessment \
-         (assessment_id, reference_number, public_reference, course_id, origin_kind, source_blueprint_course_reference_number, \
+         (assessment_id, course_id, origin_kind, source_blueprint_course_reference_number, \
           source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, \
           updated_at, assessment_type, assessment_title, assessment_instructions, available_at, due_at, closes_at, \
           assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-          assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
+          assessment_attempt_grade_rule, question_variation_rule, \
           assessment_attempt_resume_rule, assessment_question_display_rule, \
           assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
           feedback_per_item_correctness, feedback_submitted_response, \
           feedback_question_answer, feedback_question_answer_explanation, \
-          feedback_class_statistics, assessment_status) OVERRIDING SYSTEM VALUE \
-         VALUES ($1, $2, $5, $3, 'adopted', $2, 1, $4, clock_timestamp(), clock_timestamp(), 'regular_assignment', \
+          feedback_class_statistics, assessment_status) \
+         VALUES ($1, $2, 'adopted', $3, 1, $4, clock_timestamp(), clock_timestamp(), 'regular_assignment', \
                  'Server-owned Assessment Access', 'Read the policy before starting.', \
                  clock_timestamp() + interval '1 hour', \
                  clock_timestamp() + interval '2 hours', \
                  clock_timestamp() + interval '3 hours', 600, 2, 'reject', \
-                 'highest', 'reuse_selection', 'new_variation', 'resumable', \
+                 'highest', 'new_variation', 'resumable', \
                  'one_question_at_a_time', 'free_navigation', 'shuffled', 'after_submit', \
                  'after_submit', 'after_submit', 'after_submit', 'after_submit', \
                  'after_submit', 'released')",
     )
     .bind(id(ASSESSMENT))
-    .bind(REFERENCE_NUMBER)
     .bind(id(COURSE))
+    .bind(blueprint_reference_number)
     .bind(id(BLUEPRINT_ASSESSMENT))
-    .bind(ASSESSMENT_REFERENCE_PLACEHOLDER)
     .execute(&mut *tx)
     .await
     .expect("released Assessment");

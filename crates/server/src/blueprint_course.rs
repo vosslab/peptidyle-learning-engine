@@ -9,13 +9,13 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::{
-        HeaderMap, HeaderValue, StatusCode,
-        header::{COOKIE, ETAG, IF_MATCH},
+        HeaderMap, StatusCode,
+        header::{COOKIE, IF_MATCH},
     },
     response::{IntoResponse, Response},
     routing::{get, post, put},
 };
-use browser_api_contract::blueprint_course::{BlueprintCourseSaveResponse, BlueprintRevisionView};
+use browser_api_contract::blueprint_course::BlueprintRevisionView;
 use learning_data_access::{
     BlueprintCourseStore, QuestionLibraryStore, SessionTokenHash, StoreError,
     StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
@@ -29,11 +29,10 @@ use objects::s3::S3ObjectStore;
 use question_model::{
     BlueprintAssessmentContentView, BlueprintAssessmentEntryView,
     BlueprintCourseAssessmentContentView, BlueprintCourseReference, BlueprintCourseSummaryView,
-    BlueprintCourseView, BlueprintMetadataEtag, BlueprintMetadataState, BlueprintModuleView,
-    BlueprintRevision, BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId,
-    QuestionRevisionReference, QuestionSearchResult, RenameBlueprintCourseInput,
-    ReplaceBlueprintCourseContentInput, RequestChecksum, ReusablePoolView, ReusableQuestionView,
-    ReusableSelectionAvailability,
+    BlueprintCourseView, BlueprintMetadataEtag, BlueprintModuleView, BlueprintRevision,
+    BlueprintRevisionReference, CreateBlueprintCourseInput, QuestionId, QuestionRevisionReference,
+    QuestionSearchResult, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
+    RequestChecksum, ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -44,6 +43,16 @@ use crate::{
 };
 
 mod fork;
+mod fork_apply;
+mod fork_review;
+mod known_forks;
+mod pool_members;
+mod responses;
+
+use responses::{
+    blueprint_response, blueprint_save_response, concealed, metadata_response, route_error,
+    store_error_response, unavailable,
+};
 
 use fork::fork_blueprint;
 
@@ -78,6 +87,22 @@ pub fn blueprint_course_router(
         .route(
             "/api/course-blueprints/{reference}",
             get(load_blueprint).put(save_blueprint),
+        )
+        .route(
+            "/api/course-blueprints/{left}/compare/{right}",
+            get(fork_review::load_comparison),
+        )
+        .route(
+            "/api/course-blueprints/{reference}/fork-update",
+            post(fork_apply::apply_fork_update),
+        )
+        .route(
+            "/api/course-blueprints/{reference}/forks",
+            get(known_forks::list_known_forks),
+        )
+        .route(
+            "/api/course-blueprints/{reference}/assessments/{assessment}/pools/{pool}/members",
+            get(pool_members::load_pool_members),
         )
         .route(
             "/api/course-blueprints/{reference}/metadata",
@@ -120,6 +145,9 @@ pub fn blueprint_course_router(
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BlueprintCourseListQuery {
+    // ASVS 2.2.1: only a typed boolean can opt in to Archived discovery.
+    #[serde(default, rename = "includeArchived")]
+    include_archived: bool,
     #[serde(default)]
     cursor: Option<String>,
     #[serde(default, rename = "pageSize")]
@@ -152,7 +180,11 @@ async fn list_blueprints(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    match state.blueprints.list_blueprint_courses(session).await {
+    match state
+        .blueprints
+        .list_blueprint_courses(session, query.include_archived)
+        .await
+    {
         Ok(records) => crate::auth::no_store(
             Json(BlueprintCourseListResponse {
                 items: records.into_iter().map(summary_view).collect(),
@@ -483,6 +515,7 @@ async fn view_from_record(
             revision: record.current_revision,
         },
         read_access: record.read_access,
+        fork_source: record.fork_source,
         modules: content_modules(state, session, &record.content).await?,
     })
 }
@@ -647,6 +680,7 @@ fn question_view(
     current_question_revisions: &BTreeMap<QuestionId, QuestionRevisionReference>,
 ) -> Result<ReusableQuestionView, RouteLoadError> {
     Ok(ReusableQuestionView {
+        reference: reference.clone(),
         question_library: question_search_result(reference, questions)?,
         selection_availability: selection_availability(reference, current_question_revisions),
     })
@@ -705,13 +739,27 @@ fn valid_assessment_question_ids(
 ) -> bool {
     input.entries.iter().all(|entry| match entry {
         question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
-            issuer.validates_question_id(&value.question_id)
+            issuer.validates_question_id(&value.published_question.question_id)
         }
-        // ASVS 2.2.1/2.2.2: validate the public Pool identity before the Store resolves
-        // its current published Revision.
-        question_model::BlueprintAssessmentEntryInput::Pool(value) => {
-            issuer.validates_question_id(&value.question_pool_id)
-        }
+        // ASVS 2.2.1/2.2.2: validate the exact Pool and any newly authored
+        // member Question IDs before the Store resolves private state.
+        question_model::BlueprintAssessmentEntryInput::Pool(value) => match &value.pool {
+            question_model::BlueprintPoolInputChoice::Import {
+                question_pool_revision,
+            } => issuer.validates_question_id(&question_pool_revision.question_pool_id),
+            question_model::BlueprintPoolInputChoice::Retained {
+                question_pool_revision,
+                members,
+                ..
+            } => {
+                issuer.validates_question_id(&question_pool_revision.question_pool_id)
+                    && members.as_ref().is_none_or(|members| {
+                        members
+                            .iter()
+                            .all(|member| issuer.validates_question_id(&member.question_id))
+                    })
+            }
+        },
     })
 }
 
@@ -783,45 +831,6 @@ fn valid_idempotency_key(value: &str) -> bool {
         && value.len() <= MAX_IDEMPOTENCY_KEY_BYTES
         && value.bytes().all(|byte| byte.is_ascii_graphic())
 }
-pub(super) fn blueprint_response(status: StatusCode, view: BlueprintCourseView) -> Response {
-    let revision = view.current_revision.revision;
-    let mut response = crate::auth::no_store((status, Json(view)).into_response());
-    match HeaderValue::from_str(&format!("\"{revision}\"")) {
-        Ok(value) => {
-            response.headers_mut().insert(ETAG, value);
-            response
-        }
-        Err(_) => unavailable(),
-    }
-}
-fn blueprint_save_response(view: BlueprintCourseView, changed: bool) -> Response {
-    let revision = view.current_revision.revision;
-    let mut response = crate::auth::no_store(
-        Json(BlueprintCourseSaveResponse {
-            blueprint_course: view,
-            changed,
-        })
-        .into_response(),
-    );
-    match HeaderValue::from_str(&format!("\"{revision}\"")) {
-        Ok(value) => {
-            response.headers_mut().insert(ETAG, value);
-            response
-        }
-        Err(_) => unavailable(),
-    }
-}
-fn metadata_response(state: BlueprintMetadataState) -> Response {
-    let etag = state.metadata_etag;
-    let mut response = crate::auth::no_store(Json(state).into_response());
-    match HeaderValue::from_str(&format!("\"{etag}\"")) {
-        Ok(value) => {
-            response.headers_mut().insert(ETAG, value);
-            response
-        }
-        Err(_) => unavailable(),
-    }
-}
 pub(super) async fn instructor_session_hash(
     state: &BlueprintCourseRouteState,
     headers: &HeaderMap,
@@ -849,38 +858,6 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
         .map(|value| value.to_str().ok())
         .collect::<Option<Vec<_>>>()?;
     (!values.is_empty()).then(|| values.join("; "))
-}
-pub(super) fn store_error_response(error: StoreError) -> Response {
-    match error {
-        StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
-        StoreError::Conflict | StoreError::RetryableTransaction => {
-            route_error(StatusCode::PRECONDITION_FAILED, "Blueprint Course changed")
-        }
-        StoreError::LifecycleConflict => {
-            route_error(StatusCode::CONFLICT, "Blueprint Course lifecycle conflict")
-        }
-        StoreError::InvalidRecord(_) => route_error(
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "Blueprint Course is invalid",
-        ),
-        StoreError::AlreadyExists => route_error(StatusCode::CONFLICT, "Blueprint Course conflict"),
-        StoreError::AssessmentActivity(_)
-        | StoreError::TimedOut
-        | StoreError::LeaseLost
-        | StoreError::Unavailable(_) => unavailable(),
-    }
-}
-pub(super) fn concealed() -> Response {
-    route_error(StatusCode::NOT_FOUND, "Blueprint Course not found")
-}
-pub(super) fn unavailable() -> Response {
-    route_error(
-        StatusCode::SERVICE_UNAVAILABLE,
-        "Blueprint Course unavailable",
-    )
-}
-fn route_error(status: StatusCode, message: &'static str) -> Response {
-    crate::auth::no_store((status, message).into_response())
 }
 
 #[cfg(test)]

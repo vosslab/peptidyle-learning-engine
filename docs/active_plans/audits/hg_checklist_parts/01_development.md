@@ -129,7 +129,9 @@ PLE product or code behavior.
 - [x] **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its content cannot change.
   - Evidence (source): `schemas/base_schema/blueprint_revision_integrity.sql` `blueprint_course_revision_is_immutable` invokes `reject_blueprint_revision_change`.
 - [ ] **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may be created from a Blueprint Course or started empty.
-  - Mismatch: `schemas/base_schema/course_core.sql` `ple_data.course_instance` establishes teaching-course storage, but current direct evidence does not establish all listed lifecycle, membership, deadline, release, and empty-start behaviors.
+  - Evidence (source): `schemas/base_schema/course_core.sql` `ple_data.course_instance` stores teaching Courses, and `crates/learning-data-access/src/course_instance.rs` accepts Empty or exact Adopted creation sources.
+  - Evidence (runtime): Bounded private actual HTTP and exact-main browser proof created and read an Empty Instructor Course Instance without Blueprint discovery; Student creation was denied and successful API responses were `no-store`.
+  - Mismatch: The combined Student membership, deadline, release, Adopted content, and direct started-empty Assessment delivery lifecycle has not been verified.
 - [ ] **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
   - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `ple_api.list_question_library_entries` lists published entries, but the audited evidence does not establish validation and vetted-Instructor availability together.
 - [ ] **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.

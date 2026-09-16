@@ -2,19 +2,28 @@
 
 import type { AccountReference } from "../../generated/api/AccountReference";
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
+import type { BlueprintRevision } from "../../generated/api/BlueprintRevision";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
 import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInstanceRouteSummary";
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 
+/** Closed browser source: empty creation never names or reads a Blueprint. */
+export type CourseInstanceCreationSource =
+  | { readonly kind: "empty" }
+  | {
+      readonly kind: "adopted";
+      readonly blueprintCourse: BlueprintCourseReference;
+      readonly blueprintRevision: BlueprintRevision;
+    };
+
 /** Exact source and initial Course Term required to create one Course Instance. */
 export interface CreateCourseInstanceInput {
-  readonly blueprintCourse: BlueprintCourseReference;
-  readonly blueprintRevision: string;
+  readonly source: CourseInstanceCreationSource;
   readonly shortName: string;
   readonly longName: string;
   readonly term: CourseTerm;
-  /** Omitted for Instructor self-assessment; required for a Sysadmin creation. */
+  /** Omitted for Instructor self-creation; required for a Sysadmin creation. */
   readonly assignedInstructor?: AccountReference;
 }
 
@@ -32,6 +41,12 @@ export interface CourseInstanceSummary {
 export interface CourseInstanceView {
   readonly course: CourseInstanceSummary;
   readonly activeInstructorCount: number;
+  /** Original adoption provenance; null for Empty Courses or unreadable sources. */
+  readonly blueprintOrigin: {
+    readonly reference: BlueprintCourseReference;
+    readonly adoptedRevision: BlueprintRevision;
+    readonly currentRevision: BlueprintRevision;
+  } | null;
 }
 
 /** Explicit Sysadmin selection target; it carries no email or course authority. */

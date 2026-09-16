@@ -397,9 +397,18 @@ def test_fixed_cleanup_rejects_ambiguous_resource_identity(tmp_path: pathlib.Pat
 
 #============================================
 def test_fixed_cleanup_accepts_partial_owned_profile_topology(tmp_path: pathlib.Path) -> None:
-	"""An interrupted launch may clean the valid subset already created by Compose."""
+	"""An interrupted launch may clean an exact declared subset already created by Compose."""
 	selected = cleanup_disposable(tmp_path)
-	snapshot = cleanup_snapshot(selected)
+	digest = local_stack_control.compose.disposable_capability_digest(
+		selected.capability_file
+	)
+	volume = local_stack_control.models.VolumeResource(
+		"ple-live-demo-browser_ple_sysadmin_totp_runtime",
+		local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT,
+		capability_digest=digest,
+		owner=local_stack_control.models.LIVE_DEMO_BROWSER_OWNER,
+	)
+	snapshot = dataclasses.replace(cleanup_snapshot(selected), volumes=(volume,))
 	plan = local_stack_control.cleanup.disposable_cleanup_plan(selected, snapshot)
 
 	assert plan.snapshot == snapshot

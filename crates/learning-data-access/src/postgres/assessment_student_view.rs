@@ -161,11 +161,7 @@ fn delivery(row: &sqlx::postgres::PgRow) -> Result<InstructorStudentViewDelivery
             "assessment_attempt_time_limit_seconds",
             "Assessment Attempt Time Limit",
         )?,
-        attempt_limit: optional_positive_i32(
-            row,
-            "assessment_attempt_limit",
-            "Assessment Attempt Limit",
-        )?,
+        attempt_limit: optional_positive_i32(row, "attempt_limit", "Assessment Attempt Limit")?,
         late_work_rule: match column::<String>(row, "late_work_rule")?.as_str() {
             "accept" => LateWorkRule::Accept,
             "mark_late" => LateWorkRule::MarkLate,

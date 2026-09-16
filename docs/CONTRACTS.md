@@ -157,6 +157,17 @@ Course Instructor review and approval. Existing Assessment changes are never
 silently applied. When a Blueprint Assessment is newly added, PLE automatically
 creates an Unreleased copy in each daughter Course Instance.
 
+For one retained daughter Assessment, `GET` and `POST`
+`/api/course-instances/{course}/assessments/{assessment}/blueprint-update`
+derive a review from the current parent Revision and explicitly apply its reusable
+content. The read exposes the current and proposed ordered Fixed Question and
+Question Pool pins; Apply accepts only the expected parent Revision and daughter
+Assessment Edit Number. The trusted Store reauthorizes and locks parent, Course,
+and Assessment, compares reusable semantics before minting fresh owned Pool forks,
+and preserves Course dates, release status, origin pins, and existing Student Work.
+No offer, approval receipt, comparison baseline, or update table is persisted.
+This contributor does not provide whole-Course discovery, review, or correspondence.
+
 A fork retains its source Blueprint and Revision so later source changes can be
 discovered and selectively brought into the fork. A Blueprint Course Change
 Proposal presents canonical JSON differences to the receiving owner; accepted
@@ -170,6 +181,7 @@ through the normal update workflow.
 | Course Instance                | A Course Instance starts empty or adopts an exact Public Blueprint Revision, atomically creating every Assessment with its Questions, pools, and reusable settings, fresh identities, Unreleased state, and unset dates. It owns deliberately entered names, Course Term dates, equal co-Instructor memberships, roster, and delivery state; it always has at least one assigned Instructor. Course Term is current Course state, not a Revision. | [course_term.rs](../crates/question_model/src/course_term.rs), [course_core.sql](../schemas/base_schema/course_core.sql), [course_operations.sql](../schemas/base_schema/course_operations.sql) |
 | Assessment                     | An Assessment is one stable current aggregate under a Course Instance. Its positive Edit Number is the strong `If-Match` value for save, Assessment Properties save, release, and Unrelease. It owns current title, instructions, dates, settings, ordered Questions, and Question Pools. Every Question and Pool item pins an exact Question Revision; a newer Question Revision never advances it. | [edit_number.rs](../crates/question_model/src/assessment/edit_number.rs), [assessment.rs](../crates/question_model/src/assessment.rs), [assessments.sql](../schemas/base_schema/assessments.sql) |
 | Assessment release and editing | Release is a current state transition, returning the current Assessment and new ETag. A released Assessment save uses the same ETag contract and is accepted only when the resulting current state passes release validation. Accepted edits affect future Attempts; prior Student Work keeps its retained facts. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [assessment_release.rs](../crates/learning-data-access/src/assessment_release.rs), [assessment_operations.sql](../schemas/base_schema/assessment_operations.sql) |
+| Course Blueprint update review | An authorized Course Instructor may lazily derive one current-parent Course summary for adopted Assessments only. It classifies changed, matching, removed-source, Type-mismatch, and automatically-added correspondences; direct local Assessments are excluded. Each changed adopted Assessment uses the existing explicit detail Apply with parent-Revision and Assessment-Edit CAS. It preserves local dates, status, origin, and existing Student Work; equivalent content is a no-op and changed Pools receive fresh owned forks. It has no persisted offers, receipts, baselines, or stored update state, and does not close a whole-Course lifecycle. | [assessment_blueprint_update.rs](../crates/learning-data-access/src/postgres/assessment_blueprint_update.rs), [assessment_blueprint_updates.sql](../schemas/base_schema/assessment_blueprint_updates.sql), [assessment_release.rs](../crates/server/src/assessment_release.rs), [course_blueprint_update_review.tsx](../src/pages/course_blueprint_update_review.tsx) |
 | Assessment Unrelease           | An authorized Teaching Team member supplies the exact Assessment ETag and title confirmation. The database locks the Assessment, confirms Released status, changes it to Unreleased, and permanently deletes its Student Work. Shared Questions, current Assessment state, and Course membership survive. | [assessment_release.rs](../crates/server/src/assessment_release.rs), [unrelease.sql](../schemas/base_schema/unrelease.sql) |
 
 An Instructor may deliberately publish reusable Course Instance structure as a

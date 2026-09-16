@@ -20,7 +20,6 @@ function template(assessmentType, attemptLimit) {
       lateWorkRule: "reject",
       activityRules: {
         assessmentAttemptGradeRule: "highest",
-        questionPoolReuseRule: "reuseSelection",
         questionVariationRule: "newVariation",
         assessmentAttemptResumeRule: "resumable",
         assessmentQuestionDisplayRule: "oneQuestionAtATime",

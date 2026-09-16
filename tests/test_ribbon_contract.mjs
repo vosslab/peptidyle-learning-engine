@@ -286,13 +286,14 @@ test("Ribbon has one plain brand anchor rather than a separate product-name trea
   assert.doesNotMatch(html, /ple-app-ribbon__product-name/);
 });
 
-test("Student Assessment Access and its Course landing retain the role-owned Assessments tab", () => {
+test("Student Coursework navigation retains collective labels", () => {
   const assessmentAccess = controlsFor("assessmentOverview", "student").model;
   const courseLanding = controlsFor("studentCourseLanding", "student").model;
+  const attemptControls = controlsFor("assessmentAttempt", "student").controls;
   const expectedTab = [
     {
       id: "studentAssessments",
-      label: "Assessments",
+      label: "Coursework",
       destination: { kind: "route", routeId: "studentCourseLanding" },
       availability: "Available",
       selected: true,
@@ -306,6 +307,10 @@ test("Student Assessment Access and its Course landing retain the role-owned Ass
   ];
   assert.deepEqual(assessmentAccess.tabs, expectedTab);
   assert.deepEqual(courseLanding.tabs, expectedTab);
+  assert.equal(
+    attemptControls.find((control) => control.id === "backToAssessments")?.label,
+    "Back to Coursework",
+  );
 });
 
 // Permanent contract: these canonical links are the Instructor's stable
@@ -412,12 +417,13 @@ test("breadcrumb trails are canonical route projections with one current termina
     ["questionDetail", ["Questions", "Question Library", "Question"]],
     ["questionDraftEditor", ["Questions", "My Draft Questions", "Draft Question"]],
     ["blueprintCourseDetail", ["Courses", "My Blueprint Courses", "Blueprint Course"]],
-    ["assessmentAttempt", ["Courses", "Biochemistry I", "Problem Set 7", "Assessment attempt"]],
+    ["assessmentAttempt", ["Courses", "Biochemistry I", "Problem Set 7", "Attempt"]],
+    ["assessmentAttemptSummary", ["Courses", "Biochemistry I", "Problem Set 7", "Attempt history"]],
   ];
   for (const [routeId, expectedLabels] of cases) {
     const routeState = routeStateFor(routeId);
     const model = deriveRibbonModel(
-      routeId === "assessmentAttempt"
+      routeId === "assessmentAttempt" || routeId === "assessmentAttemptSummary"
         ? {
             ...routeState,
             params: { ...routeState.params, courseRef: "CI7K3M2Q", assessmentRef: "A9D2RX5" },

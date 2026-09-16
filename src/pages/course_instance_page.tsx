@@ -7,6 +7,7 @@ import { useApplicationApi } from "../api/application_api";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
 import { parseCourseInstanceReference } from "../navigation/public_route";
+import { CourseBlueprintUpdateReviewList } from "./course_blueprint_update_review";
 import {
   canonicalLocalDateAndTime,
   dueDateDraft,
@@ -339,6 +340,24 @@ export function CourseInstancePage(): JSX.Element {
           <>
             <p class="eyebrow">Course Instance · {view().course.reference}</p>
             <h1>{view().course.longName}</h1>
+            <Show when={view().blueprintOrigin}>
+              {(origin) => (
+                <>
+                  <p class="page-lede" data-blueprint-origin>
+                    Adopted from Blueprint{" "}
+                    <A href={`/blueprint-courses/${origin().reference}`}>{origin().reference}</A>,
+                    Revision {origin().adoptedRevision}; source now Revision{" "}
+                    {origin().currentRevision}.
+                  </p>
+                  <Show when={BigInt(origin().currentRevision) > BigInt(origin().adoptedRevision)}>
+                    <p class="page-lede" data-blueprint-revision-notice>
+                      Newer Blueprint Revision available
+                    </p>
+                    <CourseBlueprintUpdateReviewList courseReference={view().course.reference} />
+                  </Show>
+                </>
+              )}
+            </Show>
             <p class="page-lede">
               Course Term: {view().course.term.startDate} through {view().course.term.endDate}.
             </p>

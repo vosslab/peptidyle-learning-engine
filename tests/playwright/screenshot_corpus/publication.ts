@@ -190,8 +190,9 @@ function titleCase(value: string): string {
 
 function imageTile(capture: CaptureRecord, imagePrefix: string): string {
   const source = `${imagePrefix}${capture.path}`;
+  const alt = `Screenshot preview of ${capture.gallery.caption.replaceAll("/", " or ")}`;
   const featured = capture.gallery.featured ? "<br>Featured" : "";
-  return `[![${capture.gallery.caption}](${source})](${source})<br>${capture.gallery.caption}<br>${capture.state} - ${capture.viewport}${featured}`;
+  return `[![${alt}](${source})](${source})<br>${capture.gallery.caption}<br>${capture.state} - ${capture.viewport}${featured}`;
 }
 
 function pushImageGrid(

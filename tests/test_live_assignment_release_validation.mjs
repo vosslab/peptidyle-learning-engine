@@ -42,7 +42,6 @@ function createdWorkspace(
     attemptLimit: null,
     activityRules: {
       assessmentAttemptGradeRule: "latest",
-      questionPoolReuseRule: "selectAgain",
       questionVariationRule: "newVariation",
       assessmentAttemptResumeRule: "resumable",
       assessmentQuestionDisplayRule: "allQuestions",

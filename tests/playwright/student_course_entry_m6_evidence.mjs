@@ -67,7 +67,7 @@ try {
   await page.getByRole("link", { name: "Open assigned work", exact: true }).waitFor({
     state: "visible",
   });
-  assert.equal(await page.locator("[data-m6-location]").textContent(), "/?choose=1");
+  assert.equal(await page.locator("[data-m6-location]").textContent(), "/student?choose=1");
 
   await page.goto(`${origin}/?mode=many`);
   await page
@@ -133,7 +133,7 @@ try {
   await page.getByRole("link", { name: "Your courses", exact: true }).waitFor({ state: "visible" });
   await page.getByRole("link", { name: "Your courses", exact: true }).click();
   await page.waitForFunction(
-    () => document.querySelector("[data-m6-location]")?.textContent === "/?choose=1",
+    () => document.querySelector("[data-m6-location]")?.textContent === "/student?choose=1",
   );
   await page
     .getByRole("heading", { name: "Your courses", exact: true })

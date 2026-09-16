@@ -61,6 +61,7 @@ import type { QuestionAvailabilityClient } from "./question_availability";
 import type { QuestionWatchClient } from "./question_watch";
 import type { QuestionStarClient } from "./question_star";
 import type { QuestionPoolLibraryClient } from "./question_pool_library";
+import type { QuestionPoolCreationClient } from "./question_pool_creation";
 import type { AssessmentStudentViewClient } from "./assessment_student_view";
 import type { AssessmentTemplateClient } from "./assessment_template";
 import type { QuestionBulkMetadataClient } from "./question_bulk_metadata";
@@ -83,6 +84,7 @@ export interface ApiClient
     QuestionWatchClient,
     QuestionStarClient,
     QuestionPoolLibraryClient,
+    QuestionPoolCreationClient,
     AssessmentStudentViewClient,
     AssessmentTemplateClient,
     QuestionBulkMetadataClient {

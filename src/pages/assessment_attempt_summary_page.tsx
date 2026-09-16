@@ -50,17 +50,14 @@ function AssessmentAttemptHistoryContent(props: {
   }
   return (
     <section class="page attempt-summary" data-route-surface="assessmentAttemptSummary">
-      <p class="eyebrow">Previous Assessment attempt</p>
+      <p class="eyebrow">Previous attempt</p>
       <h1>{props.history.assessment.title}</h1>
       <p>
         Attempt {props.history.attemptNumber} is {props.history.state}.
       </p>
       <section aria-labelledby="assessment-attempt-score-heading">
         <h2 id="assessment-attempt-score-heading">Score</h2>
-        <Show
-          when={props.history.score}
-          fallback={<p>Your score is not available under this Assessment's feedback policy.</p>}
-        >
+        <Show when={props.history.score} fallback={<p>Your score is not available.</p>}>
           {(score) => (
             <p>
               {score().pointsEarned} of {score().pointsPossible} points

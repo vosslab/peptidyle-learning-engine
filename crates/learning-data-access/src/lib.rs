@@ -87,8 +87,11 @@ pub use assessment_pool_selection_count::{
     AssessmentPoolSelectionCountInput, AssessmentPoolSelectionCountStore,
 };
 pub use assessment_release::{
-    AssessmentQuestionPickerEntry, AssessmentReleaseIssue, AssessmentReleaseValidation,
-    AssessmentUnreleaseImpact, AuthoredAssessmentQuestion, CourseAssessmentSummary,
+    ApplyAssessmentBlueprintUpdateInput, AssessmentBlueprintUpdateCannotApplyReason,
+    AssessmentBlueprintUpdateContent, AssessmentBlueprintUpdateEntry,
+    AssessmentBlueprintUpdateReview, AssessmentQuestionPickerEntry, AssessmentReleaseIssue,
+    AssessmentReleaseValidation, AssessmentUnreleaseImpact, AuthoredAssessmentQuestion,
+    CourseAssessmentBlueprintUpdateSummary, CourseAssessmentSummary, CourseBlueprintUpdateReview,
     CreateLiveAssessmentInput, DueSoonAssessmentSummary, DueSoonAssessments, LiveAssessmentStore,
     LiveAssessmentWorkspace, SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInlineInput,
     SaveLiveAssessmentInput, UnreleasedLiveAssessment,
@@ -115,15 +118,17 @@ pub use authentication_email::{
 };
 pub use authoring::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
-    SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
+    DeleteAuthoringDraftInput, SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
 };
 pub use blueprint_course::{
-    BlueprintCourseStore, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
-    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
-    StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintRevision,
+    ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseStore,
+    StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry,
+    StoredBlueprintCourse, StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
+    StoredBlueprintModule, StoredBlueprintRevision, StoredBlueprintPoolMembers,
 };
 pub use blueprint_lineage::{
     BlueprintForkSource, BlueprintLineageStore, ForkBlueprintCourseReceipt,
+    BlueprintComparisonSources, StoredKnownBlueprintFork,
 };
 pub use blueprint_stewardship::{
     BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchEvent,

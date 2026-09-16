@@ -13,8 +13,8 @@ use super::connection::map_sqlx_error;
 use crate::authoring::validate_initial_draft_source_binding;
 use crate::{
     AuthoringDraft, AuthoringDraftStore, AuthoringDraftSummary, CreateAuthoringDraftInput,
-    DraftQuestionEditNumber, DraftQuestionUuid, SaveAuthoringDraftGeneralFeedbackInput,
-    SaveAuthoringDraftInput, SessionTokenHash, StoreError,
+    DeleteAuthoringDraftInput, DraftQuestionEditNumber, DraftQuestionUuid,
+    SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput, SessionTokenHash, StoreError,
     validate_workspace_question_source_object_record,
 };
 
@@ -217,6 +217,24 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         transaction.commit().await.map_err(map_sqlx_error)?;
         self.load_authoring_draft(session_token_hash, input.reference)
             .await
+    }
+
+    async fn delete_authoring_draft(
+        &self,
+        session_token_hash: SessionTokenHash,
+        input: DeleteAuthoringDraftInput,
+    ) -> Result<(), StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        sqlx::query("SELECT ple_api.delete_draft_question($1, $2)")
+            .bind(i64::from(input.reference.number()))
+            .bind(input.expected_edit_number.as_postgres_bigint())
+            .execute(&mut *transaction)
+            .await
+            .map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(())
     }
 }
 

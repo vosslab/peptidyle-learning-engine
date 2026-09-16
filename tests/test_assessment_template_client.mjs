@@ -18,7 +18,6 @@ function template(editNumber = "1") {
       lateWorkRule: "reject",
       activityRules: {
         assessmentAttemptGradeRule: "highest",
-        questionPoolReuseRule: "reuseSelection",
         questionVariationRule: "reuseVariation",
         assessmentAttemptResumeRule: "resumable",
         assessmentQuestionDisplayRule: "allQuestions",
@@ -55,7 +54,6 @@ function workspace(editNumber = "3") {
     attemptLimit: null,
     activityRules: {
       assessmentAttemptGradeRule: "highest",
-      questionPoolReuseRule: "reuseSelection",
       questionVariationRule: "reuseVariation",
       assessmentAttemptResumeRule: "resumable",
       assessmentQuestionDisplayRule: "allQuestions",

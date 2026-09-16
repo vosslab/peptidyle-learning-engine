@@ -35,6 +35,23 @@ export type PleQuestionJsonOutcomeFeedback = {
   readonly incorrect: string | null;
 };
 
+export type PleQuestionJsonExternalResourceKind =
+  "link" | "image" | "script" | "stylesheet" | "other";
+
+/** Author-declared inventory metadata; recording an entry does not fetch or permit it. */
+export type PleQuestionJsonExternalResource = {
+  readonly url: string;
+  readonly kind: PleQuestionJsonExternalResourceKind;
+};
+
+export type PleQuestionJsonAuthorScriptLibrary = "rdkit";
+
+/** Untrusted source metadata retained for a separate isolated-runtime boundary. */
+export type PleQuestionJsonAuthorScript = {
+  readonly source: string;
+  readonly libraries: ReadonlyArray<PleQuestionJsonAuthorScriptLibrary>;
+};
+
 declare const PLE_QUESTION_JSON_MATCHING_PROMPT_ROLE: unique symbol;
 declare const PLE_QUESTION_JSON_MATCHING_CHOICE_ROLE: unique symbol;
 declare const PLE_QUESTION_JSON_ORDERING_ITEM_ROLE: unique symbol;
@@ -199,5 +216,7 @@ export type PleQuestionJsonDocument = {
   /** Unset drafts remain editable; publication requires an exact Question License. */
   readonly questionLicense: QuestionLicense | null;
   readonly questionCitation: QuestionCitation | null;
+  readonly externalResources: ReadonlyArray<PleQuestionJsonExternalResource>;
+  readonly authorScript: PleQuestionJsonAuthorScript | null;
   readonly language: string;
 };

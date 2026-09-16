@@ -1,10 +1,11 @@
 // reusable_content_editor.tsx - accessible authoring surface for one Blueprint Assessment.
 
-import { For, Show, createSignal, type JSX } from "solid-js";
+import { For, Show, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
+import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { createQuestionPoolLibraryClient } from "../../api/http_client/question_pool_library";
 import {
   QuestionPicker,
@@ -22,16 +23,21 @@ import {
   type ReusableEntryDirection,
 } from "./blueprint_course_model";
 import { QuestionPoolPicker, type QuestionPoolPickerSelection } from "./question_pool_picker";
+import { BlueprintPoolMembersEditor } from "./blueprint_pool_members_editor";
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
   /** Saved server view used only to present exact immutable Pool Revision pins. */
   readonly savedContent?: BlueprintAssessmentContentView;
+  readonly blueprintRef?: string;
+  readonly retainedAssessmentRef?: string;
+  readonly blueprintClient?: BlueprintCourseClient;
   readonly editable: boolean;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
   readonly questionPoolClient?: QuestionPoolLibraryClient;
   readonly onChange: (content: BlueprintAssessmentContentInput, message: string) => void;
+  readonly onInvalidDraftChange?: (invalid: boolean) => void;
 }
 
 function plural(count: number, singular: string): string {
@@ -40,15 +46,14 @@ function plural(count: number, singular: string): string {
 
 function entrySummary(
   entry: BlueprintAssessmentContentInput["entries"][number],
-  savedEntry: BlueprintAssessmentContentView["entries"][number] | undefined,
+  _savedEntry: BlueprintAssessmentContentView["entries"][number] | undefined,
 ): string {
-  if (entry.kind === "fixed") return `Fixed Question ${entry.question_id}`;
-  const savedRevision =
-    savedEntry?.kind === "pool" &&
-    savedEntry.question_pool_revision.questionPoolId === entry.question_pool_id
-      ? `, Revision ${savedEntry.question_pool_revision.revisionNumber}`
-      : "";
-  return `Question Pool ${entry.question_pool_id}${savedRevision}: select ${entry.selection_count}`;
+  if (entry.kind === "fixed") {
+    const revision = entry.published_question;
+    return `Fixed Question ${revision.questionId}, Revision ${revision.revisionNumber}`;
+  }
+  const revision = entry.pool.questionPoolRevision;
+  return `Question Pool ${revision.questionPoolId}, Revision ${revision.revisionNumber}: select ${entry.selection_count}`;
 }
 
 function lateWorkRuleFromValue(
@@ -76,9 +81,21 @@ export function BlueprintAssessmentContentEditor(
 ): JSX.Element {
   const [fixedPickerOpen, setFixedPickerOpen] = createSignal(false);
   const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
+  const [memberPoolId, setMemberPoolId] = createSignal<string>();
+  const [invalidMembers, setInvalidMembers] = createSignal(false);
   const questionPoolClient = props.questionPoolClient ?? createQuestionPoolLibraryClient();
   let fixedPickerTrigger: HTMLButtonElement | undefined;
   let poolPickerTrigger: HTMLButtonElement | undefined;
+  let editor!: HTMLElement;
+  onCleanup(() => props.onInvalidDraftChange?.(false));
+
+  function validNumber(input: HTMLInputElement): boolean {
+    input.setCustomValidity("");
+    if (input.value !== "" && !Number.isSafeInteger(Number(input.value))) {
+      input.setCustomValidity("Use a positive whole number.");
+    }
+    return input.validity.valid;
+  }
 
   function changeText(field: "title" | "instructions", value: string): void {
     const change = field === "title" ? { title: value } : { instructions: value };
@@ -90,10 +107,11 @@ export function BlueprintAssessmentContentEditor(
 
   function changeNumber(
     field: "assessment_attempt_time_limit_seconds" | "assessment_attempt_limit",
-    value: string,
+    input: HTMLInputElement,
   ): void {
+    const value = input.value;
     const parsed = value.trim() === "" ? null : Number(value);
-    if (parsed !== null && (!Number.isSafeInteger(parsed) || parsed < 1)) {
+    if (!validNumber(input)) {
       props.onChange(
         props.content,
         "Use a positive whole number or clear the field to leave this reusable default open.",
@@ -125,13 +143,24 @@ export function BlueprintAssessmentContentEditor(
   function confirmQuestionPool(selection: QuestionPoolPickerSelection): void {
     setPoolPickerOpen(false);
     props.onChange(
-      appendPickedPool(props.content, selection.questionPoolId),
-      `Added Question Pool ${selection.questionPoolId} with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
+      appendPickedPool(props.content, selection.questionPoolRevision),
+      `Added Question Pool ${selection.questionPoolRevision.questionPoolId}, Revision ${selection.questionPoolRevision.revisionNumber}, with ${plural(selection.memberCount, "published member")}. Set its selection count or save the Blueprint Course.`,
     );
   }
 
   return (
-    <section class="blueprint-course-content-editor" aria-label="Blueprint Assessment content">
+    <section
+      ref={(element) => {
+        editor = element;
+      }}
+      class="blueprint-course-content-editor"
+      aria-label="Blueprint Assessment content"
+      onInput={() =>
+        props.onInvalidDraftChange?.(
+          invalidMembers() || editor.querySelector("input:invalid") !== null,
+        )
+      }
+    >
       <fieldset disabled={!props.editable}>
         <legend>Blueprint Assessment</legend>
         <div class="blueprint-course-form-grid">
@@ -208,9 +237,17 @@ export function BlueprintAssessmentContentEditor(
                         <input
                           type="number"
                           min="1"
+                          required
                           value={entry.kind === "pool" ? entry.selection_count : 1}
                           disabled={!props.editable}
                           onInput={(event) => {
+                            if (!validNumber(event.currentTarget)) {
+                              props.onChange(
+                                props.content,
+                                "Use a positive whole number for the Pool selection count.",
+                              );
+                              return;
+                            }
                             const selectionCount = Number(event.currentTarget.value);
                             props.onChange(
                               updateReusablePoolSelectionCount(
@@ -223,6 +260,34 @@ export function BlueprintAssessmentContentEditor(
                           }}
                         />
                       </label>
+                    </Show>
+                    <Show when={entry.kind === "pool"}>
+                      <Show
+                        when={
+                          entry.kind === "pool" &&
+                          entry.pool.kind === "retained" &&
+                          props.retainedAssessmentRef &&
+                          props.blueprintRef &&
+                          props.blueprintClient
+                        }
+                        fallback={
+                          <p class="blueprint-course-field-help">
+                            Save the Blueprint Course before editing this Assessment-owned Pool's
+                            members.
+                          </p>
+                        }
+                      >
+                        <button
+                          type="button"
+                          class="quiet-action"
+                          onClick={() => {
+                            if (entry.kind === "pool")
+                              setMemberPoolId(entry.pool.questionPoolRevision.questionPoolId);
+                          }}
+                        >
+                          {props.editable ? "Edit Pool members" : "View Pool members"}
+                        </button>
+                      </Show>
                     </Show>
                   </div>
                   <Show when={props.editable}>
@@ -267,6 +332,69 @@ export function BlueprintAssessmentContentEditor(
         </Show>
       </section>
 
+      <Show when={memberPoolId()} keyed>
+        {(poolId) => {
+          const entry = (): BlueprintAssessmentContentInput["entries"][number] | undefined =>
+            props.content.entries.find(
+              (candidate) =>
+                candidate.kind === "pool" &&
+                candidate.pool.kind === "retained" &&
+                candidate.pool.questionPoolRevision.questionPoolId === poolId,
+            );
+          return (
+            <Show when={entry()}>
+              {(selected) => (
+                <Show
+                  when={
+                    selected().kind === "pool" &&
+                    props.blueprintClient &&
+                    props.blueprintRef &&
+                    props.retainedAssessmentRef
+                  }
+                >
+                  <BlueprintPoolMembersEditor
+                    entry={
+                      selected() as Extract<
+                        BlueprintAssessmentContentInput["entries"][number],
+                        { kind: "pool" }
+                      >
+                    }
+                    blueprintRef={props.blueprintRef!}
+                    assessmentRef={props.retainedAssessmentRef!}
+                    client={props.blueprintClient!}
+                    editable={props.editable}
+                    pickerRepository={props.pickerRepository}
+                    pickerSources={props.pickerSources}
+                    onClose={() => setMemberPoolId(undefined)}
+                    onInvalidDraftChange={(invalid) => {
+                      setInvalidMembers(invalid);
+                      props.onInvalidDraftChange?.(
+                        invalid || editor.querySelector("input:invalid") !== null,
+                      );
+                    }}
+                    onChange={(pool, message) =>
+                      props.onChange(
+                        {
+                          ...props.content,
+                          entries: props.content.entries.map((candidate) =>
+                            candidate.kind === "pool" &&
+                            candidate.pool.kind === "retained" &&
+                            candidate.pool.questionPoolRevision.questionPoolId === poolId
+                              ? { ...candidate, pool }
+                              : candidate,
+                          ),
+                        },
+                        message,
+                      )
+                    }
+                  />
+                </Show>
+              )}
+            </Show>
+          );
+        }}
+      </Show>
+
       <fieldset disabled={!props.editable}>
         <legend>Reusable defaults</legend>
         <p class="blueprint-course-field-help">
@@ -280,7 +408,7 @@ export function BlueprintAssessmentContentEditor(
               min="1"
               value={props.content.defaults.assessment_attempt_time_limit_seconds ?? ""}
               onInput={(event) =>
-                changeNumber("assessment_attempt_time_limit_seconds", event.currentTarget.value)
+                changeNumber("assessment_attempt_time_limit_seconds", event.currentTarget)
               }
             />
           </label>
@@ -293,9 +421,7 @@ export function BlueprintAssessmentContentEditor(
               disabled={
                 props.content.assessment_type === "quiz" || props.content.assessment_type === "exam"
               }
-              onInput={(event) =>
-                changeNumber("assessment_attempt_limit", event.currentTarget.value)
-              }
+              onInput={(event) => changeNumber("assessment_attempt_limit", event.currentTarget)}
             />
             <Show
               when={

@@ -1,11 +1,8 @@
 // Live discovery and explicit Revision Save editing for reusable Blueprint Courses.
-
 import { A } from "@solidjs/router";
 import { For, Match, Show, Switch, createSignal, onMount, type JSX } from "solid-js";
-
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
-import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { ReplaceBlueprintCourseContentInput } from "../../../generated/api/ReplaceBlueprintCourseContentInput";
 import { UnsavedChangesGuard } from "../../components/unsaved_changes_guard";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
@@ -19,6 +16,8 @@ import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../qu
 import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content_editor";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_controls";
+import { BlueprintForkSource, BlueprintKnownForks } from "../blueprint_forks/blueprint_fork_review";
+import { BlueprintForkCreate } from "../blueprint_forks/blueprint_fork_create";
 import {
   appendBlueprintCoursePage,
   blueprintCourseContinuationPresentation,
@@ -30,12 +29,10 @@ import "./blueprint_course.css";
 
 type LoadState = "loading" | "ready" | "error";
 type NoticeKind = "status" | "alert";
-
 interface Notice {
   readonly kind: NoticeKind;
   readonly text: string;
 }
-
 interface LoadedBlueprintCourse {
   readonly view: BlueprintCourseView;
   /** The exact Revision and ETag on which this local editor state is based. */
@@ -45,25 +42,20 @@ interface LoadedBlueprintCourse {
   readonly content: ReplaceBlueprintCourseContentInput;
   readonly savedContent: ReplaceBlueprintCourseContentInput;
 }
-
 export interface BlueprintCoursesWorkspaceProps {
   readonly client: BlueprintCourseClient;
   readonly pickerRepository: QuestionPickerSourceRepository;
   readonly pickerSources: ReadonlyArray<QuestionPickerSource>;
 }
-
 export interface BlueprintCourseDetailWorkspaceProps extends BlueprintCoursesWorkspaceProps {
   readonly blueprintCourseRef: string;
 }
-
 function referencePath(reference: string): string {
   return `/blueprint-courses/${encodeURIComponent(reference)}`;
 }
-
 function metadataEtagForView(value: string): BlueprintMetadataEtag {
   return `"${value}"`;
 }
-
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
   if (value !== null && typeof value === "object") {
@@ -74,7 +66,6 @@ function canonicalJson(value: unknown): string {
   }
   return JSON.stringify(value) ?? "null";
 }
-
 /** Local no-op detection ignores object-property construction order while retaining authored array order. */
 function sameContent(
   first: ReplaceBlueprintCourseContentInput,
@@ -82,7 +73,6 @@ function sameContent(
 ): boolean {
   return canonicalJson(first) === canonicalJson(second);
 }
-
 function errorMessage(error: unknown, fallback: string): string {
   if (error instanceof BlueprintCourseConflictError) {
     return "Blueprint Course content changed in another editor. Reload before saving.";
@@ -95,12 +85,12 @@ function errorMessage(error: unknown, fallback: string): string {
   }
   return error instanceof Error && error.message.length > 0 ? error.message : fallback;
 }
-
 /** Lists every Blueprint Course available to the current active Instructor. */
 export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps): JSX.Element {
   const [state, setState] = createSignal<LoadState>("loading");
   const [courses, setCourses] = createSignal<ReadonlyArray<BlueprintCourseSummaryView>>([]);
   const [cursor, setCursor] = createSignal<string | null>(null);
+  const [includeArchived, setIncludeArchived] = createSignal(false);
   const [loadingMore, setLoadingMore] = createSignal(false);
   const [continuationFailed, setContinuationFailed] = createSignal(false);
   const [creating, setCreating] = createSignal(false);
@@ -124,11 +114,17 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
     text: "Loading Blueprint Courses.",
   });
   let createTrigger: HTMLButtonElement | undefined;
-
-  async function load(): Promise<void> {
+  let discoveryRequest = 0;
+  async function load(includeArchivedCourses = includeArchived()): Promise<void> {
+    const request = ++discoveryRequest;
     setState("loading");
     try {
-      const page = await props.client.listBlueprintCourses(undefined, 50);
+      const page = await props.client.listBlueprintCourses(
+        undefined,
+        50,
+        includeArchivedCourses ? true : undefined,
+      );
+      if (request !== discoveryRequest) return;
       setCourses(page.items);
       setCursor(page.nextCursor);
       setContinuationFailed(false);
@@ -138,6 +134,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
         text: "Choose a Blueprint Course to inspect or create a new reusable course structure.",
       });
     } catch (error: unknown) {
+      if (request !== discoveryRequest) return;
       setState("error");
       setNotice({
         kind: "alert",
@@ -149,21 +146,38 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
   async function loadMore(): Promise<void> {
     const nextCursor = cursor();
     if (nextCursor === null || loadingMore()) return;
+    const request = ++discoveryRequest;
+    const includeArchivedCourses = includeArchived();
     setLoadingMore(true);
     try {
-      const page = await props.client.listBlueprintCourses(nextCursor, 50);
+      const page = await props.client.listBlueprintCourses(
+        nextCursor,
+        50,
+        includeArchivedCourses ? true : undefined,
+      );
+      if (request !== discoveryRequest) return;
       setCourses((current) => appendBlueprintCoursePage(current, page.items));
       setCursor(page.nextCursor);
       setContinuationFailed(false);
     } catch (error: unknown) {
+      if (request !== discoveryRequest) return;
       setContinuationFailed(true);
       setNotice({
         kind: "alert",
         text: errorMessage(error, "More Blueprint Courses could not load. Try again when ready."),
       });
     } finally {
-      setLoadingMore(false);
+      if (request === discoveryRequest) setLoadingMore(false);
     }
+  }
+
+  function changeIncludeArchived(next: boolean): void {
+    setIncludeArchived(next);
+    setCourses([]);
+    setCursor(null);
+    setLoadingMore(false);
+    setContinuationFailed(false);
+    void load(next);
   }
 
   onMount(() => void load());
@@ -183,32 +197,42 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
-      <Switch>
-        <Match when={state() === "loading"}>
-          <p>Loading Blueprint Courses.</p>
-        </Match>
-        <Match when={state() === "error"}>
-          <button type="button" onClick={() => void load()}>
-            Retry loading Blueprint Courses
-          </button>
-        </Match>
-        <Match when={state() === "ready"}>
-          <section class="blueprint-course-card" aria-labelledby="blueprint-courses-heading">
-            <div class="blueprint-course-section-heading">
-              <div>
-                <h2 id="blueprint-courses-heading">Available Blueprint Courses</h2>
-                <p>Every active Instructor can inspect reusable question structure.</p>
-              </div>
-              <button
-                type="button"
-                onClick={(event) => {
-                  createTrigger = event.currentTarget;
-                  setCreating(true);
-                }}
-              >
-                Create Blueprint Course
-              </button>
-            </div>
+      <section class="blueprint-course-card" aria-labelledby="blueprint-courses-heading">
+        <div class="blueprint-course-section-heading">
+          <div>
+            <h2 id="blueprint-courses-heading">Available Blueprint Courses</h2>
+            <p>Every active Instructor can inspect reusable question structure.</p>
+          </div>
+          <div class="blueprint-course-inline-actions">
+            <label class="blueprint-course-archive-filter">
+              <input
+                type="checkbox"
+                checked={includeArchived()}
+                onChange={(event) => changeIncludeArchived(event.currentTarget.checked)}
+              />
+              Include Archived
+            </label>
+            <button
+              type="button"
+              onClick={(event) => {
+                createTrigger = event.currentTarget;
+                setCreating(true);
+              }}
+            >
+              Create Blueprint Course
+            </button>
+          </div>
+        </div>
+        <Switch>
+          <Match when={state() === "loading"}>
+            <p>Loading Blueprint Courses.</p>
+          </Match>
+          <Match when={state() === "error"}>
+            <button type="button" onClick={() => void load()}>
+              Retry loading Blueprint Courses
+            </button>
+          </Match>
+          <Match when={state() === "ready"}>
             <Show
               when={courses().length > 0}
               fallback={
@@ -267,9 +291,9 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
                 </button>
               </div>
             </Show>
-          </section>
-        </Match>
-      </Switch>
+          </Match>
+        </Switch>
+      </section>
       <Show when={creating()}>
         <BlueprintCourseCreateDialog
           client={props.client}
@@ -308,23 +332,41 @@ export function BlueprintCourseDetailWorkspace(
   const [shortName, setShortName] = createSignal("");
   const [longName, setLongName] = createSignal("");
   const [archiveConfirmation, setArchiveConfirmation] = createSignal("");
+  const [invalidDraft, setInvalidDraft] = createSignal(false);
+  const [refreshFailed, setRefreshFailed] = createSignal(false);
   const dirty = (): boolean => {
     const loaded = current();
-    return loaded !== undefined && !sameContent(loaded.content, loaded.savedContent);
+    return (
+      invalidDraft() || (loaded !== undefined && !sameContent(loaded.content, loaded.savedContent))
+    );
   };
-
-  async function load(keepLocalContent: boolean): Promise<void> {
+  const hasUnsavedForkChanges = (): boolean => {
+    const loaded = current();
+    return (
+      dirty() ||
+      (loaded !== undefined &&
+        (shortName() !== loaded.view.short_name || longName() !== loaded.view.long_name))
+    );
+  };
+  async function load(keepLocalContent: boolean, keepVisible = false): Promise<void> {
     if (parseBlueprintCourseReference(props.blueprintCourseRef) === null) {
       setState("error");
       setNotice({ kind: "alert", text: "This Blueprint Course reference is invalid." });
       return;
     }
-    setState("loading");
+    setRefreshFailed(false);
+    if (!keepVisible) setState("loading");
     try {
       const result = await props.client.getBlueprintCourse(props.blueprintCourseRef);
       const prior = current();
       const savedContent = replacementContentFromBlueprintModules(result.blueprintCourse.modules);
-      const content = keepLocalContent && prior !== undefined ? prior.content : savedContent;
+      const preserveContent = keepLocalContent || (keepVisible && dirty());
+      const preserveNames =
+        preserveContent ||
+        (keepVisible &&
+          prior !== undefined &&
+          (shortName() !== prior.view.short_name || longName() !== prior.view.long_name));
+      const content = preserveContent && prior !== undefined ? prior.content : savedContent;
       setCurrent({
         view: result.blueprintCourse,
         revisionEtag: result.revisionEtag,
@@ -332,7 +374,7 @@ export function BlueprintCourseDetailWorkspace(
         content,
         savedContent,
       });
-      if (!keepLocalContent || prior === undefined) {
+      if (!preserveNames || prior === undefined) {
         setShortName(result.blueprintCourse.short_name);
         setLongName(result.blueprintCourse.long_name);
       }
@@ -346,14 +388,16 @@ export function BlueprintCourseDetailWorkspace(
             : "Blueprint Course loaded. Inspect its answer-free reusable structure.",
       });
     } catch (error: unknown) {
-      setState("error");
+      if (keepVisible && current() !== undefined) setRefreshFailed(true);
+      else setState("error");
       setNotice({
         kind: "alert",
-        text: errorMessage(error, "This Blueprint Course could not load. Try again."),
+        text: keepVisible
+          ? `The Blueprint Course refresh failed. Your local edits remain available. ${errorMessage(error, "Try again.")}`
+          : errorMessage(error, "This Blueprint Course could not load. Try again."),
       });
     }
   }
-
   function changeContent(next: ReplaceBlueprintCourseContentInput, text: string): void {
     const loaded = current();
     if (
@@ -364,7 +408,6 @@ export function BlueprintCourseDetailWorkspace(
     setCurrent({ ...loaded, content: next });
     setNotice({ kind: "status", text });
   }
-
   function changeAssessment(
     moduleIndex: number,
     assessmentIndex: number,
@@ -384,6 +427,10 @@ export function BlueprintCourseDetailWorkspace(
 
   async function save(): Promise<boolean> {
     const loaded = current();
+    if (invalidDraft()) {
+      setNotice({ kind: "alert", text: "Correct the invalid numeric draft before saving." });
+      return false;
+    }
     if (
       loaded === undefined ||
       !blueprintLifecyclePresentation(loaded.view.availability, loaded.view.read_access).canEdit
@@ -697,6 +744,11 @@ export function BlueprintCourseDetailWorkspace(
       <p class="blueprint-course-notice" role={notice().kind === "alert" ? "alert" : "status"}>
         {notice().text}
       </p>
+      <Show when={refreshFailed()}>
+        <button type="button" onClick={() => void load(hasUnsavedForkChanges(), true)}>
+          Retry refreshing Blueprint Course
+        </button>
+      </Show>
       <Switch>
         <Match when={state() === "loading"}>
           <p>Loading Blueprint Course.</p>
@@ -717,6 +769,20 @@ export function BlueprintCourseDetailWorkspace(
                   settings. Current Revision {loaded().view.current_revision.revision}.
                 </p>
               </header>
+              <BlueprintForkCreate client={props.client} source={loaded().view} />
+              <BlueprintForkSource
+                client={props.client}
+                view={loaded().view}
+                hasUnsavedChanges={hasUnsavedForkChanges()}
+                onApplied={() => void load(hasUnsavedForkChanges(), true)}
+              />
+              <BlueprintKnownForks
+                client={props.client}
+                reference={loaded().view.reference}
+                sourceCurrentRevision={loaded().view.current_revision.revision}
+                hasUnsavedChanges={hasUnsavedForkChanges()}
+                onApplied={() => void load(hasUnsavedForkChanges(), true)}
+              />
               <BlueprintCourseLifecycleControls
                 view={loaded().view}
                 editing={editing()}
@@ -871,22 +937,29 @@ export function BlueprintCourseDetailWorkspace(
                       current()?.content.modules[selection.moduleIndex]?.assessments[
                         selection.assessmentIndex
                       ]?.content;
-                    const savedContent = (): BlueprintAssessmentContentView | undefined =>
-                      current()?.view.modules[selection.moduleIndex]?.assessments[
-                        selection.assessmentIndex
-                      ]?.content;
                     return (
                       <Show when={content()}>
                         {(assessmentContent) => (
                           <section class="blueprint-course-content-card">
                             <BlueprintAssessmentContentEditor
                               content={assessmentContent()}
-                              savedContent={savedContent()}
+                              blueprintRef={props.blueprintCourseRef}
+                              blueprintClient={props.client}
+                              retainedAssessmentRef={((): string | undefined => {
+                                const choice =
+                                  current()?.content.modules[selection.moduleIndex]?.assessments[
+                                    selection.assessmentIndex
+                                  ]?.choice;
+                                return choice?.kind === "retained"
+                                  ? choice.blueprint_assessment_reference
+                                  : undefined;
+                              })()}
                               editable={
                                 editing() && loaded().view.read_access === "blueprint_course_owner"
                               }
                               pickerRepository={props.pickerRepository}
                               pickerSources={props.pickerSources}
+                              onInvalidDraftChange={setInvalidDraft}
                               onChange={(nextContent, text) =>
                                 changeAssessment(
                                   selection.moduleIndex,

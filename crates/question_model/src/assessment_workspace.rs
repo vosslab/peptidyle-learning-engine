@@ -271,7 +271,6 @@ mod tests {
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
                 assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
-                question_pool_reuse_rule: crate::QuestionPoolReuseRule::ReuseSelection,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },

@@ -11,9 +11,9 @@ use question_model::{
     AssessmentAttemptId, AssessmentEntryId, AssessmentId, AssessmentReference,
     CourseInstanceReference, PoolRevisionMemberReference, QuestionBackend,
     QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionPoolSelectedItem,
-    QuestionPoolSelectionId, QuestionRevisionNumber, QuestionRevisionReference, StudentRecordId,
+    QuestionRevisionNumber, QuestionRevisionReference, StudentRecordId,
 };
-use sqlx::{Postgres, Row, Transaction};
+use sqlx::Row;
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -22,7 +22,6 @@ struct CurrentPoolEntry {
     id: AssessmentEntryId,
     authored_position: i32,
     selection_count: usize,
-    reuse_selection: bool,
     random_selected_order: bool,
     candidates: Vec<QuestionPoolSelectedItem>,
     question_pool_revision: QuestionPoolRevisionReference,
@@ -79,7 +78,7 @@ pub(super) async fn start_current_assessment_attempt(
         "SELECT student_record_id, assessment_id, assessment_entry_id, entry_kind, authored_position, \
          fixed_question_id, fixed_revision_number, question_pool_public_id, question_pool_revision_number, \
          member_position, pool_question_id, pool_revision_number, question_backend, selection_count, \
-         pool_selection_rule, question_pool_reuse_rule, assessment_question_order_rule \
+         pool_selection_rule, assessment_question_order_rule \
          FROM ple_api.prepare_current_assessment_attempt_start($1, $2)",
     )
         .bind(course.as_string())
@@ -87,7 +86,7 @@ pub(super) async fn start_current_assessment_attempt(
     .fetch_all(&mut *tx)
     .await
     .map_err(map_sqlx_error)?;
-    let start = current_attempt_start_from_rows(&mut tx, rows).await?;
+    let start = current_attempt_start_from_rows(rows)?;
     let result =
         PostgresAssessmentAttemptStore::start_assessment_attempt_in_transaction(&mut tx, start)
             .await?;
@@ -95,8 +94,7 @@ pub(super) async fn start_current_assessment_attempt(
     Ok(result)
 }
 
-async fn current_attempt_start_from_rows(
-    tx: &mut Transaction<'_, Postgres>,
+fn current_attempt_start_from_rows(
     rows: Vec<sqlx::postgres::PgRow>,
 ) -> Result<AssessmentAttemptStart, StoreError> {
     let first = rows.first().ok_or(StoreError::NotFound)?;
@@ -157,7 +155,6 @@ async fn current_attempt_start_from_rows(
                         id: entry,
                         authored_position,
                         selection_count: 0,
-                        reuse_selection: false,
                         random_selected_order: false,
                         candidates: Vec::new(),
                         question_pool_revision,
@@ -172,10 +169,6 @@ async fn current_attempt_start_from_rows(
                         "Question Pool selection count is invalid".to_string(),
                     )
                 })?;
-                pool.reuse_selection = row
-                    .try_get::<String, _>("question_pool_reuse_rule")
-                    .map_err(map_sqlx_error)?
-                    == "reuse_selection";
                 pool.random_selected_order = row
                     .try_get::<String, _>("pool_selection_rule")
                     .map_err(map_sqlx_error)?
@@ -207,13 +200,7 @@ async fn current_attempt_start_from_rows(
     let mut selections = Vec::new();
     let mut issued = fixed;
     for pool in pools.into_values() {
-        let (reused_from_question_pool_selection, selected_items) = if pool.reuse_selection {
-            reusable_pool_selection(tx, assessment, student_record, pool.id)
-                .await?
-                .unwrap_or((None, select_pool_items(&pool)?))
-        } else {
-            (None, select_pool_items(&pool)?)
-        };
+        let selected_items = select_pool_items(&pool)?;
         let index = selections.len();
         for item in &selected_items {
             let backend = *pool
@@ -238,7 +225,6 @@ async fn current_attempt_start_from_rows(
         selections.push(PreparedQuestionPoolSelection {
             question_pool_assessment_entry: pool.id,
             question_pool_revision: pool.question_pool_revision,
-            reused_from_question_pool_selection,
             selected_items,
         });
     }
@@ -400,59 +386,22 @@ fn unbiased_index(
     }
 }
 
-async fn reusable_pool_selection(
-    tx: &mut Transaction<'_, Postgres>,
-    assessment: AssessmentId,
-    student_record: StudentRecordId,
-    entry: AssessmentEntryId,
-) -> Result<
-    Option<(
-        Option<QuestionPoolSelectionId>,
-        Vec<QuestionPoolSelectedItem>,
-    )>,
-    StoreError,
-> {
-    let rows = sqlx::query(
-        "SELECT question_pool_selection_id, question_pool_public_id, question_pool_revision_number, member_position, question_id, revision_number \
-         FROM ple_api.read_reusable_question_pool_selection($1, $2, $3) ORDER BY selection_position",
-    )
-    .bind(assessment.as_uuid()).bind(student_record.as_uuid()).bind(entry.as_uuid())
-    .fetch_all(&mut **tx).await.map_err(map_sqlx_error)?;
-    let Some(first) = rows.first() else {
-        return Ok(None);
-    };
-    let selection = QuestionPoolSelectionId::from_uuid(
-        first
-            .try_get("question_pool_selection_id")
-            .map_err(map_sqlx_error)?,
-    );
-    let items = rows
-        .iter()
-        .map(|row| {
-            Ok(QuestionPoolSelectedItem {
-                pool_revision_member: PoolRevisionMemberReference {
-                    question_pool_revision: row_pool_revision(row)?,
-                    member_position: row_member_position(row)?,
-                },
-                reference: row_question_revision(row, "question_id", "revision_number")?,
-            })
-        })
-        .collect::<Result<Vec<_>, StoreError>>()?;
-    Ok(Some((Some(selection), items)))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use question_model::{QuestionId, QuestionPoolRevisionNumber, QuestionPoolRevisionReference};
 
+    fn pool_revision() -> QuestionPoolRevisionReference {
+        QuestionPoolRevisionReference {
+            question_pool_id: "0000-X00N".parse::<QuestionId>().expect("Pool ID"),
+            revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
+        }
+    }
+
     fn pool_item(value: u32) -> QuestionPoolSelectedItem {
         QuestionPoolSelectedItem {
             pool_revision_member: PoolRevisionMemberReference {
-                question_pool_revision: QuestionPoolRevisionReference {
-                    question_pool_id: "0000-X00N".parse::<QuestionId>().expect("Pool ID"),
-                    revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
-                },
+                question_pool_revision: pool_revision(),
                 member_position: value,
             },
             reference: QuestionRevisionReference {
@@ -468,9 +417,9 @@ mod tests {
             id: AssessmentEntryId::from_uuid(Uuid::nil()),
             authored_position: 0,
             selection_count: 2,
-            reuse_selection: false,
             random_selected_order: false,
             candidates: vec![pool_item(1), pool_item(2), pool_item(3)],
+            question_pool_revision: pool_revision(),
             candidate_backends: BTreeMap::new(),
         };
         let mut entropy = [1_u64, 1].into_iter();
@@ -491,9 +440,9 @@ mod tests {
             id: AssessmentEntryId::from_uuid(Uuid::nil()),
             authored_position: 0,
             selection_count: 2,
-            reuse_selection: false,
             random_selected_order: true,
             candidates: vec![pool_item(1), pool_item(2), pool_item(3)],
+            question_pool_revision: pool_revision(),
             candidate_backends: BTreeMap::new(),
         };
         let mut entropy = [1_u64, 1, 1, 0].into_iter();

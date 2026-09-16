@@ -913,8 +913,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Assessment content
 
 - Assessments contain an ordered sequence of Published Questions and Question Pools.
-- Published Questions are reused by reference to their Question ID and exact Revision when added to
-  another Assessment.
+- Published Questions stay references to the same Question ID and exact Revision.
 - Question Pools are copied by forking when added to another Assessment.
 - A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions
   as its source.

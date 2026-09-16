@@ -6,7 +6,7 @@ pub(super) struct FixturePoolIdIssuer(pub(super) AtomicUsize);
 
 impl CourseInstancePoolIdIssuer for FixturePoolIdIssuer {
     fn issue_question_pool_id(&self) -> Result<QuestionId, StoreError> {
-        const IDS: [&str; 2] = ["8K3M-X9Q1", "9K3M-X9Q2"];
+        const IDS: [&str; 4] = ["8K3M-X9Q1", "9K3M-X9Q2", "7K3M-X9Q3", "6K3M-X9Q4"];
         let index = self.0.fetch_add(1, Ordering::SeqCst);
         IDS.get(index)
             .ok_or_else(|| StoreError::Unavailable("fixture Pool IDs exhausted".to_string()))?
@@ -48,7 +48,7 @@ pub(super) async fn create(
     let mut transaction = connection.begin().await.expect("application transaction");
     authenticate_application_transaction(&mut transaction).await;
     let row = sqlx::query(
-        "SELECT reference_number, blueprint_revision_number \
+        "SELECT public_reference, blueprint_revision_number \
          FROM ple_api.create_blueprint_course($1, $2, 'REV-ACC', \
               'Revision acceptance Blueprint', $3, $4)",
     )
@@ -69,12 +69,83 @@ pub(super) async fn create(
         .commit()
         .await
         .expect("Blueprint creation commit");
+    let public_reference: String = row
+        .try_get("public_reference")
+        .expect("Blueprint public reference");
+    let mut inspection = adoption_inspection_connection().await;
+    let reference = sqlx::query_scalar(
+        "SELECT reference_number FROM ple_data.blueprint_course WHERE public_reference = $1",
+    )
+    .bind(public_reference)
+    .fetch_one(&mut inspection)
+    .await
+    .expect("Blueprint relational identity");
+    inspection
+        .close()
+        .await
+        .expect("Blueprint inspection close");
     (
-        row.try_get("reference_number")
-            .expect("Blueprint reference"),
+        reference,
         row.try_get("blueprint_revision_number")
             .expect("Blueprint Revision"),
     )
+}
+
+pub(super) async fn adoption_inspection_connection() -> PgConnection {
+    let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
+    let mut connection = PgConnection::connect(runtime.migration_url().expose())
+        .await
+        .expect("Blueprint fixture inspection connection");
+    // ASVS 8.2.1: keep explicit fixture privilege here, never on an application pool.
+    sqlx::query("SET ROLE ple_data_owner")
+        .execute(&mut connection)
+        .await
+        .expect("Blueprint fixture inspection role");
+    connection
+}
+
+/// Public commands use opaque IDs; numeric IDs belong only to relational inspection.
+pub(super) async fn blueprint_public_reference(reference: i64) -> String {
+    let mut inspection = adoption_inspection_connection().await;
+    let public_reference = sqlx::query_scalar(
+        "SELECT public_reference FROM ple_data.blueprint_course WHERE reference_number = $1",
+    )
+    .bind(reference)
+    .fetch_one(&mut inspection)
+    .await
+    .expect("Blueprint public identity");
+    inspection
+        .close()
+        .await
+        .expect("Blueprint inspection close");
+    public_reference
+}
+
+/// Compare durable Blueprint state across denied commands, including receipts.
+pub(super) async fn blueprint_write_state(reference: i64) -> serde_json::Value {
+    let mut inspection = adoption_inspection_connection().await;
+    // ASVS 1.2.4: fixture identity remains a bound parameter.
+    sqlx::query_scalar(
+        "SELECT jsonb_build_object( \
+            'metadata', to_jsonb(course), \
+            'revisions', (SELECT jsonb_agg(to_jsonb(revision) ORDER BY blueprint_revision_number) \
+                FROM ple_data.blueprint_course_revision AS revision \
+                WHERE blueprint_course_reference_number = $1), \
+            'revision_events', (SELECT jsonb_agg(to_jsonb(event) ORDER BY blueprint_revision_number) \
+                FROM ple_data.blueprint_revision_event AS event \
+                WHERE blueprint_course_reference_number = $1), \
+            'metadata_events', (SELECT jsonb_agg(to_jsonb(event) ORDER BY occurred_at, metadata_etag) \
+                FROM ple_data.blueprint_metadata_event AS event \
+                WHERE blueprint_course_reference_number = $1), \
+            'save_receipts', (SELECT jsonb_agg(to_jsonb(receipt) ORDER BY request_checksum) \
+                FROM ple_data.blueprint_course_save_receipt AS receipt \
+                WHERE blueprint_course_reference_number = $1)) \
+         FROM ple_data.blueprint_course AS course WHERE reference_number = $1",
+    )
+    .bind(reference)
+    .fetch_one(&mut inspection)
+    .await
+    .expect("Blueprint durable write state")
 }
 
 pub(super) async fn save(
@@ -84,6 +155,7 @@ pub(super) async fn save(
     checksum: Vec<u8>,
     content: &StoredBlueprintCourseContent,
 ) -> Result<(i64, bool), sqlx::Error> {
+    let public_reference = blueprint_public_reference(reference).await;
     let mut connection = PgConnection::connect(url)
         .await
         .expect("application connection");
@@ -91,9 +163,12 @@ pub(super) async fn save(
     authenticate_application_transaction(&mut transaction).await;
     let result = sqlx::query(
         "SELECT resulting_blueprint_revision_number, changed \
-         FROM ple_api.save_blueprint_course($1, $2, $3, $4, $5)",
+         FROM ple_api.save_blueprint_course($1, $2, $3, $4, $5, \
+             (SELECT COALESCE(jsonb_agg(jsonb_build_object( \
+                 'course_id', course_id, 'assessments', '[]'::jsonb)), '[]'::jsonb) \
+                FROM ple_api.list_blueprint_daughter_course_ids($1)))",
     )
-    .bind(reference)
+    .bind(public_reference)
     .bind(expected_revision)
     .bind(checksum)
     .bind(serde_json::to_value(content).expect("content JSON"))
@@ -129,6 +204,7 @@ pub(super) async fn transition_blueprint_availability(
     availability: &'static str,
     archive_confirmation_long_name: Option<&str>,
 ) -> Result<(BlueprintAvailability, Uuid), sqlx::Error> {
+    let public_reference = blueprint_public_reference(reference).await;
     let mut connection = PgConnection::connect(url)
         .await
         .expect("Blueprint lifecycle application connection");
@@ -140,7 +216,7 @@ pub(super) async fn transition_blueprint_availability(
     let result = sqlx::query(
         "SELECT availability, metadata_etag FROM ple_api.set_blueprint_availability($1, $2, $3, $4)",
     )
-    .bind(reference)
+    .bind(public_reference)
     .bind(expected_metadata_etag)
     .bind(availability)
     .bind(archive_confirmation_long_name)
@@ -253,8 +329,15 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                     .expect("fixture instructions"),
                 entries: vec![
                     BlueprintAssessmentEntryInput::Pool(question_model::ReusablePoolInput {
-                        question_pool_id: question_pool_id(),
-                        selection_count: 1,
+                        pool: question_model::BlueprintPoolInputChoice::Import {
+                            question_pool_revision: question_model::QuestionPoolRevisionReference {
+                                question_pool_id: question_pool_id(),
+                                revision_number: question_model::QuestionPoolRevisionNumber::new(1)
+                                    .expect("fixture Pool Revision"),
+                            },
+                        },
+                        selection_count: std::num::NonZeroU32::new(1)
+                            .expect("positive fixture Pool selection count"),
                         points_per_item: AssessmentPointValue::from_whole(3),
                         scoring_rule: AssessmentEntryScoringRule::ExtraCredit,
                         selection_rule: question_model::QuestionPoolSelectionRule {
@@ -270,7 +353,11 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                         },
                     }),
                     BlueprintAssessmentEntryInput::Fixed(ReusableFixedQuestionInput {
-                        question_id: question_id(),
+                        published_question: QuestionRevisionReference {
+                            question_id: question_id(),
+                            revision_number: QuestionRevisionNumber::new(1)
+                                .expect("fixture Question Revision"),
+                        },
                         points_possible: AssessmentPointValue::from_whole(2),
                         scoring_rule: AssessmentEntryScoringRule::Normal,
                         question_attempt_limit: QuestionAttemptLimit {
@@ -289,8 +376,6 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                     activity_rules: AssessmentActivityRules {
                         assessment_attempt_grade_rule:
                             question_model::AssessmentAttemptGradeRule::Latest,
-                        question_pool_reuse_rule:
-                            question_model::QuestionPoolReuseRule::SelectAgain,
                         question_variation_rule:
                             question_model::AssessmentQuestionVariationRule::ReuseVariation,
                         assessment_attempt_resume_rule:
@@ -341,17 +426,6 @@ pub(super) fn initial_content() -> StoredBlueprintCourseContent {
         &pools,
     )
     .expect("closed Blueprint content fixture")
-}
-
-pub(super) fn pins() -> BTreeMap<QuestionId, QuestionRevisionReference> {
-    let question = question_id();
-    BTreeMap::from([(
-        question.clone(),
-        QuestionRevisionReference {
-            question_id: question,
-            revision_number: QuestionRevisionNumber::new(1).expect("fixture Question Revision"),
-        },
-    )])
 }
 
 pub(super) fn assessment_input(title: &str) -> BlueprintAssessmentContentInput {

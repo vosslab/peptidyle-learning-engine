@@ -1,6 +1,6 @@
 // Browser-facing Question Details for the approved cross-layer Question fixture.
 //
-// The stored JSON remains the single source for Question, Course, Assignment,
+// The stored JSON remains the single source for Question, Course, Assessment,
 // and attempt data. This module only supplies browser test names for the same
 // current contracts; it never carries a second serialized copy.
 
@@ -16,7 +16,7 @@ type BrowserIssuedQuestion = Omit<
   | "pointValue"
   | "scoringRule"
   | "questionPoolSelection"
-  | "questionPoolItem"
+  | "poolRevisionMember"
 >;
 
 function browserQuestionAttempt(
@@ -34,10 +34,11 @@ function browserIssuedQuestion(
     pointValue: _pointValue,
     scoringRule: _scoringRule,
     questionPoolSelection: _questionPoolSelection,
-    questionPoolItem: _questionPoolItem,
+    poolRevisionMember: _poolRevisionMember,
     ...browserSafeIssuedQuestion
   } = issuedQuestion;
-  return browserSafeIssuedQuestion;
+  // Durable issued positions are zero-based; the Student display ordinal is one-based.
+  return { ...browserSafeIssuedQuestion, issuedPosition: issuedQuestion.issuedPosition + 1 };
 }
 
 export const publishedQuestionFixture = {
@@ -45,9 +46,9 @@ export const publishedQuestionFixture = {
   sourceObjectChecksum: fixtureSet.sourceObjectChecksum,
   publishedQuestion: fixtureSet.questionSummary,
   course: fixtureSet.course,
-  assignment: fixtureSet.assignment,
+  assessment: fixtureSet.assessment,
   studentRecord: fixtureSet.studentRecord,
-  assignment_attempts: fixtureSet.assignment_attempts,
+  assessment_attempts: fixtureSet.assessment_attempts,
   issuedQuestions: fixtureSet.issuedQuestions.map(browserIssuedQuestion),
   attempts: fixtureSet.attempts.map(browserQuestionAttempt),
 };

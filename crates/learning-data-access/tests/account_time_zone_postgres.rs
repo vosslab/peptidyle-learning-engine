@@ -31,7 +31,7 @@ fn token(byte: u8) -> SessionTokenHash {
     SessionTokenHash::compute(&[byte; 32])
 }
 
-async fn seed(admin: &sqlx::postgres::PgPool) {
+async fn seed(admin: &sqlx::postgres::PgPool) -> CourseInstanceReference {
     let mut tx = admin.begin().await.expect("fixture transaction");
     sqlx::query("SET LOCAL ROLE ple_private_owner")
         .execute(&mut *tx)
@@ -61,7 +61,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     sqlx::query(
         "INSERT INTO ple_private.account_authentication_email \
          (account_id, normalized_email, delivery_email, verified_at, updated_at) \
-         VALUES ($1, 'existing.student@example.test', 'existing.student@example.test', \
+         VALUES ($1, 'existing.student@example.edu', 'existing.student@example.edu', \
                  clock_timestamp(), clock_timestamp())",
     )
     .bind(id(EXISTING_STUDENT))
@@ -150,7 +150,15 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
     .execute(&mut *tx)
     .await
     .expect("Instructor Course Membership");
+    let public_reference: String = sqlx::query_scalar(
+        "SELECT public_reference FROM ple_data.course_instance WHERE course_id = $1",
+    )
+    .bind(id(COURSE))
+    .fetch_one(&mut *tx)
+    .await
+    .expect("Course public reference");
     tx.commit().await.expect("fixture commit");
+    CourseInstanceReference::new(public_reference).expect("Course reference")
 }
 
 async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> Uuid {
@@ -164,7 +172,7 @@ async fn new_student_id_and_session(admin: &sqlx::postgres::PgPool) -> Uuid {
         .expect("private session role");
     let account_id: Uuid = sqlx::query_scalar(
         "SELECT account_id FROM ple_private.account_authentication_email \
-         WHERE normalized_email = 'new.student@example.test'",
+         WHERE normalized_email = 'new.student@example.edu'",
     )
     .fetch_one(&mut *tx)
     .await
@@ -214,12 +222,11 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
 {
     let runtime = acceptance_runtime::AcceptanceRuntime::load().expect("acceptance runtime");
     let admin = lazy_pool(runtime.migration_url().expose()).expect("migration pool");
-    seed(&admin).await;
+    let course = seed(&admin).await;
 
     let application_url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&application_url).expect("application pool");
     let roster = PostgresCourseRosterStore::new(application.clone());
-    let course = CourseInstanceReference::new(REFERENCE_NUMBER as u64).expect("Course reference");
     let imported = roster
         .import_course_roster(
             token(0xf1),
@@ -227,11 +234,11 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
             CourseRosterImportInput {
                 entries: vec![
                     CourseRosterImportEntry {
-                        email: "existing.student@example.test".to_string(),
+                        email: "existing.student@example.edu".to_string(),
                         roster_id: "EXISTING".to_string(),
                     },
                     CourseRosterImportEntry {
-                        email: "new.student@example.test".to_string(),
+                        email: "new.student@example.edu".to_string(),
                         roster_id: "NEW".to_string(),
                     },
                 ],

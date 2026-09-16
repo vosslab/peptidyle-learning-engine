@@ -1,13 +1,14 @@
 -- A Draft source is mutable current authoring state.  The operation is a
--- compare-and-swap and accepts a precise retry only when all source facts are
--- unchanged; it never accepts inline source bytes.
+-- compare-and-swap and accepts a no-op only at the exact current Edit Number
+-- when all source facts are unchanged; it returns the committed Edit Number
+-- for publication and never accepts inline source bytes.
 SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.bind_draft_question_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid,
     p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
     p_imathas_deployment_reference text, p_imathas_item_reference text,
     p_imathas_profile text, p_source_object_id uuid, p_source_object_checksum text
-) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
     current_edit bigint;
@@ -24,6 +25,9 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Draft Question does not belong to workspace';
     END IF;
+    IF current_edit <> p_expected_edit_number THEN
+        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Draft Question Edit Number is stale';
+    END IF;
     SELECT * INTO existing FROM ple_private.draft_question_source_binding
      WHERE draft_question_uuid = p_draft_question_uuid FOR UPDATE;
     IF FOUND AND existing.backend = p_backend AND existing.question_format = p_question_format
@@ -33,12 +37,8 @@ BEGIN
        AND existing.imathas_item_reference IS NOT DISTINCT FROM p_imathas_item_reference
        AND existing.imathas_profile IS NOT DISTINCT FROM p_imathas_profile
        AND existing.source_object_id = p_source_object_id
-       AND existing.source_object_checksum = p_source_object_checksum
-       AND current_edit IN (p_expected_edit_number, p_expected_edit_number + 1) THEN
-        RETURN;
-    END IF;
-    IF current_edit <> p_expected_edit_number THEN
-        RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Draft Question Edit Number is stale';
+       AND existing.source_object_checksum = p_source_object_checksum THEN
+        RETURN current_edit;
     END IF;
     INSERT INTO ple_private.draft_question_source_binding AS binding (
         draft_question_uuid, backend, question_format, question_type, webwork_pg_path,
@@ -61,7 +61,9 @@ BEGIN
     UPDATE ple_private.draft_question
        SET draft_question_edit_number = draft_question_edit_number + 1,
            updated_at = pg_catalog.clock_timestamp()
-     WHERE draft_question_uuid = p_draft_question_uuid;
+     WHERE draft_question_uuid = p_draft_question_uuid
+     RETURNING draft_question_edit_number INTO current_edit;
+    RETURN current_edit;
 END
 $$;
 REVOKE ALL ON FUNCTION ple_private.bind_draft_question_source(
@@ -264,7 +266,7 @@ CREATE FUNCTION ple_api.bind_draft_question_source(
     p_backend text, p_question_format text, p_question_type text, p_webwork_pg_path text,
     p_imathas_deployment_reference text, p_imathas_item_reference text,
     p_imathas_profile text, p_source_object_id uuid, p_source_object_checksum text
-) RETURNS void LANGUAGE sql SECURITY DEFINER
+) RETURNS bigint LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT ple_private.bind_draft_question_source(
         p_draft_question_uuid, p_expected_edit_number, p_workspace_id, p_backend,

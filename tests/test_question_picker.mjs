@@ -9,9 +9,10 @@ import {
   toggleQuestionPickerSelection,
 } from "../src/features/question_picker/question_picker_model.ts";
 
-function row(displayId, questionTitle = "Question") {
+function row(displayId, questionTitle = "Question", revisionNumber = 1) {
   return {
     displayId,
+    questionRevision: { questionId: displayId, revisionNumber },
     questionTitle,
     summary: "Answer-free summary.",
     questionFormat: "pleQuestionJson",
@@ -41,6 +42,10 @@ test("Question Picker preserves public Question ID order and safe row metadata",
   ]);
   assert.deepEqual(selection.questionIds, ["7K3M-X9QP", "2R5X-Z7YA"]);
   assert.equal(selection.questions[1]?.row.questionTitle, "Second");
+  assert.deepEqual(selection.questions[1]?.row.questionRevision, {
+    questionId: "2R5X-Z7YA",
+    revisionNumber: 1,
+  });
 });
 
 test("single-selection mode replaces the prior result", () => {

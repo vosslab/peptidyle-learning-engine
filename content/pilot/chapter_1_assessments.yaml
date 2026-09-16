@@ -12,13 +12,14 @@ chapters:
     course: Genetics
     course_title: "Genetics: Foundations of Inheritance"
     chapter: 1
-    assignment_title: Genetics Chapter 1 Mastery
+    assessment_title: Genetics Chapter 1 Mastery
     questions:
       - slug: genetics-disorders-webwork-mc
         question_title: "Genetic disorders: Which one?"
         question_description: "Identify a genetic disorder from its clinical description."
         language: en-US
         backend: webwork
+        source_format: pgml
         question_type: multipleChoice
         points: 1
         source: sources/genetics/genetic_disorders-which_one.pgml
@@ -31,6 +32,7 @@ chapters:
         question_description: "Match genetic disorders to their characteristic findings."
         language: en-US
         backend: webwork
+        source_format: pgml
         question_type: matching
         points: 4
         source: sources/genetics/genetic_disorders-matching.pgml
@@ -69,13 +71,14 @@ chapters:
     course: Biochemistry
     course_title: "Biochemistry: Molecular Foundations"
     chapter: 1
-    assignment_title: Biochemistry Chapter 1 Mastery
+    assessment_title: Biochemistry Chapter 1 Mastery
     questions:
       - slug: biochemistry-functional-groups-webwork-mc
         question_title: "Biochemical functional groups: Which one?"
         question_description: "Identify a biochemical functional group from its molecular properties."
         language: en-US
         backend: webwork
+        source_format: pgml
         question_type: multipleChoice
         points: 1
         source: sources/biochemistry/biochemical_functional_groups-which_one.pgml
@@ -90,6 +93,7 @@ chapters:
         question_description: "Match biochemical functional groups to their structures and properties."
         language: en-US
         backend: webwork
+        source_format: pgml
         question_type: matching
         points: 4
         source: sources/biochemistry/biochemical_functional_groups-matching.pgml

@@ -852,6 +852,7 @@ def test_compose_failures_retain_redacted_bounded_child_diagnostics(tmp_path: pa
 	)
 	assert "Rust failure section [private]" in detail
 	assert "SQL ERROR [private]" in detail
+	assert detail.index("SQL ERROR [private]") < detail.index("Rust failure section [private]")
 	class FailureRunner(UnexpectedRunner):
 		def run(self, argv: list[str], environment: dict[str, str] | None = None, cwd: pathlib.Path | None = None, stdin: str | None = None) -> local_stack_control.models.CommandResult:
 			return result

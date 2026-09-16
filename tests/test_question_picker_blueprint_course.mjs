@@ -7,11 +7,12 @@ import { blueprintCourseQuestionPickerRepository } from "../src/features/questio
 const { scope: _retiredPublicationScope, ...publishedQuestion } =
   publishedQuestionFixture.publishedQuestion;
 
-function questionLibraryEntry(questionId, questionTitle) {
+function questionLibraryEntry(questionId, questionTitle, revisionNumber) {
   return {
     summary: {
       ...publishedQuestion,
       questionId,
+      latestQuestionRevision: { questionId, revisionNumber },
       metadata: { ...publishedQuestion.metadata, questionTitle },
     },
     evidence: { state: "unavailable" },
@@ -26,7 +27,8 @@ function content() {
       {
         kind: "fixed",
         question: {
-          question_library: questionLibraryEntry("7K3M-X9QP", "First fixed"),
+          reference: { questionId: "7K3M-X9QP", revisionNumber: 3 },
+          question_library: questionLibraryEntry("7K3M-X9QP", "First fixed", 3),
           selection_availability: "available",
         },
       },
@@ -43,7 +45,8 @@ function content() {
       {
         kind: "fixed",
         question: {
-          question_library: questionLibraryEntry("4T9C-Z5EW", "Final fixed"),
+          reference: { questionId: "4T9C-Z5EW", revisionNumber: 5 },
+          question_library: questionLibraryEntry("4T9C-Z5EW", "Final fixed", 5),
           selection_availability: "available",
         },
       },
@@ -101,6 +104,13 @@ test("Blueprint Assessment picker presents fixed Questions in authored order", a
   assert.deepEqual(
     result.items.map((row) => row.displayId),
     ["7K3M-X9QP", "4T9C-Z5EW"],
+  );
+  assert.deepEqual(
+    result.items.map((row) => row.questionRevision),
+    [
+      { questionId: "7K3M-X9QP", revisionNumber: 3 },
+      { questionId: "4T9C-Z5EW", revisionNumber: 5 },
+    ],
   );
   assert.deepEqual(resolved, [{ reference: "BP7K3MX9", revisionNumber: "2" }]);
 });

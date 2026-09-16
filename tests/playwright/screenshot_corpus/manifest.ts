@@ -17,6 +17,7 @@ export const PRIVACY_PROFILE_IDS = [
   "student_unanswered",
   "student_selected_response",
   "student_self",
+  "student_feedback_released",
   "authorization_denial",
   "sysadmin_account",
   "sysadmin_scoped_roster",

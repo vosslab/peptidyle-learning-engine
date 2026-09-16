@@ -1,0 +1,36 @@
+.blueprint-fork-apply {
+  margin-block: 1.5rem;
+  min-width: 0;
+}
+.blueprint-fork-apply fieldset {
+  min-width: 0;
+}
+.blueprint-fork-apply label {
+  display: block;
+  margin-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.blueprint-fork-layout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-block: 0.5rem;
+}
+.blueprint-fork-apply button,
+.blueprint-fork-apply select {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+}
+.blueprint-fork-destination {
+  padding-inline-start: 1.5rem;
+}
+.blueprint-fork-destination li {
+  margin-block: 1rem;
+  overflow-wrap: anywhere;
+}
+.blueprint-fork-apply h5 {
+  font-size: 1rem;
+  margin-block: 0.5rem;
+}

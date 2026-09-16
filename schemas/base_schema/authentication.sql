@@ -284,6 +284,11 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'Active Account required for a session';
     END IF;
+    -- ASVS 2.3.1 and 6.3.4: every primary-authentication path must leave
+    -- Sysadmin session creation to the one-use, browser-bound TOTP transition.
+    IF v_role = 'sysadmin' THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Sysadmin TOTP completion required for a session';
+    END IF;
     RETURN QUERY INSERT INTO ple_private.authenticated_session (
         session_id, account_id, product_role, token_hash, created_at, expires_at
     ) VALUES (p_session_id, p_account_id, v_role, p_token_hash, v_now,

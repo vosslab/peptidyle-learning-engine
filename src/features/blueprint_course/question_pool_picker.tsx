@@ -4,14 +4,14 @@ import { For, Match, Show, Switch, createSignal, onCleanup, onMount, type JSX } 
 
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
-import type { QuestionId } from "../../../generated/api/QuestionId";
+import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { QuestionPoolLibraryClient } from "../../api/question_pool_library";
 import "./question_pool_picker.css";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
 
 export interface QuestionPoolPickerSelection {
-  readonly questionPoolId: QuestionId;
+  readonly questionPoolRevision: QuestionPoolRevisionReference;
   readonly memberCount: number;
 }
 
@@ -90,6 +90,18 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
         summary.questionPoolRevision.questionPoolId,
       );
       if (request !== detailRequest) return;
+      if (
+        loaded.questionPoolRevision.questionPoolId !==
+          summary.questionPoolRevision.questionPoolId ||
+        loaded.questionPoolRevision.revisionNumber !== summary.questionPoolRevision.revisionNumber
+      ) {
+        setDetailState("error");
+        setMessage(
+          "That Question Pool has a newer Revision. Reload the Pool list and choose its exact Revision again.",
+        );
+        setMessageIsError(true);
+        return;
+      }
       setDetail(loaded);
       setDetailState("ready");
       setMessage(
@@ -105,8 +117,9 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
   }
 
   function confirm(): void {
+    const choice = selected();
     const loaded = detail();
-    if (loaded === undefined || detailState() !== "ready") {
+    if (choice === undefined || loaded === undefined || detailState() !== "ready") {
       setMessage("Choose a Question Pool and wait for its current Revision to load.");
       setMessageIsError(true);
       return;
@@ -114,8 +127,8 @@ export function QuestionPoolPicker(props: QuestionPoolPickerProps): JSX.Element 
     if (dialog.open) dialog.close();
     props.trigger?.focus();
     props.onConfirm({
-      questionPoolId: loaded.questionPoolRevision.questionPoolId,
-      memberCount: loaded.members.length,
+      questionPoolRevision: choice.questionPoolRevision,
+      memberCount: choice.memberCount,
     });
   }
 

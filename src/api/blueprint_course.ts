@@ -1,10 +1,17 @@
 // Browser capability contract for Blueprint lineage metadata and immutable Revisions.
 
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
+import type { BlueprintAssessmentReference } from "../../generated/api/BlueprintAssessmentReference";
+import type { BlueprintPoolMembersView } from "../../generated/api/BlueprintPoolMembersView";
+import type { QuestionId } from "../../generated/api/QuestionId";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
 import type { BlueprintRevisionView } from "../../generated/api/BlueprintRevisionView";
+import type { BlueprintComparisonView } from "../../generated/api/BlueprintComparisonView";
+import type { BlueprintKnownForkView } from "../../generated/api/BlueprintKnownForkView";
 import type { BlueprintCourseSaveResponse } from "../../generated/api/BlueprintCourseSaveResponse";
+import type { BlueprintForkApplyRequest } from "../../generated/api/BlueprintForkApplyRequest";
+import type { BlueprintForkApplyResponse } from "../../generated/api/BlueprintForkApplyResponse";
 import type { BlueprintMetadataState } from "../../generated/api/BlueprintMetadataState";
 import type { CreateBlueprintCourseInput } from "../../generated/api/CreateBlueprintCourseInput";
 import type { RenameBlueprintCourseInput } from "../../generated/api/RenameBlueprintCourseInput";
@@ -29,9 +36,31 @@ export interface BlueprintMetadataTransition {
 
 /** Browser capability for Instructor-owned reusable Blueprint Course lifecycle operations. */
 export interface BlueprintCourseClient {
+  readonly getBlueprintPoolMembers: (
+    reference: BlueprintCourseReference,
+    assessmentReference: BlueprintAssessmentReference,
+    poolId: QuestionId,
+  ) => Promise<BlueprintPoolMembersView>;
+  readonly forkBlueprintCourse: (
+    reference: BlueprintCourseReference,
+    revision: string,
+    idempotencyKey: BlueprintIdempotencyKey,
+  ) => Promise<LoadedBlueprintCourse>;
+  readonly applyBlueprintFork: (
+    reference: BlueprintCourseReference,
+    request: BlueprintForkApplyRequest,
+  ) => Promise<BlueprintForkApplyResponse>;
+  readonly listKnownBlueprintForks: (
+    reference: BlueprintCourseReference,
+  ) => Promise<readonly BlueprintKnownForkView[]>;
+  readonly getBlueprintComparison: (
+    left: BlueprintCourseReference,
+    right: BlueprintCourseReference,
+  ) => Promise<BlueprintComparisonView>;
   readonly listBlueprintCourses: (
     cursor?: string,
     pageSize?: number,
+    includeArchived?: boolean,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
   readonly getBlueprintCourse: (
     reference: BlueprintCourseReference,

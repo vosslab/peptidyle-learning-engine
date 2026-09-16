@@ -14,7 +14,6 @@ CREATE FUNCTION ple_data.create_assessment_from_template_values(
     p_assessment_attempt_limit integer,
     p_late_work_rule text,
     p_assessment_attempt_grade_rule text,
-    p_question_pool_reuse_rule text,
     p_question_variation_rule text,
     p_assessment_attempt_resume_rule text,
     p_assessment_question_display_rule text,
@@ -55,7 +54,6 @@ BEGIN
            assessment_attempt_limit = p_assessment_attempt_limit,
            late_work_rule = p_late_work_rule,
            assessment_attempt_grade_rule = p_assessment_attempt_grade_rule,
-           question_pool_reuse_rule = p_question_pool_reuse_rule,
            question_variation_rule = p_question_variation_rule,
            assessment_attempt_resume_rule = p_assessment_attempt_resume_rule,
            assessment_question_display_rule = p_assessment_question_display_rule,
@@ -79,11 +77,11 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION ple_data.create_assessment_from_template_values(
-    uuid, bigint, text, text, text, integer, integer, text, text, text, text,
+    uuid, bigint, text, text, text, integer, integer, text, text, text,
     text, text, text, text, text, text, text, text, text, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_data.create_assessment_from_template_values(
-    uuid, bigint, text, text, text, integer, integer, text, text, text, text,
+    uuid, bigint, text, text, text, integer, integer, text, text, text,
     text, text, text, text, text, text, text, text, text, text
 ) TO ple_api_owner;
 
@@ -145,7 +143,6 @@ BEGIN
         template.assessment_attempt_limit,
         template.late_work_rule,
         template.assessment_attempt_grade_rule,
-        template.question_pool_reuse_rule,
         template.question_variation_rule,
         template.assessment_attempt_resume_rule,
         template.assessment_question_display_rule,

@@ -53,7 +53,7 @@ async fn make_attempt(
          source_blueprint_assessment_reference, created_at, updated_at, assessment_type, assessment_title, \
          assessment_instructions, available_at, due_at, closes_at, \
          assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-         assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
+         assessment_attempt_grade_rule, question_variation_rule, \
          assessment_attempt_resume_rule, assessment_question_display_rule, \
          assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
          feedback_per_item_correctness, feedback_submitted_response, \
@@ -64,7 +64,7 @@ async fn make_attempt(
                 clock_timestamp(), clock_timestamp(), assessment_type, assessment_title, assessment_instructions, \
                 clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour', \
                 clock_timestamp() + interval '2 hours', 60, 1, late_work_rule, \
-                assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
+                assessment_attempt_grade_rule, question_variation_rule, \
                 assessment_attempt_resume_rule, assessment_question_display_rule, \
                 assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
                 feedback_per_item_correctness, feedback_submitted_response, \
@@ -87,7 +87,7 @@ async fn make_attempt(
     sqlx::query(
         "INSERT INTO ple_private.student_assessment_accommodation (accommodation_id, student_record_id, \
          assessment_id, available_at, due_at, closes_at, assessment_attempt_time_limit_seconds, \
-         attempt_limit, created_at) VALUES ($1, $2, $3, clock_timestamp() - interval '1 hour', \
+         assessment_attempt_limit, created_at) VALUES ($1, $2, $3, clock_timestamp() - interval '1 hour', \
          clock_timestamp() + interval '1 hour', clock_timestamp() + interval '2 hours', 60, 1, clock_timestamp())",
     ).bind(Uuid::from_u128(assessment_id.as_u128() + 0x100)).bind(Uuid::parse_str(STUDENT_RECORD).unwrap()).bind(assessment_id)
         .execute(&mut *tx).await.expect("Student accommodation");

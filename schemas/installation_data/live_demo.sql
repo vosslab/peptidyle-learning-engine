@@ -11,8 +11,8 @@ SELECT set_config(
     :'pilot_publication_session_id', true
 ) AS ignored \gset
 SELECT set_config(
-    'ple.installation_live_demo_blueprint_reference',
-    :'live_demo_blueprint_reference', true
+    'ple.installation_live_demo_blueprint_public_reference',
+    :'live_demo_blueprint_public_reference', true
 ) AS ignored \gset
 SELECT set_config(
     'ple.installation_live_demo_blueprint_assessment_reference',
@@ -70,13 +70,22 @@ SET LOCAL ROLE ple_api_owner;
 
 DO $$
 DECLARE
-    blueprint_reference bigint := current_setting(
-        'ple.installation_live_demo_blueprint_reference'
-    )::bigint;
+    blueprint_reference bigint;
     expected_blueprint_assessment_reference uuid := current_setting(
         'ple.installation_live_demo_blueprint_assessment_reference'
     )::uuid;
 BEGIN
+    -- ASVS 1.2.4 and 8.2.2: resolve the typed public Blueprint reference at
+    -- the privileged installation boundary; never decode it as an internal ID.
+    SELECT reference_number INTO blueprint_reference
+      FROM ple_data.blueprint_course
+     WHERE public_reference = current_setting(
+        'ple.installation_live_demo_blueprint_public_reference'
+     );
+    IF blueprint_reference IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Live Demo Blueprint public reference is unavailable';
+    END IF;
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.blueprint_course
          WHERE reference_number = blueprint_reference
@@ -116,10 +125,19 @@ $$;
 DO $$
 DECLARE
     course_reference bigint;
-    blueprint_reference bigint := current_setting(
-        'ple.installation_live_demo_blueprint_reference'
-    )::bigint;
+    blueprint_reference bigint;
 BEGIN
+    -- ASVS 1.2.4 and 8.2.2: retain the opaque public reference across the
+    -- Rust/psql boundary and resolve the internal key only under this owner.
+    SELECT reference_number INTO blueprint_reference
+      FROM ple_data.blueprint_course
+     WHERE public_reference = current_setting(
+        'ple.installation_live_demo_blueprint_public_reference'
+     );
+    IF blueprint_reference IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Live Demo Blueprint public reference is unavailable';
+    END IF;
     INSERT INTO ple_data.course_instance (
         course_id, source_kind, blueprint_course_reference_number, blueprint_revision_number,
         assigned_instructor_account_id, course_short_name, course_long_name,
@@ -242,7 +260,7 @@ BEGIN
         source_blueprint_revision_number, source_blueprint_assessment_reference,
         created_at, updated_at, assessment_type, assessment_title, assessment_instructions, due_at,
         assessment_attempt_time_limit_seconds, late_work_rule, assessment_attempt_grade_rule,
-        question_pool_reuse_rule, question_variation_rule, assessment_attempt_resume_rule,
+        question_variation_rule, assessment_attempt_resume_rule,
         assessment_question_display_rule, assessment_navigation_rule,
         assessment_question_order_rule, feedback_score, feedback_per_item_correctness,
         feedback_submitted_response, feedback_question_answer,
@@ -257,8 +275,8 @@ BEGIN
         'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         (SELECT active_until_at FROM ple_data.course_instance
           WHERE course_id = '00000000-0000-0000-0000-000000000220'),
-        1800, 'accept', 'highest', 'reuse_selection',
-        'new_variation', 'resumable', 'one_question_at_a_time', 'free_navigation',
+        1800, 'accept', 'highest', 'new_variation', 'resumable',
+        'one_question_at_a_time', 'free_navigation',
         'authored_order', 'after_submit', 'after_submit', 'after_submit',
         'never', 'never', 'never'
     ) ON CONFLICT (assessment_id) DO NOTHING

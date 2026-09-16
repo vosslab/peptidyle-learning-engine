@@ -20,6 +20,26 @@ use serde::{Deserialize, Serialize};
 
 use crate::{SessionTokenHash, StoreError};
 
+/// Explicit reviewed choices; content and names are always read by the Store.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct ApplyBlueprintForkInput {
+    pub expected_source: BlueprintRevisionReference,
+    pub expected_fork: BlueprintRevisionReference,
+    pub expected_source_metadata_etag: BlueprintMetadataEtag,
+    pub expected_fork_metadata_etag: BlueprintMetadataEtag,
+    pub source_short_name: bool,
+    pub source_long_name: bool,
+    pub selection: question_model::blueprint_course::BlueprintForkApplySelection,
+}
+
+/// Ordinary Save and metadata results committed in one operation.
+#[derive(Debug, Clone)]
+pub struct ApplyBlueprintForkResult {
+    pub save: SaveBlueprintCourseReceipt,
+    pub metadata: BlueprintMetadataState,
+}
+
 /// One current readable Blueprint lineage and the content selected by its read boundary.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredBlueprintCourse {
@@ -29,6 +49,8 @@ pub struct StoredBlueprintCourse {
     pub availability: BlueprintAvailability,
     pub metadata_etag: BlueprintMetadataEtag,
     pub current_revision: BlueprintRevision,
+    /// Exact immutable ancestry, filtered by current source visibility.
+    pub fork_source: Option<BlueprintRevisionReference>,
     pub read_access: BlueprintCourseReadAccess,
     /// The exact current immutable Revision content.
     pub content: StoredBlueprintCourseContent,
@@ -118,7 +140,6 @@ impl StoredBlueprintCourseContent {
     /// Resolves a newly accepted browser request into server-owned child identities and pins.
     pub fn from_create(
         input: CreateBlueprintCourseInput,
-        pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
         pool_revisions: &BTreeMap<QuestionId, question_model::QuestionPoolRevisionReference>,
     ) -> Result<Self, StoreError> {
         input.validate().map_err(invalid_content)?;
@@ -136,7 +157,6 @@ impl StoredBlueprintCourseContent {
                             ),
                             content: StoredBlueprintAssessmentContent::from_input(
                                 content,
-                                pins,
                                 pool_revisions,
                             )?,
                         })
@@ -158,7 +178,6 @@ impl StoredBlueprintCourseContent {
     pub fn from_replace(
         input: ReplaceBlueprintCourseContentInput,
         prior: &Self,
-        pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
         pool_revisions: &BTreeMap<QuestionId, question_model::QuestionPoolRevisionReference>,
     ) -> Result<Self, StoreError> {
         input.validate().map_err(invalid_content)?;
@@ -185,7 +204,7 @@ impl StoredBlueprintCourseContent {
                     .assessments
                     .into_iter()
                     .map(|assessment| {
-                        Self::replacement_assessment(assessment, prior, pins, pool_revisions)
+                        Self::replacement_assessment(assessment, prior, pool_revisions)
                     })
                     .collect::<Result<Vec<_>, StoreError>>()?;
                 Ok(StoredBlueprintModule {
@@ -200,25 +219,25 @@ impl StoredBlueprintCourseContent {
         Ok(content)
     }
 
-    pub fn requested_question_ids_from_create(
+    pub fn requested_question_revisions_from_create(
         input: &CreateBlueprintCourseInput,
-    ) -> Vec<QuestionId> {
+    ) -> Vec<QuestionRevisionReference> {
         input
             .modules
             .iter()
             .flat_map(|module| module.assessments.iter())
-            .flat_map(requested_question_ids)
+            .flat_map(requested_question_revisions)
             .collect()
     }
 
-    pub fn requested_question_ids_from_replace(
+    pub fn requested_question_revisions_from_replace(
         input: &ReplaceBlueprintCourseContentInput,
-    ) -> Vec<QuestionId> {
+    ) -> Vec<QuestionRevisionReference> {
         input
             .modules
             .iter()
             .flat_map(|module| module.assessments.iter())
-            .flat_map(|assessment| requested_question_ids(&assessment.content))
+            .flat_map(|assessment| requested_question_revisions(&assessment.content))
             .collect()
     }
 
@@ -244,6 +263,11 @@ impl StoredBlueprintCourseContent {
 
     /// Rebuilds the one canonical content checksum used by the new base schema.
     pub fn checksum(&self) -> Result<question_model::BlueprintContentChecksum, StoreError> {
+        Ok(BlueprintRevisionContent::course(self.to_domain()?).checksum())
+    }
+
+    /// Reconstructs exact reusable content without current Question metadata enrichment.
+    pub fn to_domain(&self) -> Result<BlueprintCourseContent, StoreError> {
         let modules = self
             .modules
             .iter()
@@ -261,14 +285,12 @@ impl StoredBlueprintCourseContent {
                 .map_err(invalid_content)
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
-        let course = BlueprintCourseContent::new(modules).map_err(invalid_content)?;
-        Ok(BlueprintRevisionContent::course(course).checksum())
+        BlueprintCourseContent::new(modules).map_err(invalid_content)
     }
 
     fn replacement_assessment(
         assessment: question_model::BlueprintAssessmentReplacementInput,
         prior: &StoredBlueprintCourseContent,
-        pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
         pool_revisions: &BTreeMap<QuestionId, question_model::QuestionPoolRevisionReference>,
     ) -> Result<StoredBlueprintAssessment, StoreError> {
         let reference = match assessment.choice {
@@ -291,7 +313,6 @@ impl StoredBlueprintCourseContent {
             blueprint_assessment_reference: reference,
             content: StoredBlueprintAssessmentContent::from_input(
                 assessment.content,
-                pins,
                 pool_revisions,
             )?,
         })
@@ -301,8 +322,7 @@ impl StoredBlueprintCourseContent {
 impl StoredBlueprintAssessmentContent {
     fn from_input(
         input: BlueprintAssessmentContentInput,
-        pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
-        pool_revisions: &BTreeMap<QuestionId, question_model::QuestionPoolRevisionReference>,
+        _pool_revisions: &BTreeMap<QuestionId, question_model::QuestionPoolRevisionReference>,
     ) -> Result<Self, StoreError> {
         input.validate().map_err(invalid_content)?;
         let entries = input
@@ -311,7 +331,7 @@ impl StoredBlueprintAssessmentContent {
             .map(|entry| match entry {
                 question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
                     Ok(StoredBlueprintAssessmentEntry::Fixed {
-                        question_revision: pin(&value.question_id, pins)?,
+                        question_revision: value.published_question,
                         points_possible: value.points_possible,
                         scoring_rule: value.scoring_rule,
                         question_attempt_limit: value.question_attempt_limit,
@@ -320,10 +340,15 @@ impl StoredBlueprintAssessmentContent {
                 }
                 question_model::BlueprintAssessmentEntryInput::Pool(value) => {
                     Ok(StoredBlueprintAssessmentEntry::Pool {
-                        question_pool_revision: pool_revisions
-                            .get(&value.question_pool_id)
-                            .cloned()
-                            .ok_or_else(|| invalid("current immutable Question Pool Revision"))?,
+                        question_pool_revision: match value.pool {
+                            question_model::BlueprintPoolInputChoice::Import {
+                                question_pool_revision,
+                            }
+                            | question_model::BlueprintPoolInputChoice::Retained {
+                                question_pool_revision,
+                                ..
+                            } => question_pool_revision,
+                        },
                         selection_count: value.selection_count,
                         points_per_item: value.points_per_item,
                         scoring_rule: value.scoring_rule,
@@ -406,11 +431,30 @@ impl StoredBlueprintAssessment {
 }
 
 /// Store boundary for immutable Blueprint Revisions and lineage metadata.
+#[derive(Debug, Clone)]
+pub struct StoredBlueprintPoolMembers {
+    pub question_pool_revision: question_model::QuestionPoolRevisionReference,
+    pub members: Vec<QuestionRevisionReference>,
+}
+
 #[async_trait]
 pub trait BlueprintCourseStore: Send + Sync {
+    async fn load_blueprint_pool_members(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+        assessment: BlueprintAssessmentReference,
+        question_pool_id: QuestionId,
+    ) -> Result<StoredBlueprintPoolMembers, StoreError>;
+    async fn apply_blueprint_fork(
+        &self,
+        session: SessionTokenHash,
+        input: ApplyBlueprintForkInput,
+    ) -> Result<ApplyBlueprintForkResult, StoreError>;
     async fn list_blueprint_courses(
         &self,
         session: SessionTokenHash,
+        include_archived: bool,
     ) -> Result<Vec<StoredBlueprintCourseSummary>, StoreError>;
     async fn load_blueprint_course(
         &self,
@@ -473,13 +517,15 @@ pub trait BlueprintCourseStore: Send + Sync {
     ) -> Result<BlueprintMetadataState, StoreError>;
 }
 
-fn requested_question_ids(input: &BlueprintAssessmentContentInput) -> Vec<QuestionId> {
+fn requested_question_revisions(
+    input: &BlueprintAssessmentContentInput,
+) -> Vec<QuestionRevisionReference> {
     input
         .entries
         .iter()
         .flat_map(|entry| match entry {
             question_model::BlueprintAssessmentEntryInput::Fixed(value) => {
-                vec![value.question_id.clone()]
+                vec![value.published_question.clone()]
             }
             question_model::BlueprintAssessmentEntryInput::Pool(_) => Vec::new(),
         })
@@ -491,21 +537,18 @@ fn requested_pool_ids(input: &BlueprintAssessmentContentInput) -> Vec<QuestionId
         .entries
         .iter()
         .filter_map(|entry| match entry {
-            question_model::BlueprintAssessmentEntryInput::Pool(value) => {
-                Some(value.question_pool_id.clone())
-            }
+            question_model::BlueprintAssessmentEntryInput::Pool(value) => match &value.pool {
+                question_model::BlueprintPoolInputChoice::Import {
+                    question_pool_revision,
+                }
+                | question_model::BlueprintPoolInputChoice::Retained {
+                    question_pool_revision,
+                    ..
+                } => Some(question_pool_revision.question_pool_id.clone()),
+            },
             question_model::BlueprintAssessmentEntryInput::Fixed(_) => None,
         })
         .collect()
-}
-
-fn pin(
-    question_id: &QuestionId,
-    pins: &BTreeMap<QuestionId, QuestionRevisionReference>,
-) -> Result<QuestionRevisionReference, StoreError> {
-    pins.get(question_id)
-        .cloned()
-        .ok_or_else(|| invalid("currently available Published Question"))
 }
 
 fn invalid_content(error: BlueprintCourseValidationError) -> StoreError {

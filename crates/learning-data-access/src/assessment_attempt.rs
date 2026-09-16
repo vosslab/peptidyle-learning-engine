@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use question_model::{
     AssessmentAttemptId, AssessmentEntryId, AssessmentId, PoolRevisionMemberReference,
     QuestionBackend, QuestionPoolRevisionReference, QuestionPoolSelectedItem,
-    QuestionPoolSelectionId, QuestionRevisionReference, StudentRecordId,
+    QuestionRevisionReference, StudentRecordId,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -23,8 +23,6 @@ pub struct PreparedQuestionPoolSelection {
     pub question_pool_assessment_entry: AssessmentEntryId,
     /// Exact immutable Assessment-owned fork Pool Revision selected from.
     pub question_pool_revision: QuestionPoolRevisionReference,
-    /// Earlier same-Student Selection whose exact Question Pool Items are retained.
-    pub reused_from_question_pool_selection: Option<QuestionPoolSelectionId>,
     /// Exact selected Question Pool Items in their frozen delivery order.
     pub selected_items: Vec<QuestionPoolSelectedItem>,
 }
@@ -218,7 +216,6 @@ mod tests {
             question_pool_selections: vec![PreparedQuestionPoolSelection {
                 question_pool_assessment_entry: entry,
                 question_pool_revision: pool_revision(),
-                reused_from_question_pool_selection: None,
                 selected_items: vec![QuestionPoolSelectedItem {
                     pool_revision_member: pool_revision_member(4),
                     reference: reference(),
@@ -248,7 +245,6 @@ mod tests {
             question_pool_selections: vec![PreparedQuestionPoolSelection {
                 question_pool_assessment_entry: entry,
                 question_pool_revision: pool_revision(),
-                reused_from_question_pool_selection: None,
                 selected_items: vec![
                     QuestionPoolSelectedItem {
                         pool_revision_member: pool_revision_member(4),

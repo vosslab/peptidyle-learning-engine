@@ -122,7 +122,7 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         &self,
         session_token_hash: SessionTokenHash,
         input: DraftQuestionSourceBindingInput,
-    ) -> Result<(), StoreError> {
+    ) -> Result<crate::DraftQuestionEditNumber, StoreError> {
         input.validate()?;
         let question_format = wire_string(&input.question_format, "Question Format")?;
         let question_type = wire_string(&input.question_type, "Question Type")?;
@@ -142,7 +142,7 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         // parameterized; the database resolves the authenticated session and
         // authorizes the exact workspace/Draft Question/Edit Number/object relationship in one
         // transaction before it creates or confirms an immutable record.
-        sqlx::query(
+        let committed_edit: i64 = sqlx::query_scalar(
             "SELECT ple_api.bind_draft_question_source(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12\
              )",
@@ -163,11 +163,13 @@ impl DraftQuestionSourceBindingStore for PostgresDraftQuestionSourceBindingStore
         .bind(Option::<String>::None)
         .bind(input.source_object_reference.object.as_uuid())
         .bind(input.source_object_checksum.as_str())
-        .execute(&mut *transaction)
+        .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        Ok(())
+        crate::DraftQuestionEditNumber::new(u64::try_from(committed_edit).map_err(|_| {
+            StoreError::InvalidRecord("committed Draft Question Edit Number is invalid".to_owned())
+        })?)
     }
 }
 
