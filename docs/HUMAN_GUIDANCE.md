@@ -268,14 +268,29 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Clicking the Profile avatar opens the Profile menu.
 - The Profile menu contains Profile settings, account settings, and Sign Out.
 - Sign Out belongs in the Profile menu rather than the main top bar.
-- The Profile avatar uses a generic user avatar until the user selects another avatar.
-- **Students** select avatars from a PLE-provided collection and cannot upload Profile images.
-- Student avatar selection should be visual and playful, similar to choosing a LEGO avatar.
-- **Instructors** and **Sysadmins** may select a provided avatar or add their own Profile image.
-- The current avatar appears consistently anywhere PLE represents that user.
-- Instructor Profile includes the Instructor's time zone and profile image.
-- Profile images may use any reasonable aspect ratio and are cropped to a consistent rounded square.
 - See **Ribbon and page layout** for the overall navigation and page-position rules.
+
+### Profile avatar interface
+
+- Every Account is randomly assigned an avatar from the PLE avatar gallery when the Account is created.
+- The same avatar gallery collection is available to all Product Roles.
+- The current avatar or Profile image appears consistently anywhere PLE represents that user.
+
+#### Student avatars
+ 
+- **Students** select avatars from the PLE-provided avatar gallery collection and cannot upload Profile images.
+- Student avatar selection should be visual and playful.
+- All avatars in the gallery are available for selection.
+- Students may select another avatar at any time.
+
+#### Instructor and Sysadmin Profile images
+
+- **Instructors** and **Sysadmins** share the same Profile backend and functionality.
+- **Instructors** and **Sysadmins** may select from the PLE avatar gallery or upload their own Profile image.
+- Image upload accepts any aspect ratio with a minimum of 128 pixels in both dimensions.
+- After upload, Instructors and Sysadmins can position and crop the image within a square Profile preview.
+- Instructors and Sysadmins may replace their Profile image or select a provided avatar at any time.
+- The current avatar or Profile image appears consistently anywhere PLE represents that user.
 
 ### Breadcrumbs interface
 
