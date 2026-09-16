@@ -291,6 +291,35 @@ remain interpretive authority, but are not checklist items.
   - Mismatch: No repository evidence can verify this whole-product qualitative outcome.
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
+- [ ] Buttons should look intentionally designed rather than like native browser controls.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+
+### Rounded rectangles preference
+
+- [ ] Rounded rectangles are preferred for all interface objects, especially buttons, input fields, cards, avatars, tags, and interactive controls.
+  - Verification pending: This binding design requirement needs a broad source and rendered audit of the named interface-object surfaces; no scoped evidence establishes it across PLE.
+- N/A Rounded corners generally feel softer, friendlier, and more contemporary.
+  - Reason: supporting descriptive rationale, not independently closable; it remains binding design context for the rounded-object requirement.
+- N/A Rounding also helps users visually distinguish discrete objects from the surrounding page.
+  - Reason: supporting descriptive rationale, not independently closable; it remains binding design context for the rounded-object requirement.
+- [ ] Use corner radius to reinforce interface hierarchy.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Interactive and self-contained objects should generally be more rounded than structural containers.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Use moderate rounding for buttons, input fields, answer choices, dialogs, and similar interactive controls.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Use subtle rounding for cards, tables, panels, and other content containers.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Keep large page regions, navigation bars, breadcrumbs, and other structural layout elements square or nearly square.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Pills and fully rounded shapes should be reserved for compact objects such as tags, badges, timers, and avatars.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Apply corner radii consistently to objects that serve the same purpose.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Use the application's typography, spacing, corner radius, borders, and interaction states consistently.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Primary, secondary, and low-emphasis actions should be visually distinct.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
 
 ### Information density and layout
 
@@ -610,7 +639,8 @@ remain interpretive authority, but are not checklist items.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` updates the search session on each input or selection change.
 - [ ] Opening a result and returning should preserve the Instructor's search, filters, sort, and scroll
   position.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/pages/blueprint_course_search_return_state.ts` and `src/pages/blueprint_course_search_page.tsx` keep one single-use, session-bound, in-document return snapshot and replay fresh submitted pages before restoring focus and clamped scroll.
+  - Verification pending: accepted isolated actual-component/router/fake-client proof covers text, Promoted, classification, two-page replay, focus, scroll, session isolation, and corrected pending-continuation navigation at `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`; sorting, Tags, richer result metadata, connected HTTP/authorization, and deployed acceptance remain open.
 - [x] A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
   - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` is exercised by accepted C47 compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-browser.json`, which follows the existing detail action and preselects the matched Blueprint beyond the first 50 search rows. It does not submit or create a Course Instance.
@@ -717,16 +747,19 @@ remain interpretive authority, but are not checklist items.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, and capability filters.
 - [ ] Classification browsing and filtering should begin with Discipline and follow the shared
   Discipline -> Subject -> Topic -> Subtopic hierarchy.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/components/library_classification_search.tsx`, `src/api/library_classification_filter.ts`, and `src/pages/library_page.tsx` carry optional UUID identity selectors through the Question Library route and request state.
+  - Verification pending: accepted isolated actual-component/router/fake-client proof covers Question-only hierarchy cascade, text/Tags coexistence, detail return, stale choice recovery, and malformed-URL recovery without request dispatch; connected HTTP/authorization and deployed acceptance remain open. Pool discovery's final browser report is under independent review. Receipt: `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
 - [ ] Tags should provide additional filters outside the hierarchy.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
   - Owner: Blueprint Course interface (first occurrence).
 - [ ] Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/components/library_classification_search.tsx` keys Subject choices to the selected Discipline and clears descendants on parent changes.
+  - Verification pending: accepted isolated Question-only actual-component/router/fake-client proof covers cascade and stale-choice recovery; real vocabulary-parent and connected acceptance remain open. Receipt: `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
   - Owner: Blueprint Course interface (first occurrence).
 - [ ] After selecting a Subject, Instructors should have an explicit option to include Library Objects
   associated with that Subject across its other Disciplines.
-  - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
+  - Evidence (source): `src/components/library_classification_search.tsx` exposes the explicit Subject-across-Disciplines option only after Subject selection.
+  - Verification pending: accepted isolated Question-only actual-component/router/fake-client proof covers explicit keyboard operation and tuple transmission; backend matching and connected acceptance remain open. Receipt: `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
 - [x] Filters should update the current search rather than start a separate workflow.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` resets one `QuestionLibraryBrowseSession` with the updated query.
 - [x] Search should support Google-like syntax for more precise queries.

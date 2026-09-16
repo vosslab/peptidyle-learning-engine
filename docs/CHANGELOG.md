@@ -11,6 +11,25 @@
 
 ### Behavior or Interface Changes
 
+- Recorded the shared Library classification model plus bounded Question and Pool backend evidence
+  without closing a Human Guidance row. Optional UUID hierarchy identity and the cross-Discipline
+  Subject flag are preserved through strict chain/cursor contracts; Question matching uses current
+  lineage classification, and Pool matching uses Pool-owned metadata before ordering, `LIMIT`,
+  lookahead, and continuation. Root generated 370 TypeScript types; five model tests (session
+  44587), Cargo check, 13 Question tests, and two Pool tests (session 75888) passed. A fresh
+  network-none PostgreSQL 17 actual-role proof passed and its labelled disposable container was
+  removed. Root `cargo check -p server_core -p project-tools --tests` later passed in 3.87 seconds
+  with no warnings; five model, 13 Question Rust, two Pool Rust, 24 focused Node, and strict
+  TypeScript gates passed. Pytest session 48126 passed 7,532 tests in 5.58 seconds after
+  invalid-URL recovery and Pool wiring. Question classification and malformed-URL recovery have
+  accepted isolated actual-component/router/fake-client evidence. Pool discovery has accepted
+  isolated actual `LibraryPage` fixture-browser evidence. There is no HTTP, deployed, or connected acceptance;
+  the connected Library remains name-only pending current-source acceptance. Pool text/Tags filtering
+  remains unavailable, and distinct Question/Pool modes require neither a mixed engine nor a shared
+  cursor. Inventory remains 999 occurrences: 450 verified, 504 open, and 45 N/A. Receipts:
+  `/private/tmp/ple-library-search-backend-evidence-receipt-20260916.md` and
+  `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
+
 - Clarified the native response terminology: a response action saves or changes that response
   (`Save response`, `Restore initial response`), while Assessment submission is the whole-Attempt
   action. This is terminology-only; no code, Human Guidance, or runtime behavior changed. Receipt:

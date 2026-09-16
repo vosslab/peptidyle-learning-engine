@@ -1,8 +1,11 @@
 // library_page_model.ts - bounded, transport-validated Question Library browse state.
 
 import { normalizeQuestionIdSyntax } from "../question_id";
-import { EMPTY_LIBRARY_CLASSIFICATION_FILTER, libraryClassificationFilter,
-  type LibraryClassificationFilter } from "../api/library_classification_filter";
+import {
+  EMPTY_LIBRARY_CLASSIFICATION_FILTER,
+  libraryClassificationFilter,
+  type LibraryClassificationFilter,
+} from "../api/library_classification_filter";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";

@@ -1,6 +1,9 @@
 //! Global identity validation and classification predicates for Library search.
-use super::*;
-use question_model::PublishedQuestionSharedMetadata;
+use axum::{http::StatusCode, response::Response};
+use learning_data_access::{ContentClassificationStore, SessionTokenHash};
+use question_model::{PublishedQuestionSharedMetadata, QuestionSearchRequest};
+
+use super::{route_error, store_error_response};
 
 /// ASVS 2.2.1/2.2.2/2.2.3: validate real global identities and their
 /// associations after authentication, including the selected cross-mode parent.
@@ -88,6 +91,7 @@ pub(super) fn matches(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use learning_data_access::StoreError;
     use uuid::Uuid;
 
     struct Vocabulary {

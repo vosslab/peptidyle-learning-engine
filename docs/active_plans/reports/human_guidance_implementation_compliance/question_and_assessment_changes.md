@@ -11,6 +11,22 @@ UI denied-create draft preservation, picker reselection, and successful creation
 were empty. Current Revision 1 is proved; no historical Pool HTTP endpoint or journey is claimed.
 Accepted actual-role SQL/concurrency and independently reviewed source remain complementary proof.
 
+The shared Library classification model plus Question and Pool backend slices are implemented
+source with bounded evidence, not connected acceptance. The optional UUID hierarchy tuple and
+cross-Discipline Subject flag preserve strict chain/cursor contracts. Question matching uses
+current lineage classification; Pool matching uses Pool-owned lineage metadata before ordering,
+`LIMIT`, lookahead, and continuation. Root `cargo tsgen` generated 370 types; five model tests
+passed in session 44587, and `cargo check -p server_core -p project-tools --tests` passed in 10.48
+seconds before 13 Question and two Pool Rust tests passed in session 75888. A fresh network-none
+PostgreSQL 17 proof as `ple_migrator` passed actual-role rollback cases, including cross-only
+matching, member independence, unchanged pins, and role denial; its labelled disposable container
+was removed. The subsequent production-import style cleanup found an omitted test-only import and
+is being rerun, so no later style-gate pass is claimed. No HTTP, UI, deployed, or connected
+acceptance follows, and no checklist row closes. Library remains name-only in the connected
+product pending current-source connected acceptance; distinct Question and Pool result modes need
+no mixed engine or shared cursor. Inventory remains 996 occurrences: 450 verified, 503 open, and
+43 N/A. Receipt: `/private/tmp/ple-library-search-backend-evidence-receipt-20260916.md`.
+
 Root's no-workaround script `/private/tmp/ple-course-classification-no-workaround-20260916.mjs`
 (session 85118, exit 0) uses normal Elena login and ordinary Course/Blueprint creation/editors:
 saved Biology hydrates without reselection, Tags-only saves pass, both unsaved Blueprint names

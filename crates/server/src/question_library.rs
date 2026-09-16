@@ -23,8 +23,7 @@ use axum::{
 };
 use axum_extra::extract::Query;
 use learning_data_access::{
-    ContentClassificationStore, PublishedQuestionLibraryEntry, QuestionLibraryStore,
-    SessionTokenHash, StoreError,
+    PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash, StoreError,
     postgres::{PostgresContentClassificationStore, PostgresQuestionLibraryStore},
 };
 use objects::{ResolvedQuestionSource, s3::S3ObjectStore};

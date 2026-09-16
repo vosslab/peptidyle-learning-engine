@@ -28,6 +28,35 @@
   - Mismatch: No repository evidence can verify this whole-product qualitative outcome.
 - [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
+- [ ] Buttons should look intentionally designed rather than like native browser controls.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+
+### Rounded rectangles preference
+
+- [ ] Rounded rectangles are preferred for all interface objects, especially buttons, input fields, cards, avatars, tags, and interactive controls.
+  - Verification pending: This binding design requirement needs a broad source and rendered audit of the named interface-object surfaces; no scoped evidence establishes it across PLE.
+- N/A Rounded corners generally feel softer, friendlier, and more contemporary.
+  - Reason: supporting descriptive rationale, not independently closable; it remains binding design context for the rounded-object requirement.
+- N/A Rounding also helps users visually distinguish discrete objects from the surrounding page.
+  - Reason: supporting descriptive rationale, not independently closable; it remains binding design context for the rounded-object requirement.
+- [ ] Use corner radius to reinforce interface hierarchy.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Interactive and self-contained objects should generally be more rounded than structural containers.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Use moderate rounding for buttons, input fields, answer choices, dialogs, and similar interactive controls.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Use subtle rounding for cards, tables, panels, and other content containers.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Keep large page regions, navigation bars, breadcrumbs, and other structural layout elements square or nearly square.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Pills and fully rounded shapes should be reserved for compact objects such as tags, badges, timers, and avatars.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Apply corner radii consistently to objects that serve the same purpose.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Use the application's typography, spacing, corner radius, borders, and interaction states consistently.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
+- [ ] Primary, secondary, and low-emphasis actions should be visually distinct.
+  - Verification pending: This binding design requirement needs broad source and rendered verification across its named interface surfaces; no scoped evidence establishes it across PLE.
 
 ### Information density and layout
 

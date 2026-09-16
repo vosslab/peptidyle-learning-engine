@@ -46,6 +46,25 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- Question Library classification has accepted isolated actual-component/router/fake-client evidence
+  for Question-only identity filters, progressive selector cascades, explicit cross-Discipline
+  Subject selection, preserved text/Tags/detail return, stale-selector recovery, keyboard controls,
+  and 390px overflow. A separate accepted recovery keeps malformed classification URLs local, sends
+  no request until explicit clear, and preserves unrelated text, Tags, return token, path, and hash.
+  Pool discovery has accepted isolated actual `LibraryPage` fixture-browser proof at desktop and
+  mobile widths. No result is connected HTTP, deployed, authenticated-shell, or whole-Library
+  acceptance; Pool text/Tags filtering remains
+  unavailable, and no mixed Question/Pool ranking or shared cursor is required. Receipt:
+  `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
+
+- Public Blueprint Search return state has accepted isolated actual-component/router/fake-client
+  evidence. Its single-use, session-bound document snapshot replays applied text, Promoted, and
+  classification filters through fresh cursors before restoring activated-link focus and clamped
+  scroll, while retaining separate unsent controls. The reachable pending-continuation navigation
+  defect was corrected and independently accepted. This does not add sorting, Tags, richer result
+  metadata, live `8147`, connected HTTP/authorization, or a checklist closure. Receipt:
+  `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
+
 - Public Blueprint classification search is implemented locally without a checklist closure.
   `PublicBlueprintSearchPage` now submits ordinary text, Promoted, and optional shared
   Discipline -> Subject -> Topic -> Subtopic identities as one applied snapshot; its optional
@@ -54,9 +73,10 @@ The authoritative exhaustive record is the
   session 56442, strict TypeScript plus 21 Node tests session 19414, full pytest session 39220
   (7,462 passed), and fresh PostgreSQL 17 actual-role rollback proof passed. The reviewed
   actual-component proof uses a fake read-only client, so live `8147` still provides no connected
-  current-source HTTP/browser or real vocabulary-parent/authorization acceptance. This is only
-  Blueprint search: Question Library remains name-based; Tags, sorting, result metadata, and
-  route-return restoration are not part of the slice. Receipt:
+  current-source HTTP/browser or real vocabulary-parent/authorization acceptance. This entry is
+  only the Blueprint classification slice; later separate Question Library classification and
+  Blueprint return-state evidence does not broaden it. Tags, sorting, and richer result metadata
+  remain outside this slice. Receipt:
   `/private/tmp/ple-classification-search-pool-receipt-20260916.md`.
 
 - Question Pool review metadata controls now fill their review fieldset while retaining visible

@@ -37,16 +37,21 @@ export function libraryClassificationFilter(
   };
   for (const field of LIBRARY_CLASSIFICATION_UUID_FIELDS) {
     const uuid = result[field];
-    if (uuid !== null && (typeof uuid !== "string" ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid))) {
+    if (
+      uuid !== null &&
+      (typeof uuid !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uuid))
+    ) {
       throw new Error(`Library ${field} must be a UUID`);
     }
   }
-  if (typeof result.cross_discipline !== "boolean" ||
+  if (
+    typeof result.cross_discipline !== "boolean" ||
     (result.subject_uuid !== null && result.discipline_uuid === null) ||
     (result.topic_uuid !== null && result.subject_uuid === null) ||
     (result.subtopic_uuid !== null && result.topic_uuid === null) ||
-    (result.cross_discipline && (result.discipline_uuid === null || result.subject_uuid === null))) {
+    (result.cross_discipline && (result.discipline_uuid === null || result.subject_uuid === null))
+  ) {
     throw new Error("Library classification requires its selected parents");
   }
   return result;

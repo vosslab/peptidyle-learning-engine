@@ -13,7 +13,8 @@ use axum_extra::extract::Query;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use learning_data_access::{
     ContentClassificationStore, Cursor, PageRequest, PageSize, QuestionLibraryStore,
-    QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore, SessionTokenHash, StoreError,
+    QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore, QuestionPoolTextField,
+    QuestionPoolTextFilter, QuestionPoolTextTerm, SessionTokenHash, StoreError,
     postgres::{
         PostgresContentClassificationStore, PostgresQuestionLibraryStore,
         PostgresQuestionPoolLibraryStore, PostgresSessionStore,
@@ -26,6 +27,7 @@ use question_model::{
     QuestionPoolRevisionMemberView, QuestionPoolRevisionView,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::{
     auth::{AuthError, resolve_session},
@@ -75,6 +77,10 @@ pub fn question_pool_library_router(
 #[serde(deny_unknown_fields)]
 struct ListQuery {
     #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    tags: Vec<String>,
+    #[serde(default)]
     cursor: Option<String>,
     #[serde(default)]
     page_size: Option<u16>,
@@ -103,11 +109,7 @@ struct PoolCursor {
     version: u8,
     after: String,
     page_size: u16,
-    discipline_uuid: Option<uuid::Uuid>,
-    subject_uuid: Option<uuid::Uuid>,
-    topic_uuid: Option<uuid::Uuid>,
-    subtopic_uuid: Option<uuid::Uuid>,
-    cross_discipline: bool,
+    filter_hash: [u8; 32],
 }
 
 async fn list_pools(
@@ -139,11 +141,17 @@ async fn list_pools(
         Ok(false) => return bad_request("Question Pool classification is invalid"),
         Err(error) => return store_error(error),
     }
+    let text_filter = match normalize_text_filter(query.text, query.tags) {
+        Ok(value) => value,
+        Err(message) => return bad_request(message),
+    };
     let after = match query.cursor {
-        Some(value) => match decode_cursor(&state.issuer, &value, page_size.get(), filter) {
-            Some(value) => Some(value),
-            None => return bad_request("Question Pool continuation is invalid"),
-        },
+        Some(value) => {
+            match decode_cursor(&state.issuer, &value, page_size.get(), filter, &text_filter) {
+                Some(value) => Some(value),
+                None => return bad_request("Question Pool continuation is invalid"),
+            }
+        }
         None => None,
     };
     let page = match state
@@ -155,6 +163,7 @@ async fn list_pools(
                 size: page_size,
             },
             filter,
+            text_filter.clone(),
         )
         .await
     {
@@ -169,7 +178,7 @@ async fn list_pools(
         return unavailable();
     }
     let next_cursor = match page.next_cursor {
-        Some(value) => match encode_cursor(value.as_str(), page_size.get(), filter) {
+        Some(value) => match encode_cursor(value.as_str(), page_size.get(), filter, &text_filter) {
             Some(value) => Some(value),
             None => return unavailable(),
         },
@@ -370,16 +379,13 @@ fn encode_cursor(
     after: &str,
     page_size: u16,
     filter: QuestionPoolDiscoveryFilter,
+    text: &QuestionPoolTextFilter,
 ) -> Option<String> {
     serde_json::to_vec(&PoolCursor {
-        version: 2,
+        version: 3,
         after: after.to_owned(),
         page_size,
-        discipline_uuid: filter.discipline_uuid,
-        subject_uuid: filter.subject_uuid,
-        topic_uuid: filter.topic_uuid,
-        subtopic_uuid: filter.subtopic_uuid,
-        cross_discipline: filter.cross_discipline,
+        filter_hash: filter_hash(filter, text)?,
     })
     .ok()
     .map(|bytes| URL_SAFE_NO_PAD.encode(bytes))
@@ -390,19 +396,17 @@ fn decode_cursor(
     value: &str,
     page_size: u16,
     filter: QuestionPoolDiscoveryFilter,
+    text: &QuestionPoolTextFilter,
 ) -> Option<Cursor> {
+    // ASVS 1.5.2: bounded JSON into an explicit deny-unknown-fields cursor type.
     if value.len() > MAX_CURSOR_BYTES {
         return None;
     }
     let decoded = URL_SAFE_NO_PAD.decode(value).ok()?;
     let cursor: PoolCursor = serde_json::from_slice(&decoded).ok()?;
-    if cursor.version != 2
+    if cursor.version != 3
         || cursor.page_size != page_size
-        || cursor.discipline_uuid != filter.discipline_uuid
-        || cursor.subject_uuid != filter.subject_uuid
-        || cursor.topic_uuid != filter.topic_uuid
-        || cursor.subtopic_uuid != filter.subtopic_uuid
-        || cursor.cross_discipline != filter.cross_discipline
+        || cursor.filter_hash != filter_hash(filter, text)?
     {
         return None;
     }
@@ -411,6 +415,65 @@ fn decode_cursor(
         return None;
     }
     Cursor::parse(id.to_string()).ok()
+}
+
+fn filter_hash(
+    filter: QuestionPoolDiscoveryFilter,
+    text: &QuestionPoolTextFilter,
+) -> Option<[u8; 32]> {
+    Some(Sha256::digest(serde_json::to_vec(&(filter, text)).ok()?).into())
+}
+
+fn normalize_text_filter(
+    text: Option<String>,
+    tags: Vec<String>,
+) -> Result<QuestionPoolTextFilter, &'static str> {
+    use crate::library_search_terms::{SearchField, parse_terms};
+    use question_model::normalized_question_search_group_value as normalize;
+    // ASVS 2.2.1, 2.2.2: mirror the Question search positive input bounds.
+    if tags.len() > question_model::MAX_QUESTION_SEARCH_TAG_FILTERS {
+        return Err("Question Pool Tags filter is invalid");
+    }
+    let normalized = text.as_deref().map(normalize).unwrap_or_default();
+    if normalized.chars().count() > 256 {
+        return Err("Question Pool text query is too long");
+    }
+    let mut normalized_tags = Vec::with_capacity(tags.len());
+    for tag in tags {
+        let tag = normalize(&tag);
+        if tag.is_empty() || tag.chars().count() > 256 {
+            return Err("Question Pool Tags filter is invalid");
+        }
+        normalized_tags.push(tag);
+    }
+    normalized_tags.sort();
+    normalized_tags.dedup();
+    let terms = parse_terms(&normalized)
+        .into_iter()
+        .map(|term| {
+            let field = match term.field {
+                None => QuestionPoolTextField::Any,
+                Some(SearchField::Discipline) => QuestionPoolTextField::Discipline,
+                Some(SearchField::Subject) => QuestionPoolTextField::Subject,
+                Some(SearchField::Topic) => QuestionPoolTextField::Topic,
+                Some(SearchField::Subtopic) => QuestionPoolTextField::Subtopic,
+                Some(SearchField::Tags) => QuestionPoolTextField::Tags,
+                Some(SearchField::QuestionType | SearchField::Author) => {
+                    return Err("Question Type and author text fields are unavailable for Pools");
+                }
+            };
+            Ok(QuestionPoolTextTerm {
+                field,
+                value: term.value,
+                excluded: term.excluded,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(QuestionPoolTextFilter {
+        text: (!normalized.is_empty()).then_some(normalized),
+        terms,
+        tags: normalized_tags,
+    })
 }
 
 async fn instructor(
@@ -464,18 +527,100 @@ mod tests {
     use crate::question_publication::{QuestionIdIssuer, QuestionIdSecret};
 
     #[test]
+    fn pool_text_and_tags_keep_shared_grammar_and_normalized_meaning() {
+        let filter = normalize_text_filter(
+            Some("  Mendelian  topic:\"Chromosomal Inheritance\" -tags:Practice ".into()),
+            vec![" Review  Set ".into(), "review set".into(), "EXAM".into()],
+        )
+        .expect("bounded shared grammar");
+        assert_eq!(filter.tags, ["exam", "review set"]);
+        assert_eq!(
+            filter.terms,
+            vec![
+                QuestionPoolTextTerm {
+                    field: QuestionPoolTextField::Any,
+                    value: "mendelian".into(),
+                    excluded: false
+                },
+                QuestionPoolTextTerm {
+                    field: QuestionPoolTextField::Topic,
+                    value: "chromosomal inheritance".into(),
+                    excluded: false
+                },
+                QuestionPoolTextTerm {
+                    field: QuestionPoolTextField::Tags,
+                    value: "practice".into(),
+                    excluded: true
+                },
+            ]
+        );
+        assert_eq!(
+            normalize_text_filter(Some(" \t ".into()), vec![]).expect("blank text"),
+            QuestionPoolTextFilter::default()
+        );
+        for text in ["type:numeric", "-author:someone", "author:\"Named Author\""] {
+            assert!(normalize_text_filter(Some(text.into()), vec![]).is_err());
+        }
+        assert!(normalize_text_filter(Some("x".repeat(257)), vec![]).is_err());
+        assert!(normalize_text_filter(None, vec![" ".into()]).is_err());
+        assert!(normalize_text_filter(None, vec!["x".into(); 65]).is_err());
+    }
+
+    #[test]
+    fn continuation_binds_normalized_text_and_tags() {
+        let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
+        let id = issuer.issue_question_id().expect("Pool ID");
+        let identities = QuestionPoolDiscoveryFilter::default();
+        let filter =
+            normalize_text_filter(Some(" REVIEW ".into()), vec![" Exam ".into()]).expect("filter");
+        let encoded = encode_cursor(&id.to_string(), 25, identities, &filter).expect("cursor");
+        let same = normalize_text_filter(Some("review".into()), vec!["exam".into(), "EXAM".into()])
+            .expect("same meaning");
+        assert!(decode_cursor(&issuer, &encoded, 25, identities, &same).is_some());
+        for changed in [
+            normalize_text_filter(Some("practice".into()), vec!["exam".into()])
+                .expect("text change"),
+            normalize_text_filter(Some("review".into()), vec!["practice".into()])
+                .expect("tag change"),
+        ] {
+            assert!(decode_cursor(&issuer, &encoded, 25, identities, &changed).is_none());
+        }
+    }
+
+    #[test]
     fn continuation_is_opaque_query_bound_and_hmac_validated() {
         let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
         let id = issuer.issue_question_id().expect("Pool ID");
         let filter = QuestionPoolDiscoveryFilter::default();
-        let encoded = encode_cursor(&id.to_string(), 25, filter).expect("cursor encodes");
+        let encoded = encode_cursor(
+            &id.to_string(),
+            25,
+            filter,
+            &QuestionPoolTextFilter::default(),
+        )
+        .expect("cursor encodes");
         assert_eq!(
-            decode_cursor(&issuer, &encoded, 25, filter)
-                .expect("matching query cursor")
-                .as_str(),
+            decode_cursor(
+                &issuer,
+                &encoded,
+                25,
+                filter,
+                &QuestionPoolTextFilter::default()
+            )
+            .expect("matching query cursor")
+            .as_str(),
             id.to_string()
         );
-        assert!(decode_cursor(&issuer, &encoded, 50, filter).is_none());
+        assert!(
+            decode_cursor(
+                &issuer,
+                &encoded,
+                50,
+                filter,
+                &QuestionPoolTextFilter::default()
+            )
+            .is_none()
+        );
 
         let wrong = QuestionId::from_canonical_parts(
             id.identifier_compact(),
@@ -486,8 +631,23 @@ mod tests {
             },
         )
         .expect("syntax-valid alternate HMAC character");
-        let forged = encode_cursor(&wrong.to_string(), 25, filter).expect("forged cursor encodes");
-        assert!(decode_cursor(&issuer, &forged, 25, filter).is_none());
+        let forged = encode_cursor(
+            &wrong.to_string(),
+            25,
+            filter,
+            &QuestionPoolTextFilter::default(),
+        )
+        .expect("forged cursor encodes");
+        assert!(
+            decode_cursor(
+                &issuer,
+                &forged,
+                25,
+                filter,
+                &QuestionPoolTextFilter::default()
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -501,8 +661,23 @@ mod tests {
             subtopic_uuid: Some(uuid::Uuid::from_u128(4)),
             cross_discipline: true,
         };
-        let encoded = encode_cursor(&id.to_string(), 25, filter).expect("cursor encodes");
-        assert!(decode_cursor(&issuer, &encoded, 25, filter).is_some());
+        let encoded = encode_cursor(
+            &id.to_string(),
+            25,
+            filter,
+            &QuestionPoolTextFilter::default(),
+        )
+        .expect("cursor encodes");
+        assert!(
+            decode_cursor(
+                &issuer,
+                &encoded,
+                25,
+                filter,
+                &QuestionPoolTextFilter::default()
+            )
+            .is_some()
+        );
         for changed in [
             QuestionPoolDiscoveryFilter {
                 discipline_uuid: Some(uuid::Uuid::from_u128(5)),
@@ -525,7 +700,16 @@ mod tests {
                 ..filter
             },
         ] {
-            assert!(decode_cursor(&issuer, &encoded, 25, changed).is_none());
+            assert!(
+                decode_cursor(
+                    &issuer,
+                    &encoded,
+                    25,
+                    changed,
+                    &QuestionPoolTextFilter::default()
+                )
+                .is_none()
+            );
         }
         let old = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&serde_json::json!({
@@ -533,6 +717,15 @@ mod tests {
             }))
             .expect("old cursor JSON"),
         );
-        assert!(decode_cursor(&issuer, &old, 25, QuestionPoolDiscoveryFilter::default()).is_none());
+        assert!(
+            decode_cursor(
+                &issuer,
+                &old,
+                25,
+                QuestionPoolDiscoveryFilter::default(),
+                &QuestionPoolTextFilter::default()
+            )
+            .is_none()
+        );
     }
 }

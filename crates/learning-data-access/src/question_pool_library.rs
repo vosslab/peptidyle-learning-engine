@@ -9,18 +9,47 @@ use question_model::{
     AssessmentEntryId, QuestionPoolLibrarySummary, QuestionPoolMetadata,
     QuestionPoolRevisionReference, QuestionRevisionReference,
 };
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::{Page, PageRequest, SessionTokenHash, StoreError};
 
 /// Identity predicates against current Pool-owned lineage metadata.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 pub struct QuestionPoolDiscoveryFilter {
     pub discipline_uuid: Option<Uuid>,
     pub subject_uuid: Option<Uuid>,
     pub topic_uuid: Option<Uuid>,
     pub subtopic_uuid: Option<Uuid>,
     pub cross_discipline: bool,
+}
+
+/// Pool-owned substring predicates, parsed once by the shared Library grammar.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct QuestionPoolTextTerm {
+    pub field: QuestionPoolTextField,
+    pub value: String,
+    pub excluded: bool,
+}
+
+/// Closed SQL field vocabulary; no member Question fields are representable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuestionPoolTextField {
+    Any,
+    Discipline,
+    Subject,
+    Topic,
+    Subtopic,
+    Tags,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct QuestionPoolTextFilter {
+    pub text: Option<String>,
+    pub terms: Vec<QuestionPoolTextTerm>,
+    /// Any exact normalized tag may match; combined with all text and identities.
+    pub tags: Vec<String>,
 }
 
 impl QuestionPoolDiscoveryFilter {
@@ -63,6 +92,7 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         page: PageRequest,
         filter: QuestionPoolDiscoveryFilter,
+        text: QuestionPoolTextFilter,
     ) -> Result<Page<QuestionPoolLibrarySummary>, StoreError>;
 
     /// Resolves the current Revision of one published Pool lineage.

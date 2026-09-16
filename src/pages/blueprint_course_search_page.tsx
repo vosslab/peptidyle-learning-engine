@@ -161,7 +161,6 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
       event.shiftKey ||
       event.altKey ||
       loading() ||
-      loadingMore() ||
       pages === 0
     )
       return;

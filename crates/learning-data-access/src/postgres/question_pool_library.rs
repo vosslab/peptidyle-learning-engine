@@ -13,7 +13,8 @@ use sqlx::{Postgres, Row, Transaction};
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     AssessmentQuestionPoolForkRecord, Cursor, Page, PageRequest, PublishedQuestionPoolRevision,
-    QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore, SessionTokenHash, StoreError,
+    QuestionPoolDiscoveryFilter, QuestionPoolLibraryStore, QuestionPoolTextFilter,
+    SessionTokenHash, StoreError,
 };
 
 #[derive(Clone)]
@@ -60,6 +61,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         session_token_hash: SessionTokenHash,
         page: PageRequest,
         filter: QuestionPoolDiscoveryFilter,
+        text: QuestionPoolTextFilter,
     ) -> Result<Page<QuestionPoolLibrarySummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         if !filter.has_valid_structure() {
@@ -69,7 +71,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         }
         // ASVS 1.2.4: identity predicates remain typed SQL bind parameters.
         let rows = sqlx::query(
-            "SELECT * FROM ple_api.list_published_question_pools($1, $2, $3, $4, $5, $6, $7)",
+            "SELECT * FROM ple_api.list_published_question_pools($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         )
         .bind(page.after.as_ref().map(Cursor::as_str))
         .bind(i32::from(page.size.get()))
@@ -78,6 +80,8 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         .bind(filter.topic_uuid)
         .bind(filter.subtopic_uuid)
         .bind(filter.cross_discipline)
+        .bind(serde_json::to_value(&text.terms).map_err(|_| invalid("Pool text terms"))?)
+        .bind(text.tags)
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { EMPTY_QUESTION_LIBRARY_BROWSE_QUERY } from "../src/pages/library_page_model.ts";
 
 import {
   MAX_QUESTION_PICKER_SELECTION_CAP,
@@ -164,6 +165,7 @@ test("pagination failure retains loaded rows while external selection remains us
 
 function emptyQuery() {
   return {
+    ...EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
     search: "",
     authorName: null,
     backend: null,

@@ -224,6 +224,7 @@ pub use question_pool_creation::{
 pub use question_pool_library::{
     AssessmentQuestionPoolForkRecord, PublishedQuestionPoolRevision, QuestionPoolDiscoveryFilter,
     QuestionPoolLibraryStore,
+    QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
 };
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,

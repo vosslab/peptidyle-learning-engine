@@ -79,6 +79,7 @@ mod question_library;
 mod question_pool_creation;
 /// Published Pool Library browse/current detail and owned fork detail routes.
 mod question_pool_library;
+mod library_search_terms;
 /// Server-only verified Question Publication coordination.
 pub mod question_publication;
 /// Vetted-Instructor Question Star state and aggregate endorsement routes.

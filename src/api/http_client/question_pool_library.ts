@@ -7,7 +7,16 @@ import {
   decodeQuestionPoolLibraryPage,
   decodeQuestionPoolRevisionView,
 } from "../decoders/question_pool_library";
-import type { QuestionPoolLibraryClient, QuestionPoolLibraryPage } from "../question_pool_library";
+import type {
+  QuestionPoolLibraryClient,
+  QuestionPoolLibraryPage,
+  QuestionPoolLibraryFilter,
+} from "../question_pool_library";
+import { questionPoolLibraryFilter } from "../question_pool_library_filter";
+import {
+  appendLibraryClassificationParameters,
+  EMPTY_LIBRARY_CLASSIFICATION_FILTER,
+} from "../library_classification_filter";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import {
   browserFetch,
@@ -30,12 +39,21 @@ function canonicalQuestionPoolId(value: QuestionId): QuestionId {
   return canonical;
 }
 
-function questionPoolPagePath(cursor: string | undefined, pageSize: number): string {
+function questionPoolPagePath(
+  cursor: string | undefined,
+  pageSize: number,
+  value: QuestionPoolLibraryFilter,
+): string {
   if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_PAGE_SIZE) {
     throw new ApiProtocolError("Question Pool page size must be an integer from 1 through 100");
   }
   const query = new URLSearchParams({ page_size: String(pageSize) });
+  const filter = questionPoolLibraryFilter(value);
   if (cursor !== undefined) query.set("cursor", cursor);
+  // ASVS 1.2.2/2.2.1: encode only validated, allowlisted classification identities.
+  appendLibraryClassificationParameters(query, filter);
+  if (filter.text) query.set("text", filter.text);
+  for (const tag of filter.tags ?? []) query.append("tags", tag);
   return `/api/question-pools?${query.toString()}`;
 }
 
@@ -61,11 +79,12 @@ export function createQuestionPoolLibraryClient(
     listQuestionPools: async (
       cursor,
       pageSize = DEFAULT_PAGE_SIZE,
+      filter = EMPTY_LIBRARY_CLASSIFICATION_FILTER,
     ): Promise<QuestionPoolLibraryPage> => {
       const page = await readJson(
         fetchImplementation,
         basePath,
-        questionPoolPagePath(cursor, pageSize),
+        questionPoolPagePath(cursor, pageSize, filter),
         decodeQuestionPoolLibraryPage,
       );
       if (page.items.length > pageSize) {

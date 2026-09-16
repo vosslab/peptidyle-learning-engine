@@ -32,9 +32,9 @@ PostgreSQL 17 bootstrap/install and an isolated actual-role proof also passed wi
 actual-component selector proof covers progressive hierarchy, keyboard input, cascades, applied
 retry/pagination state, Clear, stale suppression, and 390px overflow only. Live `8147` predates
 this source, so connected HTTP/browser, actual vocabulary-parent, and authorization acceptance
-remain pending. This does not close the broad Blueprint search rows, alter the 450/503/43
-inventory, or extend to Question Library search, which remains name-based. Tags, sorting, result
-metadata, and return-state work remain separate. Receipt:
+remain pending. This does not close the broad Blueprint search rows or alter the 450/503/43
+inventory. Separate later Question Library classification and Blueprint return-state receipts have
+their own bounded isolated evidence; Tags, sorting, and richer result metadata remain open. Receipt:
 `/private/tmp/ple-classification-search-pool-receipt-20260916.md`.
 
 Root's canonical build session 51649 terminally exited 0 and reached `Ready` at
@@ -46,6 +46,35 @@ UI denied-create draft preservation, picker reselection, and successful creation
 were empty. Current Revision 1 is proved; no historical Pool HTTP endpoint or journey is claimed.
 Accepted actual-role SQL/concurrency and independently reviewed source remain complementary proof.
 
+The shared Library classification model plus Question and Pool backend slices are implemented
+source with bounded evidence, not connected acceptance. The optional UUID hierarchy tuple and
+cross-Discipline Subject flag preserve their strict chain/cursor contracts; Question matching uses
+current lineage classification, while Pool matching uses Pool-owned lineage metadata before
+ordering, `LIMIT`, lookahead, and continuation. Root `cargo tsgen` generated 370 types; five
+model tests passed in session 44587, and `cargo check -p server_core -p project-tools --tests`
+passed in 10.48 seconds before 13 Question and two Pool Rust tests passed in session 75888. A
+fresh network-none PostgreSQL 17 installation ran as `ple_migrator`; its subsequent isolated proof
+used product calls as `ple_auth` and `ple_app` for cross-only matching, member independence,
+unchanged pins, and role denial. Its exact labelled disposable container was removed. Root
+`cargo check -p server_core -p project-tools
+--tests` later passed in 3.87 seconds with no warnings; five model, 13 Question Rust, two Pool
+Rust, 24 focused Node, and strict TypeScript gates passed. Pytest session 48126 passed 7,532 tests
+in 5.58 seconds after initial-Search hierarchy recovery and Pool wiring. Question classification and malformed-
+URL recovery have accepted isolated actual-component/router/fake-client proof; Pool discovery has
+accepted isolated actual `LibraryPage` fixture-browser proof. No HTTP, deployed, or connected
+acceptance follows, and no checklist row closes. Library remains name-only in the connected product pending
+current-source acceptance; Pool text/Tags filtering is unavailable, and distinct Question/Pool modes
+need no mixed engine or shared cursor. Inventory remains 999 occurrences: 450 verified, 504 open,
+and 45 N/A. Receipt: `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
+
+Public Blueprint Search return state has accepted isolated actual-component/router/fake-client
+evidence. A same-document, single-use, session-bound snapshot preserves the applied text, Promoted,
+and classification tuple, successful-page count, activated link focus, and clamped scroll after
+fresh replay; unsent controls remain separate. The continuation-navigation blocker was corrected
+and independently re-reviewed. This does not establish sorting, Tags, richer result metadata,
+connected HTTP/authorization, deployed behavior, or a broad Human Guidance closure. Receipt:
+`/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
+
 Root's no-workaround script `/private/tmp/ple-course-classification-no-workaround-20260916.mjs`
 (session 85118, exit 0) uses normal Elena login and ordinary Course/Blueprint creation/editors:
 saved Biology hydrates without reselection, Tags-only saves pass, both unsaved Blueprint names
@@ -55,8 +84,8 @@ represented as a newly rerun journey.
 
 Nine narrow owning rows now close: four independent Pool metadata/Title/Description/first-member/
 nonduplicated-metadata obligations and five Course-wide/exactly-one-Discipline/optional-hierarchy/
-Tags/Instance-independence obligations. Current generated inventory has 996 occurrences: 450
-verified, 503 open, and 43 N/A. The excluded How-to-use and Product vocabulary/glossary metadata
+Tags/Instance-independence obligations. Current generated inventory has 999 occurrences: 450
+verified, 504 open, and 45 N/A. The excluded How-to-use and Product vocabulary/glossary metadata
 subtrees remain Human Guidance interpretation authority, not implementation-checklist items. Broad
 shared classification, discovery, additional-member connected append, attribution, support-content,
 Bloom, and Student delivery obligations remain open. No blanket Pool/Course closure.
@@ -77,7 +106,7 @@ temporary review-density harness was moved out of `tests/`, root's full
 `source source_me.sh && python3 -m pytest tests/ -q` session 60790 terminally exited 0 with
 7,462 passed in 5.42 seconds. The current Bloom guide was also corrected to match Human Guidance:
 AI assigns both dimensions before a Question or Pool Revision enters the Library, and a Pool is
-classified as a whole. This preserves the current 450 verified, 503 open, and 43 N/A inventory;
+classified as a whole. This preserves the current 450 verified, 504 open, and 45 N/A inventory;
 it does not establish deployed demo `8147`, connected Student proof, or global Human Guidance
 closure. Receipt: `/private/tmp/ple-parallel-batch-receipt-20260916.md`.
 

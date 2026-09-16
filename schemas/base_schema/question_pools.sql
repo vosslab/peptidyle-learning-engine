@@ -628,7 +628,8 @@ GRANT EXECUTE ON FUNCTION ple_api.resolve_current_published_question_pool(text) 
 CREATE FUNCTION ple_api.list_published_question_pools(
     p_after text, p_page_size integer,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
-    p_subtopic_uuid uuid, p_cross_discipline boolean
+    p_subtopic_uuid uuid, p_cross_discipline boolean,
+    p_terms jsonb, p_tags text[]
 )
 RETURNS TABLE (
     public_question_pool_id text,
@@ -646,6 +647,10 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN ple_data.question_pool_revision AS revision
         ON revision.question_pool_id = pool.question_pool_id
        AND revision.revision_number = pool.current_revision_number
+      LEFT JOIN ple_data.content_discipline AS discipline ON discipline.discipline_uuid = pool.discipline_uuid
+      LEFT JOIN ple_data.content_subject AS subject ON subject.subject_uuid = pool.subject_uuid
+      LEFT JOIN ple_data.content_topic AS topic ON topic.topic_uuid = pool.topic_uuid
+      LEFT JOIN ple_data.content_subtopic AS subtopic ON subtopic.subtopic_uuid = pool.subtopic_uuid
      WHERE ple_api.current_session_account_is_instructor()
        AND p_page_size BETWEEN 1 AND 100
        AND (p_subject_uuid IS NULL OR p_discipline_uuid IS NOT NULL)
@@ -656,6 +661,28 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND (p_subject_uuid IS NULL OR pool.subject_uuid = p_subject_uuid)
        AND (p_topic_uuid IS NULL OR pool.topic_uuid = p_topic_uuid)
        AND (p_subtopic_uuid IS NULL OR pool.subtopic_uuid = p_subtopic_uuid)
+       -- ASVS 1.2.4: static bound predicates; %, _ and SQL syntax are literal data.
+       AND (cardinality(p_tags) = 0 OR EXISTS (
+           SELECT 1 FROM unnest(pool.tags) AS tag(value)
+            WHERE lower(btrim(regexp_replace(tag.value, '[[:space:]]+', ' ', 'g'))) = ANY(p_tags)
+       ))
+       AND NOT EXISTS (
+           SELECT 1 FROM jsonb_to_recordset(p_terms) AS term(field text, value text, excluded boolean)
+            WHERE term.value = '' OR term.field NOT IN ('any', 'discipline', 'subject', 'topic', 'subtopic', 'tags')
+               OR term.excluded IS NULL OR term.value IS NULL OR term.field IS NULL
+               OR (EXISTS (
+                   SELECT 1 FROM (
+                       SELECT pool.title AS value WHERE term.field = 'any'
+                       UNION ALL SELECT pool.description WHERE term.field = 'any'
+                       UNION ALL SELECT discipline.name WHERE term.field IN ('any', 'discipline')
+                       UNION ALL SELECT subject.name WHERE term.field IN ('any', 'subject')
+                       UNION ALL SELECT topic.name WHERE term.field IN ('any', 'topic')
+                       UNION ALL SELECT subtopic.name WHERE term.field IN ('any', 'subtopic')
+                       UNION ALL SELECT tag.value FROM unnest(pool.tags) AS tag(value) WHERE term.field IN ('any', 'tags')
+                   ) AS candidate
+                   WHERE strpos(lower(candidate.value), term.value) > 0
+               ) = term.excluded)
+       )
        AND (p_after IS NULL OR pool.public_question_pool_id > replace(p_after, '-', ''))
        AND (p_after IS NULL OR p_after ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$')
      ORDER BY pool.public_question_pool_id
@@ -724,10 +751,10 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND pool.public_question_pool_id = p_public_question_pool_id
      ORDER BY member.member_position
 $$;
-REVOKE ALL ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean),
+REVOKE ALL ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean, jsonb, text[]),
     ple_api.read_current_published_question_pool(text),
     ple_api.read_published_question_pool_revision(text, bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean),
+GRANT EXECUTE ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean, jsonb, text[]),
     ple_api.read_current_published_question_pool(text),
     ple_api.read_published_question_pool_revision(text, bigint) TO ple_app;
 RESET ROLE;

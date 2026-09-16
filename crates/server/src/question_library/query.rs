@@ -1,5 +1,12 @@
 //! Strict HTTP transport and trusted normalization for Library search.
-use super::*;
+use axum::http::StatusCode;
+use question_model::{
+    Capability, QuestionBackend, QuestionSearchAuthorship, QuestionSearchCourseUse,
+    QuestionSearchRequest,
+};
+use serde::Deserialize;
+
+use super::{DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE};
 
 /// URL form of the current Question Search request.
 ///
