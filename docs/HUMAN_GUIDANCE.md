@@ -297,7 +297,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### User top bar interface
 
-- All signed-in users share the same basic top bar layout.
+- All signed-in users share the same top-left logo/account and top-right profile bar layout.
 - The top bar remains in a consistent location as users navigate.
 - The PLE logo and product name appear at the upper left and link to the user's home dashboard.
 - Each Product Role has its own home dashboard and navigation.
