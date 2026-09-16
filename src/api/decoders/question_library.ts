@@ -346,10 +346,7 @@ function decodeAssessmentActivityRules(
 ): AssessmentActivityRules {
   const record = decodeRecord(value, path);
   if (strict) {
-    requireOnlyFields(record, path, [
-      "questionVariationRule",
-      "assessmentQuestionOrderRule",
-    ]);
+    requireOnlyFields(record, path, ["questionVariationRule", "assessmentQuestionOrderRule"]);
   }
   const decoded = {
     questionVariationRule: decodeStringEnum(
