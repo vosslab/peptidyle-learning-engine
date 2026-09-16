@@ -1200,6 +1200,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Each Assessment Attempt has a time limit.
 - Instructors can set an Assessment Attempt time limit or choose Unlimited.
 - The default time limit is 1.5 minutes per question, rounded up to nearest whole minute.
+- The interface should be listed as a default with a specific Instructor override feature
+- Time limits must support individual students with accommodations, such as 1.5X or 2X time.
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
 - Timed Assessment Attempts use wall-clock time.
 - The server owns the Attempt start and expiration times.
