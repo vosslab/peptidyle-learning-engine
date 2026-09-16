@@ -609,6 +609,27 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
 - Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
 
+### Content classification
+
+- PLE uses one shared content classification system across **Course**, **Assessment**, and **Question** content.
+- Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its primary hierarchy.
+- **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
+- **Subject** identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+- **Topic** identifies a major area within a Subject.
+- **Subtopic** provides a narrower classification within a Topic.
+- Content uses the levels of the hierarchy that meaningfully describe it.
+- **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
+- Content may have any number of Tags, including none.
+- Courses, Assessments, and Questions use the same classification vocabulary rather than separate classification systems.
+- Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
+- **Sysadmins** exclusively manage the Discipline vocabulary and its lifecycle.
+- Discipline is a stable vocabulary expected to change infrequently.
+- **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
+- Sysadmins can edit Subjects.
+- Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
+- Length allowances should generally increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
+- Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the resulting names consistently.
+
 ### Student and FERPA data
 
 - **Student** course data falls under FERPA; treat it as radioactive.
@@ -913,36 +934,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Question Library metadata
 
-- Published Questions and Question Pools use shared metadata for organization, search, filtering,
-  and discovery.
-- Required Question Library metadata must be complete before content enters the Question Library.
-- Library metadata should describe the Published Question or Question Pool rather than its location
-  in a Course or textbook.
-- Library classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic** as its
-  primary hierarchy.
-- Discipline is the broad academic field, such as Biology, Chemistry, or Mathematics.
-- Sysadmins exclusively manage the Discipline vocabulary and its lifecycle.
-- Discipline is a stable vocabulary expected to change infrequently.
-- Instructors classify Library objects by selecting from the Sysadmin-managed Disciplines.
-- Subject identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
-- Sysadmins can edit Subjects.
-- Topic identifies a major area within the Subject.
-- Subtopic provides a narrower classification within the Topic.
-- Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
-- Length allowances should generally increase from Subject to Topic to Subtopic, supporting more
-  specific names as classification becomes narrower.
-- Strip leading and trailing whitespace from Subject, Topic, and Subtopic names and validate the
-  resulting names consistently.
-- Discipline, Subject, Topic, and Subtopic should support consistent classification across the
-  Question Library.
-- Published Questions and Question Pools may also have Tags for useful classifications outside the
-  Discipline, Subject, Topic, and Subtopic hierarchy.
-- Tags are flexible and may overlap across Disciplines, Subjects, and Topics.
-- Library metadata should support searching, filtering, sorting, and bulk editing.
-- Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
-  **Worked Solutions**.
-- Support content may be attached at the level where it applies rather than duplicated across
-  individual Questions.
+- **Library Objects** use shared metadata for organization, search, filtering, and discovery.
+- Required Question Library metadata must be complete before a Library Object enters the Question Library.
+- Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
+- Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag** classification system.
+- Library Object classification belongs to the Library Object rather than to one use of that object in an Assessment.
+- Library classification supports searching, filtering, sorting, and bulk editing.
+- Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
+- Support content may be attached at the level where it applies rather than duplicated across individual Questions.
 
 #### Question Library object statistics
 
@@ -1004,6 +1003,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Adoption** connects a Course Instance to a Blueprint Course.
 - Adoption may occur when the Course Instance is created or later.
 - A Course Instance connected to a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+
+### Course classification specifications
+
+- **Blueprint Courses** and **Course Instances** use the shared content classification system.
+- Course classification describes the Course as a whole.
+- Courses use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
+- Courses may have any number of **Tags**, including none.
+- Course classification supports Course search, filtering, organization, and discovery where applicable.
+- A Course Instance may have classification that differs from its Blueprint Course.
 
 ### Blueprint Course specifications
 
@@ -1196,6 +1204,15 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - All Assessments use the same underlying Assessment model.
 - **Assignment** is not a separate object or category. The word appears only in the names
   **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
+
+### Assessment classification specifications
+
+- **Blueprint Assessments** and **Course Instance Assessments** use the shared content classification system.
+- Assessment classification describes the Assessment as a whole.
+- Assessments use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
+- Assessments may have any number of **Tags**, including none.
+- Assessment classification supports Assessment search, filtering, organization, and discovery where applicable.
+- Assessment classification is independent of the classifications of the Questions and Question Pools it contains.
 
 ### Assessment content specifications
 
