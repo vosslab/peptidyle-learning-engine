@@ -689,11 +689,7 @@ mod tests {
                     "late_work_rule": "accept"
                 },
                 "activityRules": {
-                    "assessmentAttemptGradeRule": "highest",
                     "questionVariationRule": "newVariation",
-                    "assessmentAttemptResumeRule": "resumable",
-                    "assessmentQuestionDisplayRule": "allQuestions",
-                    "assessmentNavigationRule": "freeNavigation",
                     "assessmentQuestionOrderRule": "authoredOrder",
                     "unexpected": true
                 }

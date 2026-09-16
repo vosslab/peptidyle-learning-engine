@@ -18,11 +18,7 @@ export interface AssessmentTemplateDraft {
   readonly timeLimit: string;
   readonly attemptLimit: string;
   readonly lateWorkRule: LateWorkRule;
-  readonly gradeRule: AssessmentTemplateSettings["activityRules"]["assessmentAttemptGradeRule"];
   readonly variationRule: AssessmentTemplateSettings["activityRules"]["questionVariationRule"];
-  readonly resumeRule: AssessmentTemplateSettings["activityRules"]["assessmentAttemptResumeRule"];
-  readonly displayRule: AssessmentTemplateSettings["activityRules"]["assessmentQuestionDisplayRule"];
-  readonly navigationRule: AssessmentTemplateSettings["activityRules"]["assessmentNavigationRule"];
   readonly orderRule: AssessmentTemplateSettings["activityRules"]["assessmentQuestionOrderRule"];
   readonly feedback: StudentFeedbackReleaseRule;
 }
@@ -46,11 +42,7 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
       ? "1"
       : (template.settings.attemptLimit?.toString() ?? ""),
     lateWorkRule: template.settings.lateWorkRule,
-    gradeRule: rules.assessmentAttemptGradeRule,
     variationRule: rules.questionVariationRule,
-    resumeRule: rules.assessmentAttemptResumeRule,
-    displayRule: rules.assessmentQuestionDisplayRule,
-    navigationRule: rules.assessmentNavigationRule,
     orderRule: rules.assessmentQuestionOrderRule,
     feedback: { ...template.settings.studentFeedbackReleaseRule },
   };
@@ -74,11 +66,7 @@ export function assessmentTemplateSettings(
     attemptLimit: attemptLimit.value,
     lateWorkRule: draft.lateWorkRule,
     activityRules: {
-      assessmentAttemptGradeRule: draft.gradeRule,
       questionVariationRule: draft.variationRule,
-      assessmentAttemptResumeRule: draft.resumeRule,
-      assessmentQuestionDisplayRule: draft.displayRule,
-      assessmentNavigationRule: draft.navigationRule,
       assessmentQuestionOrderRule: draft.orderRule,
     },
     studentFeedbackReleaseRule: { ...draft.feedback },

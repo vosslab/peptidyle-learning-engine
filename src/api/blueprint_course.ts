@@ -68,6 +68,8 @@ export interface BlueprintCourseClient {
     cursor?: string,
     pageSize?: number,
     includeArchived?: boolean,
+    query?: string,
+    publicOnly?: boolean,
   ) => Promise<CursorPage<BlueprintCourseSummaryView>>;
   readonly getBlueprintCourse: (
     reference: BlueprintCourseReference,

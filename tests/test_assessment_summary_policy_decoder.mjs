@@ -5,11 +5,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import { decodeAssessmentSummary } from "../src/api/decoders/question_library.ts";
 
 const policies = {
-  assessmentAttemptGradeRule: "highest",
   questionVariationRule: "newVariation",
-  assessmentAttemptResumeRule: "resumable",
-  assessmentQuestionDisplayRule: "oneQuestionAtATime",
-  assessmentNavigationRule: "freeNavigation",
   assessmentQuestionOrderRule: "shuffled",
 };
 

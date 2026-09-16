@@ -42,6 +42,17 @@ mod blueprint_course_postgres_adoption;
 #[path = "blueprint_course_postgres/append.rs"]
 mod blueprint_course_postgres_append;
 
+fn discovery(include_archived: bool) -> learning_data_access::BlueprintCourseListRequest {
+    learning_data_access::BlueprintCourseListRequest {
+        page: learning_data_access::PageRequest::first(
+            learning_data_access::PageSize::new(100).expect("bounded fixture discovery"),
+        ),
+        query: String::new(),
+        include_archived,
+        public_only: false,
+    }
+}
+
 #[tokio::test]
 #[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
 async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe() {
@@ -88,27 +99,30 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(owner_private.availability, BlueprintAvailability::Private);
     assert!(
         owner_store
-            .list_blueprint_courses(token(), false)
+            .list_blueprint_courses(token(), discovery(false))
             .await
             .expect("owner Private Blueprint list")
+            .items
             .iter()
             .any(|summary| summary.reference == blueprint_reference),
         "owner's Private Blueprint remains in normal discovery"
     );
     assert!(
         reader_store
-            .list_blueprint_courses(reader_token(), true)
+            .list_blueprint_courses(reader_token(), discovery(true))
             .await
             .expect("non-owner discovery including Archived")
+            .items
             .iter()
             .all(|summary| summary.reference != blueprint_reference),
         "including Archived never discloses another owner's Private Blueprint"
     );
     assert!(
         reader_store
-            .list_blueprint_courses(reader_token(), false)
+            .list_blueprint_courses(reader_token(), discovery(false))
             .await
             .expect("non-owner Private Blueprint list")
+            .items
             .iter()
             .all(|summary| summary.reference != blueprint_reference),
         "Private Blueprint is absent from non-owner discovery"
@@ -275,18 +289,20 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     assert!(
         reader_store
-            .list_blueprint_courses(reader_token(), false)
+            .list_blueprint_courses(reader_token(), discovery(false))
             .await
             .expect("ordinary Public discovery after archive")
+            .items
             .iter()
             .all(|summary| summary.reference != blueprint_reference),
         "Archived Blueprint leaves ordinary discovery"
     );
     assert!(
         owner_store
-            .list_blueprint_courses(token(), false)
+            .list_blueprint_courses(token(), discovery(false))
             .await
             .expect("owner normal discovery after archive")
+            .items
             .iter()
             .all(|summary| summary.reference != blueprint_reference),
         "even an owner's Archived Blueprint leaves normal discovery"
@@ -294,9 +310,10 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     for session in [token(), reader_token()] {
         assert!(
             reader_store
-                .list_blueprint_courses(session, true)
+                .list_blueprint_courses(session, discovery(true))
                 .await
                 .expect("explicit Archived discovery")
+                .items
                 .iter()
                 .any(|summary| summary.reference == blueprint_reference),
             "Instructors can explicitly include Archived Blueprint history"
@@ -411,10 +428,11 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     inspection.close().await.expect("adoption inspection close");
 
     let reader_list = reader_store
-        .list_blueprint_courses(reader_token(), false)
+        .list_blueprint_courses(reader_token(), discovery(false))
         .await
         .expect("non-owner Instructor Blueprint list");
     let reader_summary = reader_list
+        .items
         .iter()
         .find(|summary| summary.reference == blueprint_reference)
         .expect("Available Blueprint is discoverable by a non-owner Instructor");

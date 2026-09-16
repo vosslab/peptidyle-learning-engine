@@ -67,7 +67,6 @@ test("new Blueprint Assessment working state uses the Assessment delivery defaul
   assert.equal(defaults.assessment_attempt_limit, 1);
   assert.equal(defaults.student_feedback_release_rule.question_answer, "after_submit");
   assert.equal(defaults.student_feedback_release_rule.question_answer_explanation, "after_submit");
-  assert.equal(defaults.activity_rules.assessmentQuestionDisplayRule, "oneQuestionAtATime");
   assert.equal(defaults.activity_rules.assessmentQuestionOrderRule, "shuffled");
 });
 

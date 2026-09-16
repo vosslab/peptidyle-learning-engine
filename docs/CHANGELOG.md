@@ -11,6 +11,93 @@
 
 ### Behavior or Interface Changes
 
+- Closed four exact Assessment scoring rows from accepted current-rescore evidence: retained credit
+  as the grading outcome, current-credit/current-points score calculation, current-point
+  recalculation, and immutable grading outcomes. Independent review accepted private PostgreSQL 17
+  production-SQL lifecycle proof at `/private/tmp/ple-current-rescore-proof/proof.sql`; the artifact
+  `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` exited 0. The fixture retained `0.5`
+  credit, used authorized expected-current `ple_api.save_assessment` to change points from `8` to
+  `13` and advance the edit number, observed `6.5 / 13`, unanswered `0 / 13`, and `6.5 / 26` on
+  three replay/history/Student-landing/Instructor-Gradebook reads, and matched evidence JSON hashes
+  before and after. The no-Backend-interaction row remains open: SQL `already_submitted` has no
+  work fields and the server bypasses ready-path Backend work, but actual HTTP request counts and
+  Backend transport are unobserved. This temporary SQL-only fixture simulates initial synchronous
+  Backend credit, is not a permanent test, and does not establish HTTP, rendering, authentication,
+  or full product acceptance. Part 09 gate, splice, and consistency pass at 828 bullets: 468
+  verified, 317 open (310 owning), and 43 N/A.
+
+- Closed C510's highest-submitted-Attempt score row after removing the stale configurable
+  grade-rule enum, field, SQL columns, and editor choices. Accepted independent PostgreSQL 17
+  lifecycle evidence recorded scores `12`, `4`, `16`, and an in-progress `NULL` fourth Attempt;
+  both Instructor Gradebook and Student landing projected `12 / 16`, `12 / 16`, then `16 / 16`,
+  while latest-Attempt state remained separate. The proof passed at
+  `/private/tmp/ple-highest-score-proof/artifacts.rQxVs8/proof.log`. The fixture permits four
+  Attempts only, so it does not claim unlimited-Attempt eligibility; privileged-fixture and
+  simulated-backend evidence also does not claim HTTP, rendering, or actual backend grading.
+  Focused LDA test compilation used `--features postgres,test-support`, not a default-feature or
+  full Rust gate; a separate `cargo check -p learning-data-access --no-default-features` pass
+  confirms the optional PostgreSQL adapter boundary. Part 09 gate, splice, and consistency pass at
+  828 bullets: 465 verified, 320 open (312 owning), and 43 N/A.
+
+- Closed only the two unanswered-zero Assessment rows from a disposable root-only PostgreSQL 17
+  proof. `/private/tmp/ple-unanswered-connected-proof/run.sh --isolated` ran the non-versioned
+  temporary fixture `/private/tmp/ple-unanswered-connected-proof/proof.sql`, which invoked ordinary
+  `ple_api.prepare_student_assessment_attempt_finalization` and
+  `ple_api.commit_student_assessment_attempt_finalization`, then history and Gradebook readers. It
+  distinguishes unanswered null credit from evaluated zero credit: Full Credit was `0 / 8` versus
+  `8 / 8`, then `0 / 13` versus `13 / 13` after current-point recalculation, with Gradebook
+  `13 / 26`. The disposable fixture is not a permanent test and did not invoke an expiry finalizer,
+  so the expired-Attempt row remains open. The five unrelated source-only scoring rows remain open.
+  The broad highest-Attempt-score row is also open because the reusable editor still offers first,
+  latest, highest, and Instructor-selected grade rules. No HTTP, authentication, renderer,
+  backend-transport, timed-expiry, or full product acceptance is claimed. Part 09 gate, splice,
+  and consistency pass at 828 bullets: 464 verified, 321 open (314 owning), and 43 N/A.
+
+- Reconciled only three accepted Blueprint browser behaviors into the Human Guidance checklist:
+  opening one selected Blueprint Assessment, showing only its Questions, and expanded canonical
+  comparison detail. The compiled-main, actual-loopback-HTTP Properties receipt proves shared
+  drafts, six Student-feedback controls, one ordinary Save, and exact reload, but not the full
+  scoring, attempt, or late-work activity-control scope; that Properties row remains open. The
+  independently accepted expanded-comparison receipt proves DTO-backed titles, instructions, fixed
+  Question IDs, Revisions, and points at desktop and narrow widths. No populated Student Work,
+  login/TLS, full accessibility, or whole-C413 workflow claim is made. Part 04, splice, and
+  consistency are recorded with the updated 828-bullet inventory: 462 verified, 323 open
+  (315 owning), and 43 N/A.
+
+- Reconciled the C47 Public Blueprint search and Part 09 Assessment locator audit into the global
+  Human Guidance checklist. Accepted actual HTTP and compiled-main evidence closes only submitted
+  Public-name search, literal filtering, query-bound paging, empty reset, detail, and adoption
+  preselection; Properties, comparison, Course creation, login/TLS, and full accessibility remain
+  open. Part 09 reopens seven target scoring rows and the adjacent unanswered duplicate because
+  the current `full_credit` path can award points for missing work; the active correction remains
+  open. Part 04 and 09 gates, identity diff, and consistency pass at 828 bullets: 459 verified,
+  326 open (318 owning), and 43 N/A.
+
+- Closed the bounded Blueprint fork, current-pair comparison, and selected Apply checklist rows from
+  accepted source, actual-HTTP, and compiled-main browser evidence. The receipts establish visible
+  sibling/transitive pairs, Question-ID matching across renamed/reordered/split content, fresh local
+  Assessment/Pool identities, explicit target selection, denied stale/authorization/Archived cases,
+  and rollback. The expanded changed-content detail remains open because its available browser
+  capture is collapsed; no populated Student Work, login/TLS, full accessibility, or C413 claim is
+  made. Generator-derived inventory: 466 verified, 321 open (313 owning), and 43 N/A across 828.
+
+- Reconciled the verbatim Human Guidance checklist and audit parts to the current untouched
+  828-bullet snapshot, including the reordered Interface headings and expanded density wording.
+  Added only the four existing-generator manifest headings required to cover those source sections;
+  preserved unchanged evidence and accepted Blueprint closures, with new density rows open.
+  Identity diff and consistency pass; seven part gates pass, while the existing Instructor comparator
+  locator and eight Assessment locators remain unresolved. Recomputed counts are 443 verified,
+  342 open (335 owning), and 43 N/A; earlier inventory counts below are historical.
+
+- Reconciled the Blueprint authoring and lifecycle checklist against current source and accepted
+  runtime evidence without changing Human Guidance. Closed the bounded no-date, three-state,
+  owner-Private visibility, Public-only adoption, lifecycle, Archived/history, recorded-metadata,
+  and older-Revision rows; retained Public Blueprint search, fork creation, comparison/newer,
+  owner Apply, and full Blueprint Assessment Properties/browser acceptance as open. The current
+  820-row inventory is 441 verified, 336 open (330 owning), and 43 N/A. The global checklist splice
+  remains blocked by pre-existing audit-part/global-order drift and an unrelated invalid comparator
+  evidence locator; no unrelated audit repair was made.
+
 - Added a bounded exact-reference/Assessment-owned-Pool contributor receipt without changing Human
   Guidance, its checklist/counts, or any closure. Actual-server and compiled-main receipts at
   `/private/tmp/ple-blueprint-owned-pool-artifacts.nbKrXt` verify exact fixed Question ID/Revision

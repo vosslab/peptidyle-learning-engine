@@ -106,11 +106,7 @@ export function defaults(value: unknown, path: string): unknown {
   ]);
   const policies = decodeRecord(field(record, "activity_rules", path), `${path}.activity_rules`);
   requireOnlyFields(policies, `${path}.activity_rules`, [
-    "assessmentAttemptGradeRule",
     "questionVariationRule",
-    "assessmentAttemptResumeRule",
-    "assessmentQuestionDisplayRule",
-    "assessmentNavigationRule",
     "assessmentQuestionOrderRule",
   ]);
   return {
@@ -130,30 +126,10 @@ export function defaults(value: unknown, path: string): unknown {
       ["accept", "mark_late", "reject"],
     ),
     activity_rules: {
-      assessmentAttemptGradeRule: decodeStringEnum(
-        field(policies, "assessmentAttemptGradeRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assessmentAttemptGradeRule`,
-        ["first", "latest", "highest", "instructorSelected"],
-      ),
       questionVariationRule: decodeStringEnum(
         field(policies, "questionVariationRule", `${path}.activity_rules`),
         `${path}.activity_rules.questionVariationRule`,
         ["reuseVariation", "newVariation"],
-      ),
-      assessmentAttemptResumeRule: decodeStringEnum(
-        field(policies, "assessmentAttemptResumeRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assessmentAttemptResumeRule`,
-        ["resumable", "singleSession"],
-      ),
-      assessmentQuestionDisplayRule: decodeStringEnum(
-        field(policies, "assessmentQuestionDisplayRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assessmentQuestionDisplayRule`,
-        ["allQuestions", "oneQuestionAtATime"],
-      ),
-      assessmentNavigationRule: decodeStringEnum(
-        field(policies, "assessmentNavigationRule", `${path}.activity_rules`),
-        `${path}.activity_rules.assessmentNavigationRule`,
-        ["freeNavigation", "forwardOnly"],
       ),
       assessmentQuestionOrderRule: decodeStringEnum(
         field(policies, "assessmentQuestionOrderRule", `${path}.activity_rules`),

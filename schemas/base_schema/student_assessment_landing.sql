@@ -198,7 +198,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
           ) AS start_decision
       ) AS decision ON true
       LEFT JOIN LATERAL (
-          SELECT candidate.assessment_attempt_resume_rule = 'resumable'
+          SELECT true
                      AS can_resume_assessment_attempt
             FROM ple_private.assessment_attempt AS candidate
            WHERE candidate.student_record_id = p_student_record_id

@@ -42,20 +42,8 @@ CREATE TABLE ple_private.assessment_template (
         assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0
     ),
     late_work_rule text NOT NULL CHECK (late_work_rule IN ('accept', 'mark_late', 'reject')),
-    assessment_attempt_grade_rule text NOT NULL CHECK (
-        assessment_attempt_grade_rule IN ('first', 'latest', 'highest', 'instructor_selected')
-    ),
     question_variation_rule text NOT NULL CHECK (
         question_variation_rule IN ('reuse_variation', 'new_variation')
-    ),
-    assessment_attempt_resume_rule text NOT NULL CHECK (
-        assessment_attempt_resume_rule IN ('resumable', 'single_session')
-    ),
-    assessment_question_display_rule text NOT NULL CHECK (
-        assessment_question_display_rule IN ('all_questions', 'one_question_at_a_time')
-    ),
-    assessment_navigation_rule text NOT NULL CHECK (
-        assessment_navigation_rule IN ('free_navigation', 'forward_only')
     ),
     assessment_question_order_rule text NOT NULL CHECK (
         assessment_question_order_rule IN ('authored_order', 'shuffled')
@@ -153,26 +141,15 @@ BEGIN
     IF jsonb_typeof(activity_rules) <> 'object'
        OR ARRAY(SELECT key FROM jsonb_object_keys(activity_rules) AS key ORDER BY key)
             <> ARRAY[
-                'assessmentAttemptGradeRule', 'assessmentAttemptResumeRule',
-                'assessmentNavigationRule', 'assessmentQuestionDisplayRule',
                 'assessmentQuestionOrderRule', 'questionVariationRule'
             ]::text[] THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Template settings are invalid';
     END IF;
 
-    IF jsonb_typeof(activity_rules -> 'assessmentAttemptGradeRule') <> 'string'
-       OR activity_rules ->> 'assessmentAttemptGradeRule'
-            NOT IN ('first', 'latest', 'highest', 'instructorSelected')
-       OR jsonb_typeof(activity_rules -> 'questionVariationRule') <> 'string'
+    -- ASVS 2.2.1: only the two configurable activity rules are accepted.
+    IF jsonb_typeof(activity_rules -> 'questionVariationRule') <> 'string'
        OR activity_rules ->> 'questionVariationRule' NOT IN ('reuseVariation', 'newVariation')
-       OR jsonb_typeof(activity_rules -> 'assessmentAttemptResumeRule') <> 'string'
-       OR activity_rules ->> 'assessmentAttemptResumeRule' NOT IN ('resumable', 'singleSession')
-       OR jsonb_typeof(activity_rules -> 'assessmentQuestionDisplayRule') <> 'string'
-       OR activity_rules ->> 'assessmentQuestionDisplayRule'
-            NOT IN ('allQuestions', 'oneQuestionAtATime')
-       OR jsonb_typeof(activity_rules -> 'assessmentNavigationRule') <> 'string'
-       OR activity_rules ->> 'assessmentNavigationRule' NOT IN ('freeNavigation', 'forwardOnly')
        OR jsonb_typeof(activity_rules -> 'assessmentQuestionOrderRule') <> 'string'
        OR activity_rules ->> 'assessmentQuestionOrderRule' NOT IN ('authoredOrder', 'shuffled') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -224,9 +201,8 @@ GRANT SELECT, INSERT ON TABLE ple_private.assessment_template TO ple_api_owner;
 GRANT UPDATE (
     assessment_template_edit_number, template_name, assessment_type, instructions,
     assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-    assessment_attempt_grade_rule, question_variation_rule,
-    assessment_attempt_resume_rule, assessment_question_display_rule,
-    assessment_navigation_rule, assessment_question_order_rule, feedback_score,
+    question_variation_rule,
+    assessment_question_order_rule, feedback_score,
     feedback_per_item_correctness, feedback_submitted_response,
     feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics
 ) ON TABLE ple_private.assessment_template TO ple_api_owner;
@@ -268,17 +244,8 @@ BEGIN
                'attemptLimit', template.assessment_attempt_limit,
                'lateWorkRule', template.late_work_rule,
                'activityRules', jsonb_build_object(
-                   'assessmentAttemptGradeRule', CASE template.assessment_attempt_grade_rule
-                       WHEN 'instructor_selected' THEN 'instructorSelected'
-                       ELSE template.assessment_attempt_grade_rule END,
                    'questionVariationRule', CASE template.question_variation_rule
                        WHEN 'reuse_variation' THEN 'reuseVariation' ELSE 'newVariation' END,
-                   'assessmentAttemptResumeRule', CASE template.assessment_attempt_resume_rule
-                       WHEN 'single_session' THEN 'singleSession' ELSE 'resumable' END,
-                   'assessmentQuestionDisplayRule', CASE template.assessment_question_display_rule
-                       WHEN 'all_questions' THEN 'allQuestions' ELSE 'oneQuestionAtATime' END,
-                   'assessmentNavigationRule', CASE template.assessment_navigation_rule
-                       WHEN 'free_navigation' THEN 'freeNavigation' ELSE 'forwardOnly' END,
                    'assessmentQuestionOrderRule', CASE template.assessment_question_order_rule
                        WHEN 'authored_order' THEN 'authoredOrder' ELSE 'shuffled' END
                ),
@@ -358,9 +325,8 @@ BEGIN
     INSERT INTO ple_private.assessment_template (
         assessment_template_id, owner_account_id, template_name, assessment_type, instructions,
         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-        assessment_attempt_grade_rule, question_variation_rule,
-        assessment_attempt_resume_rule, assessment_question_display_rule,
-        assessment_navigation_rule, assessment_question_order_rule, feedback_score,
+        question_variation_rule,
+        assessment_question_order_rule, feedback_score,
         feedback_per_item_correctness, feedback_submitted_response,
         feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
@@ -368,17 +334,8 @@ BEGIN
         p_settings ->> 'instructions',
         (p_settings ->> 'assessmentAttemptTimeLimitSeconds')::integer,
         (p_settings ->> 'attemptLimit')::integer, p_settings ->> 'lateWorkRule',
-        CASE activity_rules ->> 'assessmentAttemptGradeRule'
-            WHEN 'instructorSelected' THEN 'instructor_selected'
-            ELSE activity_rules ->> 'assessmentAttemptGradeRule' END,
         CASE activity_rules ->> 'questionVariationRule'
             WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
-        CASE activity_rules ->> 'assessmentAttemptResumeRule'
-            WHEN 'singleSession' THEN 'single_session' ELSE 'resumable' END,
-        CASE activity_rules ->> 'assessmentQuestionDisplayRule'
-            WHEN 'allQuestions' THEN 'all_questions' ELSE 'one_question_at_a_time' END,
-        CASE activity_rules ->> 'assessmentNavigationRule'
-            WHEN 'freeNavigation' THEN 'free_navigation' ELSE 'forward_only' END,
         CASE activity_rules ->> 'assessmentQuestionOrderRule'
             WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
         feedback_rules ->> 'score', feedback_rules ->> 'per_item_correctness',
@@ -449,17 +406,8 @@ BEGIN
                 (p_settings ->> 'assessmentAttemptTimeLimitSeconds')::integer,
            assessment_attempt_limit = (p_settings ->> 'attemptLimit')::integer,
            late_work_rule = p_settings ->> 'lateWorkRule',
-           assessment_attempt_grade_rule = CASE activity_rules ->> 'assessmentAttemptGradeRule'
-               WHEN 'instructorSelected' THEN 'instructor_selected'
-               ELSE activity_rules ->> 'assessmentAttemptGradeRule' END,
            question_variation_rule = CASE activity_rules ->> 'questionVariationRule'
                WHEN 'reuseVariation' THEN 'reuse_variation' ELSE 'new_variation' END,
-           assessment_attempt_resume_rule = CASE activity_rules ->> 'assessmentAttemptResumeRule'
-               WHEN 'singleSession' THEN 'single_session' ELSE 'resumable' END,
-           assessment_question_display_rule = CASE activity_rules ->> 'assessmentQuestionDisplayRule'
-               WHEN 'allQuestions' THEN 'all_questions' ELSE 'one_question_at_a_time' END,
-           assessment_navigation_rule = CASE activity_rules ->> 'assessmentNavigationRule'
-               WHEN 'freeNavigation' THEN 'free_navigation' ELSE 'forward_only' END,
            assessment_question_order_rule = CASE activity_rules ->> 'assessmentQuestionOrderRule'
                WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
            feedback_score = feedback_rules ->> 'score',

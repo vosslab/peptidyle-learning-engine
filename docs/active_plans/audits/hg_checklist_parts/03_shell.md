@@ -2,21 +2,6 @@
 
 ### General interface design
 
-- [x] **Sysadmin** uses tomato red as its role color.
-  - Evidence (source): `src/styles/product_role.css` `[data-product-role="sysadmin"]` defines `--ple-role-accent: #ff6347`.
-- [x] **Instructor** uses teal green as its role color.
-  - Evidence (source): `src/styles/product_role.css` `[data-product-role="instructor"]` defines `--ple-role-accent: #168575`.
-- [x] **Student** uses lavender /purple as its role color.
-  - Evidence (source): `src/styles/product_role.css` `[data-product-role="student"]` defines `--ple-role-accent: #8861b5`.
-- [x] Role colors should be used consistently in role labels and other appropriate interface cues.
-  - Evidence (source): `src/styles/product_role.css` `.live-demo-persona-action[data-product-role]` and `.ple-app-ribbon__product-role[data-product-role]` consume the shared role tokens.
-- [x] Demo role selection should clearly state both the user's role and name.
-  - Evidence (test): `tests/playwright/e2e_live_demo_authoring_browser.mjs` selects `Assume the role of Instructor Dr. Elena Rivera`.
-- [x] Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
-  - Evidence (source): `tests/playwright/ui_corpus_manifest.ts` `RIBBON_RESPONSIVE_PROFILES` and `SYSADMIN_DESKTOP_CONTEXT_OPTIONS` declare 1280 by 800 desktop contexts for both staff roles.
-  - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` verifies the Instructor desktop shell and `assertSysadminDesktopRibbon` verifies the Sysadmin Ribbon has no overflow with Instructor Accounts and Scoped Support visible.
-  - Evidence (source): `src/pages/role_home_pages.tsx` `SysadminHomePage` presents the backed Instructor Accounts and Scoped Support operations reached by the checked Sysadmin desktop model.
-  - Decision: A one-time real-shell keyboard/page probe for Sysadmin Instructor Accounts and Scoped Support passed and was removed rather than retained as a permanent page-script test. The permanent responsive evidence is role/viewport behavior, not a fixed page sequence.
 - [ ] Design around what users need to find and do.
   - Mismatch: No repository-wide behavioral or usability evidence establishes this broad design outcome.
 - [ ] Important information should stand out from supporting information.
@@ -29,6 +14,18 @@
   - Mismatch: No whole-product browser or usability evidence verifies this broad requirement.
 - [ ] Avoid scattering related actions across page headers, menus, navigation, and content areas.
   - Mismatch: Current top-bar Sign Out contradicts the specified Profile-menu location.
+- [ ] Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
+  - Mismatch: No repository evidence can verify this whole-product qualitative outcome.
+- [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
+  - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
+
+### Information density and layout
+
+- [x] Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
+  - Evidence (source): `tests/playwright/ui_corpus_manifest.ts` `RIBBON_RESPONSIVE_PROFILES` and `SYSADMIN_DESKTOP_CONTEXT_OPTIONS` declare 1280 by 800 desktop contexts for both staff roles.
+  - Evidence (test): `tests/playwright/ribbon_m9_responsive_evidence.mjs` `assertResponsiveRows` verifies the Instructor desktop shell and `assertSysadminDesktopRibbon` verifies the Sysadmin Ribbon has no overflow with Instructor Accounts and Scoped Support visible.
+  - Evidence (source): `src/pages/role_home_pages.tsx` `SysadminHomePage` presents the backed Instructor Accounts and Scoped Support operations reached by the checked Sysadmin desktop model.
+  - Decision: A one-time real-shell keyboard/page probe for Sysadmin Instructor Accounts and Scoped Support passed and was removed rather than retained as a permanent page-script test. The permanent responsive evidence is role/viewport behavior, not a fixed page sequence.
 - [x] PLE often presents large collections where users need to find a few relevant items.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders the Question Library collection surface.
 - [ ] Optimize large collections for scanning, searching, filtering, and comparison.
@@ -39,14 +36,25 @@
   - Mismatch: Existing controls do not establish the stated quick-narrowing outcome across all large collections.
 - [ ] Dense pages should remain easy to scan.
   - Mismatch: No usability or whole-product visual evidence establishes scanability.
-- [ ] Use spacing to separate meaningful groups rather than simply making pages spacious.
-  - Mismatch: No systematic visual evidence verifies the required rationale across pages.
+- [ ] Treat screen space as a limited resource. Prefer useful information over decorative whitespace.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+- [ ] Use spacing to separate meaningful groups rather than simply making pages spacious. Large gaps should communicate a meaningful change in section or task.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 - [ ] Prefer alignment, typography, and dividers over unnecessary cards, boxes, borders, and nested containers.
   - Mismatch: Current pages include cards and borders; no audit establishes the preference is followed.
+- [ ] Cards and rounded containers should earn their space by representing a distinct object or interaction, not merely grouping nearby content.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+- [ ] Avoid the modern dashboard style of large rounded cards, generous padding, and isolated islands of content.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+- [ ] Use horizontal and vertical space efficiently without crowding information together. Related information should form clearly readable rows, columns, or groups.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+- [ ] Size controls and content regions for their contents and task. Avoid unnecessarily tall panels, empty states, Question previews, and other fixed-height regions.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 - [ ] Keep the visual design compact, flat, information dense, and consistent across PLE.
   - Mismatch: No complete rendered-product audit verifies all four whole-product attributes.
-- [ ] Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
-  - Mismatch: No repository evidence can verify this whole-product qualitative outcome.
+
+### Interaction design
+
 - [ ] Use drag-and-drop where it makes reordering faster and more natural.
   - Mismatch: No implemented drag-and-drop reordering surface was found in the audited shell evidence.
 - [x] Reordering must also have a precise keyboard-accessible method.
@@ -54,14 +62,30 @@
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_choice_list.tsx` `onMoveChoice`, `src/features/ple_question_json_authoring/question_json_multiple_answer_editor.tsx` `onMoveChoice`, `src/features/ple_question_json_authoring/question_json_multi_fill_in_editor.tsx` `onMoveBlank`, `src/features/ple_question_json_authoring/question_json_matching_editor.tsx` `onMoveItem`, and `src/features/ple_question_json_authoring/question_json_ordering_editor.tsx` `onMoveItem` give every native JSON reorderer the same precise buttons.
   - Evidence (test): `tests/test_blueprint_course_model.mjs` `reusable entries preserve fixed and Question Pool interleaving`, `tests/test_ple_question_json_editor_model.mjs` `choice edits retain semantic IDs and enforce choices and correct-answer invariants`, `tests/test_ple_question_json_multiple_answer_editor.mjs` `multiple-answer text edits and reordering retain choice IDs and exact correct IDs`, and `tests/test_ple_question_json_multi_fill_ordering_authoring.mjs` `ORDER treats Ordering Items as the source of truth and derives correctOrder after movement` protect the stable reorder results.
   - Decision: The one-time seven-surface keyboard-control inventory passed and was removed rather than becoming a permanent implementation-inventory test. It does not select drag-and-drop surfaces, which remains the separate Human Guidance product question.
+- [ ] UUIDs should never appear in visible content, navigation URLs, or copyable links.
+  - Mismatch: `tests/test_public_navigation.mjs` `human route references are compact, typed, and bounded` checks route references only; it does not establish the absence of UUIDs from visible content or copyable links.
+
+### Role colors and themes
+
+- [x] **Sysadmin** uses tomato red as its role color.
+  - Evidence (source): `src/styles/product_role.css` `[data-product-role="sysadmin"]` defines `--ple-role-accent: #ff6347`.
+- [x] **Instructor** uses teal green as its role color.
+  - Evidence (source): `src/styles/product_role.css` `[data-product-role="instructor"]` defines `--ple-role-accent: #168575`.
+- [x] **Student** uses lavender /purple as its role color.
+  - Evidence (source): `src/styles/product_role.css` `[data-product-role="student"]` defines `--ple-role-accent: #8861b5`.
+- [x] Role colors should be used consistently in role labels and other appropriate interface cues.
+  - Evidence (source): `src/styles/product_role.css` `.live-demo-persona-action[data-product-role]` and `.ple-app-ribbon__product-role[data-product-role]` consume the shared role tokens.
+- [x] Demo role selection should clearly state both the user's role and name.
+  - Evidence (test): `tests/playwright/e2e_live_demo_authoring_browser.mjs` selects `Assume the role of Instructor Dr. Elena Rivera`.
 - [x] Themes should use biome and habitat names.
   - Evidence (source): `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` retains stored ID `grass` and its unchanged anchors while presenting `Grassland`; the same closed registry presents Forest, Ocean, Desert, and the remaining habitat names.
   - Evidence (source): `src/pages/course_appearance_page.tsx` `COURSE_THEME_OPTIONS` renders each visible theme label from `option.tokens.name`, not its stored ID.
   - Evidence (test): `tests/test_course_theme_scope.mjs` `Grassland uses the Roosevelt-inspired anchors and accessible derived actions` verifies the `grass` ID presents Grassland without changing its reviewed palette; `every reviewed theme resolves to complete, contrast-safe course tokens` covers the closed registry.
-- [ ] Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`
+- [ ] Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`.
   - Mismatch: `src/features/course_appearance/course_theme_registry.ts` still implements the current 15-ID, three-light-anchor registry, while `docs/BIOME_THEME_PALETTES.md` specifies a proposed 25-theme light/dark four-color registry and records six unresolved product decisions that block an atomic runtime cutover.
-- [ ] UUIDs should never appear in visible content, navigation URLs, or copyable links.
-  - Mismatch: `tests/test_public_navigation.mjs` `human route references are compact, typed, and bounded` checks route references only; it does not establish the absence of UUIDs from visible content or copyable links.
+
+### Typography
+
 - [x] Use [Atkinson Hyperlegible Next](https://www.brailleinstitute.org/freefont/) as the main PLE font.
   - Evidence (source): `src/style.css` `:root` sets `Atkinson Hyperlegible Next` as the first font family.
 - [x] Use [Atkinson Hyperlegible Mono](https://www.brailleinstitute.org/freefont/) for code and other monospace text.
@@ -78,8 +102,6 @@
   - Evidence (runtime): `src/styles/browser_fonts.css` `font-variant-numeric: slashed-zero`: that same one-time Chromium fixture computed `slashed-zero` on the local IBM face without a fallback; it was removed rather than retained as a permanent implementation-coupled test.
 - [ ] Question Backend-rendered content may use its own fonts when needed for correct display.
   - Mismatch: No Question Backend font-isolation implementation evidence was found in the shell audit.
-- [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
-  - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
 
 ### Ribbon and page layout
 

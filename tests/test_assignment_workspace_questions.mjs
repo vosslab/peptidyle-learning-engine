@@ -97,11 +97,7 @@ test("Policy save retains normalized Entries and the current availability and cl
     assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
-      assessmentAttemptGradeRule: "latest",
       questionVariationRule: "newVariation",
-      assessmentAttemptResumeRule: "resumable",
-      assessmentQuestionDisplayRule: "allQuestions",
-      assessmentNavigationRule: "freeNavigation",
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {

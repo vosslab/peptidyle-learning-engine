@@ -108,22 +108,6 @@ export function AssessmentTemplateSettingsEditor(
       >
         <h3 id="template-activity-heading">Assessment activity</h3>
         <label class="assessment-template-field">
-          Gradebook Assessment Attempt
-          <select
-            value={props.draft.gradeRule}
-            onChange={(event) =>
-              props.onPatch({
-                gradeRule: event.currentTarget.value as AssessmentTemplateDraft["gradeRule"],
-              })
-            }
-          >
-            <option value="first">First</option>
-            <option value="latest">Latest</option>
-            <option value="highest">Highest</option>
-            <option value="instructorSelected">Instructor selected</option>
-          </select>
-        </label>
-        <label class="assessment-template-field">
           Question variations on later Attempts
           <select
             value={props.draft.variationRule}
@@ -136,49 +120,6 @@ export function AssessmentTemplateSettingsEditor(
           >
             <option value="reuseVariation">Reuse variations</option>
             <option value="newVariation">Use new variations</option>
-          </select>
-        </label>
-        <label class="assessment-template-field">
-          Leaving an Assessment Attempt
-          <select
-            value={props.draft.resumeRule}
-            onChange={(event) =>
-              props.onPatch({
-                resumeRule: event.currentTarget.value as AssessmentTemplateDraft["resumeRule"],
-              })
-            }
-          >
-            <option value="resumable">May resume later</option>
-            <option value="singleSession">Single session</option>
-          </select>
-        </label>
-        <label class="assessment-template-field">
-          Question display
-          <select
-            value={props.draft.displayRule}
-            onChange={(event) =>
-              props.onPatch({
-                displayRule: event.currentTarget.value as AssessmentTemplateDraft["displayRule"],
-              })
-            }
-          >
-            <option value="allQuestions">All Questions</option>
-            <option value="oneQuestionAtATime">One Question at a time</option>
-          </select>
-        </label>
-        <label class="assessment-template-field">
-          Navigation
-          <select
-            value={props.draft.navigationRule}
-            onChange={(event) =>
-              props.onPatch({
-                navigationRule: event.currentTarget
-                  .value as AssessmentTemplateDraft["navigationRule"],
-              })
-            }
-          >
-            <option value="freeNavigation">Free navigation</option>
-            <option value="forwardOnly">Forward only</option>
           </select>
         </label>
         <label class="assessment-template-field">

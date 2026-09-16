@@ -21,11 +21,7 @@ const draft = {
   assessmentAttemptTimeLimitSeconds: 60,
   attemptLimit: null,
   activityRules: {
-    assessmentAttemptGradeRule: "highest",
     questionVariationRule: "newVariation",
-    assessmentAttemptResumeRule: "resumable",
-    assessmentQuestionDisplayRule: "oneQuestionAtATime",
-    assessmentNavigationRule: "freeNavigation",
     assessmentQuestionOrderRule: "authoredOrder",
   },
   studentFeedbackReleaseRule: {

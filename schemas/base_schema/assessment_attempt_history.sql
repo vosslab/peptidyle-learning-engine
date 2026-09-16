@@ -177,7 +177,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
             JOIN ple_data.assessment_entry AS entry
               ON entry.assessment_entry_id = issued.assessment_entry_id
             CROSS JOIN LATERAL ple_private.score_recorded_credit(
-                coalesce(result.normalized_credit, 0), issued.scoring_rule,
+                result.normalized_credit, issued.scoring_rule,
                 CASE entry.entry_kind
                     WHEN 'fixed_question' THEN entry.points_possible
                     ELSE entry.points_per_item

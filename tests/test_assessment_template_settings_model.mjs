@@ -19,11 +19,7 @@ function template(assessmentType, attemptLimit) {
       attemptLimit,
       lateWorkRule: "reject",
       activityRules: {
-        assessmentAttemptGradeRule: "highest",
         questionVariationRule: "newVariation",
-        assessmentAttemptResumeRule: "resumable",
-        assessmentQuestionDisplayRule: "oneQuestionAtATime",
-        assessmentNavigationRule: "freeNavigation",
         assessmentQuestionOrderRule: "shuffled",
       },
       studentFeedbackReleaseRule: {

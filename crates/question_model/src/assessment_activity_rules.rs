@@ -135,20 +135,6 @@ pub enum QuestionAttemptTimeLimit {
     },
 }
 
-/// Which Assessment Attempt score reaches the Gradebook.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
-pub enum AssessmentAttemptGradeRule {
-    /// The first Assessment Attempt's score.
-    First,
-    /// The most recent Assessment Attempt's score.
-    Latest,
-    /// The best Assessment Attempt's score.
-    Highest,
-    /// An Assessment Attempt explicitly selected by the Instructor.
-    InstructorSelected,
-}
-
 /// What a later Assessment Attempt does with Question Variations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
@@ -157,36 +143,6 @@ pub enum AssessmentQuestionVariationRule {
     ReuseVariation,
     /// Issue a fresh Question Seed for every selected Question.
     NewVariation,
-}
-
-/// Whether one Assessment Attempt can be left and later resumed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssessmentAttemptResumeRule {
-    /// A Student can leave the Assessment Attempt and return to its server-owned state.
-    Resumable,
-    /// A Student must finish the Assessment Attempt in its first active session.
-    SingleSession,
-}
-
-/// How many Issued Questions an Assessment Attempt presents at once.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssessmentQuestionDisplayRule {
-    /// Present every available Issued Question together.
-    AllQuestions,
-    /// Present one Issued Question at a time.
-    OneQuestionAtATime,
-}
-
-/// How a Student may move among available Issued Questions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum AssessmentNavigationRule {
-    /// A Student may revisit any available Issued Question.
-    FreeNavigation,
-    /// A Student may advance but cannot return to an earlier Issued Question.
-    ForwardOnly,
 }
 
 /// The server-owned order used after Assessment Entries expand into Issued Questions.
@@ -199,23 +155,15 @@ pub enum AssessmentQuestionOrderRule {
     Shuffled,
 }
 
-/// The six explicit Assessment activity rules an Assessment chooses, gathered for convenience.
+/// The two explicit Assessment activity rules an Assessment chooses, gathered for convenience.
 ///
 /// A struct of independent enums rather than one combined enum: the rules vary
 /// independently, and all combinations are meaningful.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AssessmentActivityRules {
-    /// Which completed Assessment Attempt score reaches the Gradebook.
-    pub assessment_attempt_grade_rule: AssessmentAttemptGradeRule,
     /// Whether a later Assessment Attempt reuses each selected Question Variation.
     pub question_variation_rule: AssessmentQuestionVariationRule,
-    /// Whether the current Assessment Attempt can be resumed after leaving.
-    pub assessment_attempt_resume_rule: AssessmentAttemptResumeRule,
-    /// How many Issued Questions appear together.
-    pub assessment_question_display_rule: AssessmentQuestionDisplayRule,
-    /// How a Student may move through available Issued Questions.
-    pub assessment_navigation_rule: AssessmentNavigationRule,
     /// The server-owned Issued Question order for one Assessment Attempt.
     pub assessment_question_order_rule: AssessmentQuestionOrderRule,
 }
@@ -223,11 +171,7 @@ pub struct AssessmentActivityRules {
 impl Default for AssessmentActivityRules {
     fn default() -> Self {
         Self {
-            assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
             question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
-            assessment_attempt_resume_rule: AssessmentAttemptResumeRule::Resumable,
-            assessment_question_display_rule: AssessmentQuestionDisplayRule::OneQuestionAtATime,
-            assessment_navigation_rule: AssessmentNavigationRule::FreeNavigation,
             assessment_question_order_rule: AssessmentQuestionOrderRule::Shuffled,
         }
     }
@@ -245,13 +189,9 @@ mod tests {
     }
 
     #[test]
-    fn new_assessment_defaults_shuffle_one_question_at_a_time() {
+    fn new_assessment_defaults_shuffle_questions() {
         let rules = AssessmentActivityRules::default();
 
-        assert_eq!(
-            rules.assessment_question_display_rule,
-            AssessmentQuestionDisplayRule::OneQuestionAtATime
-        );
         assert_eq!(
             rules.assessment_question_order_rule,
             AssessmentQuestionOrderRule::Shuffled
@@ -268,13 +208,9 @@ mod tests {
     }
 
     #[test]
-    fn activity_rules_round_trip_the_closed_six_field_contract() {
+    fn activity_rules_round_trip_the_closed_two_field_contract() {
         let rules = AssessmentActivityRules {
-            assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
             question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
-            assessment_attempt_resume_rule: AssessmentAttemptResumeRule::Resumable,
-            assessment_question_display_rule: AssessmentQuestionDisplayRule::AllQuestions,
-            assessment_navigation_rule: AssessmentNavigationRule::FreeNavigation,
             assessment_question_order_rule: AssessmentQuestionOrderRule::AuthoredOrder,
         };
         let json = serde_json::to_string(&rules).expect("serialization should succeed");

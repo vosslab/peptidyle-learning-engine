@@ -316,9 +316,13 @@ const CAPABILITY_DECLARATIONS = {
     evidence: ["src/ribbon/ribbon_catalog.ts::myInactiveCourses"],
   },
   searchPublicBlueprintCourses: {
-    kind: "unbacked",
-    reason: "Public Blueprint Course search has no declared route or authorized handler.",
-    evidence: ["src/ribbon/ribbon_catalog.ts::searchPublicBlueprintCourses"],
+    kind: "backed",
+    clientMethod: "BlueprintCourseClient::listBlueprintCourses",
+    serverEvidence: { kind: "registeredHandler", handler: "GET /api/course-blueprints" },
+    evidence: [
+      "src/pages/blueprint_course_search_page.tsx",
+      "src/api/http_client/blueprint_course.ts",
+    ],
   },
   myQuestions: {
     kind: "unbacked",

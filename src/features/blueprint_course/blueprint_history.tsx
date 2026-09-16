@@ -126,7 +126,7 @@ function HistoryPanel(props: HistoryProps): JSX.Element {
           >
             <h3>
               {number() === props.view.current_revision.revision ? "Latest saved" : "Historical"}{" "}
-              Revision {number()} — read-only
+              Revision {number()} - read-only
             </h3>
             <button type="button" class="quiet-action" onClick={closeInspection}>
               Close Revision inspection
@@ -231,7 +231,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
                       {saved().revision === props.currentRevision
                         ? " (latest saved)"
                         : " (historical)"}{" "}
-                      — saved {recordedTime(saved().savedAt)}
+                      - saved {recordedTime(saved().savedAt)}
                     </span>
                     <button
                       type="button"
@@ -246,7 +246,7 @@ function HistoryPage(props: HistoryPageProps): JSX.Element {
               <Show when={item.kind === "metadataChange" ? item : undefined}>
                 {(metadata) => (
                   <span>
-                    {metadata().longName} ({metadata().shortName}) — {metadata().availability};
+                    {metadata().longName} ({metadata().shortName}) - {metadata().availability};
                     recorded {recordedTime(metadata().recordedAt)}
                   </span>
                 )}
@@ -330,7 +330,7 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
                     {entry.kind === "fixed"
                       ? `Fixed Question ${entry.question.reference.questionId}, Revision ${entry.question.reference.revisionNumber}; ${entry.points_possible} points`
                       : `Question Pool ${entry.question_pool_revision.questionPoolId}, Revision ${entry.question_pool_revision.revisionNumber}; select ${entry.selection_count}; ${entry.points_per_item} points per Question`}{" "}
-                    — scoring {entry.scoring_rule}; Question Attempt limit{" "}
+                    - scoring {entry.scoring_rule}; Question Attempt limit{" "}
                     {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}
                     {entry.question_attempt_time_limit.kind === "limited"
                       ? `${entry.question_attempt_time_limit.seconds} seconds (${entry.question_attempt_time_limit.graceSeconds} grace seconds)`

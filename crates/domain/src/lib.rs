@@ -22,8 +22,6 @@ pub mod policy;
 pub mod preview_plane;
 /// Server-owned exact Question Pool Item selection.
 pub mod question_pool_selection;
-/// Completed Assessment Attempt score selection and progress projection.
-pub mod scoring;
 /// Retention-safe anonymous Question statistics aggregation.
 pub mod statistics;
 /// Pure evaluation of the Assessment-owned Student Feedback Release Rule.

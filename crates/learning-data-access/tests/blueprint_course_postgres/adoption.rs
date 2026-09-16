@@ -137,17 +137,8 @@ WITH source_assessment AS (
            AND target.late_work_rule = CASE source.content #>> '{defaults,late_work_rule}'
                WHEN 'accept' THEN 'accept' WHEN 'mark_late' THEN 'mark_late'
                WHEN 'reject' THEN 'reject' END
-           AND target.assessment_attempt_grade_rule = CASE source.content #>> '{defaults,activity_rules,assessmentAttemptGradeRule}'
-               WHEN 'first' THEN 'first' WHEN 'latest' THEN 'latest' WHEN 'highest' THEN 'highest'
-               WHEN 'instructorSelected' THEN 'instructor_selected' END
            AND target.question_variation_rule = CASE source.content #>> '{defaults,activity_rules,questionVariationRule}'
                WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END
-           AND target.assessment_attempt_resume_rule = CASE source.content #>> '{defaults,activity_rules,assessmentAttemptResumeRule}'
-               WHEN 'resumable' THEN 'resumable' WHEN 'singleSession' THEN 'single_session' END
-           AND target.assessment_question_display_rule = CASE source.content #>> '{defaults,activity_rules,assessmentQuestionDisplayRule}'
-               WHEN 'allQuestions' THEN 'all_questions' WHEN 'oneQuestionAtATime' THEN 'one_question_at_a_time' END
-           AND target.assessment_navigation_rule = CASE source.content #>> '{defaults,activity_rules,assessmentNavigationRule}'
-               WHEN 'freeNavigation' THEN 'free_navigation' WHEN 'forwardOnly' THEN 'forward_only' END
            AND target.assessment_question_order_rule = CASE source.content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}'
                WHEN 'authoredOrder' THEN 'authored_order' WHEN 'shuffled' THEN 'shuffled' END
            AND target.feedback_score = source.content #>> '{defaults,student_feedback_release_rule,score}'

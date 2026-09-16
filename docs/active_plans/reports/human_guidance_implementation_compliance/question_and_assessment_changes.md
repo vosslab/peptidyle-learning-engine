@@ -13,6 +13,21 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- Part 09 closes four exact current-rescore rows: stored credit as the grading outcome, score
+  calculation from stored credit and current points, recalculation after a current-points edit, and
+  immutable grading outcomes. Independent review accepted private PostgreSQL 17 production-SQL
+  lifecycle proof at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact
+  `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` exited 0. It retained `0.5` credit,
+  used authorized expected-current `ple_api.save_assessment` to set points from `8` to `13` and
+  advance the edit number, then observed `6.5 / 13`, unanswered `0 / 13`, and `6.5 / 26` through
+  three replay, history, Student landing, and Instructor Gradebook reads. Before/after JSON hashes
+  for grading results, Question submissions, Assessment submissions, and automated grading receipts
+  were unchanged. The remaining no-Backend-interaction row stays open: the SQL
+  `already_submitted` state has no work fields and the server bypasses its ready-path Backend work,
+  but actual HTTP request counts and Backend transport were not observed. The fixture is temporary,
+  SQL-only, and simulates initial synchronous Backend credit; it is not a permanent test and makes
+  no HTTP, authentication, renderer, or full product-acceptance claim.
+
 - Three automatic-new Blueprint Assessment rows and two existing-Assessment non-silent-change
   negative invariants are verified by the normal PostgreSQL Store Save
   and the extended existing permanent lifecycle test invoking the append helper. Exact
@@ -149,25 +164,20 @@ The authoritative exhaustive record is the
   creation boundaries. These results still do not establish every appropriate Type default or the
   full pedagogical-purpose behavior, so the broad defaults row remains open.
 
-- C510 has accepted its bounded Gradebook and Student highest-score selection receipts, not global
-  closure. `read_assessment_gradebook_evidence` independently selects the highest
-  grading-complete submitted Attempt by earned points; only when no score is established does it
-  fall back to the latest Attempt for current progress or expiry. The private answer-free helper
-  is consumed by the real Gradebook and Student APIs, without changing raw Assessment Attempt scoring. Accepted
-  actual PostgreSQL 17 API evidence proved an earlier higher earned Attempt beats a later lower
-  submitted Attempt, and later unfinished or pending work does not replace it; current Question
-  points recalculated `8` to `16`; Bonus retained a zero possible denominator; and the latest
-  unscored expired Attempt remained the fallback. LDA and browser decoding accept finite,
-  nonnegative earned points above points possible and zero possible. The Student API keeps latest-
-  Attempt progress separate, applies the selected Attempt's copied score-disclosure timing, and
-  emits direct `assessmentScore`; its strict decoder rejects the retired `score` alias. The focused
-  decoder/presentation lane passed 8/8, compiled M6 component evidence passed, and the focused
-  PostgreSQL LDA library check passed in 5.72 seconds without warnings. Raw Attempt and history
-  validators remain unchanged; the Student projection preserves its self-only current Account,
-  current Course relationship, and ordinary retention fences. The full `server_core` compile
-  remains unverified because the existing incompatible AWS Smithy dependency pair blocks that
-  separate integration gate. C510 remains open for broader unverified behavior, including Practice
-  extra-credit authoring; these accepted receipts do not establish Course totals.
+- C510 is closed. The production Gradebook and Student landing both use
+  `schemas/base_schema/grading_access.sql` `read_assessment_gradebook_evidence` to select the
+  highest grading-complete submitted Attempt; latest-Attempt progress remains separate. The stale
+  configurable grade-rule enum, model field, SQL columns, and editor choices were removed from the
+  production boundary. Accepted independent fresh PostgreSQL 17 lifecycle evidence recorded
+  individual Attempt scores `12`, `4`, `16`, then `NULL` for an in-progress fourth Attempt. Both
+  projections reported `12 / 16`, `12 / 16`, then `16 / 16`; the in-progress Attempt preserved its
+  latest state without replacing the selected score. Artifact:
+  `/private/tmp/ple-highest-score-proof/artifacts.rQxVs8/proof.log` (exit 0). The focused LDA
+  PostgreSQL test compilation used `--features postgres,test-support`; it does not claim the
+  full Rust gate. A separate `cargo check -p learning-data-access --no-default-features` pass
+  confirms the optional PostgreSQL adapter boundary compiles without that feature. This privileged
+  fixture and simulated backend evidence does not establish HTTP, rendering, actual backend
+  grading, Course totals, or unlimited-Attempt eligibility.
 
 - C511 remains open. Human Guidance permits Quiz and Exam settings that are more restrictive than
   a Regular Assignment; it does not mandate restrictive Type defaults or arbitrary thresholds.

@@ -536,6 +536,13 @@ function breadcrumbsFor(
             breadcrumbLinkItem("My Draft Questions", drafts),
             breadcrumbCurrent("Draft Question"),
           ]);
+    case "publicBlueprintSearch":
+      return courses === undefined
+        ? Object.freeze([])
+        : Object.freeze([
+            breadcrumbLinkItem("Courses", courses),
+            breadcrumbCurrent("Search Public Blueprint Courses"),
+          ]);
     case "blueprintCourseDetail":
       return blueprints === undefined
         ? Object.freeze([])

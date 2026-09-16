@@ -130,14 +130,14 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     sqlx::query("INSERT INTO ple_private.assessment_attempt (assessment_attempt_id, student_record_id, \
         assessment_id, assessment_attempt_number, started_at, assessment_title, assessment_instructions, \
         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-        assessment_attempt_grade_rule, question_variation_rule, assessment_attempt_resume_rule, \
-        assessment_question_display_rule, assessment_navigation_rule, assessment_question_order_rule, \
+        question_variation_rule, \
+        assessment_question_order_rule, \
         feedback_score, feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer, \
         feedback_question_answer_explanation, feedback_class_statistics) \
         SELECT $1, $2, a.assessment_id, 1, clock_timestamp(), a.assessment_title, a.assessment_instructions, \
         a.assessment_attempt_time_limit_seconds, a.assessment_attempt_limit, a.late_work_rule, \
-        a.assessment_attempt_grade_rule, a.question_variation_rule, a.assessment_attempt_resume_rule, \
-        a.assessment_question_display_rule, a.assessment_navigation_rule, a.assessment_question_order_rule, \
+        a.question_variation_rule, \
+        a.assessment_question_order_rule, \
         a.feedback_score, a.feedback_per_item_correctness, a.feedback_submitted_response, a.feedback_question_answer, \
         a.feedback_question_answer_explanation, a.feedback_class_statistics \
         FROM jsonb_populate_record(NULL::ple_private.assessment_attempt, $3) a")

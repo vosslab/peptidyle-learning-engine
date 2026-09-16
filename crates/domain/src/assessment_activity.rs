@@ -1,11 +1,6 @@
-//! Shared Assessment Activity projection types and errors.
-//!
-//! Scoring owns compact grade and progress transitions. Assessment completion
-//! is projected separately from the authoritative submission timestamp.
+//! Shared Assessment Activity completion types and errors.
 
 pub use question_model::AssessmentAttemptCompletion;
-
-pub use crate::scoring::{AssessmentActivityTransition, project_assessment_activity};
 
 /// A rejected Assessment Attempt model input.
 #[derive(Debug, Clone, Copy, PartialEq)]

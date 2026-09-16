@@ -1,9 +1,8 @@
 //! Decoding of Assessment Workspace policy columns returned by PostgreSQL.
 
 use question_model::{
-    AssessmentActivityRules, AssessmentAttemptGradeRule, AssessmentAttemptResumeRule,
-    AssessmentNavigationRule, AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule,
-    AssessmentQuestionVariationRule, StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    AssessmentActivityRules, AssessmentQuestionOrderRule, AssessmentQuestionVariationRule,
+    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
 };
 use sqlx::Row;
 
@@ -15,33 +14,10 @@ pub(super) fn activity_rules(
 ) -> Result<AssessmentActivityRules, StoreError> {
     let value = |column| row.try_get::<String, _>(column).map_err(map_sqlx_error);
     Ok(AssessmentActivityRules {
-        assessment_attempt_grade_rule: match value("assessment_attempt_grade_rule")?.as_str() {
-            "first" => AssessmentAttemptGradeRule::First,
-            "latest" => AssessmentAttemptGradeRule::Latest,
-            "highest" => AssessmentAttemptGradeRule::Highest,
-            "instructor_selected" => AssessmentAttemptGradeRule::InstructorSelected,
-            _ => return Err(invalid("Assessment Attempt Grade Rule")),
-        },
         question_variation_rule: match value("question_variation_rule")?.as_str() {
             "reuse_variation" => AssessmentQuestionVariationRule::ReuseVariation,
             "new_variation" => AssessmentQuestionVariationRule::NewVariation,
             _ => return Err(invalid("Question Variation Rule")),
-        },
-        assessment_attempt_resume_rule: match value("assessment_attempt_resume_rule")?.as_str() {
-            "resumable" => AssessmentAttemptResumeRule::Resumable,
-            "single_session" => AssessmentAttemptResumeRule::SingleSession,
-            _ => return Err(invalid("Assessment Attempt Resume Rule")),
-        },
-        assessment_question_display_rule: match value("assessment_question_display_rule")?.as_str()
-        {
-            "one_question_at_a_time" => AssessmentQuestionDisplayRule::OneQuestionAtATime,
-            "all_questions" => AssessmentQuestionDisplayRule::AllQuestions,
-            _ => return Err(invalid("Assessment Question Display Rule")),
-        },
-        assessment_navigation_rule: match value("assessment_navigation_rule")?.as_str() {
-            "free_navigation" => AssessmentNavigationRule::FreeNavigation,
-            "forward_only" => AssessmentNavigationRule::ForwardOnly,
-            _ => return Err(invalid("Assessment Navigation Rule")),
         },
         assessment_question_order_rule: match value("assessment_question_order_rule")?.as_str() {
             "authored_order" => AssessmentQuestionOrderRule::AuthoredOrder,

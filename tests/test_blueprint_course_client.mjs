@@ -38,11 +38,7 @@ function contentInput() {
       assessment_attempt_limit: 2,
       late_work_rule: "accept",
       activity_rules: {
-        assessmentAttemptGradeRule: "highest",
         questionVariationRule: "newVariation",
-        assessmentAttemptResumeRule: "resumable",
-        assessmentQuestionDisplayRule: "allQuestions",
-        assessmentNavigationRule: "freeNavigation",
         assessmentQuestionOrderRule: "authoredOrder",
       },
       student_feedback_release_rule: {
@@ -187,10 +183,28 @@ test("Blueprint discovery requests Archived history only when explicitly include
   await client.listBlueprintCourses();
   await client.listBlueprintCourses(undefined, 50, false);
   await client.listBlueprintCourses(undefined, 50, true);
+  await client.listBlueprintCourses(undefined, 50, false, "Biochem & %_+?", true);
   assert.equal(paths[0].searchParams.has("includeArchived"), false);
   assert.equal(paths[1].searchParams.has("includeArchived"), false);
   assert.equal(paths[2].searchParams.get("includeArchived"), "true");
   assert.equal(paths[2].searchParams.get("pageSize"), "50");
+  assert.equal(paths[3].searchParams.get("query"), "Biochem & %_+?");
+  assert.equal(paths[3].searchParams.get("publicOnly"), "true");
+  assert.equal(paths[3].searchParams.has("includeArchived"), false);
+  assert.equal(paths[0].searchParams.has("publicOnly"), false);
+  await assert.rejects(
+    client.listBlueprintCourses(undefined, 50, true, "", true),
+    ApiProtocolError,
+  );
+  await assert.rejects(
+    client.listBlueprintCourses(undefined, 50, false, "x".repeat(257), true),
+    ApiProtocolError,
+  );
+  await assert.rejects(
+    client.listBlueprintCourses(undefined, 50, false, "bad\u0000query", true),
+    ApiProtocolError,
+  );
+  assert.equal(paths.length, 4);
 });
 
 test("B1 client sends Revision and metadata validators to their separate routes", async () => {

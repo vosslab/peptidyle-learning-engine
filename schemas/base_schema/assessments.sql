@@ -37,20 +37,8 @@ CREATE TABLE ple_data.assessment (
     ),
     assessment_attempt_limit integer CHECK (assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0),
     late_work_rule text NOT NULL CHECK (late_work_rule IN ('accept', 'mark_late', 'reject')),
-    assessment_attempt_grade_rule text NOT NULL CHECK (
-        assessment_attempt_grade_rule IN ('first', 'latest', 'highest', 'instructor_selected')
-    ),
     question_variation_rule text NOT NULL CHECK (
         question_variation_rule IN ('reuse_variation', 'new_variation')
-    ),
-    assessment_attempt_resume_rule text NOT NULL CHECK (
-        assessment_attempt_resume_rule IN ('resumable', 'single_session')
-    ),
-    assessment_question_display_rule text NOT NULL CHECK (
-        assessment_question_display_rule IN ('all_questions', 'one_question_at_a_time')
-    ),
-    assessment_navigation_rule text NOT NULL CHECK (
-        assessment_navigation_rule IN ('free_navigation', 'forward_only')
     ),
     assessment_question_order_rule text NOT NULL CHECK (
         assessment_question_order_rule IN ('authored_order', 'shuffled')
@@ -476,9 +464,8 @@ DECLARE
     allowed_keys text[] := ARRAY[
         'assessment_title', 'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'assessment_attempt_grade_rule', 'question_variation_rule',
-        'assessment_attempt_resume_rule', 'assessment_question_display_rule',
-        'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
+        'question_variation_rule',
+        'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_answer',
         'feedback_question_answer_explanation', 'feedback_class_statistics'
     ];
@@ -522,9 +509,8 @@ BEGIN
         candidate.assessment_title, candidate.assessment_instructions, candidate.available_at,
         candidate.due_at, candidate.closes_at, candidate.assessment_attempt_time_limit_seconds,
         candidate.assessment_attempt_limit, candidate.late_work_rule,
-        candidate.assessment_attempt_grade_rule, candidate.question_variation_rule,
-        candidate.assessment_attempt_resume_rule, candidate.assessment_question_display_rule,
-        candidate.assessment_navigation_rule, candidate.assessment_question_order_rule,
+        candidate.question_variation_rule,
+        candidate.assessment_question_order_rule,
         candidate.feedback_score, candidate.feedback_per_item_correctness,
         candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
@@ -533,11 +519,7 @@ BEGIN
         current_assessment.assessment_title, current_assessment.assessment_instructions,
         current_assessment.available_at, current_assessment.due_at, current_assessment.closes_at,
         current_assessment.assessment_attempt_time_limit_seconds, current_assessment.assessment_attempt_limit,
-        current_assessment.late_work_rule, current_assessment.assessment_attempt_grade_rule,
-        current_assessment.question_variation_rule,
-        current_assessment.assessment_attempt_resume_rule,
-        current_assessment.assessment_question_display_rule,
-        current_assessment.assessment_navigation_rule,
+        current_assessment.late_work_rule, current_assessment.question_variation_rule,
         current_assessment.assessment_question_order_rule, current_assessment.feedback_score,
         current_assessment.feedback_per_item_correctness,
         current_assessment.feedback_submitted_response,
@@ -554,11 +536,7 @@ BEGIN
             closes_at = candidate.closes_at,
             assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
             assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
-            assessment_attempt_grade_rule = candidate.assessment_attempt_grade_rule,
             question_variation_rule = candidate.question_variation_rule,
-            assessment_attempt_resume_rule = candidate.assessment_attempt_resume_rule,
-            assessment_question_display_rule = candidate.assessment_question_display_rule,
-            assessment_navigation_rule = candidate.assessment_navigation_rule,
             assessment_question_order_rule = candidate.assessment_question_order_rule,
             feedback_score = candidate.feedback_score,
             feedback_per_item_correctness = candidate.feedback_per_item_correctness,
@@ -674,9 +652,8 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
     allowed_keys text[] := ARRAY[
         'assessment_instructions', 'available_at', 'due_at', 'closes_at',
         'assessment_attempt_time_limit_seconds', 'assessment_attempt_limit', 'late_work_rule',
-        'assessment_attempt_grade_rule', 'question_variation_rule',
-        'assessment_attempt_resume_rule', 'assessment_question_display_rule',
-        'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
+        'question_variation_rule',
+        'assessment_question_order_rule', 'feedback_score',
         'feedback_per_item_correctness', 'feedback_submitted_response',
         'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics'];
 BEGIN
@@ -712,19 +689,14 @@ BEGIN
     END IF;
     values_changed := ROW(candidate.assessment_instructions, candidate.available_at, candidate.due_at,
         candidate.closes_at, candidate.assessment_attempt_time_limit_seconds, candidate.assessment_attempt_limit,
-        candidate.late_work_rule, candidate.assessment_attempt_grade_rule,
-        candidate.question_variation_rule, candidate.assessment_attempt_resume_rule,
-        candidate.assessment_question_display_rule, candidate.assessment_navigation_rule,
-        candidate.assessment_question_order_rule, candidate.feedback_score, candidate.feedback_per_item_correctness,
+        candidate.late_work_rule, candidate.question_variation_rule, candidate.assessment_question_order_rule, candidate.feedback_score, candidate.feedback_per_item_correctness,
         candidate.feedback_submitted_response, candidate.feedback_question_answer,
         candidate.feedback_question_answer_explanation, candidate.feedback_class_statistics)
       IS DISTINCT FROM ROW(current_assessment.assessment_instructions, current_assessment.available_at,
         current_assessment.due_at, current_assessment.closes_at, current_assessment.assessment_attempt_time_limit_seconds,
         current_assessment.assessment_attempt_limit, current_assessment.late_work_rule,
-        current_assessment.assessment_attempt_grade_rule,
         current_assessment.question_variation_rule,
-        current_assessment.assessment_attempt_resume_rule, current_assessment.assessment_question_display_rule,
-        current_assessment.assessment_navigation_rule, current_assessment.assessment_question_order_rule,
+        current_assessment.assessment_question_order_rule,
         current_assessment.feedback_score, current_assessment.feedback_per_item_correctness,
         current_assessment.feedback_submitted_response,
         current_assessment.feedback_question_answer, current_assessment.feedback_question_answer_explanation,
@@ -735,11 +707,7 @@ BEGIN
           due_at = candidate.due_at, closes_at = candidate.closes_at,
           assessment_attempt_time_limit_seconds = candidate.assessment_attempt_time_limit_seconds,
           assessment_attempt_limit = candidate.assessment_attempt_limit, late_work_rule = candidate.late_work_rule,
-          assessment_attempt_grade_rule = candidate.assessment_attempt_grade_rule,
           question_variation_rule = candidate.question_variation_rule,
-          assessment_attempt_resume_rule = candidate.assessment_attempt_resume_rule,
-          assessment_question_display_rule = candidate.assessment_question_display_rule,
-          assessment_navigation_rule = candidate.assessment_navigation_rule,
           assessment_question_order_rule = candidate.assessment_question_order_rule,
           feedback_score = candidate.feedback_score, feedback_per_item_correctness = candidate.feedback_per_item_correctness,
           feedback_submitted_response = candidate.feedback_submitted_response,

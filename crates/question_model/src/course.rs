@@ -304,7 +304,7 @@ pub struct GradebookSummaryRow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{AssessmentAttemptGradeRule, AssessmentQuestionVariationRule};
+    use crate::AssessmentQuestionVariationRule;
     use uuid::Uuid;
 
     fn assessment_title(value: &str) -> AssessmentTitle {
@@ -334,7 +334,6 @@ mod tests {
             )],
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
-                assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },
@@ -357,7 +356,6 @@ mod tests {
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
-                assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },
@@ -377,7 +375,6 @@ mod tests {
             entries: Vec::new(),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
-                assessment_attempt_grade_rule: AssessmentAttemptGradeRule::Highest,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },

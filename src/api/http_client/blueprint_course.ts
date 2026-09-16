@@ -56,6 +56,8 @@ function pagePath(
   cursor: string | undefined,
   pageSize: number | undefined,
   includeArchived: boolean,
+  searchQuery?: string,
+  publicOnly = false,
 ): string {
   if (
     pageSize !== undefined &&
@@ -63,10 +65,25 @@ function pagePath(
   ) {
     throw new ApiProtocolError("Blueprint Course page size must be an integer from 1 through 100");
   }
+  // ASVS 2.2.1, 2.2.2: mirror service limits for useful client feedback; server remains authoritative.
+  if (
+    searchQuery !== undefined &&
+    (Array.from(searchQuery).length > 256 || /\p{Cc}/u.test(searchQuery))
+  ) {
+    throw new ApiProtocolError(
+      "Blueprint Course search must be at most 256 characters without control characters",
+    );
+  }
+  if (publicOnly && includeArchived) {
+    throw new ApiProtocolError("Public Blueprint Course search cannot include Archived courses");
+  }
   const query = new URLSearchParams();
   if (cursor !== undefined) query.set("cursor", cursor);
   if (pageSize !== undefined) query.set("pageSize", String(pageSize));
   if (includeArchived) query.set("includeArchived", "true");
+  // ASVS 1.2.2: encode literal search text as a query value, never URL syntax.
+  if (searchQuery !== undefined) query.set("query", searchQuery);
+  if (publicOnly) query.set("publicOnly", "true");
   const suffix = query.size === 0 ? "" : `?${query.toString()}`;
   return `${path}${suffix}`;
 }
@@ -317,8 +334,17 @@ export function createBlueprintCourseClient(
       cursor,
       pageSize,
       includeArchived = false,
+      query,
+      publicOnly = false,
     ): Promise<CursorPage<BlueprintCourseSummaryView>> => {
-      const path = pagePath("/api/course-blueprints", cursor, pageSize, includeArchived);
+      const path = pagePath(
+        "/api/course-blueprints",
+        cursor,
+        pageSize,
+        includeArchived,
+        query,
+        publicOnly,
+      );
       return (await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintCoursePage))
         .body;
     },

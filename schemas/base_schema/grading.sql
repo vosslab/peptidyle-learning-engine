@@ -43,6 +43,11 @@ CREATE TABLE ple_private.grading_result (
 -- stable Entry identifier remains present after a released Assessment save,
 -- including when an Entry is retired, so historical Student Work continues
 -- to have a current score without consulting a Question Backend.
+-- NULL credit means no retained backend outcome (an unanswered Question),
+-- not an evaluated incorrect response with zero credit. Unanswered work earns
+-- zero even under full_credit; its current points remain in the denominator.
+-- ASVS 1.2.4, 2.3.2: fixed parameters preserve the unanswered-zero rule without
+-- changing immutable grading evidence or consulting a backend.
 CREATE FUNCTION ple_private.score_recorded_credit(
     p_normalized_credit numeric,
     p_scoring_rule text,
@@ -50,13 +55,14 @@ CREATE FUNCTION ple_private.score_recorded_credit(
 ) RETURNS TABLE (points_earned numeric, points_possible numeric)
 LANGUAGE sql IMMUTABLE
 SET search_path = pg_catalog AS $$
-    SELECT CASE p_scoring_rule
-               WHEN 'full_credit' THEN p_point_value
-               WHEN 'excluded' THEN 0::numeric
+    SELECT CASE
+               WHEN p_normalized_credit IS NULL THEN 0::numeric
+               WHEN p_scoring_rule = 'full_credit' THEN p_point_value
+               WHEN p_scoring_rule = 'excluded' THEN 0::numeric
                ELSE p_point_value * p_normalized_credit
            END,
            p_point_value
-     WHERE p_normalized_credit >= 0 AND p_normalized_credit <= 1
+     WHERE (p_normalized_credit IS NULL OR p_normalized_credit BETWEEN 0 AND 1)
        AND p_scoring_rule IN ('normal', 'full_credit', 'extra_credit', 'excluded')
        AND p_point_value >= 0
 $$;

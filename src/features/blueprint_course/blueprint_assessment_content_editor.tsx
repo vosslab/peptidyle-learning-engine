@@ -24,6 +24,7 @@ import {
 } from "./blueprint_course_model";
 import { QuestionPoolPicker, type QuestionPoolPickerSelection } from "./question_pool_picker";
 import { BlueprintPoolMembersEditor } from "./blueprint_pool_members_editor";
+import { BlueprintAssessmentFeedbackFields } from "./blueprint_assessment_feedback_fields";
 
 export interface BlueprintAssessmentContentEditorProps {
   readonly content: BlueprintAssessmentContentInput;
@@ -60,19 +61,6 @@ function lateWorkRuleFromValue(
   value: string,
 ): BlueprintAssessmentContentInput["defaults"]["late_work_rule"] | undefined {
   return value === "accept" || value === "mark_late" || value === "reject" ? value : undefined;
-}
-
-function assessmentAttemptGradeRuleFromValue(
-  value: string,
-):
-  | BlueprintAssessmentContentInput["defaults"]["activity_rules"]["assessmentAttemptGradeRule"]
-  | undefined {
-  return value === "first" ||
-    value === "latest" ||
-    value === "highest" ||
-    value === "instructorSelected"
-    ? value
-    : undefined;
 }
 
 /** Form fields keep the reusable content visible and progressively explain the next useful edit. */
@@ -433,6 +421,31 @@ export function BlueprintAssessmentContentEditor(
         </p>
         <div class="blueprint-course-form-grid">
           <label>
+            <input
+              type="checkbox"
+              checked={
+                props.content.defaults.activity_rules.assessmentQuestionOrderRule === "shuffled"
+              }
+              onChange={(event) => {
+                // ASVS 2.2.1: map the Boolean control only to the two permitted order rules.
+                const assessmentQuestionOrderRule = event.currentTarget.checked
+                  ? "shuffled"
+                  : "authoredOrder";
+                props.onChange(
+                  updateReusableDefaults(props.content, {
+                    ...props.content.defaults,
+                    activity_rules: {
+                      ...props.content.defaults.activity_rules,
+                      assessmentQuestionOrderRule,
+                    },
+                  }),
+                  "Question-order default updated. Save the Blueprint Course to keep this change.",
+                );
+              }}
+            />
+            <span>Randomize question order</span>
+          </label>
+          <label>
             Whole Assessment Attempt time limit (seconds)
             <input
               type="number"
@@ -483,33 +496,16 @@ export function BlueprintAssessmentContentEditor(
               <option value="reject">Reject</option>
             </select>
           </label>
-          <label>
-            Assessment Attempt grade rule
-            <select
-              value={props.content.defaults.activity_rules.assessmentAttemptGradeRule}
-              onChange={(event) => {
-                const rule = assessmentAttemptGradeRuleFromValue(event.currentTarget.value);
-                if (rule === undefined) return;
-                props.onChange(
-                  updateReusableDefaults(props.content, {
-                    ...props.content.defaults,
-                    activity_rules: {
-                      ...props.content.defaults.activity_rules,
-                      assessmentAttemptGradeRule: rule,
-                    },
-                  }),
-                  "Assessment Attempt grade-rule default updated. Review the defaults or save.",
-                );
-              }}
-            >
-              <option value="first">First completed Assessment Attempt</option>
-              <option value="latest">Latest completed Assessment Attempt</option>
-              <option value="highest">Highest score</option>
-              <option value="instructorSelected">Instructor-selected Assessment Attempt</option>
-            </select>
-          </label>
         </div>
       </fieldset>
+
+      <div hidden={editingTask() !== "properties"}>
+        <BlueprintAssessmentFeedbackFields
+          content={props.content}
+          editable={props.editable}
+          onChange={props.onChange}
+        />
+      </div>
 
       <Show when={fixedPickerOpen()}>
         <QuestionPicker

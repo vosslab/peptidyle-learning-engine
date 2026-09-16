@@ -13,29 +13,48 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
-- C881/C882 preserve bounded prior Blueprint fork review proof. An authorized Instructor sees known forks
-  with their owners, opens one from the source known-fork row, and lazily compares current source
-  and fork heads against the recorded origin baseline. The compiled UI distinguishes retained IDs,
-  source-only, and fork-only changes; retry recovers a failed review request. Accepted actual
-  server receipts are `/private/tmp/ple-fork-reader-artifacts.nRikDO` and
-  `/private/tmp/ple-fork-review-http-artifacts.LTUgsF`. Root visual review accepted 1280 by 800
-  and the initial 390px narrow view. The actual review is GET-only, `no-store`, and leaves all
-  `ple_data` unchanged. Canonical JSON is calculated only when review is requested. The direct
-  fork page has no Compare entry. C883 has verified backend contributor evidence, while its browser
-  Apply workflow and C413's whole workflow remain open.
+- Blueprint authoring and lifecycle reconciliation: the selected editor is now
+  `BlueprintAssessmentContentEditor`, with separate Questions and Properties tasks. Accepted
+  compiled-main, actual-loopback-HTTP evidence at
+  `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json`
+  opens one selected Assessment, keeps Questions and Properties drafts shared, exercises all six
+  Student-feedback controls, and proves one ordinary PUT Save plus exact reload with an unchanged
+  sibling. The whole Properties requirement remains open because scoring, attempt, and late-work
+  activity controls were not exercised. Source confirms no Blueprint delivery dates, only
+  `private`/`public`/`archived` availability, owner-only Private visibility, and Public-only
+  adoption. Private development does not override the explicit rule that Private Blueprints cannot
+  be adopted. Search Public Blueprint
+  Courses is verified only for C47's submitted-name, Public-only workflow. Accepted bounded history proof at
+  `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB` covers Public/Archived Instructor
+  Revision and metadata facts, exact older read-only Revision inspection, Private-foreign and
+  Student denials, and no `ple_data` mutation; it does not claim browser pagination/retry,
+  local-draft preservation, login/TLS, or populated Student Work.
 
-- Latest Blueprint authority reconciliation (2026-09-16): known-fork discovery, newest-head review,
-  ordinary visibility and on-request canonical JSON retain valid evidence. The recorded-origin
-  baseline is provenance/implementation history, not a current HG comparison requirement. The
-  direct-source/internal-Assessment-ID review does not establish any-visible-related-pair comparison
-  in the same lineage, shared-Question-ID Assessment relationships, required shared/added/removed
-  correspondence, or useful matching through renamed/reordered/restructured Assessments. These
-  remain open, as do history availability, obvious newer-source/downstream indications and connected
-  owner-selected Apply. Prior artifacts prove only their recorded read-only scope.
-  The user's identity clarification additionally requires fresh local Assessment IDs on forks,
-  no persistent cross-Blueprint Assessment lineage/history, and unmatched disjoint Question sets.
-  C883's previous proof is historical contributor evidence where it depends on shared internal IDs;
-  fork creation and Apply need reconciliation before corrected-contract closure.
+- C47 verifies the bounded Public Blueprint search workflow. Actual HTTP and compiled-main browser
+  evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json`
+  and `public-search-browser.json` cover literal name input, Public-only filtering before paging,
+  a query-bound cursor, 51 matches through the real 50-row continuation, empty-result reset,
+  existing detail opening, and Create Course Instance preselection beyond the first page. The
+  read-only proof leaves `ple_data` unchanged. It does not create a Course Instance or establish
+  ordinary login, TLS, full accessibility, manual chooser coverage, or the still-open Properties
+  editor scope.
+
+- Current Blueprint fork/comparison closure: accepted actual HTTP evidence at
+  `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`
+  verifies arbitrary visible sibling and transitive same-lineage current pairs, Private concealment,
+  unrelated-pair denial, and Question-ID relationships through renamed/reordered/split content.
+  Forks use fresh local Assessment and Pool identities while retaining exact Question Revision
+  membership. The accepted 84-request target-local Apply proof at
+  `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`
+  verifies selected existing/new destinations, unchanged source and unselected target content, four
+  CAS/authorization/Archived denials, and injected-fault rollback. Compiled-main browser evidence
+  at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json` covers
+  current-pair review and selected Apply at 1280px and 390px. A separately accepted compiled-main,
+  actual-loopback-HTTP receipt at
+  `/private/tmp/ple-blueprint-owned-pool-artifacts.8PN6aH/comparison-browser.json` expands changed
+  content at both widths and verifies DTO-backed titles, instructions, fixed Question IDs,
+  Revisions, and points. No populated Student Work, login, TLS, full accessibility, or whole-C413
+  claim is made.
 
 - The Archived Blueprint read-only row is verified. Owner Save and rename lock the Blueprint and
   reject Archived state before replay, CAS, or no-op handling. Accepted actual HTTP proof recorded

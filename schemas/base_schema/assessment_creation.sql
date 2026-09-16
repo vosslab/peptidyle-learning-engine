@@ -37,18 +37,16 @@ BEGIN
         source_blueprint_course_reference_number, source_blueprint_revision_number,
         source_blueprint_assessment_reference,
         created_at, updated_at, assessment_type, assessment_title, assessment_instructions,
-        assessment_attempt_limit, late_work_rule, assessment_attempt_grade_rule,
-        question_variation_rule,
-        assessment_attempt_resume_rule, assessment_question_display_rule,
-        assessment_navigation_rule, assessment_question_order_rule, feedback_score,
+        assessment_attempt_limit, late_work_rule, question_variation_rule,
+        assessment_question_order_rule, feedback_score,
         feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer,
         feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
         p_assessment_id, course_row.course_id, 'direct', NULL, NULL, NULL,
         clock_timestamp(), clock_timestamp(), p_assessment_type, p_title, p_instructions,
         CASE WHEN p_assessment_type IN ('quiz', 'exam') THEN 1 ELSE NULL END,
-        'reject', 'highest', 'new_variation',
-        'resumable', 'one_question_at_a_time', 'free_navigation', 'shuffled',
+        'reject', 'new_variation',
+        'shuffled',
         'after_submit', 'after_submit', 'after_submit',
         CASE WHEN p_assessment_type IN ('practice_question_assignment', 'quiz', 'exam')
              THEN 'after_submit' ELSE 'never' END,

@@ -279,6 +279,7 @@ function fixtureModelForPathname(pathname: string): RibbonModel {
   if (pathname === "/") return productFixture("courses");
   if (pathname === "/library") return productFixture("questions");
   if (pathname === "/blueprint-courses") return productFixture("courses");
+  if (pathname === "/blueprint-courses/search/public") return productFixture("courses");
   if (pathname === "/instructor/courses/CI7K3M2Q/students")
     return courseFixture("CI7K3M2Q", "students");
   if (pathname === "/instructor/courses/CI7K3M2Q/gradebook")

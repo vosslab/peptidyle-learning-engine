@@ -13,11 +13,7 @@ CREATE FUNCTION ple_data.create_assessment_from_template_values(
     p_assessment_attempt_time_limit_seconds integer,
     p_assessment_attempt_limit integer,
     p_late_work_rule text,
-    p_assessment_attempt_grade_rule text,
     p_question_variation_rule text,
-    p_assessment_attempt_resume_rule text,
-    p_assessment_question_display_rule text,
-    p_assessment_navigation_rule text,
     p_assessment_question_order_rule text,
     p_feedback_score text,
     p_feedback_per_item_correctness text,
@@ -53,11 +49,7 @@ BEGIN
                p_assessment_attempt_time_limit_seconds,
            assessment_attempt_limit = p_assessment_attempt_limit,
            late_work_rule = p_late_work_rule,
-           assessment_attempt_grade_rule = p_assessment_attempt_grade_rule,
            question_variation_rule = p_question_variation_rule,
-           assessment_attempt_resume_rule = p_assessment_attempt_resume_rule,
-           assessment_question_display_rule = p_assessment_question_display_rule,
-           assessment_navigation_rule = p_assessment_navigation_rule,
            assessment_question_order_rule = p_assessment_question_order_rule,
            feedback_score = p_feedback_score,
            feedback_per_item_correctness = p_feedback_per_item_correctness,
@@ -78,11 +70,11 @@ $$;
 
 REVOKE ALL ON FUNCTION ple_data.create_assessment_from_template_values(
     uuid, bigint, text, text, text, integer, integer, text, text, text,
-    text, text, text, text, text, text, text, text, text, text
+    text, text, text, text, text, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_data.create_assessment_from_template_values(
     uuid, bigint, text, text, text, integer, integer, text, text, text,
-    text, text, text, text, text, text, text, text, text, text
+    text, text, text, text, text, text
 ) TO ple_api_owner;
 
 RESET ROLE;
@@ -142,11 +134,7 @@ BEGIN
         template.assessment_attempt_time_limit_seconds,
         template.assessment_attempt_limit,
         template.late_work_rule,
-        template.assessment_attempt_grade_rule,
         template.question_variation_rule,
-        template.assessment_attempt_resume_rule,
-        template.assessment_question_display_rule,
-        template.assessment_navigation_rule,
         template.assessment_question_order_rule,
         template.feedback_score,
         template.feedback_per_item_correctness,

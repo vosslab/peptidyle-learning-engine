@@ -112,17 +112,8 @@ BEGIN
                 ELSE source_content #> '{defaults,assessment_attempt_limit}'
             END,
             'late_work_rule', source_content #> '{defaults,late_work_rule}',
-            'assessment_attempt_grade_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentAttemptGradeRule}')
-                WHEN 'first' THEN 'first' WHEN 'latest' THEN 'latest' WHEN 'highest' THEN 'highest'
-                WHEN 'instructorSelected' THEN 'instructor_selected' END,
             'question_variation_rule', CASE (source_content #>> '{defaults,activity_rules,questionVariationRule}')
                 WHEN 'reuseVariation' THEN 'reuse_variation' WHEN 'newVariation' THEN 'new_variation' END,
-            'assessment_attempt_resume_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentAttemptResumeRule}')
-                WHEN 'resumable' THEN 'resumable' WHEN 'singleSession' THEN 'single_session' END,
-            'assessment_question_display_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentQuestionDisplayRule}')
-                WHEN 'allQuestions' THEN 'all_questions' WHEN 'oneQuestionAtATime' THEN 'one_question_at_a_time' END,
-            'assessment_navigation_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentNavigationRule}')
-                WHEN 'freeNavigation' THEN 'free_navigation' WHEN 'forwardOnly' THEN 'forward_only' END,
             'assessment_question_order_rule', CASE (source_content #>> '{defaults,activity_rules,assessmentQuestionOrderRule}')
                 WHEN 'authoredOrder' THEN 'authored_order' WHEN 'shuffled' THEN 'shuffled' END,
             'feedback_score', source_content #> '{defaults,student_feedback_release_rule,score}',
@@ -255,11 +246,7 @@ BEGIN
             assessment_attempt_time_limit_seconds,
             assessment_attempt_limit,
             late_work_rule,
-            assessment_attempt_grade_rule,
             question_variation_rule,
-            assessment_attempt_resume_rule,
-            assessment_question_display_rule,
-            assessment_navigation_rule,
             assessment_question_order_rule,
             feedback_score,
             feedback_per_item_correctness,
@@ -280,11 +267,7 @@ BEGIN
             candidate.assessment_attempt_time_limit_seconds,
             candidate.assessment_attempt_limit,
             candidate.late_work_rule,
-            candidate.assessment_attempt_grade_rule,
             candidate.question_variation_rule,
-            candidate.assessment_attempt_resume_rule,
-            candidate.assessment_question_display_rule,
-            candidate.assessment_navigation_rule,
             candidate.assessment_question_order_rule,
             candidate.feedback_score,
             candidate.feedback_per_item_correctness,

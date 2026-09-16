@@ -347,39 +347,15 @@ function decodeAssessmentActivityRules(
   const record = decodeRecord(value, path);
   if (strict) {
     requireOnlyFields(record, path, [
-      "assessmentAttemptGradeRule",
       "questionVariationRule",
-      "assessmentAttemptResumeRule",
-      "assessmentQuestionDisplayRule",
-      "assessmentNavigationRule",
       "assessmentQuestionOrderRule",
     ]);
   }
   const decoded = {
-    assessmentAttemptGradeRule: decodeStringEnum(
-      field(record, "assessmentAttemptGradeRule", path),
-      `${path}.assessmentAttemptGradeRule`,
-      ["first", "latest", "highest", "instructorSelected"],
-    ),
     questionVariationRule: decodeStringEnum(
       field(record, "questionVariationRule", path),
       `${path}.questionVariationRule`,
       ["reuseVariation", "newVariation"],
-    ),
-    assessmentAttemptResumeRule: decodeStringEnum(
-      field(record, "assessmentAttemptResumeRule", path),
-      `${path}.assessmentAttemptResumeRule`,
-      ["resumable", "singleSession"],
-    ),
-    assessmentQuestionDisplayRule: decodeStringEnum(
-      field(record, "assessmentQuestionDisplayRule", path),
-      `${path}.assessmentQuestionDisplayRule`,
-      ["allQuestions", "oneQuestionAtATime"],
-    ),
-    assessmentNavigationRule: decodeStringEnum(
-      field(record, "assessmentNavigationRule", path),
-      `${path}.assessmentNavigationRule`,
-      ["freeNavigation", "forwardOnly"],
     ),
     assessmentQuestionOrderRule: decodeStringEnum(
       field(record, "assessmentQuestionOrderRule", path),

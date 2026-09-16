@@ -73,11 +73,7 @@ export function AssessmentEntrySummary(props: {
 }
 
 const ACTIVITY_LABELS = [
-  ["assessmentAttemptGradeRule", "Assessment Attempt grade rule"],
   ["questionVariationRule", "Question variation"],
-  ["assessmentAttemptResumeRule", "Assessment Attempt resume"],
-  ["assessmentQuestionDisplayRule", "Question display"],
-  ["assessmentNavigationRule", "Question navigation"],
   ["assessmentQuestionOrderRule", "Question order"],
 ] as const;
 const FEEDBACK_LABELS = [

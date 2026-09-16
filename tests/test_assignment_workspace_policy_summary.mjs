@@ -7,11 +7,7 @@ const baseInput = {
   assessmentStatus: "released",
   savedAssessmentAvailability: { state: "available" },
   policies: {
-    assessmentAttemptGradeRule: "instructorSelected",
     questionVariationRule: "reuseVariation",
-    assessmentAttemptResumeRule: "resumable",
-    assessmentQuestionDisplayRule: "allQuestions",
-    assessmentNavigationRule: "freeNavigation",
     assessmentQuestionOrderRule: "authoredOrder",
   },
   studentFeedbackReleaseRule: {
@@ -39,7 +35,6 @@ test("Assessment policy summary covers every Properties-owned decision in readab
   const summary = assessmentPolicyDraftSummary(baseInput);
   const valueFor = (key) => summary.find((item) => item.key === key)?.value ?? "";
 
-  assert.match(valueFor("assessmentAttemptGradeRule"), /Instructor-selected/);
   assert.match(valueFor("questionVariationRule"), /previous Question Variations/);
   assert.match(valueFor("savedDelivery"), /available now/);
   assert.match(valueFor("assessmentStatus"), /Released/);

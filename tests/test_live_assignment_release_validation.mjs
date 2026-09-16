@@ -41,11 +41,7 @@ function createdWorkspace(
     assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
-      assessmentAttemptGradeRule: "latest",
       questionVariationRule: "newVariation",
-      assessmentAttemptResumeRule: "resumable",
-      assessmentQuestionDisplayRule: "allQuestions",
-      assessmentNavigationRule: "freeNavigation",
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {

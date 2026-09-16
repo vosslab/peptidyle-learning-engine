@@ -130,7 +130,7 @@ BEGIN
      ORDER BY candidate.assessment_attempt_number DESC LIMIT 1;
     -- Resume interprets retained evidence under its retained rule before a
     -- current limit or late-work refusal can authorize a new Attempt.
-    IF FOUND AND existing_assessment_attempt.assessment_attempt_resume_rule = 'resumable' THEN
+    IF FOUND THEN
         resumable_assessment_attempt_id := existing_assessment_attempt.assessment_attempt_id;
         resumable_assessment_attempt_number := existing_assessment_attempt.assessment_attempt_number;
         RETURN NEXT;
@@ -208,9 +208,8 @@ BEGIN
         assessment_attempt_id, student_record_id, assessment_id, assessment_attempt_number, started_at, expires_at,
         assessment_title, assessment_instructions, available_at, due_at, closes_at,
         assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule,
-        assessment_attempt_grade_rule, question_variation_rule,
-        assessment_attempt_resume_rule, assessment_question_display_rule,
-        assessment_navigation_rule, assessment_question_order_rule, feedback_score,
+        question_variation_rule,
+        assessment_question_order_rule, feedback_score,
         feedback_per_item_correctness, feedback_submitted_response,
         feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics,
         schedule_accommodation_id, schedule_accommodation_edit_number,
@@ -242,10 +241,8 @@ BEGIN
         COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
         COALESCE(accommodation_row.assessment_attempt_time_limit_seconds, assessment_row.assessment_attempt_time_limit_seconds),
         effective_assessment_attempt_limit,
-        assessment_row.late_work_rule, assessment_row.assessment_attempt_grade_rule,
-        assessment_row.question_variation_rule,
-        assessment_row.assessment_attempt_resume_rule, assessment_row.assessment_question_display_rule,
-        assessment_row.assessment_navigation_rule, assessment_row.assessment_question_order_rule,
+        assessment_row.late_work_rule, assessment_row.question_variation_rule,
+        assessment_row.assessment_question_order_rule,
         assessment_row.feedback_score, assessment_row.feedback_per_item_correctness,
         assessment_row.feedback_submitted_response,
         assessment_row.feedback_question_answer, assessment_row.feedback_question_answer_explanation,

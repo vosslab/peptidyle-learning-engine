@@ -122,10 +122,11 @@ pub use authoring::{
     DeleteAuthoringDraftInput, SaveAuthoringDraftGeneralFeedbackInput, SaveAuthoringDraftInput,
 };
 pub use blueprint_course::{
-    ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseStore,
-    StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry,
-    StoredBlueprintCourse, StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
-    StoredBlueprintModule, StoredBlueprintPoolMembers, StoredBlueprintRevision,
+    ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseListRequest,
+    BlueprintCourseStore, StoredBlueprintAssessment, StoredBlueprintAssessmentContent,
+    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
+    StoredBlueprintCourseSummary, StoredBlueprintModule, StoredBlueprintPoolMembers,
+    StoredBlueprintRevision,
 };
 pub use blueprint_history::{BlueprintHistoryKind, BlueprintHistoryStore};
 pub use blueprint_lineage::{

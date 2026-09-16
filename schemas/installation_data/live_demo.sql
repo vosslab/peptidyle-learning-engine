@@ -259,10 +259,8 @@ BEGIN
         assessment_id, course_id, origin_kind, source_blueprint_course_reference_number,
         source_blueprint_revision_number, source_blueprint_assessment_reference,
         created_at, updated_at, assessment_type, assessment_title, assessment_instructions, due_at,
-        assessment_attempt_time_limit_seconds, late_work_rule, assessment_attempt_grade_rule,
-        question_variation_rule, assessment_attempt_resume_rule,
-        assessment_question_display_rule, assessment_navigation_rule,
-        assessment_question_order_rule, feedback_score, feedback_per_item_correctness,
+        assessment_attempt_time_limit_seconds, late_work_rule,
+        question_variation_rule, assessment_question_order_rule, feedback_score, feedback_per_item_correctness,
         feedback_submitted_response, feedback_question_answer,
         feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
@@ -275,9 +273,7 @@ BEGIN
         'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         (SELECT active_until_at FROM ple_data.course_instance
           WHERE course_id = '00000000-0000-0000-0000-000000000220'),
-        1800, 'accept', 'highest', 'new_variation', 'resumable',
-        'one_question_at_a_time', 'free_navigation',
-        'authored_order', 'after_submit', 'after_submit', 'after_submit',
+        1800, 'accept', 'new_variation', 'authored_order', 'after_submit', 'after_submit', 'after_submit',
         'never', 'never', 'never'
     ) ON CONFLICT (assessment_id) DO NOTHING
     RETURNING assessment_id INTO new_assessment_id;

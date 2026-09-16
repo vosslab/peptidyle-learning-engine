@@ -21,6 +21,36 @@ async fn migration_pool() -> PgPool {
         .expect("two-connection migration pool")
 }
 
+// Protects the HG unanswered-zero invariant: evaluated zero credit is not
+// unanswered work, so Full Credit must continue to apply to the former only.
+#[tokio::test]
+async fn unanswered_scoring_preserves_evaluated_zero_credit_distinction() {
+    let pool = migration_pool().await;
+    let mut tx = pool.begin().await.expect("scoring contract transaction");
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *tx)
+        .await
+        .expect("private scoring role");
+    let mismatches: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM (VALUES \
+         (NULL::numeric, 'full_credit', 8::numeric, 0::numeric), \
+         (0::numeric, 'full_credit', 8::numeric, 8::numeric) \
+         ) AS expected(credit, rule, points, earned) \
+         LEFT JOIN LATERAL ple_private.score_recorded_credit(\
+             expected.credit, expected.rule, expected.points) AS actual ON true \
+         WHERE actual.points_earned IS DISTINCT FROM expected.earned \
+            OR actual.points_possible IS DISTINCT FROM expected.points",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .expect("current-point scoring contract");
+    assert_eq!(
+        mismatches, 0,
+        "unanswered work earns zero while evaluated credit retains its scoring treatment"
+    );
+    tx.rollback().await.expect("scoring contract rollback");
+}
+
 async fn set_student(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<(), String> {
     sqlx::query("SET LOCAL ROLE ple_api_owner")
         .execute(&mut **tx)
@@ -53,9 +83,9 @@ async fn make_attempt(
          source_blueprint_assessment_reference, created_at, updated_at, assessment_type, assessment_title, \
          assessment_instructions, available_at, due_at, closes_at, \
          assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-         assessment_attempt_grade_rule, question_variation_rule, \
-         assessment_attempt_resume_rule, assessment_question_display_rule, \
-         assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
+         question_variation_rule, \
+         \
+         assessment_question_order_rule, feedback_score, \
          feedback_per_item_correctness, feedback_submitted_response, \
          feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
          assessment_status) \
@@ -64,9 +94,9 @@ async fn make_attempt(
                 clock_timestamp(), clock_timestamp(), assessment_type, assessment_title, assessment_instructions, \
                 clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour', \
                 clock_timestamp() + interval '2 hours', 60, 1, late_work_rule, \
-                assessment_attempt_grade_rule, question_variation_rule, \
-                assessment_attempt_resume_rule, assessment_question_display_rule, \
-                assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
+                question_variation_rule, \
+                \
+                assessment_question_order_rule, feedback_score, \
                 feedback_per_item_correctness, feedback_submitted_response, \
                 feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
                 assessment_status FROM ple_data.assessment WHERE assessment_id = $2",

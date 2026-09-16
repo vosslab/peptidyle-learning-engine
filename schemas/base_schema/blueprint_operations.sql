@@ -341,7 +341,10 @@ BEGIN
 END
 $$;
 
-CREATE FUNCTION ple_api.list_blueprint_courses(p_include_archived boolean DEFAULT false)
+CREATE FUNCTION ple_api.list_blueprint_courses(
+    p_include_archived boolean, p_public_only boolean, p_query text,
+    p_after_long_name text, p_after_reference text, p_limit integer
+)
 RETURNS TABLE (
     public_reference text, short_name text, long_name text, availability text,
     metadata_etag uuid, current_blueprint_revision_number bigint, is_owner boolean,
@@ -351,6 +354,12 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private
 AS $$
 BEGIN
+    -- ASVS 2.2.1/3: reject contradictory visibility and unbounded pages.
+    IF p_limit < 1 OR p_limit > 101 OR (p_public_only AND p_include_archived)
+       OR length(p_query) > 256
+       OR (p_after_long_name IS NULL) <> (p_after_reference IS NULL) THEN
+        RAISE EXCEPTION 'invalid Blueprint discovery page' USING ERRCODE = '22023';
+    END IF;
     RETURN QUERY SELECT course.public_reference, course.short_name, course.long_name,
            course.availability, course.metadata_etag,
            course.current_blueprint_revision_number,
@@ -364,6 +373,15 @@ BEGIN
                AND membership.role = 'student')
       FROM ple_data.blueprint_course AS course
      WHERE ple_api.current_session_account_is_instructor()
+       AND (NOT p_public_only OR course.availability = 'public')
+       -- ASVS 1.2.4: parameters remain literal text, including LIKE metacharacters.
+       AND (p_query = '' OR course.short_name ILIKE
+            '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'
+            OR course.long_name ILIKE
+            '%' || replace(replace(replace(p_query, '\', '\\'), '%', '\%'), '_', '\_') || '%')
+       AND (p_after_long_name IS NULL OR
+            (course.long_name COLLATE "C", course.public_reference COLLATE "C") >
+            (p_after_long_name COLLATE "C", p_after_reference COLLATE "C"))
        AND (
            -- ASVS 8.2.2/8.3.1: opt-in history never exposes another owner's Private course.
            course.availability = 'public'
@@ -371,7 +389,8 @@ BEGIN
                AND course.availability = 'private')
            OR (p_include_archived AND course.availability = 'archived')
        )
-     ORDER BY course.long_name, course.reference_number;
+     ORDER BY course.long_name COLLATE "C", course.public_reference COLLATE "C"
+     LIMIT p_limit;
 END
 $$;
 
@@ -444,13 +463,13 @@ REVOKE ALL PRIVILEGES ON FUNCTION
     ple_api.save_blueprint_course(text, bigint, bytea, jsonb, bytea),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
-    ple_api.list_blueprint_courses(boolean), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean, boolean, text, text, text, integer), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
     ple_api.create_blueprint_course(uuid, bytea, text, text, jsonb, bytea),
     ple_api.rename_blueprint_course(text, uuid, text, text),
     ple_api.set_blueprint_availability(text, uuid, text, text),
-    ple_api.list_blueprint_courses(boolean), ple_api.load_blueprint_course(text),
+    ple_api.list_blueprint_courses(boolean, boolean, text, text, text, integer), ple_api.load_blueprint_course(text),
     ple_api.load_blueprint_revision(text, bigint) TO ple_app;
 
 SET LOCAL ROLE ple_data_owner;

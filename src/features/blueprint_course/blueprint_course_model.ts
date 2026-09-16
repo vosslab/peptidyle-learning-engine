@@ -109,11 +109,7 @@ function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDef
     assessment_attempt_limit: assessmentType === "quiz" || assessmentType === "exam" ? 1 : null,
     late_work_rule: "reject",
     activity_rules: {
-      assessmentAttemptGradeRule: "highest",
       questionVariationRule: "newVariation",
-      assessmentAttemptResumeRule: "resumable",
-      assessmentQuestionDisplayRule: "oneQuestionAtATime",
-      assessmentNavigationRule: "freeNavigation",
       assessmentQuestionOrderRule: "shuffled",
     },
     student_feedback_release_rule: {

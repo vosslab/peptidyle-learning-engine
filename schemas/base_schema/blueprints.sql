@@ -334,62 +334,8 @@ BEGIN
             activity_value := defaults_value -> 'activity_rules';
             feedback_value := defaults_value -> 'student_feedback_release_rule';
             IF NOT ple_data.blueprint_content_has_exact_keys(activity_value, ARRAY[
-                'assessmentAttemptGradeRule', 'questionVariationRule',
-                'assessmentAttemptResumeRule',
-                'assessmentQuestionDisplayRule', 'assessmentNavigationRule',
-                'assessmentQuestionOrderRule'
-            ]) OR NOT ple_data.blueprint_content_has_exact_keys(feedback_value, ARRAY[
-                'score', 'per_item_correctness', 'submitted_response',
-                'question_answer', 'question_answer_explanation', 'class_statistics'
-            ]) THEN
-                RETURN false;
-            END IF;
-            FOR entry_value IN SELECT value FROM jsonb_array_elements(content_value -> 'entries') LOOP
-                IF entry_value ->> 'kind' = 'fixed' THEN
-                    IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
-                        'kind', 'question_revision', 'points_possible', 'scoring_rule',
-                        'question_attempt_limit', 'question_attempt_time_limit'
-                    ]) THEN RETURN false; END IF;
-                    pin_value := entry_value -> 'question_revision';
-                    IF NOT ple_data.blueprint_content_has_exact_keys(
-                        pin_value, ARRAY['questionId', 'revisionNumber']
-                    ) THEN RETURN false; END IF;
-                ELSIF entry_value ->> 'kind' = 'pool' THEN
-                    IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
-                        'kind', 'question_pool_revision', 'selection_count', 'points_per_item',
-                        'scoring_rule', 'selection_rule', 'question_attempt_limit',
-                        'question_attempt_time_limit'
-                    ]) OR jsonb_typeof(entry_value -> 'question_pool_revision') <> 'object' THEN
-                        RETURN false;
-                    END IF;
-                    pin_value := entry_value -> 'question_pool_revision';
-                    IF NOT ple_data.blueprint_content_has_exact_keys(
-                        pin_value, ARRAY['questionPoolId', 'revisionNumber']
-                    ) THEN RETURN false; END IF;
-                    selection_value := entry_value -> 'selection_rule';
-                    IF NOT ple_data.blueprint_content_has_exact_keys(
-                        selection_value, ARRAY['selectedQuestionOrder']
-                    ) THEN RETURN false; END IF;
-                ELSE
-                    RETURN false;
-                END IF;
-                limit_value := entry_value -> 'question_attempt_limit';
-                time_limit_value := entry_value -> 'question_attempt_time_limit';
-                IF NOT ple_data.blueprint_content_has_exact_keys(limit_value, ARRAY['maxAttempts'])
-                   OR NOT (
-                       ple_data.blueprint_content_has_exact_keys(time_limit_value, ARRAY['kind'])
-                       OR ple_data.blueprint_content_has_exact_keys(
-                           time_limit_value, ARRAY['kind', 'seconds', 'graceSeconds']
-                       )
-                   ) THEN
-                    RETURN false;
-                END IF;
-            END LOOP;
-        END LOOP;
-    END LOOP;
-    RETURN true;
-END
-$$;
+                'questionVariationRule',
+                $$;
 
 CREATE FUNCTION ple_data.validate_blueprint_content(p_content jsonb)
 RETURNS void LANGUAGE plpgsql IMMUTABLE STRICT

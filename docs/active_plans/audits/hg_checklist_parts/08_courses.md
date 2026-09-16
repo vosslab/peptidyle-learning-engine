@@ -150,18 +150,24 @@
 
 #### Blueprint Course forks and Change Proposals
 
-- [ ] An **Instructor** can fork a **Blueprint Course** to create a new independent Blueprint Course.
-  - Mismatch: No Blueprint fork operation was found.
-- [ ] A fork records the source Blueprint Course and Blueprint Revision from which it was created.
-  - Mismatch: No fork lineage persistence exists.
-- [ ] Forked Blueprint Courses develop independently and have their own Blueprint Revisions.
-  - Mismatch: No fork implementation exists.
-- [ ] Changes to a source Blueprint Course are never automatically applied to its forks.
-  - Mismatch: No fork implementation exists to enforce this invariant.
-- [ ] A fork should make newer changes from its source Blueprint Course easy to discover and review.
-  - Mismatch: No fork update UI or runtime proof exists.
-- [ ] An **Instructor** can selectively bring changes from a source Blueprint Course into their fork.
-  - Mismatch: No selective fork-update operation exists.
+- [x] An **Instructor** can fork a **Blueprint Course** to create a new independent Blueprint Course.
+  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` creates one actor-owned Private child from an exact source Revision.
+  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
+- [x] A fork records the source Blueprint Course and Blueprint Revision from which it was created.
+  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` carries the source reference and Revision to the Store.
+  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
+- [x] Forked Blueprint Courses develop independently and have their own Blueprint Revisions.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` creates a separately editable fork tree.
+  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
+- [x] Changes to a source Blueprint Course are never automatically applied to its forks.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_apply.rs` `apply_blueprint_fork` changes only explicit selections.
+  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
+- [x] A fork should make newer changes from its source Blueprint Course easy to discover and review.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` presents the source/fork review entry.
+  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
+- [x] An **Instructor** can selectively bring changes from a source Blueprint Course into their fork.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` presents explicit selected Apply choices.
+  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
 - [ ] An **Instructor** can create a **Blueprint Course Change Proposal** to propose changes to another Blueprint Course.
   - Mismatch: No Change Proposal model, route, or store operation was found.
 - [ ] A Change Proposal shows added, removed, and changed Assessments and Question content.

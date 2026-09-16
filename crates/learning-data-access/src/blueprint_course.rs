@@ -18,7 +18,16 @@ use question_model::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{Page, PageRequest, SessionTokenHash, StoreError};
+
+/// Bounded ordinary discovery, including optional literal name narrowing.
+#[derive(Debug, Clone)]
+pub struct BlueprintCourseListRequest {
+    pub page: PageRequest,
+    pub query: String,
+    pub include_archived: bool,
+    pub public_only: bool,
+}
 
 /// Explicit reviewed choices; content and names are always read by the Store.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -454,8 +463,8 @@ pub trait BlueprintCourseStore: Send + Sync {
     async fn list_blueprint_courses(
         &self,
         session: SessionTokenHash,
-        include_archived: bool,
-    ) -> Result<Vec<StoredBlueprintCourseSummary>, StoreError>;
+        request: BlueprintCourseListRequest,
+    ) -> Result<Page<StoredBlueprintCourseSummary>, StoreError>;
     async fn load_blueprint_course(
         &self,
         session: SessionTokenHash,

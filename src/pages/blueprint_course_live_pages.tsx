@@ -11,6 +11,13 @@ import {
 } from "../features/question_picker";
 import { BlueprintCourseDetailRoutePage } from "./blueprint_course_detail_route_page";
 import { BlueprintCoursesRoutePage } from "./blueprint_course_route_page";
+import { PublicBlueprintSearchPage } from "./blueprint_course_search_page";
+
+/** Public discovery needs only the existing answer-free Blueprint list capability. */
+export function PublicBlueprintSearchLivePage(): JSX.Element {
+  const runtime = useApplicationApi();
+  return <PublicBlueprintSearchPage client={runtime.client} />;
+}
 
 interface BlueprintCourseRouteComposition {
   readonly client: ReturnType<typeof useApplicationApi>["client"];

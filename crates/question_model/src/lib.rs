@@ -106,10 +106,9 @@ pub use crate::assessment::{
     derive_instructor_assessment_availability,
 };
 pub use crate::assessment_activity_rules::{
-    AssessmentActivityRules, AssessmentAttemptGradeRule, AssessmentAttemptResumeRule,
-    AssessmentNavigationRule, AssessmentQuestionDisplayRule, AssessmentQuestionOrderRule,
-    AssessmentQuestionVariationRule, QuestionAttemptLimit, QuestionAttemptTimeLimit,
-    StudentFeedbackReleaseRule, StudentFeedbackReleaseTiming,
+    AssessmentActivityRules, AssessmentQuestionOrderRule, AssessmentQuestionVariationRule,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, StudentFeedbackReleaseRule,
+    StudentFeedbackReleaseTiming,
 };
 pub use crate::assessment_student_view::{
     InstructorStudentView, InstructorStudentViewDelivery, InstructorStudentViewEntry,

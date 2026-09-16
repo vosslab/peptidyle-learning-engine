@@ -14,10 +14,13 @@ import {
 } from "../navigation/public_route";
 import { StudentCoursesPage } from "./student_courses_page";
 
-type AdoptableBlueprintCourse = BlueprintCourseSummaryView;
+type AdoptableBlueprintCourse = Pick<
+  BlueprintCourseSummaryView,
+  "reference" | "long_name" | "availability" | "current_revision"
+>;
 
 function isAdoptableBlueprintCourse(
-  blueprint: BlueprintCourseSummaryView,
+  blueprint: AdoptableBlueprintCourse,
 ): blueprint is AdoptableBlueprintCourse {
   return blueprint.availability === "public";
 }
@@ -100,21 +103,38 @@ function TeachingCourseListPage(): JSX.Element {
       ? "adopted"
       : "empty",
   );
-  const [blueprints] = createResource(
-    () => isInstructor() && creationSource() === "adopted",
-    async (adopting) => (adopting ? applicationApi.client.listBlueprintCourses() : { items: [] }),
+  const [blueprintCursors, setBlueprintCursors] = createSignal<ReadonlyArray<string>>([""]);
+  const [blueprints, { refetch: refetchBlueprints }] = createResource(
+    () =>
+      isInstructor() &&
+      creationSource() === "adopted" &&
+      blueprintCursors()[blueprintCursors().length - 1],
+    async (cursor) =>
+      applicationApi.client.listBlueprintCourses(cursor || undefined, 50, false, undefined, true),
+  );
+  const [linkedBlueprint, { refetch: refetchLinkedBlueprint }] = createResource(
+    () => {
+      if (!isInstructor() || creationSource() !== "adopted") return false;
+      // ASVS 2.2.1: only canonical Blueprint references enter the exact-source request.
+      return typeof searchParams.blueprint === "string"
+        ? (parseBlueprintCourseReference(searchParams.blueprint) ?? false)
+        : false;
+    },
+    async (reference) =>
+      (await applicationApi.client.getBlueprintCourse(reference)).blueprintCourse,
   );
   const [createdCourses, setCreatedCourses] = createSignal<ReadonlyArray<CourseInstanceSummary>>(
     [],
   );
   const [blueprintChoice, setBlueprintChoice] = createSignal<string>();
+  const [chosenBlueprint, setChosenBlueprint] = createSignal<AdoptableBlueprintCourse>();
   const blueprintSource = (): string => {
     const choice = blueprintChoice();
     if (choice !== undefined) return choice;
-    const selected = adoptableBlueprints().find(
-      (blueprint) => blueprint.reference === searchParams.blueprint,
-    );
-    return selected === undefined ? "" : blueprintSourceValue(selected);
+    const selected = linkedBlueprint.error === undefined ? linkedBlueprint() : undefined;
+    return selected === undefined || !isAdoptableBlueprintCourse(selected)
+      ? ""
+      : blueprintSourceValue(selected);
   };
   const [shortName, setShortName] = createSignal("");
   const [longName, setLongName] = createSignal("");
@@ -131,11 +151,19 @@ function TeachingCourseListPage(): JSX.Element {
       return true;
     });
   });
-  const adoptableBlueprints = createMemo(() =>
-    blueprints.error === undefined
-      ? (blueprints()?.items ?? []).filter(isAdoptableBlueprintCourse)
-      : [],
-  );
+  const adoptableBlueprints = createMemo(() => {
+    const linked = linkedBlueprint.error === undefined ? linkedBlueprint() : undefined;
+    const chosen = chosenBlueprint();
+    const page = blueprints.error === undefined ? (blueprints()?.items ?? []) : [];
+    const seen = new Set<string>();
+    return [...(linked ? [linked] : []), ...(chosen ? [chosen] : []), ...page].filter(
+      (blueprint) => {
+        if (!isAdoptableBlueprintCourse(blueprint) || seen.has(blueprint.reference)) return false;
+        seen.add(blueprint.reference);
+        return true;
+      },
+    );
+  });
 
   async function createCourseInstance(event: SubmitEvent): Promise<void> {
     event.preventDefault();
@@ -180,6 +208,7 @@ function TeachingCourseListPage(): JSX.Element {
       setCreatedCourses((current) => [created.course, ...current]);
       setCreationSource("empty");
       setBlueprintChoice("");
+      setChosenBlueprint(undefined);
       setShortName("");
       setLongName("");
       setStartDate("");
@@ -236,12 +265,44 @@ function TeachingCourseListPage(): JSX.Element {
             <Show when={blueprints.error !== undefined}>
               <p class="route-error" role="alert">
                 Blueprint Courses could not be loaded.
+                <button type="button" onClick={() => void refetchBlueprints()}>
+                  Try again
+                </button>
+              </p>
+            </Show>
+            <Show when={linkedBlueprint.loading}>
+              <p class="loading-state">Loading the linked Blueprint Course...</p>
+            </Show>
+            <Show when={linkedBlueprint.error !== undefined}>
+              <p class="route-error" role="alert">
+                The linked Blueprint Course could not be loaded. Choose a Public Blueprint Course or
+                try again.
+                <button type="button" onClick={() => void refetchLinkedBlueprint()}>
+                  Try again
+                </button>
+              </p>
+            </Show>
+            <Show
+              when={
+                linkedBlueprint.error === undefined &&
+                linkedBlueprint() !== undefined &&
+                !isAdoptableBlueprintCourse(linkedBlueprint()!)
+              }
+            >
+              <p class="route-error" role="alert">
+                Only Public Blueprint Courses can be adopted. Choose a Public Blueprint Course.
               </p>
             </Show>
             <Show
               when={adoptableBlueprints().length > 0}
               fallback={
-                <Show when={!blueprints.loading && blueprints.error === undefined}>
+                <Show
+                  when={
+                    !blueprints.loading &&
+                    !linkedBlueprint.loading &&
+                    blueprints.error === undefined
+                  }
+                >
                   <p class="empty-state">No public Blueprint Courses are available to adopt.</p>
                 </Show>
               }
@@ -249,8 +310,35 @@ function TeachingCourseListPage(): JSX.Element {
               <BlueprintSourceSelect
                 blueprints={adoptableBlueprints()}
                 value={blueprintSource()}
-                onChange={setBlueprintChoice}
+                onChange={(value) => {
+                  setBlueprintChoice(value);
+                  setChosenBlueprint(
+                    adoptableBlueprints().find(
+                      (blueprint) => blueprintSourceValue(blueprint) === value,
+                    ),
+                  );
+                }}
               />
+            </Show>
+            <Show when={blueprintCursors().length > 1}>
+              <button
+                type="button"
+                disabled={blueprints.loading}
+                onClick={() => setBlueprintCursors((cursors) => cursors.slice(0, -1))}
+              >
+                Previous Blueprint Courses
+              </button>
+            </Show>
+            <Show when={blueprints.error === undefined && blueprints()?.nextCursor}>
+              {(cursor) => (
+                <button
+                  type="button"
+                  disabled={blueprints.loading}
+                  onClick={() => setBlueprintCursors((cursors) => [...cursors, cursor()])}
+                >
+                  Next Blueprint Courses
+                </button>
+              )}
             </Show>
           </Show>
           <label for="course-short-name">

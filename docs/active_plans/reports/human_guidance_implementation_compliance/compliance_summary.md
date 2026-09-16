@@ -24,37 +24,78 @@ checklist, gap map, and active plan.
 | Development principles | 14 | 4 | 4 | 23 | 41 |
 | Product vocabulary | 2 | 10 | 10 | 0 | 12 |
 | Accounts and roles | 25 | 18 | 18 | 8 | 51 |
-| Interface design | 125 | 123 | 123 | 1 | 249 |
-| Data and history | 30 | 38 | 37 | 0 | 68 |
+| Interface design | 158 | 98 | 97 | 1 | 257 |
+| Data and history | 33 | 38 | 37 | 0 | 71 |
 | Questions | 85 | 56 | 55 | 2 | 143 |
-| Courses | 49 | 52 | 51 | 4 | 105 |
-| Assessments | 98 | 45 | 41 | 0 | 143 |
-| **Total** | **428** | **346** | **340** | **43** | **817** |
+| Courses | 55 | 46 | 45 | 4 | 105 |
+| Assessments | 96 | 47 | 44 | 0 | 143 |
+| **Total** | **468** | **317** | **310** | **43** | **828** |
 
-The current checklist contains 817 HG bullets: 428 verified, 346 open, and 43 N/A.
-Six later duplicate open bullets carry an `Owner:` pointer, leaving 340 owning-open records.
+The current checklist contains 828 HG bullets: 468 verified, 317 open, and 43 N/A.
+Seven later duplicate open bullets carry an `Owner:` pointer, leaving 310 owning-open records.
+
+The current Human Guidance snapshot has SHA256
+`9f7028a6ec43a42cf97abc8aa8d38b93b035b79d3145b9649cf0883b17d3714d`.
+The verbatim checklist and audit parts now include its reordered Interface sections and expanded
+density requirements, preserving unchanged evidence and accepted bounded Blueprint closures.
+New or materially expanded density rows remain open pending scoped rendered proof. Human Guidance
+was not edited. The identity-diff and consistency gates pass at 828 rows; seven part gates pass.
+The Instructor part's former comparator locator is superseded by accepted C47 Public-search
+evidence. The Assessment part closes four exact current-rescore rows. Independent review accepted
+private PostgreSQL 17 production-SQL lifecycle proof at
+`/private/tmp/ple-current-rescore-proof/proof.sql`; the artifact
+`/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` exited 0. It retained `0.5` credit,
+used authorized expected-current `ple_api.save_assessment` to change points from `8` to `13` and
+advance the edit number, then observed `6.5 / 13`, unanswered `0 / 13`, and `6.5 / 26` through
+three replay, history, Student landing, and Instructor Gradebook reads. The evidence hashes for
+grading results, Question submissions, Assessment submissions, and automated grading receipts were
+unchanged. The no-Backend-interaction row remains open: SQL `already_submitted` has no work fields
+and the server bypasses ready-path Backend work, but actual HTTP request counts and Backend
+transport were not observed. C510 is closed: the production Gradebook and Student landing share the highest-score
+selector, while latest-Attempt progress remains separate; the stale configurable grade-rule enum,
+field, SQL columns, and editor choices were removed. Accepted independent PostgreSQL 17 evidence
+observed individual scores `12`, `4`, `16`, then an in-progress `NULL` fourth Attempt, with both
+projections reporting `12 / 16`, `12 / 16`, then `16 / 16`. The fixture limit was four Attempts,
+so this does not establish unlimited-Attempt eligibility; it also does not establish HTTP,
+rendering, or actual backend grading. Artifact:
+`/private/tmp/ple-highest-score-proof/artifacts.rQxVs8/proof.log` (exit 0).
+
+The Blueprint authoring and lifecycle checklist now reflects the current narrow evidence. Reusable
+Blueprints have no delivery dates; their availability is exactly Private, Public, or Archived; new
+Blueprint creation is Private; owner-only Private visibility and Public-only adoption are enforced;
+and the accepted lifecycle contract covers the directed transition and Archived read boundary.
+Private is not adoptable. The selected Blueprint Assessment editor's Questions and Properties tasks
+now have accepted compiled-main, actual-loopback-HTTP evidence for one selected Assessment, shared
+drafts, all six Student-feedback controls, ordinary Save, and exact reload. The full Guidance
+Properties scope remains open because scoring, attempt, and late-work activity controls were not
+exercised. Public
+Blueprint search is verified only for the accepted C47 name-search workflow; no Course creation,
+login/TLS, full accessibility, or broad chooser acceptance follows.
+Accepted bounded history proof covers Public and Archived Instructor Revision and recorded-metadata
+facts, an exact older read-only Revision, Private-foreign and Student denials, and a read-only data
+fingerprint at `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB`; it does not claim browser
+pagination or retry, local-draft preservation, login/TLS, or populated Student Work.
 
 The current Assessment reference invariant remains open: saved entries preserve exact Question IDs and
 Revisions, while the authoring-input cutover still permits ID-only Question selection. Pool-copy,
 initial-member-pin, independent-fork, and no-Pool-member invariants remain source-audit pending;
 they do not claim broad runtime verification.
 
-C881/C882 retain bounded proof for authorized known-fork owner discovery, newest-head comparison,
-ordinary comparison visibility and on-demand canonical-JSON calculation. The former recorded-origin
-baseline and internal-ID source-only/fork-only rows are no longer HG requirements. The two new
-Question Pool fork rows remain open because independent Pool forks are not implemented; historical
-pin-preserving evidence does not close either. The new no-Assessment-identity-or-history comparison
-row also remains open pending proof for the new Assessment and Pool fork pair. Current HG adds
-visible related-pair same-lineage coverage, shared-Question-ID Assessment matching and
-shared/added/removed content correspondence useful through renames, order and structure changes;
-these remain open. History and newer-source/downstream indications also remain open. Recorded origin
-is provenance, not a mandated comparison baseline. Accepted prior actual-server receipts are
-`/private/tmp/ple-fork-reader-artifacts.nRikDO` and
-`/private/tmp/ple-fork-review-http-artifacts.LTUgsF`; the compiled UI was accepted at 1280 by 800
-and initially at 390px. Review is lazy, retryable, GET-only, `no-store`, and left all `ple_data`
-unchanged. The direct fork page has no separate Compare entry: review begins from the source
-known-fork row. C883 has verified backend contributor evidence; its browser Apply workflow remains
-open, as does C413's whole workflow.
+Accepted current-pair evidence now verifies Public-to-Private fork creation, fresh local Assessment
+and Pool identities with exact Question Revision membership, source provenance, independent fork
+changes, and explicit owner-selected Apply. The 18-request lineage receipt at
+`/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`
+covers visible sibling and transitive pairs, Private concealment, current heads, shared Question-ID
+relationships through renamed/reordered/split content, and unrelated-pair denial without product or
+Student Work mutation. The 84-request Apply receipt at
+`/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`
+proves target-local existing/new destinations, four zero-write denials, and injected-fault rollback.
+Compiled-main evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`
+completes comparison and selected Apply at 1280px and 390px. Separately accepted compiled-main,
+actual-loopback-HTTP evidence at
+`/private/tmp/ple-blueprint-owned-pool-artifacts.8PN6aH/comparison-browser.json` expands changed
+content and verifies DTO-backed titles, instructions, fixed Question IDs, Revisions, and points.
+No populated Student Work, login/TLS, full accessibility, or broader C413 workflow claim follows.
 
 The Archived Blueprint read-only row is verified. Owner Save and rename lock the Blueprint and
 reject Archived state before replay, CAS, or no-op handling; the existing lifecycle regression
@@ -287,12 +328,13 @@ archive/delete processing, broad release validation, visible unanswered UI, cros
 and backend-wide behavior remain outside these closures.
 
 This refresh closes the Bonus zero-points-possible/direct-earned row and both occurrences of the
-highest-submitted-Attempt score rule. Gradebook and Student API evidence independently establish the
-selected score while latest-Attempt progress remains separate. Broader Practice extra-credit
-authoring and Course-level grade calculation remain outside those closures. The focused PostgreSQL
-LDA library check passed. Current follow-up evidence also passed all 99 `server_core` library tests
-and built the `server` crate; it establishes compilation and the named library-test scope, not
-connected integration behavior.
+highest-submitted-Attempt score rule. Gradebook and Student landing share the selected score while
+latest-Attempt progress remains separate. The fresh C510 lifecycle receipt observed scores `12`,
+`4`, `16`, and an in-progress `NULL` fourth Attempt, with both projections retaining `16 / 16`.
+The configurable grade-rule model/UI/SQL boundary was removed. The focused PostgreSQL LDA test
+compilation used `--features postgres,test-support`; no default-feature or full Rust gate is
+claimed. This privileged fixture and simulated backend evidence does not prove HTTP, rendering,
+actual backend grading, unlimited-Attempt eligibility, Course totals, or grade calculation.
 
 This refresh closes the narrow C519--C521 release-date and valid-range rows: authorized automated
 and interactive validation, the 24-hour and Course Active-limit boundary, date ordering, correction

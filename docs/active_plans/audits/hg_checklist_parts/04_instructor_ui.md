@@ -18,14 +18,18 @@
   - Mismatch: no cross-page layout contract or test verifies consistent action placement.
 - [ ] Instructor pages should be composed around the teaching task rather than collections of padded components.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_live_page.tsx` presents Assignment-named tasks, and no behavior or rendered-layout evidence verifies this broad Instructor-interface judgment.
-- [ ] Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
-  - Mismatch: `src/pages/course_list_page.tsx` has a dense Course Instance row and `src/pages/assessments_due_soon_page.tsx` has an Assessment list, but no accepted visual evidence establishes the shared spreadsheet-like scanning judgment.
+- [ ] Instructor lists and repeated records should be dense and easy to scan, more like a spreadsheet than cards.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 - [ ] Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` `AssessmentWorkspaceStudentViewPage` renders the server-authorized answer-free Assessment projection, loads only the manifest and selected Question, disables native response controls, and provides no Student Work, Assessment Attempt, submission, or grade action.
   - Evidence (source): `crates/server/src/assessment_student_view.rs` `assessment_student_view_router`, `crates/learning-data-access/src/postgres/assessment_student_view.rs` `PostgresInstructorStudentViewStore`, and `schemas/base_schema/assessment_student_view.sql` `load_instructor_student_view_question_source` implement the authorized no-write server, Store, and SQL boundaries.
   - Evidence (runtime): a fresh PostgreSQL proof exercised the real Store through the API roles with a nonempty Ready Asset rendition and verified read-only SQLSTATE `25006` plus zero writes to Student-state tables.
   - Evidence (test): an independently reviewed Chromium component proof with mock transport covered native and WeBWorK presentations, navigation, disabled controls, stale and error recovery, and no mutation requests; it was not connected or live-stack acceptance.
   - Mismatch: connected live-HTTP acceptance is still missing; the unchanged full server compile is blocked in the AWS dependency graph; and production iMathAS Student View integration remains deferred outside the pilot. Independent final server source review passed, but it does not establish runtime behavior.
+- [ ] Instructor lists and repeated records should favor compact rows or tables with clear columns over cards or loosely concatenated text.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+- [ ] At 1280 x 800, Instructor pages should expose enough of the current workflow to minimize unnecessary scrolling.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 
 #### Courses
 
@@ -46,127 +50,149 @@
 
 - [x] **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
-- [ ] **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
-  - Mismatch: `searchPublicBlueprintCourses` is a `future` destination in `src/ribbon/ribbon_catalog.ts`.
-- [ ] Public Blueprint Course search should support quickly narrowing a large collection.
-  - Mismatch: no Public Blueprint Course search route or query controls exist.
+- [x] **Search Public Blueprint Courses** helps Instructors find a Blueprint Course they already have in mind.
+  - Evidence (source): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` submits the Instructor's name query to the Public-Blueprint list and opens the selected exact Blueprint detail.
+  - Evidence (runtime): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` is exercised by accepted C47 actual HTTP and compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json` and `public-search-browser.json`, using the Courses ribbon, submitted exact name search, and existing detail. It proves the isolated privileged-session workflow only; no ordinary login, TLS, full accessibility, or Course creation is claimed.
+- [x] Public Blueprint Course search should support quickly narrowing a large collection.
+  - Evidence (source): `crates/server/src/blueprint_course/list.rs` `list_blueprints` applies the literal Public query before paging, and `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` preserves the submitted query through continuation and resets it after an empty result.
+  - Evidence (runtime): `src/pages/blueprint_course_search_page.tsx` `PublicBlueprintSearchPage` and `crates/server/src/blueprint_course/list.rs` `list_blueprints` are exercised by accepted C47 actual HTTP and compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json` and `public-search-browser.json`, proving Public-only literal `%`, `_`, and backslash matching, a query-bound cursor, 51 matching records across the real 50-row continuation, and empty-search reset with unchanged `ple_data`.
 - [x] A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
+  - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` is exercised by accepted C47 compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-browser.json`, which follows the existing detail action and preselects the matched Blueprint beyond the first 50 search rows. It does not submit or create a Course Instance.
 
 ###### Blueprint Course editing
 
 - [ ] Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.
-  - Mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` opens a Course Editor but names the selected editor a Blueprint Assignment editor, not a Blueprint Assessment Editor.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 - [x] The Course Editor should show the Blueprint Course structure without editing every Question on one page.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` lists modules and assignments before selecting an editor.
-- [ ] Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.
-  - Mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` uses `setSelectedAssignment` and a Blueprint Assignment editor rather than the required Blueprint Assessment.
-- [ ] Only the selected Blueprint Assessment's Questions should appear in its editor.
-  - Mismatch: the selected scope in `src/features/blueprint_course/blueprint_course_workspace.tsx` is a `BlueprintAssignmentContentEditor`, not a Blueprint Assessment editor.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` lists modules and Assessments before selecting an editor.
+- [x] Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.
+  - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor` receives the selected Assessment content and renders its Questions and Properties tasks.
+  - Evidence (runtime): accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json` opens one selected Assessment and exercises both tasks through `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor`.
+- [x] Only the selected Blueprint Assessment's Questions should appear in its editor.
+  - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor` renders entries from its selected `content` input only.
+  - Evidence (runtime): accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json` verifies one selected Assessment, its separated Questions task, and an unchanged sibling after ordinary Save and exact reload through `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor`.
 - [ ] **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment.
-  - Mismatch: the implemented editor calls the product object a Blueprint Assignment, not a Blueprint Assessment.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 - [ ] **Blueprint Assessment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see.
-  - Mismatch: `src/features/blueprint_course/blueprint_assignment_content_editor.tsx` supplies reusable defaults but not the required separate Blueprint Assessment Properties Editor.
+  - Verification pending: accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json` verifies shared local drafts across tasks, one ordinary PUT Save, exact reload, and all six Student-feedback controls. It does not exercise the full scoring, attempt, and late-work activity-control scope.
 - [x] Blueprint Courses should not contain Assessment dates or relative Assessment schedules.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` describes reusable structure without deadlines or course delivery settings.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` describes reusable structure without Students, deadlines, or course delivery settings; the reusable Blueprint content model has no delivery-date fields.
 
 ###### Blueprint Course lifecycle
 
-- [ ] Blueprint Courses follow the lifecycle **Private -> Public -> Archived**.
-  - Mismatch: `src/features/blueprint_course/blueprint_course_workspace.tsx` exposes only available/archive states, not the required Private/Public lifecycle.
+- [x] Blueprint Courses follow the lifecycle **Private -> Public -> Archived**.
+  - Evidence (source): `schemas/base_schema/blueprints.sql` `blueprint_course.availability` constrains availability to `private`, `public`, or `archived`; `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` permits only the directed lifecycle transitions.
 - [ ] New and forked Blueprint Courses start **Private**.
-  - Mismatch: no verified fork workflow or Private initial availability appears in the Blueprint Course UI.
-- [ ] Private Blueprint Courses are visible only to their owner.
-  - Mismatch: source evidence identifies `blueprint_course_owner` read access but does not verify the required Private visibility behavior.
-- [ ] Instructors may develop and use Private Blueprint Courses without publishing them.
-  - Mismatch: no Private availability workflow is implemented in the visible Blueprint Course controls.
-- [ ] Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection.
-  - Mismatch: no Public transition or shared Public collection is implemented.
-- [ ] Public Blueprint Courses are visible to all **Instructors**.
-  - Mismatch: no verified Public Blueprint Course interface or shared-collection workflow exists.
-- [ ] A Public Blueprint Course with no adoptions may return to **Private**.
-  - Mismatch: no Public-to-Private transition is implemented.
-- [ ] A Public Blueprint Course with one or more adoptions remains **Public**.
-  - Mismatch: no Public availability model is implemented.
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+- [x] Private Blueprint Courses are visible only to their owner.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses`, `load_blueprint_course`, and `load_blueprint_revision` conceal a different owner's Private Blueprint. The accepted lifecycle runtime contract exercises those reads.
+- [x] Instructors may develop and use Private Blueprint Courses without publishing them.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_model.ts` `blueprintLifecyclePresentation` permits the owner to edit a Private Blueprint and withholds adoption; Private is deliberately not a daughter-Course source.
+- [x] Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` publishes owner content and `ple_api.list_blueprint_courses` includes Public Blueprints for active Instructors.
+- [x] Public Blueprint Courses are visible to all **Instructors**.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` and `load_blueprint_course` admit Public Blueprints to active vetted Instructors. The accepted lifecycle runtime contract exercises a non-owner Public read.
+- [x] A Public Blueprint Course with no adoptions may return to **Private**.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` permits this transition only before a daughter Course Instance exists; the accepted lifecycle runtime contract covers the rule.
+- [x] A Public Blueprint Course with one or more adoptions remains **Public**.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` rejects Public-to-Private after an adoption; the accepted lifecycle runtime contract exercises the denial.
 - [x] Archived Blueprint Courses leave normal discovery but remain available where needed for history.
   - Evidence (source): `crates/server/src/blueprint_course.rs` `archive_blueprint` and discovery query comments retain historical pins while excluding archived discovery.
 - [ ] Archived Blueprint Courses remain viewable when accessed directly or through their history.
-  - Mismatch: no accepted direct-or-history UI workflow verifies Archived Blueprint Course visibility.
-- [ ] Blueprint Courses do not have a separate Draft state.
-  - Mismatch: no source-level lifecycle test establishes the absence of a Draft state across Blueprint Course APIs and UI.
-- [ ] Public Blueprint Courses and their Revision history are visible to all **Instructors**.
-  - Verification pending: ordinary current Public detail reads are verified; full Revision history visibility is not established.
-- [ ] Archived Blueprint Courses and their Revision history remain visible to all **Instructors**, but
+  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+- [x] Blueprint Courses do not have a separate Draft state.
+  - Evidence (source): `schemas/base_schema/blueprints.sql` `blueprint_course.availability` and `src/api/decoders/blueprint_course.ts` `availability` enumerate only `private`, `public`, and `archived`; `ple_api.create_blueprint_course` writes Revision 1 without a Draft record.
+- [x] Public Blueprint Courses and their Revision history are visible to all **Instructors**.
+  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Revision and metadata facts. Accepted Public-history proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
+- [x] Archived Blueprint Courses and their Revision history remain visible to all **Instructors**, but
   do not appear in normal Blueprint Course discovery.
-  - Verification pending: accepted Archived discovery/detail proof establishes default exclusion and known-detail visibility, not full Revision history.
-- [ ] Blueprint Course visibility includes its content, Revision history, and recorded changes.
-  - Verification pending: current content reads are verified, but complete Revision history and recorded-change presentation remain unverified.
+  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Archived Revision and metadata facts. Accepted Archived-history and discovery proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json` and `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json`.
+- [x] Blueprint Course visibility includes its content, Revision history, and recorded changes.
+  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` provides separate, ordinary-visibility Revision and metadata-event pages; `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` presents both read-only. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
 - [ ] The owning **Instructor** controls changes to a Blueprint Course; visibility does not grant
   editing authority.
   - Verification pending: prior C883 owner/nonowner Apply denials are contributor evidence; complete owner mutation boundaries and connected workflow need current-authority verification.
 
 ###### Blueprint Course forks and changes
 
-- [ ] Instructors may fork a Public Blueprint Course to continue development privately.
-  - Mismatch: no Public Blueprint Course fork action or Private fork lifecycle is implemented.
-- [ ] Forking a Blueprint Course creates an independent Private Blueprint Course owned by the Instructor who created the fork.
-  - Mismatch: no authorized fork creation workflow or persisted fork-owner presentation is verified.
-- [ ] Forking a Blueprint Course creates new Blueprint Assessments populated with the same Published
+- [x] Instructors may fork a Public Blueprint Course to continue development privately.
+  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` accepts one exact Public or Archived source Revision and delegates the actor-owned Private child to the lineage Store.
+  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted actual HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json` and compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json` that create and open a Private fork.
+- [x] Forking a Blueprint Course creates an independent Private Blueprint Course owned by the Instructor who created the fork.
+  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` derives the actor from the attested session rather than accepting an owner or availability from the client.
+  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted browser fixture state at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-fixture-state.json`, which records the created Private fork; the actual HTTP lineage receipt rejects concealed Private intermediates for other Instructors.
+- [x] Forking a Blueprint Course creates new Blueprint Assessments populated with the same Published
   Question IDs and forks of the source Question Pools.
-  - Mismatch: Independent Question Pool forks are not yet implemented; historical pin-preserving evidence does not verify this fork behavior.
-- [ ] Forked Question Pools preserve the Published Question IDs contained in their source Question Pools.
-  - Mismatch: Independent Question Pool forks are not yet implemented; historical pin-preserving evidence does not verify this behavior.
-- [ ] A Blueprint Course fork records the Blueprint Course and Revision it was forked from.
-  - Mismatch: no accepted lineage read or fork-creation evidence verifies the recorded source Course and Revision.
-- [ ] Blueprint Course forks develop independently after they are created.
-  - Mismatch: no created-fork workflow verifies independent later Revision development.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
+  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
+- [x] Forked Question Pools preserve the Published Question IDs contained in their source Question Pools.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` derives comparison relationships from the exact fixed and Pool member Question IDs.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying forked Pools retain exact ordered Question Revision membership under fresh Pool IDs.
+- [x] A Blueprint Course fork records the Blueprint Course and Revision it was forked from.
+  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` carries the exact source Blueprint Revision to the lineage Store.
+  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` is exercised by accepted browser fixture state at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-fixture-state.json`, which records the fork source reference, and the lineage HTTP receipt verifies current related pairs.
+- [x] Blueprint Course forks develop independently after they are created.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` creates a separately editable child tree.
+  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which saves renamed and independently changed fork content before selected source content is applied.
 - [x] A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
   - Evidence (runtime): accepted C881 actual-server proof at `/private/tmp/ple-fork-reader-artifacts.nRikDO` exercises `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks`, returns each fork's owner and recorded origin, and conceals unrelated Instructors with `404 no-store`.
   - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` and `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` present authorized known-fork rows and owner names.
-- [ ] A fork does not automatically receive later changes from its source Blueprint Course.
-  - Mismatch: no created-fork runtime evidence verifies that later source changes leave the fork unchanged.
-- [ ] PLE should make it clear when a source Blueprint Course has newer Revisions than its forks.
-  - Mismatch: current-head review evidence does not verify an obvious source-newer indication in the fork workflow.
-- [ ] PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
-  - Mismatch: known-fork rows expose current Revision numbers, but no accepted newer-downstream indication proof establishes this behavior.
-- [ ] The fork owner decides whether to incorporate source changes into the fork.
-  - Verification pending: C883's explicit owner-authorized selective-save backend is contributor-verified; connected Instructor Apply evidence remains open under C884/C413.
-- [ ] PLE should make it easy for the fork owner to incorporate selected source changes into the fork.
-  - Verification pending: C883 backend evidence does not establish an easy connected Instructor selection and Apply workflow.
+- [x] A fork does not automatically receive later changes from its source Blueprint Course.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_apply.rs` `apply_blueprint_fork` changes only explicitly selected source content in the fork.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_apply.rs` `apply_blueprint_fork` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which verifies the unselected fork Assessment remains unchanged after Apply.
+- [x] PLE should make it clear when a source Blueprint Course has newer Revisions than its forks.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` renders the current-pair comparison from the comparison client.
+  - Evidence (runtime): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` is exercised by accepted compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, opening the current source/fork pair at 1280px and 390px.
+- [x] PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
+  - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` returns each visible child fork's current Revision for the source view.
+  - Evidence (runtime): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` is exercised by accepted compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, which loads the source known-forks row before opening the pair review.
+- [x] The fork owner decides whether to incorporate source changes into the fork.
+  - Evidence (source): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` passes explicit selected destinations and both source/fork Revision and metadata preconditions to the Store.
+  - Evidence (runtime): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` is exercised by accepted 84-request actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`, verifying owner selection, four denied preconditions, and zero-write denials.
+- [x] PLE should make it easy for the fork owner to incorporate selected source changes into the fork.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` presents selected current-pair Apply choices.
+  - Evidence (runtime): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` is exercised by accepted compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, completing selected Apply at desktop and narrow viewports.
 
 ###### Blueprint Course comparison
 
-- [ ] Any **Instructor** can compare related Blueprint Courses in the same fork lineage when those
+- [x] Any **Instructor** can compare related Blueprint Courses in the same fork lineage when those
   Blueprint Courses are visible to that Instructor.
-  - Mismatch: `crates/server/src/blueprint_course/fork_review.rs` `load_fork_review` reviews a fork with its direct source only; accepted C882 proof does not cover other visible related pairs in the same lineage.
-  - Evidence (runtime): accepted C882 actual HTTP proof at `/private/tmp/ple-fork-review-http-artifacts.LTUgsF` remains useful direct-source evidence: ordinary visibility, GET-only `no-store`, zero `ple_data` mutations, lazy review and retry at 1280 by 800 and initially 390px.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` authorizes an arbitrary related visible current pair before it is projected.
+  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering visible sibling and transitive pairs in both orientations while concealing Private intermediates and denying unrelated pairs.
 - [x] Fork comparison normally compares the newest Revision of the source Blueprint Course with the
   newest Revision of the fork.
-  - Evidence (runtime): C881 records corrected current heads, including source equal to origin; C882 exercises `src/api/decoders/blueprint_course.ts` `decodeBlueprintComparisonView` to return current source and fork names, ETags, and revisions.
-  - Evidence (source): `src/api/decoders/blueprint_course.ts` `decodeBlueprintComparisonView` requires the current source and fork Revision references.
-- [ ] Older Revisions remain available through Blueprint history but are not the normal comparison
+  - Evidence (runtime): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` is exercised by accepted current-pair HTTP evidence, returning current source and fork names, ETags, and Revisions.
+  - Evidence (source): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` requires the current source and fork Revision references.
+- [x] Older Revisions remain available through Blueprint history but are not the normal comparison
   workflow.
-  - Mismatch: current-head review exists, but no accepted Blueprint history workflow establishes older-Revision availability.
+  - Evidence (runtime): `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` inspects exact older Revisions separately from current-head comparison. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
 - [x] Blueprint Course differences are calculated from canonical JSON when the Instructor requests
   the comparison.
   - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` requests C880's canonical comparison projection on demand rather than persisting comparison state.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` compares canonical Blueprint snapshots.
   - Evidence (runtime): C882's actual HTTP receipt exercises `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` as a real GET-only `no-store` review with zero `ple_data` mutations.
-- [ ] Shared Question IDs provide the durable content relationships between compared Blueprint Courses.
-  - Mismatch: C880's `compare_blueprint_fork` matches Blueprint Assessments by internal Assessment IDs; retained-ID evidence is not proof of Question-ID content relationships.
-- [ ] Blueprint Assessments are matched by the shared Question IDs they contain.
-  - Mismatch: `crates/question_model/src/blueprint_course/fork_comparison.rs` uses internal Assessment IDs instead of matching Assessments by shared Question IDs.
-- [ ] Blueprint Course comparison does not require Blueprint Assessment identity or history across
+- [x] Shared Question IDs provide the durable content relationships between compared Blueprint Courses.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` derives relationships from shared Question IDs only.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, verifying Rev2-versus-Rev1 shared Question-ID relationships.
+- [x] Blueprint Assessments are matched by the shared Question IDs they contain.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintAssessmentRelationship` carries side-local Assessment pairs and their shared Question IDs.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintAssessmentRelationship` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, verifying renamed, reordered, and split content through shared Question IDs.
+- [x] Blueprint Course comparison does not require Blueprint Assessment identity or history across
   forks; Assessment relationships are determined from the shared Question IDs they contain.
-  - Verification pending: the new Assessment and Pool fork pair needs proof that comparison uses shared Published Question IDs without Blueprint Assessment identity or history across forks.
-- [ ] Comparison should show shared, added, and removed Assessments and Question IDs, plus changed
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` retains only side-local references while relationships carry shared Question IDs.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which verifies source and fork Assessment IDs are disjoint before comparison and Apply.
+- [x] Comparison should show shared, added, and removed Assessments and Question IDs, plus changed
   content where those differences can be determined from canonical JSON.
-  - Mismatch: accepted C880/C882 evidence covers internal-ID source-only/fork-only changes, not the required shared-Question-ID Assessment and Question correspondence.
-- [ ] Comparison should remain useful when Assessment names, order, or structure have changed.
-  - Verification pending: previous module-parent, name and order evidence remains useful, but does not verify shared-Question-ID matching after those changes or independently assigned Assessment IDs.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintForkReview` renders the canonical comparison's Assessment and Question relationships and expanded changed-content detail.
+  - Evidence (runtime): accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.8PN6aH/comparison-browser.json` expands a changed Assessment at 1280px and 390px, verifying DTO-backed titles, instructions, fixed Question IDs, Revisions, and points through `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintForkReview`.
+- [x] Comparison should remain useful when Assessment names, order, or structure have changed.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` uses shared Question IDs instead of Assessment names, positions, or cross-Blueprint Assessment identity.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering renamed, reordered, and split canonical content.
 - [x] Comparison visibility follows Blueprint Course visibility rather than fork ownership.
   - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` uses ordinary Blueprint visibility for read-only direct-source review.
   - Evidence (runtime): C881/C882 accepted `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` ordinary-visibility direct-source review at `/private/tmp/ple-fork-reader-artifacts.nRikDO` and `/private/tmp/ple-fork-review-http-artifacts.LTUgsF` permits visible Public/Archived sides and conceals unauthorized Private sides; ownership restricts Apply, not comparison.
+
 
 ##### Course Instances
 

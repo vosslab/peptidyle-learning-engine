@@ -270,7 +270,6 @@ mod tests {
             base_edit_number: "1".parse().expect("edit number"),
             student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
             policies: AssessmentActivityRules {
-                assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
                 question_variation_rule: AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },

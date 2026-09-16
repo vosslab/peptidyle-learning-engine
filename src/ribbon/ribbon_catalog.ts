@@ -289,7 +289,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "searchPublicBlueprintCourses",
     label: "Search Public Blueprint Courses",
-    destination: { kind: "future", futureId: "searchPublicBlueprintCourses" },
+    destination: { kind: "route", routeId: "publicBlueprintSearch" },
     requiredParams: [],
     taskGroup: "instructorCourses",
     area: "instructorCourses",

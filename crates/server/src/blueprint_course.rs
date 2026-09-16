@@ -7,7 +7,7 @@ use std::{collections::BTreeMap, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, Query, State},
+    extract::{Path, State},
     http::{
         HeaderMap, StatusCode,
         header::{COOKIE, IF_MATCH},
@@ -47,6 +47,7 @@ mod fork_apply;
 mod fork_review;
 mod history;
 mod known_forks;
+mod list;
 mod pool_members;
 mod responses;
 
@@ -57,7 +58,6 @@ use responses::{
 
 use fork::fork_blueprint;
 
-const MAX_PAGE_SIZE: u16 = 100;
 const MAX_IDEMPOTENCY_KEY_BYTES: usize = 128;
 
 #[derive(Clone)]
@@ -83,7 +83,7 @@ pub fn blueprint_course_router(
     Router::new()
         .route(
             "/api/course-blueprints",
-            get(list_blueprints).post(create_blueprint),
+            get(list::list_blueprints).post(create_blueprint),
         )
         .route(
             "/api/course-blueprints/{reference}",
@@ -148,57 +148,9 @@ pub fn blueprint_course_router(
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BlueprintCourseListQuery {
-    // ASVS 2.2.1: only a typed boolean can opt in to Archived discovery.
-    #[serde(default, rename = "includeArchived")]
-    include_archived: bool,
-    #[serde(default)]
-    cursor: Option<String>,
-    #[serde(default, rename = "pageSize")]
-    page_size: Option<u16>,
-}
-#[derive(Debug, Serialize)]
-struct BlueprintCourseListResponse {
-    items: Vec<BlueprintCourseSummaryView>,
-    #[serde(rename = "nextCursor")]
-    next_cursor: Option<String>,
-}
-#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct ArchiveBlueprintRequest {
     confirmation_long_name: String,
-}
-async fn list_blueprints(
-    State(state): State<BlueprintCourseRouteState>,
-    headers: HeaderMap,
-    Query(query): Query<BlueprintCourseListQuery>,
-) -> Response {
-    if query.cursor.is_some()
-        || query
-            .page_size
-            .is_some_and(|size| size == 0 || size > MAX_PAGE_SIZE)
-    {
-        return route_error(StatusCode::BAD_REQUEST, "Blueprint Course page is invalid");
-    }
-    let session = match instructor_session_hash(&state, &headers).await {
-        Ok(value) => value,
-        Err(response) => return *response,
-    };
-    match state
-        .blueprints
-        .list_blueprint_courses(session, query.include_archived)
-        .await
-    {
-        Ok(records) => crate::auth::no_store(
-            Json(BlueprintCourseListResponse {
-                items: records.into_iter().map(summary_view).collect(),
-                next_cursor: None,
-            })
-            .into_response(),
-        ),
-        Err(error) => store_error_response(error),
-    }
 }
 
 async fn load_blueprint(

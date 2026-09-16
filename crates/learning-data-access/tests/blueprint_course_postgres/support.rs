@@ -374,16 +374,8 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                     attempt_limit: std::num::NonZeroU32::new(3),
                     late_work_rule: LateWorkRule::MarkLate,
                     activity_rules: AssessmentActivityRules {
-                        assessment_attempt_grade_rule:
-                            question_model::AssessmentAttemptGradeRule::Latest,
                         question_variation_rule:
                             question_model::AssessmentQuestionVariationRule::ReuseVariation,
-                        assessment_attempt_resume_rule:
-                            question_model::AssessmentAttemptResumeRule::SingleSession,
-                        assessment_question_display_rule:
-                            question_model::AssessmentQuestionDisplayRule::AllQuestions,
-                        assessment_navigation_rule:
-                            question_model::AssessmentNavigationRule::ForwardOnly,
                         assessment_question_order_rule:
                             question_model::AssessmentQuestionOrderRule::AuthoredOrder,
                     },

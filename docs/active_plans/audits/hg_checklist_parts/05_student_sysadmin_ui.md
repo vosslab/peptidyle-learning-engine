@@ -67,6 +67,9 @@
 - [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
+- [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
+  - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
+  - Owner: The earlier identical bullet in `03_shell.md`, General interface design, owns this open requirement.
 
 ### Sysadmin interface
 

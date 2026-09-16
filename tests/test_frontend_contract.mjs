@@ -13,6 +13,13 @@ test("route contracts fail closed and reserve declared teaching routes for instr
   assert.equal(routeContractForPathname("/library/7K3M-X9QP")?.id, "questionDetail");
   assert.equal(routeContractForPathname("/library/7K3M-X9QP/extra"), undefined);
   assert.equal(routeContractForPathname("/blueprint-courses")?.id, "blueprintCourses");
+  assert.equal(
+    routeContractForPathname("/blueprint-courses/search/public")?.id,
+    "publicBlueprintSearch",
+  );
+  assert.equal(productRoleMayAccessRoute("publicBlueprintSearch", "instructor"), true);
+  assert.equal(productRoleMayAccessRoute("publicBlueprintSearch", "student"), false);
+  assert.equal(productRoleMayAccessRoute("publicBlueprintSearch", "sysadmin"), false);
   assert.equal(routeContractForPathname("/blueprint-courses/BP-7")?.id, "blueprintCourseDetail");
   assert.equal(routeContractForPathname("/blueprint-courses/BP-7/extra"), undefined);
   assert.equal(routeContractForPathname("/sysadmin/instructor-approval"), undefined);

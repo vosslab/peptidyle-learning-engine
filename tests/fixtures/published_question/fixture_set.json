@@ -95,11 +95,7 @@
       "class_statistics": "never"
     },
     "policies": {
-      "assessmentAttemptGradeRule": "highest",
       "questionVariationRule": "newVariation",
-      "assessmentAttemptResumeRule": "resumable",
-      "assessmentQuestionDisplayRule": "allQuestions",
-      "assessmentNavigationRule": "freeNavigation",
       "assessmentQuestionOrderRule": "authoredOrder"
     }
   },
@@ -122,11 +118,7 @@
           "late_work_rule": "reject"
         },
         "activityRules": {
-          "assessmentAttemptGradeRule": "highest",
           "questionVariationRule": "newVariation",
-          "assessmentAttemptResumeRule": "resumable",
-          "assessmentQuestionDisplayRule": "allQuestions",
-          "assessmentNavigationRule": "freeNavigation",
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {
@@ -165,11 +157,7 @@
           "late_work_rule": "reject"
         },
         "activityRules": {
-          "assessmentAttemptGradeRule": "highest",
           "questionVariationRule": "newVariation",
-          "assessmentAttemptResumeRule": "resumable",
-          "assessmentQuestionDisplayRule": "allQuestions",
-          "assessmentNavigationRule": "freeNavigation",
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {
@@ -208,11 +196,7 @@
           "late_work_rule": "reject"
         },
         "activityRules": {
-          "assessmentAttemptGradeRule": "highest",
           "questionVariationRule": "newVariation",
-          "assessmentAttemptResumeRule": "resumable",
-          "assessmentQuestionDisplayRule": "allQuestions",
-          "assessmentNavigationRule": "freeNavigation",
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {
@@ -251,11 +235,7 @@
           "late_work_rule": "reject"
         },
         "activityRules": {
-          "assessmentAttemptGradeRule": "highest",
           "questionVariationRule": "newVariation",
-          "assessmentAttemptResumeRule": "resumable",
-          "assessmentQuestionDisplayRule": "allQuestions",
-          "assessmentNavigationRule": "freeNavigation",
           "assessmentQuestionOrderRule": "authoredOrder"
         },
         "studentFeedbackReleaseRule": {

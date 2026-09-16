@@ -8,12 +8,7 @@ import type { AssessmentActivityRules } from "../../../generated/api/AssessmentA
 import { optionalPositiveIntegerDraft } from "./assessment_workspace_policy_model";
 
 export type AssessmentPolicySummaryKey =
-  | "savedDelivery"
-  | "assessmentAttemptGradeRule"
-  | "questionVariationRule"
-  | "disclosure"
-  | "assessmentStatus"
-  | "scheduleLimits";
+  "savedDelivery" | "questionVariationRule" | "disclosure" | "assessmentStatus" | "scheduleLimits";
 
 export interface AssessmentPolicySummaryItem {
   readonly key: AssessmentPolicySummaryKey;
@@ -106,12 +101,6 @@ function scheduleLimitsSummary(input: AssessmentPolicyDraftSummaryInput): string
 export function assessmentPolicyDraftSummary(
   input: AssessmentPolicyDraftSummaryInput,
 ): ReadonlyArray<AssessmentPolicySummaryItem> {
-  const grade = {
-    highest: "Highest Assessment Attempt score",
-    latest: "Latest Assessment Attempt score",
-    first: "First Assessment Attempt score",
-    instructorSelected: "Instructor-selected Assessment Attempt",
-  } as const;
   const questionVariationRule = {
     reuseVariation: "Reuse the previous Question Variations",
     newVariation: "Use new Question Variations",
@@ -131,11 +120,6 @@ export function assessmentPolicyDraftSummary(
         input.savedAssessmentAvailability,
         "your Instructor time zone",
       ),
-    },
-    {
-      key: "assessmentAttemptGradeRule",
-      label: "Assessment Attempt grade rule",
-      value: grade[input.policies.assessmentAttemptGradeRule],
     },
     {
       key: "questionVariationRule",

@@ -55,10 +55,6 @@ fn local_assessment_authored_content_round_trips_exact_milliseconds() {
             late_work_rule: LateWorkRule::MarkLate,
         },
         activity_rules: AssessmentActivityRules {
-            assessment_attempt_resume_rule: crate::AssessmentAttemptResumeRule::SingleSession,
-            assessment_question_display_rule:
-                crate::AssessmentQuestionDisplayRule::OneQuestionAtATime,
-            assessment_navigation_rule: crate::AssessmentNavigationRule::ForwardOnly,
             assessment_question_order_rule: crate::AssessmentQuestionOrderRule::Shuffled,
             ..AssessmentActivityRules::default()
         },

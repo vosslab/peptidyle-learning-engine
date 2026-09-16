@@ -118,15 +118,33 @@ async fn matching_blueprint(
     store: &PostgresBlueprintCourseStore,
 ) -> Result<Option<StoredBlueprintCourse>> {
     // Include retained history so archive cannot bypass the name collision/reuse guard.
-    let matching = store
-        .list_blueprint_courses(session, true)
-        .await
-        .context("listing Blueprint Courses including Archived before curriculum publication")?
-        .into_iter()
-        .filter(|summary| {
+    let mut matching = Vec::new();
+    let mut page = learning_data_access::PageRequest::first(
+        learning_data_access::PageSize::new(100).expect("bounded publication inventory"),
+    );
+    loop {
+        let result = store
+            .list_blueprint_courses(
+                session,
+                learning_data_access::BlueprintCourseListRequest {
+                    page: page.clone(),
+                    query: String::new(),
+                    include_archived: true,
+                    public_only: false,
+                },
+            )
+            .await
+            .context(
+                "listing Blueprint Courses including Archived before curriculum publication",
+            )?;
+        matching.extend(result.items.into_iter().filter(|summary| {
             summary.short_name == course.short_name || summary.long_name == course.long_name
-        })
-        .collect::<Vec<_>>();
+        }));
+        match result.next_cursor {
+            Some(cursor) => page.after = Some(cursor),
+            None => break,
+        }
+    }
     ensure!(
         matching.len() <= 1,
         "more than one ordinary Blueprint Course collides with a Genetics catalog name"

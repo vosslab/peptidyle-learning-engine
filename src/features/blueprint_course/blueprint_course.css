@@ -175,7 +175,7 @@
   font-weight: 750;
 }
 
-.blueprint-course-entry-section {
+.blueprint-course-entry-section:not([hidden]) {
   display: grid;
   gap: var(--ple-layout-gap);
 }

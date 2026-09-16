@@ -37,6 +37,7 @@ import { AssessmentWorkspaceCreatePage } from "./pages/assessment_workspace/asse
 import {
   BlueprintCourseDetailLivePage,
   BlueprintCoursesLivePage,
+  PublicBlueprintSearchLivePage,
 } from "./pages/blueprint_course_live_pages";
 // prettier-ignore
 import {
@@ -68,6 +69,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   questionDrafts: QuestionDraftsPage,
   questionDraftEditor: QuestionDraftEditorPage,
   blueprintCourses: BlueprintCoursesLivePage,
+  publicBlueprintSearch: PublicBlueprintSearchLivePage,
   blueprintCourseDetail: BlueprintCourseDetailLivePage,
   assessmentsDueSoon: AssessmentsDueSoonPage,
   assessmentTemplates: AssessmentTemplatesPage,

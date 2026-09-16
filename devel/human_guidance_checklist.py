@@ -25,7 +25,7 @@ EVIDENCE_PATTERN = re.compile(r"^\s*- Evidence \((source|test|runtime)\): (.+)$"
 PART_MANIFEST: dict[str, tuple[str, ...]] = {
 	"01_development.md": ("How to use this guidance", "Development principles", "Product vocabulary"),
 	"02_accounts.md": ("Accounts and roles",),
-	"03_shell.md": ("General interface design", "Ribbon and page layout", "User top bar", "Breadcrumbs"),
+	"03_shell.md": ("General interface design", "Information density and layout", "Interaction design", "Role colors and themes", "Typography", "Ribbon and page layout", "User top bar", "Breadcrumbs"),
 	"04_instructor_ui.md": ("Instructor interface",),
 	"05_student_sysadmin_ui.md": ("Student interface", "Sysadmin interface"),
 	"06_data.md": ("Data and history",),
@@ -34,7 +34,7 @@ PART_MANIFEST: dict[str, tuple[str, ...]] = {
 	"09_assessments.md": ("Assessments",),
 }
 PART_ROOT_LEVELS: dict[str, tuple[int, ...]] = {
-	"01_development.md": (2, 2, 2), "02_accounts.md": (2,), "03_shell.md": (3, 3, 3, 3),
+	"01_development.md": (2, 2, 2), "02_accounts.md": (2,), "03_shell.md": (3, 3, 3, 3, 3, 3, 3, 3),
 	"04_instructor_ui.md": (3,), "05_student_sysadmin_ui.md": (3, 3), "06_data.md": (2,),
 	"07_questions.md": (2,), "08_courses.md": (2,), "09_assessments.md": (2,),
 }

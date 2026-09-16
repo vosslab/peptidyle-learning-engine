@@ -545,8 +545,8 @@ mod tests {
     use super::*;
     use crate::{
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
-        QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionMetadata,
-        QuestionId, QuestionLicense, QuestionPoolRevisionNumber, QuestionRevisionNumber,
+        QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionId, QuestionLicense,
+        QuestionMetadata, QuestionPoolRevisionNumber, QuestionRevisionNumber,
         QuestionRevisionReference, QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
     };
     use uuid::Uuid;
@@ -569,7 +569,6 @@ mod tests {
             attempt_limit: None,
             late_work_rule: LateWorkRule::Accept,
             activity_rules: AssessmentActivityRules {
-                assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
                 question_variation_rule: crate::AssessmentQuestionVariationRule::NewVariation,
                 ..AssessmentActivityRules::default()
             },
@@ -848,8 +847,6 @@ mod blueprint_course_tests {
                         attempt_limit: None,
                         late_work_rule: LateWorkRule::Accept,
                         activity_rules: AssessmentActivityRules {
-                            assessment_attempt_grade_rule:
-                                crate::AssessmentAttemptGradeRule::Highest,
                             question_variation_rule:
                                 crate::AssessmentQuestionVariationRule::NewVariation,
                             ..AssessmentActivityRules::default()
@@ -905,7 +902,6 @@ mod blueprint_course_tests {
                 attempt_limit: None,
                 late_work_rule: LateWorkRule::Accept,
                 activity_rules: AssessmentActivityRules {
-                    assessment_attempt_grade_rule: crate::AssessmentAttemptGradeRule::Highest,
                     question_variation_rule: crate::AssessmentQuestionVariationRule::NewVariation,
                     ..AssessmentActivityRules::default()
                 },

@@ -60,6 +60,7 @@ export interface RouteContract {
     | "questionDrafts"
     | "questionDraftEditor"
     | "blueprintCourses"
+    | "publicBlueprintSearch"
     | "blueprintCourseDetail"
     | "assessmentCreate"
     | "assessmentWorkspaceOverview"
@@ -285,6 +286,19 @@ export const ROUTE_CONTRACT = [
     id: "blueprintCourses",
     path: "/blueprint-courses",
     surface: "Blueprint Course workspace",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "courses",
+      taskGroup: "instructorCourses",
+      contentLayout: "reading",
+    },
+  },
+  {
+    id: "publicBlueprintSearch",
+    path: "/blueprint-courses/search/public",
+    surface: "Search Public Blueprint Courses",
+    // ASVS 8.3.1: browser admission mirrors the server's Instructor-only boundary.
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",

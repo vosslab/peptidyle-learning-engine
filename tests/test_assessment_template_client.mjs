@@ -17,11 +17,7 @@ function template(editNumber = "1") {
       attemptLimit: 2,
       lateWorkRule: "reject",
       activityRules: {
-        assessmentAttemptGradeRule: "highest",
         questionVariationRule: "reuseVariation",
-        assessmentAttemptResumeRule: "resumable",
-        assessmentQuestionDisplayRule: "allQuestions",
-        assessmentNavigationRule: "freeNavigation",
         assessmentQuestionOrderRule: "authoredOrder",
       },
       studentFeedbackReleaseRule: {
@@ -53,11 +49,7 @@ function workspace(editNumber = "3") {
     assessmentAttemptTimeLimitSeconds: null,
     attemptLimit: null,
     activityRules: {
-      assessmentAttemptGradeRule: "highest",
       questionVariationRule: "reuseVariation",
-      assessmentAttemptResumeRule: "resumable",
-      assessmentQuestionDisplayRule: "allQuestions",
-      assessmentNavigationRule: "freeNavigation",
       assessmentQuestionOrderRule: "authoredOrder",
     },
     studentFeedbackReleaseRule: {
