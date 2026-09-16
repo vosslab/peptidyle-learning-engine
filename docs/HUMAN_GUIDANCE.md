@@ -1198,21 +1198,24 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Assessment Attempt timing and expiration specifications
 
 - Each Assessment Attempt has a time limit.
-- Instructors can set an Assessment Attempt time limit or choose Unlimited.
-- The default time limit is 1.5 minutes per question, rounded up to nearest whole minute.
-- The interface should be listed as a default with a specific Instructor override feature
-- Time limits must support individual students with accommodations, such as 1.5X or 2X time.
+- Each Assessment may contain at most 250 Questions.
+- The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
+- Instructors can override the default time limit up to 12 hours.
+- The interface should show the calculated default time limit and provide a specific Instructor override.
+- Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
+- Student accommodations are applied after the Assessment time limit and may extend that Student’s effective time limit 
+  up to 24 hours.
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
-- Timed Assessment Attempts use wall-clock time.
+- Assessment Attempts use wall-clock time.
 - The server owns the Attempt start and expiration times.
 - Attempt time continues while the **Student** is disconnected or the browser is closed.
 - A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
-- Resuming an Attempt does not reset, pause, or extend its time limit.
+- Resuming an Attempt does not reset or extend its expiration time.
 - Attempt expiration is checked whenever a **Student** interacts with the Attempt.
 - Background processing ensures expired Attempts are submitted even when the **Student** is no longer connected.
-- When an Attempt expires, PLE submits the whole Attempt, finalizing its saved responses. Other
-  Questions remain visibly unanswered, receive zero credit, and count as incorrect without being
-  sent to the Question Backend.
+- When an Attempt expires, PLE submits the whole Attempt and finalizes its saved responses.
+- Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
+- Unanswered Questions are not sent to the Question Backend.
 
 ### Student Work specifications
 
