@@ -679,6 +679,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Starting a new Attempt makes fresh selections from its Question Pools.
 - Student Work preserves the exact Question Pool Revision and Published Question Revision delivered.
 - Grading and historical evidence follow the exact Published Question Revision delivered to the Student.
+- Each member of a Question Pool is a **Published Question**.
+- Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
 
 ### Question Library
 
@@ -907,9 +909,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Assessment content
 
-- Assessments contain an ordered sequence of Questions and Question Pools.
-- **Instructors** can add, remove, and reorder Questions and Question Pools.
-- Questions and Question Pools remain distinct even though both can occupy positions in an Assessment.
+- Assessments contain an ordered sequence of Published Questions and Question Pools.
+- Published Questions are reused by reference when added to another Assessment.
+- Question Pools are copied by forking when added to another Assessment.
+- A newly forked Question Pool initially contains the same Published Questions as its source.
+- A forked Question Pool can be changed independently without changing its source Question Pool.
+- Published Questions and Question Pools remain distinct even though both can occupy positions in an Assessment.
+- **Instructors** can add, remove, and reorder Published Questions and Question Pools.
 - Assessment Question-order randomization is called **Randomize question order**.
 
 ### Assessment types
