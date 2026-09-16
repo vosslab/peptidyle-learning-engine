@@ -1203,7 +1203,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Instructors can override the default time limit up to 12 hours.
 - The interface should show the calculated default time limit and provide a specific Instructor override.
 - Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
-- Student accommodations are applied after the Assessment time limit and may extend that Student’s effective time limit 
+- Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit
   up to 24 hours.
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
 - Assessment Attempts use wall-clock time.
