@@ -198,7 +198,7 @@ export function formatAssessmentLimit(
 }
 
 export function formatAssessmentAttemptTimeLimit(seconds: number | null): string {
-  if (seconds === null) return "No whole-attempt time limit";
+  if (seconds === null) return "Assessment duration not yet calculated";
   if (seconds % 3_600 === 0) {
     const hours = seconds / 3_600;
     return `${hours} ${hours === 1 ? "hour" : "hours"} per attempt`;

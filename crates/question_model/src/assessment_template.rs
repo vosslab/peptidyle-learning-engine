@@ -211,7 +211,7 @@ impl std::error::Error for AssessmentTemplateEditNumberError {}
 pub struct AssessmentTemplateSettings {
     /// Validated student-facing plain-text instructions.
     pub instructions: AssessmentInstructions,
-    /// Whole Assessment Attempt time limit when one applies.
+    /// Explicit duration override; None copies the content-based default intent.
     #[serde(deserialize_with = "deserialize_assessment_attempt_time_limit_seconds")]
     pub assessment_attempt_time_limit_seconds: Option<NonZeroU32>,
     /// Maximum number of Assessment Attempts when one applies.

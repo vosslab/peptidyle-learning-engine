@@ -1,5 +1,31 @@
 # Human Guidance implementation compliance summary
 
+## Current heading reconciliation
+
+The current untouched Human Guidance snapshot is SHA256
+`6f64d0bb877de5a8be3951dd5514fe0eb2fd5c5f3060b21940230b03a2fde481`.
+Current status comes from the [implementation checklist](../../audits/human_guidance_implementation_checklist.md):
+890 bullets, 448 verified, 396 open (388 owning), and 46 N/A.
+Unchanged contextual evidence, including accepted scoring and bounded runtime receipts, is retained.
+The finite timing rows now require a calculated default, explicit override, and accommodation
+handling. The 250 delivered-Question bound is verified; exact unchanged same-identity SQL resume
+is verified. A fresh two-Question NULL-default release resolves 180 seconds, but Student start
+fails `Assessment Attempt requires 1 to 250 Questions`, so default/delivery acceptance remains
+open. Ratio/UI accommodations and the effective 24-hour cap are unimplemented. Fresh mixed
+expiry-worker SQL evidence retains rendered unanswered and actual transport limitations.
+Blueprint lifecycle, forks, Change Proposals, and comparison now belong to Course specifications
+(Part 08), not Instructor interface (Part 04). Assessment type appearance belongs to Instructor
+interface (Part 04). Student/backend/history subheadings route through their existing parts.
+Equivalent rewrites were evaluated against their cited evidence; expanded requirements are open
+unless current source or accepted receipts establish their whole scope. Themes/light-dark use,
+Library Question/Pool metadata, PLE support and disclosure, Pool statistics, Bloom classification,
+Change Proposal persistence/acceptance, expanded comparison, selected daughter incorporation, and
+expanded Unrelease behavior retain scoped mismatches or named pending proof.
+The topical inventories and earlier receipts below retain historical evidence context; old
+counts, source-line numbers, and correction IDs are not a current ordered HG projection. Retired
+one-way lifecycle, imposed Assessment-matching algorithm, and Blueprint Question-content-change
+claims are not current requirements. All nine part gates, identity diff, and consistency pass.
+
 ## Authority and method
 
 [Human Guidance](../../../HUMAN_GUIDANCE.md) is the product authority. This report summarizes the current
@@ -19,29 +45,19 @@ checklist, gap map, and active plan.
 ## Checklist status by section
 
 | Human Guidance section | Verified `[x]` | Open `[ ]` | Owning open | N/A | Total |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| How to use this guidance | 0 | 0 | 0 | 5 | 5 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| How to use this guidance | 0 | 0 | 0 | 7 | 7 |
 | Development principles | 14 | 4 | 4 | 23 | 41 |
 | Product vocabulary | 2 | 10 | 10 | 0 | 12 |
 | Accounts and roles | 25 | 18 | 18 | 8 | 51 |
-| Interface design | 158 | 98 | 97 | 1 | 257 |
+| Interface design | 135 | 98 | 97 | 1 | 234 |
 | Data and history | 33 | 38 | 37 | 0 | 71 |
-| Questions | 85 | 56 | 55 | 2 | 143 |
-| Courses | 55 | 46 | 45 | 4 | 105 |
-| Assessments | 96 | 47 | 44 | 0 | 143 |
-| **Total** | **468** | **317** | **310** | **43** | **828** |
+| Question specifications | 77 | 106 | 104 | 2 | 185 |
+| Course specifications | 75 | 63 | 62 | 4 | 142 |
+| Assessment specifications | 87 | 59 | 56 | 1 | 147 |
+| **Total** | **448** | **396** | **388** | **46** | **890** |
 
-The current checklist contains 828 HG bullets: 468 verified, 317 open, and 43 N/A.
-Seven later duplicate open bullets carry an `Owner:` pointer, leaving 310 owning-open records.
-
-The current Human Guidance snapshot has SHA256
-`9f7028a6ec43a42cf97abc8aa8d38b93b035b79d3145b9649cf0883b17d3714d`.
-The verbatim checklist and audit parts now include its reordered Interface sections and expanded
-density requirements, preserving unchanged evidence and accepted bounded Blueprint closures.
-New or materially expanded density rows remain open pending scoped rendered proof. Human Guidance
-was not edited. The identity-diff and consistency gates pass at 828 rows; seven part gates pass.
-The Instructor part's former comparator locator is superseded by accepted C47 Public-search
-evidence. The Assessment part closes four exact current-rescore rows. Independent review accepted
+The Assessment part closes four exact current-rescore rows. Independent review accepted
 private PostgreSQL 17 production-SQL lifecycle proof at
 `/private/tmp/ple-current-rescore-proof/proof.sql`; the artifact
 `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` exited 0. It retained `0.5` credit,
@@ -60,6 +76,7 @@ so this does not establish unlimited-Attempt eligibility; it also does not estab
 rendering, or actual backend grading. Artifact:
 `/private/tmp/ple-highest-score-proof/artifacts.rQxVs8/proof.log` (exit 0).
 
+
 The Blueprint authoring and lifecycle checklist now reflects the current narrow evidence. Reusable
 Blueprints have no delivery dates; their availability is exactly Private, Public, or Archived; new
 Blueprint creation is Private; owner-only Private visibility and Public-only adoption are enforced;
@@ -76,10 +93,11 @@ facts, an exact older read-only Revision, Private-foreign and Student denials, a
 fingerprint at `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB`; it does not claim browser
 pagination or retry, local-draft preservation, login/TLS, or populated Student Work.
 
-The current Assessment reference invariant remains open: saved entries preserve exact Question IDs and
-Revisions, while the authoring-input cutover still permits ID-only Question selection. Pool-copy,
-initial-member-pin, independent-fork, and no-Pool-member invariants remain source-audit pending;
-they do not claim broad runtime verification.
+The fixed-Question Assessment reference invariant is verified by accepted authenticated HTTP
+evidence: Revision 1 remains pinned after fixture head Revision 2, and ID-only/missing-Revision
+payloads are rejected without product changes. Pool-copy, initial-member-pin, independent-fork,
+and no-Pool-member invariants remain source-audit pending; this does not claim broad runtime
+verification.
 
 Accepted current-pair evidence now verifies Public-to-Private fork creation, fresh local Assessment
 and Pool identities with exact Question Revision membership, source provenance, independent fork

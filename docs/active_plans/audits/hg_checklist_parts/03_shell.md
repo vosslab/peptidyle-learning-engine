@@ -1,5 +1,4 @@
 ## Interface design
-
 ### General interface design
 
 - [ ] Design around what users need to find and do.
@@ -71,18 +70,22 @@
   - Evidence (source): `src/styles/product_role.css` `[data-product-role="sysadmin"]` defines `--ple-role-accent: #ff6347`.
 - [x] **Instructor** uses teal green as its role color.
   - Evidence (source): `src/styles/product_role.css` `[data-product-role="instructor"]` defines `--ple-role-accent: #168575`.
-- [x] **Student** uses lavender /purple as its role color.
+- [x] **Student** uses lavender purple as its role color.
   - Evidence (source): `src/styles/product_role.css` `[data-product-role="student"]` defines `--ple-role-accent: #8861b5`.
 - [x] Role colors should be used consistently in role labels and other appropriate interface cues.
   - Evidence (source): `src/styles/product_role.css` `.live-demo-persona-action[data-product-role]` and `.ple-app-ribbon__product-role[data-product-role]` consume the shared role tokens.
 - [x] Demo role selection should clearly state both the user's role and name.
   - Evidence (test): `tests/playwright/e2e_live_demo_authoring_browser.mjs` selects `Assume the role of Instructor Dr. Elena Rivera`.
-- [x] Themes should use biome and habitat names.
-  - Evidence (source): `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` retains stored ID `grass` and its unchanged anchors while presenting `Grassland`; the same closed registry presents Forest, Ocean, Desert, and the remaining habitat names.
-  - Evidence (source): `src/pages/course_appearance_page.tsx` `COURSE_THEME_OPTIONS` renders each visible theme label from `option.tokens.name`, not its stored ID.
-  - Evidence (test): `tests/test_course_theme_scope.mjs` `Grassland uses the Roosevelt-inspired anchors and accessible derived actions` verifies the `grass` ID presents Grassland without changing its reviewed palette; `every reviewed theme resolves to complete, contrast-safe course tokens` covers the closed registry.
-- [ ] Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`.
-  - Mismatch: `src/features/course_appearance/course_theme_registry.ts` still implements the current 15-ID, three-light-anchor registry, while `docs/BIOME_THEME_PALETTES.md` specifies a proposed 25-theme light/dark four-color registry and records six unresolved product decisions that block an atomic runtime cutover.
+- [ ] Courses use a fixed set of visually distinct biome and habitat themes.
+  - Verification pending: `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` provides the existing 15-theme registry, not acceptance of the expanded palette specification. Current rendered distinctness and actual-use accessibility, coordinated light/dark behavior, and the specification cutover require separate proof.
+- [ ] Course Themes should have coordinated light and dark appearances.
+  - Mismatch: `src/features/course_appearance/course_theme_registry.ts` `theme` derives one appearance from three anchors using white surfaces; there is no coordinated light/dark mode registry or selector.
+- [ ] Course Theme colors should remain accessible in their actual interface uses.
+  - Verification pending: `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` provides the existing 15-theme registry, not acceptance of the expanded palette specification. Current rendered distinctness and actual-use accessibility, coordinated light/dark behavior, and the specification cutover require separate proof.
+- [x] Course Theme IDs are durable; changing a theme's display name or colors should not require a new ID.
+  - Evidence (source): `crates/question_model/src/course_appearance.rs` `CourseTheme` and `as_str` own durable serialized IDs; `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` keys display names and colors separately by those IDs, including stored `grass` displayed as Grassland. Name/palette changes do not change the identity field.
+- [ ] Follow `docs/BIOME_THEME_PALETTES.md` for Course Theme names, palettes, accessibility, and implementation.
+  - Mismatch: `crates/question_model/src/course_appearance.rs` `CourseTheme` has 15 persisted themes; `src/features/course_appearance/course_theme_registry.ts` `theme` retains a three-anchor single appearance, rather than the proposed 25-theme coordinated light/dark fixed-palette specification.
 
 ### Typography
 
@@ -120,7 +123,7 @@
 - [x] See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` composes `AppRibbon` and `BreadcrumbPrelude`.
 
-### User top bar
+### User top bar interface
 
 - [x] All signed-in users share the same basic top bar layout.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `AppRibbon` renders one top-bar structure from each role model.
@@ -166,7 +169,7 @@
 - [x] See **Ribbon and page layout** for the overall navigation and page-position rules.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` is the shared shell that composes the top bar and content region.
 
-### Breadcrumbs
+### Breadcrumbs interface
 
 - [ ] All signed-in users have a permanent breadcrumb row below the top Ribbon.
   - Mismatch: `src/application_shell.tsx` `BreadcrumbPrelude` renders only when `breadcrumbPreludeReserved` is true.

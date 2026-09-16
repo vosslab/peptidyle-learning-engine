@@ -1,5 +1,13 @@
 # Question And Assessment Changes
 
+## Current heading reconciliation
+
+Current status and retained evidence are recorded in [compliance_summary.md](compliance_summary.md)
+and the [implementation checklist](../../audits/human_guidance_implementation_checklist.md).
+Blueprint lifecycle/forks/comparison now belong to Course specifications (Part 08); Assessment
+type appearance belongs to Instructor interface (Part 04). Earlier topical inventories are
+historical context, not current wording, counts, source-line pointers, or ownership.
+
 ## Scope
 
 This is a fresh topical implementation-audit inventory. It collects currently open
@@ -12,6 +20,29 @@ The authoritative exhaustive record is the
 [generated checklist](../../audits/human_guidance_implementation_checklist.md).
 
 ## Evidence updates
+
+- Current timing integration uses Human Guidance SHA256
+  `6f64d0bb877de5a8be3951dd5514fe0eb2fd5c5f3060b21940230b03a2fde481` and preserves prior
+  reconciliation and scoring evidence. The accepted 250 delivered-Question import bound closes
+  only that row. A fresh two-Question NULL-default release resolves 180 seconds, but the subsequent
+  Student start fails `Assessment Attempt requires 1 to 250 Questions`; no default/delivery,
+  override, or browser acceptance follows. Individual 1.5X/2X ratio/UI accommodations and the
+  effective 24-hour cap remain unimplemented; existing private absolute-second SQL is not closure.
+- Accepted fresh PostgreSQL 17 `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`
+  (exit 0) closes only unchanged resume: the same Student's second start SQL call returns the
+  original Attempt, exactly one Attempt exists, and original start/expiry stay exactly eight
+  seconds apart. Another browser/authenticated HTTP session remains open. The working-speed
+  rationale is audited N/A as pedagogical purpose, not a demonstrated learning effect; underlying
+  timing requirements remain binding. The corresponding rationale/resume bullets in the earlier
+  topical inventory below are historical context, not current open status.
+- The same accepted proof waits against the original real deadline and invokes prepare/commit as
+  the real expiry-worker SQL role for one mixed two-Question Attempt. The unanswered Question is
+  excluded from prepare, closed unanswered without submission/grading evidence, and incorrect
+  `0 / 8` in history. A saved FullCredit Question has immutable evidence with simulated synchronous
+  Backend `normalized_credit=0`, incorrect `8 / 8` history, and whole-Attempt score `8 / 16`.
+  Rendered visibly-unanswered presentation and actual Backend transport exclusion remain pending;
+  no deployed worker polling-loop or browser disconnect acceptance is inferred. This replaces the
+  stale claim that expiry was never exercised, not the prior ordinary-submission scoring receipt.
 
 - Part 09 closes four exact current-rescore rows: stored credit as the grading outcome, score
   calculation from stored credit and current points, recalculation after a current-points edit, and
@@ -285,12 +316,12 @@ The authoritative exhaustive record is the
 
 ## Topical inventory
 
-### Questions
+### Question specifications
 
 - Questions are strictly and deterministically automated; grading does not require an **Instructor**.
   - Source: `docs/HUMAN_GUIDANCE.md:514`
 
-### Questions -- Draft Questions
+### Question specifications -- Draft Questions
 
 - Instructors may delete Draft Questions they no longer need.
   - Source: `docs/HUMAN_GUIDANCE.md:523`
@@ -309,7 +340,7 @@ The authoritative exhaustive record is the
 - PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
   - Source: `docs/HUMAN_GUIDANCE.md:524`
 
-### Questions -- Native PLE JSON Questions
+### Question specifications -- Native PLE JSON Questions
 
 - Native JSON Questions are static, not algorithmic nor random, and receive no random seed.
   - Source: `docs/HUMAN_GUIDANCE.md:541`
@@ -359,7 +390,7 @@ The authoritative exhaustive record is the
 - Supported external dependencies should eventually become PLE-owned and served locally.
   - Source: `docs/HUMAN_GUIDANCE.md:560`
 
-### Questions -- Question Backends
+### Question specifications -- Question Backends
 
 - WeBWorK, iMathAS, and H5P are PLE-managed Question Backends.
   - Source: `docs/HUMAN_GUIDANCE.md:564`
@@ -410,7 +441,7 @@ The authoritative exhaustive record is the
 - When parameterized WeBWorK source exists, prefer it to importing static variants.
   - Source: `docs/HUMAN_GUIDANCE.md:586`
 
-### Questions -- Question Pools
+### Question specifications -- Question Pools
 
 - A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
   - Source: `docs/HUMAN_GUIDANCE.md:590`
@@ -481,7 +512,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Starting a new Attempt makes fresh selections from its Question Pools.
   - Source: `docs/HUMAN_GUIDANCE.md:606`
 
-### Questions -- Question Library
+### Question specifications -- Question Library
 
 - Published Question Pools are available to all vetted **Instructors**.
   - Source: `docs/HUMAN_GUIDANCE.md:615`
@@ -573,7 +604,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Student workflows remain complete whether or not Students read Question Feedback.
   - Source: `docs/HUMAN_GUIDANCE.md:681`
 
-### Assessments
+### Assessment specifications
 
 - **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
   - Source: `docs/HUMAN_GUIDANCE.md:827`
@@ -585,7 +616,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
   **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
   - Source: `docs/HUMAN_GUIDANCE.md:832`
 
-### Assessments -- Assessment content
+### Assessment specifications -- Assessment content
 
 - Assessments contain an ordered sequence of Questions and Question Pools.
   - Source: `docs/HUMAN_GUIDANCE.md:837`
@@ -599,7 +630,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Assessment Question-order randomization is called **Randomize question order**.
   - Source: `docs/HUMAN_GUIDANCE.md:840`
 
-### Assessments -- Assessment types
+### Assessment specifications -- Assessment types
 
 - Assessment Type describes the pedagogical purpose of an Assessment and provides appropriate defaults.
   - Source: `docs/HUMAN_GUIDANCE.md:845`
@@ -608,7 +639,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
   Assessment and show the correct answer immediately after that Assessment Attempt is submitted.
   - Source: `docs/HUMAN_GUIDANCE.md:856`
 
-### Assessments -- Assessment type appearance
+### Instructor interface -- Assessment type appearance (Part 04)
 
 - **Bonus Assignment** uses the Font Awesome `star` icon.
   - Source: `docs/HUMAN_GUIDANCE.md:898`
@@ -616,7 +647,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - **Quiz** uses the Font Awesome `circle-question` icon.
   - Source: `docs/HUMAN_GUIDANCE.md:899`
 
-### Assessments -- Blueprint Assessments
+### Assessment specifications -- Blueprint Assessments
 
 - Blueprint Assessments define Question point values and points possible.
   - Source: `docs/HUMAN_GUIDANCE.md:885`
@@ -630,7 +661,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Creating a daughter Course Instance from a Blueprint Course copies its Blueprint Assessments into the Course Instance.
   - Source: `docs/HUMAN_GUIDANCE.md:888`
 
-### Assessments -- Course Instance Assessments
+### Assessment specifications -- Course Instance Assessments
 
 - Course Instance Assessments are the Assessments delivered to **Students**.
   - Source: `docs/HUMAN_GUIDANCE.md:893`
@@ -638,7 +669,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Course Instance Assessments also have delivery settings such as due dates, release status, and Student availability.
   - Source: `docs/HUMAN_GUIDANCE.md:895`
 
-### Assessments -- Assessment Templates
+### Assessment specifications -- Assessment Templates
 
 - An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
   - Source: `docs/HUMAN_GUIDANCE.md:901`
@@ -667,7 +698,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Assessment Templates do not contain Questions or Question Pools.
   - Source: `docs/HUMAN_GUIDANCE.md:909`
 
-### Assessments -- Course Instance Assessment release and defaults
+### Assessment specifications -- Course Instance Assessment release and defaults
 
 - Assessment Release Validation checks the Assessment settings and data required for release.
   - Source: `docs/HUMAN_GUIDANCE.md:916`
@@ -697,7 +728,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - Until then, Quizzes and Exams do not disclose correct answers.
   - Source: `docs/HUMAN_GUIDANCE.md:936`
 
-### Assessments -- Assessment Attempts
+### Assessment specifications -- Assessment Attempts
 
 - Question responses are saved as the **Student** works and remain part of the Attempt across browser sessions.
   - Source: `docs/HUMAN_GUIDANCE.md:945`
@@ -711,7 +742,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - **Students** may repeat an Assessment as often as its settings allow, including practicing toward a perfect score.
   - Source: `docs/HUMAN_GUIDANCE.md:948`
 
-### Assessments -- Assessment responses and submission
+### Assessment specifications -- Assessment responses and submission
 
 - A Question either has a complete saved response or has no saved response.
   - Source: `docs/HUMAN_GUIDANCE.md:957`
@@ -728,21 +759,45 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
   - Source: `docs/HUMAN_GUIDANCE.md:968`
 
-### Assessments -- Assessment Attempt timing and expiration
+### Assessment specifications -- Assessment Attempt timing and expiration
 
 - Each Assessment Attempt has a time limit.
-  - Source: `docs/HUMAN_GUIDANCE.md:972`
+  - Source: `docs/HUMAN_GUIDANCE.md:1200`
+
+- The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
+  - Source: `docs/HUMAN_GUIDANCE.md:1202`
+
+- Instructors can override the default time limit up to 12 hours.
+  - Source: `docs/HUMAN_GUIDANCE.md:1203`
+
+- The interface should show the calculated default time limit and provide a specific Instructor override.
+  - Source: `docs/HUMAN_GUIDANCE.md:1204`
+
+- Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
+  - Source: `docs/HUMAN_GUIDANCE.md:1205`
+
+- Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit up to 24 hours.
+  - Source: `docs/HUMAN_GUIDANCE.md:1206-1207`
 
 - Attempt time limits help **Students** develop an accurate sense of expected working speed.
-  - Source: `docs/HUMAN_GUIDANCE.md:973`
+  - Source: `docs/HUMAN_GUIDANCE.md:1208`
 
 - A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
-  - Source: `docs/HUMAN_GUIDANCE.md:977`
+  - Source: `docs/HUMAN_GUIDANCE.md:1212`
 
-- Resuming an Attempt does not reset, pause, or extend its time limit.
-  - Source: `docs/HUMAN_GUIDANCE.md:978`
+- Resuming an Attempt does not reset or extend its expiration time.
+  - Source: `docs/HUMAN_GUIDANCE.md:1213`
 
-### Assessments -- Student Work
+- When an Attempt expires, PLE submits the whole Attempt and finalizes its saved responses.
+  - Source: `docs/HUMAN_GUIDANCE.md:1216`
+
+- Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
+  - Source: `docs/HUMAN_GUIDANCE.md:1217`
+
+- Unanswered Questions are not sent to the Question Backend.
+  - Source: `docs/HUMAN_GUIDANCE.md:1218`
+
+### Assessment specifications -- Student Work
 
 - For a Question Pool, Student Work keeps the exact Question Pool Revision and Published Question Revision selected.
   - Source: `docs/HUMAN_GUIDANCE.md:988`
@@ -753,7 +808,7 @@ and workflow receipt, not a screenshot or interface-aesthetics claim. Artifacts:
 - PLE should retain only the additional historical Student Work data needed to interpret or grade that work correctly.
   - Source: `docs/HUMAN_GUIDANCE.md:991`
 
-### Assessments -- Assessment scoring
+### Assessment specifications -- Assessment scoring
 
 - Blueprint Assessments and Course Instance Assessments assign point values to Questions.
   - Source: `docs/HUMAN_GUIDANCE.md:995`

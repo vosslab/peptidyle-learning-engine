@@ -76,6 +76,12 @@ BEGIN
      WHERE entry.assessment_entry_id = p_assessment_entry_id
        AND entry.assessment_id = p_assessment_id;
 
+    -- ASVS 2.2.2, 2.3.3: the count-only command cannot bypass the full-save bound.
+    IF ple_data.assessment_delivered_question_count(p_assessment_id) > 250 THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment may contain at most 250 Questions';
+    END IF;
+
     UPDATE ple_data.assessment AS assessment
        SET assessment_edit_number = assessment.assessment_edit_number + 1,
            updated_at = pg_catalog.clock_timestamp()

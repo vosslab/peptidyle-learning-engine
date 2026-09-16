@@ -1,15 +1,15 @@
 ## How to use this guidance
 
 Implementation status: N/A
-
-Reason: This section gives rules for writing and maintaining Human Guidance. It does not specify
-PLE product or code behavior.
+Reason: This section gives rules for writing and maintaining Human Guidance. It does not specify PLE product or code behavior.
 
 - N/A Guidance bullets should start with the subject when practical, making them easier to scan.
 - N/A Guidance should stay terse and in my own words.
 - N/A Uncertainty should remain when I have not made a final decision.
 - N/A This document uses GitHub Flavored Markdown (GFM).
 - N/A Bullet duplication is acceptable because many agents only skim read one section at a time.
+- N/A Headings should identify their broader section when practical so they remain clear in isolation.
+- N/A Avoid repeating that context when the immediate parent heading already makes it clear.
 
 ## Development principles
 
@@ -73,7 +73,6 @@ PLE product or code behavior.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` reports that the base schema must be updated directly until production freeze.
 - [x] After production, update existing databases without rebuilding them from scratch.
   - Evidence (source): `local_stack_control/lifecycle_migrations.py` `database_operation_for` selects `migrate` after initial installation.
-
 - [ ] PLE is pre-production with no users or durable production data. Improve the design directly.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` makes direct base-schema correction the pre-production path.
   - Mismatch: this database-only guard does not prove that every live alternate reader, writer, route, parser, DTO, client, fallback, alias, or migration path has been removed. The obsolete Assessment route layer and tsgen retired-header migration are gone, but live CI/A/U/BP client guards and receipt formats remain under audit. One Unrelease mutation path was found; no duplicate-current-path claim is made.
@@ -136,9 +135,8 @@ PLE product or code behavior.
   - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `ple_api.list_question_library_entries` lists published entries, but the audited evidence does not establish validation and vetted-Instructor availability together.
 - [ ] **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
   - Mismatch: `crates/server/src/question_publication.rs` `QuestionPublicationService::publish` verifies the stored Draft Question source record, but no cited direct evidence establishes content validation before publication; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` alone does not establish private Instructor-only persistence.
-- [ ] **Question Library**: The global collection of Published Questions and published Question Pools available to vetted **Instructors**.
+- [ ] **Question Library**: The global collection of Published Questions and Question Pools available to vetted **Instructors**.
   - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `question_library_entries` and `src/api/question_library_repository.ts` `QuestionLibraryRepository` establish published Question Library entries and their search contract, but do not establish published Question Pool inclusion or availability only to vetted Instructors.
-
 - [x] **User Roles**:
   - Evidence (source): `schemas/base_schema/accounts.sql` `product_role` limits the product role to student, instructor, or sysadmin.
   - [ ] **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
@@ -147,7 +145,6 @@ PLE product or code behavior.
     - Mismatch: `crates/server/src/question_publication.rs` `publish_new_question` proves only the authorized publication boundary; it does not directly verify the approved Instructor's browse, reuse, create, and fork capabilities.
   - [ ] **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
     - Mismatch: browser routes and DTOs still call the graded object `assignment`, rather than the required Assessment terminology.
-
 - [ ] **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` and its routes call this an Assignment workspace, not the required Assessment Question Editor.
 - [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.

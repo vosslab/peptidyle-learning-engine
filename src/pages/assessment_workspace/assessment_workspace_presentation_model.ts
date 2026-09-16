@@ -72,7 +72,7 @@ function scheduleLimitsSummary(input: AssessmentPolicyDraftSummaryInput): string
   const timeLimitCopy = !timeLimit.valid
     ? "time limit needs correction"
     : timeLimit.value === null
-      ? "no time limit"
+      ? "calculated default Assessment duration"
       : `${timeLimit.value}s time limit`;
   const attemptCopy = !attempts.valid
     ? "attempt limit needs correction"

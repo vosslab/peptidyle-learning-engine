@@ -1199,6 +1199,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Each Assessment Attempt has a time limit.
 - Each Assessment may contain at most 250 Questions.
+- A Question Pool counts as the number of Questions selected from it for the Assessment Question
+  limit and default time calculation; selecting 3 of 199 Questions counts as 3.
 - The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
 - Instructors can override the default time limit up to 12 hours.
 - The interface should show the calculated default time limit and provide a specific Instructor override.

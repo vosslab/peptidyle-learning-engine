@@ -26,7 +26,7 @@
 - [ ] Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
   - Evidence (source): accepted source review found `U` parsing/use limited to authenticated Account-management paths; no Student or Instructor projection was identified in that review.
   - Mismatch: full cross-route authorization and creation-boundary proof remains outstanding.
-- [ ] Published Questions and published Question Pools retain their existing public `AAAA-ZBBB` IDs.
+- [ ] Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
   - Mismatch: Published Question IDs use `AAAA-ZBBB`, but published Question Pool identities are not complete.
 
 ### Student and FERPA data
@@ -34,10 +34,10 @@
 - [x] **Student** course data falls under FERPA; treat it as radioactive.
   - Evidence (source): `schemas/base_schema/course_membership.sql` `student_record` is protected by RLS and has no PUBLIC privilege.
 - [x] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-  - Owner: `docs/active_plans/audits/hg_checklist_parts/02_accounts.md`
   - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
   - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
+  - Owner: 02_accounts.md > Accounts and roles > Student role (first current-source occurrence).
 - [x] FERPA access should be scoped through exact Course membership and **Student** ownership.
   - Evidence (source): `schemas/base_schema/authorization.sql` `current_session_account_owns_student_record` requires the exact Course, Student Record, authenticated Student Account, and active Student membership before Student Work access is allowed.
   - Evidence (test): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` uses a real `ple_auth` to `ple_app` session to allow the owner and deny a same-Course other Student, nonmember, same Account with another Course record, and ordinary Sysadmin.
@@ -71,27 +71,34 @@
 - [x] Question statistics are version-specific first, with clearly labeled Question-level rollups when appropriate.
   - Evidence (source): `schemas/base_schema/statistics.sql` `question_revision_statistics` primary key is `(question_id, revision_number)`.
 
-### Course retention
+### Course retention and lifecycle
 
-- [ ] Course retention should follow Course Instance dates and its six-month Active lifetime rather than a fixed academic calendar.
+- [ ] Course retention should follow Course Instance dates and its six-month Active lifetime rather than
+  a fixed academic calendar.
   - Mismatch: Course Instance storage has no six-month Active lifetime or retention deadline.
-- [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA retention clock.
+- [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA
+  retention clock.
   - Mismatch: Assessment deadlines exist, but no Course FERPA retention clock is derived from them.
-- [x] Creating or extending a later Assessment deadline may move those dates, but not beyond the six-month Active lifetime.
+- [x] Creating or extending a later Assessment deadline may move those dates, but not beyond the
+  six-month Active lifetime.
   - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies` lock the Course first, reject a Due date after its immutable `active_until_at`, and invoke `ple_data.synchronize_course_assessment_deadline` after an accepted change.
   - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` stores the current maximum Assessment Due date and moves the active Course retention anchor to that date, or to `active_until_at` when no Due date remains.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies`, covering release, a cleared last Due date, cap rollback, stale CAS, wrong-Instructor denial, deterministic concurrent saves to two Assessments, an archive race, and frozen archived/deleted retention anchors.
 - [ ] Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
   - Mismatch: The FERPA retention-clock transition is absent.
-- [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and permanent deletion transitions.
+- [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and
+  permanent deletion transitions.
   - Mismatch: No configured FERPA retention policy or its transitions exists.
-- [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after creation.
+- [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
+  creation.
   - Mismatch: No six-month inactivity transition or Instructor warning exists.
-- [x] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying FERPA retention and deletion.
+- [x] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
+  FERPA retention and deletion.
   - Evidence (source): `schemas/base_schema/course_core.sql` `ple_data.enforce_course_instance_retention_schedule` derives and preserves the immutable six-month `active_until_at`; `schemas/base_schema/assessments.sql` `ple_data.save_assessment` and its sibling save functions reject every saved Due date beyond that cutoff.
   - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` bounds the active retention anchor by the accepted current maximum Due date or that immutable cutoff and does not move an archived or deleted anchor.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
-- [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself delete Student records.
+- [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
+  delete Student records.
   - Mismatch: Neither Course inactivity nor FERPA deletion transition is implemented.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
   - Mismatch: No Course retention processing exists for any calendar.
@@ -103,11 +110,11 @@
   - Mismatch: No retention-period expiry deletion exists.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
   - Mismatch: No Student-data deletion transition exists to establish this preservation behavior.
-  - Owner: A6
+  - Owner: 06_data.md > Data and history > Student and FERPA data (first current-source occurrence).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.
 
-### Retention processing
+### Course retention processing
 
 - [ ] A background process should periodically find Course Instances whose retention deadlines have passed.
   - Mismatch: `worker` only sweeps expired Assignment Attempts, not Course retention deadlines.
@@ -120,7 +127,7 @@
 - [ ] The retention process should be safe to run repeatedly.
   - Mismatch: No Course retention process exists to establish repeat safety.
 
-### Revisions and history
+### Common revision and history specifications
 
 - [x] Be conservative about creating revisions.
   - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_question_revision` locks the Draft and immediate parent before it creates a successor; its `PQR01` source-checksum comparison rejects an unchanged `question_revision_source_binding` before any successor facts are written.
@@ -135,7 +142,8 @@
   - Evidence (source): `schemas/base_schema/assessment_operations.sql` `save_assessment_inline` requires and advances `assessment_edit_number`.
 - [x] An Edit Number is only a counter and does not identify a stored historical object.
   - Evidence (source): `schemas/base_schema/assessment_operations.sql` `assessment_edit_number` is a current-state concurrency field rather than a revision foreign key.
-- [ ] Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for each object.
+- [ ] Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for
+  each object.
   - Mismatch: Question and Blueprint revisions have positive sequential numbers, but Question Pools have no Revision Number.
 - [ ] A Revision Number identifies a specific immutable Revision stored by PLE.
   - Mismatch: Question and Blueprint Revision Numbers identify immutable rows, but the absent Question Pool Revision leaves this general Revision Number behavior incomplete.

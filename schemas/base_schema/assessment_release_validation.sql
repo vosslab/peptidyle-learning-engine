@@ -2,6 +2,42 @@
 
 SET LOCAL ROLE ple_data_owner;
 
+-- Delivered current content, never whole Pool membership or a derived cache.
+-- ASVS 8.3.1: trusted callers authorize the Assessment before using this
+-- owner-only lookup; ple_app cannot execute it. A fixed owner also prevents
+-- a nested cached SQL call from retaining an earlier caller's RLS policy.
+CREATE FUNCTION ple_data.assessment_delivered_question_count(p_assessment_id uuid)
+RETURNS bigint LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT COALESCE(sum(CASE entry_kind
+        WHEN 'fixed_question' THEN 1 ELSE selection_count END), 0)::bigint
+      FROM ple_data.assessment_entry
+     WHERE assessment_id = p_assessment_id AND availability = 'available'
+$$;
+
+-- ASVS 2.2.1, 2.2.2, 2.3.2: one read/start authority resolves the finite base.
+-- Empty drafts have no duration yet; valid starts must have 1..250 Questions.
+CREATE FUNCTION ple_data.assessment_effective_base_duration_seconds(p_assessment_id uuid)
+RETURNS integer LANGUAGE plpgsql STABLE
+SET search_path = pg_catalog, ple_data AS $$
+DECLARE authored_seconds integer;
+DECLARE question_count bigint;
+BEGIN
+    SELECT assessment_attempt_time_limit_seconds INTO authored_seconds
+      FROM ple_data.assessment WHERE assessment_id = p_assessment_id;
+    question_count := ple_data.assessment_delivered_question_count(p_assessment_id);
+    IF question_count NOT BETWEEN 1 AND 250 THEN
+        RETURN NULL;
+    END IF;
+    RETURN COALESCE(authored_seconds, ((3 * question_count + 1) / 2 * 60)::integer);
+END $$;
+
+REVOKE ALL ON FUNCTION ple_data.assessment_delivered_question_count(uuid),
+    ple_data.assessment_effective_base_duration_seconds(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_data.assessment_delivered_question_count(uuid),
+    ple_data.assessment_effective_base_duration_seconds(uuid)
+    TO ple_api_owner, ple_private_owner;
+
 -- ASVS 2.1.2, 2.2.3, and 2.3.2: one deterministic trusted-layer helper
 -- owns every release issue. Unreleased drafts may retain invalid dates so the
 -- interactive projection can explain and correct them; released state always
@@ -24,6 +60,10 @@ BEGIN
     IF NOT FOUND THEN
         RETURN;
     END IF;
+    IF ple_data.assessment_delivered_question_count(p_assessment_id) > 250 THEN
+        issue := 'question_count_exceeded';
+        RETURN NEXT;
+    END IF;
     IF NOT EXISTS (
         SELECT 1 FROM ple_data.assessment_entry
          WHERE assessment_id = p_assessment_id AND availability = 'available'
@@ -43,10 +83,6 @@ BEGIN
            AND entry.selection_count > pool_revision.member_count
     ) THEN
         issue := 'question_pool_insufficient_items';
-        RETURN NEXT;
-    END IF;
-    IF assessment_row.assessment_attempt_time_limit_seconds IS NULL THEN
-        issue := 'assessment_attempt_time_limit_required';
         RETURN NEXT;
     END IF;
     IF assessment_row.due_at IS NULL THEN

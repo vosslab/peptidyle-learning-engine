@@ -179,13 +179,13 @@ export interface AssessmentReleaseValidation {
   readonly canRelease: boolean;
   readonly issues: ReadonlyArray<
     | "noPublishedQuestions"
+    | "questionCountExceeded"
     | "questionUnavailable"
     | "dueDateRequired"
     | "dueDateLessThan24HoursAhead"
     | "dueDateAfterCourseActiveUntil"
     | "availabilityAfterDueDate"
     | "dueDateAfterClose"
-    | "timeLimitRequired"
   >;
 }
 

@@ -126,7 +126,10 @@ BEGIN
             ON entry.assessment_entry_id = issued.assessment_entry_id
          WHERE issued.assessment_attempt_id = active_assessment_attempt.assessment_attempt_id;
     ELSE
-        assessment_title := assessment_row.assessment_title; assessment_attempt_time_limit_seconds := COALESCE(accommodation_row.assessment_attempt_time_limit_seconds, assessment_row.assessment_attempt_time_limit_seconds);
+        assessment_title := assessment_row.assessment_title;
+        assessment_attempt_time_limit_seconds := ple_private.assessment_effective_duration_seconds(
+            assessment_row.assessment_id, accommodation_row.time_multiplier
+        );
         SELECT COALESCE(sum(CASE entry.entry_kind WHEN 'fixed_question' THEN 1 ELSE entry.selection_count END), 0)::integer,
                COALESCE(sum(ple_private.grade_contribution_points_possible(
                    assessment_row.assessment_type,

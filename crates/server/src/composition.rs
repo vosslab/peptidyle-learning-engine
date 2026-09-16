@@ -112,6 +112,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
     let assessment_pool_selection_counts =
         PostgresAssessmentPoolSelectionCountStore::new(pool.clone());
+    let assessment_student_time_accommodations =
+        learning_data_access::postgres::PostgresAssessmentStudentTimeAccommodationStore::new(pool.clone());
     let assessment_templates = PostgresAssessmentTemplateStore::new(pool.clone());
     let assessment_delivery = PostgresLiveAssessmentDeliveryStore::new(pool.clone());
     let assessment_student_view = PostgresInstructorStudentViewStore::new(pool.clone());
@@ -292,6 +294,9 @@ pub async fn production_router_from_env() -> Result<Router> {
                 assessment_pool_selection_counts,
             ),
         )
+        .merge(crate::assessment_student_time_accommodation::assessment_student_time_accommodation_router(
+            Arc::clone(&sessions), assessment_student_time_accommodations,
+        ))
         .merge(crate::assessment_delivery::assessment_delivery_router(
             Arc::clone(&sessions),
             assessment_delivery,

@@ -4,6 +4,42 @@ This map records each owning open item from the accepted section audits. Human G
 authority. A record is closed only by the named correction milestone or, for guidance that makes
 no implemented-system claim, by the named audit-classification correction.
 
+## Current ownership and expanded gaps
+
+The current ordered checklist has 890 bullets: 448 verified, 396 open
+(388 owning), and 46 N/A. The [implementation checklist](human_guidance_implementation_checklist.md)
+owns current wording, occurrence status, evidence limitations, and duplicate first-owner pointers.
+Existing A/C identifiers below remain correction provenance, not ordinal HG identities.
+A4-06 lifecycle and A4-07 fork records now route to Course specifications/Part 08;
+Assessment type appearance routes to Instructor interface/Part 04. Retired source occurrences
+are removed from the current checklist; historical correction context is not restored as a rule.
+
+- Part 03 / Role colors and themes: coordinated light/dark and specification cutover are missing;
+  distinctness and actual-use accessibility need scoped rendered proof. Durable IDs have narrow
+  source proof, not whole-palette acceptance.
+- Part 07 / Draft publication, Published Question and Question Pool metadata, Library metadata:
+  required shared metadata, Pool metadata/support, and Subject/Topic/Subtopic hierarchy are not
+  established by Question-only nullable Subject/Topic and Title/Description fields.
+- Part 07 / PLE support: accepted C910 general-feedback receipts remain partial context; independent
+  Hints/Worked Solutions, disclosure, Pool attachment, coexistence, and Revision behavior remain open.
+- Part 07 / Library object statistics and Bloom metadata: Pool statistics and the two independent
+  Bloom dimensions, AI publication assignment, metadata correction and search/reporting remain open.
+- Part 08 / Blueprint forks: accepted exact-member-pin HTTP evidence is retained. Expanded
+  Change Proposal persistence, canonical content scope, selective acceptance records, stale targets,
+  comparison of changed Questions/Pools, and selected daughter incorporation need current proof.
+- Part 09 / Assessment Unrelease: current deletion/reset source is partial proof; re-audit explicit
+  deletion scope, Student unavailability, teaching-definition retention, normal editing/revalidation,
+  and empty later-release work. Preserve accepted unchanged scoring closures and their limitations.
+- Part 09 / Attempt timing: finite duration, 250 delivered Questions, calculated default, explicit
+  override, and accommodation rows are reconciled to current Human Guidance. The accepted Pool
+  import proof closes the 250 bound only. A fresh two-Question NULL-default release resolves 180
+  seconds, but Student start fails `Assessment Attempt requires 1 to 250 Questions`; default and
+  delivery acceptance remain open. Ratio/UI accommodations and the effective 24-hour cap remain
+  unimplemented. The working-speed rationale is audited N/A as pedagogical purpose, not a
+  demonstrated learning effect. Exact unchanged same-identity SQL resume is verified; cross-browser
+  session resume remains open. Mixed expiry-worker SQL finalization is proven, but rendered
+  unanswered presentation and actual Backend transport exclusion remain pending.
+
 ## A1: Development principles and product vocabulary
 
 ### A1-01
@@ -901,90 +937,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 - Closure owner: C48.
 - Verification: component plus Playwright test selects one of two Blueprint Assessments, shows only its Questions, reorders them, then opens Properties.
 
-### A4-06 - Blueprint Private/Public/Archived state machine (A8 schema/server lifecycle boundary; 8)
 
-#### A4-06.1
-
-- HG bullet: "Blueprint Courses follow the lifecycle **Private -> Public -> Archived**."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-#### A4-06.2
-
-- HG bullet: "New and forked Blueprint Courses start **Private**."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-#### A4-06.3
-
-- HG bullet: "Private Blueprint Courses are visible only to their owner."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-#### A4-06.4
-
-- HG bullet: "Instructors may develop and use Private Blueprint Courses without publishing them."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-#### A4-06.5
-
-- HG bullet: "Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-#### A4-06.6
-
-- HG bullet: "A Public Blueprint Course with no adoptions may return to **Private**."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-#### A4-06.7
-
-- HG bullet: "A Public Blueprint Course with one or more adoptions remains **Public**."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-#### A4-06.8
-
-- HG bullet: "Blueprint Courses do not have a separate Draft state."
-- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
-- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
-- Dependencies: C6, C19, C49, and C72.
-- Closure owner: C50.
-- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
-
-### A4-07 - Public Blueprint fork transaction (A8 fork API; 1)
-
-#### A4-07.1
-
-- HG bullet: "Instructors may fork a Public Blueprint Course to continue development privately."
-- Current evidence and concrete mismatch: no Public Blueprint fork action or Private fork lifecycle exists.
-- Owning source area: Blueprint fork server route: crates/server/src/blueprint_course.rs.
-- Dependencies: C72.
-- Closure owner: C51.
-- Verification: transaction/browser fixture proves source remains Public and editable fork starts Private.
 
 ### A4-08 - Blueprint adoption projection (A8 adoption service/serialization; 2)
 
@@ -2253,6 +2206,93 @@ obvious newer-source/downstream indications in addition to connected corrected c
 - C30 receives C422 and title/reference findings. C46 receives C411/C418/C424 presentation contract; C47 receives C405/C413/C423/C424/C425; C48 receives C420/C421/C423/C425; C49/C50 receive C403/C404/C413; C51 receives C412; C52 receives C407/C424; C53 receives C418; C72 receives C404; C73 receives C406/C407; C206 receives C418; C216 receives title/reference inventory; C55 receives C411/C420/C421/C424 and all Course/Blueprint editor identity findings.
 
 ## A8 title/reference temporary inventory
+
+### A4-06 - current owner: Course specifications / Part 08; Blueprint Private/Public/Archived state machine (A8 schema/server lifecycle boundary; 8)
+
+#### A4-06.1
+
+- HG bullet: "Blueprint Courses follow the lifecycle **Private -> Public -> Archived**."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+#### A4-06.2
+
+- HG bullet: "New and forked Blueprint Courses start **Private**."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+#### A4-06.3
+
+- HG bullet: "Private Blueprint Courses are visible only to their owner."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+#### A4-06.4
+
+- HG bullet: "Instructors may develop and use Private Blueprint Courses without publishing them."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+#### A4-06.5
+
+- HG bullet: "Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+#### A4-06.6
+
+- HG bullet: "A Public Blueprint Course with no adoptions may return to **Private**."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+#### A4-06.7
+
+- HG bullet: "A Public Blueprint Course with one or more adoptions remains **Public**."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+#### A4-06.8
+
+- HG bullet: "Blueprint Courses do not have a separate Draft state."
+- Current evidence and concrete mismatch: current Blueprint UI has only available/archive states; it does not model Private/Public, owner-only visibility, shared discovery, adoption-conditioned return, or absence of Draft.
+- Owning source area: Blueprint lifecycle: schemas/base_schema/blueprints.sql, crates/server/src/blueprint_course.rs, and src/features/blueprint_course/blueprint_course_workspace.tsx.
+- Dependencies: C6, C19, C49, and C72.
+- Closure owner: C50.
+- Verification: lifecycle and authorization tests for every transition, owner/non-owner read, adopted/non-adopted Public course, and rejection of Draft.
+
+
+### A4-07 - current owner: Course specifications / Part 08; Public Blueprint fork transaction (A8 fork API; 1)
+
+#### A4-07.1
+
+- HG bullet: "Instructors may fork a Public Blueprint Course to continue development privately."
+- Current evidence and concrete mismatch: no Public Blueprint fork action or Private fork lifecycle exists.
+- Owning source area: Blueprint fork server route: crates/server/src/blueprint_course.rs.
+- Dependencies: C72.
+- Closure owner: C51.
+- Verification: transaction/browser fixture proves source remains Public and editable fork starts Private.
+
 
 A8-PENDING-title-reference-inventory feeds C216 and is not permanent. C216 is its sole final owner. A8 runs only this ignored probe:
 

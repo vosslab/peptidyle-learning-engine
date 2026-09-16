@@ -11,6 +11,7 @@ mod assessment_attempt;
 mod assessment_delivery;
 mod assessment_pool_fork;
 mod assessment_pool_selection_count;
+mod assessment_student_time_accommodation;
 mod assessment_release;
 mod assessment_student_view;
 mod assessment_template;
@@ -84,6 +85,7 @@ pub use assessment_pool_fork::{
     AppendAssessmentPoolForkRevisionInput, AppendedAssessmentPoolForkRevision,
     AssessmentPoolForkStore, ImportAssessmentPoolForkInput, ImportedAssessmentPoolFork,
 };
+pub use assessment_student_time_accommodation::AssessmentStudentTimeAccommodationStore;
 pub use assessment_pool_selection_count::{
     AssessmentPoolSelectionCountInput, AssessmentPoolSelectionCountStore,
 };

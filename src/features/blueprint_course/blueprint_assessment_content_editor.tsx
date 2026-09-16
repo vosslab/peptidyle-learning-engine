@@ -1,6 +1,7 @@
 // blueprint_assessment_content_editor.tsx - task-focused editing for one Blueprint Assessment.
 
 import { For, Show, createSignal, onCleanup, type JSX } from "solid-js";
+import { assessmentDurationDefaultDescription } from "../../assessment_duration";
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
@@ -103,7 +104,9 @@ export function BlueprintAssessmentContentEditor(
     if (!validNumber(input)) {
       props.onChange(
         props.content,
-        "Use a positive whole number or clear the field to leave this reusable default open.",
+        field === "assessment_attempt_time_limit_seconds"
+          ? "Use 1 to 43200 seconds, or clear the override to use the calculated default."
+          : "Use a positive whole number or clear the field for unlimited Attempts.",
       );
       return;
     }
@@ -446,15 +449,26 @@ export function BlueprintAssessmentContentEditor(
             <span>Randomize question order</span>
           </label>
           <label>
-            Whole Assessment Attempt time limit (seconds)
+            Assessment duration override in seconds (optional, maximum 12 hours)
             <input
               type="number"
               min="1"
+              max="43200"
+              step="1"
               value={props.content.defaults.assessment_attempt_time_limit_seconds ?? ""}
               onInput={(event) =>
                 changeNumber("assessment_attempt_time_limit_seconds", event.currentTarget)
               }
             />
+            <small>
+              {assessmentDurationDefaultDescription(
+                props.content.entries.reduce(
+                  (count, entry) => count + (entry.kind === "fixed" ? 1 : entry.selection_count),
+                  0,
+                ),
+              )}{" "}
+              Leave the override blank to use this default.
+            </small>
           </label>
           <label>
             Assessment Attempt limit

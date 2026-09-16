@@ -1,5 +1,13 @@
 # Authorization And Ferpa Changes
 
+## Current heading reconciliation
+
+Current status and retained evidence are recorded in [compliance_summary.md](compliance_summary.md)
+and the [implementation checklist](../../audits/human_guidance_implementation_checklist.md).
+Blueprint lifecycle/forks/comparison now belong to Course specifications (Part 08); Assessment
+type appearance belongs to Instructor interface (Part 04). Earlier topical inventories are
+historical context, not current wording, counts, source-line pointers, or ownership.
+
 ## Scope
 
 This is a fresh topical implementation-audit inventory. It collects currently open

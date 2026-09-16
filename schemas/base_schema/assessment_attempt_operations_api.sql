@@ -12,7 +12,7 @@ CREATE FUNCTION ple_private.save_student_assessment_accommodation(
     p_available_at timestamptz,
     p_due_at timestamptz,
     p_closes_at timestamptz,
-    p_assessment_attempt_time_limit_seconds integer,
+    p_time_multiplier numeric,
     p_assessment_attempt_limit integer
 ) RETURNS TABLE (accommodation_edit_number bigint)
 LANGUAGE plpgsql SECURITY DEFINER
@@ -44,10 +44,10 @@ BEGIN
         END IF;
         INSERT INTO ple_private.student_assessment_accommodation(
             accommodation_id, student_record_id, assessment_id, available_at, due_at, closes_at,
-            assessment_attempt_time_limit_seconds, assessment_attempt_limit, created_at
+            time_multiplier, assessment_attempt_limit, created_at
         ) VALUES (
             p_accommodation_id, p_student_record_id, p_assessment_id, p_available_at, p_due_at,
-            p_closes_at, p_assessment_attempt_time_limit_seconds, p_assessment_attempt_limit,
+            p_closes_at, p_time_multiplier, p_assessment_attempt_limit,
             pg_catalog.transaction_timestamp()
         ) RETURNING ple_private.student_assessment_accommodation.accommodation_edit_number
           INTO accommodation_edit_number;
@@ -62,9 +62,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Student Assessment Accommodation Edit Number is stale';
     END IF;
     IF ROW(current_row.available_at, current_row.due_at, current_row.closes_at,
-           current_row.assessment_attempt_time_limit_seconds, current_row.assessment_attempt_limit)
+           current_row.time_multiplier, current_row.assessment_attempt_limit)
        IS NOT DISTINCT FROM ROW(p_available_at, p_due_at, p_closes_at,
-                                p_assessment_attempt_time_limit_seconds, p_assessment_attempt_limit) THEN
+                                p_time_multiplier, p_assessment_attempt_limit) THEN
         accommodation_edit_number := current_row.accommodation_edit_number;
         RETURN NEXT;
         RETURN;
@@ -73,7 +73,7 @@ BEGIN
        SET available_at = p_available_at,
            due_at = p_due_at,
            closes_at = p_closes_at,
-           assessment_attempt_time_limit_seconds = p_assessment_attempt_time_limit_seconds,
+           time_multiplier = p_time_multiplier,
            assessment_attempt_limit = p_assessment_attempt_limit,
            accommodation_edit_number = current_row.accommodation_edit_number + 1
      WHERE accommodation_id = p_accommodation_id
@@ -100,7 +100,7 @@ REVOKE ALL ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.read_student_assessment_attempt_saved_response(bigint, integer),
     ple_private.lock_question_attempt_for_grading(uuid),
     ple_private.read_student_assessment_attempt_history_evidence(bigint),
-    ple_private.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) FROM PUBLIC;
+    ple_private.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, numeric, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
     ple_private.prepare_current_assessment_attempt_start_decision(bigint, text),
@@ -114,7 +114,7 @@ GRANT EXECUTE ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.read_student_assessment_attempt_progress(bigint),
     ple_private.read_student_assessment_attempt_saved_response(bigint, integer),
     ple_private.read_student_assessment_attempt_history_evidence(bigint),
-    ple_private.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) TO ple_api_owner;
+    ple_private.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, numeric, integer) TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
@@ -228,7 +228,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
       FROM ple_private.read_student_assessment_attempt_history_evidence($1)
 $$;
 CREATE FUNCTION ple_api.save_student_assessment_accommodation(
-    uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer
+    uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, numeric, integer
 ) RETURNS TABLE (accommodation_edit_number bigint)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT * FROM ple_private.save_student_assessment_accommodation($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -245,7 +245,7 @@ REVOKE ALL ON FUNCTION ple_api.start_assessment_attempt(uuid, uuid, uuid, jsonb,
     ple_api.read_student_assessment_attempt_progress(bigint),
     ple_api.read_student_assessment_attempt_saved_response(bigint, integer),
     ple_api.read_student_assessment_attempt_history_evidence(bigint),
-    ple_api.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer)
+    ple_api.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, numeric, integer)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
     ple_api.prepare_current_assessment_attempt_start_decision(text, text),
@@ -257,7 +257,7 @@ GRANT EXECUTE ON FUNCTION ple_api.start_assessment_attempt(uuid, uuid, uuid, jso
     ple_api.read_student_assessment_attempt_progress(bigint),
     ple_api.read_student_assessment_attempt_saved_response(bigint, integer),
     ple_api.read_student_assessment_attempt_history_evidence(bigint),
-    ple_api.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) TO ple_app;
+    ple_api.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, numeric, integer) TO ple_app;
 GRANT USAGE ON SCHEMA ple_api TO ple_assessment_attempt_expiry_worker;
 GRANT EXECUTE ON FUNCTION ple_api.prepare_expired_student_assessment_attempt_finalizations(integer),
     ple_api.commit_expired_student_assessment_attempt_finalization(uuid, jsonb)

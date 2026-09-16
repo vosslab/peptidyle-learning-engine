@@ -856,13 +856,13 @@ export function decodeAssessmentReleaseValidation(
     issues: decodeArray(field(record, "issues", path), `${path}.issues`, (item, itemPath) =>
       decodeStringEnum(item, itemPath, [
         "noPublishedQuestions",
+        "questionCountExceeded",
         "questionUnavailable",
         "dueDateRequired",
         "dueDateLessThan24HoursAhead",
         "dueDateAfterCourseActiveUntil",
         "availabilityAfterDueDate",
         "dueDateAfterClose",
-        "timeLimitRequired",
       ]),
     ),
   };

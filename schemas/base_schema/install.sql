@@ -53,6 +53,7 @@
 \ir assessment_attempt_operations.sql
 \ir assessment_attempt_finalization.sql
 \ir assessment_attempt_operations_api.sql
+\ir assessment_student_time_accommodation.sql
 \ir assessment_attempt_access.sql
 \ir delivery_backends.sql
 \ir delivery.sql

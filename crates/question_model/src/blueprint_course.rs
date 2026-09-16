@@ -75,7 +75,7 @@ pub fn validate_blueprint_course_title(value: &str) -> Result<(), BlueprintCours
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub struct BlueprintAssessmentDefaults {
-    /// Whole Assessment Attempt time limit, if the reusable content establishes one.
+    /// Explicit duration override; None calculates the default from delivered Questions.
     pub assessment_attempt_time_limit_seconds: Option<std::num::NonZeroU32>,
     /// Number of Assessment Attempts, if the reusable content establishes one.
     #[serde(rename = "assessment_attempt_limit")]
@@ -247,6 +247,18 @@ impl BlueprintAssessmentContentInput {
             return Err(BlueprintCourseValidationError::InvalidEntryCount);
         }
         self.defaults.validate()?;
+        // ASVS 2.2.1, 2.2.2: bound delivered Questions, not whole Pool membership.
+        let question_count: u64 = self
+            .entries
+            .iter()
+            .map(|entry| match entry {
+                BlueprintAssessmentEntryInput::Fixed(_) => 1,
+                BlueprintAssessmentEntryInput::Pool(pool) => u64::from(pool.selection_count.get()),
+            })
+            .sum();
+        if question_count > 250 {
+            return Err(BlueprintCourseValidationError::InvalidEntryCount);
+        }
         for entry in &self.entries {
             if let BlueprintAssessmentEntryInput::Pool(pool) = entry {
                 pool.validate()?;

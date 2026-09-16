@@ -56,8 +56,15 @@ export function assessmentTemplateSettings(
   const attemptLimit = optionalPositiveIntegerDraft(
     assessmentTypeHasOneAttempt(draft.assessmentType) ? "1" : draft.attemptLimit,
   );
-  if (!timeLimit.valid || !attemptLimit.valid) {
-    return { error: "Enter positive whole-number limits, or leave them blank." };
+  if (
+    !timeLimit.valid ||
+    !attemptLimit.valid ||
+    (timeLimit.value !== null && timeLimit.value > 43_200)
+  ) {
+    return {
+      error:
+        "Enter a duration override of 1 to 43200 seconds (12 hours), or leave it blank for the calculated default. Attempt limits must be positive whole numbers or blank.",
+    };
   }
 
   const settings: AssessmentTemplateSettings = {

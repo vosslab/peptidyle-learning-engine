@@ -338,9 +338,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
           source_blueprint_revision_number, source_blueprint_assessment_reference, created_at, \
           updated_at, assessment_type, assessment_title, assessment_instructions, available_at, due_at, closes_at, \
           assessment_attempt_time_limit_seconds, assessment_attempt_limit, late_work_rule, \
-          question_variation_rule, \
-          \
-          assessment_question_order_rule, feedback_score, \
+          question_variation_rule, assessment_question_order_rule, feedback_score, \
           feedback_per_item_correctness, feedback_submitted_response, \
           feedback_question_answer, feedback_question_answer_explanation, \
           feedback_class_statistics, assessment_status) \

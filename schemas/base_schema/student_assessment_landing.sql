@@ -153,9 +153,8 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
           SELECT coalesce(accommodation.available_at, assessment.available_at) AS available_at,
                  coalesce(accommodation.due_at, assessment.due_at) AS due_at,
                  coalesce(accommodation.closes_at, assessment.closes_at) AS closes_at,
-                 coalesce(
-                     accommodation.assessment_attempt_time_limit_seconds,
-                     assessment.assessment_attempt_time_limit_seconds
+                 ple_private.assessment_effective_duration_seconds(
+                     assessment.assessment_id, accommodation.time_multiplier
                  ) AS time_limit_seconds,
                  CASE
                      WHEN assessment.assessment_type IN ('quiz', 'exam') THEN 1

@@ -1,5 +1,13 @@
 # Ui And Workflow Changes
 
+## Current heading reconciliation
+
+Current status and retained evidence are recorded in [compliance_summary.md](compliance_summary.md)
+and the [implementation checklist](../../audits/human_guidance_implementation_checklist.md).
+Blueprint lifecycle/forks/comparison now belong to Course specifications (Part 08); Assessment
+type appearance belongs to Instructor interface (Part 04). Earlier topical inventories are
+historical context, not current wording, counts, source-line pointers, or ownership.
+
 ## Scope
 
 This is a fresh topical implementation-audit inventory. It collects currently open
@@ -285,7 +293,7 @@ The authoritative exhaustive record is the
 - Students should have no upload capabilities. Instructor-created content should use text boxes.
   - Source: `docs/HUMAN_GUIDANCE.md:187`
 
-### Interface design -- User top bar
+### Interface design -- User top bar interface
 
 - Each Product Role has its own home dashboard and navigation.
   - Source: `docs/HUMAN_GUIDANCE.md:204`
@@ -317,7 +325,7 @@ The authoritative exhaustive record is the
 - The current avatar appears consistently anywhere PLE represents that user.
   - Source: `docs/HUMAN_GUIDANCE.md:215`
 
-### Interface design -- Breadcrumbs
+### Interface design -- Breadcrumbs interface
 
 - All signed-in users have a permanent breadcrumb row below the top Ribbon.
   - Source: `docs/HUMAN_GUIDANCE.md:222`
@@ -586,7 +594,7 @@ The authoritative exhaustive record is the
 - The complete Sysadmin Ribbon task layout does not have a locked-in design yet.
   - Source: `docs/HUMAN_GUIDANCE.md:421`
 
-### Courses
+### Course specifications
 
 - **Courses** organize reusable teaching content and its delivery to **Students**.
   - Source: `docs/HUMAN_GUIDANCE.md:685`
@@ -606,7 +614,7 @@ The authoritative exhaustive record is the
 - Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
   - Source: `docs/HUMAN_GUIDANCE.md:692`
 
-### Courses -- Blueprint Courses
+### Course specifications -- Blueprint Courses
 
 - Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
   - Source: `docs/HUMAN_GUIDANCE.md:701`
@@ -731,7 +739,7 @@ The authoritative exhaustive record is the
 - Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.
   - Source: `docs/HUMAN_GUIDANCE.md:781`
 
-### Courses -- Course Instances
+### Course specifications -- Course Instances
 
 - Course Instances have **Students**, deadlines, releases, and other delivery-specific settings.
   - Source: `docs/HUMAN_GUIDANCE.md:789`
@@ -755,7 +763,7 @@ The authoritative exhaustive record is the
 - It should be obvious when a daughter Course Instance is using an older Blueprint Revision.
   - Source: `docs/HUMAN_GUIDANCE.md:810`
 
-### Courses -- Course names
+### Course specifications -- Course names
 
 - Short names are for compact navigation and should stay under about 16 characters when practical.
   - Source: `docs/HUMAN_GUIDANCE.md:819`

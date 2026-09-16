@@ -1,6 +1,7 @@
-## Questions
+## Question specifications
 
-- [x] Questions are subject agnostic. Properly tagged Questions from all subjects belong in the same Question Library.
+- [x] Questions are subject agnostic. Properly classified Published Questions from all subjects belong in
+  the same Question Library.
   - Evidence (source): `crates/server/src/question_library/paging.rs` `QuestionSearchFilter` supplies the shared Library query filter without a subject partition.
 - [ ] Questions are strictly and deterministically automated; grading does not require an **Instructor**.
   - Mismatch: needs runtime grading evidence for every supported backend.
@@ -8,24 +9,36 @@
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` stores one lineage-level title.
 - [x] Every Question stored by PLE has its own internal Question record.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question` owns the internal Question record.
+- [ ] Answer-choice randomization belongs to the Question.
+  - Mismatch: native answer-choice randomization ownership has not been verified.
+- [ ] PLE-native Questions control their own answer-choice randomization.
+  - Mismatch: no native answer-choice randomization implementation was found.
 
-### Draft Questions
+### Draft Question specifications
 
 - [x] Draft Questions are private working content.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `ple_private.draft_question` stores draft state in the private schema.
+- [ ] Draft Questions are not part of the Question Library.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
+  - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
 - [x] Draft Questions use current state rather than immutable Revisions.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_edit_number` is current-state concurrency data, separate from `question_revision`.
 - [x] Saving a Draft Question replaces its previous working state.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `save_authoring_draft` replaces the current draft aggregate values.
-- [x] Instructors may delete Draft Questions they no longer need.
+- [x] **Instructors** may delete Draft Questions they no longer need.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `delete_draft_question` resolves only the current Instructor-owned Draft, locks and compares its Edit Number, then deletes that private aggregate without considering the separate Published Question lineage.
   - Evidence (source): `crates/learning-data-access/src/postgres/authoring.rs` `delete_authoring_draft` carries the SQL compare-and-swap through the authenticated Store.
   - Evidence (source): `crates/server/src/authoring.rs` `delete_draft` requires the parsed `If-Match` Edit Number and maps a concurrent change to 412; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` supplies explicit Keep/Delete confirmation.
   - Evidence (runtime): `crates/server/src/authoring.rs` `delete_draft` passed accepted isolated PostgreSQL 17/MinIO actual-server and focused browser proof: cancel, confirm, and list reload; valid-current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous 404 denials while owner source/Edit Number remained unchanged; 428 missing, 400 malformed, and 412 stale preconditions; preserved parsed Published Question lineage and Revision JSON after a published-origin Draft deletion; and 404 repeat DELETE/PUT. Artifact: `/private/tmp/ple-draft-delete-artifacts.km9ybM`.
 - N/A PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
   - Reason: Automated abandoned-Draft cleanup is an explicitly optional future capability; HG sets no clock or durations.
+- [ ] A Draft Question must pass Question Publication Validation before becoming a Published Question.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
+  - Verification pending: audit ordinary Draft publication, not only fork publication, against current validation and required Library metadata.
+- [ ] Publication requires all required Question Library metadata.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 
-### Question formats and types
+### Question formats and type specifications
 
 - [x] PLE flat-question JSON is the canonical machine format for simple static Questions.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` validates the PLE JSON source form.
@@ -42,7 +55,7 @@
 - [x] Question importers are transient translators from external formats into PLE-managed Question representations.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `workspace_import` stages external-format imports before committed PLE state.
 
-### Native PLE JSON Questions
+### Native PLE JSON Question specifications
 
 - [x] The native PLE JSON Question format is private, unversioned, and unpublished.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` accepts the unversioned internal source shape.
@@ -93,7 +106,9 @@
 - [ ] Supported external dependencies should eventually become PLE-owned and served locally.
   - Mismatch: no dependency-localization workflow was found.
 
-### Question Backends
+### Question Backend specifications
+
+#### Supported Question Backends
 
 - [ ] WeBWorK, iMathAS, and H5P are PLE-managed Question Backends.
   - Mismatch: C870 removed every current H5P source, import, adapter, and runtime seam; H5P is not a delivered backend.
@@ -103,6 +118,18 @@
 - [ ] iMathAS and H5P are supported secondary Question Backends.
   - Mismatch: iMathAS has a launch boundary, while C870 leaves no current H5P source, import, or delivered backend seam.
   - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+- [x] PLE-native Questions use the PLE Question Backend.
+  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
+- [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
+  - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state. Connected live-ownership proof remains required; PLE is not required to capture historic renderer feedback.
+- [ ] H5P owns its runtime, interactions, state, and scoring.
+  - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
+  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+- [ ] iMathAS owns its rendering and evaluation.
+  - Mismatch: needs runtime rendering and evaluation proof for iMathAS.
+
+#### Question Backend responsibilities
+
 - [x] PLE owns and stores the Question representation used for each Question Backend.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_revision_source_binding` stores backend representations.
 - N/A Imported backend source may be transformed into the form PLE stores and manages.
@@ -120,37 +147,36 @@
 - [ ] Each Question Backend adapter retains its backend-specific interaction knowledge.
   - Mismatch: `crates/adapters/webwork/src/lib.rs` `WebworkAdapter` establishes an opaque WeBWorK boundary, and `crates/adapters/imathas/src/imathas_question_backend.rs` defines an iMathAS seam, but C870 leaves no current H5P adapter or runtime seam. Evidence from WeBWorK alone cannot establish this claim for each backend.
   - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
-- [x] PLE-native Questions use the PLE Question Backend.
-  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
-- [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
-  - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state. Connected live-ownership proof remains required; PLE is not required to capture historic renderer feedback.
+- [ ] Question Backends may support more complex interactions without requiring PLE to implement those interactions.
+  - Mismatch: incomplete secondary backends leave the general capability unverified.
+
+#### Question Backend grading and feedback
+
 - [x] Question Backend feedback is transient unless the backend provides a robust way for PLE to preserve it.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` projects recorded native PLE feedback from the exact retained response and source, while the WeBWorK branch does not reconstruct or persist transient renderer feedback.
   - Evidence (runtime): the C910 isolated actual-HTTP proof exercised `crates/server/src/assessment_delivery/history.rs` `student_history`, stopping the renderer after issuance and then submitting and reading exact WeBWorK Revision history without a backend-feedback field.
 - [x] PLE does not extract or reconstruct transient feedback from Question Backend source or output.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` invokes recorded teaching-content projection only for the native PLE source variant; the WeBWorK source remains opaque.
   - Evidence (runtime): the C910 actual-HTTP proof exercised `crates/server/src/assessment_delivery/history.rs` `student_history`; the history read succeeded after the renderer stopped and exposed no choice, correct, or incorrect feedback reconstructed from the PGML source or rendered output.
-- [x] Questions may have PLE-managed general feedback that remains separate from backend-generated interaction feedback.
+- [ ] PLE-managed Hints, Question Feedback, and Worked Solutions remain separate from backend-generated
+  interaction feedback.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
-- [ ] H5P owns its runtime, interactions, state, and scoring.
-  - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
-  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
-- [ ] iMathAS owns its rendering and evaluation.
-  - Mismatch: needs runtime rendering and evaluation proof for iMathAS.
-- [ ] Question Backends may support more complex interactions without requiring PLE to implement those interactions.
-  - Mismatch: incomplete secondary backends leave the general capability unverified.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 - [ ] A Question Backend returns an immutable credit fraction for each complete response it evaluates.
   - Mismatch: needs test or runtime evidence for backend evaluation and immutable outcome creation.
 - [ ] PLE stores the immutable credit fraction as the grading outcome.
   - Mismatch: needs test or runtime evidence linking backend credit to stored outcome.
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
   state.
-  - Mismatch: needs runtime grading evidence for the no-deferred-state contract.
+  - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
 - [ ] Assessment scores are calculated from stored credit fractions and current Question point values.
   - Mismatch: needs test or runtime scoring evidence.
 - [ ] Changing Question point values recalculates scores without another Question Backend interaction.
   - Mismatch: needs test or runtime rescoring evidence.
+
+#### WeBWorK source and algorithmic Questions
+
 - [x] Preserve the distinction between WeBWorK PG and PGML source. A Question should be identified as PGML only when its source is fully PGML-compliant; otherwise identify it as PG.
   - Evidence (source): `crates/project-tools/src/pilot_content.rs` `validated_question_format` maps only explicit PG or PGML declarations with matching extensions.
   - Evidence (test): `crates/project-tools/src/pilot_content/tests.rs` `pilot_publication_preserves_explicit_source_formats` exercises the format/extension refusals.
@@ -170,7 +196,7 @@
   - Evidence (source): `crates/project-tools/src/curriculum_content/publication.rs` `existing_source_revisions` resolves one ordinary lineage per canonical source.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted canonical installation creating 42 Question lineages and 42 Revision 1 records from 42 sources, with no variant expansion. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_selected_with_context` and `publish_source` passed selected ordinary-Instructor CLI proof publishing one available Revision-1 Question from one canonical source, with no Pool or Blueprint; replay made no additional publication. Artifact: `/private/tmp/ple-canonical-family-artifacts.TOOlBJ`.
-- [x] Use a Question Pool with algorithmic Questions only when the Instructor wants selection among distinct Questions, not to represent variants of one algorithmic Question.
+- [x] Use a Question Pool with algorithmic Questions only when the **Instructor** wants selection among distinct Questions, not to represent variants of one algorithmic Question.
   - Evidence (source): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` resolves selected Published Question Revisions and requires the Instructor's interchangeability attestation; `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` selects distinct immutable members without backend-specific variant expansion.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted fresh PostgreSQL 17/MinIO actual-server and private bundled-main HTTP-proxy browser proof: 42 canonical Genetics Questions installed with zero implicit Pools, then the Instructor visibly selected distinct DNA structure and nucleotide components Revision-1 PGML Questions, attested interchangeability, created a reusable Pool, and imported a distinct Assessment-owned fork with `selection_count=1`. Real WeBWorK rendering, radio-response save/resume, exact fork Pool/Question Revision, issued ID, seed/hash preservation, whole-Attempt submit, and fresh new-Attempt selection/issued IDs passed; a new Attempt may select the same Question and need not have different seeds. Artifact: `/private/tmp/ple-algorithmic-pool-artifacts.K2Kk6Z`. Release used a 3600-second time limit and Correct answer Never; answer disclosure, full Live Demo/authentication/TLS, and all-backend acceptance are outside this receipt. Browser error arrays were empty after route teardown completed.
 - [x] BiologyProblems.org WeBWorK problems should be imported from their canonical algorithmic PG or PGML source rather than from generated static variants.
@@ -180,7 +206,109 @@
   - Evidence (source): `crates/project-tools/src/curriculum_content/publication.rs` `validate_loaded_content` rejects non-Fixed entries in the canonical Blueprint.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted fresh Genetics publication creating one Revision-1 Question lineage per canonical source, 42 direct Fixed entries, and zero Pools; exact replay was unchanged and a same-short-name conflict made no mutation. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
 
-### Question Pools
+### Published Question specifications
+
+- [ ] A Published Question is an immutable-revision Question available for reuse through the Question Library.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision_is_immutable` trigger protects revision rows.
+  - Verification pending: reconcile the current immutable-revision Library reuse projection against this consolidated requirement.
+- [x] Published Questions are available to all vetted **Instructors**.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
+
+#### Published Question identity specifications
+
+- [x] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` defines and displays the canonical `AAAA-ZBBB` public Question ID; `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` issues it for a new Published Question lineage.
+  - Evidence (runtime): `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` passed accepted actual-server proof that published two native Questions, whose exact public IDs then formed a reusable Pool's members. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
+- [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
+  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` derives the identifier from random bytes.
+- [x] The middle character is an HMAC-derived check character calculated from the seven identity characters.
+  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_validation_character` derives the validation character with HMAC.
+- [x] The check character detects mistyped or malformed IDs; it is not a security boundary.
+  - Evidence (source): `crates/server/src/question_publication.rs` `validates_question_id` validates syntax/check character separately from authorization.
+- [ ] ID generation enforces database uniqueness and retries when a random collision occurs.
+  - Mismatch: database uniqueness exists, but collision retry behavior was not found in the issuer or publication store.
+- [x] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
+  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` uses random bytes and a secret only.
+
+#### Published Question metadata
+
+- [x] Published Questions have metadata specific to the individual Question.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys individual metadata to `question_id` and requires nonempty `question_title` and `question_description` independently of Course placement.
+- [x] Published Question metadata includes Title and Description.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys individual metadata to `question_id` and requires nonempty `question_title` and `question_description` independently of Course placement.
+- [x] Published Question metadata may include authorship, attribution, license, and source information.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` requires exact source, contiguous revision authorship and license records, keeping them associated with the Published Question Revision.
+- [ ] Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and
+  **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Published Questions also use the shared Question Library metadata required for publication.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+
+#### Published Question revisions, edits, and forks
+
+- [x] **Published Questions** maintain immutable revision history.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision_is_immutable` trigger protects revision rows.
+- [ ] Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
+  - Mismatch: exact revision columns are source evidence only; no connected test verifies an Assessment and Student Work stay pinned across a later publication.
+- [x] Publishing a new Question Revision does not silently change existing Assessments or Student Work.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
+- [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
+- [ ] Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
+  or Question assets creates a new Question Revision.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [x] Changing the Question title, description, Tags, Subject, Topic, or other search metadata does not
+  create a new Question Revision.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
+- [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
+- [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
+  - Mismatch: draft-fork source support is source evidence only; no authorization or behavior test verifies any eligible Instructor can publish a separate ID.
+- [x] A fork starts as a private **Draft Question** with its own authorship and lineage.
+  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
+- [x] A fork must pass Question Publication Validation before joining the Question Library.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
+- [x] Published forks retain source attribution.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_fork_source` records published fork provenance.
+- [x] Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
+  - Evidence (source): `schemas/base_schema/corrections.sql` `forced_question_correction` and its immutable audit targets record correction actions.
+- [x] Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_revision_authorship` and `question_revision_license` preserve revision stewardship.
+- [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
+  threads, and impact notices.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
+  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
+
+#### Published Question behavior specifications
+
+- [ ] Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+  - Owner: 07_questions.md > Question specifications > Published Question specifications > Published Question metadata (first current-source occurrence).
+- [ ] PLE-managed Hints, Question Feedback, and Worked Solutions are separate from Question Backend-generated content.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] WeBWorK Questions may use PLE-managed Hints, Question Feedback, and Worked Solutions even when similar material also exists in the WeBWorK source.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Question Feedback is shown when its disclosure rules allow it.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Hints and Worked Solutions use their own disclosure settings.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Student workflows remain complete when a Question has none of this optional support content.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+
+### Question Pool specifications
 
 - [x] A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `create_question_pool` persists an ordered nonempty set of exact Published Question Revision members, and `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` selects from that Pool for Student delivery.
@@ -191,15 +319,16 @@
   - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that false or missing attestation returned 422 and left no Pool behind. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
 - [ ] Question Pools may contain Questions from any Question Backend.
   - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor Pool workflow proves this behavior.
-- [x] Each member of a Question Pool is a **Published Question**.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
 - [x] Question Pools are always published and have no draft or unpublished state.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` model only a stable published lineage and immutable Revisions, with no draft, publication-status, or unpublished state.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main Instructor proof: it created a reusable Pool from two Published Questions and immediately read its server-issued Revision 1; the UI and API expose no draft or publish transition.
 - [x] A Question Pool is an independently reusable Question Library object.
   - Evidence (source): `crates/server/src/question_pool_library.rs` `current_pool` reads a Pool independently of any Assessment.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `current_pool` passed accepted actual-main Instructor proof: Pool `SBQR-N5RE` was created from the Question Library and its ordered member pins were read through `/api/question-pools/SBQR-N5RE`; separate actual-server proof then imported another reusable Pool into an Assessment.
-- [x] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
+- [x] Question Pools are available to all vetted **Instructors**.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
+  - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
+- [x] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable Revisions.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` stores the unique compact public Pool ID, while `question_pool_revision` and `question_pool_revision_member` have immutable update/delete triggers and ordered exact member pins.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that returned canonical Pool ID `SBQR-N5RE`, Revision 1, then read the same identity and exact ordered Question Revision pins.
 - [x] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
@@ -234,151 +363,174 @@
   - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
 - [x] Each member of a Question Pool is a **Published Question**.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
-  - Owner: The first Question Pools occurrence owns this duplicate status.
 - [ ] Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
+- [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
+  threads, and impact notices.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
+  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
 
-### Question Library
+#### Question Pool metadata
+
+- [ ] Question Pools have metadata specific to the individual Question Pool.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pool metadata includes Title and Description.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pools may have their own authorship, attribution, license, and source information where
+  appropriate.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pool metadata describes the Pool rather than duplicating metadata from its member
+  Published Questions.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
+  **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Question Pools also use the shared Question Library metadata required for publication.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+
+### Question Library specifications
 
 - [x] Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
   - Evidence (source): `src/pages/library_route_page.tsx` `LibraryRoutePage` is the production Instructor Library surface.
-- [x] The Question Library is one global collection of published Question content.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question` is not course-scoped.
-- [x] **Published Questions** are available to all vetted **Instructors**.
-  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
-- [x] Published Question Pools are available to all vetted **Instructors**.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
-  - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
+- [ ] The Question Library is one global collection of Published Questions and Question Pools.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Draft Questions are not part of the Question Library.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
+  - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
+  - Owner: 07_questions.md > Question specifications > Draft Question specifications (first current-source occurrence).
+- [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` reserves both Question Library routes for Instructors, and `src/route_access_boundary.tsx` `withRouteAccessBoundary` fail-closes every protected route before its page component mounts.
   - Evidence (runtime): `src/route_access_boundary.tsx` `withRouteAccessBoundary` passed accepted actual-main Student proof that denied three Library routes without any Question Library API request, while the Student Ribbon allowed Coursework navigation to a Released Assessment. Earlier accepted native Student Attempt proof delivered Question content through that Assessment. Artifacts: `/private/tmp/ple-course-empty-artifacts.9s89JA` and `/private/tmp/ple-course-empty-artifacts.ZquNiI`.
-- [x] Published content remains discoverable when used by a private **Course Instance**.
+- [x] Question Library content remains discoverable when used by a private **Course Instance**.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionSearchResult` is global and separately reports course use.
 - [ ] With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
   - Mismatch: no product test or design enforcement establishes archive as non-primary at this scale.
-- [ ] Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
+- [ ] Question Library workflows should support bulk operations because an **Instructor** may manage thousands of Questions.
   - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
   - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
-- [x] Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionSharedMetadata` is the closed shared-metadata DTO; generated contracts bound its collection to 1,000 items.
-  - Evidence (source): `crates/server/src/question_library/shared_metadata.rs` `load_current_shared_metadata` owns the no-store current-metadata read; `crates/server/src/question_bulk_metadata.rs` owns the bounded all-or-none update command and validates canonical IDs before Store access.
-  - Evidence (runtime): `crates/server/src/question_bulk_metadata.rs` `bulk_replace_metadata` passed fresh PostgreSQL 17 SQL/API proofs, independently rerun, covering read/write/read, stale all-or-none denial, clear, unauthorized, unvetted, archived, missing, and duplicate concealment, unchanged Revision count, and private-helper denial. Source review establishes once-only `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start; separate PostgreSQL proof uses explicit initial tags, rejects null elements without database/publication/object side effects, and preserves an intentional empty clear in a successor Revision.
-  - Evidence (test): `src/components/question_bulk_metadata_editor.tsx` `QuestionBulkMetadataEditor` passed temporary compiled Chromium component and strict-client proof for the selected metadata workflow, including stale and ambiguous refresh with no automatic second write; its mock/injected transport was not server-connected and the proof was removed.
-  - Evidence (runtime): `src/pages/library_page.tsx` `QuestionBulkMetadataEditor` passed accepted isolated actual-server HTTP and private exact-main browser proof: selected Published Questions read current metadata/Edit Numbers, replaced tags and subject, cleared subject, and observed the search projection. An authorized second Instructor advanced one selected Question; a stale two-Question update returned 412 with no partial write, and the browser refreshed current values without automatically writing again. HTTP responses were `no-store`; anonymous and Student calls were denied. Source, Revision, and availability remained unchanged. The three-Question fixture does not establish thousands-Question or 13k cleanup practicality, backend rendering, or a canonical screenshot corpus; C366 and the practical-scale rows remain open.
+- [ ] **Instructors** should be able to select many Library objects and update shared metadata such as
+  Tags, Subject, Topic, or other search fields together.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
   - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
 
-#### Published Question identity
+#### Question Library metadata
 
-- [x] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` defines and displays the canonical `AAAA-ZBBB` public Question ID; `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` issues it for a new Published Question lineage.
-  - Evidence (runtime): `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` passed accepted actual-server proof that published two native Questions, whose exact public IDs then formed a reusable Pool's members. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
-- [x] Published Questions and published Question Pools have public Crockford Base32 IDs.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` is the common public ID model, while `schemas/base_schema/question_pools.sql` `question_pool` stores a unique public Pool ID.
-  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that displayed a server-issued public Pool ID alongside ordered exact public Question IDs. Artifact: `/private/tmp/ple-course-empty-artifacts.bzwXEa`.
-- [x] Public IDs use the form `AAAA-ZBBB`.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` documents and formats the canonical `AAAA-ZBBB` display form, including the middle validation character.
-  - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that returned a canonical public Pool ID at Revision 1. Artifact: `/private/tmp/ple-course-empty-artifacts.BhKHDp`.
-- [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` derives the identifier from random bytes.
-- [x] The middle character is an HMAC-derived check character calculated from the seven identity characters.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_validation_character` derives the validation character with HMAC.
-- [x] The check character detects mistyped or malformed IDs; it is not a security boundary.
-  - Evidence (source): `crates/server/src/question_publication.rs` `validates_question_id` validates syntax/check character separately from authorization.
-- [ ] ID generation enforces database uniqueness and retries when a random collision occurs.
-  - Mismatch: database uniqueness exists, but collision retry behavior was not found in the issuer or publication store.
-- [x] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` uses random bytes and a secret only.
+- [ ] Published Questions and Question Pools use shared metadata for organization, search, filtering,
+  and discovery.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Required Question Library metadata must be complete before content enters the Question Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library metadata should describe the Published Question or Question Pool rather than its location
+  in a Course or textbook.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library classification uses **Subject**, **Topic**, and **Subtopic** as its primary hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subject is the broad academic area, such as Genetics, Biochemistry, or Ecology.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Topic identifies a major area within the Subject.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subtopic provides a narrower classification within the Topic.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subject, Topic, and Subtopic should support consistent classification across the Question Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Published Questions and Question Pools may also have Tags for useful classifications outside the
+  Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Tags are flexible and may overlap across Subjects and Topics.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library metadata should support searching, filtering, sorting, and bulk editing.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
+  **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Support content may be attached at the level where it applies rather than duplicated across
+  individual Questions.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 
-#### Published Question revisions, edits, and forks
+#### Question Library object statistics
 
-- [x] **Published Questions** maintain immutable revision history.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision_is_immutable` trigger protects revision rows.
-- [ ] Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
-  - Mismatch: exact revision columns are source evidence only; no connected test verifies an Assessment and Student Work stay pinned across a later publication.
-- [x] Publishing a new Question Revision does not silently change existing Assessments or Student Work.
-  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
-- [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
-  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
-- [x] Changing Question source, answer content, grading rules, feedback, or Question assets creates a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` persists a new source binding keyed to a new revision.
-- [x] Changing the Question title, description, tags, subject, topic, or other search metadata does not create a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
-- [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
-- [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
-  - Mismatch: draft-fork source support is source evidence only; no authorization or behavior test verifies any eligible Instructor can publish a separate ID.
-- [x] A fork starts as a private **Draft Question** with its own authorship and lineage.
-  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
-- [x] A fork must pass Question Publication Validation before joining the Question Library.
-  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
-- [x] Published forks retain source attribution.
-  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_fork_source` records published fork provenance.
-- [x] Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
-  - Evidence (source): `schemas/base_schema/corrections.sql` `forced_question_correction` and its immutable audit targets record correction actions.
-- [x] Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
-  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_revision_authorship` and `question_revision_license` preserve revision stewardship.
+- [ ] Published Questions and Question Pools may retain privacy-safe aggregate statistics.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Statistics are kept separately for each Published Question Revision and Question Pool Revision.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit,
+  and unanswered results.
+  - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
+- [x] Eligible Question Types may also retain aggregate answer-choice counts.
+  - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
+  - Owner: 06_data.md > Data and history > Student and FERPA data (first current-source occurrence).
+- [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and
+  privacy thresholds are met.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Aggregate statistics contain counts rather than Student Attempts or identifiable Student records.
+  - Mismatch: private aggregate evidence exists, but no released Question Statistics surface establishes the required product behavior.
+- [ ] Privacy-safe aggregate statistics remain after the underlying Student records are deleted.
+  - Mismatch: retention transition needs runtime or connected-oracle proof.
+- [ ] Student data retention removes the underlying Student evidence without removing approved aggregate
+  statistics.
+  - Mismatch: needs runtime or connected-oracle evidence for retention and aggregate preservation.
+- [ ] Removing Student names alone does not make statistics anonymous.
+  - Mismatch: no released Question Statistics policy establishes this behavior.
+- [ ] Shared statistics should be shown only when individual Students cannot reasonably be identified
+  from the aggregate.
+  - Mismatch: `QuestionStatistics` is currently `Unavailable`; no shared-view privacy threshold exists.
+- [ ] Course-specific analysis remains FERPA-sensitive when individual Students could be inferred.
+  - Mismatch: aggregate analysis structures exist, but no complete FERPA-sensitive product workflow was verified.
 
-#### Question stewardship
+#### Question Library Bloom classification metadata
 
-- [ ] Question stewardship should use a GitHub-like model.
-  - Mismatch: star/watch and improvement-thread workflows are not all delivered.
-- [ ] **Published Questions** can be starred and watched, similar to GitHub.
-  - Mismatch: no Question star or watch persistence model was found.
+- [ ] Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
+  Knowledge Dimension.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] The two Bloom dimensions are independent and together determine the object's Bloom Classification.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Bloom Classification is required before a Published Question or Question Pool enters the Question
+  Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] AI assigns the initial Bloom Classification as part of publication.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
+  Question Pool Revision.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+
+#### Question Library stewardship specifications
+
+- [ ] Question Library stewardship should use a GitHub-like model.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+- [ ] Published Questions and Question Pools can be starred and watched.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
 - [x] Star means favorite and visible endorsement.
   - Evidence (source): `schemas/base_schema/question_stewardship.sql` `set_current_question_star` records an active Instructor's Star only for a Published Question; `src/components/question_star_control.tsx` `QuestionStarControl` provides the visible Star and count surface.
   - Evidence (test): `tests/e2e/e2e_question_star_name_privacy.sh` `Question Star name privacy E2E` passed on 2026-09-15 with an active vetted Instructor's actual HTTP Star action and exact closed Star projection.
-- [x] Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Question.
-  - Evidence (test): `tests/e2e/e2e_question_star_name_privacy.sh` `Question Star name privacy E2E` passed on 2026-09-15 against isolated PostgreSQL 17, MinIO, and `server_core`: the active vetted Instructor received only `{starCount, viewerHasStarred, starredInstructors:[{displayName}]}`; anonymous, Student, inactive-Instructor, and HMAC-valid non-Published requests were concealed with `404`.
-  - Evidence (runtime): one-time Chromium proof for `src/components/question_star_control.tsx` `QuestionStarredInstructorList` passed on 2026-09-15. It rendered the exact server-shaped display-name list with an accessible name and no link, button, or avatar; the fixture was removed after review because it is implementation proof, not a stable product contract.
+- [ ] Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Published
+  Question or Question Pool.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
 - [ ] Watch means subscription.
   - Mismatch: Question watches are not implemented.
-- [ ] Watching drives in-app notifications for revisions, forks, improvement threads, and impact notices.
+- [ ] Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
+  forks, improvement threads, and impact notices.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
   - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
   - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
 - [ ] An **Instructor's** watch list remains private.
   - Mismatch: Question watches are not implemented.
 - [ ] **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
   - Mismatch: Question watch access controls are not implemented.
-
-#### Question statistics
-
-- [ ] Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
-  - Mismatch: retention transition needs runtime or connected-oracle proof.
-  - Owner: `docs/active_plans/audits/hg_checklist_parts/06_data.md`
-- [ ] Question statistics are kept separately for each Published Question Revision.
-  - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
-- [ ] Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit, and unanswered results.
-  - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
-- [x] Eligible Question Types may also retain aggregate answer-choice counts.
-  - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
-  - Owner: `docs/active_plans/audits/hg_checklist_parts/06_data.md`
-- [ ] Question-level statistics may combine Revisions when clearly labeled and privacy thresholds are met.
-  - Mismatch: `QuestionStatistics` is currently `Unavailable`; no labeled combined-revision view exists.
-- [ ] Question statistics contain aggregate counts rather than Student Attempts or identifiable Student records.
-  - Mismatch: private aggregate evidence exists, but no released Question Statistics surface establishes the required product behavior.
-- [ ] Student data retention removes the underlying Student evidence without removing approved aggregate Question statistics.
-  - Mismatch: needs runtime or connected-oracle evidence for retention and aggregate preservation.
-- [ ] Removing Student names alone does not make statistics anonymous.
-  - Mismatch: no released Question Statistics policy establishes this behavior.
-- [ ] Shared Question statistics should be shown only when individual Students cannot reasonably be identified from the aggregate.
-  - Mismatch: `QuestionStatistics` is currently `Unavailable`; no shared-view privacy threshold exists.
-- [ ] Course-specific Question analysis remains FERPA-sensitive when individual Students could be inferred.
-  - Mismatch: aggregate analysis structures exist, but no complete FERPA-sensitive product workflow was verified.
-
-#### Question behavior
-
-- [ ] Answer-choice randomization belongs to the Question.
-  - Mismatch: native answer-choice randomization ownership has not been verified.
-- [ ] PLE-native Questions control their own answer-choice randomization.
-  - Mismatch: no native answer-choice randomization implementation was found.
-- [x] Question writers may add optional Question Feedback when it helps.
-  - Evidence (source): `src/features/ple_question_json_authoring/question_json_feedback_fields.tsx` `PleQuestionJsonFeedbackFields` edits optional feedback.
-- [x] Optional Question Feedback is shown when the Question Backend provides it.
-  - Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_student_feedback` releases backend-provided feedback.
-  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies provided feedback without answer disclosure.
-- [x] Question Feedback does not use Assessment correct-answer disclosure settings.
-  - Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `StudentFeedbackReleaseRule` omits Question Feedback from the six-field disclosure timing rule; `crates/domain/src/student_feedback_release.rs` `project_student_feedback` always projects feedback supplied at the submitted-history boundary while gating Question Answer separately.
-  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies that separation.
-- [ ] Student workflows remain complete whether or not Students read Question Feedback.
-  - Verification pending: no end-to-end Student workflow proof covers completion when a Question provides feedback, when it provides none, and when the Student does or does not read the supplied feedback.

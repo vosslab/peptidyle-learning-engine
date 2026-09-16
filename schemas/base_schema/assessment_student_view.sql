@@ -45,6 +45,22 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;
 
+-- ASVS 8.3.1: the answer-free preview resolves the same finite base as start,
+-- only after current Course Instructor authorization; workspace keeps authored NULL.
+CREATE FUNCTION ple_api.read_instructor_student_view_duration_seconds(
+    p_course_public_reference text, p_assessment_public_reference text
+) RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT ple_data.assessment_effective_base_duration_seconds(assessment.assessment_id)
+      FROM ple_data.assessment AS assessment
+      JOIN ple_data.course_instance AS course ON course.course_id = assessment.course_id
+     WHERE course.public_reference = p_course_public_reference
+       AND assessment.public_reference = p_assessment_public_reference
+       AND ple_api.current_session_account_is_course_instructor(course.course_id)
+$$;
+REVOKE ALL ON FUNCTION ple_api.read_instructor_student_view_duration_seconds(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.read_instructor_student_view_duration_seconds(text, text) TO ple_app;
+
 CREATE FUNCTION ple_api.load_instructor_student_view_question_source(
     p_course_public_reference text,
     p_assessment_public_reference text,

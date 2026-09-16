@@ -33,7 +33,7 @@ CREATE TABLE ple_data.assessment (
     closes_at timestamptz,
     assessment_attempt_time_limit_seconds integer CHECK (
         assessment_attempt_time_limit_seconds IS NULL
-        OR assessment_attempt_time_limit_seconds > 0
+        OR assessment_attempt_time_limit_seconds BETWEEN 1 AND 43200
     ),
     assessment_attempt_limit integer CHECK (assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0),
     late_work_rule text NOT NULL CHECK (late_work_rule IN ('accept', 'mark_late', 'reject')),
@@ -258,6 +258,17 @@ BEGIN
        OR jsonb_array_length(p_entries) > 1024 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Entries are invalid';
+    END IF;
+
+    -- ASVS 2.2.1, 2.2.2: trusted authoring bounds the delivered count only.
+    IF (SELECT COALESCE(sum(CASE value ->> 'kind'
+                WHEN 'fixed_question' THEN 1
+                WHEN 'question_pool' THEN (value ->> 'selectionCount')::bigint
+                ELSE 0 END), 0)
+          FROM jsonb_array_elements(p_entries)
+         WHERE value ->> 'availability' = 'available') > 250 THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment may contain at most 250 Questions';
     END IF;
 
     FOR entry_json IN SELECT value FROM jsonb_array_elements(p_entries) LOOP

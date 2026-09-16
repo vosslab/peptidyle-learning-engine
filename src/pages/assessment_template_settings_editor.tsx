@@ -60,15 +60,21 @@ export function AssessmentTemplateSettingsEditor(
           />
         </label>
         <label class="assessment-template-field">
-          Time limit in seconds (optional)
+          Assessment duration override in seconds (optional, maximum 12 hours)
           <input
             type="number"
             min="1"
+            max="43200"
             step="1"
             inputmode="numeric"
             value={props.draft.timeLimit}
             onInput={(event) => props.onPatch({ timeLimit: event.currentTarget.value })}
           />
+          <small>
+            Default: 1.5 minutes per Question, rounded up to a whole minute. Templates have no
+            Questions; the default is calculated after Questions are added to the Assessment. Leave
+            the override blank to copy this default intent.
+          </small>
         </label>
         <label class="assessment-template-field">
           Attempt limit (optional)

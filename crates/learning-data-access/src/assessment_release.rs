@@ -350,8 +350,8 @@ pub struct LiveAssessmentWorkspace {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum AssessmentReleaseIssue {
-    /// An Assessment Attempt duration must be chosen before release.
-    TimeLimitRequired,
+    /// Delivered fixed Questions plus selected Pool items exceed the Assessment bound.
+    QuestionCountExceeded,
     /// The current Assessment requires at least one selected Question.
     NoPublishedQuestions,
     /// A previously selected Question Revision is no longer Available for release.
@@ -384,15 +384,6 @@ mod tests {
         AssessmentUnreleaseImpact, SaveLiveAssessmentInlineInput, SaveLiveAssessmentInput,
     };
     use question_model::{AssessmentEditNumber, AssessmentTitle};
-
-    #[test]
-    fn time_limit_required_is_a_stable_browser_issue() {
-        assert_eq!(
-            serde_json::to_value(super::AssessmentReleaseIssue::TimeLimitRequired)
-                .expect("release issue serializes"),
-            serde_json::json!("timeLimitRequired")
-        );
-    }
 
     #[test]
     fn release_date_blockers_are_stable_browser_issues() {

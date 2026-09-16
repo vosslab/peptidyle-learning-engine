@@ -70,6 +70,11 @@ BEGIN
     INSERT INTO ple_data.assessment_question_pool_fork(
         assessment_entry_id, assessment_id, question_pool_id, origin_question_pool_revision_number
     ) VALUES (p_assessment_entry_id, p_assessment_id, forked.question_pool_id, 1);
+    -- ASVS 2.2.2, 2.3.2, 2.3.3: import cannot bypass the delivered Question bound.
+    IF ple_data.assessment_delivered_question_count(p_assessment_id) > 250 THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment may contain at most 250 Questions';
+    END IF;
     -- Import changes current Assessment content.  It is not a Pool lineage
     -- Revision, but it must invalidate any stale full-Assessment save.
     UPDATE ple_data.assessment AS updated

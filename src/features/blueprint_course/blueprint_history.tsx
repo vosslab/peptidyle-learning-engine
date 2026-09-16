@@ -352,7 +352,10 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
             <h5>Assessment defaults</h5>
             <dl>
               <dt>Assessment Attempt time limit (seconds)</dt>
-              <dd>{content().defaults.assessment_attempt_time_limit_seconds ?? "None"}</dd>
+              <dd>
+                {content().defaults.assessment_attempt_time_limit_seconds ??
+                  "Calculated default: 1.5 minutes per Question, rounded up to a whole minute"}
+              </dd>
               <dt>Assessment Attempt limit</dt>
               <dd>{content().defaults.assessment_attempt_limit ?? "Unlimited"}</dd>
               <dt>Late work rule</dt>

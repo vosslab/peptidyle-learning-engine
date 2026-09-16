@@ -9,18 +9,19 @@ implementation status only.
 
 # Human guidance
 
+
 ## How to use this guidance
 
 Implementation status: N/A
-
-Reason: This section gives rules for writing and maintaining Human Guidance. It does not specify
-PLE product or code behavior.
+Reason: This section gives rules for writing and maintaining Human Guidance. It does not specify PLE product or code behavior.
 
 - N/A Guidance bullets should start with the subject when practical, making them easier to scan.
 - N/A Guidance should stay terse and in my own words.
 - N/A Uncertainty should remain when I have not made a final decision.
 - N/A This document uses GitHub Flavored Markdown (GFM).
 - N/A Bullet duplication is acceptable because many agents only skim read one section at a time.
+- N/A Headings should identify their broader section when practical so they remain clear in isolation.
+- N/A Avoid repeating that context when the immediate parent heading already makes it clear.
 
 ## Development principles
 
@@ -84,7 +85,6 @@ PLE product or code behavior.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` reports that the base schema must be updated directly until production freeze.
 - [x] After production, update existing databases without rebuilding them from scratch.
   - Evidence (source): `local_stack_control/lifecycle_migrations.py` `database_operation_for` selects `migrate` after initial installation.
-
 - [ ] PLE is pre-production with no users or durable production data. Improve the design directly.
   - Evidence (source): `crates/project-tools/src/database_coordinator.rs` `run` makes direct base-schema correction the pre-production path.
   - Mismatch: this database-only guard does not prove that every live alternate reader, writer, route, parser, DTO, client, fallback, alias, or migration path has been removed. The obsolete Assessment route layer and tsgen retired-header migration are gone, but live CI/A/U/BP client guards and receipt formats remain under audit. One Unrelease mutation path was found; no duplicate-current-path claim is made.
@@ -147,9 +147,8 @@ PLE product or code behavior.
   - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `ple_api.list_question_library_entries` lists published entries, but the audited evidence does not establish validation and vetted-Instructor availability together.
 - [ ] **Draft Question**: A private question being developed by an **Instructor**. It must pass validation before publication.
   - Mismatch: `crates/server/src/question_publication.rs` `QuestionPublicationService::publish` verifies the stored Draft Question source record, but no cited direct evidence establishes content validation before publication; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` alone does not establish private Instructor-only persistence.
-- [ ] **Question Library**: The global collection of Published Questions and published Question Pools available to vetted **Instructors**.
+- [ ] **Question Library**: The global collection of Published Questions and Question Pools available to vetted **Instructors**.
   - Mismatch: `schemas/base_schema/question_authoring_operations.sql` `question_library_entries` and `src/api/question_library_repository.ts` `QuestionLibraryRepository` establish published Question Library entries and their search contract, but do not establish published Question Pool inclusion or availability only to vetted Instructors.
-
 - [x] **User Roles**:
   - Evidence (source): `schemas/base_schema/accounts.sql` `product_role` limits the product role to student, instructor, or sysadmin.
   - [ ] **Sysadmin**: A PLE administrator who manages the system, approves **Instructors**, creates accounts, and helps manage courses.
@@ -158,7 +157,6 @@ PLE product or code behavior.
     - Mismatch: `crates/server/src/question_publication.rs` `publish_new_question` proves only the authorized publication boundary; it does not directly verify the approved Instructor's browse, reuse, create, and fork capabilities.
   - [ ] **Student**: A user enrolled in a **Course Instance** who completes Assessments and other course activities.
     - Mismatch: browser routes and DTOs still call the graded object `assignment`, rather than the required Assessment terminology.
-
 - [ ] **Assessment Question Editor**: The **Instructor** editor for selecting, adding, removing, and ordering Questions in an Assessment.
   - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` and its routes call this an Assignment workspace, not the required Assessment Question Editor.
 - [ ] **Assessment Properties Editor**: The **Instructor** editor for settings that apply to the whole Assessment, such as dates, scoring, attempts, late work, and what **Students** can see.
@@ -371,18 +369,22 @@ PLE product or code behavior.
   - Evidence (source): `src/styles/product_role.css` `[data-product-role="sysadmin"]` defines `--ple-role-accent: #ff6347`.
 - [x] **Instructor** uses teal green as its role color.
   - Evidence (source): `src/styles/product_role.css` `[data-product-role="instructor"]` defines `--ple-role-accent: #168575`.
-- [x] **Student** uses lavender /purple as its role color.
+- [x] **Student** uses lavender purple as its role color.
   - Evidence (source): `src/styles/product_role.css` `[data-product-role="student"]` defines `--ple-role-accent: #8861b5`.
 - [x] Role colors should be used consistently in role labels and other appropriate interface cues.
   - Evidence (source): `src/styles/product_role.css` `.live-demo-persona-action[data-product-role]` and `.ple-app-ribbon__product-role[data-product-role]` consume the shared role tokens.
 - [x] Demo role selection should clearly state both the user's role and name.
   - Evidence (test): `tests/playwright/e2e_live_demo_authoring_browser.mjs` selects `Assume the role of Instructor Dr. Elena Rivera`.
-- [x] Themes should use biome and habitat names.
-  - Evidence (source): `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` retains stored ID `grass` and its unchanged anchors while presenting `Grassland`; the same closed registry presents Forest, Ocean, Desert, and the remaining habitat names.
-  - Evidence (source): `src/pages/course_appearance_page.tsx` `COURSE_THEME_OPTIONS` renders each visible theme label from `option.tokens.name`, not its stored ID.
-  - Evidence (test): `tests/test_course_theme_scope.mjs` `Grassland uses the Roosevelt-inspired anchors and accessible derived actions` verifies the `grass` ID presents Grassland without changing its reviewed palette; `every reviewed theme resolves to complete, contrast-safe course tokens` covers the closed registry.
-- [ ] Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`.
-  - Mismatch: `src/features/course_appearance/course_theme_registry.ts` still implements the current 15-ID, three-light-anchor registry, while `docs/BIOME_THEME_PALETTES.md` specifies a proposed 25-theme light/dark four-color registry and records six unresolved product decisions that block an atomic runtime cutover.
+- [ ] Courses use a fixed set of visually distinct biome and habitat themes.
+  - Verification pending: `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` provides the existing 15-theme registry, not acceptance of the expanded palette specification. Current rendered distinctness and actual-use accessibility, coordinated light/dark behavior, and the specification cutover require separate proof.
+- [ ] Course Themes should have coordinated light and dark appearances.
+  - Mismatch: `src/features/course_appearance/course_theme_registry.ts` `theme` derives one appearance from three anchors using white surfaces; there is no coordinated light/dark mode registry or selector.
+- [ ] Course Theme colors should remain accessible in their actual interface uses.
+  - Verification pending: `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` provides the existing 15-theme registry, not acceptance of the expanded palette specification. Current rendered distinctness and actual-use accessibility, coordinated light/dark behavior, and the specification cutover require separate proof.
+- [x] Course Theme IDs are durable; changing a theme's display name or colors should not require a new ID.
+  - Evidence (source): `crates/question_model/src/course_appearance.rs` `CourseTheme` and `as_str` own durable serialized IDs; `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY` keys display names and colors separately by those IDs, including stored `grass` displayed as Grassland. Name/palette changes do not change the identity field.
+- [ ] Follow `docs/BIOME_THEME_PALETTES.md` for Course Theme names, palettes, accessibility, and implementation.
+  - Mismatch: `crates/question_model/src/course_appearance.rs` `CourseTheme` has 15 persisted themes; `src/features/course_appearance/course_theme_registry.ts` `theme` retains a three-anchor single appearance, rather than the proposed 25-theme coordinated light/dark fixed-palette specification.
 
 ### Typography
 
@@ -420,7 +422,7 @@ PLE product or code behavior.
 - [x] See **User top bar** and **Breadcrumbs** for the persistent elements that make up the top of the page.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` composes `AppRibbon` and `BreadcrumbPrelude`.
 
-### User top bar
+### User top bar interface
 
 - [x] All signed-in users share the same basic top bar layout.
   - Evidence (source): `src/ribbon/app_ribbon.tsx` `AppRibbon` renders one top-bar structure from each role model.
@@ -466,7 +468,7 @@ PLE product or code behavior.
 - [x] See **Ribbon and page layout** for the overall navigation and page-position rules.
   - Evidence (source): `src/application_shell.tsx` `ApplicationShell` is the shared shell that composes the top bar and content region.
 
-### Breadcrumbs
+### Breadcrumbs interface
 
 - [ ] All signed-in users have a permanent breadcrumb row below the top Ribbon.
   - Mismatch: `src/application_shell.tsx` `BreadcrumbPrelude` renders only when `breadcrumbPreludeReserved` is true.
@@ -518,7 +520,7 @@ PLE product or code behavior.
 - [ ] At 1280 x 800, Instructor pages should expose enough of the current workflow to minimize unnecessary scrolling.
   - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
 
-#### Courses
+#### Course interfaces
 
 - [ ] The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` declares all four labels, but three are `future` destinations rather than working ribbon destinations.
@@ -533,7 +535,7 @@ PLE product or code behavior.
 - [ ] My Active Courses and My Inactive Courses should both be available from the Courses area.
   - Mismatch: both controls are `future` destinations in `src/ribbon/ribbon_catalog.ts`.
 
-##### Blueprint Courses
+##### Blueprint Course interface
 
 - [x] **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCoursesWorkspace` presents reusable Blueprint Course content and adoption information.
@@ -547,10 +549,10 @@ PLE product or code behavior.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` renders "Create Course Instance from this Blueprint."
   - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` is exercised by accepted C47 compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-browser.json`, which follows the existing detail action and preselects the matched Blueprint beyond the first 50 search rows. It does not submit or create a Course Instance.
 
-###### Blueprint Course editing
+##### Blueprint Course editing interface
 
 - [ ] Blueprint Course editing should follow Course Editor -> Blueprint Assessment Editor.
-  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+  - Verification pending: re-audit `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` and the authorized Blueprint editor/lifecycle operation for this exact behavior. The former compact-Course-row 1280 x 800 note was unrelated and is removed; no lifecycle or content-editor proof follows from it.
 - [x] The Course Editor should show the Blueprint Course structure without editing every Question on one page.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` lists modules and Assessments before selecting an editor.
 - [x] Selecting a Blueprint Assessment in the Course Editor opens the editor for that Blueprint Assessment.
@@ -560,128 +562,13 @@ PLE product or code behavior.
   - Evidence (source): `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor` renders entries from its selected `content` input only.
   - Evidence (runtime): accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json` verifies one selected Assessment, its separated Questions task, and an unchanged sibling after ordinary Save and exact reload through `src/features/blueprint_course/blueprint_assessment_content_editor.tsx` `BlueprintAssessmentContentEditor`.
 - [ ] **Blueprint Assessment Question Editor**: Selects, adds, removes, and orders Questions in a Blueprint Assessment.
-  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
+  - Verification pending: re-audit `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` and the authorized Blueprint editor/lifecycle operation for this exact behavior. The former compact-Course-row 1280 x 800 note was unrelated and is removed; no lifecycle or content-editor proof follows from it.
 - [ ] **Blueprint Assessment Properties Editor**: Controls scoring, attempts, late work, and what **Students** can see.
   - Verification pending: accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ay40bT/blueprint-properties-browser.json` verifies shared local drafts across tasks, one ordinary PUT Save, exact reload, and all six Student-feedback controls. It does not exercise the full scoring, attempt, and late-work activity-control scope.
 - [x] Blueprint Courses should not contain Assessment dates or relative Assessment schedules.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `BlueprintCourseDetailWorkspace` describes reusable structure without Students, deadlines, or course delivery settings; the reusable Blueprint content model has no delivery-date fields.
 
-###### Blueprint Course lifecycle
-
-- [x] Blueprint Courses follow the lifecycle **Private -> Public -> Archived**.
-  - Evidence (source): `schemas/base_schema/blueprints.sql` `blueprint_course.availability` constrains availability to `private`, `public`, or `archived`; `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` permits only the directed lifecycle transitions.
-- [ ] New and forked Blueprint Courses start **Private**.
-  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
-- [x] Private Blueprint Courses are visible only to their owner.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses`, `load_blueprint_course`, and `load_blueprint_revision` conceal a different owner's Private Blueprint. The accepted lifecycle runtime contract exercises those reads.
-- [x] Instructors may develop and use Private Blueprint Courses without publishing them.
-  - Evidence (source): `src/features/blueprint_course/blueprint_course_model.ts` `blueprintLifecyclePresentation` permits the owner to edit a Private Blueprint and withholds adoption; Private is deliberately not a daughter-Course source.
-- [x] Making a Blueprint Course **Public** adds it to the shared Blueprint Course collection.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` publishes owner content and `ple_api.list_blueprint_courses` includes Public Blueprints for active Instructors.
-- [x] Public Blueprint Courses are visible to all **Instructors**.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` and `load_blueprint_course` admit Public Blueprints to active vetted Instructors. The accepted lifecycle runtime contract exercises a non-owner Public read.
-- [x] A Public Blueprint Course with no adoptions may return to **Private**.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` permits this transition only before a daughter Course Instance exists; the accepted lifecycle runtime contract covers the rule.
-- [x] A Public Blueprint Course with one or more adoptions remains **Public**.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` rejects Public-to-Private after an adoption; the accepted lifecycle runtime contract exercises the denial.
-- [x] Archived Blueprint Courses leave normal discovery but remain available where needed for history.
-  - Evidence (source): `crates/server/src/blueprint_course.rs` `archive_blueprint` and discovery query comments retain historical pins while excluding archived discovery.
-- [ ] Archived Blueprint Courses remain viewable when accessed directly or through their history.
-  - Verification pending: Current source includes compact Course rows in `src/pages/course_list_page.tsx` and grid/panel layout in `src/pages/assessment_templates_page.css`; this new or expanded requirement lacks a scoped rendered audit across the affected pages at 1280 x 800. Existing local layouts do not establish the whole requirement.
-- [x] Blueprint Courses do not have a separate Draft state.
-  - Evidence (source): `schemas/base_schema/blueprints.sql` `blueprint_course.availability` and `src/api/decoders/blueprint_course.ts` `availability` enumerate only `private`, `public`, and `archived`; `ple_api.create_blueprint_course` writes Revision 1 without a Draft record.
-- [x] Public Blueprint Courses and their Revision history are visible to all **Instructors**.
-  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Revision and metadata facts. Accepted Public-history proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
-- [x] Archived Blueprint Courses and their Revision history remain visible to all **Instructors**, but
-  do not appear in normal Blueprint Course discovery.
-  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Archived Revision and metadata facts. Accepted Archived-history and discovery proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json` and `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json`.
-- [x] Blueprint Course visibility includes its content, Revision history, and recorded changes.
-  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` provides separate, ordinary-visibility Revision and metadata-event pages; `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` presents both read-only. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
-- [ ] The owning **Instructor** controls changes to a Blueprint Course; visibility does not grant
-  editing authority.
-  - Verification pending: prior C883 owner/nonowner Apply denials are contributor evidence; complete owner mutation boundaries and connected workflow need current-authority verification.
-
-###### Blueprint Course forks and changes
-
-- [x] Instructors may fork a Public Blueprint Course to continue development privately.
-  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` accepts one exact Public or Archived source Revision and delegates the actor-owned Private child to the lineage Store.
-  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted actual HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json` and compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json` that create and open a Private fork.
-- [x] Forking a Blueprint Course creates an independent Private Blueprint Course owned by the Instructor who created the fork.
-  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` derives the actor from the attested session rather than accepting an owner or availability from the client.
-  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted browser fixture state at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-fixture-state.json`, which records the created Private fork; the actual HTTP lineage receipt rejects concealed Private intermediates for other Instructors.
-- [x] Forking a Blueprint Course creates new Blueprint Assessments populated with the same Published
-  Question IDs and forks of the source Question Pools.
-  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
-  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
-- [x] Forked Question Pools preserve the Published Question IDs contained in their source Question Pools.
-  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` derives comparison relationships from the exact fixed and Pool member Question IDs.
-  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying forked Pools retain exact ordered Question Revision membership under fresh Pool IDs.
-- [x] A Blueprint Course fork records the Blueprint Course and Revision it was forked from.
-  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` carries the exact source Blueprint Revision to the lineage Store.
-  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` is exercised by accepted browser fixture state at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-fixture-state.json`, which records the fork source reference, and the lineage HTTP receipt verifies current related pairs.
-- [x] Blueprint Course forks develop independently after they are created.
-  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` creates a separately editable child tree.
-  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which saves renamed and independently changed fork content before selected source content is applied.
-- [x] A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
-  - Evidence (runtime): accepted C881 actual-server proof at `/private/tmp/ple-fork-reader-artifacts.nRikDO` exercises `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks`, returns each fork's owner and recorded origin, and conceals unrelated Instructors with `404 no-store`.
-  - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` and `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` present authorized known-fork rows and owner names.
-- [x] A fork does not automatically receive later changes from its source Blueprint Course.
-  - Evidence (source): `crates/question_model/src/blueprint_course/fork_apply.rs` `apply_blueprint_fork` changes only explicitly selected source content in the fork.
-  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_apply.rs` `apply_blueprint_fork` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which verifies the unselected fork Assessment remains unchanged after Apply.
-- [x] PLE should make it clear when a source Blueprint Course has newer Revisions than its forks.
-  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` renders the current-pair comparison from the comparison client.
-  - Evidence (runtime): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` is exercised by accepted compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, opening the current source/fork pair at 1280px and 390px.
-- [x] PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
-  - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` returns each visible child fork's current Revision for the source view.
-  - Evidence (runtime): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` is exercised by accepted compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, which loads the source known-forks row before opening the pair review.
-- [x] The fork owner decides whether to incorporate source changes into the fork.
-  - Evidence (source): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` passes explicit selected destinations and both source/fork Revision and metadata preconditions to the Store.
-  - Evidence (runtime): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` is exercised by accepted 84-request actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`, verifying owner selection, four denied preconditions, and zero-write denials.
-- [x] PLE should make it easy for the fork owner to incorporate selected source changes into the fork.
-  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` presents selected current-pair Apply choices.
-  - Evidence (runtime): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` is exercised by accepted compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, completing selected Apply at desktop and narrow viewports.
-
-###### Blueprint Course comparison
-
-- [x] Any **Instructor** can compare related Blueprint Courses in the same fork lineage when those
-  Blueprint Courses are visible to that Instructor.
-  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` authorizes an arbitrary related visible current pair before it is projected.
-  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering visible sibling and transitive pairs in both orientations while concealing Private intermediates and denying unrelated pairs.
-- [x] Fork comparison normally compares the newest Revision of the source Blueprint Course with the
-  newest Revision of the fork.
-  - Evidence (runtime): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` is exercised by accepted current-pair HTTP evidence, returning current source and fork names, ETags, and Revisions.
-  - Evidence (source): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` requires the current source and fork Revision references.
-- [x] Older Revisions remain available through Blueprint history but are not the normal comparison
-  workflow.
-  - Evidence (runtime): `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` inspects exact older Revisions separately from current-head comparison. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
-- [x] Blueprint Course differences are calculated from canonical JSON when the Instructor requests
-  the comparison.
-  - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` requests C880's canonical comparison projection on demand rather than persisting comparison state.
-  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` compares canonical Blueprint snapshots.
-  - Evidence (runtime): C882's actual HTTP receipt exercises `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` as a real GET-only `no-store` review with zero `ple_data` mutations.
-- [x] Shared Question IDs provide the durable content relationships between compared Blueprint Courses.
-  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` derives relationships from shared Question IDs only.
-  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, verifying Rev2-versus-Rev1 shared Question-ID relationships.
-- [x] Blueprint Assessments are matched by the shared Question IDs they contain.
-  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintAssessmentRelationship` carries side-local Assessment pairs and their shared Question IDs.
-  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintAssessmentRelationship` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, verifying renamed, reordered, and split content through shared Question IDs.
-- [x] Blueprint Course comparison does not require Blueprint Assessment identity or history across
-  forks; Assessment relationships are determined from the shared Question IDs they contain.
-  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` retains only side-local references while relationships carry shared Question IDs.
-  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which verifies source and fork Assessment IDs are disjoint before comparison and Apply.
-- [x] Comparison should show shared, added, and removed Assessments and Question IDs, plus changed
-  content where those differences can be determined from canonical JSON.
-  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintForkReview` renders the canonical comparison's Assessment and Question relationships and expanded changed-content detail.
-  - Evidence (runtime): accepted compiled-main, actual-loopback-HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.8PN6aH/comparison-browser.json` expands a changed Assessment at 1280px and 390px, verifying DTO-backed titles, instructions, fixed Question IDs, Revisions, and points through `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintForkReview`.
-- [x] Comparison should remain useful when Assessment names, order, or structure have changed.
-  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` uses shared Question IDs instead of Assessment names, positions, or cross-Blueprint Assessment identity.
-  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering renamed, reordered, and split canonical content.
-- [x] Comparison visibility follows Blueprint Course visibility rather than fork ownership.
-  - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` uses ordinary Blueprint visibility for read-only direct-source review.
-  - Evidence (runtime): C881/C882 accepted `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` ordinary-visibility direct-source review at `/private/tmp/ple-fork-reader-artifacts.nRikDO` and `/private/tmp/ple-fork-review-http-artifacts.LTUgsF` permits visible Public/Archived sides and conceals unauthorized Private sides; ownership restricts Apply, not comparison.
-
-
-##### Course Instances
+##### Course Instance interface
 
 - [ ] **My Active Courses** should emphasize Course Instances the Instructor is currently teaching.
   - Mismatch: `myActiveCourses` is a `future` Ribbon destination.
@@ -717,7 +604,7 @@ PLE product or code behavior.
   - [ ] **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and what **Students** can see.
     - Mismatch: the implemented `AssignmentWorkspacePoliciesPage` is not an Assessment-named properties editor.
 
-#### Questions
+#### Question interface
 
 - [ ] The **Questions** ribbon must include: My Questions, My Draft Questions, Starred, Watched, Search Question Library, Browse Question Library.
   - Mismatch: My Questions, Starred, and Watched are `future` destinations in `src/ribbon/ribbon_catalog.ts`.
@@ -730,7 +617,7 @@ PLE product or code behavior.
 - [ ] **Watched** should help Instructors follow Questions where changes or activity matter to them.
   - Mismatch: `watched` is a `future` Ribbon destination.
 
-##### Search Question Library
+##### Search Question Library interface
 
 - [x] **Search Question Library** helps Instructors find specific Questions in a large library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies the searchable published Question Library.
@@ -792,7 +679,7 @@ PLE product or code behavior.
   - Evidence (source): `src/pages/library_page_model.ts` `saveQuestionLibraryReturnState` and `takeQuestionLibraryReturnState` retain one session-bound, single-use in-document snapshot; `src/pages/library_page.tsx` `LibraryPage` restores its query, server-validated loaded rows, filters, and clamped scroll position.
   - Evidence (runtime): one-time accepted compiled-browser exercise of `src/pages/library_page.tsx` `LibraryPage` restored `genetics`, the `ple` filter, 80 loaded rows, and exact virtual-list scroll position through visible detail return and browser Back; a changed session returned to the empty landing. The temporary harness and screenshots were removed after the accepted proof.
 
-##### Browse Question Library
+##### Browse Question Library interface
 
 - [x] **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
   - Evidence (source): `src/route_contract.ts` `libraryBrowse` is a distinct Instructor route and `src/pages/library_page.tsx` `LibraryPage` provides an overview-first grouped Browse mode without requiring Search text.
@@ -819,7 +706,7 @@ PLE product or code behavior.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` defines `library` and `libraryBrowse` as distinct Instructor routes backed by the same repository and `LibraryPage` row implementation; the Ribbon Browse task targets `libraryBrowse`.
   - Evidence (test): `tests/test_ribbon_route_contract.mjs` `declared routes select only Ribbon topology and task areas that exist` and focused Ribbon, screenshot-manifest, and picker checks passed after the distinct Browse route was added.
 
-#### Assessments
+#### Assessment interface
 
 - [x] The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
   - Evidence (source): `src/ribbon/ribbon_catalog.ts` `assessmentsDueSoon` and `assessmentTemplates` are admitted route destinations with the required labels.
@@ -871,6 +758,31 @@ PLE product or code behavior.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders `courseLongName` and a formatted due time.
   - Evidence (runtime): accepted private full-app evidence exercised `src/pages/assessments_due_soon_page.tsx` `formatDueTime`; both visible Course names and Due values matched the actual HTTP instants formatted in the response's Account time zone.
 
+#### Assessment type appearance
+
+- [x] Each Assessment Type has its own PLE-defined Font Awesome icon.
+  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` assigns one required Font Awesome icon name and bundled glyph to every canonical Type.
+- [x] Assessment Type icons remain consistent across PLE themes.
+  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` owns the theme-independent Type-to-icon mapping.
+- [x] Each Assessment Type also has its own theme-defined color.
+  - Evidence (source): `src/styles/assessment_types.css` `--ple-assessment-type-regular-assignment` defines the five semantic Type color properties at the root and Course-theme scope.
+- [x] Themes may change Assessment Type colors but preserve the meaning of each Type.
+  - Evidence (source): `src/styles/assessment_types.css` `course-theme-scope` overrides the five semantic Type properties by Type identity; an accepted nested-theme fixture verified the actual scoped cascade.
+- [x] Assessment Type should never be communicated by color alone.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders the Type label and its genuine bundled glyph; color is supplementary.
+- [x] Icons and labels should remain sufficient to identify the Assessment Type without color.
+  - Evidence (source): `src/assessment_type_presentation.ts` `assessmentTypePresentation` returns the canonical Type label and bundled icon metadata independently of color.
+- [x] **Regular Assignment** uses the Font Awesome `pen-to-square` icon.
+  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Regular Assignment to `pen-to-square` and the genuine bundled glyph.
+- [x] **Practice Question Assignment** uses the Font Awesome `arrows-spin` icon.
+  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Practice Question Assignment to `arrows-spin` and the genuine bundled glyph.
+- [x] **Bonus Assignment** uses the Font Awesome `star` icon.
+  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Bonus Assignment to `star` and the genuine bundled glyph.
+- [x] **Quiz** uses the Font Awesome `circle-question` icon.
+  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Quiz to `circle-question` and the genuine bundled glyph.
+- [x] **Exam** uses the Font Awesome `file-signature` icon.
+  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Exam to `file-signature` and the genuine bundled glyph.
+
 #### High-consequence actions
 
 - [ ] Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
@@ -886,11 +798,15 @@ PLE product or code behavior.
   - Mismatch: `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` `Archive Blueprint Course` explains removal from new selection and requires the long name, but no current Archive Published Question interface provides the corresponding explanation and confirmation; `src/api/question_availability.ts` `archiveQuestion` is only a browser transport contract.
 - [x] Restore actions should use ordinary availability controls.
   - Evidence (source): `src/features/blueprint_course/blueprint_course_workspace.tsx` `restore` is presented under Course names and availability rather than the archive confirmation control.
+
 ### Student interface
+
+#### General Student interface
 
 - [x] The Student interface should focus on current Courses, Coursework, and work that needs attention.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` lists current courses; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` lists assigned work.
-- [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
+- [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question
+  Assignments, Bonus Assignments, Quizzes, and Exams.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` labels the collective section and its loading and empty states "Coursework," while each item receives one canonical Type from the typed projection.
   - Mismatch: the actual PostgreSQL landing Store proved the same closed Type column with Regular Assignment and the compiled SolidJS/mock-API browser evidence was accepted, but the connected Student HTTP workflow was not run; this broad Student-facing terminology row remains runtime-unverified.
 - [ ] Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
@@ -900,10 +816,6 @@ PLE product or code behavior.
   - Evidence (source): `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` labels the Student-only tab "Coursework" and `RIBBON_TASK_CATALOG` labels its return task "Back to Coursework"; `src/ribbon/ribbon_contract.ts` uses "Before you start" when the individual Coursework title is not yet available, "Attempt" for the Student Attempt task area and current breadcrumb, and "Attempt history" for the history breadcrumb. Instructor Assessment labels remain separate.
   - Evidence (test): `tests/test_ribbon_contract.mjs` `Student Coursework navigation retains collective labels` and its canonical breadcrumb projections passed with the focused 15-test Ribbon contract lane.
   - Evidence (runtime): `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` and `src/ribbon/ribbon_contract.ts` `deriveRibbonModel` were exercised by accepted isolated actual-server/exact-main Student browser receipts `/private/tmp/ple-course-empty-artifacts.r7S1T6` and `/private/tmp/ple-course-empty-artifacts.ONrLSK`. They showed the Coursework Ribbon tab, "Before you start" overview breadcrumb, specific Practice Question Assignment Type, and the submitted Attempt history route/breadcrumb after a real native Student Attempt. The source catalog keeps the return task "Back to Coursework"; the complete Student Ribbon task layout remains separately unlocked.
-- N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**, **Bonus Assignments**, **Quizzes**, and **Exams**.
-  - Reason: Optional permission does not require current product behavior.
-- [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
-  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
 - [x] The Student interface should make the next useful action easy to find.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents the primary "Open Assessment" action.
 - [ ] The Student menu is simpler than the Instructor menu.
@@ -916,6 +828,17 @@ PLE product or code behavior.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` uses "Your courses" and "Open assigned work".
 - [ ] Student navigation and pages should contain only Student interfaces and capabilities.
   - Mismatch: `src/route_contract.ts` `studentCourseLanding` restricts that one route to Students, but source inspection is not evidence that every Student navigation and page exposes only Student capabilities; the required authorization/runtime check has not been recorded.
+- [x] Student content entry should use the response controls provided by Questions and other Student activities.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
+- [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
+  - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
+  - Owner: 03_shell.md > Interface design > General interface design (first current-source occurrence).
+- [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
+  - Reason: HG: no locked-in design.
+  - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
+
+#### Student Course and Coursework interface
+
 - [x] Students enrolled in one active Course should go directly into that Course.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` redirects the one-entry `courses()` result to its Course reference.
 - [x] Students should be able to see their active Courses and Coursework from the main navigation.
@@ -927,13 +850,23 @@ PLE product or code behavior.
 - [x] Coursework lists should make due dates, Type, and completion status easy to scan.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents visible Type, due, completion, and state fields from the typed Student projection.
   - Evidence (runtime): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` passed on a fresh PostgreSQL 17 database and projected the Regular Assignment Type, due/availability facts, completion, and resumability through the actual landing Store; accepted compiled SolidJS/mock-API browser evidence proved the fields are scannable. This does not claim a connected HTTP-server run.
-- [x] Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
+- N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
+  **Bonus Assignments**, **Quizzes**, and **Exams**.
+  - Reason: Optional permission does not require current product behavior.
+- [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
+- [x] Before starting Coursework, Students should see its title, Type, Question count, points possible,
+  time limit, and previous Attempts.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` presents the title, specific Type, Question count, points possible, time limit, and previous Attempts before start.
   - Evidence (source): `src/components/student_assessment_presentation.tsx` `StudentAssessmentStartFacts` owns the compact Question, points, and time-limit facts.
   - Evidence (runtime): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` was exercised by accepted isolated actual-server/exact-main Student proof `/private/tmp/ple-course-empty-artifacts.JCFLm9` after a real roster import/claim. It opened a Released direct Practice Assessment before Start and showed title, Practice Type, one Question, one point, the exact one-hour limit, and an explicit zero-previous-Attempt state; an Unreleased sibling was omitted and an outsider received 404. A separate accepted native Student HTTP/browser run `/private/tmp/ple-course-empty-artifacts.ONrLSK` whole-submitted a real graded 1/1 Attempt, then reopened the overview before starting another. The same six facts included an actual "Previous attempts" Attempt 1 Submitted link; its clicked history showed recorded PKU response and 1/1 score. The overview's previous-Attempt score is optional under the current DTO, so this row does not require that optional value or claim every Student viewport.
+
+#### Student Coursework interface
+
 - [x] Students see one Question at a time while completing Coursework.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders one keyed current presentation in one `article.question-card`.
-- [x] While completing Coursework, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.
+- [x] While completing Coursework, navigation should show every Question, its saved status, and allow
+  Students to jump directly between Questions.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` renders every position, saved-status label, and position button.
   - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
@@ -946,18 +879,13 @@ PLE product or code behavior.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders `remainingMilliseconds` in the persistent header while keyed Question presentations change below it.
 - [x] Submission status should be obvious and use plain language.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Submitting Assessment...", "Your answers were accepted", and plain-language save or submission errors from the submission state.
+
+#### Student Coursework review interface
+
 - [x] Scores and feedback should appear where the Coursework settings allow them.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_history` applies the server-owned feedback-release decision before projecting scores and per-Question feedback; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` renders only the released fields present in that projection.
 - [x] Completed Coursework should remain easy to find and review.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` lists and links previous Attempts; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` presents the selected Attempt's score and recorded work.
-- [x] Student content entry should use the response controls provided by Questions and other Student activities.
-  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
-- [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
-  - Reason: HG: no locked-in design.
-  - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
-- [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
-  - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
-  - Owner: The earlier identical bullet in `03_shell.md`, General interface design, owns this open requirement.
 
 ### Sysadmin interface
 
@@ -1027,7 +955,7 @@ PLE product or code behavior.
 - [ ] Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
   - Evidence (source): accepted source review found `U` parsing/use limited to authenticated Account-management paths; no Student or Instructor projection was identified in that review.
   - Mismatch: full cross-route authorization and creation-boundary proof remains outstanding.
-- [ ] Published Questions and published Question Pools retain their existing public `AAAA-ZBBB` IDs.
+- [ ] Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
   - Mismatch: Published Question IDs use `AAAA-ZBBB`, but published Question Pool identities are not complete.
 
 ### Student and FERPA data
@@ -1035,10 +963,10 @@ PLE product or code behavior.
 - [x] **Student** course data falls under FERPA; treat it as radioactive.
   - Evidence (source): `schemas/base_schema/course_membership.sql` `student_record` is protected by RLS and has no PUBLIC privilege.
 - [x] **Student** data should be collected reluctantly, used deliberately, and purged predictably.
-  - Owner: `docs/active_plans/audits/hg_checklist_parts/02_accounts.md`
   - Evidence (source): `schemas/base_schema/course_roster.sql` `course_roster_profile` contains no duplicate Student email; ordinary roster is email-free and direct-Instructor-only.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` removes identifiable Course Student records while retaining Account and Course teaching material.
   - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `delete_course_student_records` passed a self-owned disposable PG17 purge-preservation probe on 2026-09-15.
+  - Owner: 02_accounts.md > Accounts and roles > Student role (first current-source occurrence).
 - [x] FERPA access should be scoped through exact Course membership and **Student** ownership.
   - Evidence (source): `schemas/base_schema/authorization.sql` `current_session_account_owns_student_record` requires the exact Course, Student Record, authenticated Student Account, and active Student membership before Student Work access is allowed.
   - Evidence (test): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` uses a real `ple_auth` to `ple_app` session to allow the owner and deny a same-Course other Student, nonmember, same Account with another Course record, and ordinary Sysadmin.
@@ -1072,27 +1000,34 @@ PLE product or code behavior.
 - [x] Question statistics are version-specific first, with clearly labeled Question-level rollups when appropriate.
   - Evidence (source): `schemas/base_schema/statistics.sql` `question_revision_statistics` primary key is `(question_id, revision_number)`.
 
-### Course retention
+### Course retention and lifecycle
 
-- [ ] Course retention should follow Course Instance dates and its six-month Active lifetime rather than a fixed academic calendar.
+- [ ] Course retention should follow Course Instance dates and its six-month Active lifetime rather than
+  a fixed academic calendar.
   - Mismatch: Course Instance storage has no six-month Active lifetime or retention deadline.
-- [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA retention clock.
+- [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA
+  retention clock.
   - Mismatch: Assessment deadlines exist, but no Course FERPA retention clock is derived from them.
-- [x] Creating or extending a later Assessment deadline may move those dates, but not beyond the six-month Active lifetime.
+- [x] Creating or extending a later Assessment deadline may move those dates, but not beyond the
+  six-month Active lifetime.
   - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies` lock the Course first, reject a Due date after its immutable `active_until_at`, and invoke `ple_data.synchronize_course_assessment_deadline` after an accepted change.
   - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` stores the current maximum Assessment Due date and moves the active Course retention anchor to that date, or to `active_until_at` when no Due date remains.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies`, covering release, a cleared last Due date, cap rollback, stale CAS, wrong-Instructor denial, deterministic concurrent saves to two Assessments, an archive race, and frozen archived/deleted retention anchors.
 - [ ] Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
   - Mismatch: The FERPA retention-clock transition is absent.
-- [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and permanent deletion transitions.
+- [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and
+  permanent deletion transitions.
   - Mismatch: No configured FERPA retention policy or its transitions exists.
-- [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after creation.
+- [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
+  creation.
   - Mismatch: No six-month inactivity transition or Instructor warning exists.
-- [x] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying FERPA retention and deletion.
+- [x] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
+  FERPA retention and deletion.
   - Evidence (source): `schemas/base_schema/course_core.sql` `ple_data.enforce_course_instance_retention_schedule` derives and preserves the immutable six-month `active_until_at`; `schemas/base_schema/assessments.sql` `ple_data.save_assessment` and its sibling save functions reject every saved Due date beyond that cutoff.
   - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` bounds the active retention anchor by the accepted current maximum Due date or that immutable cutoff and does not move an archived or deleted anchor.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
-- [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself delete Student records.
+- [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
+  delete Student records.
   - Mismatch: Neither Course inactivity nor FERPA deletion transition is implemented.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
   - Mismatch: No Course retention processing exists for any calendar.
@@ -1104,11 +1039,11 @@ PLE product or code behavior.
   - Mismatch: No retention-period expiry deletion exists.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
   - Mismatch: No Student-data deletion transition exists to establish this preservation behavior.
-  - Owner: A6
+  - Owner: 06_data.md > Data and history > Student and FERPA data (first current-source occurrence).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.
 
-### Retention processing
+### Course retention processing
 
 - [ ] A background process should periodically find Course Instances whose retention deadlines have passed.
   - Mismatch: `worker` only sweeps expired Assignment Attempts, not Course retention deadlines.
@@ -1121,7 +1056,7 @@ PLE product or code behavior.
 - [ ] The retention process should be safe to run repeatedly.
   - Mismatch: No Course retention process exists to establish repeat safety.
 
-### Revisions and history
+### Common revision and history specifications
 
 - [x] Be conservative about creating revisions.
   - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_question_revision` locks the Draft and immediate parent before it creates a successor; its `PQR01` source-checksum comparison rejects an unchanged `question_revision_source_binding` before any successor facts are written.
@@ -1136,7 +1071,8 @@ PLE product or code behavior.
   - Evidence (source): `schemas/base_schema/assessment_operations.sql` `save_assessment_inline` requires and advances `assessment_edit_number`.
 - [x] An Edit Number is only a counter and does not identify a stored historical object.
   - Evidence (source): `schemas/base_schema/assessment_operations.sql` `assessment_edit_number` is a current-state concurrency field rather than a revision foreign key.
-- [ ] Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for each object.
+- [ ] Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for
+  each object.
   - Mismatch: Question and Blueprint revisions have positive sequential numbers, but Question Pools have no Revision Number.
 - [ ] A Revision Number identifies a specific immutable Revision stored by PLE.
   - Mismatch: Question and Blueprint Revision Numbers identify immutable rows, but the absent Question Pool Revision leaves this general Revision Number behavior incomplete.
@@ -1183,9 +1119,10 @@ PLE product or code behavior.
 - [x] Changing a display time zone changes how a deadline is shown, not the deadline itself.
   - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_student_assessment_attempt_context` returns `display_time_zone` separately from `expires_at_millis`.
 
-## Questions
+## Question specifications
 
-- [x] Questions are subject agnostic. Properly tagged Questions from all subjects belong in the same Question Library.
+- [x] Questions are subject agnostic. Properly classified Published Questions from all subjects belong in
+  the same Question Library.
   - Evidence (source): `crates/server/src/question_library/paging.rs` `QuestionSearchFilter` supplies the shared Library query filter without a subject partition.
 - [ ] Questions are strictly and deterministically automated; grading does not require an **Instructor**.
   - Mismatch: needs runtime grading evidence for every supported backend.
@@ -1193,24 +1130,36 @@ PLE product or code behavior.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` stores one lineage-level title.
 - [x] Every Question stored by PLE has its own internal Question record.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question` owns the internal Question record.
+- [ ] Answer-choice randomization belongs to the Question.
+  - Mismatch: native answer-choice randomization ownership has not been verified.
+- [ ] PLE-native Questions control their own answer-choice randomization.
+  - Mismatch: no native answer-choice randomization implementation was found.
 
-### Draft Questions
+### Draft Question specifications
 
 - [x] Draft Questions are private working content.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `ple_private.draft_question` stores draft state in the private schema.
+- [ ] Draft Questions are not part of the Question Library.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
+  - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
 - [x] Draft Questions use current state rather than immutable Revisions.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_edit_number` is current-state concurrency data, separate from `question_revision`.
 - [x] Saving a Draft Question replaces its previous working state.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `save_authoring_draft` replaces the current draft aggregate values.
-- [x] Instructors may delete Draft Questions they no longer need.
+- [x] **Instructors** may delete Draft Questions they no longer need.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `delete_draft_question` resolves only the current Instructor-owned Draft, locks and compares its Edit Number, then deletes that private aggregate without considering the separate Published Question lineage.
   - Evidence (source): `crates/learning-data-access/src/postgres/authoring.rs` `delete_authoring_draft` carries the SQL compare-and-swap through the authenticated Store.
   - Evidence (source): `crates/server/src/authoring.rs` `delete_draft` requires the parsed `If-Match` Edit Number and maps a concurrent change to 412; `src/pages/question_drafts_page.tsx` `QuestionDraftsPage` supplies explicit Keep/Delete confirmation.
   - Evidence (runtime): `crates/server/src/authoring.rs` `delete_draft` passed accepted isolated PostgreSQL 17/MinIO actual-server and focused browser proof: cancel, confirm, and list reload; valid-current-ETag collaborator, unrelated Instructor, Student, Sysadmin, and anonymous 404 denials while owner source/Edit Number remained unchanged; 428 missing, 400 malformed, and 412 stale preconditions; preserved parsed Published Question lineage and Revision JSON after a published-origin Draft deletion; and 404 repeat DELETE/PUT. Artifact: `/private/tmp/ple-draft-delete-artifacts.km9ybM`.
 - N/A PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
   - Reason: Automated abandoned-Draft cleanup is an explicitly optional future capability; HG sets no clock or durations.
+- [ ] A Draft Question must pass Question Publication Validation before becoming a Published Question.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
+  - Verification pending: audit ordinary Draft publication, not only fork publication, against current validation and required Library metadata.
+- [ ] Publication requires all required Question Library metadata.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 
-### Question formats and types
+### Question formats and type specifications
 
 - [x] PLE flat-question JSON is the canonical machine format for simple static Questions.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` validates the PLE JSON source form.
@@ -1227,7 +1176,7 @@ PLE product or code behavior.
 - [x] Question importers are transient translators from external formats into PLE-managed Question representations.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `workspace_import` stages external-format imports before committed PLE state.
 
-### Native PLE JSON Questions
+### Native PLE JSON Question specifications
 
 - [x] The native PLE JSON Question format is private, unversioned, and unpublished.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` accepts the unversioned internal source shape.
@@ -1278,7 +1227,9 @@ PLE product or code behavior.
 - [ ] Supported external dependencies should eventually become PLE-owned and served locally.
   - Mismatch: no dependency-localization workflow was found.
 
-### Question Backends
+### Question Backend specifications
+
+#### Supported Question Backends
 
 - [ ] WeBWorK, iMathAS, and H5P are PLE-managed Question Backends.
   - Mismatch: C870 removed every current H5P source, import, adapter, and runtime seam; H5P is not a delivered backend.
@@ -1288,6 +1239,18 @@ PLE product or code behavior.
 - [ ] iMathAS and H5P are supported secondary Question Backends.
   - Mismatch: iMathAS has a launch boundary, while C870 leaves no current H5P source, import, or delivered backend seam.
   - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+- [x] PLE-native Questions use the PLE Question Backend.
+  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
+- [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
+  - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state. Connected live-ownership proof remains required; PLE is not required to capture historic renderer feedback.
+- [ ] H5P owns its runtime, interactions, state, and scoring.
+  - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
+  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
+- [ ] iMathAS owns its rendering and evaluation.
+  - Mismatch: needs runtime rendering and evaluation proof for iMathAS.
+
+#### Question Backend responsibilities
+
 - [x] PLE owns and stores the Question representation used for each Question Backend.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_revision_source_binding` stores backend representations.
 - N/A Imported backend source may be transformed into the form PLE stores and manages.
@@ -1305,37 +1268,36 @@ PLE product or code behavior.
 - [ ] Each Question Backend adapter retains its backend-specific interaction knowledge.
   - Mismatch: `crates/adapters/webwork/src/lib.rs` `WebworkAdapter` establishes an opaque WeBWorK boundary, and `crates/adapters/imathas/src/imathas_question_backend.rs` defines an iMathAS seam, but C870 leaves no current H5P adapter or runtime seam. Evidence from WeBWorK alone cannot establish this claim for each backend.
   - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
-- [x] PLE-native Questions use the PLE Question Backend.
-  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
-- [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
-  - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state. Connected live-ownership proof remains required; PLE is not required to capture historic renderer feedback.
+- [ ] Question Backends may support more complex interactions without requiring PLE to implement those interactions.
+  - Mismatch: incomplete secondary backends leave the general capability unverified.
+
+#### Question Backend grading and feedback
+
 - [x] Question Backend feedback is transient unless the backend provides a robust way for PLE to preserve it.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` projects recorded native PLE feedback from the exact retained response and source, while the WeBWorK branch does not reconstruct or persist transient renderer feedback.
   - Evidence (runtime): the C910 isolated actual-HTTP proof exercised `crates/server/src/assessment_delivery/history.rs` `student_history`, stopping the renderer after issuance and then submitting and reading exact WeBWorK Revision history without a backend-feedback field.
 - [x] PLE does not extract or reconstruct transient feedback from Question Backend source or output.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` invokes recorded teaching-content projection only for the native PLE source variant; the WeBWorK source remains opaque.
   - Evidence (runtime): the C910 actual-HTTP proof exercised `crates/server/src/assessment_delivery/history.rs` `student_history`; the history read succeeded after the renderer stopped and exposed no choice, correct, or incorrect feedback reconstructed from the PGML source or rendered output.
-- [x] Questions may have PLE-managed general feedback that remains separate from backend-generated interaction feedback.
+- [ ] PLE-managed Hints, Question Feedback, and Worked Solutions remain separate from backend-generated
+  interaction feedback.
   - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
   - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
-- [ ] H5P owns its runtime, interactions, state, and scoring.
-  - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
-  - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
-- [ ] iMathAS owns its rendering and evaluation.
-  - Mismatch: needs runtime rendering and evaluation proof for iMathAS.
-- [ ] Question Backends may support more complex interactions without requiring PLE to implement those interactions.
-  - Mismatch: incomplete secondary backends leave the general capability unverified.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 - [ ] A Question Backend returns an immutable credit fraction for each complete response it evaluates.
   - Mismatch: needs test or runtime evidence for backend evaluation and immutable outcome creation.
 - [ ] PLE stores the immutable credit fraction as the grading outcome.
   - Mismatch: needs test or runtime evidence linking backend credit to stored outcome.
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
   state.
-  - Mismatch: needs runtime grading evidence for the no-deferred-state contract.
+  - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
 - [ ] Assessment scores are calculated from stored credit fractions and current Question point values.
   - Mismatch: needs test or runtime scoring evidence.
 - [ ] Changing Question point values recalculates scores without another Question Backend interaction.
   - Mismatch: needs test or runtime rescoring evidence.
+
+#### WeBWorK source and algorithmic Questions
+
 - [x] Preserve the distinction between WeBWorK PG and PGML source. A Question should be identified as PGML only when its source is fully PGML-compliant; otherwise identify it as PG.
   - Evidence (source): `crates/project-tools/src/pilot_content.rs` `validated_question_format` maps only explicit PG or PGML declarations with matching extensions.
   - Evidence (test): `crates/project-tools/src/pilot_content/tests.rs` `pilot_publication_preserves_explicit_source_formats` exercises the format/extension refusals.
@@ -1355,7 +1317,7 @@ PLE product or code behavior.
   - Evidence (source): `crates/project-tools/src/curriculum_content/publication.rs` `existing_source_revisions` resolves one ordinary lineage per canonical source.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted canonical installation creating 42 Question lineages and 42 Revision 1 records from 42 sources, with no variant expansion. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/parameterized_publication.rs` `publish_selected_with_context` and `publish_source` passed selected ordinary-Instructor CLI proof publishing one available Revision-1 Question from one canonical source, with no Pool or Blueprint; replay made no additional publication. Artifact: `/private/tmp/ple-canonical-family-artifacts.TOOlBJ`.
-- [x] Use a Question Pool with algorithmic Questions only when the Instructor wants selection among distinct Questions, not to represent variants of one algorithmic Question.
+- [x] Use a Question Pool with algorithmic Questions only when the **Instructor** wants selection among distinct Questions, not to represent variants of one algorithmic Question.
   - Evidence (source): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` resolves selected Published Question Revisions and requires the Instructor's interchangeability attestation; `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` selects distinct immutable members without backend-specific variant expansion.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted fresh PostgreSQL 17/MinIO actual-server and private bundled-main HTTP-proxy browser proof: 42 canonical Genetics Questions installed with zero implicit Pools, then the Instructor visibly selected distinct DNA structure and nucleotide components Revision-1 PGML Questions, attested interchangeability, created a reusable Pool, and imported a distinct Assessment-owned fork with `selection_count=1`. Real WeBWorK rendering, radio-response save/resume, exact fork Pool/Question Revision, issued ID, seed/hash preservation, whole-Attempt submit, and fresh new-Attempt selection/issued IDs passed; a new Attempt may select the same Question and need not have different seeds. Artifact: `/private/tmp/ple-algorithmic-pool-artifacts.K2Kk6Z`. Release used a 3600-second time limit and Correct answer Never; answer disclosure, full Live Demo/authentication/TLS, and all-backend acceptance are outside this receipt. Browser error arrays were empty after route teardown completed.
 - [x] BiologyProblems.org WeBWorK problems should be imported from their canonical algorithmic PG or PGML source rather than from generated static variants.
@@ -1365,7 +1327,109 @@ PLE product or code behavior.
   - Evidence (source): `crates/project-tools/src/curriculum_content/publication.rs` `validate_loaded_content` rejects non-Fixed entries in the canonical Blueprint.
   - Evidence (runtime): `crates/project-tools/src/curriculum_content/publication.rs` `publish_with_context` passed accepted fresh Genetics publication creating one Revision-1 Question lineage per canonical source, 42 direct Fixed entries, and zero Pools; exact replay was unchanged and a same-short-name conflict made no mutation. Artifact: `/private/tmp/ple-fresh-genetics-artifacts.5ERV83`.
 
-### Question Pools
+### Published Question specifications
+
+- [ ] A Published Question is an immutable-revision Question available for reuse through the Question Library.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision_is_immutable` trigger protects revision rows.
+  - Verification pending: reconcile the current immutable-revision Library reuse projection against this consolidated requirement.
+- [x] Published Questions are available to all vetted **Instructors**.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
+
+#### Published Question identity specifications
+
+- [x] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` defines and displays the canonical `AAAA-ZBBB` public Question ID; `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` issues it for a new Published Question lineage.
+  - Evidence (runtime): `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` passed accepted actual-server proof that published two native Questions, whose exact public IDs then formed a reusable Pool's members. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
+- [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
+  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` derives the identifier from random bytes.
+- [x] The middle character is an HMAC-derived check character calculated from the seven identity characters.
+  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_validation_character` derives the validation character with HMAC.
+- [x] The check character detects mistyped or malformed IDs; it is not a security boundary.
+  - Evidence (source): `crates/server/src/question_publication.rs` `validates_question_id` validates syntax/check character separately from authorization.
+- [ ] ID generation enforces database uniqueness and retries when a random collision occurs.
+  - Mismatch: database uniqueness exists, but collision retry behavior was not found in the issuer or publication store.
+- [x] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
+  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` uses random bytes and a secret only.
+
+#### Published Question metadata
+
+- [x] Published Questions have metadata specific to the individual Question.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys individual metadata to `question_id` and requires nonempty `question_title` and `question_description` independently of Course placement.
+- [x] Published Question metadata includes Title and Description.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys individual metadata to `question_id` and requires nonempty `question_title` and `question_description` independently of Course placement.
+- [x] Published Question metadata may include authorship, attribution, license, and source information.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` requires exact source, contiguous revision authorship and license records, keeping them associated with the Published Question Revision.
+- [ ] Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and
+  **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Published Questions also use the shared Question Library metadata required for publication.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+
+#### Published Question revisions, edits, and forks
+
+- [x] **Published Questions** maintain immutable revision history.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision_is_immutable` trigger protects revision rows.
+- [ ] Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
+  - Mismatch: exact revision columns are source evidence only; no connected test verifies an Assessment and Student Work stay pinned across a later publication.
+- [x] Publishing a new Question Revision does not silently change existing Assessments or Student Work.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
+- [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
+- [ ] Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
+  or Question assets creates a new Question Revision.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [x] Changing the Question title, description, Tags, Subject, Topic, or other search metadata does not
+  create a new Question Revision.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
+- [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
+- [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
+  - Mismatch: draft-fork source support is source evidence only; no authorization or behavior test verifies any eligible Instructor can publish a separate ID.
+- [x] A fork starts as a private **Draft Question** with its own authorship and lineage.
+  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
+- [x] A fork must pass Question Publication Validation before joining the Question Library.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
+- [x] Published forks retain source attribution.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_fork_source` records published fork provenance.
+- [x] Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
+  - Evidence (source): `schemas/base_schema/corrections.sql` `forced_question_correction` and its immutable audit targets record correction actions.
+- [x] Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
+  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_revision_authorship` and `question_revision_license` preserve revision stewardship.
+- [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
+  threads, and impact notices.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
+  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
+
+#### Published Question behavior specifications
+
+- [ ] Published Questions may include optional PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+  - Owner: 07_questions.md > Question specifications > Published Question specifications > Published Question metadata (first current-source occurrence).
+- [ ] PLE-managed Hints, Question Feedback, and Worked Solutions are separate from Question Backend-generated content.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] WeBWorK Questions may use PLE-managed Hints, Question Feedback, and Worked Solutions even when similar material also exists in the WeBWorK source.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Question Feedback is shown when its disclosure rules allow it.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Hints and Worked Solutions use their own disclosure settings.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Student workflows remain complete when a Question has none of this optional support content.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+
+### Question Pool specifications
 
 - [x] A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `create_question_pool` persists an ordered nonempty set of exact Published Question Revision members, and `crates/domain/src/question_pool_selection.rs` `select_question_pool_items` selects from that Pool for Student delivery.
@@ -1376,15 +1440,16 @@ PLE product or code behavior.
   - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that false or missing attestation returned 422 and left no Pool behind. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
 - [ ] Question Pools may contain Questions from any Question Backend.
   - Mismatch: C885 supplies backend-neutral Pool membership, but no completed Instructor Pool workflow proves this behavior.
-- [x] Each member of a Question Pool is a **Published Question**.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
 - [x] Question Pools are always published and have no draft or unpublished state.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` model only a stable published lineage and immutable Revisions, with no draft, publication-status, or unpublished state.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main Instructor proof: it created a reusable Pool from two Published Questions and immediately read its server-issued Revision 1; the UI and API expose no draft or publish transition.
 - [x] A Question Pool is an independently reusable Question Library object.
   - Evidence (source): `crates/server/src/question_pool_library.rs` `current_pool` reads a Pool independently of any Assessment.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `current_pool` passed accepted actual-main Instructor proof: Pool `SBQR-N5RE` was created from the Question Library and its ordered member pins were read through `/api/question-pools/SBQR-N5RE`; separate actual-server proof then imported another reusable Pool into an Assessment.
-- [x] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable revisions.
+- [x] Question Pools are available to all vetted **Instructors**.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
+  - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
+- [x] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable Revisions.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` stores the unique compact public Pool ID, while `question_pool_revision` and `question_pool_revision_member` have immutable update/delete triggers and ordered exact member pins.
   - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that returned canonical Pool ID `SBQR-N5RE`, Revision 1, then read the same identity and exact ordered Question Revision pins.
 - [x] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
@@ -1419,106 +1484,171 @@ PLE product or code behavior.
   - Evidence (test): `crates/question_model/src/student_work/model_tests.rs` `question_pool_selection_retains_exact_entries_and_issued_question_link` checks the exact issued linkage.
 - [x] Each member of a Question Pool is a **Published Question**.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` stores each exact Published Question revision reference.
-  - Owner: The first Question Pools occurrence owns this duplicate status.
 - [ ] Question Pools contain only **Published Questions**; Question Pools cannot be members of Question Pools.
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
+- [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
+  threads, and impact notices.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
+  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
 
-### Question Library
+#### Question Pool metadata
+
+- [ ] Question Pools have metadata specific to the individual Question Pool.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pool metadata includes Title and Description.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pools may have their own authorship, attribution, license, and source information where
+  appropriate.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pool metadata describes the Pool rather than duplicating metadata from its member
+  Published Questions.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Question Pools may include optional PLE-managed **Hints**, **Question Feedback**, and
+  **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Question Pools also use the shared Question Library metadata required for publication.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+
+### Question Library specifications
 
 - [x] Question sharing, discovery, and reuse are a high-priority **Instructor** workflow.
   - Evidence (source): `src/pages/library_route_page.tsx` `LibraryRoutePage` is the production Instructor Library surface.
-- [x] The Question Library is one global collection of published Question content.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question` is not course-scoped.
-- [x] **Published Questions** are available to all vetted **Instructors**.
-  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `question_library_entries` requires an active Instructor Account and exposes available Question summaries.
-- [x] Published Question Pools are available to all vetted **Instructors**.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
-  - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
+- [ ] The Question Library is one global collection of Published Questions and Question Pools.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Draft Questions are not part of the Question Library.
+  - Evidence (source): `schemas/base_schema/question_library_operations.sql` `published_question_metadata` queries only Published Question metadata; Draft working state is stored separately in `schemas/base_schema/question_authoring_state.sql` `authoring_draft`.
+  - Verification pending: re-evaluate the current Library search/Pool projections and publication boundary to establish explicit Draft exclusion across all Library paths.
+  - Owner: 07_questions.md > Question specifications > Draft Question specifications (first current-source occurrence).
+- [ ] **Published Questions** and Question Pools are available to all vetted **Instructors**.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [x] **Students** access Question content through their Coursework rather than through the Question Library.
   - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` reserves both Question Library routes for Instructors, and `src/route_access_boundary.tsx` `withRouteAccessBoundary` fail-closes every protected route before its page component mounts.
   - Evidence (runtime): `src/route_access_boundary.tsx` `withRouteAccessBoundary` passed accepted actual-main Student proof that denied three Library routes without any Question Library API request, while the Student Ribbon allowed Coursework navigation to a Released Assessment. Earlier accepted native Student Attempt proof delivered Question content through that Assessment. Artifacts: `/private/tmp/ple-course-empty-artifacts.9s89JA` and `/private/tmp/ple-course-empty-artifacts.ZquNiI`.
-- [x] Published content remains discoverable when used by a private **Course Instance**.
+- [x] Question Library content remains discoverable when used by a private **Course Instance**.
   - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionSearchResult` is global and separately reports course use.
 - [ ] With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
   - Mismatch: no product test or design enforcement establishes archive as non-primary at this scale.
-- [ ] Question Library workflows should support bulk operations because an Instructor may manage thousands of Questions.
+- [ ] Question Library workflows should support bulk operations because an **Instructor** may manage thousands of Questions.
   - Evidence (test): temporary compiled Chromium component and strict-client proof accepted sorted selection/Edit Numbers, closed replace/clear patches, virtualization, busy controls, blank-replace rejection, pre-fetch canonical-ID rejection, stale/ambiguous refresh, denial, filter clearing, no page errors, and zero critical/serious axe findings; the mock/injected transport was not server-connected and the proof was removed.
   - Mismatch: connected HTTP and practical-scale workflow evidence remains pending.
-- [x] Instructors should be able to select many Questions and update shared metadata such as tags, subject, topic, or other search fields together.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `PublishedQuestionSharedMetadata` is the closed shared-metadata DTO; generated contracts bound its collection to 1,000 items.
-  - Evidence (source): `crates/server/src/question_library/shared_metadata.rs` `load_current_shared_metadata` owns the no-store current-metadata read; `crates/server/src/question_bulk_metadata.rs` owns the bounded all-or-none update command and validates canonical IDs before Store access.
-  - Evidence (runtime): `crates/server/src/question_bulk_metadata.rs` `bulk_replace_metadata` passed fresh PostgreSQL 17 SQL/API proofs, independently rerun, covering read/write/read, stale all-or-none denial, clear, unauthorized, unvetted, archived, missing, and duplicate concealment, unchanged Revision count, and private-helper denial. Source review establishes once-only `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start; separate PostgreSQL proof uses explicit initial tags, rejects null elements without database/publication/object side effects, and preserves an intentional empty clear in a successor Revision.
-  - Evidence (test): `src/components/question_bulk_metadata_editor.tsx` `QuestionBulkMetadataEditor` passed temporary compiled Chromium component and strict-client proof for the selected metadata workflow, including stale and ambiguous refresh with no automatic second write; its mock/injected transport was not server-connected and the proof was removed.
-  - Evidence (runtime): `src/pages/library_page.tsx` `QuestionBulkMetadataEditor` passed accepted isolated actual-server HTTP and private exact-main browser proof: selected Published Questions read current metadata/Edit Numbers, replaced tags and subject, cleared subject, and observed the search projection. An authorized second Instructor advanced one selected Question; a stale two-Question update returned 412 with no partial write, and the browser refreshed current values without automatically writing again. HTTP responses were `no-store`; anonymous and Student calls were denied. Source, Revision, and availability remained unchanged. The three-Question fixture does not establish thousands-Question or 13k cleanup practicality, backend rendering, or a canonical screenshot corpus; C366 and the practical-scale rows remain open.
+- [ ] **Instructors** should be able to select many Library objects and update shared metadata such as
+  Tags, Subject, Topic, or other search fields together.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
 - [ ] Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
   - Mismatch: search, filters, and an accepted mock-transport browser metadata workflow exist, but connected HTTP and 13k practical-cleanup evidence remains pending.
 
-#### Published Question identity
+#### Question Library metadata
 
-- [x] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` defines and displays the canonical `AAAA-ZBBB` public Question ID; `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` issues it for a new Published Question lineage.
-  - Evidence (runtime): `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` passed accepted actual-server proof that published two native Questions, whose exact public IDs then formed a reusable Pool's members. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
-- [x] Published Questions and published Question Pools have public Crockford Base32 IDs.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` is the common public ID model, while `schemas/base_schema/question_pools.sql` `question_pool` stores a unique public Pool ID.
-  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that displayed a server-issued public Pool ID alongside ordered exact public Question IDs. Artifact: `/private/tmp/ple-course-empty-artifacts.bzwXEa`.
-- [x] Public IDs use the form `AAAA-ZBBB`.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` documents and formats the canonical `AAAA-ZBBB` display form, including the middle validation character.
-  - Evidence (runtime): `crates/server/src/question_pool_creation.rs` `create_question_pool` passed accepted actual-server proof that returned a canonical public Pool ID at Revision 1. Artifact: `/private/tmp/ple-course-empty-artifacts.BhKHDp`.
-- [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` derives the identifier from random bytes.
-- [x] The middle character is an HMAC-derived check character calculated from the seven identity characters.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_validation_character` derives the validation character with HMAC.
-- [x] The check character detects mistyped or malformed IDs; it is not a security boundary.
-  - Evidence (source): `crates/server/src/question_publication.rs` `validates_question_id` validates syntax/check character separately from authorization.
-- [ ] ID generation enforces database uniqueness and retries when a random collision occurs.
-  - Mismatch: database uniqueness exists, but collision retry behavior was not found in the issuer or publication store.
-- [x] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` uses random bytes and a secret only.
+- [ ] Published Questions and Question Pools use shared metadata for organization, search, filtering,
+  and discovery.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Required Question Library metadata must be complete before content enters the Question Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library metadata should describe the Published Question or Question Pool rather than its location
+  in a Course or textbook.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library classification uses **Subject**, **Topic**, and **Subtopic** as its primary hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subject is the broad academic area, such as Genetics, Biochemistry, or Ecology.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Topic identifies a major area within the Subject.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subtopic provides a narrower classification within the Topic.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Subject, Topic, and Subtopic should support consistent classification across the Question Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Published Questions and Question Pools may also have Tags for useful classifications outside the
+  Subject, Topic, and Subtopic hierarchy.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Tags are flexible and may overlap across Subjects and Topics.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Library metadata should support searching, filtering, sorting, and bulk editing.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [ ] Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and
+  **Worked Solutions**.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
+- [ ] Support content may be attached at the level where it applies rather than duplicated across
+  individual Questions.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `question_revision` stores optional `general_feedback`, and accepted C910 proof covers that narrow feedback path only. Independent PLE-managed Hints/Worked Solutions, Pool-level support, disclosure controls, and revision/coexistence behavior required here are not fully implemented or proved.
 
-#### Published Question revisions, edits, and forks
+#### Question Library object statistics
 
-- [x] **Published Questions** maintain immutable revision history.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision_is_immutable` trigger protects revision rows.
-- [ ] Assessments and Student Work remain pinned to exact immutable Published Question Revisions.
-  - Mismatch: exact revision columns are source evidence only; no connected test verifies an Assessment and Student Work stay pinned across a later publication.
-- [x] Publishing a new Question Revision does not silently change existing Assessments or Student Work.
-  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` publication appends `next_revision_number` rather than rewriting prior rows.
-- [x] The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
-  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` appends an owner-authored revision.
-- [x] Changing Question source, answer content, grading rules, feedback, or Question assets creates a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `publish_question_revision` persists a new source binding keyed to a new revision.
-- [x] Changing the Question title, description, tags, subject, topic, or other search metadata does not create a new Question Revision.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` is separate from `question_revision`.
-- [x] Search metadata belongs to the Published Question as a whole rather than to one Revision.
-  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
-- [ ] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
-  - Mismatch: draft-fork source support is source evidence only; no authorization or behavior test verifies any eligible Instructor can publish a separate ID.
-- [x] A fork starts as a private **Draft Question** with its own authorship and lineage.
-  - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
-- [x] A fork must pass Question Publication Validation before joining the Question Library.
-  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `validate_question_publication` guards publication.
-- [x] Published forks retain source attribution.
-  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_fork_source` records published fork provenance.
-- [x] Forced corrections are audited **Sysadmin** actions reserved for critical flaws.
-  - Evidence (source): `schemas/base_schema/corrections.sql` `forced_question_correction` and its immutable audit targets record correction actions.
-- [x] Question authorship, contributor credit, history, attribution, and compatible CC licensing are preserved across Revisions and forks.
-  - Evidence (source): `schemas/base_schema/question_stewardship.sql` `question_revision_authorship` and `question_revision_license` preserve revision stewardship.
+- [ ] Published Questions and Question Pools may retain privacy-safe aggregate statistics.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Statistics are kept separately for each Published Question Revision and Question Pool Revision.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit,
+  and unanswered results.
+  - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
+- [x] Eligible Question Types may also retain aggregate answer-choice counts.
+  - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
+  - Owner: 06_data.md > Data and history > Student and FERPA data (first current-source occurrence).
+- [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and
+  privacy thresholds are met.
+  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+- [ ] Aggregate statistics contain counts rather than Student Attempts or identifiable Student records.
+  - Mismatch: private aggregate evidence exists, but no released Question Statistics surface establishes the required product behavior.
+- [ ] Privacy-safe aggregate statistics remain after the underlying Student records are deleted.
+  - Mismatch: retention transition needs runtime or connected-oracle proof.
+- [ ] Student data retention removes the underlying Student evidence without removing approved aggregate
+  statistics.
+  - Mismatch: needs runtime or connected-oracle evidence for retention and aggregate preservation.
+- [ ] Removing Student names alone does not make statistics anonymous.
+  - Mismatch: no released Question Statistics policy establishes this behavior.
+- [ ] Shared statistics should be shown only when individual Students cannot reasonably be identified
+  from the aggregate.
+  - Mismatch: `QuestionStatistics` is currently `Unavailable`; no shared-view privacy threshold exists.
+- [ ] Course-specific analysis remains FERPA-sensitive when individual Students could be inferred.
+  - Mismatch: aggregate analysis structures exist, but no complete FERPA-sensitive product workflow was verified.
 
-#### Question stewardship
+#### Question Library Bloom classification metadata
 
-- [ ] Question stewardship should use a GitHub-like model.
-  - Mismatch: star/watch and improvement-thread workflows are not all delivered.
-- [ ] **Published Questions** can be starred and watched, similar to GitHub.
-  - Mismatch: no Question star or watch persistence model was found.
+- [ ] Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
+  Knowledge Dimension.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] The two Bloom dimensions are independent and together determine the object's Bloom Classification.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Bloom Classification is required before a Published Question or Question Pool enters the Question
+  Library.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] AI assigns the initial Bloom Classification as part of publication.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
+  Question Pool Revision.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+- [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+
+#### Question Library stewardship specifications
+
+- [ ] Question Library stewardship should use a GitHub-like model.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+- [ ] Published Questions and Question Pools can be starred and watched.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
 - [x] Star means favorite and visible endorsement.
   - Evidence (source): `schemas/base_schema/question_stewardship.sql` `set_current_question_star` records an active Instructor's Star only for a Published Question; `src/components/question_star_control.tsx` `QuestionStarControl` provides the visible Star and count surface.
   - Evidence (test): `tests/e2e/e2e_question_star_name_privacy.sh` `Question Star name privacy E2E` passed on 2026-09-15 with an active vetted Instructor's actual HTTP Star action and exact closed Star projection.
-- [x] Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Question.
-  - Evidence (test): `tests/e2e/e2e_question_star_name_privacy.sh` `Question Star name privacy E2E` passed on 2026-09-15 against isolated PostgreSQL 17, MinIO, and `server_core`: the active vetted Instructor received only `{starCount, viewerHasStarred, starredInstructors:[{displayName}]}`; anonymous, Student, inactive-Instructor, and HMAC-valid non-Published requests were concealed with `404`.
-  - Evidence (runtime): one-time Chromium proof for `src/components/question_star_control.tsx` `QuestionStarredInstructorList` passed on 2026-09-15. It rendered the exact server-shaped display-name list with an accessible name and no link, button, or avatar; the fixture was removed after review because it is implementation proof, not a stable product contract.
+- [ ] Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Published
+  Question or Question Pool.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
 - [ ] Watch means subscription.
   - Mismatch: Question watches are not implemented.
-- [ ] Watching drives in-app notifications for revisions, forks, improvement threads, and impact notices.
+- [ ] Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
+  forks, improvement threads, and impact notices.
+  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
   - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
   - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
 - [ ] An **Instructor's** watch list remains private.
@@ -1526,49 +1656,7 @@ PLE product or code behavior.
 - [ ] **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
   - Mismatch: Question watch access controls are not implemented.
 
-#### Question statistics
-
-- [ ] Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
-  - Mismatch: retention transition needs runtime or connected-oracle proof.
-  - Owner: `docs/active_plans/audits/hg_checklist_parts/06_data.md`
-- [ ] Question statistics are kept separately for each Published Question Revision.
-  - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
-- [ ] Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit, and unanswered results.
-  - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
-- [x] Eligible Question Types may also retain aggregate answer-choice counts.
-  - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
-  - Owner: `docs/active_plans/audits/hg_checklist_parts/06_data.md`
-- [ ] Question-level statistics may combine Revisions when clearly labeled and privacy thresholds are met.
-  - Mismatch: `QuestionStatistics` is currently `Unavailable`; no labeled combined-revision view exists.
-- [ ] Question statistics contain aggregate counts rather than Student Attempts or identifiable Student records.
-  - Mismatch: private aggregate evidence exists, but no released Question Statistics surface establishes the required product behavior.
-- [ ] Student data retention removes the underlying Student evidence without removing approved aggregate Question statistics.
-  - Mismatch: needs runtime or connected-oracle evidence for retention and aggregate preservation.
-- [ ] Removing Student names alone does not make statistics anonymous.
-  - Mismatch: no released Question Statistics policy establishes this behavior.
-- [ ] Shared Question statistics should be shown only when individual Students cannot reasonably be identified from the aggregate.
-  - Mismatch: `QuestionStatistics` is currently `Unavailable`; no shared-view privacy threshold exists.
-- [ ] Course-specific Question analysis remains FERPA-sensitive when individual Students could be inferred.
-  - Mismatch: aggregate analysis structures exist, but no complete FERPA-sensitive product workflow was verified.
-
-#### Question behavior
-
-- [ ] Answer-choice randomization belongs to the Question.
-  - Mismatch: native answer-choice randomization ownership has not been verified.
-- [ ] PLE-native Questions control their own answer-choice randomization.
-  - Mismatch: no native answer-choice randomization implementation was found.
-- [x] Question writers may add optional Question Feedback when it helps.
-  - Evidence (source): `src/features/ple_question_json_authoring/question_json_feedback_fields.tsx` `PleQuestionJsonFeedbackFields` edits optional feedback.
-- [x] Optional Question Feedback is shown when the Question Backend provides it.
-  - Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_student_feedback` releases backend-provided feedback.
-  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies provided feedback without answer disclosure.
-- [x] Question Feedback does not use Assessment correct-answer disclosure settings.
-  - Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `StudentFeedbackReleaseRule` omits Question Feedback from the six-field disclosure timing rule; `crates/domain/src/student_feedback_release.rs` `project_student_feedback` always projects feedback supplied at the submitted-history boundary while gating Question Answer separately.
-  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies that separation.
-- [ ] Student workflows remain complete whether or not Students read Question Feedback.
-  - Verification pending: no end-to-end Student workflow proof covers completion when a Question provides feedback, when it provides none, and when the Student does or does not read the supplied feedback.
-
-## Courses
+## Course specifications
 
 - [ ] **Courses** organize reusable teaching content and its delivery to **Students**.
   - Mismatch: The current Course model does not establish the complete stated product boundary.
@@ -1588,7 +1676,7 @@ PLE product or code behavior.
 - [ ] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
   - Mismatch: `CourseInstanceView.is_assigned_instructor` exposes a special authority distinction.
 
-### Blueprint Courses
+### Blueprint Course specifications
 
 - [x] **Blueprint Courses** are reusable course definitions for building **Course Instances**.
   - Evidence (source): `crates/learning-data-access/src/blueprint_course.rs` `BlueprintCourseStore` persists reusable Blueprint content and revisions.
@@ -1606,7 +1694,7 @@ PLE product or code behavior.
 - [ ] An **Instructor** may deliberately publish an existing Course Instance structure as a new Blueprint Course.
   - Mismatch: No Course Instance-to-Blueprint publishing route or store operation was found.
 
-#### Blueprint Course lifecycle
+#### Blueprint Course lifecycle specifications
 
 - [ ] Blueprint Courses have three lifecycle states: **Private**, **Public**, and **Archived**.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `blueprint_course.availability` permits `private`, `public`, and `archived`.
@@ -1617,41 +1705,53 @@ PLE product or code behavior.
 - [ ] Private Blueprint Courses are visible only to their owning **Instructor**.
   - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` and `ple_api.load_blueprint_course` limit Private access to the owner.
   - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the owner-only claim.
+- [x] Instructors may develop and use Private Blueprint Courses without publishing them.
+  - Evidence (source): `src/features/blueprint_course/blueprint_course_model.ts` `blueprintLifecyclePresentation` permits the owner to edit a Private Blueprint and withholds adoption; Private is deliberately not a daughter-Course source.
 - [ ] Private Blueprint Courses cannot be adopted to create daughter **Course Instances**.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Public availability.
   - Verification pending: Reconcile the existing connected Blueprint lifecycle receipt against the Private-adoption denial.
-- [ ] Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` lists Public Blueprints to active Instructors.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the full vetted-Instructor visibility and reusability claim.
-  - Owner: Same implementation finding as the earlier Public Blueprint Courses bullet.
+- [x] Making a Blueprint Course Public adds it to the shared Blueprint Course collection.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` publishes owner content and `ple_api.list_blueprint_courses` includes Public Blueprints for active Instructors.
+- [x] Public Blueprint Courses and their Revision history are visible to all vetted **Instructors**.
+  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Revision and metadata facts. Accepted Public-history proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
 - [ ] Public Blueprint Courses can be adopted to create daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Public availability for adoption.
   - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the complete Public-adoption workflow.
+- [x] A Public Blueprint Course with no adoptions may return to Private.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` permits this transition only before a daughter Course Instance exists; the accepted lifecycle runtime contract covers the rule.
+- [x] A Public Blueprint Course with one or more adoptions remains Public.
+  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.set_blueprint_availability` rejects Public-to-Private after an adoption; the accepted lifecycle runtime contract exercises the denial.
+- [x] Blueprint Courses have no separate Draft state.
+  - Evidence (source): `schemas/base_schema/blueprints.sql` `CHECK (availability IN ('private', 'public', 'archived'))` defines the complete Blueprint availability state.
+
+#### Archived Blueprint Course specifications
+
 - [x] Archived Blueprint Courses are read-only and no longer actively maintained.
   - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.save_blueprint_course` and `ple_api.rename_blueprint_course` lock the owner-visible Blueprint and reject `archived` before replay, CAS, or no-op handling.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` covers denied replay, no-op, changed Save, and rename without changing the Blueprint state, then restored writes.
   - Evidence (runtime): `schemas/base_schema/blueprint_operations.sql` `ple_api.save_blueprint_course`; `/private/tmp/ple-daughter-revision-notice-artifacts.JhV6aj/archived-blueprint-http-proof.json` records five `409` denials with unchanged state and preserved Private/Public/restored writes.
-- [x] Archived Blueprint Courses remain visible by every vetted **Instructor**.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` defaults `p_include_archived` to false and returns Archived records when that explicit parameter is true.
-  - Evidence (runtime): `crates/server/src/blueprint_course.rs` `list_blueprints`; `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json` records owner and nonowner active-Instructor default/false/true lists: only true includes the Archived Blueprint, while the Private Blueprint remains owner-only. The same receipt records nonowner Archived detail `200`, Private detail `404`, Student list/detail `404`, and invalid query values `400`.
-- [x] Archived Blueprint Courses are excluded from normal search results unless the search explicitly includes them.
+- [x] Archived Blueprint Courses and their Revision history remain visible to all vetted **Instructors**.
+  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` uses ordinary visibility for Archived Revision and metadata facts. Accepted Archived-history and discovery proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json` and `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-http-proof.json`.
+- [x] Archived Blueprint Courses do not appear in normal discovery unless explicitly included.
   - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` filters Public, owning Private, and only explicitly requested Archived records; `crates/server/src/blueprint_course.rs` `BlueprintCourseListQuery` accepts only the typed `includeArchived` boolean.
   - Evidence (runtime): `src/features/blueprint_course/blueprint_course_workspace.tsx` `changeIncludeArchived`; `/private/tmp/ple-archived-discovery-artifacts.1q5ste/archived-discovery-browser-proof.json` records the actual compiled-main default-off, Include Archived, read-only Archived-detail, and return-to-off workflow with eight GETs and zero writes. Its companion HTTP receipt records default/false/true membership and strict invalid-query `400` results.
 - [x] Archived Blueprint Courses cannot be adopted to create new daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires Blueprint availability `public` for exact-Revision adoption.
-- [ ] Archived Blueprint Courses can be forked but not adopted.
+- [ ] Archived Blueprint Courses can be forked.
   - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` accepts Public or Archived sources, while adoption requires Public availability.
   - Mismatch: `src/api/blueprint_course.ts` has no Instructor fork client method, and `BlueprintCourseLifecycleControls` has no fork action.
-- [ ] The owning **Instructor** can return an Archived Blueprint Course to Public before adopting it again.
-  - Evidence (source): `crates/learning-data-access/src/postgres/blueprint_course.rs` `restore_blueprint` sets availability to `public`.
-  - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against restore followed by adoption.
-- [ ] Other **Instructors** can fork an Archived Blueprint Course to create a new Private Blueprint Course.
+- [ ] Forking an Archived Blueprint Course creates a new Private Blueprint Course.
   - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` accepts Archived sources and creates a Private child owned by the actor.
   - Mismatch: `src/api/blueprint_course.ts` has no Instructor fork client method, and `BlueprintCourseLifecycleControls` has no fork action.
-- [x] Blueprint Courses have no separate draft state.
-  - Evidence (source): `schemas/base_schema/blueprints.sql` `CHECK (availability IN ('private', 'public', 'archived'))` defines the complete Blueprint availability state.
+- [ ] The owning **Instructor** can return an Archived Blueprint Course to Public.
+  - Evidence (source): `crates/learning-data-access/src/postgres/blueprint_course.rs` `restore_blueprint` sets availability to `public`.
+  - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against restore followed by adoption.
+- [x] Blueprint Course visibility includes its content, Revision history, and recorded changes.
+  - Evidence (runtime): `schemas/base_schema/blueprint_history.sql` `ple_api.list_blueprint_history` provides separate, ordinary-visibility Revision and metadata-event pages; `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` presents both read-only. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
+- [ ] Visibility does not grant editing authority.
+  - Verification pending: prior C883 owner/nonowner Apply denials are contributor evidence; complete owner mutation boundaries and connected workflow need current-authority verification.
 
-#### Blueprint Course revisions
+#### Blueprint Course revision specifications
 
 - [x] Blueprint Courses use immutable **Blueprint Revisions** for saved reusable content.
   - Evidence (source): `schemas/base_schema/blueprint_revision_integrity.sql` `blueprint_course_revision_is_immutable` rejects Revision updates and deletes.
@@ -1672,7 +1772,7 @@ PLE product or code behavior.
 - [x] Changing a Blueprint Course name does not create a new Blueprint Revision.
   - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.rename_blueprint_course` updates names and metadata ETag without inserting a `blueprint_course_revision`.
 
-#### Blueprint Course stewardship
+#### Blueprint Course stewardship specifications
 
 - [ ] **Instructors** can Star or Watch Public and Archived Blueprint Courses.
   - Mismatch: No Blueprint Star or Watch model, route, or store operation was found.
@@ -1682,6 +1782,8 @@ PLE product or code behavior.
   - Mismatch: No Star model or presentation was found.
 - [ ] Watching a Blueprint Course is private.
   - Mismatch: No Watch model or presentation was found.
+  - Mismatch: source-bound Watch events exist for revisions and forks, but improvement threads and impact notices have no product-defined model or private delivery behavior.
+  - Question: For improvement threads, who may create/read/reply/edit/resolve them, which identity/attachments/linkage/notification/retention rules apply; and for impact notices, who may create them, under what condition, with what text/category/severity/manual-or-derived/linkage/audience/update/cancel rules?
 - [ ] Watchers are notified about new Blueprint Revisions and other important Blueprint changes.
   - Mismatch: No Watch or notification implementation was found.
 - [ ] Forking or adopting a Blueprint Course does not automatically Star or Watch it.
@@ -1689,25 +1791,24 @@ PLE product or code behavior.
 - [ ] Stars and Watches belong to the Blueprint Course across all of its Revisions.
   - Mismatch: No Star or Watch persistence exists.
 
-#### Blueprint adoption and updates
+#### Blueprint adoption and incorporation specifications
 
 - [x] Blueprint adoption copies every Assessment from the Blueprint Course into the Course Instance.
   - Evidence (source): `crates/learning-data-access/src/postgres/course_instance.rs` `create_course_instance` obtains `creation_assignments` before atomic creation.
 - [x] Course Instances pin the exact Blueprint Revision from which they were adopted.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CourseInstanceCreationSource` requires an exact immutable Blueprint Revision source for adoption.
-- [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review and approval.
+- [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: each Course-summary read returned five coherent rows (changed, matching, removed, Type mismatch, automatically added) after lazy open/reopen at 1280 by 900 and 390 by 844. The changed Assessment then reviewed and applied with exact source Revision 2 and daughter Edit CAS; the Course refresh showed the applied match. Student and unrelated reads returned `404 no-store`; a private parent was concealed from another Instructor in the privileged-availability fixture; Archived review remained available and new adoption was denied. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-- [x] Routine Blueprint updates should be quick for an **Instructor** to review and approve.
+- [x] Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` supplies one Course-level Review action, clear per-Assessment status labels, Refresh, and links to the existing Assessment detail Review/Apply workflow.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in compiled-main browser proof at 1280 by 900 and 390 by 844: lazy open/reopen GET behavior produced the five-row Course summary and the Course-to-Assessment detail review. Cancel issued zero POST requests; Apply used exact source Revision 2 plus daughter Edit CAS and a returning Course refresh showed the match. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-- [x] It should be obvious when a Course Instance is using an older Blueprint Revision.
+- [x] It should be obvious when a Course Instance is based on an older Blueprint Revision.
   - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_api.load_course_instance`, `crates/learning-data-access/src/postgres/course_instance.rs` `decode_view`, `src/api/decoders/course_instance.ts` `decodeCourseInstanceView`, and `src/pages/course_instance_page.tsx` `CourseInstancePage` carry the adopted and current Revision numbers and render the older-Revision notice with strict `bigint` comparisons.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` was exercised by accepted independent actual-server/exact-main browser proof across empty, current, newer, and explicit synthetic Private-origin states. The newer state visibly showed its original adopted Revision and the current newer Revision; Student and unrelated-Instructor reads returned nonenumerating `404 no-store`, no extra Blueprint fetch or write occurred, and browser errors were empty. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`.
   - Decision: This read-only notice makes a stale daughter obvious. It does not offer, review, approve, or apply a Blueprint update.
-- [x] Changes to existing Assessments follow the Blueprint Revision update workflow.
-  - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` discovers each adopted Assessment from one current parent Revision; `src/api/assessment_release.ts` `LiveAssessmentReleaseClient` defines the existing detail Apply with source-Revision and daughter-Edit CAS. No persisted offer, receipt, comparison baseline, or new update table is introduced.
-  - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: changed, matching, removed-source, and Type-mismatch existing Assessments were classified before the changed one was explicitly applied. The Course-summary flow is distinct from the earlier per-Assessment proof of exact pins, stale-CAS/no-op/invalid-Released rollback, dates, status, origin, and one populated Assessment Attempt hash at `/private/tmp/ple-daughter-revision-notice-artifacts.kE8MnT`; neither artifact claims all Student Work. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
+- [ ] The **Instructor** decides which changes to existing Assessments to incorporate.
+  - Verification pending: source-audit this changed requirement against its current parent section and the existing implementation; no full current-scope proof is claimed by the prior wording.
 - [x] Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` validates the new-reference delta and inserts only new Assessments; it does not update existing daughter Assessments.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` changes a retained source Assessment title and proves existing daughter Assessment content, entries, and actual Student Work unchanged through Save/replay/no-op/stale operations. Accepted artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
@@ -1718,40 +1819,124 @@ PLE product or code behavior.
   - Decision: Only automatic-new Assessment propagation is verified, not C410 existing-Assessment update offers or the whole Course milestone.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` now invokes the `append.rs` helper `assert_new_assessment_save_preserves_daughter_work`; the existing permanent lifecycle regression passed 1 test with 0 ignored in `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`. No separate seed-sharing test was retained.
 
-#### Blueprint Course forks and Change Proposals
+#### Blueprint Course fork specifications
 
-- [x] An **Instructor** can fork a **Blueprint Course** to create a new independent Blueprint Course.
-  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` creates one actor-owned Private child from an exact source Revision.
-  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
+- [x] An **Instructor** can fork a Public or Archived **Blueprint Course** to create a new Private Blueprint Course.
+  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` accepts one exact Public or Archived source Revision and delegates the actor-owned Private child to the lineage Store.
+  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted actual HTTP evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json` and compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json` that create and open a Private fork.
+- [x] A fork is owned by the **Instructor** who created it.
+  - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` derives the actor from the attested session rather than accepting an owner or availability from the client.
+  - Evidence (runtime): `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` is exercised by accepted browser fixture state at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-fixture-state.json`, which records the created Private fork; the actual HTTP lineage receipt rejects concealed Private intermediates for other Instructors.
 - [x] A fork records the source Blueprint Course and Blueprint Revision from which it was created.
   - Evidence (source): `crates/server/src/blueprint_course/fork.rs` `BlueprintForkSource` carries the source reference and Revision to the Store.
-  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
+- [x] Forking a Blueprint Course creates new Blueprint Assessments.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
+  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
+- [x] Published Questions in the new Blueprint Assessments retain the same Published Question IDs and exact Revisions.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
+  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
+- [x] Question Pools in the new Blueprint Assessments are forked and receive new Question Pool IDs.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` allocates the forked tree from the exact source Revision.
+  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying fresh Assessment and Pool IDs with the same ordered Question Revision membership.
+- [x] Forked Question Pools initially contain the same Published Question IDs and exact Revisions as their source.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` derives comparison relationships from the exact fixed and Pool member Question IDs.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `inventory_question_ids` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-owned-pool-http-proof.json`, verifying forked Pools retain exact ordered Question Revision membership under fresh Pool IDs.
 - [x] Forked Blueprint Courses develop independently and have their own Blueprint Revisions.
   - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.fork_blueprint_course` creates a separately editable fork tree.
-  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
 - [x] Changes to a source Blueprint Course are never automatically applied to its forks.
   - Evidence (source): `crates/question_model/src/blueprint_course/fork_apply.rs` `apply_blueprint_fork` changes only explicit selections.
-  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
-- [x] A fork should make newer changes from its source Blueprint Course easy to discover and review.
+- [x] A Blueprint Course shows its known forks and the **Instructor** who owns each fork.
+  - Evidence (runtime): accepted C881 actual-server proof at `/private/tmp/ple-fork-reader-artifacts.nRikDO` exercises `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks`, returns each fork's owner and recorded origin, and conceals unrelated Instructors with `404 no-store`.
+  - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` and `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` present authorized known-fork rows and owner names.
+- [x] PLE should make newer source Revisions easy for the fork owner to discover and review.
   - Evidence (source): `src/features/blueprint_forks/blueprint_fork_review.tsx` `BlueprintKnownForks` presents the source/fork review entry.
-  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
-- [x] An **Instructor** can selectively bring changes from a source Blueprint Course into their fork.
-  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` presents explicit selected Apply choices.
-  - Owner: Same verified Blueprint fork workflow as the earlier Instructor-interface bullet.
-- [ ] An **Instructor** can create a **Blueprint Course Change Proposal** to propose changes to another Blueprint Course.
-  - Mismatch: No Change Proposal model, route, or store operation was found.
-- [ ] A Change Proposal shows added, removed, and changed Assessments and Question content.
-  - Mismatch: No Change Proposal comparison implementation was found.
-- [ ] The receiving **Instructor** decides which proposed changes to accept.
+- [x] PLE should make newer Revisions in downstream forks visible from their source Blueprint Course.
+  - Evidence (source): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` returns each visible child fork's current Revision for the source view.
+  - Evidence (runtime): `crates/server/src/blueprint_course/known_forks.rs` `list_known_forks` is exercised by accepted compiled-main browser evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, which loads the source known-forks row before opening the pair review.
+- [x] The fork owner decides whether to incorporate source changes into the fork.
+  - Evidence (source): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` passes explicit selected destinations and both source/fork Revision and metadata preconditions to the Store.
+  - Evidence (runtime): `crates/server/src/blueprint_course/fork_apply.rs` `apply_fork_update` is exercised by accepted 84-request actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`, verifying owner selection, four denied preconditions, and zero-write denials.
+- [x] PLE should make it easy for the fork owner to incorporate selected source changes.
+  - Evidence (source): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` presents selected current-pair Apply choices.
+  - Evidence (runtime): `src/features/blueprint_forks/blueprint_fork_apply.tsx` `BlueprintForkApply` is exercised by accepted compiled-main browser proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`, completing selected Apply at desktop and narrow viewports.
+
+#### Blueprint Course Change Proposal specifications
+
+- [ ] A **Blueprint Course Change Proposal** proposes changes from one Blueprint Course to another.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] An **Instructor** can create a Change Proposal for a Blueprint Course they do not own.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] A Change Proposal records the source Blueprint Course and exact Blueprint Revision.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] A Change Proposal records the target Blueprint Course and exact Blueprint Revision used for comparison.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] The proposed changes are represented using the canonical Blueprint Course JSON format.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] PLE compares the proposed JSON with the target Blueprint Revision to determine the proposed changes.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] A Change Proposal should present those changes in a human-readable interface rather than requiring
+  the receiving **Instructor** to review raw JSON.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] A Change Proposal may include any Blueprint Course content represented in its canonical JSON.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] Changes may include Course names and metadata, Assessment names and settings, Assessment additions
+  and removals, and Question membership changes.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] Question content changes belong to the Published Question and are not Blueprint Course changes.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] PLE should present proposed changes in terms meaningful to Instructors rather than as raw JSON changes.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] The receiving **Instructor** can review proposed changes before changing the target Blueprint Course.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] The receiving Instructor decides which proposed changes to accept.
   - Mismatch: No Change Proposal acceptance operation exists.
-- [ ] Accepted changes create a new Blueprint Revision of the receiving Blueprint Course.
-  - Mismatch: No Change Proposal acceptance operation exists.
+- [ ] The receiving Instructor may accept the entire Change Proposal or selected proposed changes.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] Accepted changes are applied to the current target Blueprint Course and create a new Blueprint Revision.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] The Change Proposal remains a record of what was proposed and what was accepted.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] If the target Blueprint Course changes after the proposal was created, PLE should show that the
+  proposal was based on an older target Revision.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+- [ ] PLE should not silently apply a proposal against a newer target Revision when the changes no longer
+  apply cleanly.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] Change Proposals never directly change daughter Course Instances.
   - Mismatch: No Change Proposal implementation exists to verify this invariant.
-- [ ] Daughter Course Instances receive accepted changes through the normal Blueprint update workflow.
-  - Mismatch: No Change Proposal or Blueprint update workflow exists.
+- [ ] Daughter Course Instances receive accepted changes through the normal Blueprint incorporation workflow.
+  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 
-#### Blueprint Course JSON
+#### Blueprint Course comparison specifications
+
+- [x] Any **Instructor** can compare related Blueprint Courses in the same fork lineage when both are visible to that Instructor.
+  - Evidence (source): `schemas/base_schema/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` authorizes an arbitrary related visible current pair before it is projected.
+  - Evidence (runtime): `schemas/base_schema/blueprint_lineage.sql` `ple_api.load_blueprint_comparison_sources` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering visible sibling and transitive pairs in both orientations while concealing Private intermediates and denying unrelated pairs.
+- [x] Fork comparison normally compares the newest Revision of the source Blueprint Course with the newest Revision of the fork.
+  - Evidence (runtime): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` is exercised by accepted current-pair HTTP evidence, returning current source and fork names, ETags, and Revisions.
+  - Evidence (source): `src/api/decoders/blueprint_comparison.ts` `decodeBlueprintComparisonView` requires the current source and fork Revision references.
+- [x] Older Revisions remain available through Blueprint history but are not the normal comparison workflow.
+  - Evidence (runtime): `src/features/blueprint_course/blueprint_history.tsx` `BlueprintHistory` inspects exact older Revisions separately from current-head comparison. Accepted bounded proof is `/private/tmp/ple-blueprint-owned-pool-artifacts.sEJZUB/history-proof.json`.
+- [x] Blueprint Course differences are calculated from canonical JSON when the Instructor requests the comparison.
+  - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` requests C880's canonical comparison projection on demand rather than persisting comparison state.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` compares canonical Blueprint snapshots.
+  - Evidence (runtime): C882's actual HTTP receipt exercises `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` as a real GET-only `no-store` review with zero `ple_data` mutations.
+- [x] Shared Published Question IDs provide durable relationships between Published Questions across Blueprint Course forks.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` derives relationships from shared Question IDs only.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, verifying Rev2-versus-Rev1 shared Question-ID relationships.
+- [x] Blueprint Course comparison does not require Blueprint Assessment identity or history across forks.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` retains only side-local references while relationships carry shared Question IDs.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `BlueprintComparisonAssessment` is exercised by the accepted browser fixture at `/private/tmp/ple-blueprint-comparison-ui-proof/fixture.py`, which verifies source and fork Assessment IDs are disjoint before comparison and Apply.
+- [ ] Comparison should show shared, added, removed, and changed Assessments, Published Questions, and Question Pools.
+  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` has Question Title/Description, Tags and nullable Subject/Topic, but no Subtopic hierarchy; `schemas/base_schema/question_pools.sql` `question_pool` and `question_pool_revision` provide identity/member pins without the shared required Library metadata/support model. Audit the exact requirement; Question-only fields do not establish the expanded Pool/publication scope.
+- [x] Comparison should remain useful when Assessment names, order, or structure have changed.
+  - Evidence (source): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` uses shared Question IDs instead of Assessment names, positions, or cross-Blueprint Assessment identity.
+  - Evidence (runtime): `crates/question_model/src/blueprint_course/fork_comparison.rs` `compare_blueprint_courses` is exercised by accepted actual HTTP proof at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`, covering renamed, reordered, and split canonical content.
+- [x] Comparison visibility follows Blueprint Course visibility rather than fork ownership.
+  - Evidence (source): `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` uses ordinary Blueprint visibility for read-only direct-source review.
+  - Evidence (runtime): C881/C882 accepted `crates/server/src/blueprint_course/fork_review.rs` `load_comparison` ordinary-visibility direct-source review at `/private/tmp/ple-fork-reader-artifacts.nRikDO` and `/private/tmp/ple-fork-review-http-artifacts.LTUgsF` permits visible Public/Archived sides and conceals unauthorized Private sides; ownership restricts Apply, not comparison.
+
+#### Blueprint Course JSON specifications
 
 - [ ] Blueprint Courses have a canonical JSON representation for comparison, import, export, and exchange.
   - Mismatch: Current JSON is internal stored content; no canonical import/export exchange surface was found.
@@ -1776,9 +1961,9 @@ PLE product or code behavior.
 - [ ] Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.
   - Mismatch: No canonical exchange format implementation exists.
 
-### Course Instances
+### Course Instance specifications
 
-#### Course Instance creation
+#### Course Instance creation specifications
 
 - [x] An **Instructor** can create a Course Instance from a Public Blueprint Course.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.load_course_instance_blueprint` requires a Public Blueprint at the selected exact Revision; `src/pages/course_list_page.tsx` `TeachingCourseListPage` exposes the Adopted source only after public Blueprint discovery.
@@ -1821,32 +2006,31 @@ PLE product or code behavior.
   - Mismatch: Current adoption evidence does not verify published Pool copying.
 - [x] Course Instance Assessments created from a Blueprint Course start unreleased with dates unset.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` initializes adopted Assessments as unreleased with delivery dates unset.
-- [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review and approval.
+- [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: each Course-summary read returned five coherent rows (changed, matching, removed, Type mismatch, automatically added) after lazy open/reopen at 1280 by 900 and 390 by 844. The changed Assessment then reviewed and applied with exact source Revision 2 and daughter Edit CAS; the Course refresh showed the applied match. Student and unrelated reads returned `404 no-store`; a private parent was concealed from another Instructor in the privileged-availability fixture; Archived review remained available and new adoption was denied. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: Same verified Course-review workflow as the earlier Blueprint update offer bullet.
-- [x] Routine Blueprint updates should be quick for an **Instructor** to review and approve.
+  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+- [x] Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` supplies one Course-level Review action, clear per-Assessment status labels, Refresh, and links to the existing Assessment detail Review/Apply workflow.
   - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in compiled-main browser proof at 1280 by 900 and 390 by 844: lazy open/reopen GET behavior produced the five-row Course summary and the Course-to-Assessment detail review. Cancel issued zero POST requests; Apply used exact source Revision 2 plus daughter Edit CAS and a returning Course refresh showed the match. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: Same verified Course-review workflow as the earlier routine Blueprint updates bullet.
-- [x] It should be obvious when a daughter Course Instance is using an older Blueprint Revision.
+  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
+- [x] It should be obvious when a daughter Course Instance is based on an older Blueprint Revision.
   - Evidence (source): `schemas/base_schema/course_operations.sql` `ple_api.load_course_instance`, `crates/learning-data-access/src/postgres/course_instance.rs` `decode_view`, `src/api/decoders/course_instance.ts` `decodeCourseInstanceView`, and `src/pages/course_instance_page.tsx` `CourseInstancePage` use the authorized parent origin and exact adopted/current Revision projection for the same visible notice.
   - Evidence (runtime): `src/pages/course_instance_page.tsx` `CourseInstancePage` was covered by independently accepted actual-server/exact-main proof across empty, current, newer, and explicit synthetic Private-origin states; the visually inspected newer capture showed both Revision values and the stale notice. It preserved the original adoption pin, Assessment, and entries; its Work tables were empty, so this proof makes no populated-Student-Work claim. Unauthorized Student and unrelated-Instructor reads returned `404 no-store`. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.u1qUyY`.
   - Decision: This duplicate course-view indication does not implement the separate Blueprint update offer, review, approval, or apply workflow.
-- [x] Changes to existing Assessments follow the Blueprint Revision update workflow.
-  - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` discovers each adopted Assessment from one current parent Revision; `src/api/assessment_release.ts` `LiveAssessmentReleaseClient` defines the existing detail Apply with source-Revision and daughter-Edit CAS. No persisted offer, receipt, comparison baseline, or new update table is introduced.
-  - Evidence (runtime): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` was accepted in actual-server and compiled-main proof: changed, matching, removed-source, and Type-mismatch existing Assessments were classified before the changed one was explicitly applied. The Course-summary flow is distinct from the earlier per-Assessment proof of exact pins, stale-CAS/no-op/invalid-Released rollback, dates, status, origin, and one populated Assessment Attempt hash at `/private/tmp/ple-daughter-revision-notice-artifacts.kE8MnT`; neither artifact claims all Student Work. Artifact: `/private/tmp/ple-daughter-revision-notice-artifacts.zVOyqd`.
-  - Owner: Same verified Course-review workflow as the earlier existing-Assessment update bullet.
+- [ ] The **Instructor** decides which changes to existing Assessments to incorporate.
+  - Verification pending: source-audit this changed requirement against its current parent section and the existing implementation; no full current-scope proof is claimed by the prior wording.
+  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
 - [x] Newly added Blueprint Assessments are automatically added to daughter Course Instances as unreleased Assessments.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` and the PostgreSQL Blueprint Store Save implement the same automatic-new append boundary documented in the earlier identical row.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` accepted connected proof and existing adoption lifecycle regression preserve exact pins/settings, distinct daughter Pool IDs, existing Student Work, original adoption pin, Unreleased state, and unset dates. Artifacts: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8` and `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: Same implementation finding as the earlier newly added Blueprint Assessments bullet.
+  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
 - [x] Blueprint changes to existing Assessments are never silently applied to daughter Course Instances.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_api.append_new_blueprint_assessments` inserts only validated newly added Assessments and does not update existing daughter Assessments.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres/append.rs` `assert_new_assessment_save_preserves_daughter_work` proves the same negative invariant after changing retained source content, preserving daughter content/entries/actual Student Work through Save/replay/no-op/stale operations. Artifact: `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`.
-  - Owner: Same implementation finding as the earlier non-silent Blueprint changes bullet.
+  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint adoption and incorporation specifications (first current-source occurrence).
 
-### Course names
+### Course short and long name specifications
 
 - [x] Blueprint Courses and Course Instances each have their own short name and long name.
   - Evidence (source): `crates/question_model/src/blueprint_course/blueprint_children.rs` `CreateBlueprintCourseInput` and `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` each own both names.
@@ -1862,7 +2046,8 @@ PLE product or code behavior.
   - Reason: This is an illustrative name example, not an implementation requirement.
 - [x] Course Instance names are properties of the Course Instance and are not derived from Blueprint Course names.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` requires independently supplied `short_name` and `long_name`.
-## Assessments
+
+## Assessment specifications
 
 - [ ] **Assessment** is the PLE object for organizing Questions into a graded or practice activity.
   - Evidence (source): `schemas/base_schema/assessments.sql` defines the Course aggregate as `ple_data.assessment`; current Type, release, Attempt, and API boundaries use that name.
@@ -1882,17 +2067,18 @@ PLE product or code behavior.
   - Evidence (source): `schemas/base_schema/assessments.sql`, Assessment Attempt SQL, and browser APIs use `assessment` generally; the closed Type set retains Assignment only in the three specified Type names.
   - Mismatch: A complete title/reference inventory and legacy-consumer cutover verification remain open.
 
-### Assessment content
+### Assessment content specifications
 
 - [x] Assessments contain an ordered sequence of Published Questions and Question Pools.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` renders the mixed entry sequence; `schemas/base_schema/assessments.sql` `assessment_entry_active_authored_position_key` enforces distinct current positions with a deferred constraint, allowing atomic swaps and retired-position reuse. `schemas/base_schema/assessment_operations.sql` `ple_api.load_assessment_workspace_rows` projects only available current entries.
   - Evidence (runtime): accepted independent actual-server/private bundled-main browser proof at `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` saved Fixed A, an imported Pool, and Fixed B, moved the top-level Pool across Fixed A, and reloaded exact ordered entry IDs and Revision pins. Artifact: `/private/tmp/ple-assessment-mixed-entries-artifacts.CogOX1`.
-- [ ] Published Questions stay references to the same Question ID and exact Revision.
-  - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.replace_assessment_entries` preserves retained fixed-entry Question IDs and Revision Numbers and requires both values for saved entries.
-  - Mismatch: The Assessment authoring input still permits ID-only Question selection; require an exact Revision at that input boundary before this invariant can be verified.
+- [x] Published Questions stay references to the same Question ID and exact Revision.
+  - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.replace_assessment_entries` requires and preserves both Question ID and Revision Number for every saved fixed entry.
+  - Evidence (runtime): accepted authenticated HTTP proof at `crates/server/src/blueprint_course.rs` `create_blueprint_course` and the direct Course Assessment route selected Revision 1, advanced the fixture head to Revision 2, then saved and reloaded Revision 1 pins; four ID-only or missing-Revision payloads returned 422 without product changes. Artifact: `/private/tmp/ple-blueprint-owned-pool-artifacts.WpRfn3/exact-revision-authoring-http-proof.json`. This does not establish publication, rendering, browser, or Student Work behavior.
 - [ ] Question Pools are copied by forking when added to another Assessment.
   - Verification pending: Source-contributor audit must confirm the import path creates an Assessment-owned fork rather than a reusable Pool copy; broad runtime evidence remains pending.
-- [ ] A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions as its source.
+- [ ] A newly forked Question Pool initially contains the same Published Question IDs and exact Revisions
+  as its source.
   - Verification pending: Source-contributor audit must confirm the import path carries every exact source Question ID and Revision into the new fork; broad runtime evidence remains pending.
 - [ ] A forked Question Pool can be changed independently without changing its source Question Pool.
   - Verification pending: Source-contributor audit must confirm independent fork revision writes and source preservation; broad runtime evidence remains pending.
@@ -1906,7 +2092,7 @@ PLE product or code behavior.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` renders the exact accessible checkbox label **Randomize question order**.
   - Evidence (runtime): the earlier accepted part 04 actual-main/HTTP receipt saved and reloaded this visible checkbox through `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage`; this is separate from the mixed-entry artifact. C64 owns persisted Question-order behavior. This label receipt does not claim C505's planned filename rename or whole-milestone completion.
 
-### Assessment types
+### Assessment type specifications
 
 - [x] PLE defines the available Assessment Types.
   - Evidence (source): `crates/question_model/src/assessment.rs` `AssessmentType` is the canonical closed model, and `generated/api/AssessmentType.ts` `ASSESSMENT_TYPE_VALUES` carries it to the browser contract.
@@ -1960,44 +2146,19 @@ PLE product or code behavior.
   - Evidence (source): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` resolves Quiz and Exam to an effective limit of `1` before issue or resume.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt covered Quiz resume/submission and Attempt-2 denial, Exam effective-one handling, and expired-pending Exam denial through `crates/learning-data-access/src/postgres/assessment_delivery.rs` `LiveAssessmentDeliveryStore`.
 
-### Assessment type appearance
-
-- [x] Each Assessment Type has its own PLE-defined Font Awesome icon.
-  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` assigns one required Font Awesome icon name and bundled glyph to every canonical Type.
-- [x] Assessment Type icons remain consistent across PLE themes.
-  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` owns the theme-independent Type-to-icon mapping.
-- [x] Each Assessment Type also has its own theme-defined color.
-  - Evidence (source): `src/styles/assessment_types.css` `--ple-assessment-type-regular-assignment` defines the five semantic Type color properties at the root and Course-theme scope.
-- [x] Themes may change Assessment Type colors but preserve the meaning of each Type.
-  - Evidence (source): `src/styles/assessment_types.css` `course-theme-scope` overrides the five semantic Type properties by Type identity; an accepted nested-theme fixture verified the actual scoped cascade.
-- [x] Assessment Type should never be communicated by color alone.
-  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders the Type label and its genuine bundled glyph; color is supplementary.
-- [x] Icons and labels should remain sufficient to identify the Assessment Type without color.
-  - Evidence (source): `src/assessment_type_presentation.ts` `assessmentTypePresentation` returns the canonical Type label and bundled icon metadata independently of color.
-- [x] **Regular Assignment** uses the Font Awesome `pen-to-square` icon.
-  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Regular Assignment to `pen-to-square` and the genuine bundled glyph.
-- [x] **Practice Question Assignment** uses the Font Awesome `arrows-spin` icon.
-  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Practice Question Assignment to `arrows-spin` and the genuine bundled glyph.
-- [x] **Bonus Assignment** uses the Font Awesome `star` icon.
-  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Bonus Assignment to `star` and the genuine bundled glyph.
-- [x] **Quiz** uses the Font Awesome `circle-question` icon.
-  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Quiz to `circle-question` and the genuine bundled glyph.
-- [x] **Exam** uses the Font Awesome `file-signature` icon.
-  - Evidence (source): `src/assessment_type_presentation.ts` `ASSESSMENT_TYPE_PRESENTATIONS` maps Exam to `file-signature` and the genuine bundled glyph.
-
-### Blueprint Assessments
+### Blueprint Assessment specifications
 
 - [x] A **Blueprint Assessment** is an Assessment in a **Blueprint Course**.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintCourseModuleContent` contains ordered `BlueprintAssessmentContent`; `schemas/base_schema/blueprints.sql` `blueprint_revision_assessment` records each stable Blueprint Assessment member of a Blueprint Course Revision.
 - [x] Blueprint Assessments define reusable Assessment content and teaching settings.
   - Evidence (source): `crates/question_model/src/blueprint_operations.rs` `BlueprintAssessmentContent` validates reusable content and `BlueprintAssessmentDefaults` before a Blueprint Course Revision is constructed.
-  - Owner: Same implementation finding as the earlier Assessments bullet.
+  - Owner: 09_assessments.md > Assessment specifications (first current-source occurrence).
 - [x] Blueprint Assessments have an Assessment Type.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `assessment_type` requires the closed five-Type value; `src/api/decoders/blueprint_course.ts` `assessmentType` strictly requires it in both reusable-content input and view decoding without fallback.
   - Evidence (test): `tests/test_blueprint_course_client.mjs` `B1 client sends Revision and metadata validators to their separate routes` covers create/save/view Type round trips plus missing and unknown rejection; the focused Blueprint client lane passed 16/16.
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
   - Mismatch: Ordered entries exist, but published Question and Pool Assessment behavior is not verified.
-  - Owner: Same implementation finding as the earlier Courses bullet.
+  - Owner: 08_courses.md > Course specifications > Blueprint Course specifications > Blueprint Course JSON specifications (first current-source occurrence).
 - [ ] Blueprint Assessments define Question point values and points possible.
   - Mismatch: Point values exist in Assignment source, but Blueprint Assessment behavior is not verified.
 - [ ] Blueprint Assessments have no **Students**, Student Work, due dates, release dates, or other Course Instance delivery settings.
@@ -2008,7 +2169,7 @@ PLE product or code behavior.
 - [ ] Creating a daughter Course Instance from a Blueprint Course copies its Blueprint Assessments into the Course Instance.
   - Mismatch: Copy behavior is outside this source-only verification and uses Assignment terminology.
 
-### Course Instance Assessments
+### Course Instance Assessment specifications
 
 - [x] A **Course Instance Assessment** is an Assessment in a **Course Instance**.
   - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.assessment` requires `course_id` referencing `ple_data.course_instance`; `crates/question_model/src/assessment.rs` `AssessmentOrigin` names direct creation in a Course Instance and adopted creation from an exact Blueprint Assessment.
@@ -2029,7 +2190,7 @@ PLE product or code behavior.
   - Decision: This closes only automatic-new copying, not existing-Assessment update offers, full Student delivery, or the whole Assessment milestone.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` was extended to invoke the `append.rs` helper above; its final integrated connected receipt and malformed-daughter rollback both passed in `/private/tmp/ple-blueprint-append-proof-artifacts.LZU0K8`. This is extension of an existing permanent test, not a separate new test.
 
-### Assessment Templates
+### Assessment Template specifications
 
 - [x] An **Assessment Template** is a reusable set of settings for creating Course Instance Assessments.
   - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` stores reusable settings, and `schemas/base_schema/assessment_template_copy.sql` `ple_api.create_assessment_from_template` makes a direct Course Assessment from them.
@@ -2063,9 +2224,11 @@ PLE product or code behavior.
 - [x] Blueprint Assessments do not use Assessment Templates.
   - Evidence (source): `schemas/base_schema/assessment_templates.sql` `ple_private.assessment_template` defines Templates outside Courses and Blueprints; the by-value path creates only direct Course Assessments.
   - Evidence (runtime): accepted independent fresh PostgreSQL 17 actual-Store receipt passed Template copy to a direct Course Assessment without a Blueprint relationship through `crates/learning-data-access/src/postgres/assessment_template.rs` `PostgresAssessmentTemplateStore`.
-  - Owner: Same implementation finding as the earlier Assessment Templates bullet.
+  - Owner: 09_assessments.md > Assessment specifications > Blueprint Assessment specifications (first current-source occurrence).
 
 ### Course Instance Assessment release and defaults
+
+#### Assessment release validation
 
 - [x] Course Instance Assessments start unreleased.
   - Evidence (source): `schemas/base_schema/assessments.sql` `assessment_status` defaults to `unreleased`; `schemas/base_schema/assessment_creation.sql` `ple_data.create_assessment` creates direct rows without overriding it, `schemas/base_schema/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` owns the same initial status for adopted rows, and `schemas/base_schema/assessment_template_copy.sql` `create_assessment_from_template_values` flows through direct `create_assessment` before copying policy values.
@@ -2100,6 +2263,9 @@ PLE product or code behavior.
   - Mismatch: Assignment delivery source exists, but live access behavior needs runtime evidence.
 - [ ] Student Work begins when a **Student** starts an Assessment Attempt.
   - Mismatch: Attempt issuance source exists, but live Student Work behavior needs runtime evidence.
+
+#### Assessment submission defaults
+
 - [x] New Course Instance Assessments default to accepting submissions only through the due date.
   - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.create_assessment` applies the `reject` late-work default; `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` pins the immutable expiration to the effective Due date for that rule and `ple_private.save_student_assessment_attempt_response` rejects an expired save. Explicit `accept` and `mark_late` overrides remain valid and do not use Due as expiration.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-Student-API proofs exercised `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.save_student_assessment_attempt_response` and the ordinary finalization API, rejecting post-Due save and commit for the default rule while the expiry worker retained both accepted pre-Due saved responses; explicit `accept` and `mark_late` cases remained open through Due and used Closes.
@@ -2109,6 +2275,9 @@ PLE product or code behavior.
 - [x] Late work defaults to rejected.
   - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.create_assessment`, `src/features/blueprint_course/blueprint_course_model.ts` `defaultDefaults`, and `crates/project-tools/src/curriculum_content/publication.rs` `blueprint_input` apply `reject` at direct and reusable-content default creation boundaries while preserving explicit Instructor overrides.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proof exercised `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` and `ple_private.save_student_assessment_attempt_response` through immutable Due expiry and post-Due start/save/commit denial, while confirming that explicit `accept` and `mark_late` remain valid alternatives.
+
+#### Assessment answer and feedback disclosure
+
 - [x] Assessment disclosure settings remain separate and independently configurable.
   - Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `StudentFeedbackReleaseRule` gives score, correctness, submitted response, correct answer, answer explanation, and class statistics independent timing fields; `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` exposes those six fields. Question Feedback is shown when provided and has no delayed-release state.
   - Evidence (test): accepted actual-component proof exercised `src/features/blueprint_course/blueprint_course_create_dialog.tsx` `BlueprintCourseCreateDialog`, switching Type both ways while preserving title, entries, and the resulting Type defaults.
@@ -2145,14 +2314,45 @@ PLE product or code behavior.
 - [x] Optional Question Feedback is shown when the Question Backend provides it.
   - Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_student_feedback` releases backend-provided feedback.
   - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies provided native feedback without answer disclosure.
-  - Owner: Same implementation finding as the earlier Questions bullet.
 - [x] Question Feedback does not use Assessment correct-answer disclosure settings.
   - Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `StudentFeedbackReleaseRule` has no Question Feedback timing field; `crates/domain/src/student_feedback_release.rs` `project_student_feedback` projects supplied feedback independently while `StudentFeedbackReleaseDecision` continues to gate correct answer and explanation.
-  - Owner: Same implementation finding as the earlier Questions bullet.
-- [x] Unreleasing a Course Instance Assessment permanently deletes its Student Work and returns to a pre-release state.
-  - Evidence (test): `tests/e2e/e2e_unrelease_connected.sh` `psql_admin` runs the connected unrelease deletion and pre-release-state oracle.
 
-### Assessment Attempts
+#### Assessment unrelease
+
+- [ ] Unreleasing is the destructive reversal of releasing a Course Instance Assessment.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: fresh current-schema receipt for destructive Unrelease and its pre-release transition. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+- [ ] Unreleasing permanently deletes all Student Work for that Assessment.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: fresh deletion receipt covering all Assessment-scoped Student Work and preservation of unrelated Work. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+- [ ] Student Work deletion includes Assessment Attempts, saved responses, submissions, and grading outcomes.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: fresh deletion receipt explicitly covering saved responses, all submission/result roots, and retained unrelated records. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+- [ ] Unreleasing removes the Assessment from Student availability and returns it to a pre-release state.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: fresh Student access denial and unreleased-state receipt after Unrelease. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+- [ ] The Assessment itself, its Questions, settings, and other Instructor-created content remain.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: before/after comparison of the retained teaching definition, including settings and Instructor-created content. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+- [ ] The Instructor can edit the unreleased Assessment normally after Student Work is deleted.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: authorized ordinary edit-and-save receipt after destructive Unrelease. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+- [ ] Releasing the Assessment again follows the normal Assessment Release Validation process.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: post-Unrelease invalid/corrected validation and ordinary re-release receipt. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+- [ ] A later release starts with no Student Work or Assessment Attempts from the earlier release.
+  - Evidence (source): `schemas/base_schema/unrelease.sql` `ple_api.unrelease_assessment` deletes the Assessment Attempt root and resets release state; dependent work uses FK cascades and the teaching definition is retained.
+  - Evidence (test): `tests/e2e/unrelease_connected_oracle.sql` `ple_api.unrelease_assessment` checks unreleased status, retained Assessment/shared Question, and deleted Attempt/submission/result roots; this existing oracle has not been rerun against the current field cutover.
+  - Verification pending: later-release receipt explicitly showing no earlier Attempts or Work survives. Existing broad test context is partial evidence, not a fresh expanded-scope receipt.
+
+### Assessment Attempt specifications
 
 - [x] An **Assessment Attempt** is one Student attempt at a Course Instance Assessment.
   - Evidence (source): `schemas/base_schema/assessment_attempts.sql` `ple_private.assessment_attempt` requires both a `student_record_id` and an `assessment_id`; that Assessment ID references the Course-owned `ple_data.assessment` aggregate.
@@ -2180,7 +2380,7 @@ PLE product or code behavior.
 - [ ] Automatic grading does not require a separate Student or **Instructor** grading workflow.
   - Mismatch: The current finalization source records direct grading, but no current runtime receipt establishes the complete no-workflow behavior after the retired oracle was removed.
 
-### Assessment responses and submission
+### Assessment response and submission specifications
 
 - [x] The Student submission action submits the whole Assessment Attempt.
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_assessment_attempt_finalization` creates one Assessment submission and finalizes every open issued Question in that Attempt.
@@ -2200,7 +2400,6 @@ PLE product or code behavior.
   Question Backend.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` treats null retained credit as unanswered zero earned points while retaining current points possible; evaluated zero credit remains a distinct grading outcome.
   - Evidence (runtime): `schemas/base_schema/assessment_attempt_operations_api.sql` `ple_api.prepare_student_assessment_attempt_finalization` was invoked by `/private/tmp/ple-unanswered-connected-proof/run.sh --isolated` running the non-versioned temporary fixture `/private/tmp/ple-unanswered-connected-proof/proof.sql` against fresh PostgreSQL 17; its ordinary prepare/commit, history, and Gradebook calls observed no unanswered submission/result, one evaluated-zero result/receipt, incorrect history, `0 / 8` versus `8 / 8`, then `0 / 13` versus `13 / 13`; artifact `/private/tmp/ple-unanswered-connected-artifacts.vUexkI/proof.log` (exit 0). This is not a permanent test and does not exercise Attempt expiry.
-  - Owner: Same implementation finding as the later unanswered Assessment scoring bullet.
 - [ ] PLE treats an incomplete Question response as unsaved, although the Question interface may keep the Student's unfinished input while they work.
   - Mismatch: Incomplete response behavior was not verified.
 - [ ] A Question Backend may evaluate a response before Assessment submission when needed for its interaction.
@@ -2208,17 +2407,36 @@ PLE product or code behavior.
 - [ ] When PLE requests a grading outcome, the Question Backend returns it without a deferred grading
   state.
   - Mismatch: No test/runtime proof of immediate backend grading outcome was recorded.
-  - Owner: Same implementation finding as the earlier Questions bullet.
+  - Owner: 07_questions.md > Question specifications > Question Backend specifications > Question Backend grading and feedback (first current-source occurrence).
 - [ ] The **Student** does not see the grading outcome until the Assessment Attempt is submitted.
   - Mismatch: Student grading-outcome timing needs runtime evidence.
 
-### Assessment Attempt timing and expiration
+### Assessment Attempt timing and expiration specifications
 
 - [ ] Each Assessment Attempt has a time limit.
-  - Mismatch: Assignment time limit is optional rather than required for each attempt.
-- [ ] Attempt time limits help **Students** develop an accurate sense of expected working speed.
-  - Mismatch: This pedagogical effect is not implemented as verifiable product behavior.
-- [x] Timed Assessment Attempts use wall-clock time.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_effective_base_duration_seconds` resolves a finite default or positive Instructor override for current deliverable content.
+  - Mismatch: Fresh SQL release of two Questions resolves the NULL default to 180 seconds, but the subsequent Student start currently fails `Assessment Attempt requires 1 to 250 Questions`. Artifact: `/private/tmp/ple-finite-default-start.WF7OmA/proof.log`. Connected default delivery is therefore not accepted.
+- [x] Each Assessment may contain at most 250 Questions.
+  - Evidence (source): `schemas/base_schema/assessment_pool_forks.sql` `ple_data.import_assessment_question_pool_fork` counts delivered fixed entries and Pool selections before advancing the parent Assessment Edit Number.
+  - Evidence (runtime): `schemas/base_schema/assessment_pool_forks.sql` `ple_data.assessment_delivered_question_count` is exercised by accepted fresh PostgreSQL 17 proof that imported to 250, rejected 251 with `23514`, and verified atomic rollback of the child Pool, Revision, Entry, ownership association, and parent Edit Number. Artifact: `/private/tmp/ple-finite-pool-bound-artifacts.hoI0on/proof.log`. This does not establish browser or general timing behavior.
+- [ ] The default time limit is 1.5 minutes per Question, rounded up to the nearest whole minute.
+  - Evidence (source): `schemas/base_schema/assessment_release_validation.sql` `ple_data.assessment_effective_base_duration_seconds` implements the current calculated default.
+  - Mismatch: The connected NULL-default start fails after release despite the two-Question default resolving to 180 seconds; arithmetic and delivery acceptance remain open. Artifact: `/private/tmp/ple-finite-default-start.WF7OmA/proof.log`.
+- [ ] Instructors can override the default time limit up to 12 hours.
+  - Evidence (source): `crates/question_model/src/assessment.rs` `AssessmentAttemptTimeLimit` bounds a positive explicit override at 43200 seconds.
+  - Verification pending: Accepted Instructor override save/read and delivery evidence remain required.
+- [ ] The interface should show the calculated default time limit and provide a specific Instructor override.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` renders calculated default and explicit override controls.
+  - Verification pending: Actual browser acceptance of display, save, clear-to-default, and reload remains required.
+- [ ] Time limits must support individual **Students** with accommodations, such as 1.5X or 2X time.
+  - Evidence (source): Existing private SQL accommodation settings supply absolute seconds, not a 1.5X/2X ratio model or Instructor accommodation interface.
+  - Mismatch: Individual ratio accommodations and their interface/default interactions are not implemented or verified.
+- [ ] Student accommodations are applied after the Assessment time limit and may extend that Student's effective time limit
+  up to 24 hours.
+  - Mismatch: Existing absolute-second accommodations are neither a ratio model nor an enforced effective 24-hour cap.
+- N/A Attempt time limits help **Students** develop an accurate sense of expected working speed.
+  - Reason: audited pedagogical purpose, not a separately testable PLE behavior or demonstrated learning effect. The preceding time-limit/default/override/accommodation requirements remain binding implementation requirements.
+- [x] Assessment Attempts use wall-clock time.
   - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres.rs` `late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks` observes database `clock_timestamp()` reach the persisted expiry before rejecting late work.
 - [x] The server owns the Attempt start and expiration times.
   - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres.rs` `late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks` reads the persisted server `expires_at` against database `clock_timestamp()`.
@@ -2226,19 +2444,25 @@ PLE product or code behavior.
   - Evidence (test): `tests/e2e/e2e_live_demo_assignment_attempt.sh` `prove_background_expiry` proves the generic worker finalizes an expired Attempt without a further Student interaction.
 - [ ] A **Student** may reconnect, reload, or use another browser session to resume the same active Attempt.
   - Mismatch: `tests/e2e/e2e_live_demo_assignment_attempt.sh` `prove_start` repeats start with the same cookie; it does not prove reconnect, reload, or a distinct browser session.
-- [ ] Resuming an Attempt does not reset, pause, or extend its time limit.
-  - Mismatch: Resume source returns the active Attempt, but no test or runtime observation verifies that its time limit remains unchanged.
+- [x] Resuming an Attempt does not reset or extend its expiration time.
+  - Evidence (runtime): `schemas/base_schema/assessment_attempt_operations.sql` `ple_private.start_assessment_attempt` is invoked twice under the same Student identity by accepted `/private/tmp/ple-attempt-timing-proof/proof.sql` against fresh PostgreSQL 17, artifact `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log` (exit 0). The second SQL call returns the original Attempt with `resumed=true`; assertions establish exactly one Attempt and exactly unchanged `started_at` and `expires_at`, eight seconds apart. This closes unchanged resume at the SQL boundary, not browser reload/reconnect or another authenticated HTTP session.
 - [x] Attempt expiration is checked whenever a **Student** interacts with the Attempt.
   - Evidence (test): `crates/learning-data-access/tests/grading_lifecycle_postgres.rs` `late_save_and_commit_recheck_the_clock_after_waiting_on_their_locks` proves a save rechecks the server clock after lock waiting and returns `expired`.
 - [x] Background processing ensures expired Attempts are submitted even when the **Student** is no longer connected.
   - Evidence (test): `tests/e2e/e2e_live_demo_assignment_attempt.sh` `prove_background_expiry` waits only for generic-worker immutable evidence, then proves the expired Attempt is submitted.
-- [ ] When an Attempt expires, PLE submits the whole Attempt, finalizing its saved responses. Other
-  Questions remain visibly unanswered, receive zero credit, and count as incorrect without being
-  sent to the Question Backend.
+  - Evidence (runtime): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_expired_student_assessment_attempt_finalization` is invoked under the real expiry-worker SQL role by fresh `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log` after a wait against the original deadline with advancing `clock_timestamp()`, without further Student interaction. This supplementary proof does not exercise the deployed worker polling loop or actual browser disconnect.
+- [ ] When an Attempt expires, PLE submits the whole Attempt and finalizes its saved responses.
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.commit_expired_student_assessment_attempt_finalization` delegates deadline whole-Attempt finalization to `ple_private.commit_assessment_attempt_finalization`, which closes missing responses as `closed_unanswered`.
-  - Verification pending: `/private/tmp/ple-unanswered-connected-proof/run.sh --isolated` ran only ordinary `ple_api.prepare_student_assessment_attempt_finalization` and `ple_api.commit_student_assessment_attempt_finalization` from its temporary SQL fixture; it did not invoke `ple_api.commit_expired_student_assessment_attempt_finalization` or otherwise exercise Attempt expiry.
+  - Evidence (runtime): Accepted fresh PostgreSQL 17 `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log` exercises real elapsed expiry and real expiry-worker-role prepare/commit for one Attempt with two issued Questions: one unanswered, one saved. Prepare excludes the unanswered Question; commit with an explicitly simulated synchronous Backend zero-credit outcome returns `8 / 16` under FullCredit. The unanswered Question is `closed_unanswered`, has no submission/grading evidence, and history is incorrect `0 / 8`; the saved Question has immutable submission/grading evidence, `normalized_credit=0`, and incorrect `8 / 8` history. No expired prepared work remains.
+  - Verification pending: The accepted SQL boundary does not establish rendered presentation or actual Backend transport.
+- [ ] Unanswered Questions remain visibly unanswered, receive zero credit, and count as incorrect.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof retains an unanswered Question without submission/grading evidence and reports it incorrect at `0 / 8`. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
+  - Verification pending: Rendered visibly-unanswered presentation remains unobserved.
+- [ ] Unanswered Questions are not sent to the Question Backend.
+  - Evidence (runtime): accepted fresh PostgreSQL 17 expiry proof excludes the unanswered Question from the prepared backend work set. Artifact: `/private/tmp/ple-attempt-timing-artifacts.7HGbyP/proof.log`.
+  - Verification pending: Actual Backend transport exclusion remains unobserved.
 
-### Student Work
+### Student Work specifications
 
 - [x] Student Work keeps the exact Published Question Revision delivered to the **Student**.
   - Evidence (source): `schemas/base_schema/assessment_attempts.sql` `issued_question_is_immutable` stores issued Question revision identity under foreign-key protection.
@@ -2252,13 +2476,13 @@ PLE product or code behavior.
 - [ ] PLE should retain only the additional historical Student Work data needed to interpret or grade that work correctly.
   - Mismatch: No minimal-retention contract was verified.
 
-### Assessment scoring
+### Assessment scoring specifications
 
 - [ ] Blueprint Assessments and Course Instance Assessments assign point values to Questions.
   - Mismatch: Assignment point values exist, but the HG Assessment model is not implemented.
 - [ ] A Question Backend returns an immutable credit fraction for each complete response it evaluates.
   - Mismatch: The live WeBWorK submission check observes stored credit, but no direct adapter test proves a Question Backend returns that fraction as an immutable outcome.
-  - Owner: Same implementation finding as the earlier Questions bullet.
+  - Owner: 07_questions.md > Question specifications > Question Backend specifications > Question Backend grading and feedback (first current-source occurrence).
 - [x] PLE stores the credit fraction as the Question grading outcome.
   - Evidence (source): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` inserts the supplied credit fraction into `ple_private.grading_result.normalized_credit`, constrained to the inclusive unit interval and retained under `grading_result_is_immutable`.
   - Evidence (runtime): `schemas/base_schema/grading.sql` `ple_private.record_direct_automated_grading_result` is invoked by the accepted private PostgreSQL 17 production-SQL lifecycle fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) retained the submitted `0.5` fraction while rescoring current points from `8` to `13`. This SQL-only fixture simulates the initial synchronous Backend credit and does not establish Backend transport or HTTP.

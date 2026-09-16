@@ -36,7 +36,7 @@ CREATE TABLE ple_private.assessment_template (
     ),
     assessment_attempt_time_limit_seconds integer CHECK (
         assessment_attempt_time_limit_seconds IS NULL
-        OR assessment_attempt_time_limit_seconds > 0
+        OR assessment_attempt_time_limit_seconds BETWEEN 1 AND 43200
     ),
     assessment_attempt_limit integer CHECK (
         assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0

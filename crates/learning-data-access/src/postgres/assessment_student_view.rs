@@ -89,6 +89,18 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
             .await
             .map_err(map_sqlx_error)?;
         let first = rows.first().ok_or(StoreError::NotFound)?;
+        let duration_seconds: Option<i32> = sqlx::query_scalar(
+            "SELECT ple_api.read_instructor_student_view_duration_seconds($1, $2)",
+        )
+        .bind(course.as_string())
+        .bind(assessment.as_string())
+        .fetch_one(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?;
+        let mut effective_delivery = delivery(first)?;
+        effective_delivery.assessment_attempt_time_limit_seconds = duration_seconds
+            .map(|seconds| u32::try_from(seconds).map_err(|_| invalid("Assessment duration")))
+            .transpose()?;
         let display_time_zone: String =
             sqlx::query_scalar("SELECT ple_api.current_account_time_zone()")
                 .fetch_one(&mut *transaction)
@@ -106,7 +118,7 @@ impl InstructorStudentViewStore for PostgresInstructorStudentViewStore {
             .map_err(|_| invalid("Assessment Instructions"))?,
             display_time_zone: AccountTimeZone::parse(&display_time_zone)
                 .map_err(|_| invalid("Account Time Zone"))?,
-            delivery: delivery(first)?,
+            delivery: effective_delivery,
             assessment_question_order_rule: assessment_question_order_rule(first)?,
             entries: snapshot_entries(&rows)?,
         };

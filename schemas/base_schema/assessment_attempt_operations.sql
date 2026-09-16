@@ -4,6 +4,30 @@
 
 SET LOCAL ROLE ple_private_owner;
 
+-- The same finite calculation serves landing, access, start, and Instructor
+-- previews. Apply the Student multiplier only after the authored/default base.
+CREATE FUNCTION ple_private.assessment_effective_duration_seconds(
+    p_assessment_id uuid, p_time_multiplier numeric
+) RETURNS integer LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data, ple_private AS $$
+DECLARE base_seconds integer;
+DECLARE multiplier numeric := COALESCE(p_time_multiplier, 1);
+BEGIN
+    -- ASVS 2.2.1: NaN, infinities, and shortening multipliers are invalid.
+    IF multiplier < 1 OR multiplier >= 'Infinity'::numeric THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Student time multiplier is invalid';
+    END IF;
+    base_seconds := ple_data.assessment_effective_base_duration_seconds(p_assessment_id);
+    IF base_seconds IS NULL THEN RETURN NULL; END IF;
+    -- Test before multiplying: even the largest finite multiplier cannot
+    -- overflow an intermediate product. Fractional seconds round upward.
+    IF multiplier >= 86400::numeric / base_seconds THEN RETURN 86400; END IF;
+    RETURN least(86400, ceil(base_seconds * multiplier)::integer);
+END $$;
+REVOKE ALL ON FUNCTION ple_private.assessment_effective_duration_seconds(uuid, numeric) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.assessment_effective_duration_seconds(uuid, numeric)
+    TO ple_api_owner;
+
 CREATE FUNCTION ple_private.lock_assessment_for_student_work(p_assessment_id uuid)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data, ple_private AS $$
@@ -128,8 +152,8 @@ BEGIN
        )
        AND (candidate.expires_at IS NULL OR candidate.expires_at > evaluated_at)
      ORDER BY candidate.assessment_attempt_number DESC LIMIT 1;
-    -- Resume interprets retained evidence under its retained rule before a
-    -- current limit or late-work refusal can authorize a new Attempt.
+    -- Resume the eligible active Attempt before a current limit or late-work
+    -- refusal can authorize a new Attempt; its retained deadline is unchanged.
     IF FOUND THEN
         resumable_assessment_attempt_id := existing_assessment_attempt.assessment_attempt_id;
         resumable_assessment_attempt_number := existing_assessment_attempt.assessment_attempt_number;
@@ -142,6 +166,11 @@ BEGIN
     ELSIF start_decision_value = 'late_work_refused' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Assessment Attempt start is outside its effective availability';
+    END IF;
+    -- ASVS 2.2.2, 2.3.2: new work must resolve a positive finite base.
+    IF ple_data.assessment_effective_base_duration_seconds(p_assessment_id) IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment Attempt requires 1 to 250 Questions';
     END IF;
     resumable_assessment_attempt_id := NULL;
     resumable_assessment_attempt_number := NULL;
@@ -160,6 +189,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
 DECLARE now_value timestamptz;
 DECLARE effective_assessment_attempt_limit integer;
+DECLARE effective_duration_seconds integer;
 DECLARE start_gate record;
 DECLARE next_assessment_attempt_number integer;
 DECLARE selection jsonb;
@@ -196,6 +226,12 @@ BEGIN
     SELECT * INTO accommodation_row
       FROM ple_private.student_assessment_accommodation
      WHERE student_record_id = p_student_record_id AND assessment_id = p_assessment_id;
+    effective_duration_seconds := ple_private.assessment_effective_duration_seconds(
+        p_assessment_id, accommodation_row.time_multiplier
+    );
+    IF effective_duration_seconds IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt requires a finite duration';
+    END IF;
     SELECT COALESCE(max(assessment_attempt_row.assessment_attempt_number), 0) + 1 INTO next_assessment_attempt_number
       FROM ple_private.assessment_attempt AS assessment_attempt_row
      WHERE assessment_attempt_row.student_record_id = p_student_record_id
@@ -220,16 +256,7 @@ BEGIN
         -- ASVS 2.3.2, 8.3.1: one immutable server-owned expiration applies
         -- every effective timing limit that authorizes Student interaction.
         least(
-            CASE
-                WHEN COALESCE(accommodation_row.assessment_attempt_time_limit_seconds,
-                              assessment_row.assessment_attempt_time_limit_seconds) IS NOT NULL
-                    THEN now_value + pg_catalog.make_interval(
-                        secs => COALESCE(
-                            accommodation_row.assessment_attempt_time_limit_seconds,
-                            assessment_row.assessment_attempt_time_limit_seconds
-                        )
-                    )
-            END,
+            now_value + pg_catalog.make_interval(secs => effective_duration_seconds),
             COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
             CASE WHEN assessment_row.late_work_rule = 'reject'
                 THEN COALESCE(accommodation_row.due_at, assessment_row.due_at)
@@ -239,7 +266,7 @@ BEGIN
         COALESCE(accommodation_row.available_at, assessment_row.available_at),
         COALESCE(accommodation_row.due_at, assessment_row.due_at),
         COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
-        COALESCE(accommodation_row.assessment_attempt_time_limit_seconds, assessment_row.assessment_attempt_time_limit_seconds),
+        effective_duration_seconds,
         effective_assessment_attempt_limit,
         assessment_row.late_work_rule, assessment_row.question_variation_rule,
         assessment_row.assessment_question_order_rule,
@@ -251,8 +278,8 @@ BEGIN
                OR accommodation_row.closes_at IS NOT NULL THEN accommodation_row.accommodation_id END,
         CASE WHEN accommodation_row.available_at IS NOT NULL OR accommodation_row.due_at IS NOT NULL
                OR accommodation_row.closes_at IS NOT NULL THEN accommodation_row.accommodation_edit_number END,
-        CASE WHEN accommodation_row.assessment_attempt_time_limit_seconds IS NOT NULL THEN accommodation_row.accommodation_id END,
-        CASE WHEN accommodation_row.assessment_attempt_time_limit_seconds IS NOT NULL THEN accommodation_row.accommodation_edit_number END,
+        CASE WHEN accommodation_row.time_multiplier IS NOT NULL THEN accommodation_row.accommodation_id END,
+        CASE WHEN accommodation_row.time_multiplier IS NOT NULL THEN accommodation_row.accommodation_edit_number END,
         CASE WHEN assessment_row.assessment_type NOT IN ('quiz', 'exam')
                   AND accommodation_row.assessment_attempt_limit IS NOT NULL
              THEN accommodation_row.accommodation_id END,

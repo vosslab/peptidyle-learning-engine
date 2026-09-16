@@ -20,6 +20,7 @@ pub mod answer;
 /// Stable Assessment Entries, Question Pools, and exact point values.
 pub mod assessment;
 pub mod assessment_activity_rules;
+pub mod assessment_student_time_accommodation;
 /// Browser-safe, no-write Instructor Student View contracts.
 pub mod assessment_student_view;
 /// Instructor-owned reusable Assessment settings.
@@ -239,6 +240,9 @@ pub use crate::question_library::{
     QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
+pub use crate::assessment_student_time_accommodation::{
+    AssessmentStudentTimeAccommodation, SaveAssessmentStudentTimeAccommodationInput,
+};
 pub use crate::question_pool_library::{
     AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
     QuestionPoolLibrarySummary, QuestionPoolRevisionMemberView, QuestionPoolRevisionView,

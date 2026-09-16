@@ -1,8 +1,11 @@
 ### Student interface
 
+#### General Student interface
+
 - [x] The Student interface should focus on current Courses, Coursework, and work that needs attention.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` lists current courses; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` lists assigned work.
-- [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question Assignments, Bonus Assignments, Quizzes, and Exams.
+- [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question
+  Assignments, Bonus Assignments, Quizzes, and Exams.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` labels the collective section and its loading and empty states "Coursework," while each item receives one canonical Type from the typed projection.
   - Mismatch: the actual PostgreSQL landing Store proved the same closed Type column with Regular Assignment and the compiled SolidJS/mock-API browser evidence was accepted, but the connected Student HTTP workflow was not run; this broad Student-facing terminology row remains runtime-unverified.
 - [ ] Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
@@ -12,10 +15,6 @@
   - Evidence (source): `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` labels the Student-only tab "Coursework" and `RIBBON_TASK_CATALOG` labels its return task "Back to Coursework"; `src/ribbon/ribbon_contract.ts` uses "Before you start" when the individual Coursework title is not yet available, "Attempt" for the Student Attempt task area and current breadcrumb, and "Attempt history" for the history breadcrumb. Instructor Assessment labels remain separate.
   - Evidence (test): `tests/test_ribbon_contract.mjs` `Student Coursework navigation retains collective labels` and its canonical breadcrumb projections passed with the focused 15-test Ribbon contract lane.
   - Evidence (runtime): `src/ribbon/ribbon_catalog.ts` `TAB_CATALOG` and `src/ribbon/ribbon_contract.ts` `deriveRibbonModel` were exercised by accepted isolated actual-server/exact-main Student browser receipts `/private/tmp/ple-course-empty-artifacts.r7S1T6` and `/private/tmp/ple-course-empty-artifacts.ONrLSK`. They showed the Coursework Ribbon tab, "Before you start" overview breadcrumb, specific Practice Question Assignment Type, and the submitted Attempt history route/breadcrumb after a real native Student Attempt. The source catalog keeps the return task "Back to Coursework"; the complete Student Ribbon task layout remains separately unlocked.
-- N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**, **Bonus Assignments**, **Quizzes**, and **Exams**.
-  - Reason: Optional permission does not require current product behavior.
-- [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
-  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
 - [x] The Student interface should make the next useful action easy to find.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents the primary "Open Assessment" action.
 - [ ] The Student menu is simpler than the Instructor menu.
@@ -28,6 +27,17 @@
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` uses "Your courses" and "Open assigned work".
 - [ ] Student navigation and pages should contain only Student interfaces and capabilities.
   - Mismatch: `src/route_contract.ts` `studentCourseLanding` restricts that one route to Students, but source inspection is not evidence that every Student navigation and page exposes only Student capabilities; the required authorization/runtime check has not been recorded.
+- [x] Student content entry should use the response controls provided by Questions and other Student activities.
+  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
+- [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
+  - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
+  - Owner: 03_shell.md > Interface design > General interface design (first current-source occurrence).
+- [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
+  - Reason: HG: no locked-in design.
+  - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
+
+#### Student Course and Coursework interface
+
 - [x] Students enrolled in one active Course should go directly into that Course.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` redirects the one-entry `courses()` result to its Course reference.
 - [x] Students should be able to see their active Courses and Coursework from the main navigation.
@@ -39,13 +49,23 @@
 - [x] Coursework lists should make due dates, Type, and completion status easy to scan.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` presents visible Type, due, completion, and state fields from the typed Student projection.
   - Evidence (runtime): `crates/learning-data-access/tests/assessment_access_postgres.rs` `access_reader_projects_one_authoritative_decision_and_effective_policy` passed on a fresh PostgreSQL 17 database and projected the Regular Assignment Type, due/availability facts, completion, and resumability through the actual landing Store; accepted compiled SolidJS/mock-API browser evidence proved the fields are scannable. This does not claim a connected HTTP-server run.
-- [x] Before starting Coursework, Students should see its title, Type, Question count, points possible, time limit, and previous Attempts.
+- N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
+  **Bonus Assignments**, **Quizzes**, and **Exams**.
+  - Reason: Optional permission does not require current product behavior.
+- [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
+  - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
+- [x] Before starting Coursework, Students should see its title, Type, Question count, points possible,
+  time limit, and previous Attempts.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` presents the title, specific Type, Question count, points possible, time limit, and previous Attempts before start.
   - Evidence (source): `src/components/student_assessment_presentation.tsx` `StudentAssessmentStartFacts` owns the compact Question, points, and time-limit facts.
   - Evidence (runtime): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` was exercised by accepted isolated actual-server/exact-main Student proof `/private/tmp/ple-course-empty-artifacts.JCFLm9` after a real roster import/claim. It opened a Released direct Practice Assessment before Start and showed title, Practice Type, one Question, one point, the exact one-hour limit, and an explicit zero-previous-Attempt state; an Unreleased sibling was omitted and an outsider received 404. A separate accepted native Student HTTP/browser run `/private/tmp/ple-course-empty-artifacts.ONrLSK` whole-submitted a real graded 1/1 Attempt, then reopened the overview before starting another. The same six facts included an actual "Previous attempts" Attempt 1 Submitted link; its clicked history showed recorded PKU response and 1/1 score. The overview's previous-Attempt score is optional under the current DTO, so this row does not require that optional value or claim every Student viewport.
+
+#### Student Coursework interface
+
 - [x] Students see one Question at a time while completing Coursework.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders one keyed current presentation in one `article.question-card`.
-- [x] While completing Coursework, navigation should show every Question, its saved status, and allow Students to jump directly between Questions.
+- [x] While completing Coursework, navigation should show every Question, its saved status, and allow
+  Students to jump directly between Questions.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` renders every position, saved-status label, and position button.
   - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
@@ -58,18 +78,13 @@
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders `remainingMilliseconds` in the persistent header while keyed Question presentations change below it.
 - [x] Submission status should be obvious and use plain language.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Submitting Assessment...", "Your answers were accepted", and plain-language save or submission errors from the submission state.
+
+#### Student Coursework review interface
+
 - [x] Scores and feedback should appear where the Coursework settings allow them.
   - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_history` applies the server-owned feedback-release decision before projecting scores and per-Question feedback; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` renders only the released fields present in that projection.
 - [x] Completed Coursework should remain easy to find and review.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` lists and links previous Attempts; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` presents the selected Attempt's score and recorded work.
-- [x] Student content entry should use the response controls provided by Questions and other Student activities.
-  - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` passes the current Question presentation's response format to `QuestionPresentationResponseControl`.
-- [ ] The complete Student Ribbon task layout does not have a locked-in design yet.
-  - Reason: HG: no locked-in design.
-  - Mismatch: no complete Student Ribbon task layout can be verified until the design is locked.
-- [ ] Students should have no upload capabilities. Instructor-created content should use text boxes.
-  - Mismatch: Student upload denial is not sufficient to verify the universal Instructor text-box requirement.
-  - Owner: The earlier identical bullet in `03_shell.md`, General interface design, owns this open requirement.
 
 ### Sysadmin interface
 

@@ -1,4 +1,5 @@
 import { A } from "@solidjs/router";
+import { assessmentDurationDefaultDescription } from "../../assessment_duration";
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
@@ -144,6 +145,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       parsedAvailableAt === undefined ||
       parsedClosesAt === undefined ||
       parsedTimeLimit === undefined ||
+      (parsedTimeLimit !== null && parsedTimeLimit > 43_200) ||
       parsedAttemptLimit === undefined
     )
       return null;
@@ -599,16 +601,32 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
             </Show>
           </div>
           <label class="assessment-editor-field">
-            Time limit in seconds
+            Assessment duration override in seconds (optional, maximum 12 hours)
             <input
               type="number"
               min="1"
+              max="43200"
+              step="1"
               value={timeLimit()}
               onInput={(event) => {
                 setTimeLimit(event.currentTarget.value);
                 recordDraft();
               }}
             />
+            <small>
+              {assessmentDurationDefaultDescription(
+                workspace
+                  .assessment()
+                  .workspace.entries.reduce(
+                    (count, entry) =>
+                      entry.availability === "available"
+                        ? count + (entry.kind === "fixedQuestion" ? 1 : entry.selectionCount)
+                        : count,
+                    0,
+                  ),
+              )}{" "}
+              Leave the override blank to use this default.
+            </small>
           </label>
           <label class="assessment-editor-field">
             Attempt limit
@@ -744,19 +762,19 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                       <li>
                         {issue === "noPublishedQuestions"
                           ? "Select and save at least one published Question."
-                          : issue === "questionUnavailable"
-                            ? "A selected Question is unavailable. Review and save the Questions list."
-                            : issue === "dueDateRequired"
-                              ? "Enter a Due date, save, then check release readiness again."
-                              : issue === "dueDateLessThan24HoursAhead"
-                                ? "Move the Due date to at least 24 hours from now, save, then check release readiness again."
-                                : issue === "dueDateAfterCourseActiveUntil"
-                                  ? "Move the Due date no later than the Course Active limit, save, then check release readiness again."
-                                  : issue === "availabilityAfterDueDate"
-                                    ? "Move Available to no later than the Due date, save, then check release readiness again."
-                                    : issue === "dueDateAfterClose"
-                                      ? "Move Closes to the Due date or later, save, then check release readiness again."
-                                      : "Enter a positive time limit in Assessment Properties, save, then check release readiness again."}
+                          : issue === "questionCountExceeded"
+                            ? "Reduce the Assessment to at most 250 delivered Questions, counting each Pool's selected Questions."
+                            : issue === "questionUnavailable"
+                              ? "A selected Question is unavailable. Review and save the Questions list."
+                              : issue === "dueDateRequired"
+                                ? "Enter a Due date, save, then check release readiness again."
+                                : issue === "dueDateLessThan24HoursAhead"
+                                  ? "Move the Due date to at least 24 hours from now, save, then check release readiness again."
+                                  : issue === "dueDateAfterCourseActiveUntil"
+                                    ? "Move the Due date no later than the Course Active limit, save, then check release readiness again."
+                                    : issue === "availabilityAfterDueDate"
+                                      ? "Move Available to no later than the Due date, save, then check release readiness again."
+                                      : "Move Closes to the Due date or later, save, then check release readiness again."}
                       </li>
                     )}
                   </For>

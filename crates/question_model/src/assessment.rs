@@ -327,7 +327,7 @@ pub struct BaseAssessmentPolicy {
     /// Hard instant after which new work is closed.
     #[serde(rename = "closes_at")]
     pub closes_at: Option<Timestamp>,
-    /// Whole Assessment Attempt time limit when one applies.
+    /// Explicit Assessment duration override; None calculates the content-based default.
     #[serde(rename = "assessment_attempt_time_limit_seconds")]
     pub assessment_attempt_time_limit_seconds: Option<NonZeroU32>,
     /// Maximum number of Assessment Attempts when one applies.
@@ -363,8 +363,8 @@ pub struct AssessmentAuthoredContent {
     pub activity_rules: AssessmentActivityRules,
 }
 
-/// Largest whole Assessment Attempt limit representable by PostgreSQL `INTEGER`.
-pub const MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 2_147_483_647;
+/// Maximum Instructor-authored Assessment duration override: twelve hours.
+pub const MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS: u32 = 43_200;
 
 /// Largest attempt limit representable by PostgreSQL `INTEGER`.
 pub const MAX_ASSESSMENT_ATTEMPT_LIMIT: u32 = 2_147_483_647;
@@ -563,8 +563,8 @@ mod tests {
     }
 
     #[test]
-    fn assessment_time_limit_domain_matches_postgres_integer() {
-        assert_eq!(MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, 2_147_483_647);
+    fn assessment_limits_match_authored_contract() {
+        assert_eq!(MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, 43_200);
         assert_eq!(MAX_ASSESSMENT_ATTEMPT_LIMIT, 2_147_483_647);
         assert_eq!(MAX_ASSESSMENT_ORDERED_ENTRIES, 1_024);
         assert_eq!(MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY, 1_024);

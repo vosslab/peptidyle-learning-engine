@@ -430,10 +430,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                     .map_err(map_sqlx_error)?
                     .as_str()
                 {
-                    "assessment_attempt_time_limit_required" => {
-                        Ok(AssessmentReleaseIssue::TimeLimitRequired)
-                    }
                     "questions_required" => Ok(AssessmentReleaseIssue::NoPublishedQuestions),
+                    "question_count_exceeded" => Ok(AssessmentReleaseIssue::QuestionCountExceeded),
                     "question_pool_insufficient_items" => {
                         Ok(AssessmentReleaseIssue::QuestionUnavailable)
                     }

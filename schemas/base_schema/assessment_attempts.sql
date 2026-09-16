@@ -17,15 +17,15 @@ CREATE TABLE ple_private.student_assessment_accommodation (
     available_at timestamptz,
     due_at timestamptz,
     closes_at timestamptz,
-    assessment_attempt_time_limit_seconds integer,
+    time_multiplier numeric,
     assessment_attempt_limit integer,
     created_at timestamptz NOT NULL,
     accommodation_edit_number bigint NOT NULL DEFAULT 1
         CHECK (accommodation_edit_number > 0),
     CHECK ((available_at IS NULL OR due_at IS NULL OR available_at <= due_at)
        AND (due_at IS NULL OR closes_at IS NULL OR due_at <= closes_at)),
-    CHECK (assessment_attempt_time_limit_seconds IS NULL
-       OR assessment_attempt_time_limit_seconds > 0),
+    CHECK (time_multiplier IS NULL
+       OR (time_multiplier >= 1 AND time_multiplier < 'Infinity'::numeric)),
     CHECK (assessment_attempt_limit IS NULL OR assessment_attempt_limit > 0),
     UNIQUE (accommodation_id, student_record_id, assessment_id),
     UNIQUE (student_record_id, assessment_id)

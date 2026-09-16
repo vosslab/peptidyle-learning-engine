@@ -287,6 +287,7 @@ DECLARE
     limit_value jsonb;
     time_limit_value jsonb;
     selection_value jsonb;
+    delivered_question_count bigint;
 BEGIN
     IF NOT ple_data.blueprint_content_has_exact_keys(p_content, ARRAY['modules'])
        OR jsonb_typeof(p_content -> 'modules') <> 'array'
@@ -331,11 +332,79 @@ BEGIN
             ) THEN
                 RETURN false;
             END IF;
+            -- ASVS 2.2.1, 2.2.2: NULL means the calculated default, never Unlimited.
+            IF defaults_value -> 'assessment_attempt_time_limit_seconds' <> 'null'::jsonb THEN
+                IF jsonb_typeof(defaults_value -> 'assessment_attempt_time_limit_seconds') <> 'number'
+                   OR defaults_value ->> 'assessment_attempt_time_limit_seconds' !~ '^[1-9][0-9]*$'
+                   OR (defaults_value ->> 'assessment_attempt_time_limit_seconds')::numeric > 43200 THEN
+                    RETURN false;
+                END IF;
+            END IF;
+            delivered_question_count := 0;
             activity_value := defaults_value -> 'activity_rules';
             feedback_value := defaults_value -> 'student_feedback_release_rule';
             IF NOT ple_data.blueprint_content_has_exact_keys(activity_value, ARRAY[
                 'questionVariationRule',
-                $$;
+                'assessmentQuestionOrderRule'
+            ]) OR NOT ple_data.blueprint_content_has_exact_keys(feedback_value, ARRAY[
+                'score', 'per_item_correctness', 'submitted_response',
+                'question_answer', 'question_answer_explanation', 'class_statistics'
+            ]) THEN
+                RETURN false;
+            END IF;
+            FOR entry_value IN SELECT value FROM jsonb_array_elements(content_value -> 'entries') LOOP
+                IF entry_value ->> 'kind' = 'fixed' THEN
+                    delivered_question_count := delivered_question_count + 1;
+                    IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
+                        'kind', 'question_revision', 'points_possible', 'scoring_rule',
+                        'question_attempt_limit', 'question_attempt_time_limit'
+                    ]) THEN RETURN false; END IF;
+                    pin_value := entry_value -> 'question_revision';
+                    IF NOT ple_data.blueprint_content_has_exact_keys(
+                        pin_value, ARRAY['questionId', 'revisionNumber']
+                    ) THEN RETURN false; END IF;
+                ELSIF entry_value ->> 'kind' = 'pool' THEN
+                    IF entry_value ->> 'selection_count' !~ '^[1-9][0-9]*$'
+                       OR entry_value ->> 'selection_count' IS NULL THEN RETURN false; END IF;
+                    IF (entry_value ->> 'selection_count')::numeric > 250 THEN RETURN false; END IF;
+                    delivered_question_count := delivered_question_count +
+                        (entry_value ->> 'selection_count')::bigint;
+                    IF NOT ple_data.blueprint_content_has_exact_keys(entry_value, ARRAY[
+                        'kind', 'question_pool_revision', 'selection_count', 'points_per_item',
+                        'scoring_rule', 'selection_rule', 'question_attempt_limit',
+                        'question_attempt_time_limit'
+                    ]) OR jsonb_typeof(entry_value -> 'question_pool_revision') <> 'object' THEN
+                        RETURN false;
+                    END IF;
+                    pin_value := entry_value -> 'question_pool_revision';
+                    IF NOT ple_data.blueprint_content_has_exact_keys(
+                        pin_value, ARRAY['questionPoolId', 'revisionNumber']
+                    ) THEN RETURN false; END IF;
+                    selection_value := entry_value -> 'selection_rule';
+                    IF NOT ple_data.blueprint_content_has_exact_keys(
+                        selection_value, ARRAY['selectedQuestionOrder']
+                    ) THEN RETURN false; END IF;
+                ELSE
+                    RETURN false;
+                END IF;
+                IF delivered_question_count > 250 THEN RETURN false; END IF;
+                limit_value := entry_value -> 'question_attempt_limit';
+                time_limit_value := entry_value -> 'question_attempt_time_limit';
+                IF NOT ple_data.blueprint_content_has_exact_keys(limit_value, ARRAY['maxAttempts'])
+                   OR NOT (
+                       ple_data.blueprint_content_has_exact_keys(time_limit_value, ARRAY['kind'])
+                       OR ple_data.blueprint_content_has_exact_keys(
+                           time_limit_value, ARRAY['kind', 'seconds', 'graceSeconds']
+                       )
+                   ) THEN
+                    RETURN false;
+                END IF;
+            END LOOP;
+        END LOOP;
+    END LOOP;
+    RETURN true;
+END
+$$;
 
 CREATE FUNCTION ple_data.validate_blueprint_content(p_content jsonb)
 RETURNS void LANGUAGE plpgsql IMMUTABLE STRICT

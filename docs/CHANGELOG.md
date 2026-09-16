@@ -11,6 +11,38 @@
 
 ### Behavior or Interface Changes
 
+- Clarified Human Guidance: Question Pools count by the number selected for the Assessment Question
+  limit and default time calculation; selecting 3 of 199 counts as 3.
+
+- Reconciled current finite Attempt-timing guidance without editing the authority. The accepted
+  PostgreSQL Pool-import proof closes the at-most-250 delivered-Question row: import to 250 passes,
+  251 returns `23514`, and the rejected import rolls back its child Pool, Revision, Entry,
+  association, and parent Edit Number. A fresh two-Question NULL-default release resolves 180
+  seconds, but Student start fails `Assessment Attempt requires 1 to 250 Questions`; no
+  default/delivery, override, browser, accommodation-ratio, or effective-24-hour-cap acceptance is
+  claimed. Exact unchanged same-identity SQL resume remains verified; mixed expiry-worker SQL
+  evidence does not establish rendered unanswered state or actual Backend transport exclusion.
+  Accepted authenticated HTTP evidence also closes fixed Question ID-plus-Revision authoring
+  persistence and four atomic ID-only/missing-Revision rejections, not publication, rendering,
+  browser, or Student Work. Current inventory is 890 bullets: 448 verified, 396 open (388 owning),
+  and 46 N/A. Part 09 gate, splice, identity diff, consistency, and diff-check pass. This
+  reconciliation makes no authority, production, permanent-test, Cargo, Podman, or browser change.
+
+- Reconciled the evidence-bearing Human Guidance audit to the untouched current heading and semantic
+  snapshot (`4e0b9778` SHA256 prefix), preserving current scoring closures and accepted bounded runtime
+  receipts. The fixed nine-part generator changes only five root names. Blueprint lifecycle, forks,
+  and comparison now belong to Course specifications; Assessment type appearance belongs to
+  Instructor interface. Contextual reconciliation retained 741 exact occurrences and evaluated 46
+  equivalent/consolidated occurrences; 95 changed/new occurrences include 89 open, four narrow
+  source-verified metadata/theme-ID claims, and two N/A heading-maintenance rules. Expanded support,
+  Pool metadata/statistics, Bloom, Change Proposals, selected daughter incorporation, comparison,
+  and Unrelease remain scoped gaps, not inherited whole-behavior acceptance. Current inventory is
+  882 bullets: 445 verified, 392 open (384 owning), and 45 N/A. All nine part gates, identity diff,
+  consistency, and diff-check pass; focused existing Markdown/whitespace/Pyflakes checks pass 857
+  tests. Broader links/style selection passes 1119 tests but has two unrelated missing-screenshot
+  link failures in README and the prior docs-pass summary. No HG, product, permanent-test, browser,
+  Cargo, or Podman changes were made by this audit task.
+
 - Closed four exact Assessment scoring rows from accepted current-rescore evidence: retained credit
   as the grading outcome, current-credit/current-points score calculation, current-point
   recalculation, and immutable grading outcomes. Independent review accepted private PostgreSQL 17

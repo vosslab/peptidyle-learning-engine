@@ -1,5 +1,35 @@
 # Plan: Human Guidance implementation compliance
 
+## Current heading reconciliation
+
+The current untouched Human Guidance snapshot is SHA256
+`6f64d0bb877de5a8be3951dd5514fe0eb2fd5c5f3060b21940230b03a2fde481`.
+Current status comes from the [implementation checklist](../audits/human_guidance_implementation_checklist.md):
+886 bullets, 446 verified, 394 open (386 owning), and 46 N/A.
+Unchanged contextual evidence, including accepted scoring and bounded runtime receipts, is retained.
+The four new Attempt timing rows remain open. Exact unchanged same-identity SQL resume is accepted;
+working-speed rationale is N/A as pedagogical purpose, not a demonstrated learning effect. Fresh
+mixed expiry-worker SQL proof does not close rendered unanswered presentation or actual Backend
+transport. Unlimited is paused pending the user's reconsideration; no six-hour/day cap is chosen.
+Blueprint lifecycle, forks, Change Proposals, and comparison now belong to Course specifications
+(Part 08), not Instructor interface (Part 04). Assessment type appearance belongs to Instructor
+interface (Part 04). Student/backend/history subheadings route through their existing parts.
+Equivalent rewrites were evaluated against their cited evidence; expanded requirements are open
+unless current source or accepted receipts establish their whole scope. Themes/light-dark use,
+Library Question/Pool metadata, PLE support and disclosure, Pool statistics, Bloom classification,
+Change Proposal persistence/acceptance, expanded comparison, selected daughter incorporation, and
+expanded Unrelease behavior retain scoped mismatches or named pending proof.
+The topical inventories and earlier receipts below retain historical evidence context; old
+counts, source-line numbers, and correction IDs are not a current ordered HG projection. Retired
+one-way lifecycle, imposed Assessment-matching algorithm, and Blueprint Question-content-change
+claims are not current requirements. All nine part gates, identity diff, and consistency pass.
+
+Reconciliation preserves the fixed nine-part generator. Carry unchanged evidence by meaning and
+parent context, re-evaluate equivalent rewrites, and audit expanded requirements before closing them.
+Update first-owner pointers when headings move; do not rebuild an evidence-bearing checklist with
+`--build`, restore historical evidence snapshots, or implement unrelated product fixes. Source-only
+checks do not close named runtime-required behavior. The product-compliance goal remains unfinished.
+
 ## Context
 
 The 2026-09-14 docs pass reconciled all 295 `docs/` files against `docs/HUMAN_GUIDANCE.md` (HG).
@@ -1675,7 +1705,7 @@ independent review may run in parallel without touching production files.
 | C515 / L140 | Template ownership command/UI permits owner and denies nonowner. | `source source_me.sh && python3 tests/_temp/hg_a9_g14_template_owner/probe.py`; repair authorization, remove. |
 | C516 / L144,L146,L148 | Template create/copy isolation: later edits do not bleed between copies. | `source source_me.sh && python3 tests/_temp/hg_a9_g15_template_copy/probe.py`; repair copy boundary, remove. |
 | C517 / L125 | Course Instance delivery fields/policy only; Blueprint has none. | `source source_me.sh && python3 tests/_temp/hg_a9_g16_delivery_base/probe.py`; repair variant boundary, remove. |
-| C518 / L263 | Mandatory time limit before Attempt creation; expiry semantics remain unchanged. | `source source_me.sh && python3 tests/_temp/hg_a9_g17_time_required/probe.py`; reject missing limit; repair validation, then remove; conditional retain. |
+| C518 / L263 | IN PROGRESS: current Human Guidance requires finite Assessment duration, at most 250 delivered Questions, rounded 1.5-minutes-per-Question default, and explicit Instructor override up to 12 hours. Authored NULL means calculated default; positive seconds mean explicit override. Individual 1.5X/2X accommodations and effective 24-hour cap belong to the next slice; existing private absolute-second accommodation SQL is not ratio/UI acceptance. | The default/override cutover replaces the unaccepted Unlimited patch directly, using one current-content SQL base helper at read/start without a derived persisted cache. Pools count selection_count, not whole membership. Narrow fresh SQL/browser proof remains required; prior configured finite start/resume receipts are historical evidence, not new arithmetic/override/250-Question acceptance. |
 | C519 / L164,L166,L169,L171,L173 | `schemas/base_schema/assessments.sql` owns one shared issue-producing release validator and hard gate; `assessment_operations.sql`, LDA, and the browser release contract project actionable issues. `domain/validation.rs` remains the Student-response parser. | `source source_me.sh && python3 tests/_temp/hg_a9_g18_release_rules/probe.py`; repair validation; conditional retain compact cases. |
 | C520 / L158,L160,L162,L177 | The shared Assessment schema defaults new Course Assessments to Unreleased; accepted private direct and Public Blueprint-adopted actual-main/HTTP creation proof verified that initial state. The subsequent direct fixed-Question release passed readiness and release after valid Due/time limit. Complete release-validation coverage and Student delivery remain open. | Accepted private direct/adopted creation and direct-author/release artifacts plus current `schemas/base_schema/assessments.sql` `assessment_status` default; future focused release/Student delivery gates before C520 completion. |
 | C521 / L175 | Assessment Properties UI supports invalid -> repair -> rerun -> release. | `node tests/_temp/hg_a9_g20_rerun/probe.mjs`; repair Properties UI; remove. |
