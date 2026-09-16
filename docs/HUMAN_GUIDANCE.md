@@ -123,10 +123,11 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 ### Content classification vocabulary
 
 - **Discipline**: The broadest academic classification, such as Biology, Chemistry, or Mathematics.
-- **Subject**: An area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+- **Subject**: A globally named area associated with one or more Disciplines, such as Genetics,
+  Biochemistry, or Ecology.
 - **Topic**: A major area within a Subject.
 - **Subtopic**: A narrower classification within a Topic.
-- **Tag**: An optional label attached to PLE content. Content may have any number of Tags.
+- **Tag**: An optional label attached to a Course or Library Object. Each may have any number of Tags.
 
 ## Accounts and roles
 
@@ -369,21 +370,27 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Selecting an Assessment in the Course Editor opens that Assessment for editing.
 - Assessment content and Assessment properties should remain separate editing tasks.
 - My Active Courses and My Inactive Courses should both be available from the Courses area.
+- Course Discipline selection should provide a clear way to request a new Discipline when the needed
+  Discipline is unavailable.
 
 ##### Blueprint Course interface
 
 - **My Blueprint Courses** should emphasize reusable course design rather than teaching activity.
 - **Search Public Blueprint Courses** helps Instructors find relevant Blueprint Courses in a growing shared collection.
-- Public Blueprint Course search should combine ordinary text search with filters using the shared content classification hierarchy.
-- Classification filters should follow Discipline -> Subject -> Topic -> Subtopic.
+- Public Blueprint Course search should combine ordinary text search with shared classification
+  filters beginning with Discipline and following Discipline -> Subject -> Topic -> Subtopic.
 - Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
-- After selecting a Subject, Instructors should have the option to include Blueprint Courses associated with that Subject across its other Disciplines.
+- After selecting a Subject, Instructors should have an explicit option to include Blueprint Courses
+  associated with that Subject across its other Disciplines.
+- Tags should provide additional filters outside the hierarchy.
 - Search results should use a compact, information-rich layout that supports scanning and comparison.
-- Results should show useful Course information such as Course name, classification, author, institution, and relevant usage or stewardship signals without requiring the Instructor to open each Course.
+- Results should show Course name, classification, author, institution, and useful usage or
+  stewardship signals directly in the result list to support scanning and comparison.
 - Public Blueprint Course search should support sorting by relevant fields such as Stars, Watches, Adoptions, Students who have taken the Course, and most recent edit.
 - Search terms, active filters, and the selected sort should remain visible while reviewing results.
 - Clearing or changing part of a search should be quick.
-- Opening a result and returning should preserve the Instructor's search, filters, sort, and position.
+- Opening a result and returning should preserve the Instructor's search, filters, sort, and scroll
+  position.
 - A **Blueprint Course** should provide an obvious action for creating a **Course Instance** from it.
 
 ##### Blueprint Course editing interface
@@ -422,6 +429,12 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **My Draft Questions** should emphasize Questions that still need work before publication.
 - **Starred** should provide a quick personal collection of Questions the Instructor wants to keep handy.
 - **Watched** should help Instructors follow Questions where changes or activity matter to them.
+- Published Questions should offer a **Create Pool from Question** action.
+- Pool creation should show the starting Question and its Discipline and Subject alongside the
+  Pool Title field.
+- Creating the Pool includes the starting Question and uses its Discipline and Subject.
+- Adding Questions to a Pool should begin with Question Library results filtered to the Pool's
+  Discipline and Subject.
 
 ##### Search Question Library interface
 
@@ -434,15 +447,21 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Results should make it easy to scan many Questions quickly.
 - Results should show the information needed to judge relevance without opening each Question.
 - Search results should support filters for narrowing the Question Library.
-- Classification filters should follow the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
+- Classification browsing and filtering should begin with Discipline and follow the shared
+  Discipline -> Subject -> Topic -> Subtopic hierarchy.
+- Tags should provide additional filters outside the hierarchy.
 - Selecting a Discipline should limit Subject choices to Subjects associated with that Discipline.
-- After selecting a Subject, Instructors should have the option to include Questions associated with that Subject across its other Disciplines.
+- After selecting a Subject, Instructors should have an explicit option to include Library Objects
+  associated with that Subject across its other Disciplines.
 - Filters should update the current search rather than start a separate workflow.
 - Search should support Google-like syntax for more precise queries.
 - Quoted text should search for an exact phrase.
 - A minus sign should exclude matching terms.
-- Search should support PubMed-like field tags such as `subject:genetics`.
-- Field tags should use PLE concepts and vocabulary.
+- Search should support PubMed-like field syntax such as `discipline:biology` and
+  `subject:genetics`.
+- Classification field examples include `topic:"chromosomal inheritance"` and `tags:review`.
+- A Subtopic field example is `subtopic:"x-linked recessive crosses"`.
+- Search fields should use PLE concepts and vocabulary.
 - Useful fields may include Discipline, Subject, Topic, Subtopic, Tags, Question Type, and author.
 - Simple and advanced searches should use the same search box.
 - Instructors should not need to learn search syntax to use Search Question Library.
@@ -456,8 +475,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
 - Browse should help Instructors understand what the Question Library contains.
-- Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.
-- Browse should make moving from broad subjects to narrower topics easy.
+- Browse should begin with Discipline and make moving through Subject, Topic, and Subtopic easy.
+- Selecting a Discipline limits browsing to Subjects associated with that Discipline.
+- Browse should also offer Tags, Question Types, and other useful groupings.
 - Browse should show useful counts where they help Instructors choose where to explore.
 - Browse results should use the same dense Question presentation used by Search where practical.
 - Instructors should be able to move from browsing into a more focused search.
@@ -623,32 +643,46 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### Content classification
 
-- PLE uses one global content classification hierarchy across **Courses**, **Assessments**, and **Library Objects**.
+- PLE uses one shared global content classification vocabulary for **Courses** and **Library
+  Objects**.
+- Every Course has exactly one **Discipline**.
+- **Subject**, **Topic**, and **Subtopic** are optional for Courses.
+- Every Library Object has exactly one **Discipline** and one **Subject**.
+- **Topic** and **Subtopic** are optional for Library Objects.
+- Courses retain the hierarchy because their classification supports Course organization, search,
+  filtering, and discovery.
 - Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
 - **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
-- **Subject** identifies an area within a Discipline, such as Genetics, Biochemistry, or Ecology.
+- **Subject** identifies a global area associated with one or more Disciplines, such as Genetics,
+  Biochemistry, or Ecology.
 - **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
 - **Subtopic** provides a narrower classification within a Topic, such as Enzyme Catalysis Mechanisms or X-Linked Recessive Crosses.
 - Subjects have a global identity across PLE, and Subject names are unique across PLE.
-- A Subject may belong to one or more Disciplines.
+- A Subject may be associated with one or more Disciplines.
 - A Topic belongs to one Subject.
 - A Subtopic belongs to one Topic.
-- Every Course, Assessment, and Library Object has exactly one **Discipline**.
-- **Subject**, **Topic**, and **Subtopic** are optional.
-- Courses, Assessments, and Library Objects select from the same shared global hierarchy.
+- Course and Library Object selections follow the hierarchy: the Subject is associated with the
+  selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
+- Courses and Library Objects select from the same shared global vocabulary.
 - **Sysadmins** exclusively create and manage the Discipline vocabulary and its lifecycle.
 - Discipline is a stable vocabulary expected to change infrequently.
 - **Instructors** classify content by selecting from the Sysadmin-managed Disciplines.
-- **Instructors** may create new Subjects within a Discipline.
-- When a Subject already exists, Instructors select the existing global Subject rather than creating another Subject with the same name.
-- Selecting an existing Subject within another Discipline associates that Subject with the selected Discipline.
+- **Instructors** may create new Subjects within a selected Discipline.
+- When an Instructor attempts to create a Subject whose globally unique name already exists, PLE
+  offers the existing Subject.
+- PLE requires explicit Instructor acceptance before associating the existing Subject with the
+  selected Discipline.
+- Creating or selecting vocabulary should fit naturally into the classification workflow.
 - **Instructors** may create new Topics within a Subject.
 - **Instructors** may create new Subtopics within a Topic.
-- Classification selection begins with Discipline and follows the hierarchy from Discipline to Subject to Topic to Subtopic, progressively narrowing the available choices at each level.
+- Classification selection, browsing, and filtering begin with Discipline.
+- Course and Library Object classification follow Discipline -> Subject -> Topic -> Subtopic,
+  progressively narrowing the available choices at each level.
 - Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
-- After selecting a Subject, search interfaces may allow users to include content associated with that Subject across its other Disciplines.
+- After selecting a Subject, search interfaces may offer an explicit option to include content
+  associated with that Subject across its other Disciplines.
 - **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
-- Content may have any number of Tags, including none.
+- Courses and Library Objects may have any number of Tags, including none.
 - Classification supports searching, filtering, sorting, organization, and discovery wherever those capabilities are useful.
 - Subject, Topic, and Subtopic names must satisfy length limits and formatting requirements.
 - Length allowances increase from Subject to Topic to Subtopic, supporting more specific names as classification becomes narrower.
@@ -756,7 +790,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Instructors** may delete Draft Questions they no longer need.
 - PLE may clean up abandoned Draft Questions after an appropriate warning and recovery period.
 - A Draft Question must pass Question Publication Validation before becoming a Published Question.
-- Publication requires all required Question Library metadata.
+- Question Publication Validation requires Discipline, Subject, and all other required Question
+  Library metadata before publication.
 
 ### Question formats and type specifications
 
@@ -884,8 +919,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Question owner may publish corrections, wording changes, accessibility improvements, answer changes, grading changes, and other updates as a new Revision.
 - Changing Question source, answer content, grading rules, Hints, Question Feedback, Worked Solutions,
   or Question assets creates a new Question Revision.
-- Changing the Question title, description, Tags, Subject, Topic, or other search metadata does not
-  create a new Question Revision.
+- Changes to the Question title, description, Discipline, Subject, Topic, Subtopic, Tags, or other
+  search metadata update the Published Question metadata while preserving the current Question Revision.
 - Search metadata belongs to the Published Question as a whole rather than to one Revision.
 - Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
 - A fork starts as a private **Draft Question** with its own authorship and lineage.
@@ -910,7 +945,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - A **Question Pool** is a set of interchangeable **Published Questions** from which PLE selects for a Student.
 - Pool contents should represent reasonably interchangeable assessments of the intended learning.
 - Question Pools may contain Questions from any Question Backend.
-- Question Pools are always published and have no draft or unpublished state.
+- Question Pools are created from a Published Question and enter the Question Library immediately.
 - A Question Pool is an independently reusable Question Library object.
 - Question Pools are available to all vetted **Instructors**.
 - A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable Revisions.
@@ -934,6 +969,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - Question Pools have metadata specific to the individual Question Pool.
 - Question Pool metadata includes Title and Description.
+- The first Published Question establishes the Question Pool's Discipline and Subject.
+- Every additional Published Question added to the Pool has the same Discipline and Subject as the Pool.
+- Published Questions retain their own Topic, Subtopic, Tags, and other Library Object metadata
+  when included in a Question Pool.
 - Question Pools may have their own authorship, attribution, license, and source information where
   appropriate.
 - Question Pool metadata describes the Pool rather than duplicating metadata from its member
@@ -953,7 +992,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - With 13,000 Questions in Neil's first course, manually archiving Questions is unlikely to be a useful primary workflow.
 - Question Library workflows should support bulk operations because an **Instructor** may manage thousands of Questions.
 - **Instructors** should be able to select many Library objects and update shared metadata such as
-  Tags, Subject, Topic, or other search fields together.
+  Discipline, Subject, Topic, Subtopic, Tags, or other search fields together.
 - Question Library search, filters, sorting, and bulk editing should make large imports practical to clean up.
 
 #### Question Library metadata
@@ -961,8 +1000,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Library Objects** use shared metadata for organization, search, filtering, and discovery.
 - Required Question Library metadata must be complete before a Library Object enters the Question Library.
 - Library metadata should describe the Library Object rather than its location in a Course, Assessment, or textbook.
-- Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag** classification system.
-- Library Object classification belongs to the Library Object rather than to one use of that object in an Assessment.
+- Library Objects use the shared **Discipline**, **Subject**, **Topic**, **Subtopic**, and **Tag**
+  vocabulary.
+- Every Library Object has exactly one **Discipline** and one **Subject**.
+- **Topic** and **Subtopic** are optional for Library Objects.
+- Library Objects may have any number of **Tags**, including none.
+- Question Publication Validation requires Discipline and Subject before publication.
+- Library Object classification follows Discipline -> Subject -> Topic -> Subtopic.
+- Questions and Question Pools retain their Library Object classification when used in an Assessment.
 - Library classification supports searching, filtering, sorting, and bulk editing.
 - Published Questions and Question Pools may have PLE-managed **Hints**, **Question Feedback**, and **Worked Solutions**.
 - Support content may be attached at the level where it applies rather than duplicated across individual Questions.
@@ -1032,8 +1077,13 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - **Blueprint Courses** and **Course Instances** use the shared content classification system.
 - Course classification describes the Course as a whole.
-- Courses use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
+- Every Blueprint Course and Course Instance has exactly one **Discipline**.
+- Courses may optionally have one **Subject**, one **Topic**, and one **Subtopic**.
 - Courses may have any number of **Tags**, including none.
+- Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
+- Course Discipline selection should provide a clear way to request a new Discipline when the needed
+  Discipline is unavailable.
+- **Sysadmins** exclusively create and manage Disciplines.
 - Course classification supports Course search, filtering, organization, and discovery where applicable.
 - A Course Instance may have classification that differs from its Blueprint Course.
 
@@ -1229,17 +1279,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Assignment** is not a separate object or category. The word appears only in the names
   **Regular Assignment**, **Practice Question Assignment**, and **Bonus Assignment**.
 
-### Assessment classification specifications
-
-- **Blueprint Assessments** and **Course Instance Assessments** use the shared content classification system.
-- Assessment classification describes the Assessment as a whole.
-- Assessments use the levels of **Discipline**, **Subject**, **Topic**, and **Subtopic** that meaningfully describe their content.
-- Assessments may have any number of **Tags**, including none.
-- Assessment classification supports Assessment search, filtering, organization, and discovery where applicable.
-- Assessment classification is independent of the classifications of the Questions and Question Pools it contains.
-
 ### Assessment content specifications
 
+- Assessments are organized by their Course and position within its ordered sequence.
 - Assessments contain an ordered sequence of Published Questions and Question Pools.
 - Published Questions stay references to the same Question ID and exact Revision.
 - Question Pools are copied by forking when added to another Assessment.
