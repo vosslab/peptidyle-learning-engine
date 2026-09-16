@@ -19,6 +19,7 @@ mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
 mod blueprint_course;
+mod blueprint_history;
 mod blueprint_lineage;
 mod blueprint_stewardship;
 mod course_banner;
@@ -124,11 +125,12 @@ pub use blueprint_course::{
     ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseStore,
     StoredBlueprintAssessment, StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry,
     StoredBlueprintCourse, StoredBlueprintCourseContent, StoredBlueprintCourseSummary,
-    StoredBlueprintModule, StoredBlueprintRevision, StoredBlueprintPoolMembers,
+    StoredBlueprintModule, StoredBlueprintPoolMembers, StoredBlueprintRevision,
 };
+pub use blueprint_history::{BlueprintHistoryKind, BlueprintHistoryStore};
 pub use blueprint_lineage::{
-    BlueprintForkSource, BlueprintLineageStore, ForkBlueprintCourseReceipt,
-    BlueprintComparisonSources, StoredKnownBlueprintFork,
+    BlueprintComparisonSources, BlueprintForkSource, BlueprintLineageStore,
+    ForkBlueprintCourseReceipt, StoredKnownBlueprintFork,
 };
 pub use blueprint_stewardship::{
     BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchEvent,

@@ -11,6 +11,31 @@
 
 ### Behavior or Interface Changes
 
+- Added a bounded exact-reference/Assessment-owned-Pool contributor receipt without changing Human
+  Guidance, its checklist/counts, or any closure. Actual-server and compiled-main receipts at
+  `/private/tmp/ple-blueprint-owned-pool-artifacts.nbKrXt` verify exact fixed Question ID/Revision
+  retention through reorder, explicit latest-revision re-add after removal, one ordinary Save, and
+  unchanged sibling/source Pools and Student Work fingerprint. The separate 84-request target-local
+  Apply receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo` verifies fresh Pool
+  clones, explicit existing/new targets, four CAS denials, atomic injected-fault rollback, and
+  Archived-owner `409`. `question_model` passed 135 focused tests; Store no-run compilation and
+  root TypeScript passed. Publication now uses full Question-ID-and-Revision equality, but the
+  unused exported Blueprint Picker remains ID-only deduplicated. No populated Student Work,
+  current-pair comparison, newer indication, browser Apply, or whole-plan claim is made, and no
+  permanent test was added.
+
+- Renamed all 32 Instructor screenshot PNGs to remove the redundant `_laptop` filename suffix.
+  Updated the current capture manifest and receipt, generated atlas, README, and compliance-report
+  links without recapturing images; capture IDs and laptop viewport semantics are unchanged.
+
+- Synchronized the three current Human Guidance Revision/fork rows into the implementation
+  checklist from source evidence only. Published Question successor publication keeps its Question
+  ID; Question Pool revision append keeps its Pool ID; both fork paths establish a fresh public
+  identity and Revision 1, with the Pool path copying exact ordered Question ID-and-Revision
+  membership. No runtime proof is claimed. The broader Assessment authoring exact-reference row
+  remains open because its exported picker adapter still deduplicates by Question ID. The
+  reconciled inventory is 820 bullets: 431 verified, 346 open (340 owning), and 43 N/A.
+
 - Synchronized the current Human Guidance Assessment-content and Question-Pool membership wording
   with the implementation checklist. The exact Published Question ID-and-Revision reference
   invariant remains open pending authoring-input cutover; Pool fork and no-nesting additions remain

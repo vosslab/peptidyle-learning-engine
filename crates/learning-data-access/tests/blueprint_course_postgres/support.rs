@@ -404,14 +404,6 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
 }
 
 pub(super) fn initial_content() -> StoredBlueprintCourseContent {
-    let question = question_id();
-    let pins = BTreeMap::from([(
-        question.clone(),
-        QuestionRevisionReference {
-            question_id: question,
-            revision_number: QuestionRevisionNumber::new(1).expect("fixture Question Revision"),
-        },
-    )]);
     let pools = BTreeMap::from([(
         question_pool_id(),
         question_model::QuestionPoolRevisionReference {
@@ -420,12 +412,8 @@ pub(super) fn initial_content() -> StoredBlueprintCourseContent {
                 .expect("fixture Pool Revision"),
         },
     )]);
-    StoredBlueprintCourseContent::from_create(
-        content_input("Revision one Assessment"),
-        &pins,
-        &pools,
-    )
-    .expect("closed Blueprint content fixture")
+    StoredBlueprintCourseContent::from_create(content_input("Revision one Assessment"), &pools)
+        .expect("closed Blueprint content fixture")
 }
 
 pub(super) fn assessment_input(title: &str) -> BlueprintAssessmentContentInput {

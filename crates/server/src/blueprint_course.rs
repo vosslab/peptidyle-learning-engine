@@ -45,6 +45,7 @@ use crate::{
 mod fork;
 mod fork_apply;
 mod fork_review;
+mod history;
 mod known_forks;
 mod pool_members;
 mod responses;
@@ -99,6 +100,10 @@ pub fn blueprint_course_router(
         .route(
             "/api/course-blueprints/{reference}/forks",
             get(known_forks::list_known_forks),
+        )
+        .route(
+            "/api/course-blueprints/{reference}/history",
+            get(history::list_history),
         )
         .route(
             "/api/course-blueprints/{reference}/assessments/{assessment}/pools/{pool}/members",

@@ -157,39 +157,56 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 ### General interface design
 
-- **Sysadmin** uses tomato red as its role color.
-- **Instructor** uses teal green as its role color.
-- **Student** uses lavender /purple as its role color.
-- Role colors should be used consistently in role labels and other appropriate interface cues.
-- Demo role selection should clearly state both the user's role and name.
-- Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
 - Design around what users need to find and do.
 - Important information should stand out from supporting information.
 - Related information should be visually grouped and aligned.
 - Similar pages should place similar controls in consistent locations.
 - Primary actions should be easy to find and appear near the content or workflow they affect.
 - Avoid scattering related actions across page headers, menus, navigation, and content areas.
+- Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
+- Students should have no upload capabilities. Instructor-created content should use text boxes.
+
+### Information density and layout
+
+- Instructor and **Sysadmin** workflows should work well in a 1280 by 800 desktop browser viewport.
 - PLE often presents large collections where users need to find a few relevant items.
 - Optimize large collections for scanning, searching, filtering, and comparison.
 - Show enough useful information at once to support comparison without excessive scrolling.
 - Search and filters should help users quickly narrow large collections.
 - Dense pages should remain easy to scan.
-- Use spacing to separate meaningful groups rather than simply making pages spacious.
+- Treat screen space as a limited resource. Prefer useful information over decorative whitespace.
+- Use spacing to separate meaningful groups rather than simply making pages spacious. Large gaps should communicate a meaningful change in section or task.
 - Prefer alignment, typography, and dividers over unnecessary cards, boxes, borders, and nested containers.
+- Cards and rounded containers should earn their space by representing a distinct object or interaction, not merely grouping nearby content.
+- Avoid the modern dashboard style of large rounded cards, generous padding, and isolated islands of content.
+- Use horizontal and vertical space efficiently without crowding information together. Related information should form clearly readable rows, columns, or groups.
+- Size controls and content regions for their contents and task. Avoid unnecessarily tall panels, empty states, Question previews, and other fixed-height regions.
 - Keep the visual design compact, flat, information dense, and consistent across PLE.
-- Dream big on the UI. Choose one visual philosophy and carry it through the entire interface.
+
+### Interaction design
+
 - Use drag-and-drop where it makes reordering faster and more natural.
 - Reordering must also have a precise keyboard-accessible method.
-- Themes should use biome and habitat names.
-- Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`
 - UUIDs should never appear in visible content, navigation URLs, or copyable links.
+
+### Role colors and themes
+
+- **Sysadmin** uses tomato red as its role color.
+- **Instructor** uses teal green as its role color.
+- **Student** uses lavender /purple as its role color.
+- Role colors should be used consistently in role labels and other appropriate interface cues.
+- Demo role selection should clearly state both the user's role and name.
+- Themes should use biome and habitat names.
+- Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`.
+
+### Typography
+
 - Use [Atkinson Hyperlegible Next](https://www.brailleinstitute.org/freefont/) as the main PLE font.
 - Use [Atkinson Hyperlegible Mono](https://www.brailleinstitute.org/freefont/) for code and other monospace text.
 - Prefer the official Braille Institute font files and include the needed weights locally with PLE.
 - When a narrow font is needed, use `IBM Plex Sans Condensed` for long unbreakable strings such as URLs.
 - With `IBM Plex Sans Condensed`, try `font-variant-numeric: slashed-zero` to better distinguish `0` from `O`.
 - Question Backend-rendered content may use its own fonts when needed for correct display.
-- Students should have no upload capabilities. Instructor-created content should use text boxes.
 
 ### Ribbon and page layout
 
@@ -244,8 +261,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
 - Similar pages should place similar actions in consistent locations.
 - Instructor pages should be composed around the teaching task rather than collections of padded components.
-- Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards.
+- Instructor lists and repeated records should be dense and easy to scan, more like a spreadsheet than cards.
 - Instructor **Student View** is an answer-free preview and does not create Student Work, Assessment Attempts, submissions, or grades.
+- Instructor lists and repeated records should favor compact rows or tables with clear columns over cards or loosely concatenated text.
+- At 1280 x 800, Instructor pages should expose enough of the current workflow to minimize unnecessary scrolling.
 
 #### Courses
 
@@ -454,6 +473,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Completed Coursework should remain easy to find and review.
 - Student content entry should use the response controls provided by Questions and other Student activities.
 - The complete Student Ribbon task layout does not have a locked-in design yet.
+- Students should have no upload capabilities. Instructor-created content should use text boxes.
 
 ### Sysadmin interface
 

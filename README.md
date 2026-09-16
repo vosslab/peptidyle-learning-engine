@@ -38,7 +38,7 @@ surfaces as the rest of PLE. See [SCREENSHOT_CONTRACT.md](docs/SCREENSHOT_CONTRA
 <!-- screenshots:begin (managed by screenshot-docs) -->
 
 ![Seeded PLE Account entry](docs/screenshots/public/sign_in_laptop.png)
-![Instructor released Assignment Workspace](docs/screenshots/instructor/assignment_release_released_laptop.png)
+![Instructor released Assignment Workspace](docs/screenshots/instructor/assignment_release_released.png)
 ![Student Assignment Attempt showing a saved response and Question navigation](docs/screenshots/student/assignment_attempt_saved_laptop.png)
 ![Sysadmin scoped support](docs/screenshots/sysadmin/scoped_support_roster_laptop.png)
 <!-- screenshots:end -->

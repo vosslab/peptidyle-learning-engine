@@ -21,6 +21,7 @@
 \ir question_assets.sql
 \ir blueprints.sql
 \ir blueprint_operations.sql
+\ir blueprint_history.sql
 \ir blueprint_pools.sql
 \ir blueprint_lineage.sql
 \ir blueprint_stewardship.sql

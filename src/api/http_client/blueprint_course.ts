@@ -4,13 +4,15 @@ import type { BlueprintCourseReference } from "../../../generated/api/BlueprintC
 import type { BlueprintPoolMembersView } from "../../../generated/api/BlueprintPoolMembersView";
 import { decodeBlueprintPoolMembersView } from "../decoders/blueprint_pool_members";
 import { decodeBlueprintComparisonView } from "../decoders/blueprint_comparison";
+import { decodeBlueprintHistoryPageView } from "../decoders/blueprint_history";
 import { decodeUuid } from "../decoder";
-import { decodeQuestionId } from "../decoders/shared";
+import { decodeCursor, decodeQuestionId } from "../decoders/shared";
 import type { BlueprintCourseSummaryView } from "../../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseSaveResponse } from "../../../generated/api/BlueprintCourseSaveResponse";
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintMetadataState } from "../../../generated/api/BlueprintMetadataState";
 import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevisionView";
+import type { BlueprintHistoryPageView } from "../../../generated/api/BlueprintHistoryPageView";
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintForkApplyResponse } from "../../../generated/api/BlueprintForkApplyResponse";
@@ -204,6 +206,29 @@ export function createBlueprintCourseClient(
   basePath: string,
 ): Pick<ApiClient, keyof BlueprintCourseClient> {
   return {
+    listBlueprintHistory: async (
+      reference,
+      kind = "revisions",
+      cursor,
+      pageSize = 50,
+    ): Promise<BlueprintHistoryPageView> => {
+      if (kind !== "revisions" && kind !== "metadata")
+        throw new ApiProtocolError("Blueprint history kind must be revisions or metadata");
+      const path = `${pagePath(`${blueprintPath(reference)}/history`, cursor === undefined ? undefined : decodeCursor(cursor, "cursor"), pageSize, false)}&kind=${kind}`;
+      const body = (
+        await blueprintJson(fetchImplementation, basePath, path, decodeBlueprintHistoryPageView, {
+          expectedStatus: 200,
+        })
+      ).body;
+      if (
+        body.items.length > pageSize ||
+        body.items.some(
+          (item) => item.kind !== (kind === "revisions" ? "savedRevision" : "metadataChange"),
+        )
+      )
+        throw new ApiProtocolError("Blueprint history must match its requested kind and page size");
+      return body;
+    },
     forkBlueprintCourse: async (
       reference,
       revision,

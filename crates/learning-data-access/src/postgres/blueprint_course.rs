@@ -669,7 +669,7 @@ async fn validate_question_references(
     // exact-reference boundary. PostgreSQL rechecks selection while locked.
     for reference in requested.into_iter().collect::<BTreeSet<_>>() {
         let row = sqlx::query(
-            "SELECT question_id, revision_number, availability \\
+            "SELECT question_id, revision_number, availability
              FROM ple_api.load_question_library_revision($1, $2)",
         )
         .bind(reference.question_id.as_compact_str())

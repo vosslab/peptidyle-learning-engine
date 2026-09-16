@@ -298,7 +298,7 @@ fn validate_loaded_content(
             })?;
             ensure!(
                 question_revision == expected_revision
-                    && question_revision.question_id == expected_fixed.question_id
+                    && question_revision == &expected_fixed.published_question
                     && points_possible == &expected_fixed.points_possible
                     && scoring_rule == &AssessmentEntryScoringRule::Normal
                     && scoring_rule == &expected_fixed.scoring_rule

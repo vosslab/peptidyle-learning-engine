@@ -1196,22 +1196,23 @@ dropped.
 | C908 | Pool-selection client contributor: the Instructor Assessment editor and typed browser client submit only the Assessment entry's positive `selection_count`; the server derives the exact owned fork Pool ID/Revision and returns a whole validation outcome. They cannot provide selected Question IDs, Pool-ID issuance, backend behavior, or a default/override. | C907; hands C909. | Ignored connected client/editor boundary proof; remove. No component snapshot is permanent. |
 | C909 | Pool-selection closure owner: after C908, connected Instructor/Student proof closes C355's five Pool behaviors: Assessment-owned count configuration, new-Attempt backend-neutral selection from exact fork Pool Revision, resume preservation, and exact Pool/Question Revision evidence. | C355,C907,C908; hands C314,C334. | Ignored fresh schema/server/browser proof; remove. Retain only a narrow stable selection-evidence or authorization outcome if every `PYTEST_STYLE.md` criterion passes. |
 
-**Blueprint Pool/fork contributor (2026-09-16):** Independent review accepted the bounded actual
-server evidence at `/private/tmp/ple-blueprint-owned-pool-artifacts.ySNfXX`: 43 HTTP requests
-passed, and `/private/tmp/ple-blueprint-owned-pool-build-4.log` records the focused build. Repeated
-imports minted fresh Assessment-owned Pool IDs; a retained edit created an immutable Pool Revision
-while preserving exact ordered Question IDs and revision pins; retry, stale, and foreign/error
-paths were exercised; and a whole Blueprint fork minted fresh Assessment and Pool IDs with the
-same exact ordered Question revision membership. Independent review also accepted the actual
-compiled-main UI receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.ytU6GT`: its
-`owned-pool-ui-browser.json`, `owned-pool-ui-state.json`, desktop/narrow screenshots, and matching
-compiled hash prove lazy exact-member reads, local Cancel, reorder, remove/add, and closed-panel
-missing-attestation Save blocking. One ordinary Save made exactly one `PUT` and one Revision while
-the source and sibling Pools stayed unchanged. Root pytest passed 7,280 tests. This is contributor
-evidence only: it claims no populated Student Work (only an empty `student_record`), new Selective
-Apply contract, current-pair full workflow, login, TLS, full accessibility, or full rollback. All
-relevant Human Guidance closures remain pending, with no checklist/count changes and no permanent
-test added.
+**Blueprint exact-reference and owned-Pool contributor (2026-09-16):** Actual-server evidence at
+`/private/tmp/ple-blueprint-owned-pool-artifacts.nbKrXt/blueprint-owned-pool-http-proof.json`
+passed 45 requests: repeated imports mint distinct owned-Pool IDs; retained reorder preserves the
+same fixed Question ID at explicit Revisions 1 and 2; and a member edit creates one immutable Pool
+Revision and one Blueprint Revision without changing the source or sibling Pool. The compiled-main
+browser/state receipts in that directory passed at desktop and 390px: lazy exact-member reads,
+historical reorder/Cancel pins, explicit Library remove then latest-revision re-add, missing-
+attestation Save blocking, and one ordinary `PUT`/Revision with unchanged Student Work fingerprint.
+The separate actual-HTTP Apply receipt at
+`/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`
+passed 84 requests: fresh Pools, explicit existing and new target Assessments, four CAS denials,
+atomic injected-fault rollback, and Archived-owner `409` protection. Focused `question_model`
+tests passed 135 tests; the Store no-run compile and root TypeScript check passed. Source review
+also confirms full Question-ID-and-Revision equality at publication while the unused exported
+Blueprint Picker remains ID-only deduplicated. This remains contributor evidence only: it does not
+close the current-pair comparison, newer-indicator, populated-Student-Work, browser Apply, login,
+TLS, accessibility, or whole-plan checks; no checklist/count change or permanent test is claimed.
 
 Cross-boundary DAG: `C801 -> C802`; recorded TOTP decision -> `C803 -> C804 -> C805 -> C806 -> C807`;
 C808 audits existing Course-core facts consumed by C206; `{C206, C809} -> C207`; `C37 -> C811`; C812

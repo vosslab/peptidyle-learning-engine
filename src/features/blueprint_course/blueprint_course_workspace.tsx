@@ -16,6 +16,7 @@ import type { QuestionPickerSource, QuestionPickerSourceRepository } from "../qu
 import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content_editor";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
 import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_controls";
+import { BlueprintHistory } from "./blueprint_history";
 import { BlueprintForkSource, BlueprintKnownForks } from "../blueprint_forks/blueprint_fork_review";
 import { BlueprintForkCreate } from "../blueprint_forks/blueprint_fork_create";
 import {
@@ -769,6 +770,7 @@ export function BlueprintCourseDetailWorkspace(
                   settings. Current Revision {loaded().view.current_revision.revision}.
                 </p>
               </header>
+              <BlueprintHistory client={props.client} view={loaded().view} />
               <BlueprintForkCreate client={props.client} source={loaded().view} />
               <BlueprintForkSource
                 client={props.client}

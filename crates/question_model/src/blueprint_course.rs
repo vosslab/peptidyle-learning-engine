@@ -15,7 +15,7 @@ use crate::{
     AssessmentActivityRules, AssessmentEntryScoringRule, AssessmentInstructions,
     AssessmentPointValue, BlueprintCourseReference, LateWorkRule, MAX_ASSESSMENT_ATTEMPT_LIMIT,
     MAX_ASSESSMENT_ATTEMPT_TIME_LIMIT_SECONDS, MAX_ASSESSMENT_ORDERED_ENTRIES,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolRevisionReference,
+    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionPoolRevisionReference,
     QuestionPoolSelectionRule, QuestionRevisionReference, QuestionSearchResult,
     StudentFeedbackReleaseRule,
 };
@@ -543,12 +543,11 @@ impl std::error::Error for BlueprintCourseValidationError {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::QuestionLicense;
     use crate::{
         QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
         QuestionBackend, QuestionBackendCapabilities, QuestionFormat, QuestionMetadata,
-        QuestionPoolRevisionNumber, QuestionRevisionNumber, QuestionRevisionReference,
-        QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
+        QuestionId, QuestionLicense, QuestionPoolRevisionNumber, QuestionRevisionNumber,
+        QuestionRevisionReference, QuestionStatistics, QuestionSummary, QuestionType, Timestamp,
     };
     use uuid::Uuid;
 
@@ -817,6 +816,7 @@ mod tests {
 #[cfg(test)]
 mod blueprint_course_tests {
     use super::*;
+    use crate::QuestionRevisionNumber;
     use uuid::Uuid;
 
     #[test]

@@ -139,6 +139,12 @@
   - Mismatch: Question and Blueprint revisions have positive sequential numbers, but Question Pools have no Revision Number.
 - [ ] A Revision Number identifies a specific immutable Revision stored by PLE.
   - Mismatch: Question and Blueprint Revision Numbers identify immutable rows, but the absent Question Pool Revision leaves this general Revision Number behavior incomplete.
+- [x] A new Revision keeps the same Published Question ID or Question Pool ID.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_question_revision` inserts its successor with the existing `p_question_id`; `schemas/base_schema/question_pools.sql` `ple_data.append_question_pool_revision` appends the next revision under its existing `p_question_pool_id`.
+- [x] Forking a Published Question or Question Pool creates a new public ID.
+  - Evidence (source): `crates/server/src/question_fork.rs` `fork_published_question` issues `forked_question_id` before the fork-to-Draft operation; `schemas/base_schema/question_pools.sql` `ple_data.construct_question_pool_revision_fork` inserts the fork as a new Pool lineage with `p_public_question_pool_id`.
+- [x] A fork starts at Revision 1 under its new ID.
+  - Evidence (source): `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_new_question_lineage` binds a fork's server-allocated Question ID and inserts its `question_revision` at 1; `schemas/base_schema/question_pools.sql` `ple_data.construct_question_pool_revision_fork` inserts the new Pool and its `question_pool_revision` at 1 while copying the source's exact ordered member Question IDs and Revision Numbers.
 - [x] Student Work records the exact Assessment Attempt and Published Question Revision delivered to the Student.
   - Evidence (source): `schemas/base_schema/assessment_attempts.sql` `issued_question` records Attempt identity with `question_id` and `revision_number`.
 - [x] Student Work records the Student's responses and the grading outcome returned by the Question Backend.

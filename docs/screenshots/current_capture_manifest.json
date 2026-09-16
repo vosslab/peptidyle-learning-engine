@@ -54,7 +54,7 @@
 
     {
       "id": "instructor_course_list_laptop",
-      "path": "instructor/course_list_laptop.png",
+      "path": "instructor/course_list.png",
       "role": "instructor",
       "routeId": "instructorHome",
       "area": "courses",
@@ -68,7 +68,7 @@
     },
     {
       "id": "instructor_course_assignment_workspace_laptop",
-      "path": "instructor/course_assignment_workspace_laptop.png",
+      "path": "instructor/course_assignment_workspace.png",
       "role": "instructor",
       "routeId": "courseAssessments",
       "area": "courses",
@@ -82,7 +82,7 @@
     },
     {
       "id": "instructor_course_roster_active_laptop",
-      "path": "instructor/course_roster_active_laptop.png",
+      "path": "instructor/course_roster_active.png",
       "role": "instructor",
       "routeId": "courseRoster",
       "area": "courses",
@@ -96,7 +96,7 @@
     },
     {
       "id": "instructor_course_roster_pending_invitation_laptop",
-      "path": "instructor/course_roster_pending_invitation_laptop.png",
+      "path": "instructor/course_roster_pending_invitation.png",
       "role": "instructor",
       "routeId": "courseRoster",
       "area": "courses",
@@ -110,7 +110,7 @@
     },
     {
       "id": "instructor_gradebook_laptop",
-      "path": "instructor/gradebook_laptop.png",
+      "path": "instructor/gradebook.png",
       "role": "instructor",
       "routeId": "gradebook",
       "area": "grading",
@@ -124,7 +124,7 @@
     },
     {
       "id": "instructor_assignments_due_soon_empty_laptop",
-      "path": "instructor/assignments_due_soon_empty_laptop.png",
+      "path": "instructor/assignments_due_soon_empty.png",
       "role": "instructor",
       "routeId": "assessmentsDueSoon",
       "area": "assignments",
@@ -138,7 +138,7 @@
     },
     {
       "id": "instructor_profile_default_laptop",
-      "path": "instructor/profile_default_laptop.png",
+      "path": "instructor/profile_default.png",
       "role": "instructor",
       "routeId": "profile",
       "area": "account",
@@ -153,7 +153,7 @@
 
     {
       "id": "instructor_question_library_laptop",
-      "path": "instructor/question_library_laptop.png",
+      "path": "instructor/question_library.png",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -167,7 +167,7 @@
     },
     {
       "id": "instructor_question_library_filtered_laptop",
-      "path": "instructor/question_library_filtered_laptop.png",
+      "path": "instructor/question_library_filtered.png",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -181,7 +181,7 @@
     },
     {
       "id": "instructor_question_library_browse_laptop",
-      "path": "instructor/question_library_browse_laptop.png",
+      "path": "instructor/question_library_browse.png",
       "role": "instructor",
       "routeId": "libraryBrowse",
       "area": "question library",
@@ -195,7 +195,7 @@
     },
     {
       "id": "instructor_published_question_detail_laptop",
-      "path": "instructor/published_question_detail_laptop.png",
+      "path": "instructor/published_question_detail.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -209,7 +209,7 @@
     },
     {
       "id": "instructor_question_pool_creation_review_laptop",
-      "path": "instructor/question_pool_creation_review_laptop.png",
+      "path": "instructor/question_pool_creation_review.png",
       "role": "instructor",
       "routeId": "library",
       "area": "question library",
@@ -223,7 +223,7 @@
     },
     {
       "id": "instructor_webwork_generated_example_laptop",
-      "path": "instructor/webwork_generated_example_laptop.png",
+      "path": "instructor/webwork_generated_example.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -237,7 +237,7 @@
     },
     {
       "id": "instructor_webwork_hla_genotype_laptop",
-      "path": "instructor/webwork_hla_genotype_laptop.png",
+      "path": "instructor/webwork_hla_genotype.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -251,7 +251,7 @@
     },
     {
       "id": "instructor_webwork_monohybrid_matching_laptop",
-      "path": "instructor/webwork_monohybrid_matching_laptop.png",
+      "path": "instructor/webwork_monohybrid_matching.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -265,7 +265,7 @@
     },
     {
       "id": "instructor_webwork_x_linked_counts_laptop",
-      "path": "instructor/webwork_x_linked_counts_laptop.png",
+      "path": "instructor/webwork_x_linked_counts.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -279,7 +279,7 @@
     },
     {
       "id": "instructor_webwork_dna_structure_laptop",
-      "path": "instructor/webwork_dna_structure_laptop.png",
+      "path": "instructor/webwork_dna_structure.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -293,7 +293,7 @@
     },
     {
       "id": "instructor_webwork_meiosis_prophase_laptop",
-      "path": "instructor/webwork_meiosis_prophase_laptop.png",
+      "path": "instructor/webwork_meiosis_prophase.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -307,7 +307,7 @@
     },
     {
       "id": "instructor_webwork_chi_square_laptop",
-      "path": "instructor/webwork_chi_square_laptop.png",
+      "path": "instructor/webwork_chi_square.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -321,7 +321,7 @@
     },
     {
       "id": "instructor_webwork_chromosome_shapes_laptop",
-      "path": "instructor/webwork_chromosome_shapes_laptop.png",
+      "path": "instructor/webwork_chromosome_shapes.png",
       "role": "instructor",
       "routeId": "questionDetail",
       "area": "question library",
@@ -336,7 +336,7 @@
 
     {
       "id": "instructor_question_drafts_laptop",
-      "path": "instructor/question_drafts_laptop.png",
+      "path": "instructor/question_drafts.png",
       "role": "instructor",
       "routeId": "questionDrafts",
       "area": "question authoring",
@@ -350,7 +350,7 @@
     },
     {
       "id": "instructor_draft_editor_saved_laptop",
-      "path": "instructor/draft_editor_saved_laptop.png",
+      "path": "instructor/draft_editor_saved.png",
       "role": "instructor",
       "routeId": "questionDraftEditor",
       "area": "question authoring",
@@ -364,7 +364,7 @@
     },
     {
       "id": "instructor_publication_review_laptop",
-      "path": "instructor/publication_review_laptop.png",
+      "path": "instructor/publication_review.png",
       "role": "instructor",
       "routeId": "questionDraftEditor",
       "area": "question authoring",
@@ -378,7 +378,7 @@
     },
     {
       "id": "instructor_published_question_result_laptop",
-      "path": "instructor/published_question_result_laptop.png",
+      "path": "instructor/published_question_result.png",
       "role": "instructor",
       "routeId": "questionDraftEditor",
       "area": "question authoring",
@@ -393,7 +393,7 @@
 
     {
       "id": "instructor_blueprint_courses_laptop",
-      "path": "instructor/blueprint_courses_laptop.png",
+      "path": "instructor/blueprint_courses.png",
       "role": "instructor",
       "routeId": "blueprintCourses",
       "area": "blueprint courses",
@@ -407,7 +407,7 @@
     },
     {
       "id": "instructor_blueprint_course_detail_laptop",
-      "path": "instructor/blueprint_course_detail_laptop.png",
+      "path": "instructor/blueprint_course_detail.png",
       "role": "instructor",
       "routeId": "blueprintCourseDetail",
       "area": "blueprint courses",
@@ -421,7 +421,7 @@
     },
     {
       "id": "instructor_blueprint_question_picker_laptop",
-      "path": "instructor/blueprint_question_picker_laptop.png",
+      "path": "instructor/blueprint_question_picker.png",
       "role": "instructor",
       "routeId": "blueprintCourses",
       "area": "blueprint courses",
@@ -436,7 +436,7 @@
 
     {
       "id": "instructor_assignment_creation_laptop",
-      "path": "instructor/assignment_creation_laptop.png",
+      "path": "instructor/assignment_creation.png",
       "role": "instructor",
       "routeId": "assessmentCreate",
       "area": "assignments",
@@ -450,7 +450,7 @@
     },
     {
       "id": "instructor_assignment_release_draft_laptop",
-      "path": "instructor/assignment_release_draft_laptop.png",
+      "path": "instructor/assignment_release_draft.png",
       "role": "instructor",
       "routeId": "assessmentWorkspaceQuestions",
       "area": "assignments",
@@ -464,7 +464,7 @@
     },
     {
       "id": "instructor_assignment_release_preview_laptop",
-      "path": "instructor/assignment_release_preview_laptop.png",
+      "path": "instructor/assignment_release_preview.png",
       "role": "instructor",
       "routeId": "assessmentWorkspaceStudentView",
       "area": "assignments",
@@ -478,7 +478,7 @@
     },
     {
       "id": "instructor_assignment_release_released_laptop",
-      "path": "instructor/assignment_release_released_laptop.png",
+      "path": "instructor/assignment_release_released.png",
       "role": "instructor",
       "routeId": "assessmentWorkspacePolicies",
       "area": "assignments",
@@ -492,7 +492,7 @@
     },
     {
       "id": "instructor_assessment_template_editor_laptop",
-      "path": "instructor/assessment_template_editor_laptop.png",
+      "path": "instructor/assessment_template_editor.png",
       "role": "instructor",
       "routeId": "assessmentTemplates",
       "area": "assignments",

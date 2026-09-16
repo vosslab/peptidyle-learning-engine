@@ -3,6 +3,35 @@
 use question_model::{BlueprintCourseView, BlueprintModuleView, BlueprintRevisionReference};
 use serde::{Deserialize, Serialize};
 
+/// A saved Revision or an exact recorded metadata state, without actor identities.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    deny_unknown_fields
+)]
+pub enum BlueprintHistoryEntryView {
+    SavedRevision {
+        revision: question_model::BlueprintRevision,
+        saved_at: question_model::Timestamp,
+    },
+    MetadataChange {
+        short_name: String,
+        long_name: String,
+        availability: question_model::BlueprintAvailability,
+        recorded_at: question_model::Timestamp,
+    },
+}
+
+/// One bounded section of Blueprint history; continuation is course/kind scoped.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct BlueprintHistoryPageView {
+    pub items: Vec<BlueprintHistoryEntryView>,
+    pub next_cursor: Option<String>,
+}
+
 /// Answer-free exact membership of a Pool pinned in a current Blueprint Assessment.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]

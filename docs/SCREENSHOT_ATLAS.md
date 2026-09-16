@@ -30,13 +30,13 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Instructor Course Instances](screenshots/instructor/course_list_laptop.png)](screenshots/instructor/course_list_laptop.png)<br>Instructor Course Instances<br>course list - laptop<br>Featured | [![Screenshot preview of Course Assignment workspace](screenshots/instructor/course_assignment_workspace_laptop.png)](screenshots/instructor/course_assignment_workspace_laptop.png)<br>Course Assignment workspace<br>assignment workspace - laptop |  |
+| [![Screenshot preview of Instructor Course Instances](screenshots/instructor/course_list.png)](screenshots/instructor/course_list.png)<br>Instructor Course Instances<br>course list - laptop<br>Featured | [![Screenshot preview of Course Assignment workspace](screenshots/instructor/course_assignment_workspace.png)](screenshots/instructor/course_assignment_workspace.png)<br>Course Assignment workspace<br>assignment workspace - laptop |  |
 
 #### Roster
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Active Course roster](screenshots/instructor/course_roster_active_laptop.png)](screenshots/instructor/course_roster_active_laptop.png)<br>Active Course roster<br>active students - laptop | [![Screenshot preview of Roster with a pending invitation](screenshots/instructor/course_roster_pending_invitation_laptop.png)](screenshots/instructor/course_roster_pending_invitation_laptop.png)<br>Roster with a pending invitation<br>pending invitation - laptop |  |
+| [![Screenshot preview of Active Course roster](screenshots/instructor/course_roster_active.png)](screenshots/instructor/course_roster_active.png)<br>Active Course roster<br>active students - laptop | [![Screenshot preview of Roster with a pending invitation](screenshots/instructor/course_roster_pending_invitation.png)](screenshots/instructor/course_roster_pending_invitation.png)<br>Roster with a pending invitation<br>pending invitation - laptop |  |
 
 ### Grading
 
@@ -44,7 +44,7 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Answer-free Gradebook](screenshots/instructor/gradebook_laptop.png)](screenshots/instructor/gradebook_laptop.png)<br>Answer-free Gradebook<br>mixed progress - laptop<br>Featured |  |  |
+| [![Screenshot preview of Answer-free Gradebook](screenshots/instructor/gradebook.png)](screenshots/instructor/gradebook.png)<br>Answer-free Gradebook<br>mixed progress - laptop<br>Featured |  |  |
 
 ### Assignments
 
@@ -52,20 +52,20 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Assignments Due Soon without current deadlines](screenshots/instructor/assignments_due_soon_empty_laptop.png)](screenshots/instructor/assignments_due_soon_empty_laptop.png)<br>Assignments Due Soon without current deadlines<br>no current deadlines - laptop |  |  |
+| [![Screenshot preview of Assignments Due Soon without current deadlines](screenshots/instructor/assignments_due_soon_empty.png)](screenshots/instructor/assignments_due_soon_empty.png)<br>Assignments Due Soon without current deadlines<br>no current deadlines - laptop |  |  |
 
 #### Assignment Release
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Assignment creation](screenshots/instructor/assignment_creation_laptop.png)](screenshots/instructor/assignment_creation_laptop.png)<br>Assignment creation<br>creation - laptop | [![Screenshot preview of Draft Assignment Questions](screenshots/instructor/assignment_release_draft_laptop.png)](screenshots/instructor/assignment_release_draft_laptop.png)<br>Draft Assignment Questions<br>draft - laptop | [![Screenshot preview of Answer-free Assignment Preview](screenshots/instructor/assignment_release_preview_laptop.png)](screenshots/instructor/assignment_release_preview_laptop.png)<br>Answer-free Assignment Preview<br>answer-free preview - laptop |
-| [![Screenshot preview of Released Assignment Policies](screenshots/instructor/assignment_release_released_laptop.png)](screenshots/instructor/assignment_release_released_laptop.png)<br>Released Assignment Policies<br>released - laptop<br>Featured |  |  |
+| [![Screenshot preview of Assignment creation](screenshots/instructor/assignment_creation.png)](screenshots/instructor/assignment_creation.png)<br>Assignment creation<br>creation - laptop | [![Screenshot preview of Draft Assignment Questions](screenshots/instructor/assignment_release_draft.png)](screenshots/instructor/assignment_release_draft.png)<br>Draft Assignment Questions<br>draft - laptop | [![Screenshot preview of Answer-free Assignment Preview](screenshots/instructor/assignment_release_preview.png)](screenshots/instructor/assignment_release_preview.png)<br>Answer-free Assignment Preview<br>answer-free preview - laptop |
+| [![Screenshot preview of Released Assignment Policies](screenshots/instructor/assignment_release_released.png)](screenshots/instructor/assignment_release_released.png)<br>Released Assignment Policies<br>released - laptop<br>Featured |  |  |
 
 #### Assessment Template Creation
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Editable Assessment Template](screenshots/instructor/assessment_template_editor_laptop.png)](screenshots/instructor/assessment_template_editor_laptop.png)<br>Editable Assessment Template<br>editable template - laptop |  |  |
+| [![Screenshot preview of Editable Assessment Template](screenshots/instructor/assessment_template_editor.png)](screenshots/instructor/assessment_template_editor.png)<br>Editable Assessment Template<br>editable template - laptop |  |  |
 
 ### Account
 
@@ -73,7 +73,7 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Instructor Profile](screenshots/instructor/profile_default_laptop.png)](screenshots/instructor/profile_default_laptop.png)<br>Instructor Profile<br>default profile - laptop |  |  |
+| [![Screenshot preview of Instructor Profile](screenshots/instructor/profile_default.png)](screenshots/instructor/profile_default.png)<br>Instructor Profile<br>default profile - laptop |  |  |
 
 ### Question Library
 
@@ -81,22 +81,22 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Question Library](screenshots/instructor/question_library_laptop.png)](screenshots/instructor/question_library_laptop.png)<br>Question Library<br>default - laptop<br>Featured | [![Screenshot preview of Filtered Question Library](screenshots/instructor/question_library_filtered_laptop.png)](screenshots/instructor/question_library_filtered_laptop.png)<br>Filtered Question Library<br>filtered - laptop | [![Screenshot preview of Browse Question Library](screenshots/instructor/question_library_browse_laptop.png)](screenshots/instructor/question_library_browse_laptop.png)<br>Browse Question Library<br>browse overview - laptop |
-| [![Screenshot preview of Published Question detail](screenshots/instructor/published_question_detail_laptop.png)](screenshots/instructor/published_question_detail_laptop.png)<br>Published Question detail<br>published detail - laptop |  |  |
+| [![Screenshot preview of Question Library](screenshots/instructor/question_library.png)](screenshots/instructor/question_library.png)<br>Question Library<br>default - laptop<br>Featured | [![Screenshot preview of Filtered Question Library](screenshots/instructor/question_library_filtered.png)](screenshots/instructor/question_library_filtered.png)<br>Filtered Question Library<br>filtered - laptop | [![Screenshot preview of Browse Question Library](screenshots/instructor/question_library_browse.png)](screenshots/instructor/question_library_browse.png)<br>Browse Question Library<br>browse overview - laptop |
+| [![Screenshot preview of Published Question detail](screenshots/instructor/published_question_detail.png)](screenshots/instructor/published_question_detail.png)<br>Published Question detail<br>published detail - laptop |  |  |
 
 #### Question Pool Creation
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Question Pool creation review](screenshots/instructor/question_pool_creation_review_laptop.png)](screenshots/instructor/question_pool_creation_review_laptop.png)<br>Question Pool creation review<br>selected Question review - laptop |  |  |
+| [![Screenshot preview of Question Pool creation review](screenshots/instructor/question_pool_creation_review.png)](screenshots/instructor/question_pool_creation_review.png)<br>Question Pool creation review<br>selected Question review - laptop |  |  |
 
 #### Generated Question Preview
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Answer-free WeBWorK generated example](screenshots/instructor/webwork_generated_example_laptop.png)](screenshots/instructor/webwork_generated_example_laptop.png)<br>Answer-free WeBWorK generated example<br>rendered WeBWorK example - laptop | [![Screenshot preview of HLA offspring genotype generated example](screenshots/instructor/webwork_hla_genotype_laptop.png)](screenshots/instructor/webwork_hla_genotype_laptop.png)<br>HLA offspring genotype generated example<br>HLA haplotype inheritance example - laptop | [![Screenshot preview of Monohybrid genotype matching generated example](screenshots/instructor/webwork_monohybrid_matching_laptop.png)](screenshots/instructor/webwork_monohybrid_matching_laptop.png)<br>Monohybrid genotype matching generated example<br>monohybrid genotype matching example - laptop |
-| [![Screenshot preview of X-linked offspring count table generated example](screenshots/instructor/webwork_x_linked_counts_laptop.png)](screenshots/instructor/webwork_x_linked_counts_laptop.png)<br>X-linked offspring count table generated example<br>X-linked offspring count table example - laptop | [![Screenshot preview of True or False Statements About DNA Structure generated example](screenshots/instructor/webwork_dna_structure_laptop.png)](screenshots/instructor/webwork_dna_structure_laptop.png)<br>True/False Statements About DNA Structure generated example<br>True/False Statements About DNA Structure generated example - laptop | [![Screenshot preview of Matching Meiosis Prophase I Stages to Descriptions generated example](screenshots/instructor/webwork_meiosis_prophase_laptop.png)](screenshots/instructor/webwork_meiosis_prophase_laptop.png)<br>Matching Meiosis Prophase I Stages to Descriptions generated example<br>Matching Meiosis Prophase I Stages to Descriptions generated example - laptop |
-| [![Screenshot preview of True or False Statements About Chi-Square Tests generated example](screenshots/instructor/webwork_chi_square_laptop.png)](screenshots/instructor/webwork_chi_square_laptop.png)<br>True/False Statements About Chi-Square Tests generated example<br>True/False Statements About Chi-Square Tests generated example - laptop | [![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](screenshots/instructor/webwork_chromosome_shapes_laptop.png)](screenshots/instructor/webwork_chromosome_shapes_laptop.png)<br>Matching Chromosome Shapes to Descriptions generated example<br>Matching Chromosome Shapes to Descriptions generated example - laptop |  |
+| [![Screenshot preview of Answer-free WeBWorK generated example](screenshots/instructor/webwork_generated_example.png)](screenshots/instructor/webwork_generated_example.png)<br>Answer-free WeBWorK generated example<br>rendered WeBWorK example - laptop | [![Screenshot preview of HLA offspring genotype generated example](screenshots/instructor/webwork_hla_genotype.png)](screenshots/instructor/webwork_hla_genotype.png)<br>HLA offspring genotype generated example<br>HLA haplotype inheritance example - laptop | [![Screenshot preview of Monohybrid genotype matching generated example](screenshots/instructor/webwork_monohybrid_matching.png)](screenshots/instructor/webwork_monohybrid_matching.png)<br>Monohybrid genotype matching generated example<br>monohybrid genotype matching example - laptop |
+| [![Screenshot preview of X-linked offspring count table generated example](screenshots/instructor/webwork_x_linked_counts.png)](screenshots/instructor/webwork_x_linked_counts.png)<br>X-linked offspring count table generated example<br>X-linked offspring count table example - laptop | [![Screenshot preview of True or False Statements About DNA Structure generated example](screenshots/instructor/webwork_dna_structure.png)](screenshots/instructor/webwork_dna_structure.png)<br>True/False Statements About DNA Structure generated example<br>True/False Statements About DNA Structure generated example - laptop | [![Screenshot preview of Matching Meiosis Prophase I Stages to Descriptions generated example](screenshots/instructor/webwork_meiosis_prophase.png)](screenshots/instructor/webwork_meiosis_prophase.png)<br>Matching Meiosis Prophase I Stages to Descriptions generated example<br>Matching Meiosis Prophase I Stages to Descriptions generated example - laptop |
+| [![Screenshot preview of True or False Statements About Chi-Square Tests generated example](screenshots/instructor/webwork_chi_square.png)](screenshots/instructor/webwork_chi_square.png)<br>True/False Statements About Chi-Square Tests generated example<br>True/False Statements About Chi-Square Tests generated example - laptop | [![Screenshot preview of Matching Chromosome Shapes to Descriptions generated example](screenshots/instructor/webwork_chromosome_shapes.png)](screenshots/instructor/webwork_chromosome_shapes.png)<br>Matching Chromosome Shapes to Descriptions generated example<br>Matching Chromosome Shapes to Descriptions generated example - laptop |  |
 
 ### Question Authoring
 
@@ -104,8 +104,8 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Private Question drafts](screenshots/instructor/question_drafts_laptop.png)](screenshots/instructor/question_drafts_laptop.png)<br>Private Question drafts<br>draft list - laptop | [![Screenshot preview of Saved private Question editor](screenshots/instructor/draft_editor_saved_laptop.png)](screenshots/instructor/draft_editor_saved_laptop.png)<br>Saved private Question editor<br>saved draft - laptop | [![Screenshot preview of Question publication review](screenshots/instructor/publication_review_laptop.png)](screenshots/instructor/publication_review_laptop.png)<br>Question publication review<br>review - laptop |
-| [![Screenshot preview of Published Question result](screenshots/instructor/published_question_result_laptop.png)](screenshots/instructor/published_question_result_laptop.png)<br>Published Question result<br>published - laptop |  |  |
+| [![Screenshot preview of Private Question drafts](screenshots/instructor/question_drafts.png)](screenshots/instructor/question_drafts.png)<br>Private Question drafts<br>draft list - laptop | [![Screenshot preview of Saved private Question editor](screenshots/instructor/draft_editor_saved.png)](screenshots/instructor/draft_editor_saved.png)<br>Saved private Question editor<br>saved draft - laptop | [![Screenshot preview of Question publication review](screenshots/instructor/publication_review.png)](screenshots/instructor/publication_review.png)<br>Question publication review<br>review - laptop |
+| [![Screenshot preview of Published Question result](screenshots/instructor/published_question_result.png)](screenshots/instructor/published_question_result.png)<br>Published Question result<br>published - laptop |  |  |
 
 ### Blueprint Courses
 
@@ -113,7 +113,7 @@ human review.
 
 | | | |
 | --- | --- | --- |
-| [![Screenshot preview of Blueprint Courses](screenshots/instructor/blueprint_courses_laptop.png)](screenshots/instructor/blueprint_courses_laptop.png)<br>Blueprint Courses<br>list - laptop | [![Screenshot preview of Blueprint Course detail](screenshots/instructor/blueprint_course_detail_laptop.png)](screenshots/instructor/blueprint_course_detail_laptop.png)<br>Blueprint Course detail<br>detail - laptop | [![Screenshot preview of Blueprint Question picker](screenshots/instructor/blueprint_question_picker_laptop.png)](screenshots/instructor/blueprint_question_picker_laptop.png)<br>Blueprint Question picker<br>question picker - laptop |
+| [![Screenshot preview of Blueprint Courses](screenshots/instructor/blueprint_courses.png)](screenshots/instructor/blueprint_courses.png)<br>Blueprint Courses<br>list - laptop | [![Screenshot preview of Blueprint Course detail](screenshots/instructor/blueprint_course_detail.png)](screenshots/instructor/blueprint_course_detail.png)<br>Blueprint Course detail<br>detail - laptop | [![Screenshot preview of Blueprint Question picker](screenshots/instructor/blueprint_question_picker.png)](screenshots/instructor/blueprint_question_picker.png)<br>Blueprint Question picker<br>question picker - laptop |
 
 ## Student
 

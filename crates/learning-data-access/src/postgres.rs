@@ -46,10 +46,12 @@ mod attempt_expiry;
 mod authoring;
 #[cfg(feature = "postgres")]
 mod blueprint_course;
-mod blueprint_pools;
 mod blueprint_fork_apply;
 #[cfg(feature = "postgres")]
+mod blueprint_history;
+#[cfg(feature = "postgres")]
 mod blueprint_lineage;
+mod blueprint_pools;
 #[cfg(feature = "postgres")]
 mod blueprint_stewardship;
 #[cfg(feature = "postgres")]

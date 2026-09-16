@@ -13,6 +13,7 @@ import {
 import type { BlueprintCourseView } from "../../../generated/api/BlueprintCourseView";
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintComparisonSide } from "../../../generated/api/BlueprintComparisonSide";
+import type { BlueprintRevision } from "../../../generated/api/BlueprintRevision";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
 import { BlueprintForkApply } from "./blueprint_fork_apply";
@@ -387,7 +388,7 @@ function RelatedComparison(props: ForkProps): JSX.Element {
 
 /** Authorized rows only; source head is compared to source ancestry, never fork numbering. */
 export function BlueprintKnownForks(
-  props: ForkProps & { readonly sourceCurrentRevision: number },
+  props: ForkProps & { readonly sourceCurrentRevision: BlueprintRevision },
 ): JSX.Element {
   const [selectedFork, setSelectedFork] = createSignal<string>();
   const comparisonId = createUniqueId();
@@ -441,10 +442,12 @@ export function BlueprintKnownForks(
                         {fork.currentRevision}.
                       </p>
                       <p>Created from source Revision {fork.sourceRevision}.</p>
-                      <Show when={props.sourceCurrentRevision > fork.sourceRevision}>
+                      <Show
+                        when={BigInt(props.sourceCurrentRevision) > BigInt(fork.sourceRevision)}
+                      >
                         <p>The source has Revisions since this fork was created.</p>
                       </Show>
-                      <Show when={fork.currentRevision > 1}>
+                      <Show when={BigInt(fork.currentRevision) > 1n}>
                         <p>This fork has saved changes since it was created.</p>
                       </Show>
                       <p>Owning Instructor: {fork.ownerDisplayName}</p>

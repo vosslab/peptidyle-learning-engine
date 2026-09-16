@@ -7,6 +7,7 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
 import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
 import type { BlueprintRevisionView } from "../../generated/api/BlueprintRevisionView";
+import type { BlueprintHistoryPageView } from "../../generated/api/BlueprintHistoryPageView";
 import type { BlueprintComparisonView } from "../../generated/api/BlueprintComparisonView";
 import type { BlueprintKnownForkView } from "../../generated/api/BlueprintKnownForkView";
 import type { BlueprintCourseSaveResponse } from "../../generated/api/BlueprintCourseSaveResponse";
@@ -36,6 +37,12 @@ export interface BlueprintMetadataTransition {
 
 /** Browser capability for Instructor-owned reusable Blueprint Course lifecycle operations. */
 export interface BlueprintCourseClient {
+  readonly listBlueprintHistory: (
+    reference: BlueprintCourseReference,
+    kind?: "revisions" | "metadata",
+    cursor?: string,
+    pageSize?: number,
+  ) => Promise<BlueprintHistoryPageView>;
   readonly getBlueprintPoolMembers: (
     reference: BlueprintCourseReference,
     assessmentReference: BlueprintAssessmentReference,
