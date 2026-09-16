@@ -21,7 +21,7 @@ export function PleQuestionJsonFeedbackFields(
     <fieldset>
       <legend>Question Feedback</legend>
       <p class="ple-question-json-authoring__help">
-        This appears after the student's answer according to the Student Feedback Release Rule.
+        This is shown in submitted Attempt history when the Question provides it.
       </p>
       <label class="ple-question-json-authoring__field">
         <span>Correct Feedback (optional)</span>

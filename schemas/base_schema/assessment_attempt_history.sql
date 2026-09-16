@@ -75,7 +75,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
                    'score', assessment_attempt.feedback_score,
                    'per_item_correctness', assessment_attempt.feedback_per_item_correctness,
                    'submitted_response', assessment_attempt.feedback_submitted_response,
-                   'question_feedback', assessment_attempt.feedback_question_feedback,
                    'question_answer', assessment_attempt.feedback_question_answer,
                    'question_answer_explanation', assessment_attempt.feedback_question_answer_explanation,
                    'class_statistics', assessment_attempt.feedback_class_statistics
@@ -234,8 +233,9 @@ GRANT EXECUTE ON FUNCTION ple_api.read_student_assessment_attempt_history(bigint
 RESET ROLE;
 
 -- Reproduction facts are private retained evidence.  The server receives them
--- only for an owned completed Assessment Attempt and only after at least one teaching
--- content field is releasable from that Assessment Attempt's copied feedback policy.
+-- only for an owned completed Assessment Attempt. The server needs the exact
+-- recorded response to select backend-provided feedback even when the public
+-- response itself remains withheld by the copied disclosure policy.
 -- The selected Question Revision and source binding are immutable, so this
 -- reader never interprets a past Assessment Attempt through current Assessment content.
 SET LOCAL ROLE ple_private_owner;
@@ -246,24 +246,12 @@ CREATE FUNCTION ple_private.read_student_assessment_attempt_history_response_sou
     question_id text, revision_number integer, general_feedback text, source_object_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
-    presentation_nonce text, presentation_checksum text, presentation jsonb,
+    presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
     question_asset_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
     WITH owned_assessment_attempt AS (
-        SELECT assessment_attempt.assessment_attempt_id,
-               assessment_attempt.assessment_id,
-               assessment.assessment_type,
-               assessment_attempt.feedback_submitted_response,
-               assessment_attempt.feedback_question_feedback,
-               assessment_attempt.feedback_question_answer,
-               assessment_attempt.feedback_question_answer_explanation,
-               assessment_attempt.due_at,
-               assessment_attempt.closes_at,
-               assessment_submission.submitted_at AS assessment_submitted_at,
-               ple_private.current_student_cohort_completed_assessment(
-                   assessment_attempt.assessment_id
-               ) AS all_students_completed
+        SELECT assessment_attempt.assessment_attempt_id
           FROM ple_private.assessment_attempt AS assessment_attempt
           JOIN ple_data.assessment AS assessment
             ON assessment.assessment_id = assessment_attempt.assessment_id
@@ -280,60 +268,10 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            -- ASVS 2.3.1: richer response-source history obeys the exact
            -- ordinary-visibility boundary too.
            AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id)
-    ), released_assessment_attempt AS (
-        SELECT owned.*,
-               (
-                   owned.feedback_submitted_response = 'during_attempt'
-                   OR (owned.feedback_submitted_response = 'after_submit'
-                       AND owned.assessment_submitted_at IS NOT NULL)
-                   OR (owned.feedback_submitted_response = 'after_due'
-                       AND owned.due_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.due_at)
-                   OR (owned.feedback_submitted_response = 'after_close'
-                       AND owned.closes_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.closes_at)
-               ) AS submitted_response_is_released,
-               (
-                   owned.feedback_question_feedback = 'during_attempt'
-                   OR (owned.feedback_question_feedback = 'after_submit'
-                       AND owned.assessment_submitted_at IS NOT NULL)
-                   OR (owned.feedback_question_feedback = 'after_due'
-                       AND owned.due_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.due_at)
-                   OR (owned.feedback_question_feedback = 'after_close'
-                       AND owned.closes_at IS NOT NULL
-                       AND pg_catalog.statement_timestamp() >= owned.closes_at)
-                   OR (
-                       (owned.assessment_type NOT IN ('quiz', 'exam')
-                           OR owned.all_students_completed)
-                       AND (
-                           owned.feedback_question_answer = 'during_attempt'
-                           OR (owned.feedback_question_answer = 'after_submit'
-                               AND owned.assessment_submitted_at IS NOT NULL)
-                           OR (owned.feedback_question_answer = 'after_due'
-                               AND owned.due_at IS NOT NULL
-                               AND pg_catalog.statement_timestamp() >= owned.due_at)
-                           OR (owned.feedback_question_answer = 'after_close'
-                               AND owned.closes_at IS NOT NULL
-                               AND pg_catalog.statement_timestamp() >= owned.closes_at)
-                           OR owned.feedback_question_answer_explanation = 'during_attempt'
-                           OR (owned.feedback_question_answer_explanation = 'after_submit'
-                               AND owned.assessment_submitted_at IS NOT NULL)
-                           OR (owned.feedback_question_answer_explanation = 'after_due'
-                               AND owned.due_at IS NOT NULL
-                               AND pg_catalog.statement_timestamp() >= owned.due_at)
-                           OR (owned.feedback_question_answer_explanation = 'after_close'
-                               AND owned.closes_at IS NOT NULL
-                               AND pg_catalog.statement_timestamp() >= owned.closes_at)
-                       )
-                   )
-               ) AS teaching_content_is_released
-          FROM owned_assessment_attempt AS owned
     )
     SELECT issued.issued_position,
-           released.assessment_attempt_id,
-           CASE WHEN released.submitted_response_is_released
-                THEN submission.student_response END,
+           owned.assessment_attempt_id,
+           submission.student_response,
            binding.backend,
            question_attempt.question_attempt_id,
            issued.question_id,
@@ -348,11 +286,12 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            presentation.presentation_nonce,
            presentation.presentation_checksum,
            presentation.presentation,
+           presentation.author_content,
            COALESCE(asset_renditions.question_asset_renditions, '[]'::jsonb),
            COALESCE(response_item_bindings.response_item_bindings, '[]'::jsonb)
-      FROM released_assessment_attempt AS released
+      FROM owned_assessment_attempt AS owned
       JOIN ple_private.issued_question AS issued
-        ON issued.assessment_attempt_id = released.assessment_attempt_id
+        ON issued.assessment_attempt_id = owned.assessment_attempt_id
       JOIN ple_private.question_attempt
         ON question_attempt.issued_question_id = issued.issued_question_id
       JOIN ple_data.question_revision AS revision
@@ -386,8 +325,6 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             FROM ple_private.question_attempt_response_item_binding AS response_item
            WHERE response_item.question_attempt_id = question_attempt.question_attempt_id
       ) AS response_item_bindings ON true
-     WHERE released.submitted_response_is_released
-        OR released.teaching_content_is_released
      ORDER BY issued.issued_position
 $$;
 REVOKE ALL ON FUNCTION ple_private.read_student_assessment_attempt_history_response_sources(bigint)
@@ -404,7 +341,7 @@ CREATE FUNCTION ple_api.read_student_assessment_attempt_history_response_sources
     question_id text, revision_number integer, general_feedback text, source_object_id uuid, source_object_address jsonb,
     source_object_checksum text, webwork_pg_path text, question_seed text,
     generated_parameter_sha256 text,
-    presentation_nonce text, presentation_checksum text, presentation jsonb,
+    presentation_nonce text, presentation_checksum text, presentation jsonb, author_content jsonb,
     question_asset_renditions jsonb, response_item_bindings jsonb
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -412,7 +349,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
            question_id, revision_number, general_feedback, source_object_id, source_object_address,
            source_object_checksum, webwork_pg_path, question_seed,
            generated_parameter_sha256,
-           presentation_nonce, presentation_checksum, presentation, question_asset_renditions,
+           presentation_nonce, presentation_checksum, presentation, author_content, question_asset_renditions,
            response_item_bindings
       FROM ple_private.read_student_assessment_attempt_history_response_sources($1)
 $$;

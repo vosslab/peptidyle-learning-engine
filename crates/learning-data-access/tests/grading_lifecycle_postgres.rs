@@ -56,7 +56,7 @@ async fn make_attempt(
          assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
          assessment_attempt_resume_rule, assessment_question_display_rule, \
          assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
-         feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \
+         feedback_per_item_correctness, feedback_submitted_response, \
          feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
          assessment_status) \
          SELECT $1, course_id, origin_kind, source_blueprint_course_reference_number, \
@@ -67,7 +67,7 @@ async fn make_attempt(
                 assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
                 assessment_attempt_resume_rule, assessment_question_display_rule, \
                 assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
-                feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \
+                feedback_per_item_correctness, feedback_submitted_response, \
                 feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics, \
                 assessment_status FROM ple_data.assessment WHERE assessment_id = $2",
     ).bind(assessment_id).bind(Uuid::parse_str(BASE_ASSESSMENT).unwrap())

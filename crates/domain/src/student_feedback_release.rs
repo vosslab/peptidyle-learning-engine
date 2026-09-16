@@ -13,7 +13,7 @@ use question_model::{
 
 use crate::effective_assessment_properties::{AssessmentAccessDecision, EffectiveAssessmentPolicy};
 
-/// The seven independently evaluated Student Feedback Release fields.
+/// The six independently evaluated Student Feedback Release fields.
 ///
 /// A caller uses these booleans to omit protected fields from Student Feedback;
 /// this type contains no protected content itself.
@@ -22,7 +22,6 @@ pub struct StudentFeedbackReleaseDecision {
     pub score: bool,
     pub per_item_correctness: bool,
     pub submitted_response: bool,
-    pub question_feedback: bool,
     pub question_answer: bool,
     pub question_answer_explanation: bool,
     pub class_statistics: bool,
@@ -62,7 +61,7 @@ pub fn score_current_student_feedback_release(
     decision
 }
 
-/// Projects exactly the independently disclosed Student feedback fields.
+/// Projects Question-provided feedback plus the independently disclosed fields.
 ///
 /// `None` means no feedback field is currently visible. Hidden fields are
 /// omitted rather than represented by null or a protected-content marker.
@@ -83,11 +82,9 @@ pub fn project_student_feedback(
             disclosed.points_possible = Some(result.points_possible);
         }
     }
-    if decision.question_feedback {
-        disclosed.choice_feedback = question_feedback.choice_feedback.clone();
-        disclosed.correct_feedback = question_feedback.correct_feedback.clone();
-        disclosed.incorrect_feedback = question_feedback.incorrect_feedback.clone();
-    }
+    disclosed.choice_feedback = question_feedback.choice_feedback.clone();
+    disclosed.correct_feedback = question_feedback.correct_feedback.clone();
+    disclosed.incorrect_feedback = question_feedback.incorrect_feedback.clone();
     if decision.question_answer {
         disclosed.question_answer = question_answer.map(|answer| answer.content().to_vec());
     }
@@ -97,7 +94,9 @@ pub fn project_student_feedback(
     }
     (decision.per_item_correctness
         || decision.score
-        || decision.question_feedback
+        || disclosed.choice_feedback.is_some()
+        || disclosed.correct_feedback.is_some()
+        || disclosed.incorrect_feedback.is_some()
         || decision.question_answer
         || decision.question_answer_explanation)
         .then_some(disclosed)
@@ -179,13 +178,6 @@ pub fn evaluate_allowed_student_feedback_release(
         ),
         submitted_response: timing_released(
             rule.submitted_response,
-            now,
-            submitted_at,
-            policy.due_at.value,
-            policy.closes_at.value,
-        ),
-        question_feedback: timing_released(
-            rule.question_feedback,
             now,
             submitted_at,
             policy.due_at.value,

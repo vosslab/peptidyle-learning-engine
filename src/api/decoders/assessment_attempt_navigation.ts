@@ -217,40 +217,12 @@ export function decodeStudentAssessmentAttemptResponseSaveAcknowledgement(
   };
 }
 
-function decodeScore(
-  value: unknown,
-  path: string,
-): {
-  readonly pointsEarned: number;
-  readonly pointsPossible: number;
-} {
-  const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["pointsEarned", "pointsPossible"]);
-  const pointsEarned = nonnegativeFinite(
-    field(record, "pointsEarned", path),
-    `${path}.pointsEarned`,
-  );
-  const pointsPossible = nonnegativeFinite(
-    field(record, "pointsPossible", path),
-    `${path}.pointsPossible`,
-  );
-  if (pointsEarned > pointsPossible)
-    throw new DecodeError(path, "a score whose earned points do not exceed possible points");
-  return { pointsEarned, pointsPossible };
-}
-
-function nonnegativeFinite(value: unknown, path: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0)
-    throw new DecodeError(path, "a non-negative finite score");
-  return value;
-}
-
 export function decodeStudentAssessmentAttemptSubmissionResult(
   value: unknown,
   path = "response",
 ): StudentAssessmentAttemptSubmissionResult {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["assessmentAttempt", "submissionState", "score"]);
+  requireOnlyFields(record, path, ["assessmentAttempt", "submissionState"]);
   const submissionState = field(record, "submissionState", path);
   if (submissionState !== "submitted")
     throw new DecodeError(
@@ -263,9 +235,5 @@ export function decodeStudentAssessmentAttemptSubmissionResult(
       `${path}.assessmentAttempt`,
     ),
     submissionState,
-    score: ((): StudentAssessmentAttemptSubmissionResult["score"] => {
-      const value = field(record, "score", path);
-      return value === null ? null : decodeScore(value, `${path}.score`);
-    })(),
   };
 }

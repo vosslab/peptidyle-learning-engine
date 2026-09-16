@@ -548,7 +548,7 @@ function breadcrumbsFor(
     case "assessmentWorkspaceStudentView": {
       const section = {
         assessmentWorkspaceQuestions: "Questions",
-        assessmentWorkspacePolicies: "Settings",
+        assessmentWorkspacePolicies: "Properties",
         assessmentWorkspaceStudentView: "Student View",
       }[routeState.route.id];
       const base = courseTrail(assessmentLabel, courseAssessments);

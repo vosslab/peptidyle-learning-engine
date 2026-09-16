@@ -15,6 +15,116 @@
 
 ### Additions and New Features
 
+- Removed the invented seventh delayed-release setting for Question Feedback. Assessment and
+  Template contracts now carry six independent timing fields; provided native Question Feedback
+  and exact-Revision General feedback are shown at the existing submitted-history boundary, while
+  response, score, correctness, answer, explanation, and class statistics retain their own gates.
+  History now projects required author content through its exact private source row and fails
+  closed on Store read/decode errors instead of returning a successful response with missing
+  feedback. The completion acknowledgement exposes only Attempt ID and submission state, not a
+  transient score. Accepted actual Student HTTP and exact-main browser proof rendered General
+  feedback with all six timings `Never`, withheld the protected fields, returned 404 for another
+  Student, an Instructor, a Sysadmin, and an anonymous caller. The renderer was stopped after
+  issuance and before submission and history. Source and focused domain tests establish provided native feedback independently of
+  answer disclosure; the WeBWorK runtime fixture supplied no transient backend feedback. Fresh
+  gates passed 7,149 Python tests, 337 Node tests, `npx tsc --noEmit`, both Rust binaries, 14 domain
+  feedback tests, 11 assessment-delivery tests, and canonical generation of 351
+  TypeScript types. This closes only C910's three bounded feedback rows, not the broader C524 or
+  Student-workflow gaps.
+- Repaired the trusted curriculum publisher for the current reusable Question Pool contract.
+  Unreplaced static banks now publish real immutable Pools with ordered exact Question Revision
+  members, and Blueprint Pool entries carry the Pool public ID and selection policy instead of a
+  second inline member list. Retained-Blueprint replay loads the exact stored Pool Revision and
+  revalidates its ordered Question provenance; accepted canonical replacements remain Fixed
+  Questions. The canonical-source validator now enforces the intended exact
+  `pg/<topic>/...` and `genetics/<topic>/...` ownership paths instead of rejecting every real
+  `pg/topicNN/...` `PathBuf`. Focused publication tests, project-tools check/build, the full Python
+  suite, and an isolated PostgreSQL 17/MinIO run passed. That run published three Questions, one
+  ordered two-member Pool, and one `[pool, fixed]` Blueprint, then proved an unchanged exact rerun.
+  It is publication/pin plumbing evidence, not PGML rendering or algorithmic-source acceptance.
+  Bundled Genetics publication remains open: 76 unreplaced banks still reference 13,434 generated
+  PG files removed by the user, so those families require canonical-source migration rather than
+  restoration of redundant expansions. Repository maintenance also removed 5,958 recoverable
+  loose Rust code-generation objects (about 2.2 GiB) only after matching archived libraries were
+  verified; libraries, metadata, binaries, and fingerprints were preserved.
+- Implemented the bounded C64 Assessment Question-order runtime without closing its Human Guidance
+  row yet. The authorized Student start path now holds one transaction and Assessment lock through
+  preflight, fixed-and-Pool selection, unbiased whole-vector shuffle, and immutable Attempt
+  persistence; immediate resume returns the retained Attempt before source reads or randomness.
+  Two connected Pool defects were also corrected: full Assessment saves resolve the canonical
+  public Pool ID to the exact Assessment-owned fork, and workspace decoding returns one Pool Entry
+  while retaining all member Question facts. Focused Rust compilation, a fresh PostgreSQL 17 SQL
+  gate, and independent review passed. Accepted authenticated Student HTTP evidence then covered
+  authored order, a complete shuffled fixed-and-Pool vector, a real concurrent Instructor save
+  blocked behind the Student-start lock, immutable same-Attempt resume after a current-rule edit,
+  exact Question Revision pins, and outsider/anonymous concealment. Accepted exact-main browser
+  evidence then saved and reloaded **Randomize question order** through actual HTTP while retaining
+  explicit Question-owned answer-choice copy. The PLE Question authoring/codec/adapter/presentation
+  chain owns native choice randomization, while the closed Assessment rules expose no choice-order
+  override. This closes the two bounded Assessment-randomization rows without claiming a runtime
+  matrix of every native choice permutation. The same browser evidence confirmed readable Chicago
+  Account-zone Due values in a three-row Course list at desktop and 720px while the browser used Los
+  Angeles time; broad representative cross-list scanability remains open.
+- Recorded C63's implemented WeBWorK exact-Revision preview path without closing its inspection
+  row. The authorized private source and checksum reach the existing opaque adapter and hardened
+  iframe, and the page reuses `QuestionAvailabilityClient.getQuestionRevision` rather than adding a
+  weaker duplicate client. Focused client tests and the current TypeScript pass. Private PostgreSQL
+  17/MinIO plus unchanged-renderer HTTP evidence returned preview 200 with hardened headers and
+  concealed missing Revision, Student, and anonymous requests. Exact-main browser evidence visibly
+  rendered the prompt and five choices. The renderer JavaScript then
+  dereferenced `window.frameElement.id` where the hardened sandbox supplies no same-origin frame
+  element, before focus, popover, and parent telemetry. The isolated preview path left all five
+  Student Work counts at zero before and after: Assessment Attempts, Question Attempts, saved
+  responses, submissions, and grading results. C63 remains open; do not loosen the sandbox or
+  rewrite sibling renderer HTML while successful hardened-embed behavior remains unverified.
+- Projected each exact Question Revision's optional registered WeBWorK PG path through the
+  Instructor-authorized private Question Library query and decoded it into the server-only Store
+  entry. A fresh PostgreSQL 17 installation proved the exact path through both list and
+  exact-Revision reads, the focused PostgreSQL LDA compile passed, and independent review accepted
+  the private DTO boundary. This prerequisite does not implement or verify rendered WeBWorK
+  Question preview.
+- Closed all five C62 Assessment editor-shell rows plus C63's visible Question-order and direct
+  Search/Browse rows. The browser
+  contract now matches the server's current equal-co-Instructor Course view and creation receipts
+  without obsolete authority booleans;
+  Question and Properties routes, Ribbon tasks, headings, and breadcrumbs use their canonical
+  names; and the owning editor CSS targets the current Assessment selectors. Accepted private
+  PostgreSQL 17, actual-server, and exact-main browser evidence added, moved, removed, re-added,
+  saved, and reloaded two Questions, persisted one Properties instructions edit, saved and reloaded
+  fixed-Question point values `2.5` and `1`, and verified the grouped two-column desktop and
+  one-column 720px Properties layout. Cancel, Stay/Discard, and a real stale-write refusal with
+  explicit reload/discard recovery passed. Search and Browse links,
+  browser Back, and Stay/Discard unsaved-state handling passed the same actual-server path.
+  Broad Assessment-list scanability remains open because the Course list renders a raw local ISO
+  due value in a one-row fixture. This does not claim score recalculation, Released-Assessment
+  point editing, the meaningful C63 inspection behavior, release workflow, deployment-gateway
+  behavior, or WASM runtime. The canonical checklist now contains 784 bullets: 353 verified, 388
+  open, and 43 N/A.
+- Closed three more C61 Assessments Due Soon rows. The SQL projection now returns the canonical
+  Course public reference expected by the Rust model instead of an internal numeric reference, and
+  the page stylesheet now targets the current Assessment class names. Accepted private PostgreSQL
+  17, actual-server, and exact-main browser evidence covered two owned Courses, outsider-Course
+  exclusion, anonymous/Student concealment, `no-store`, and Course/Due values formatted from actual
+  HTTP instants in the Account zone. The broad Assessment-list scanability row remains open pending
+  a second production list. This does not claim empty/error states, release workflow, WASM runtime,
+  deployment gateway, or connected Template delivery. The canonical checklist now contains 784
+  bullets: 346 verified, 395 open, and 43 N/A.
+- Closed 13 bounded Question Library Human Guidance rows across C58 and C60. A private PostgreSQL
+  17 and actual-server HTTP receipt exercised ordinary words, quoted phrases, minus exclusion, all
+  five PLE field tags, exact subject/topic filters, full-authorized-snapshot group counts despite
+  `page_size=1`, explicit 64-value truncation flags, active-vetted-Instructor access, anonymous and
+  Student concealment, and `no-store`. Accepted routed-component evidence separately covered the
+  distinct Browse route, subject-to-topic navigation, exact Browse-to-Search handoff, retained
+  selected filters, and shared result presentation. A follow-up private exact-main browser run
+  authenticated against the actual server, traversed overview through Biology and Enzymes into
+  focused Search, and produced accepted production-styled 1280 by 800 screenshots. This closes all
+  eight C60 Browse rows without claiming deployment-gateway or WASM-runtime evidence. Expert
+  very-large-library behavior remains open. After the concurrent Human Guidance theme split, the
+  canonical checklist contains 784 bullets: 343 verified, 398 open, and 43 N/A.
+- Documented the demonstrated RDKit/Prettier scope conflict for later starter-repository review.
+  The proposal records the explicit negated-glob workaround and the existing protected formatting
+  write command, rejects rewriting reviewed dependency bytes, and leaves any propagation change
+  unapproved pending inspection and user decision.
 - Rebalanced the preliminary biome theme specification around demonstrated visual territory rather
   than a fixed theme count. Five crowded palettes were replaced by Wildflower Meadow, Autumn
   Woodland, Tropical Lagoon, Volcanic Field, and Red Rock Canyon; Glacier was added as a distinct
@@ -104,7 +214,7 @@
 - Added the independently accepted C514 Assessment Template domain model. The private-UUID
   aggregate owns a validated name, one Assessment Type, a positive CAS Edit Number, and only the
   reusable settings copied into a future Assessment. Its strict payload reuses the canonical
-  instructions, non-date policy defaults, nine activity rules, and seven feedback-release rules;
+  instructions, non-date policy defaults, nine activity rules, and six feedback-release timings;
   focused compilation, existing rule tests, Clippy, and one-time serialization proof passed. This
   makes the model ready for owner-scoped persistence but does not close the schema, API, UI, copy
   integration, or full Assessment Template workflow.
@@ -153,7 +263,8 @@
   undefined collaboration policy remains open. Focused TypeScript, browser, and review gates pass.
 - Added C524's accepted bounded Assessment-disclosure defaults and post-submit path. Practice
   defaults correct answers to after submission; Regular and Bonus default them to never; submitted
-  responses, correctness, Question Feedback, answers, and explanations remain independently gated.
+  responses, correctness, answers, and explanations remain independently timed; Question Feedback
+  is shown when provided and has no separate delayed-release state.
   Actual-component dialog and summary proofs passed, and fresh PostgreSQL 17 API proofs established
   no pre-submit response source, native PLE post-submit answer disclosure, and fail-closed Quiz/Exam
   release. `./check_codebase.sh` passed 328 Node tests and the latest manager pytest run passed 7042;
@@ -337,10 +448,11 @@
   corrections, not completed implementation claims.
 - The WebWork audit found that the renderer path currently normalizes only
   `problem_result.score`, while Student history supplies default feedback.
-  C910 is now the atomic contributor for typed, protected, policy-gated opaque
-  backend feedback; C331 and C362 cannot close first. This corrects the
-  dependency graph without inventing native parsing or a feedback completion
-  claim.
+  This historical audit made C910 the atomic contributor for typed,
+  policy-gated backend feedback. It is superseded by the current C910 entry:
+  Question Feedback has no separate delayed-release state, while the six
+  disclosure timings remain independently gated. The original dependency
+  correction did not itself establish feedback completion.
 - Completed C371's Published Question Star closure. A Star is now a visible
   favorite/endorsement, and an active vetted Instructor can see its count and
   the exact vetted display names of its endorsers. The permanent isolated

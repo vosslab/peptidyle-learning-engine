@@ -9,7 +9,8 @@ CREATE FUNCTION ple_private.question_library_entries(
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
     subject text, topic text, used_in_current_account_courses boolean,
-    source_object_id uuid, source_object_checksum text, source_media_type text
+    source_object_id uuid, source_object_checksum text, source_media_type text,
+    webwork_pg_path text
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 BEGIN
@@ -59,7 +60,8 @@ BEGIN
            license.spdx_expression, lineage.availability, lineage.availability_edit_number,
            metadata.metadata_edit_number, metadata.tags, metadata.subject, metadata.topic,
            authorized_course_question.question_id IS NOT NULL,
-           binding.source_object_id, binding.source_object_checksum, record.media_type
+           binding.source_object_id, binding.source_object_checksum, record.media_type,
+           binding.webwork_pg_path
       FROM ple_data.question_revision AS revision
       JOIN ple_data.published_question AS lineage ON lineage.question_id = revision.question_id
       JOIN ple_data.published_question_metadata AS metadata ON metadata.question_id = revision.question_id
@@ -109,7 +111,8 @@ RETURNS TABLE (
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
     subject text, topic text, used_in_current_account_courses boolean,
-    source_object_id uuid, source_object_checksum text, source_media_type text
+    source_object_id uuid, source_object_checksum text, source_media_type text,
+    webwork_pg_path text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.question_library_entries(NULL, NULL, true)
 $$;
@@ -121,7 +124,8 @@ RETURNS TABLE (
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
     subject text, topic text, used_in_current_account_courses boolean,
-    source_object_id uuid, source_object_checksum text, source_media_type text
+    source_object_id uuid, source_object_checksum text, source_media_type text,
+    webwork_pg_path text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.question_library_entries(p_question_id, p_revision_number, false)
 $$;

@@ -99,8 +99,34 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
             .fetch_all(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
-        let result = decode_revision_rows(&rows, Some(public_question_pool_id))?
+        let result = decode_revision_rows(&rows, public_question_pool_id, None)?
             .ok_or(StoreError::NotFound)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(result)
+    }
+
+    async fn load_published_question_pool_revision(
+        &self,
+        session_token_hash: SessionTokenHash,
+        reference: &QuestionPoolRevisionReference,
+    ) -> Result<PublishedQuestionPoolRevision, StoreError> {
+        let mut transaction = self.begin(session_token_hash).await?;
+        let rows =
+            sqlx::query("SELECT * FROM ple_api.read_published_question_pool_revision($1, $2)")
+                .bind(reference.question_pool_id.as_compact_str())
+                .bind(
+                    i64::try_from(reference.revision_number.get())
+                        .map_err(|_| invalid("Question Pool Revision"))?,
+                )
+                .fetch_all(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
+        let result = decode_revision_rows(
+            &rows,
+            &reference.question_pool_id,
+            Some(reference.revision_number),
+        )?
+        .ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }
@@ -179,16 +205,19 @@ fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolLibrarySumm
 
 fn decode_revision_rows(
     rows: &[sqlx::postgres::PgRow],
-    expected_id: Option<&QuestionId>,
+    expected_id: &QuestionId,
+    expected_revision: Option<QuestionPoolRevisionNumber>,
 ) -> Result<Option<PublishedQuestionPoolRevision>, StoreError> {
     let Some(first) = rows.first() else {
         return Ok(None);
     };
     let pool_id = decode_question_id(first, "public_question_pool_id")?;
-    if expected_id.is_some_and(|expected| expected != &pool_id) {
+    let revision_number = decode_pool_revision(first, "revision_number")?;
+    if expected_id != &pool_id
+        || expected_revision.is_some_and(|expected| expected != revision_number)
+    {
         return Err(invalid("Question Pool identity"));
     }
-    let revision_number = decode_pool_revision(first, "revision_number")?;
     Ok(Some(PublishedQuestionPoolRevision {
         members: decode_member_rows(rows, &pool_id, revision_number)?,
         question_pool_revision: QuestionPoolRevisionReference {

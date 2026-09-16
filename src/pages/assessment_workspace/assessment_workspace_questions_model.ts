@@ -2,8 +2,55 @@
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
+import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
-import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
+import type {
+  AssessmentQuestionPickerEntry,
+  LiveAssessmentWorkspace,
+  SaveLiveAssessmentInput,
+} from "../../api/assessment_release";
+
+/** Builds the closed full-Assessment save payload without dropping unedited fields. */
+export function questionSaveInput(
+  current: LiveAssessmentWorkspace,
+  title: string,
+  entries: ReadonlyArray<AssessmentEntry>,
+): SaveLiveAssessmentInput {
+  return {
+    title,
+    instructions: current.instructions,
+    entries,
+    dueAt: current.dueAt,
+    availableAt: current.availableAt,
+    closesAt: current.closesAt,
+    lateWorkRule: current.lateWorkRule,
+    assessmentAttemptTimeLimitSeconds: current.assessmentAttemptTimeLimitSeconds,
+    attemptLimit: current.attemptLimit,
+    activityRules: current.activityRules,
+    studentFeedbackReleaseRule: current.studentFeedbackReleaseRule,
+  };
+}
+
+/** Parses the exact bounded decimal grammar already enforced by the Assessment API. */
+export function assessmentPointValueDraft(value: string): AssessmentPointValue | undefined {
+  if (!/^[0-9]{1,10}(?:\.[0-9]{0,4})?$/u.test(value)) return undefined;
+  const whole = BigInt(value.split(".")[0] ?? "0");
+  return whole <= 1_000_000_000n ? value : undefined;
+}
+
+/** Replaces only fixed-Question point values while retaining every other Entry field and order. */
+export function withFixedQuestionPointValues(
+  entries: ReadonlyArray<AssessmentEntry>,
+  pointsByEntryId: Readonly<Record<string, AssessmentPointValue>>,
+): ReadonlyArray<AssessmentEntry> {
+  return entries.map((entry) => {
+    if (entry.kind !== "fixedQuestion") return entry;
+    const pointsPossible = pointsByEntryId[entry.id];
+    return pointsPossible === undefined || pointsPossible === entry.pointsPossible
+      ? entry
+      : { ...entry, pointsPossible };
+  });
+}
 
 /** A stable, exact identity used when comparing pinned Question Revisions. */
 export function questionRevisionKey(reference: QuestionRevisionReference): string {

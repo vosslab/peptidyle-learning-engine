@@ -363,7 +363,7 @@ export const ROUTE_CONTRACT = [
   {
     id: "assessmentWorkspacePolicies",
     path: "/instructor/courses/:courseRef/assessments/:assessmentRef/properties",
-    surface: "Instructor assessment policies workspace",
+    surface: "Instructor Assessment Properties workspace",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "courseInstance",

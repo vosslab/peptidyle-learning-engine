@@ -132,7 +132,7 @@ assignment = {
   "title": "Course Instance source assignment",
   "instructions": "Use the published Question in reusable course structure.",
   "entries": [{"kind":"fixed","question_id":question_id,"points_possible":"1","scoring_rule":"normal","question_attempt_limit":{"maxAttempts":None},"question_attempt_time_limit":{"kind":"unlimited"}}],
-  "defaults": {"assignment_attempt_time_limit_seconds":None,"attempt_limit":2,"late_work_rule":"accept","activity_rules":{"assignmentCompletionRule":{"kind":"answerAll"},"assignmentAttemptGradeRule":"highest","assignmentAttemptContinuationRule":{"kind":"unlimited"},"questionPoolReuseRule":"reuseSelection","questionVariationRule":"newVariation","assignmentAttemptResumeRule":"resumable","assignmentQuestionDisplayRule":"allQuestions","assignmentNavigationRule":"freeNavigation","assignmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_feedback":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
+  "defaults": {"assignment_attempt_time_limit_seconds":None,"attempt_limit":2,"late_work_rule":"accept","activity_rules":{"assignmentCompletionRule":{"kind":"answerAll"},"assignmentAttemptGradeRule":"highest","assignmentAttemptContinuationRule":{"kind":"unlimited"},"questionPoolReuseRule":"reuseSelection","questionVariationRule":"newVariation","assignmentAttemptResumeRule":"resumable","assignmentQuestionDisplayRule":"allQuestions","assignmentNavigationRule":"freeNavigation","assignmentQuestionOrderRule":"authoredOrder"},"student_feedback_release_rule":{"score":"after_submit","submitted_response":"after_submit","per_item_correctness":"after_submit","question_answer":"never","question_answer_explanation":"never","class_statistics":"never"}},
   "schedule":{"available_at":None,"due_at":None,"closes_at":None},
 }
 print(json.dumps({"short_name":"M8 source","long_name":"M8 exact Blueprint source","modules":[{"label":"M8 module","assignments":[assignment]}]}, separators=(",",":")))
@@ -177,7 +177,7 @@ assert_course_receipt() {
 	python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-if set(value) != {"course", "creatorIsAssignedInstructor"}:
+if set(value) != {"course"}:
     raise SystemExit("Course Instance creation receipt was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
@@ -185,10 +185,8 @@ if (set(course) != {"reference", "shortName", "longName", "term", "theme"}
     or not re.fullmatch(r"C-[1-9][0-9]{0,9}", course["reference"])
     or course["theme"] not in themes):
     raise SystemExit("Course Instance creation receipt did not return a public Course Instance identity")
-if (course["shortName"] != sys.argv[2]
-    or course["longName"] != sys.argv[3]
-    or value["creatorIsAssignedInstructor"] is not False):
-    raise SystemExit("Sysadmin Course Instance creation did not preserve its no-ambient-access receipt")
+if course["shortName"] != sys.argv[2] or course["longName"] != sys.argv[3]:
+    raise SystemExit("Sysadmin Course Instance creation did not preserve its Course identity receipt")
 print(course["reference"])
 ' "$1" "$2" "$3"
 }
@@ -197,7 +195,7 @@ assert_instructor_view() {
 	python3 -c '
 import json, re, sys
 value = json.loads(sys.argv[1])
-if set(value) != {"course", "isAssignedInstructor", "activeInstructorCount"}:
+if set(value) != {"course", "activeInstructorCount"}:
     raise SystemExit("Course Instance teaching-team view was not closed")
 course = value["course"]
 themes = {"tundra", "forest", "desert", "grass", "arctic", "ocean", "tropical", "coral-reef", "swamp", "underground", "salt-marsh", "wetland", "sea-floor", "magma", "beach"}
@@ -208,8 +206,6 @@ if (set(course) != {"reference", "shortName", "longName", "term", "theme"}
     raise SystemExit("Course Instance teaching-team view identity differs")
 if course["shortName"] != sys.argv[3] or course["longName"] != sys.argv[4]:
     raise SystemExit("Course Instance teaching-team view did not retain both names")
-if value["isAssignedInstructor"] is not True:
-    raise SystemExit("Assigned Instructor did not receive teaching authority")
 if not isinstance(value["activeInstructorCount"], int) or value["activeInstructorCount"] < 1:
     raise SystemExit("Course Instance teaching-team view lacks active Instructor evidence")
 forbidden = {"id", "accountId", "student", "studentRecord", "assignment", "sourceObject", "answerKey"}

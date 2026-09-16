@@ -197,7 +197,6 @@ pub fn project_preview_student_feedback_release(
         flags: PreviewDisclosureFlags {
             score_shown: value.score,
             correctness_shown: value.per_item_correctness,
-            feedback_shown: value.question_feedback,
             question_answer_shown: value.question_answer,
             question_answer_explanation_shown: value.question_answer_explanation,
             statistics_shown: value.class_statistics,
@@ -558,23 +557,21 @@ mod tests {
             score: StudentFeedbackReleaseTiming::DuringAttempt,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
             submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
-            question_feedback: StudentFeedbackReleaseTiming::AfterDue,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
             class_statistics: StudentFeedbackReleaseTiming::Never,
         };
-        let flags = |score_shown, feedback_shown, question_answer_shown| PreviewDisclosureFlags {
+        let flags = |score_shown, question_answer_shown| PreviewDisclosureFlags {
             score_shown,
             correctness_shown: false,
-            feedback_shown,
             question_answer_shown,
             question_answer_explanation_shown: question_answer_shown,
             statistics_shown: false,
         };
         for (moment, expected) in [
-            (PreviewDisclosureMoment::Now, flags(true, false, false)),
-            (PreviewDisclosureMoment::Due, flags(true, true, false)),
-            (PreviewDisclosureMoment::Close, flags(true, true, true)),
+            (PreviewDisclosureMoment::Now, flags(true, false)),
+            (PreviewDisclosureMoment::Due, flags(true, false)),
+            (PreviewDisclosureMoment::Close, flags(true, true)),
         ] {
             assert_eq!(
                 project_preview_student_feedback_release(

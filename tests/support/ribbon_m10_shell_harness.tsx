@@ -171,7 +171,6 @@ function presentationApi(deferredScopes?: DeferredCourseScopes): {
             endDate: "2026-05-08",
           },
         },
-        isAssignedInstructor: true,
         activeInstructorCount: 1,
       });
     },

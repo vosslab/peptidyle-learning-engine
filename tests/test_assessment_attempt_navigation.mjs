@@ -194,7 +194,6 @@ test("Student Assessment Attempt save and final submission use closed no-store c
         return noStoreJson({
           assessmentAttempt: "R-12",
           submissionState: "submitted",
-          score: { pointsEarned: 1.34, pointsPossible: 2 },
         });
       }
       return noStoreJson({ assessmentAttempt: "R-12", position: 2, responseState: "saved" });
@@ -208,7 +207,6 @@ test("Student Assessment Attempt save and final submission use closed no-store c
   assert.deepEqual(await client.submitStudentAssessmentAttempt("R-12"), {
     assessmentAttempt: "R-12",
     submissionState: "submitted",
-    score: { pointsEarned: 1.34, pointsPossible: 2 },
   });
 
   assert.equal(requests[0].request.method, "PUT");
@@ -229,20 +227,19 @@ test("Student Assessment Attempt save and final submission use closed no-store c
   assert.equal(requests[1].body, null);
 });
 
-test("final submission exposes either a current score or an explicit deferred score", () => {
+test("final submission reports completion without grading data", () => {
   assert.deepEqual(
     decodeStudentAssessmentAttemptSubmissionResult({
       assessmentAttempt: "R-12",
       submissionState: "submitted",
-      score: null,
     }),
-    { assessmentAttempt: "R-12", submissionState: "submitted", score: null },
+    { assessmentAttempt: "R-12", submissionState: "submitted" },
   );
   assert.throws(() =>
     decodeStudentAssessmentAttemptSubmissionResult({
       assessmentAttempt: "R-12",
       submissionState: "submitted",
-      score: { pointsEarned: 3, pointsPossible: 2 },
+      score: { pointsEarned: 1, pointsPossible: 2 },
     }),
   );
 });

@@ -24,6 +24,8 @@ export type LoadedQuestionLineage = {
 export interface QuestionAvailabilityClient {
   readonly getQuestionLineage: (questionId: QuestionId) => Promise<LoadedQuestionLineage>;
   readonly getQuestionRevision: (reference: QuestionRevisionReference) => Promise<QuestionDetails>;
+  /** Same-origin, answer-free WeBWorK preview for one exact immutable Revision. */
+  readonly questionRevisionPreviewDocumentUrl: (reference: QuestionRevisionReference) => string;
   readonly archiveQuestion: (
     questionId: QuestionId,
     confirmationTitle: string,

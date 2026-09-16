@@ -160,41 +160,36 @@
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` supplies author, backend, tag, Question Type, license, and capability filters.
 - [x] Filters should update the current search rather than start a separate workflow.
   - Evidence (source): `src/pages/library_page.tsx` `changeQuery` resets one `QuestionLibraryBrowseSession` with the updated query.
-- [ ] Search should support Google-like syntax for more precise queries.
-  - Evidence (source): `crates/server/src/question_library/search_query.rs` `QuestionTextQuery::parse` accepts ordinary AND words, quoted phrases, minus exclusions, PLE field tags, and exact Question IDs with filters.
-  - Evidence (test): an accepted temporary actual-source `rustc` harness covered those forms, including unknown tokens as literals and empty fields matching nothing; the harness was removed.
-  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the C58 connected HTTP/API search projection has not been run.
-- [ ] Quoted text should search for an exact phrase.
+- [x] Search should support Google-like syntax for more precise queries.
+  - Evidence (source): `crates/server/src/question_library/search_query.rs` `pub(super) struct QuestionTextQuery` accepts ordinary AND words, quoted phrases, minus exclusions, PLE field tags, and exact Question IDs with filters through its parser.
+  - Evidence (runtime): accepted one-time private PostgreSQL 17 and actual-server HTTP proof exercised `crates/server/src/question_library.rs` `search_questions` with ordinary AND words, a quoted phrase, minus exclusion, and all five PLE fields under an active vetted Instructor; anonymous and Student requests remained concealed and responses were `no-store`. The temporary proof is retained outside Git through documentation acceptance.
+- [x] Quoted text should search for an exact phrase.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `term_value` retains quoted text as one exact phrase term.
-  - Evidence (test): the accepted temporary actual-source `rustc` harness covered quoted phrases; it was removed.
-  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
-- [ ] A minus sign should exclude matching terms.
+  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `term_value` and returned only `Alpha enzyme kinetics` for the quoted phrase `"enzyme kinetics"`.
+- [x] A minus sign should exclude matching terms.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `exclusion_prefix` records a leading minus as an excluded search term.
-  - Evidence (test): the accepted temporary actual-source `rustc` harness covered excluded terms; it was removed.
-  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
-- [ ] Search should support PubMed-like field tags such as `topic:genetics`.
+  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `exclusion_prefix` and returned `Alpha enzyme kinetics` for `enzyme -inhibitor` while excluding the matching inhibitor Question.
+- [x] Search should support PubMed-like field tags such as `topic:genetics`.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `field_prefix` recognizes `topic` and `SearchTerm::matches` applies it to Question metadata.
-  - Evidence (test): the accepted temporary actual-source `rustc` harness covered PLE field tags; it was removed.
-  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
-- [ ] Field tags should use PLE concepts and vocabulary.
+  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `field_prefix`, composed `subject:`, `topic:`, `tags:`, `type:`, and `author:` in one request, and returned the exact expected Question.
+- [x] Field tags should use PLE concepts and vocabulary.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` limits field tags to PLE terms: `subject`, `topic`, `tags`, `type`, and `author`.
-  - Evidence (test): the accepted temporary actual-source `rustc` harness covered the closed field set and unknown-token literal behavior; it was removed.
-  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
-- [ ] Useful fields may include subject, topic, tags, Question Type, and author.
+  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `SearchField` with only the closed PLE field vocabulary and preserved the production route's strict query boundary.
+- [x] Useful fields may include subject, topic, tags, Question Type, and author.
   - Evidence (source): `crates/server/src/question_library/search_query.rs` `SearchField` and `SearchTerm::matches` support `subject`, `topic`, `tags`, `type`, and `author`.
-  - Evidence (test): the accepted temporary actual-source `rustc` harness covered every field; it was removed.
-  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
-- [ ] Simple and advanced searches should use the same search box.
+  - Evidence (runtime): the accepted C58 actual-server HTTP proof exercised `crates/server/src/question_library/search_query.rs` `impl SearchTerm` for subject, topic, tags, Question Type, and author together through the ordinary `text` query parameter.
+- [x] Simple and advanced searches should use the same search box.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` provides one Search input, and `crates/server/src/question_library.rs` passes its optional `text` query value to `QuestionTextQuery::parse` before matching.
-  - Evidence (runtime): accepted C59 component proof confirms the visible Search box and its normal-flow Search tips.
-  - Verification pending: `source source_me.sh && cargo test -p server_core --lib` now passes; the connected HTTP/API search projection has not been run.
+  - Evidence (runtime): accepted C59 component proof exercised `src/pages/library_page.tsx` `LibraryPage` and confirmed the visible Search box and its normal-flow Search tips.
+  - Evidence (runtime): the accepted C58 component and actual-server HTTP evidence exercised `src/pages/library_page.tsx` `LibraryPage` and `crates/server/src/question_library.rs` `search_questions` through the same visible Search input and `text` transport for ordinary words and advanced grammar.
 - [x] Instructors should not need to learn search syntax to use Search Question Library.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` exposes ordinary search and labeled filter controls without syntax requirements.
 - [x] The interface should make useful search syntax discoverable when needed.
   - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders `question-library-search-tips` as a native disclosure beside the ordinary Search box with words, quotes, minus, PLE fields, and examples.
   - Evidence (runtime): accepted corrected desktop `src/pages/library_page.tsx` `LibraryPage` component proof opened Search tips without obscuring filters or bulk controls; the full `./check_codebase.sh` gate passed.
 - [ ] Search syntax should help expert users quickly narrow a very large Question Library.
-  - Verification pending: help is implemented; connected search projection and large-library size evidence have not been run.
+  - Evidence (runtime): accepted C58 actual-server HTTP evidence proves the grammar through the production Store and route across a bounded 69-Question fixture.
+  - Verification pending: the bounded proof does not establish usability or performance for a very large production Question Library.
 - [x] Search terms and active filters should remain visible while reviewing results.
   - Evidence (source): `src/pages/library_page.tsx` `query` signal remains bound to the search input and filter selects while rows render.
 - [x] Clearing or changing part of a search should be quick.
@@ -205,70 +200,89 @@
 
 ##### Browse Question Library
 
-- [ ] **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
-  - Mismatch: `browseQuestionLibrary` and Search share the same `library` route with no distinct browse workflow.
-- [ ] Browse should help Instructors understand what the Question Library contains.
-  - Mismatch: no browse landing surface explains the library's content.
-- [ ] Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.
-  - Mismatch: `src/pages/library_page.tsx` has some filters but no subject/topic browse hierarchy.
-- [ ] Browse should make moving from broad subjects to narrower topics easy.
-  - Mismatch: no subject-to-topic browse hierarchy exists.
-- [ ] Browse should show useful counts where they help Instructors choose where to explore.
-  - Mismatch: `src/ribbon/ribbon_catalog.ts` routes Browse and Search to the same undifferentiated Library page; count-bearing Search filters do not establish a Browse workflow.
-- [ ] Browse results should use the same dense Question presentation used by Search where practical.
-  - Mismatch: `src/ribbon/ribbon_catalog.ts` maps Browse and Search to one undifferentiated route, so no Browse result presentation exists to compare with Search.
-- [ ] Instructors should be able to move from browsing into a more focused search.
-  - Mismatch: no separate Browse state or transition to focused Search exists.
-- [ ] Search and Browse are different paths into the same **Question Library**.
-  - Mismatch: both Ribbon controls route directly to the same undifferentiated `library` route.
+- [x] **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
+  - Evidence (source): `src/route_contract.ts` `libraryBrowse` is a distinct Instructor route and `src/pages/library_page.tsx` `LibraryPage` provides an overview-first grouped Browse mode without requiring Search text.
+  - Evidence (runtime): accepted private full-app browser evidence exercised `src/main.tsx` `render` against the actual server through overview-first Browse, Biology, Enzymes, and focused Search without starting from Search text; every actual search response was `no-store`.
+- [x] Browse should help Instructors understand what the Question Library contains.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` explains that counts cover all authorized matching Questions and presents subject, topic, tag, and Question Type groups.
+  - Evidence (runtime): accepted C60 component evidence rendered `src/pages/library_page.tsx` `LibraryPage` overview groups; actual-server HTTP evidence exercised `crates/server/src/question_library.rs` `search_questions` over the full authorized matched snapshot.
+- [x] Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` renders dedicated Subjects, Topics, Tags, and Question Types groups with explicit free-text truncation notices.
+  - Evidence (runtime): accepted component and actual-server HTTP evidence covered `crates/server/src/question_library/facets.rs` `facets` for all four groups, including truthful 64-value truncation flags.
+- [x] Browse should make moving from broad subjects to narrower topics easy.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` clears the prior topic on subject selection and requests exact subject filtering before presenting `Topics in this subject`.
+  - Evidence (runtime): accepted routed component evidence exercised `src/pages/library_page.tsx` `changeQuery`, selected Biochemistry then Enzymes, and preserved both exact filters.
+- [x] Browse should show useful counts where they help Instructors choose where to explore.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` group choices render their server-owned counts and state that counts cover all authorized matches, not only loaded rows.
+  - Evidence (runtime): accepted actual-server HTTP evidence exercised `crates/server/src/question_library.rs` `search_questions` with `page_size=1` yet returned Biology topic counts of Enzymes 2 and Metabolism 1 over all three matching Questions.
+- [x] Browse results should use the same dense Question presentation used by Search where practical.
+  - Evidence (source): `src/pages/library_page.tsx` `LibraryPage` gives Search and Browse the same virtualized `question-library-row` result renderer.
+  - Evidence (runtime): accepted private full-app browser evidence rendered `src/pages/library_page.tsx` `LibraryPage` at 1280 by 800 with two shared dense Question rows, and root manager visual review accepted the initial Browse, narrowed Browse, and Search handoff screenshots.
+- [x] Instructors should be able to move from browsing into a more focused search.
+  - Evidence (source): `src/pages/library_page.tsx` `searchWithinResultsPath` serializes exact subject, topic, tag, and Question Type filters into the Search route.
+  - Evidence (runtime): accepted routed component evidence exercised `src/pages/library_page.tsx` `LibraryPage` and preserved Biochemistry and Enzymes visibly and in subsequent repository requests through text editing and detail return, even when response facets omitted selected values.
+- [x] Search and Browse are different paths into the same **Question Library**.
+  - Evidence (source): `src/route_contract.ts` `ROUTE_CONTRACT` defines `library` and `libraryBrowse` as distinct Instructor routes backed by the same repository and `LibraryPage` row implementation; the Ribbon Browse task targets `libraryBrowse`.
+  - Evidence (test): `tests/test_ribbon_route_contract.mjs` `declared routes select only Ribbon topology and task areas that exist` and focused Ribbon, screenshot-manifest, and picker checks passed after the distinct Browse route was added.
 
 #### Assessments
 
 - [x] The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
   - Evidence (source): `src/ribbon/ribbon_catalog.ts` `assessmentsDueSoon` and `assessmentTemplates` are admitted route destinations with the required labels.
   - Evidence (runtime): accepted independent `src/ribbon/app_ribbon.tsx` `AppRibbon` and `src/ribbon/ribbon_contract.ts` `deriveRibbonModel` proof verified both actual Ribbon choices and routes.
-- [ ] **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
+- [x] **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` presents upcoming deadlines across Courses the Instructor teaches.
-  - Verification pending: the implemented source awaits runtime or visual evidence of the intended attention emphasis.
+  - Evidence (runtime): accepted private full-app evidence exercised `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` against actual HTTP and visibly emphasized the seven-day Account-zone window, release state, and Due group for each upcoming Assessment.
 - [ ] Assessment lists should make Course, release status, due date, and other important state easy to scan.
-  - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` presents Assessment status, Course, and due time.
-  - Verification pending: the implemented source awaits runtime or visual evidence of the required scanning behavior.
+  - Evidence (runtime): accepted private exact-main browser evidence rendered both the cross-Course Due Soon list and one Course's Assessment list with visible release state and due data.
+  - Mismatch: `src/pages/course_instance_page.tsx` `AssessmentRow` exposes the due value as a raw local ISO string, so readable scanning across production Assessment lists remains incomplete; the one-row Course fixture also does not establish a representative dense list.
 - [x] **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
   - Evidence (source): `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` foregrounds reusable Assessment settings and excludes Questions, Pools, and Course dates.
   - Evidence (runtime): accepted independent `src/pages/assessment_templates_page.tsx` `AssessmentTemplatesSurface` proof verified the heading, lede, legend, and normal Ribbon route without claiming HTTP, CRUD, or copy workflow acceptance.
-- [ ] Assessment editing has two editors:
-  - Mismatch: current editors are Assignment-named.
-  - [ ] **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
-    - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` implements an Assignment Questions editor.
-  - [ ] **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings.
-    - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` implements Assignment Policies.
-- [ ] The two Assessment editors should remain clearly distinct.
-  - Mismatch: two Assignment editors exist, but the required Assessment terminology and editors do not.
-- [ ] The Assessment Question Editor should make Question order easy to understand at a glance.
-  - Mismatch: Question ordering is implemented for Assignment, not Assessment, editor terminology.
-- [ ] Adding Questions should provide direct paths to Search and Browse Question Library.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` provides available Questions but no direct Search and Browse Question Library paths.
+- [x] Assessment editing has two editors:
+  - Evidence (source): `src/route_contract.ts` `assessmentWorkspaceQuestions` and `assessmentWorkspacePolicies` declare distinct Assessment Question and Properties routes; the Ribbon tasks and breadcrumb use the same names.
+  - Evidence (runtime): accepted private exact-main browser evidence navigated from `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` into the independently rendered Properties Editor.
+  - [x] **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
+    - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` provides Add, Move, Remove, and Save controls.
+    - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage`, adding two exact Questions, moving, removing, re-adding, saving, and reloading them in the persisted visible order.
+  - [x] **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings.
+    - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` provides dates, instructions, Attempt/time limits, late work, order, disclosure, and focused fixed-Question point-value editing through `AssessmentFixedQuestionPointsEditor`.
+    - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_fixed_question_points_editor.tsx` `AssessmentFixedQuestionPointsEditor`: it saved `2.5` and `1` for two ordered exact Questions, reloaded the persisted values, preserved the other full-Assessment fields, exercised Cancel and Stay/Discard, and recovered from a real concurrent-write conflict by explicitly reloading and discarding the retained point draft.
+- [x] The two Assessment editors should remain clearly distinct.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` and the Properties page have separate canonical routes, headings, Ribbon tasks, state models, and save operations.
+  - Evidence (runtime): accepted private exact-main browser evidence showed `src/ribbon/ribbon_catalog.ts` `assessmentPolicies` as a distinct selected task, with Question order and Properties instructions each surviving their own actual-HTTP reload.
+- [x] The Assessment Question Editor should make Question order easy to understand at a glance.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` renders the ordered entries as one numbered list with adjacent Move and Remove controls.
+  - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` with two visibly numbered Questions, changed their order, and reloaded the persisted order; root manager visual review and independent review accepted the rendered order.
+- [x] Adding Questions should provide direct paths to Search and Browse Question Library.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` now renders direct Search and Browse Question Library links inside Available published Questions.
+  - Evidence (runtime): accepted private actual-HTTP and exact-main browser evidence exercised `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `AssessmentWorkspaceQuestionsPage` through both direct paths and browser Back; the unsaved-changes guard preserved a title draft on Stay and required deliberate Discard before navigation.
 - [ ] Instructors should be able to inspect a Question before adding it to an Assessment.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_questions_page.tsx` provides no Question inspection action before Add Question.
-- [ ] Assessment Properties should group related settings so important settings are easy to find.
-  - Mismatch: the implemented UI is Assignment Policies, not the required Assessment Properties surface.
-- [ ] Instructors can randomize Question order for an Assessment.
-  - Mismatch: `src/pages/assignment_workspace/assignment_workspace_policies_page.tsx` applies randomization to an Assignment, not an Assessment.
-- [ ] Answer-choice randomization belongs to the Question, not the Assessment.
-  - Mismatch: the implemented explanatory text uses Question and Assignment, not the required Assessment terminology.
-- [ ] **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` `questionRevisionInspectionPath` addresses the candidate's exact Revision, and `src/api/client.ts` `getQuestionRevisionDetails` exposes the strict client operation. The server resolves the Instructor-authorized private source and checksum through the existing opaque WeBWorK adapter, which supplies a hardened iframe.
+  - Evidence (runtime): accepted private PostgreSQL 17/MinIO and unchanged-renderer HTTP evidence returned preview 200 with hardened headers and concealed missing Revision, Student, and anonymous requests. Exact-main browser evidence visibly rendered the prompt and five choices. This isolated preview path left all five Student Work counts at zero before and after: Assessment Attempts, Question Attempts, saved responses, submissions, and grading results.
+  - Verification pending: the renderer JavaScript dereferences `window.frameElement.id` when the hardened sandbox has no same-origin frame element, then errors before focus, popover, and parent telemetry. Do not loosen the iframe sandbox or rewrite the sibling renderer HTML. Successful embed behavior and return without losing Assessment state remain required for closure.
+- [x] Assessment Properties should group related settings so important settings are easy to find.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` groups Assessment and delivery controls separately from Student feedback, and the owning CSS uses a two-column desktop grid that collapses to one column below 60rem.
+  - Evidence (runtime): accepted private exact-main browser evidence rendered `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage` at 1280 by 800; computed-style checks verified the two-column desktop and one-column 720px layouts, restored panel/control styling, and persisted edited instructions through actual HTTP and reload.
+- [x] Instructors can randomize Question order for an Assessment.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `updateOrder` binds the current Assessment Properties checkbox to authored or shuffled Question order. The Student start transaction persists that rule with the Attempt and shuffles the complete fixed-and-Pool issued vector only for `shuffled`.
+  - Evidence (runtime): accepted private actual-HTTP evidence exercised `crates/learning-data-access/src/postgres/assessment_delivery_start.rs` `start_current_assessment_attempt`: it persisted authored and shuffled rules, observed a concurrent Instructor save blocked behind the Student-start lock, issued exact fixed-and-Pool pins, and resumed the immutable shuffled Attempt after a current-rule edit. Accepted exact-main browser evidence saved and reloaded `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage`'s visible **Randomize question order** checkbox through actual HTTP.
+- [x] Answer-choice randomization belongs to the Question, not the Assessment.
+  - Evidence (source): `src/features/ple_question_json_authoring/question_json_editor_model.ts` `setChoiceRandomization` and the strict Question codec own `randomizeChoices`; `crates/adapters/ple/src/question_json/source_document.rs` `compile_choices` compiles it to `NativeChoiceOrder`, and `crates/question_model/src/presentation/builder.rs` `pending_items` applies its nonce-derived choice permutation. The closed Assessment activity rules contain Question-order policy but no answer-choice override.
+  - Evidence (runtime): accepted exact-main browser evidence preserved `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `AssessmentWorkspacePoliciesPage`'s explicit Question-owned choice-order explanation while saving and reloading the independent Assessment Question-order rule. This verifies the ownership boundary without claiming a runtime matrix of every native choice permutation.
+- [x] **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` calls `listAssessmentsDueSoon` and states its across-Courses scope.
-  - Verification pending: the implemented source awaits connected runtime evidence of authorized cross-Course results.
-- [ ] Assessments Due Soon shows the Course and due time for each Assessment.
+  - Evidence (runtime): accepted private actual-server evidence exercised `schemas/base_schema/assessment_operations.sql` `list_assessments_due_soon` across two owned Courses and one outsider Course; each Instructor saw only their own Course rows, while anonymous and Student requests received the same concealed response.
+- [x] Assessments Due Soon shows the Course and due time for each Assessment.
   - Evidence (source): `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders `courseLongName` and a formatted due time.
-  - Verification pending: the implemented source awaits runtime or visual evidence of populated rows.
+  - Evidence (runtime): accepted private full-app evidence exercised `src/pages/assessments_due_soon_page.tsx` `formatDueTime`; both visible Course names and Due values matched the actual HTTP instants formatted in the response's Account time zone.
 
 #### High-consequence actions
 
 - [ ] Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
   - Mismatch: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` implements Assessment Unrelease and `src/features/blueprint_course/blueprint_course_lifecycle_controls.tsx` implements Archive Blueprint Course, but no current interface exposes Archive Published Question in a Danger Zone; the browser API in `src/api/question_availability.ts` alone is not an Instructor workflow.
 - [x] Danger Zone should be visually separate from ordinary editing actions.
-  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `assessment-workspace-unrelease-danger-zone` is the sole current Danger Zone consumer, and `src/pages/assessment_workspace/assessment_workspace.css` applies the distinct danger border, background, spacing, and responsive layout to that exact class while preserving its shared `assignment-editor-field` child.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `assessment-workspace-unrelease-danger-zone` is the sole current Danger Zone consumer, and `src/pages/assessment_workspace/assessment_workspace.css` applies the distinct danger border, background, spacing, and responsive layout to that exact class while preserving its shared `assessment-editor-field` child.
   - Evidence (test): an independently reviewed temporary Chromium proof rendered `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `assessment-workspace-unrelease-danger-zone` with current CSS and verified the destructive panel remained visually distinct with a readable confirmation action at 1280px and 600px; it was component evidence, not connected-app acceptance.
 - [x] Assessment Unrelease should explain that Student work will be deleted.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `assessment-unrelease-confirmation-help` says Unrelease permanently deletes the represented Student Work, and the action is labeled "Unrelease and delete Student Work."

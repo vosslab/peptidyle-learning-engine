@@ -13,7 +13,6 @@ import type {
 import {
   DecodeError,
   decodeArray,
-  decodeBoolean,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
@@ -114,13 +113,9 @@ export function decodeCourseInstanceList(
 
 export function decodeCourseInstanceView(value: unknown, path = "response"): CourseInstanceView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["course", "isAssignedInstructor", "activeInstructorCount"]);
+  requireOnlyFields(record, path, ["course", "activeInstructorCount"]);
   return {
     course: summary(field(record, "course", path), `${path}.course`),
-    isAssignedInstructor: decodeBoolean(
-      field(record, "isAssignedInstructor", path),
-      `${path}.isAssignedInstructor`,
-    ),
     activeInstructorCount: decodePositiveInteger(
       field(record, "activeInstructorCount", path),
       `${path}.activeInstructorCount`,
@@ -133,13 +128,9 @@ export function decodeCreatedCourseInstance(
   path = "response",
 ): CreatedCourseInstance {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["course", "creatorIsAssignedInstructor"]);
+  requireOnlyFields(record, path, ["course"]);
   return {
     course: summary(field(record, "course", path), `${path}.course`),
-    creatorIsAssignedInstructor: decodeBoolean(
-      field(record, "creatorIsAssignedInstructor", path),
-      `${path}.creatorIsAssignedInstructor`,
-    ),
   };
 }
 

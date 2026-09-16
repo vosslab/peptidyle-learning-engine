@@ -1,10 +1,11 @@
 // question_detail_page.tsx - safe current Question Details and Question Revision lineage View.
 
-import { A, createAsync, useParams, useSearchParams } from "@solidjs/router";
+import { A, createAsync, useLocation, useParams, useSearchParams } from "@solidjs/router";
 import { createResource, createSignal, Show, Suspense, type JSX } from "solid-js";
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
+import type { QuestionRevisionNumber } from "../../generated/api/QuestionRevisionNumber";
 import { useApplicationApi } from "../api/application_api";
 import type {
   LoadedQuestionLineage,
@@ -37,6 +38,20 @@ type ArchiveNotice = {
   readonly kind: "status" | "alert";
   readonly text: string;
 };
+
+const QUESTION_REVISION_QUERY_PARAMETER = "revision";
+
+function questionRevisionFromSearch(search: string): QuestionRevisionNumber | undefined {
+  const values = new URLSearchParams(search).getAll(QUESTION_REVISION_QUERY_PARAMETER);
+  if (values.length === 0) return undefined;
+  const [value] = values;
+  if (value === undefined || values.length !== 1 || !/^[1-9][0-9]*$/u.test(value))
+    throw new Error("The Question Revision address is incomplete.");
+  const revisionNumber = Number(value);
+  if (!Number.isSafeInteger(revisionNumber) || revisionNumber > 4_294_967_295)
+    throw new Error("The Question Revision address is incomplete.");
+  return revisionNumber;
+}
 
 function archiveFailureMessage(error: unknown): string {
   if (!(error instanceof ApiRequestError))
@@ -260,6 +275,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
 export function QuestionDetailPage(): JSX.Element {
   const applicationApi = useApplicationApi();
   const params = useParams();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const libraryReturnToken = (): string | null =>
     parseQuestionLibraryReturnToken(searchParams[QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]);
@@ -275,6 +291,12 @@ export function QuestionDetailPage(): JSX.Element {
     ) {
       throw new Error("The Question ID address is incomplete.");
     }
+    const revisionNumber = questionRevisionFromSearch(location.search);
+    if (revisionNumber !== undefined)
+      return applicationApi.client.getQuestionRevision({
+        questionId: questionReference,
+        revisionNumber,
+      });
     return applicationApi.client
       .resolveQuestion(questionReference)
       .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
@@ -326,7 +348,13 @@ export function QuestionDetailPage(): JSX.Element {
                   {(format) => ` · Format: ${format()}`}
                 </Show>
               </p>
-              <Show when={record().prompt.kind === "generatedExample"}>
+              <p>Revision {record().summary.latestQuestionRevision.revisionNumber}</p>
+              <Show
+                when={
+                  record().summary.backend === "webwork" ||
+                  record().prompt.kind === "generatedExample"
+                }
+              >
                 <aside class="question-library-generated-example" aria-label="Generated example">
                   <strong>Generated example</strong>
                   <p>
@@ -336,19 +364,35 @@ export function QuestionDetailPage(): JSX.Element {
                 </aside>
               </Show>
               <section aria-label="Question prompt">
-                <QuestionPromptRenderer
-                  blocks={record().prompt.blocks}
-                  questionRevision={record().summary.latestQuestionRevision}
-                  assetUrl={(asset) =>
-                    new URL(
-                      applicationApi.client.assetUrl(
-                        record().summary.latestQuestionRevision,
-                        asset.questionAsset,
-                      ),
-                      window.location.origin,
-                    )
+                <Show
+                  when={record().summary.backend === "webwork"}
+                  fallback={
+                    <QuestionPromptRenderer
+                      blocks={record().prompt.blocks}
+                      questionRevision={record().summary.latestQuestionRevision}
+                      assetUrl={(asset) =>
+                        new URL(
+                          applicationApi.client.assetUrl(
+                            record().summary.latestQuestionRevision,
+                            asset.questionAsset,
+                          ),
+                          window.location.origin,
+                        )
+                      }
+                    />
                   }
-                />
+                >
+                  <iframe
+                    class="question-library-webwork-preview"
+                    src={applicationApi.client.questionRevisionPreviewDocumentUrl(
+                      record().summary.latestQuestionRevision,
+                    )}
+                    title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.latestQuestionRevision.revisionNumber}`}
+                    sandbox="allow-scripts"
+                    referrerpolicy="no-referrer"
+                    allow=""
+                  />
+                </Show>
               </section>
               <QuestionStatisticsPanel evidence={record().evidence} />
               <QuestionUsePanel usage={record().usage} />

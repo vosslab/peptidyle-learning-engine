@@ -52,13 +52,9 @@ impl PostgresAssessmentAttemptStore {
             .map_err(map_sqlx_error)?;
         Ok(transaction)
     }
-}
 
-#[async_trait]
-impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
-    async fn start_assessment_attempt(
-        &self,
-        session_token_hash: SessionTokenHash,
+    pub(super) async fn start_assessment_attempt_in_transaction(
+        transaction: &mut Transaction<'_, Postgres>,
         start: AssessmentAttemptStart,
     ) -> Result<AssessmentAttemptStartResult, StoreError> {
         start.validate()?;
@@ -83,9 +79,6 @@ impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
         let selections = storage_selections(&start, &selection_ids);
         let issued_questions =
             storage_issued_questions(&start, assessment_attempt, &selection_ids)?;
-        let mut transaction = self
-            .begin_authenticated_application_transaction(session_token_hash)
-            .await?;
         let row = sqlx::query(
             "SELECT assessment_attempt_id, assessment_attempt_number, resumed \
              FROM ple_api.start_assessment_attempt($1, $2, $3, $4, $5)",
@@ -95,13 +88,13 @@ impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
         .bind(start.assessment.as_uuid())
         .bind(selections)
         .bind(issued_questions)
-        .fetch_one(&mut *transaction)
+        .fetch_one(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;
         let attempt_number: i32 = row
             .try_get("assessment_attempt_number")
             .map_err(map_sqlx_error)?;
-        let result = AssessmentAttemptStartResult {
+        Ok(AssessmentAttemptStartResult {
             assessment_attempt: AssessmentAttemptId::from_uuid(
                 row.try_get("assessment_attempt_id")
                     .map_err(map_sqlx_error)?,
@@ -110,7 +103,21 @@ impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
                 StoreError::Unavailable("stored Assessment Attempt number is invalid".to_string())
             })?,
             resumed: row.try_get("resumed").map_err(map_sqlx_error)?,
-        };
+        })
+    }
+}
+
+#[async_trait]
+impl AssessmentAttemptStore for PostgresAssessmentAttemptStore {
+    async fn start_assessment_attempt(
+        &self,
+        session_token_hash: SessionTokenHash,
+        start: AssessmentAttemptStart,
+    ) -> Result<AssessmentAttemptStartResult, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        let result = Self::start_assessment_attempt_in_transaction(&mut transaction, start).await?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
     }

@@ -49,8 +49,6 @@ pub struct StudentFeedbackReleaseRule {
     pub per_item_correctness: StudentFeedbackReleaseTiming,
     /// When the Student may see their recorded response in a previous attempt.
     pub submitted_response: StudentFeedbackReleaseTiming,
-    /// When the Student may see Question Feedback.
-    pub question_feedback: StudentFeedbackReleaseTiming,
     /// When the Student may see the display-ready Question Answer.
     pub question_answer: StudentFeedbackReleaseTiming,
     /// When the Student may see the Question Answer Explanation.
@@ -73,15 +71,14 @@ impl StudentFeedbackReleaseRule {
     /// Returns the established new-Assessment defaults with the one
     /// Type-specific answer timing required by Human Guidance.
     ///
-    /// Question Feedback and Answer Explanation remain independent settings.
-    /// Quiz and Exam answer fields use ordinary post-submit timing plus the
+    /// Answer and Answer Explanation remain independent settings. Quiz and Exam
+    /// answer fields use ordinary post-submit timing plus the
     /// trusted current-Course-cohort gate.
     pub fn for_assessment_type(assessment_type: AssessmentType) -> Self {
         Self {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
             submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
-            question_feedback: StudentFeedbackReleaseTiming::Never,
             question_answer: match assessment_type {
                 AssessmentType::PracticeQuestionAssignment => {
                     StudentFeedbackReleaseTiming::AfterSubmit
@@ -478,7 +475,6 @@ mod tests {
             score: StudentFeedbackReleaseTiming::AfterSubmit,
             per_item_correctness: StudentFeedbackReleaseTiming::AfterDue,
             submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
-            question_feedback: StudentFeedbackReleaseTiming::DuringAttempt,
             question_answer: StudentFeedbackReleaseTiming::AfterClose,
             question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
             class_statistics: StudentFeedbackReleaseTiming::Never,
@@ -504,7 +500,6 @@ mod tests {
             rule.submitted_response,
             StudentFeedbackReleaseTiming::AfterSubmit
         );
-        assert_eq!(rule.question_feedback, StudentFeedbackReleaseTiming::Never);
         assert_eq!(rule.question_answer, StudentFeedbackReleaseTiming::Never);
         assert_eq!(
             rule.question_answer_explanation,
@@ -514,7 +509,7 @@ mod tests {
     }
 
     #[test]
-    fn practice_defaults_release_the_answer_without_releasing_question_feedback() {
+    fn practice_defaults_release_the_answer_without_an_explanation() {
         let practice = StudentFeedbackReleaseRule::for_assessment_type(
             AssessmentType::PracticeQuestionAssignment,
         );
@@ -522,10 +517,6 @@ mod tests {
         assert_eq!(
             practice.question_answer,
             StudentFeedbackReleaseTiming::AfterSubmit
-        );
-        assert_eq!(
-            practice.question_feedback,
-            StudentFeedbackReleaseTiming::Never
         );
         assert_eq!(
             practice.question_answer_explanation,

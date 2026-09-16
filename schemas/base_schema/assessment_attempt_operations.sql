@@ -49,6 +49,105 @@ BEGIN
     RETURN result;
 END $$;
 
+-- One locked authority decides whether a Student resumes retained work or may
+-- start a new Assessment Attempt. Preparation and persistence call the same
+-- gate in one transaction, so current Assessment policy cannot change between
+-- Question selection and immutable evidence creation.
+CREATE FUNCTION ple_private.assessment_attempt_start_gate(
+    p_student_record_id uuid,
+    p_assessment_id uuid
+) RETURNS TABLE (
+    resumable_assessment_attempt_id uuid,
+    resumable_assessment_attempt_number integer,
+    evaluated_at timestamptz,
+    effective_assessment_attempt_limit integer
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE assessment_row ple_data.assessment%ROWTYPE;
+DECLARE accommodation_row ple_private.student_assessment_accommodation%ROWTYPE;
+DECLARE existing_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
+DECLARE account_id uuid := ple_api.current_session_account_id();
+DECLARE started_assessment_attempt_count integer;
+DECLARE start_decision_value text;
+BEGIN
+    IF p_student_record_id IS NULL OR p_assessment_id IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Assessment Attempt start is unavailable';
+    END IF;
+    -- Every Student Work mutator acquires this Assessment row first. The
+    -- guarded Unrelease procedure uses the identical first lock.
+    PERFORM ple_private.lock_assessment_for_student_work(p_assessment_id);
+    SELECT * INTO assessment_row FROM ple_data.assessment
+     WHERE assessment_id = p_assessment_id;
+    IF NOT FOUND OR assessment_row.assessment_status <> 'released'
+       OR account_id IS NULL
+       OR NOT ple_api.current_session_account_owns_student_record(
+           assessment_row.course_id, p_student_record_id
+       ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Assessment Attempt start is unavailable';
+    END IF;
+    SELECT * INTO accommodation_row
+      FROM ple_private.student_assessment_accommodation
+     WHERE student_record_id = p_student_record_id
+       AND assessment_id = p_assessment_id;
+    effective_assessment_attempt_limit := CASE
+        WHEN assessment_row.assessment_type IN ('quiz', 'exam') THEN 1
+        ELSE COALESCE(
+            accommodation_row.assessment_attempt_limit,
+            assessment_row.assessment_attempt_limit
+        )
+    END;
+    evaluated_at := pg_catalog.clock_timestamp();
+    SELECT count(*)::integer INTO started_assessment_attempt_count
+      FROM ple_private.assessment_attempt AS assessment_attempt
+     WHERE assessment_attempt.student_record_id = p_student_record_id
+       AND assessment_attempt.assessment_id = p_assessment_id;
+    start_decision_value := ple_private.assessment_start_decision(
+        assessment_row.assessment_status,
+        COALESCE(accommodation_row.available_at, assessment_row.available_at),
+        COALESCE(accommodation_row.due_at, assessment_row.due_at),
+        COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
+        effective_assessment_attempt_limit,
+        started_assessment_attempt_count,
+        assessment_row.late_work_rule,
+        evaluated_at
+    );
+    IF start_decision_value IN ('closed', 'not_yet_available') THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment Attempt start is outside its effective availability';
+    END IF;
+    SELECT * INTO existing_assessment_attempt
+      FROM ple_private.assessment_attempt AS candidate
+     WHERE candidate.student_record_id = p_student_record_id
+       AND candidate.assessment_id = p_assessment_id
+       AND NOT EXISTS (
+           SELECT 1 FROM ple_private.assessment_submission AS submission
+            WHERE submission.assessment_attempt_id = candidate.assessment_attempt_id
+       )
+       AND (candidate.expires_at IS NULL OR candidate.expires_at > evaluated_at)
+     ORDER BY candidate.assessment_attempt_number DESC LIMIT 1;
+    -- Resume interprets retained evidence under its retained rule before a
+    -- current limit or late-work refusal can authorize a new Attempt.
+    IF FOUND AND existing_assessment_attempt.assessment_attempt_resume_rule = 'resumable' THEN
+        resumable_assessment_attempt_id := existing_assessment_attempt.assessment_attempt_id;
+        resumable_assessment_attempt_number := existing_assessment_attempt.assessment_attempt_number;
+        RETURN NEXT;
+        RETURN;
+    END IF;
+    IF start_decision_value = 'attempt_limit_reached' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment Attempt limit is reached';
+    ELSIF start_decision_value = 'late_work_refused' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Assessment Attempt start is outside its effective availability';
+    END IF;
+    resumable_assessment_attempt_id := NULL;
+    resumable_assessment_attempt_number := NULL;
+    RETURN NEXT;
+END $$;
+
 CREATE FUNCTION ple_private.start_assessment_attempt(
     p_assessment_attempt_id uuid,
     p_student_record_id uuid,
@@ -59,12 +158,9 @@ CREATE FUNCTION ple_private.start_assessment_attempt(
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE assessment_row ple_data.assessment%ROWTYPE;
-DECLARE existing_assessment_attempt ple_private.assessment_attempt%ROWTYPE;
-DECLARE account_id uuid := ple_api.current_session_account_id();
-DECLARE now_value timestamptz := pg_catalog.clock_timestamp();
-DECLARE started_assessment_attempt_count integer;
+DECLARE now_value timestamptz;
 DECLARE effective_assessment_attempt_limit integer;
-DECLARE start_decision_value text;
+DECLARE start_gate record;
 DECLARE next_assessment_attempt_number integer;
 DECLARE selection jsonb;
 DECLARE issued jsonb;
@@ -82,69 +178,24 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Assessment Attempt start arguments are invalid';
     END IF;
 
-    -- Every Student Work mutator acquires this Assessment row first. The
-    -- guarded Unrelease procedure uses the identical first lock.
     -- ASVS 2.3.3, 15.4.2: authorization, timing checks, and creation stay in
     -- one locked transaction so the decision cannot race the accepted write.
-    PERFORM ple_private.lock_assessment_for_student_work(p_assessment_id);
-    SELECT * INTO assessment_row FROM ple_data.assessment WHERE assessment_id = p_assessment_id;
-    IF NOT FOUND OR assessment_row.assessment_status <> 'released'
-       OR account_id IS NULL
-       OR NOT ple_api.current_session_account_owns_student_record(
-           assessment_row.course_id, p_student_record_id
-       ) THEN
-        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment Attempt start is unavailable';
-    END IF;
-    SELECT * INTO accommodation_row
-      FROM ple_private.student_assessment_accommodation
-     WHERE student_record_id = p_student_record_id AND assessment_id = p_assessment_id;
-    effective_assessment_attempt_limit := CASE
-        WHEN assessment_row.assessment_type IN ('quiz', 'exam') THEN 1
-        ELSE COALESCE(
-            accommodation_row.assessment_attempt_limit,
-            assessment_row.assessment_attempt_limit
-        )
-    END;
-
-    SELECT count(*)::integer INTO started_assessment_attempt_count
-      FROM ple_private.assessment_attempt AS assessment_attempt
-     WHERE assessment_attempt.student_record_id = p_student_record_id
-       AND assessment_attempt.assessment_id = p_assessment_id;
-    start_decision_value := ple_private.assessment_start_decision(
-        assessment_row.assessment_status,
-        COALESCE(accommodation_row.available_at, assessment_row.available_at),
-        COALESCE(accommodation_row.due_at, assessment_row.due_at),
-        COALESCE(accommodation_row.closes_at, assessment_row.closes_at),
-        effective_assessment_attempt_limit,
-        started_assessment_attempt_count,
-        assessment_row.late_work_rule,
-        now_value
+    SELECT * INTO start_gate FROM ple_private.assessment_attempt_start_gate(
+        p_student_record_id, p_assessment_id
     );
-    IF start_decision_value IN ('closed', 'not_yet_available') THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt start is outside its effective availability';
-    END IF;
-
-    SELECT * INTO existing_assessment_attempt FROM ple_private.assessment_attempt AS candidate
-     WHERE candidate.student_record_id = p_student_record_id
-       AND candidate.assessment_id = p_assessment_id
-       AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission
-                        WHERE submission.assessment_attempt_id = candidate.assessment_attempt_id)
-       AND (candidate.expires_at IS NULL OR candidate.expires_at > now_value)
-     ORDER BY candidate.assessment_attempt_number DESC LIMIT 1;
-    -- Resume is interpretation of an existing Assessment Attempt, so it follows the
-    -- retained Assessment Attempt rule rather than a later released Assessment edit.
-    IF FOUND AND existing_assessment_attempt.assessment_attempt_resume_rule = 'resumable' THEN
-        assessment_attempt_id := existing_assessment_attempt.assessment_attempt_id;
-        assessment_attempt_number := existing_assessment_attempt.assessment_attempt_number;
+    IF start_gate.resumable_assessment_attempt_id IS NOT NULL THEN
+        assessment_attempt_id := start_gate.resumable_assessment_attempt_id;
+        assessment_attempt_number := start_gate.resumable_assessment_attempt_number;
         resumed := true;
         RETURN NEXT;
         RETURN;
     END IF;
-    IF start_decision_value = 'attempt_limit_reached' THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt limit is reached';
-    ELSIF start_decision_value = 'late_work_refused' THEN
-        RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Assessment Attempt start is outside its effective availability';
-    END IF;
+    now_value := start_gate.evaluated_at;
+    effective_assessment_attempt_limit := start_gate.effective_assessment_attempt_limit;
+    SELECT * INTO assessment_row FROM ple_data.assessment WHERE assessment_id = p_assessment_id;
+    SELECT * INTO accommodation_row
+      FROM ple_private.student_assessment_accommodation
+     WHERE student_record_id = p_student_record_id AND assessment_id = p_assessment_id;
     SELECT COALESCE(max(assessment_attempt_row.assessment_attempt_number), 0) + 1 INTO next_assessment_attempt_number
       FROM ple_private.assessment_attempt AS assessment_attempt_row
      WHERE assessment_attempt_row.student_record_id = p_student_record_id
@@ -160,7 +211,7 @@ BEGIN
         assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule,
         assessment_attempt_resume_rule, assessment_question_display_rule,
         assessment_navigation_rule, assessment_question_order_rule, feedback_score,
-        feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback,
+        feedback_per_item_correctness, feedback_submitted_response,
         feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics,
         schedule_accommodation_id, schedule_accommodation_edit_number,
         time_limit_accommodation_id, time_limit_accommodation_edit_number,
@@ -196,7 +247,7 @@ BEGIN
         assessment_row.assessment_attempt_resume_rule, assessment_row.assessment_question_display_rule,
         assessment_row.assessment_navigation_rule, assessment_row.assessment_question_order_rule,
         assessment_row.feedback_score, assessment_row.feedback_per_item_correctness,
-        assessment_row.feedback_submitted_response, assessment_row.feedback_question_feedback,
+        assessment_row.feedback_submitted_response,
         assessment_row.feedback_question_answer, assessment_row.feedback_question_answer_explanation,
         assessment_row.feedback_class_statistics,
         CASE WHEN accommodation_row.available_at IS NOT NULL OR accommodation_row.due_at IS NOT NULL
@@ -437,6 +488,42 @@ SET LOCAL ROLE ple_private_owner;
 -- ASVS 2.2.1, 2.3.1, and 8.2.1: the authenticated database boundary resolves
 -- the Student and route references rather than accepting either identity from
 -- the browser.
+CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start_decision(
+    p_course_reference_number bigint,
+    p_assessment_public_reference text
+) RETURNS TABLE (
+    resumable_assessment_attempt_id uuid,
+    resumable_assessment_attempt_number integer
+)
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE assessment_row ple_data.assessment%ROWTYPE;
+DECLARE student_record_id_value uuid;
+BEGIN
+    IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
+       OR p_assessment_public_reference IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Assessment Attempt start is unavailable';
+    END IF;
+    SELECT assessment.* INTO assessment_row
+      FROM ple_data.assessment AS assessment
+     WHERE assessment.public_reference = p_assessment_public_reference;
+    IF NOT FOUND OR ple_api.course_reference_number_for_assessment_attempt(
+        assessment_row.course_id
+    ) IS DISTINCT FROM p_course_reference_number THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Assessment Attempt start is unavailable';
+    END IF;
+    SELECT ple_api.current_session_student_record_id(assessment_row.course_id)
+      INTO student_record_id_value;
+    RETURN QUERY
+    SELECT gate.resumable_assessment_attempt_id,
+           gate.resumable_assessment_attempt_number
+      FROM ple_private.assessment_attempt_start_gate(
+          student_record_id_value, assessment_row.assessment_id
+      ) AS gate;
+END $$;
+
 CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
     p_course_reference_number bigint,
     p_assessment_public_reference text
@@ -458,7 +545,8 @@ CREATE FUNCTION ple_private.prepare_current_assessment_attempt_start(
     selection_count integer,
     pool_selection_rule text,
     question_pool_reuse_rule text,
-    question_variation_rule text
+    question_variation_rule text,
+    assessment_question_order_rule text
 )
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -516,7 +604,8 @@ BEGIN
            entry.selection_count,
            entry.selected_question_order,
            assessment_row.question_pool_reuse_rule,
-           assessment_row.question_variation_rule
+           assessment_row.question_variation_rule,
+           assessment_row.assessment_question_order_rule
       FROM ple_data.assessment_entry AS entry
       LEFT JOIN ple_private.question_revision_source_binding AS fixed_source
         ON fixed_source.question_id = entry.question_id

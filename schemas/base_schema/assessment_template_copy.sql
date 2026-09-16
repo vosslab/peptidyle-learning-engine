@@ -23,7 +23,6 @@ CREATE FUNCTION ple_data.create_assessment_from_template_values(
     p_feedback_score text,
     p_feedback_per_item_correctness text,
     p_feedback_submitted_response text,
-    p_feedback_question_feedback text,
     p_feedback_question_answer text,
     p_feedback_question_answer_explanation text,
     p_feedback_class_statistics text
@@ -65,7 +64,6 @@ BEGIN
            feedback_score = p_feedback_score,
            feedback_per_item_correctness = p_feedback_per_item_correctness,
            feedback_submitted_response = p_feedback_submitted_response,
-           feedback_question_feedback = p_feedback_question_feedback,
            feedback_question_answer = p_feedback_question_answer,
            feedback_question_answer_explanation = p_feedback_question_answer_explanation,
            feedback_class_statistics = p_feedback_class_statistics
@@ -82,11 +80,11 @@ $$;
 
 REVOKE ALL ON FUNCTION ple_data.create_assessment_from_template_values(
     uuid, bigint, text, text, text, integer, integer, text, text, text, text,
-    text, text, text, text, text, text, text, text, text, text, text
+    text, text, text, text, text, text, text, text, text, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_data.create_assessment_from_template_values(
     uuid, bigint, text, text, text, integer, integer, text, text, text, text,
-    text, text, text, text, text, text, text, text, text, text, text
+    text, text, text, text, text, text, text, text, text, text
 ) TO ple_api_owner;
 
 RESET ROLE;
@@ -156,7 +154,6 @@ BEGIN
         template.feedback_score,
         template.feedback_per_item_correctness,
         template.feedback_submitted_response,
-        template.feedback_question_feedback,
         template.feedback_question_answer,
         template.feedback_question_answer_explanation,
         template.feedback_class_statistics

@@ -26,16 +26,17 @@ The authoritative exhaustive record is the
   compiled Chromium component and strict-client evidence accepted sorted selection/Edit Numbers,
   closed replace/clear, virtualization, stale/ambiguous refresh with no automatic second write,
   generic denial, filter clearing, and zero critical/serious axe findings; it used mock/injected
-  transport, not a connected server, and the proof was removed. Connected HTTP and discovery
-  projection remain unverified. `source source_me.sh && cargo test -p server_core --lib` now passes,
-  but the connected HTTP/search projection has not been run. C58 has accepted actual-source parser evidence for ordinary words, quotes, minus,
-  PLE fields, literal unknown tokens, empty fields matching nothing, and exact-ID-plus-filter behavior, but its connected
-  HTTP/search projection remains unverified. C366/C368 and C337/C340 therefore remain open.
+  transport, not a connected server, and the proof was removed. The bulk-metadata connected HTTP
+  and discovery projection remains unverified. Separately, C58 now has accepted private PostgreSQL
+  17 and actual-server HTTP evidence for ordinary words, quoted phrases, minus exclusion, all five
+  PLE fields, active-vetted-Instructor access, anonymous and Student concealment, and `no-store`.
+  That bounded search proof does not close C366/C368 or C337/C340.
 
 - C59 now provides native Search tips beside the ordinary search input. An accepted corrected desktop
   component proof showed words, quotes, minus, PLE fields, and examples without obscuring normal
-  filters or bulk controls; the full `./check_codebase.sh` gate passed. Large-library runtime
-  narrowing remains open because C58's connected HTTP/search projection remains unverified.
+  filters or bulk controls; the full `./check_codebase.sh` gate passed. C58's connected search
+  projection used a bounded 69-Question fixture, so expert usability or performance for a very
+  large production library remains open.
 
 - C523 has accepted independent PostgreSQL 17 actual-API receipts for the three Course Instance
   Assessment due/late defaults. Direct and reusable-content creation boundaries default late work
@@ -104,8 +105,9 @@ The authoritative exhaustive record is the
 - C524 has accepted the bounded disclosure/defaults slice. The Rust initializer, direct SQL
   constructor, Blueprint default builder, and curriculum publisher default Practice correct answer
   to `after_submit`; Regular and Bonus default it to `never`; submitted response and per-item
-  correctness default to `after_submit`; and Question Feedback and answer explanation remain
-  independent. Actual-component proof switched the create dialog Type both ways while preserving
+  correctness default to `after_submit`; answer explanation remains independently timed; and
+  Question Feedback is shown when provided without a separate delayed-release state.
+  Actual-component proof switched the create dialog Type both ways while preserving
   title, entries, and selected-Type defaults. Accepted whole-submission proof navigated to the
   existing server-redacted summary while failures remained on the Attempt. A fresh PostgreSQL 17
   actual-API proof found zero history response-source rows before whole submission and one after;
@@ -129,7 +131,9 @@ The authoritative exhaustive record is the
   `showSolutions` and forces that request from hardened `ple_embed` to generic `static` HTML, whose
   template embeds session JWT state and omits the PLE bridge. PLE-managed general feedback follows
   a separate release policy, while decoding answer JWTs or renderer HTML would break the opaque
-  backend boundary; no PLE-only workaround therefore meets C524. The narrow follow-on remains an
+  backend boundary; no PLE-only workaround therefore meets C524. PLE-managed general feedback is
+  shown when supplied at the submitted-history boundary and has no separate delayed-release state.
+  The narrow follow-on remains an
   opaque, transient, no-store answer document after the completed-Attempt policy decision. The user
   directed that the sibling renderer remain unchanged, so this gap stays open.
 
@@ -149,18 +153,27 @@ The authoritative exhaustive record is the
   `arrows-spin`, `star`, `circle-question`, and `file-signature`. Each rendered Type keeps its
   visible label alongside the glyph, and a nested theme fixture verified the scoped color cascade.
 
-- C910 has accepted fresh-PG17 persistence evidence, not closure: an explicit `webworkPgml`
-  Draft/binding retained its format, path, and checksum while author-managed general feedback
-  produced two immutable Published Revisions. The SQL `RETURNING` ambiguity was corrected and
-  independently reviewed; full TypeScript checking passed. Student HTTP feedback projection and
-  release remain unverified because the server build is blocked by the current AWS Smithy
-  dependency incompatibility.
+- C910 closes its three bounded feedback behaviors. Fresh-PG17 publication evidence retained exact
+  source provenance while author-managed general feedback produced two immutable Published
+  Revisions. Accepted actual Student HTTP and exact-main browser proof started a WeBWorK Attempt,
+  stopped the renderer, submitted the Attempt, and rendered the exact-Revision General feedback marker with
+  all six disclosure timings `Never`, withheld response, score, correctness, answer, and
+  explanation, and concealed history from another Student, an Instructor, a Sysadmin, and an
+  anonymous caller. The submission acknowledgement exposed only completion state and Attempt ID.
+  Source and focused domain tests establish that provided native Question Feedback remains
+  independent of answer disclosure; the runtime WeBWorK fixture supplied no transient backend
+  feedback and proves no renderer-feedback preservation or reconstruction.
 
 - C839 has accepted temporary canonical-source evidence for 42 PGML sources (41 official
   biologyproblems-website sources plus HLA). Manifest registration, provenance and checksums,
   render/lint/whitelist, repeatable/reseeded variation, and representative grading passed. This
-  does not publish them or reconcile the catalog. The redundant static source bulk has been
-  removed, but C840--C841 remain open for ordinary publication and catalog reconciliation.
+  does not publish them or reconcile the catalog. The current publisher now compiles, and an
+  isolated PostgreSQL 17/MinIO fixture passed one real ordered Pool, one accepted Fixed
+  replacement, and exact retained replay, but its synthetic sources prove only publication/pin
+  plumbing. The redundant static source bulk has been removed. Bundled validation now identifies
+  76 unreplaced banks that still reference 13,434 removed generated PG files; canonical-source
+  migration remains open, without restoring those expansions. C840--C841 remain open for ordinary
+  canonical publication and catalog reconciliation.
 
 ## Topical inventory
 

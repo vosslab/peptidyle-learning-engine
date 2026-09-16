@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use learning_data_access::{
-    LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, StudentAssessmentAttemptFinalization,
+    LiveAssessmentDeliveryStore, StudentAssessmentAttemptFinalization,
     StudentAssessmentAttemptFinalizationPreparationOutcome,
 };
 use question_model::{
@@ -120,7 +120,6 @@ struct SavedResponseAcknowledgement {
 struct AssessmentAttemptSubmissionAcknowledgement {
     assessment_attempt: AssessmentAttemptReference,
     submission_state: &'static str,
-    score: Option<LiveAssessmentAttemptScore>,
 }
 
 /// Finalizes the whole Assessment Attempt with every response the Student saved.
@@ -176,12 +175,11 @@ pub(super) async fn finalize_assessment_attempt(
             }
         }
     };
-    let StudentAssessmentAttemptFinalization::Submitted { score } = finalization;
+    let StudentAssessmentAttemptFinalization::Submitted { .. } = finalization;
     crate::auth::no_store(
         Json(AssessmentAttemptSubmissionAcknowledgement {
             assessment_attempt,
             submission_state: "submitted",
-            score,
         })
         .into_response(),
     )
@@ -338,11 +336,10 @@ mod tests {
     }
 
     #[test]
-    fn submission_acknowledgement_retains_an_explicit_deferred_score() {
+    fn submission_acknowledgement_reports_completion_without_grading_data() {
         let wire = serde_json::to_value(AssessmentAttemptSubmissionAcknowledgement {
             assessment_attempt: "R-1".parse().expect("Assessment Attempt reference"),
             submission_state: "submitted",
-            score: None,
         })
         .expect("submission acknowledgement serializes");
 
@@ -351,7 +348,6 @@ mod tests {
             serde_json::json!({
                 "assessmentAttempt": "R-1",
                 "submissionState": "submitted",
-                "score": null,
             })
         );
     }

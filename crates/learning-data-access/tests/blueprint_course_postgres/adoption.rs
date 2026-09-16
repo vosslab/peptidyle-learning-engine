@@ -69,7 +69,6 @@ WITH source_assessment AS (
            AND target.feedback_score = source.content #>> '{defaults,student_feedback_release_rule,score}'
            AND target.feedback_per_item_correctness = source.content #>> '{defaults,student_feedback_release_rule,per_item_correctness}'
            AND target.feedback_submitted_response = source.content #>> '{defaults,student_feedback_release_rule,submitted_response}'
-           AND target.feedback_question_feedback = source.content #>> '{defaults,student_feedback_release_rule,question_feedback}'
            AND target.feedback_question_answer = source.content #>> '{defaults,student_feedback_release_rule,question_answer}'
            AND target.feedback_question_answer_explanation = source.content #>> '{defaults,student_feedback_release_rule,question_answer_explanation}'
            AND target.feedback_class_statistics = source.content #>> '{defaults,student_feedback_release_rule,class_statistics}'

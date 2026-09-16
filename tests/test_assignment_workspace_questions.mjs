@@ -109,7 +109,6 @@ test("Policy save retains normalized Entries and the current availability and cl
       score: "never",
       per_item_correctness: "never",
       submitted_response: "never",
-      question_feedback: "never",
       question_answer: "never",
       question_answer_explanation: "never",
       class_statistics: "never",

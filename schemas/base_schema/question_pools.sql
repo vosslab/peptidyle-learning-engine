@@ -571,8 +571,43 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND pool.public_question_pool_id = p_public_question_pool_id
      ORDER BY member.member_position
 $$;
+
+-- An exact Revision remains readable to active vetted Instructors after a
+-- later append. The caller supplies the canonical compact public Pool ID and
+-- positive immutable Revision number; the projection exposes only public IDs
+-- and exact ordered member pins.
+CREATE FUNCTION ple_api.read_published_question_pool_revision(
+    p_public_question_pool_id text,
+    p_revision_number bigint
+)
+RETURNS TABLE (
+    public_question_pool_id text,
+    revision_number bigint,
+    member_position integer,
+    question_id text,
+    question_revision_number integer
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data AS $$
+    SELECT ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
+           revision.revision_number, member.member_position,
+           ple_data.canonical_public_crockford_display(member.question_id),
+           member.question_revision_number
+      FROM ple_data.question_pool AS pool
+      JOIN ple_data.question_pool_revision AS revision
+        ON revision.question_pool_id = pool.question_pool_id
+       AND revision.revision_number = p_revision_number
+      JOIN ple_data.question_pool_revision_member AS member
+        ON member.question_pool_id = revision.question_pool_id
+       AND member.revision_number = revision.revision_number
+     WHERE ple_api.current_session_account_is_instructor()
+       AND p_revision_number > 0
+       AND pool.public_question_pool_id = p_public_question_pool_id
+     ORDER BY member.member_position
+$$;
 REVOKE ALL ON FUNCTION ple_api.list_published_question_pools(text, integer),
-    ple_api.read_current_published_question_pool(text) FROM PUBLIC;
+    ple_api.read_current_published_question_pool(text),
+    ple_api.read_published_question_pool_revision(text, bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.list_published_question_pools(text, integer),
-    ple_api.read_current_published_question_pool(text) TO ple_app;
+    ple_api.read_current_published_question_pool(text),
+    ple_api.read_published_question_pool_revision(text, bigint) TO ple_app;
 RESET ROLE;

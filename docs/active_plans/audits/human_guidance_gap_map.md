@@ -577,10 +577,26 @@ product question, and A3-21 is the one N/A permission classification.
 
 ### A3-18
 
-- HG bullet: "Themes should use biome and habitat names, such as Forest, Grassland, Ocean, and Desert."
-- Evidence and mismatch: `src/features/course_appearance/course_theme_registry.ts` presents `Grass`, not `Grassland`.
-- Owning source area: course-theme registry. Dependencies: none. Closure owner: C29.
-- Verification: `node --import tsx --test tests/test_course_theme_scope.mjs`; `node tests/playwright/ribbon_m9b_density_evidence.mjs`; fast checks.
+- HG bullet: "Themes should use biome and habitat names."
+- Closure receipt: C29 preserved stored theme IDs while presenting the closed registry with biome
+  and habitat names, including Grassland.
+- Evidence: `src/features/course_appearance/course_theme_registry.ts` `COURSE_THEME_REGISTRY`,
+  `src/pages/course_appearance_page.tsx` `COURSE_THEME_OPTIONS`, and
+  `tests/test_course_theme_scope.mjs` `Grassland uses the Roosevelt-inspired anchors and accessible derived actions`.
+
+### A3-18a
+
+- HG bullet: "Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`"
+- Current evidence and mismatch: `src/features/course_appearance/course_theme_registry.ts` still
+  implements the current 15-ID, three-light-anchor registry. `docs/BIOME_THEME_PALETTES.md`
+  specifies a proposed 25-theme light/dark four-color registry and identifies six unresolved
+  decisions that block its atomic runtime cutover.
+- Owning source area: Course Theme registry, persistence/readers, display-mode behavior, semantic
+  token projection, and rendered acceptance named by `docs/BIOME_THEME_PALETTES.md`.
+- Dependencies: explicit product direction on all six unresolved decisions in
+  `docs/BIOME_THEME_PALETTES.md`. Closure owner: not yet assigned.
+- Verification: satisfy the specification's complete acceptance criteria after an atomic cutover;
+  do not infer the unresolved choices during unrelated work.
 
 ### A3-19
 
@@ -1156,73 +1172,74 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 
 ### A4-14 - Advanced Question Library grammar (A7 query parser/API; 7)
 
-The shared C58 receipt is source plus accepted temporary actual-source `rustc` coverage of ordinary
-AND words, quotes, minus, five PLE fields, literal unknown tokens, empty fields matching nothing,
-and exact ID plus filters. The harness was removed. `source source_me.sh && cargo test -p
-server_core --lib` now passes; the connected HTTP/API search projection remains unverified.
+The shared C58 receipt combines accepted source/parser coverage with a one-time private PostgreSQL
+17 and actual-server HTTP proof. The connected production Store and route accepted ordinary AND
+words, quoted phrases, minus exclusion, and all five PLE fields under an active vetted Instructor;
+anonymous and Student requests remained concealed and every response was `no-store`. The bounded
+temporary proof remains outside Git through documentation acceptance.
 
 #### A4-14.1
 
 - HG bullet: "Search should support Google-like syntax for more precise queries."
 - Current evidence: `QuestionTextQuery::parse` handles ordinary words and exact-ID-plus-filter matching; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: connected C58 HTTP/API search projection.
+- Dependencies: none.
 - Closure owner: C58.
-- Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
+- Closure receipt: accepted C58 source/parser evidence and actual-server HTTP projection described in the shared receipt.
 
 #### A4-14.2
 
 - HG bullet: "Quoted text should search for an exact phrase."
 - Current evidence: `term_value` retains quoted phrases as one term; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: connected C58 HTTP/API search projection.
+- Dependencies: none.
 - Closure owner: C58.
-- Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
+- Closure receipt: accepted C58 source/parser evidence and actual-server HTTP projection described in the shared receipt.
 
 #### A4-14.3
 
 - HG bullet: "A minus sign should exclude matching terms."
 - Current evidence: `exclusion_prefix` records a leading minus exclusion; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: connected C58 HTTP/API search projection.
+- Dependencies: none.
 - Closure owner: C58.
-- Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
+- Closure receipt: accepted C58 source/parser evidence and actual-server HTTP projection described in the shared receipt.
 
 #### A4-14.4
 
 - HG bullet: "Search should support PubMed-like field tags such as `topic:genetics`."
 - Current evidence: `field_prefix` recognizes `topic`; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: connected C58 HTTP/API search projection.
+- Dependencies: none.
 - Closure owner: C58.
-- Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
+- Closure receipt: accepted C58 source/parser evidence and actual-server HTTP projection described in the shared receipt.
 
 #### A4-14.5
 
 - HG bullet: "Field tags should use PLE concepts and vocabulary."
 - Current evidence: `field_prefix` limits tags to PLE vocabulary; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: connected C58 HTTP/API search projection.
+- Dependencies: none.
 - Closure owner: C58.
-- Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
+- Closure receipt: accepted C58 source/parser evidence and actual-server HTTP projection described in the shared receipt.
 
 #### A4-14.6
 
 - HG bullet: "Useful fields may include subject, topic, tags, Question Type, and author."
 - Current evidence: `SearchField` supplies subject, topic, tags, type, and author; see the shared C58 receipt above.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: connected C58 HTTP/API search projection.
+- Dependencies: none.
 - Closure owner: C58.
-- Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
+- Closure receipt: accepted C58 source/parser evidence and actual-server HTTP projection described in the shared receipt.
 
 #### A4-14.7
 
 - HG bullet: "Simple and advanced searches should use the same search box."
-- Current evidence: `LibraryPage` has one visible Search input and C59's accepted component proof confirms normal-flow tips; `QuestionTextQuery::parse` receives that one text value. Connected C58 HTTP/API search projection remains open.
+- Current evidence: `LibraryPage` has one visible Search input and C59's accepted component proof confirms normal-flow tips; `QuestionTextQuery::parse` receives that one text value through the connected C58 HTTP/API projection.
 - Owning source area: Question Library server query boundary: crates/server/src/question_library.rs.
-- Dependencies: connected C58 HTTP/API search projection.
+- Dependencies: none.
 - Closure owner: C58.
-- Verification: parser/API fixture tests for ordinary words, quoted phrase, exclusion, tags, fields, and combined queries.
+- Closure receipt: accepted C58 source/parser evidence and actual-server HTTP projection described in the shared receipt.
 
 ### A4-15 - Advanced-query discovery (Question Library frontend help; 2)
 
@@ -1238,7 +1255,7 @@ server_core --lib` now passes; the connected HTTP/API search projection remains 
 #### A4-15.2
 
 - HG bullet: "Search syntax should help expert users quickly narrow a very large Question Library."
-- Current evidence and concrete mismatch: Search tips provide the grammar, but connected search projection and large-library runtime evidence remain unverified because the server build is blocked by the AWS Smithy dependency incompatibility.
+- Current evidence and verification pending: Search tips provide the grammar and C58 now has connected actual-server projection evidence across a bounded 69-Question fixture, but this does not establish usability or performance for a very large production Question Library.
 - Owning source area: Question Library search-help frontend: src/pages/library_page.tsx.
 - Dependencies: C58.
 - Closure owner: C59.
@@ -1249,74 +1266,74 @@ server_core --lib` now passes; the connected HTTP/API search projection remains 
 #### A4-16.1
 
 - HG bullet: "**Browse Question Library** helps Instructors explore Questions without knowing what to search for."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: `libraryBrowse` is a distinct overview-first route with grouped subject-to-topic navigation and exact Search handoff.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: accepted private full-app browser evidence bundled exact `src/main.tsx`, used an actual authenticated server session, and exercised overview-first Browse through Biology, Enzymes, and focused Search with `no-store` actual search responses.
 
 #### A4-16.2
 
 - HG bullet: "Browse should help Instructors understand what the Question Library contains."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: `LibraryPage` explains the full-snapshot count scope and presents subject, topic, tag, and Question Type groups. Accepted component evidence rendered the overview, and actual-server HTTP evidence returned the authorized matched groups.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: accepted C60 component and actual-server grouping evidence; production layout and the broad connected workflow are not claimed.
 
 #### A4-16.3
 
 - HG bullet: "Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: `LibraryPage` renders dedicated Subjects, Topics, Tags, and Question Types groups with explicit free-text truncation notices; actual-server evidence covered their bounded truthful projection.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: accepted C60 component and actual-server grouping evidence; production layout and the broad connected workflow are not claimed.
 
 #### A4-16.4
 
 - HG bullet: "Browse should make moving from broad subjects to narrower topics easy."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: selecting a subject clears the prior topic, applies exact filtering, and presents topics for that subject. Accepted routed component evidence selected Biochemistry then Enzymes and preserved both exact filters.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: accepted C60 routed component hierarchy evidence.
 
 #### A4-16.5
 
 - HG bullet: "Browse should show useful counts where they help Instructors choose where to explore."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: group choices render server-owned counts and disclose that they cover all authorized matches. Actual-server HTTP evidence used `page_size=1` while returning Biology topic counts over all three matching Questions.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: accepted C60 actual-server full-snapshot count evidence.
 
 #### A4-16.6
 
 - HG bullet: "Browse results should use the same dense Question presentation used by Search where practical."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: Search and Browse share the virtualized Question-row renderer.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: accepted private full-app browser evidence rendered the production-styled Browse path at 1280 by 800 with two shared dense Question rows; root manager visual review accepted the initial Browse, narrowed Browse, and Search handoff screenshots.
 
 #### A4-16.7
 
 - HG bullet: "Instructors should be able to move from browsing into a more focused search."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: `Search within results` serializes exact Browse filters into Search. Accepted routed component evidence preserved Biochemistry and Enzymes visibly and in repository requests through text editing and detail return even when selected facets disappeared from responses.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: accepted C60 routed component handoff and retained-filter evidence.
 
 #### A4-16.8
 
 - HG bullet: "Search and Browse are different paths into the same **Question Library**."
-- Current evidence and concrete mismatch: Browse and Search both route to undifferentiated `library`; there is no overview, subject-to-topic hierarchy, counts, distinct Browse results, or Browse-to-Search transition.
+- Current evidence: `library` and `libraryBrowse` are distinct Instructor routes backed by the same repository and Question-row implementation; the Ribbon Browse task targets `libraryBrowse`.
 - Owning source area: Question Library Browse frontend: src/pages/library_page.tsx and src/pages/library_page_model.ts.
-- Dependencies: pending A7 grouping/count query; C58.
+- Dependencies: none.
 - Closure owner: C60.
-- Verification: seeded hierarchy/count browser test and Playwright broad-subject-to-topic-to-search flow, asserting dense rows shared with Search.
+- Closure receipt: focused route, Ribbon, screenshot-manifest, and picker checks passed with the distinct Browse route.
 
 ### A4-17 - Assessments navigation/list/Templates (Assessment frontend routes; 6)
 
@@ -1332,20 +1349,20 @@ server_core --lib` now passes; the connected HTTP/API search projection remains 
 #### A4-17.2
 
 - HG bullet: "**Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention."
-- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` states its Instructor across-Courses deadline purpose. No accepted runtime or visual receipt establishes the intended attention emphasis.
+- Current evidence: `src/pages/assessments_due_soon_page.tsx` `AssessmentsDueSoonPage` states its Instructor across-Courses deadline purpose.
 - Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
-- Dependencies: accepted runtime or visual attention-emphasis proof.
+- Dependencies: none.
 - Closure owner: C61.
-- Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
+- Closure receipt: accepted private full-app actual-HTTP evidence visibly emphasized the seven-day Account-zone window, release state, and Due group for each upcoming Assessment.
 
 #### A4-17.3
 
 - HG bullet: "Assessment lists should make Course, release status, due date, and other important state easy to scan."
-- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders Assessment status, Course, and due time. No accepted runtime or visual receipt establishes scanability.
+- Current evidence and concrete mismatch: accepted private exact-main browser evidence rendered both Due Soon and one Course's three-row Assessment list with visible release state and due data. `src/pages/course_instance_page.tsx` `AssessmentRow` now presents a readable local due time plus the Account zone at 1280px and 720px; a Los Angeles browser preserved the Chicago Account wall time. Representative scanability across multiple Course lists remains unverified.
 - Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
-- Dependencies: accepted runtime or visual scanning proof.
+- Dependencies: representative cross-list visual proof across multiple Course lists.
 - Closure owner: C61.
-- Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
+- Verification: actual-HTTP and browser proof with readable due values across representative Due Soon and Course Assessment lists.
 
 #### A4-17.4
 
@@ -1359,116 +1376,116 @@ server_core --lib` now passes; the connected HTTP/API search projection remains 
 #### A4-17.5
 
 - HG bullet: "**Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches."
-- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` calls `listAssessmentsDueSoon`, but no accepted connected receipt verifies authorized cross-Course results.
+- Current evidence: `src/pages/assessments_due_soon_page.tsx` calls `listAssessmentsDueSoon`.
 - Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
-- Dependencies: connected cross-Course result proof.
+- Dependencies: none.
 - Closure owner: C61.
-- Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
+- Closure receipt: accepted private actual-server evidence covered two owned Courses and one outsider Course; each Instructor saw only their own rows, and anonymous and Student responses were identically concealed.
 
 #### A4-17.6
 
 - HG bullet: "Assessments Due Soon shows the Course and due time for each Assessment."
-- Current evidence and concrete mismatch: `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders Course and formatted due time, but no accepted populated-row receipt exists.
+- Current evidence: `src/pages/assessments_due_soon_page.tsx` `DueSoonAssessmentRow` renders Course and formatted due time.
 - Owning source area: Assessment navigation frontend: src/pages/assessments_due_soon_page.tsx.
-- Dependencies: accepted populated-row runtime or visual proof.
+- Dependencies: none.
 - Closure owner: C61.
-- Verification: route/list tests and Playwright fixtures covering upcoming, release, due, Course, and template records.
+- Closure receipt: accepted private full-app evidence showed both Course names and Due values, with visible values matched to actual HTTP instants formatted in the returned Account time zone.
 
 ### A4-18 - Assessment editor shell and distinct tasks (Assessment frontend workspace; 5)
 
 #### A4-18.1
 
 - HG bullet: "Assessment editing has two editors:"
-- Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
-- Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
-- Dependencies: pending terminology; C61.
+- Current evidence: `src/route_contract.ts`, `src/ribbon/ribbon_catalog.ts`, and `src/ribbon/ribbon_contract.ts` expose distinct Question and Properties routes, tasks, and breadcrumb language. Accepted private exact-main evidence navigated between the two rendered editors.
+- Owning source area: Assessment workspace frontend: src/pages/assessment_workspace/.
+- Dependencies: none.
 - Closure owner: C62.
-- Verification: route/component and Playwright tests keep separate Assessment Question/Properties tasks and preserve their independent state.
+- Closure receipt: accepted private actual-HTTP and exact-main browser evidence rendered and navigated between the two named editors; focused TypeScript and Ribbon checks passed.
 
 #### A4-18.2
 
 - HG bullet: "**Assessment Question Editor**: Selects, adds, removes, and orders Questions."
-- Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
-- Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
-- Dependencies: pending terminology; C61.
+- Current evidence: `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` supplies Add, Move, Remove, and Save controls. Accepted private actual-HTTP and exact-main evidence exercised all four actions and reloaded the persisted two-Question order.
+- Owning source area: Assessment workspace frontend: src/pages/assessment_workspace/.
+- Dependencies: none.
 - Closure owner: C62.
-- Verification: route/component and Playwright tests keep separate Assessment Question/Properties tasks and preserve their independent state.
+- Closure receipt: two exact Available Questions were added, moved, removed, re-added, saved, and reloaded in visible order against the actual server.
 
 #### A4-18.3
 
 - HG bullet: "**Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings."
-- Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
-- Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
-- Dependencies: pending terminology; C61.
+- Current evidence: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` provides the named Properties Editor for dates, instructions, Attempt/time limits, late work, order, disclosure, and focused fixed-Question point-value editing.
+- Owning source area: Assessment workspace frontend: src/pages/assessment_workspace/.
+- Dependencies: none.
 - Closure owner: C62.
-- Verification: route/component and Playwright tests keep separate Assessment Question/Properties tasks and preserve their independent state.
+- Closure receipt: accepted private actual-HTTP and exact-main browser evidence saved and reloaded `2.5` and `1` for two ordered exact Questions without changing other Assessment fields; Cancel, Stay/Discard, a real stale-write refusal, retained draft, and explicit reload/discard recovery also passed.
 
 #### A4-18.4
 
 - HG bullet: "The two Assessment editors should remain clearly distinct."
-- Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
-- Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
-- Dependencies: pending terminology; C61.
+- Current evidence: the two editor pages have separate routes, headings, Ribbon tasks, state models, and save operations. Accepted private actual-HTTP and exact-main evidence preserved Question order and Properties instructions through independent reloads.
+- Owning source area: Assessment workspace frontend: src/pages/assessment_workspace/.
+- Dependencies: none.
 - Closure owner: C62.
-- Verification: route/component and Playwright tests keep separate Assessment Question/Properties tasks and preserve their independent state.
+- Closure receipt: independent source review and accepted browser evidence confirmed visibly distinct Question and Properties tasks without compatibility labels.
 
 #### A4-18.5
 
 - HG bullet: "Assessment Properties should group related settings so important settings are easy to find."
-- Current evidence and concrete mismatch: existing Question/Policies editors are Assignment-named and the required Assessment Properties surface/task boundary is absent.
-- Owning source area: Assessment workspace frontend: src/pages/assignment_workspace/.
-- Dependencies: pending terminology; C61.
+- Current evidence: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` groups Assessment and delivery separately from Student feedback. Accepted private exact-main evidence and computed styles verified restored panel/control styling, two desktop columns, and one column at 720px.
+- Owning source area: Assessment workspace frontend: src/pages/assessment_workspace/.
+- Dependencies: none.
 - Closure owner: C62.
-- Verification: route/component and Playwright tests keep separate Assessment Question/Properties tasks and preserve their independent state.
+- Closure receipt: accepted production-styled browser evidence showed the named groups and responsive owning layout; one instructions edit survived actual HTTP and reload.
 
 ### A4-19 - Assessment Question Editor interaction (Assessment frontend Question editor; 3)
 
 #### A4-19.1
 
 - HG bullet: "The Assessment Question Editor should make Question order easy to understand at a glance."
-- Current evidence and concrete mismatch: current editor neither links directly to Search/Browse nor permits pre-add inspection; ordering is not delivered in a compliant Assessment editor.
-- Owning source area: Assessment Question Editor frontend: src/pages/assignment_workspace/assignment_workspace_questions_page.tsx.
-- Dependencies: C62, C60.
+- Current evidence: `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` renders one numbered ordered list with adjacent Move and Remove controls. Accepted private actual-HTTP and exact-main browser evidence changed two visible Questions' order and reloaded the persisted result; root manager visual review and independent review accepted the rendered order.
+- Owning source area: Assessment Question Editor frontend: src/pages/assessment_workspace/assessment_workspace_questions_page.tsx.
+- Dependencies: none.
 - Closure owner: C63.
-- Verification: Playwright with two Questions checks visible order, reorder, inspect-before-add, Search/Browse paths, save/reload.
+- Closure receipt: accepted actual-server and production-styled browser evidence verified visible order, reorder, save, and reload without claiming the still-missing Search/Browse or inspect-before-add actions.
 
 #### A4-19.2
 
 - HG bullet: "Adding Questions should provide direct paths to Search and Browse Question Library."
-- Current evidence and concrete mismatch: current editor neither links directly to Search/Browse nor permits pre-add inspection; ordering is not delivered in a compliant Assessment editor.
-- Owning source area: Assessment Question Editor frontend: src/pages/assignment_workspace/assignment_workspace_questions_page.tsx.
-- Dependencies: C62, C60.
+- Current evidence: `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` now renders direct Search and Browse Question Library links inside Available published Questions.
+- Owning source area: Assessment Question Editor frontend: src/pages/assessment_workspace/assessment_workspace_questions_page.tsx.
+- Dependencies: none.
 - Closure owner: C63.
-- Verification: Playwright with two Questions checks visible order, reorder, inspect-before-add, Search/Browse paths, save/reload.
+- Closure receipt: accepted private actual-HTTP and exact-main browser evidence followed Search and Browse, returned through browser Back, preserved a dirty title on Stay, and navigated only after deliberate Discard.
 
 #### A4-19.3
 
 - HG bullet: "Instructors should be able to inspect a Question before adding it to an Assessment."
-- Current evidence and concrete mismatch: current editor neither links directly to Search/Browse nor permits pre-add inspection; ordering is not delivered in a compliant Assessment editor.
-- Owning source area: Assessment Question Editor frontend: src/pages/assignment_workspace/assignment_workspace_questions_page.tsx.
+- Current evidence and concrete mismatch: `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` links each candidate's exact Revision through `getQuestionRevisionDetails`, with strict identity checks and the shared unsaved-changes guard. The authorized private source and checksum now reach the existing opaque WeBWorK adapter and hardened iframe. Private PostgreSQL 17/MinIO plus unchanged-renderer HTTP evidence returned preview 200 with hardened headers and concealed missing Revision, Student, and anonymous requests; exact-main browser evidence visibly rendered the prompt and five choices. This isolated preview path left all five Student Work counts at zero before and after: Assessment Attempts, Question Attempts, saved responses, submissions, and grading results. The renderer JavaScript then dereferences `window.frameElement.id` when the hardened sandbox has no same-origin frame element, preventing focus, popover, and parent telemetry; do not loosen the sandbox or rewrite sibling renderer HTML.
+- Owning source area: Assessment Question Editor frontend: src/pages/assessment_workspace/assessment_workspace_questions_page.tsx.
 - Dependencies: C62, C60.
 - Closure owner: C63.
-- Verification: Playwright with two Questions checks visible order, reorder, inspect-before-add, Search/Browse paths, save/reload.
+- Verification: retain the hardened embed boundary, obtain successful renderer behavior beyond the observed JavaScript error, and return without losing Assessment state.
 
 ### A4-20 - Assessment randomization semantics (A9 policy/API plus Properties binding; 2)
 
 #### A4-20.1
 
 - HG bullet: "Instructors can randomize Question order for an Assessment."
-- Current evidence and concrete mismatch: `assignment_workspace_policies_page.tsx` applies order randomization to Assignment and explanation uses Assignment; correct Assessment/Question ownership is not expressed or verified.
-- Owning source area: Assessment randomization domain/UI: crates/domain/src/effective_assignment_policy.rs and src/pages/assignment_workspace/assignment_workspace_policies_page.tsx.
-- Dependencies: C62, C64, and pending A7 Question-owned choice-randomization contract.
+- Current evidence: `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx` `updateOrder` binds the current Assessment Properties checkbox to authored or shuffled Question order. Accepted actual-HTTP evidence persisted authored and shuffled rules, issued the complete fixed-and-Pool vector, retained immutable shuffled order on resume, and concealed unauthorized starts. Accepted exact-main browser evidence saved and reloaded the checkbox through actual HTTP.
+- Owning source area: `schemas/base_schema/assessment_attempt_operations.sql`, `crates/learning-data-access/src/postgres/assessment_delivery_start.rs`, and `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx`.
+- Dependencies: none.
 - Closure owner: C65.
-- Verification: policy tests prove persisted Assessment order randomization and Question-owned choice randomization; browser copy test.
+- Closure receipt: focused compilation, private PostgreSQL 17 decision proof, actual authenticated Student HTTP start/resume evidence, exact-main browser save/reload evidence, and independent review passed.
 
 #### A4-20.2
 
 - HG bullet: "Answer-choice randomization belongs to the Question, not the Assessment."
-- Current evidence and concrete mismatch: `assignment_workspace_policies_page.tsx` applies order randomization to Assignment and explanation uses Assignment; correct Assessment/Question ownership is not expressed or verified.
-- Owning source area: Assessment randomization domain/UI: crates/domain/src/effective_assignment_policy.rs and src/pages/assignment_workspace/assignment_workspace_policies_page.tsx.
-- Dependencies: C62, C64, and pending A7 Question-owned choice-randomization contract.
+- Current evidence: PLE Question authoring and its strict codec own `randomizeChoices`; the PLE source adapter compiles it to `NativeChoiceOrder`, and the Question presentation builder applies the nonce-derived choice permutation. The closed Assessment activity rules contain no answer-choice override. Accepted exact-main browser evidence preserved this explicit ownership copy while independently saving and reloading Assessment Question order.
+- Owning source area: `src/features/ple_question_json_authoring`, `crates/adapters/ple/src/question_json/source_document.rs`, `crates/question_model/src/presentation/builder.rs`, and `src/pages/assessment_workspace/assessment_workspace_policies_page.tsx`.
+- Dependencies: none.
 - Closure owner: C65.
-- Verification: policy tests prove persisted Assessment order randomization and Question-owned choice randomization; browser copy test.
+- Closure receipt: focused Question-source and nonce-reproduction tests plus accepted Assessment-order actual-HTTP and browser evidence establish the ownership boundary. This does not claim a runtime matrix of every native choice permutation.
 
 ### A4-21 - Assessment Unrelease danger transaction (A9 release API/confirmation UI; 2)
 
@@ -1892,7 +1909,7 @@ recovery/notification, and session termination remain unresolved pending a separ
 | C836 | Avatar UI integration contributor: use C835 only on real `/profile` after C819/C820; Student provided-only/no upload, staff provided plus C39 self-image. C40/C41 remain closure owners. | C39,C819,C820,C834,C835. | Ignored three-role route/browser plus Student-denial/staff-delivery proof; remove then use C40/C41 acceptance gates. |
 | C837 | C42 contributor and terminal privacy question: project generic/provided static assets across representation surfaces; private staff Profile images remain C39 self-only, not cross-account. | C35,C39,C835,C836; C42 only after decision. | Ignored surface inventory/matrix; remove. **Question:** May private Instructor/Sysadmin Profile images be delivered cross-account, and to which authorized roles/surfaces? HG does not resolve it; static provided assets alone may render cross-account. |
 | C838 | C311 canonical-source and publication owner: for one C824 family at a time, validate its recorded canonical algorithmic author source and `source_format`, retain exactly one canonical `.pg` or `.pgml` file with provenance/license, and create one ordinary WeBWorK Question lineage from that file. `pgml` requires a fully-compliant classification; traditional or mixed source remains `pg`. This is no parser and no separate backend. | Canonical `content/genetics/pg/topicNN/` source and manifest mapping; `question_authoring_operations.sql`, `question_publication.rs`; C824. | The redundant static source bulk is already removed. Ignored per-family source/publication fixture records exactly one canonical source file with matching format/extension and one lineage, without an adapter heuristic, runtime PG parser, separate backend, or historical ID/revision/pin rewrite/delete. |
-| C839 | C311 canonical-source acceptance owner: before catalog mutation, verify canonical PG/PGML source, provenance, deterministic parameter contract, and representative rendered/grading instances for one accepted family. The temporary 42-source acceptance passed for 41 official biologyproblems-website PGML sources plus HLA: render/lint/whitelist, repeatable/reseeded variation, matching `1`/`.83`, which-one `1`/`0`, and Poisson `1`/`0`. This is source acceptance, not row-for-row equivalence to an inferior static expansion or catalog migration. | C838; one affected Genetics family; hands C840. | The accepted source probe was temporary and removed. C840/C841 still require ordinary publication, expected-current Blueprint CAS, and retirement proof; the normal curriculum-content runtime gate remains blocked by the current AWS Smithy dependency incompatibility. |
+| C839 | C311 canonical-source acceptance owner: before catalog mutation, verify canonical PG/PGML source, provenance, deterministic parameter contract, and representative rendered/grading instances for one accepted family. The temporary 42-source acceptance passed for 41 official biologyproblems-website PGML sources plus HLA: render/lint/whitelist, repeatable/reseeded variation, matching `1`/`.83`, which-one `1`/`0`, and Poisson `1`/`0`. This is source acceptance, not row-for-row equivalence to an inferior static expansion or catalog migration. | C838; one affected Genetics family; hands C840. | The accepted source probe was temporary and removed. The current publisher compiles, and isolated PostgreSQL 17/MinIO evidence passed real Pool plus accepted-Fixed publication and exact retained replay; the synthetic sources do not establish canonical-source acceptance. C840/C841 still require ordinary publication, expected-current Blueprint CAS, and retirement proof. Bundled validation now fails because 76 unreplaced banks reference 13,434 user-removed generated PG files; migrate those families to canonical sources rather than restoring redundant expansions. |
 | C840 | C311 catalog-state closure owner: after C839, require expected-current Genetics Blueprint Revision CAS and reconcile the accepted family's one canonical algorithmic Question with the catalog. Do not create an implicit Pool. Revise an existing Pool only to retire redundant generated variants, never create an empty Pool, and preserve every deliberate Pool of distinct Questions, substituting the canonical Question only where its former static predecessor was a member. An emptied redundant Pool retires through C841. | current Question/Pool/Blueprint revision operation; C838,C839. | Redundant static source files have already been removed; ignored per-family Pool-purpose inventory plus Blueprint CAS fixture still proves one canonical Question, no empty or implicit Pool, and deliberate distinct-Question Pool preservation. On CAS failure retain current catalog state; never delete evidence. |
 | C841 | C311 single-source retirement closure owner: only after C839 acceptance and C840's CAS-published catalog state, archive replaced static Question lineages and Pool lineages made empty solely by redundant generated-variant retirement through ordinary availability, while retaining the already-consolidated canonical source shape. Preserve intentional distinct-algorithm Pools and historical Blueprint and Student Work pins. | published availability and `content/genetics` source/manifest rewrite; C840. | Ignored per-family historical-pin/revision-preservation plus source-count fixture proves one canonical source, no live static duplicate or redundant generated-variant Pool member, no empty Pool Revision, and intentional-Pool preservation. Forward recovery uses ordinary availability and a later Blueprint Revision, never historical rewrite/delete. |
 
@@ -1986,7 +2003,7 @@ named boundary. C317's 13,000-Question fixture is always temporary.
 | C359 | closure; 1; `crates/server/src/assignment_delivery.rs`: architect-approved PLE authorization/ID/revision/persistence/lifecycle/outcome shell. | C358; hands C362,C320,C336. | Create `tests/_temp/hg_a7_c359_ple_shell_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c359_ple_shell_probe.py`; retain only if PYTEST_STYLE approves public authorization/outcome contract. |
 | C361 | closure; 1; `crates/adapters/webwork/src/lib.rs`: backend-specific adapter knowledge. | C306,C308,C358; hands C362. | Create `tests/_temp/hg_a7_c361_adapter_knowledge.sh`; lease-gated run `bash tests/_temp/hg_a7_c361_adapter_knowledge.sh`; remove. |
 | C362 | closure; 1; `crates/server/src/assignment_delivery.rs`: backend owns rendering, response, grading, feedback and state. | C330,C331,C332,C333,C359-C361; hands C309. | Create `tests/_temp/hg_a7_c362_backend_boundary_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c362_backend_boundary_probe.py`; remove. |
-| C910 | closure; 3; add the smallest author-managed general-feedback metadata field and authorized Question-delivery projection. It treats backend feedback as transient unless robust preservation exists, never extracts or reconstructs transient feedback from backend source or output, and keeps PLE-managed general feedback separate from backend-generated interaction feedback. An accepted fresh-PG17 procedure created an explicit `webworkPgml` Draft/binding, saved general feedback, published Revision 1, made a feedback-only edit, published Revision 2, and read both immutable feedback values with the same format/path/checksum; the SQL `RETURNING` output-variable ambiguity was qualified and independently reviewed. | C307; independent of C331/C362. | Temporary database proof/workspace removed; full TypeScript check passed, with explicit UI format and `null` for locally retained unknown picker values. Authorized Student HTTP projection/release remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility. Do not close the three behaviors. |
+| C910 | closure; 3; author-managed general feedback is immutable Revision metadata and is projected at the submitted-history boundary independently of backend-provided interaction feedback. PLE preserves recorded native feedback, treats WeBWorK feedback as transient, and does not extract or reconstruct it from PGML or renderer output. Question Feedback has no Assessment delayed-release state; the six remaining timing fields independently gate score, correctness, submitted response, answer, explanation, and class statistics. | C307; independent of C331/C362. | Accepted fresh-PG17 publication proof preserved two immutable general-feedback values with identical source provenance. Accepted actual Student HTTP and exact-main browser proof started a WeBWorK Attempt, stopped the renderer, submitted it, rendered exact-Revision General feedback with all six timings `Never`, withheld response/score/correctness/answer/explanation, returned a completion-only two-field submission acknowledgement, and concealed history from nonowners and staff. Source and focused domain tests establish provided native feedback independently of answer disclosure; the runtime WeBWorK fixture supplied no transient backend feedback. |
 | C363 | contributor; 0; `schemas/base_schema/question_authoring_operations.sql`: vetted-Instructor Pool projection. | C335,C885; hands C364. | Create `tests/_temp/hg_a7_c363_pool_projection_probe.py`; run `source source_me.sh && python3 tests/_temp/hg_a7_c363_pool_projection_probe.py`; remove. |
 | C364 | closure; 1; `src/pages/library_route_page.tsx`: vetted Instructor sees published Pools. | C316,C363. | Create `tests/_temp/hg_a7_c364_pool_library_access.spec.ts`; run `npx playwright test tests/_temp/hg_a7_c364_pool_library_access.spec.ts`; remove. |
 | C365 | contributor; 0; accepted current shared-metadata foundation: `PublishedQuestionSharedMetadata` is a closed DTO with a generated 1,000-item collection bound. Current `tags`, `subject`, and `topic` carry positive metadata Edit Numbers; source review establishes once-only canonical `PLE authoring`/`Pilot` initial tags for native publication and an empty WebWork start. The PostgreSQL command locks canonical IDs, validates active vetted-Instructor authority and every target before a single all-or-none update, and returns one canonically ordered whole result. Unknown, unavailable, unauthorized, stale, oversized, invalid, or duplicate selection changes nothing without per-item disclosure; no digest, receipt, or exactly-once claim exists. | C338; hands C367,C893. | Fresh PostgreSQL 17 SQL/API proof and independent rerun passed read/write/read, stale all-or-none denial, clear, concealed unauthorized/unvetted/archived/missing/duplicate cases, unchanged Revision count, private-helper denial, and explicit-initial-tag/empty-successor/null-tag rejection facts. The temporary proofs were removed. |

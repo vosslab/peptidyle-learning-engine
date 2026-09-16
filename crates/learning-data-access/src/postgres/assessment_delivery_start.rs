@@ -4,14 +4,14 @@ use super::PostgresAssessmentAttemptStore;
 use super::assessment_delivery::PostgresLiveAssessmentDeliveryStore;
 use super::connection::map_sqlx_error;
 use crate::{
-    AssessmentAttemptStart, AssessmentAttemptStore, PreparedIssuedQuestion,
-    PreparedQuestionPoolSelection, SessionTokenHash, StoreError,
+    AssessmentAttemptStart, PreparedIssuedQuestion, PreparedQuestionPoolSelection,
+    SessionTokenHash, StoreError,
 };
 use question_model::{
-    AssessmentEntryId, AssessmentId, AssessmentReference, CourseInstanceReference,
-    PoolRevisionMemberReference, QuestionBackend, QuestionPoolRevisionNumber,
-    QuestionPoolRevisionReference, QuestionPoolSelectedItem, QuestionPoolSelectionId,
-    QuestionRevisionNumber, QuestionRevisionReference, StudentRecordId,
+    AssessmentAttemptId, AssessmentEntryId, AssessmentId, AssessmentReference,
+    CourseInstanceReference, PoolRevisionMemberReference, QuestionBackend,
+    QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionPoolSelectedItem,
+    QuestionPoolSelectionId, QuestionRevisionNumber, QuestionRevisionReference, StudentRecordId,
 };
 use sqlx::{Postgres, Row, Transaction};
 use std::collections::BTreeMap;
@@ -36,11 +36,50 @@ pub(super) async fn start_current_assessment_attempt(
     assessment: AssessmentReference,
 ) -> Result<crate::AssessmentAttemptStartResult, StoreError> {
     let mut tx = store.begin(token).await?;
+    let decision = sqlx::query(
+        "SELECT resumable_assessment_attempt_id, resumable_assessment_attempt_number \
+         FROM ple_api.prepare_current_assessment_attempt_start_decision($1, $2)",
+    )
+    .bind(course.as_string())
+    .bind(assessment.as_string())
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(map_sqlx_error)?;
+    let resumable_id: Option<Uuid> = decision
+        .try_get("resumable_assessment_attempt_id")
+        .map_err(map_sqlx_error)?;
+    let resumable_number: Option<i32> = decision
+        .try_get("resumable_assessment_attempt_number")
+        .map_err(map_sqlx_error)?;
+    match (resumable_id, resumable_number) {
+        (Some(id), Some(number)) => {
+            let attempt_number = u32::try_from(number)
+                .ok()
+                .filter(|number| *number > 0)
+                .ok_or_else(|| {
+                    StoreError::InvalidRecord(
+                        "resumable Assessment Attempt number is invalid".to_string(),
+                    )
+                })?;
+            tx.commit().await.map_err(map_sqlx_error)?;
+            return Ok(crate::AssessmentAttemptStartResult {
+                assessment_attempt: AssessmentAttemptId::from_uuid(id),
+                attempt_number,
+                resumed: true,
+            });
+        }
+        (None, None) => {}
+        _ => {
+            return Err(StoreError::InvalidRecord(
+                "resumable Assessment Attempt decision is invalid".to_string(),
+            ));
+        }
+    }
     let rows = sqlx::query(
         "SELECT student_record_id, assessment_id, assessment_entry_id, entry_kind, authored_position, \
          fixed_question_id, fixed_revision_number, question_pool_public_id, question_pool_revision_number, \
          member_position, pool_question_id, pool_revision_number, question_backend, selection_count, \
-         pool_selection_rule, question_pool_reuse_rule \
+         pool_selection_rule, question_pool_reuse_rule, assessment_question_order_rule \
          FROM ple_api.prepare_current_assessment_attempt_start($1, $2)",
     )
         .bind(course.as_string())
@@ -49,10 +88,11 @@ pub(super) async fn start_current_assessment_attempt(
     .await
     .map_err(map_sqlx_error)?;
     let start = current_attempt_start_from_rows(&mut tx, rows).await?;
+    let result =
+        PostgresAssessmentAttemptStore::start_assessment_attempt_in_transaction(&mut tx, start)
+            .await?;
     tx.commit().await.map_err(map_sqlx_error)?;
-    PostgresAssessmentAttemptStore::new(store.pool.clone())
-        .start_assessment_attempt(token, start)
-        .await
+    Ok(result)
 }
 
 async fn current_attempt_start_from_rows(
@@ -64,9 +104,30 @@ async fn current_attempt_start_from_rows(
         StudentRecordId::from_uuid(first.try_get("student_record_id").map_err(map_sqlx_error)?);
     let assessment =
         AssessmentId::from_uuid(first.try_get("assessment_id").map_err(map_sqlx_error)?);
+    let question_order_rule = first
+        .try_get::<String, _>("assessment_question_order_rule")
+        .map_err(map_sqlx_error)?;
+    let shuffle_questions = match question_order_rule.as_str() {
+        "authored_order" => false,
+        "shuffled" => true,
+        _ => {
+            return Err(StoreError::InvalidRecord(
+                "Assessment Question order rule is invalid".to_string(),
+            ));
+        }
+    };
     let mut fixed = Vec::new();
     let mut pools = BTreeMap::<Uuid, CurrentPoolEntry>::new();
     for row in rows {
+        if row
+            .try_get::<String, _>("assessment_question_order_rule")
+            .map_err(map_sqlx_error)?
+            != question_order_rule
+        {
+            return Err(StoreError::InvalidRecord(
+                "Assessment Question order rule is inconsistent".to_string(),
+            ));
+        }
         let entry = AssessmentEntryId::from_uuid(
             row.try_get("assessment_entry_id").map_err(map_sqlx_error)?,
         );
@@ -182,12 +243,30 @@ async fn current_attempt_start_from_rows(
         });
     }
     issued.sort_by_key(|(position, _)| *position);
+    if shuffle_questions {
+        shuffle_issued_questions(&mut issued)?;
+    }
     Ok(AssessmentAttemptStart {
         student_record,
         assessment,
         question_pool_selections: selections,
         issued_questions: issued.into_iter().map(|(_, question)| question).collect(),
     })
+}
+
+fn shuffle_issued_questions<T>(issued: &mut [T]) -> Result<(), StoreError> {
+    let mut random_u64 = || {
+        crate::random_uuid::random_u64(|error| {
+            StoreError::Unavailable(format!(
+                "Assessment Question order randomness unavailable: {error}"
+            ))
+        })
+    };
+    for position in 0..issued.len() {
+        let index = position + unbiased_index(issued.len() - position, &mut random_u64)?;
+        issued.swap(position, index);
+    }
+    Ok(())
 }
 
 fn row_question_revision(

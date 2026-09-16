@@ -107,7 +107,6 @@ BEGIN
             'feedback_score', source_content #> '{defaults,student_feedback_release_rule,score}',
             'feedback_per_item_correctness', source_content #> '{defaults,student_feedback_release_rule,per_item_correctness}',
             'feedback_submitted_response', source_content #> '{defaults,student_feedback_release_rule,submitted_response}',
-            'feedback_question_feedback', source_content #> '{defaults,student_feedback_release_rule,question_feedback}',
             'feedback_question_answer', source_content #> '{defaults,student_feedback_release_rule,question_answer}',
             'feedback_question_answer_explanation', source_content #> '{defaults,student_feedback_release_rule,question_answer_explanation}',
             'feedback_class_statistics', source_content #> '{defaults,student_feedback_release_rule,class_statistics}'
@@ -238,7 +237,6 @@ BEGIN
             feedback_score,
             feedback_per_item_correctness,
             feedback_submitted_response,
-            feedback_question_feedback,
             feedback_question_answer,
             feedback_question_answer_explanation,
             feedback_class_statistics
@@ -265,7 +263,6 @@ BEGIN
             candidate.feedback_score,
             candidate.feedback_per_item_correctness,
             candidate.feedback_submitted_response,
-            candidate.feedback_question_feedback,
             candidate.feedback_question_answer,
             candidate.feedback_question_answer_explanation,
             candidate.feedback_class_statistics

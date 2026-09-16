@@ -67,9 +67,6 @@ CREATE TABLE ple_data.assessment (
     feedback_submitted_response text NOT NULL CHECK (
         feedback_submitted_response IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
-    feedback_question_feedback text NOT NULL CHECK (
-        feedback_question_feedback IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
-    ),
     feedback_question_answer text NOT NULL CHECK (
         feedback_question_answer IN ('during_attempt', 'after_submit', 'after_due', 'after_close', 'never')
     ),
@@ -264,6 +261,7 @@ DECLARE
     changed boolean := false;
     row_count integer;
     question_available boolean;
+    question_pool_id_value uuid;
 BEGIN
     IF p_entries IS NULL OR jsonb_typeof(p_entries) <> 'array'
        OR jsonb_array_length(p_entries) > 1024 THEN
@@ -373,15 +371,22 @@ BEGIN
                OR entry_json ->> 'pointsPerItem' !~ '^[0-9]{1,10}(\.[0-9]{1,4})?$'
                OR (entry_json ->> 'pointsPerItem')::numeric > 1000000000.9999
                OR entry_json ->> 'selectedQuestionOrder' NOT IN ('question_pool_order', 'random_order')
-               OR entry_json ->> 'questionPoolId' !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
-               OR entry_json ->> 'questionPoolRevisionNumber' !~ '^[1-9][0-9]*$'
-               OR NOT EXISTS (
-                   SELECT 1 FROM ple_data.question_pool_revision AS pool_revision
-                    WHERE pool_revision.question_pool_id = (entry_json ->> 'questionPoolId')::uuid
-                      AND pool_revision.revision_number = (entry_json ->> 'questionPoolRevisionNumber')::bigint
-                      AND (entry_json ->> 'selectionCount')::integer <= pool_revision.member_count
-               ) THEN
+               OR entry_json ->> 'questionPoolId' !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
+               OR entry_json ->> 'questionPoolRevisionNumber' !~ '^[1-9][0-9]*$' THEN
                 RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Question Pool Assessment Entry is invalid';
+            END IF;
+            SELECT pool.question_pool_id INTO question_pool_id_value
+              FROM ple_data.question_pool AS pool
+             WHERE pool.public_question_pool_id = entry_json ->> 'questionPoolId';
+            IF NOT FOUND OR NOT EXISTS (
+                SELECT 1 FROM ple_data.question_pool_revision AS pool_revision
+                 WHERE pool_revision.question_pool_id = question_pool_id_value
+                   AND pool_revision.revision_number
+                       = (entry_json ->> 'questionPoolRevisionNumber')::bigint
+                   AND (entry_json ->> 'selectionCount')::integer <= pool_revision.member_count
+            ) THEN
+                RAISE EXCEPTION USING ERRCODE = '22023',
+                    MESSAGE = 'Question Pool Assessment Entry is invalid';
             END IF;
             -- An Assessment Pool is its own immutable fork lineage.  The
             -- ordinary complete-content save may alter only Entry policy;
@@ -398,7 +403,7 @@ BEGIN
                  WHERE existing.assessment_id = p_assessment_id
                    AND existing.assessment_entry_id = entry_id
                    AND existing.entry_kind = 'question_pool'
-                   AND existing.question_pool_id = (entry_json ->> 'questionPoolId')::uuid
+                   AND existing.question_pool_id = question_pool_id_value
                    AND existing.question_pool_revision_number
                        = (entry_json ->> 'questionPoolRevisionNumber')::bigint
             ) THEN
@@ -410,7 +415,7 @@ BEGIN
                    entry_kind = 'question_pool', availability = entry_json ->> 'availability',
                    scoring_rule = entry_json ->> 'scoringRule', question_id = NULL,
                    question_revision_number = NULL, points_possible = NULL,
-                   question_pool_id = (entry_json ->> 'questionPoolId')::uuid,
+                   question_pool_id = question_pool_id_value,
                    question_pool_revision_number = (entry_json ->> 'questionPoolRevisionNumber')::bigint,
                    selection_count = (entry_json ->> 'selectionCount')::integer,
                    points_per_item = (entry_json ->> 'pointsPerItem')::numeric,
@@ -471,8 +476,7 @@ DECLARE
         'assessment_attempt_grade_rule', 'question_pool_reuse_rule', 'question_variation_rule',
         'assessment_attempt_resume_rule', 'assessment_question_display_rule',
         'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
-        'feedback_per_item_correctness', 'feedback_submitted_response',
-        'feedback_question_feedback', 'feedback_question_answer',
+        'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_answer',
         'feedback_question_answer_explanation', 'feedback_class_statistics'
     ];
 BEGIN
@@ -520,7 +524,7 @@ BEGIN
         candidate.assessment_attempt_resume_rule, candidate.assessment_question_display_rule,
         candidate.assessment_navigation_rule, candidate.assessment_question_order_rule,
         candidate.feedback_score, candidate.feedback_per_item_correctness,
-        candidate.feedback_submitted_response, candidate.feedback_question_feedback,
+        candidate.feedback_submitted_response,
         candidate.feedback_question_answer, candidate.feedback_question_answer_explanation,
         candidate.feedback_class_statistics
     ) IS DISTINCT FROM ROW(
@@ -535,7 +539,6 @@ BEGIN
         current_assessment.assessment_question_order_rule, current_assessment.feedback_score,
         current_assessment.feedback_per_item_correctness,
         current_assessment.feedback_submitted_response,
-        current_assessment.feedback_question_feedback,
         current_assessment.feedback_question_answer,
         current_assessment.feedback_question_answer_explanation,
         current_assessment.feedback_class_statistics
@@ -559,7 +562,6 @@ BEGIN
             feedback_score = candidate.feedback_score,
             feedback_per_item_correctness = candidate.feedback_per_item_correctness,
             feedback_submitted_response = candidate.feedback_submitted_response,
-            feedback_question_feedback = candidate.feedback_question_feedback,
             feedback_question_answer = candidate.feedback_question_answer,
             feedback_question_answer_explanation = candidate.feedback_question_answer_explanation,
             feedback_class_statistics = candidate.feedback_class_statistics,
@@ -674,7 +676,7 @@ DECLARE course_row ple_data.course_instance%ROWTYPE;
         'assessment_attempt_grade_rule', 'question_pool_reuse_rule', 'question_variation_rule',
         'assessment_attempt_resume_rule', 'assessment_question_display_rule',
         'assessment_navigation_rule', 'assessment_question_order_rule', 'feedback_score',
-        'feedback_per_item_correctness', 'feedback_submitted_response', 'feedback_question_feedback',
+        'feedback_per_item_correctness', 'feedback_submitted_response',
         'feedback_question_answer', 'feedback_question_answer_explanation', 'feedback_class_statistics'];
 BEGIN
     IF p_course_reference_number NOT BETWEEN 1 AND 2147483647
@@ -714,7 +716,7 @@ BEGIN
         candidate.question_variation_rule, candidate.assessment_attempt_resume_rule,
         candidate.assessment_question_display_rule, candidate.assessment_navigation_rule,
         candidate.assessment_question_order_rule, candidate.feedback_score, candidate.feedback_per_item_correctness,
-        candidate.feedback_submitted_response, candidate.feedback_question_feedback, candidate.feedback_question_answer,
+        candidate.feedback_submitted_response, candidate.feedback_question_answer,
         candidate.feedback_question_answer_explanation, candidate.feedback_class_statistics)
       IS DISTINCT FROM ROW(current_assessment.assessment_instructions, current_assessment.available_at,
         current_assessment.due_at, current_assessment.closes_at, current_assessment.assessment_attempt_time_limit_seconds,
@@ -724,7 +726,7 @@ BEGIN
         current_assessment.assessment_attempt_resume_rule, current_assessment.assessment_question_display_rule,
         current_assessment.assessment_navigation_rule, current_assessment.assessment_question_order_rule,
         current_assessment.feedback_score, current_assessment.feedback_per_item_correctness,
-        current_assessment.feedback_submitted_response, current_assessment.feedback_question_feedback,
+        current_assessment.feedback_submitted_response,
         current_assessment.feedback_question_answer, current_assessment.feedback_question_answer_explanation,
         current_assessment.feedback_class_statistics);
     IF values_changed THEN
@@ -742,7 +744,6 @@ BEGIN
           assessment_question_order_rule = candidate.assessment_question_order_rule,
           feedback_score = candidate.feedback_score, feedback_per_item_correctness = candidate.feedback_per_item_correctness,
           feedback_submitted_response = candidate.feedback_submitted_response,
-          feedback_question_feedback = candidate.feedback_question_feedback,
           feedback_question_answer = candidate.feedback_question_answer,
           feedback_question_answer_explanation = candidate.feedback_question_answer_explanation,
           feedback_class_statistics = candidate.feedback_class_statistics,

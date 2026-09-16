@@ -31,7 +31,6 @@ export interface CourseInstanceSummary {
 /** Initial Teaching Team workspace projection. */
 export interface CourseInstanceView {
   readonly course: CourseInstanceSummary;
-  readonly isAssignedInstructor: boolean;
   readonly activeInstructorCount: number;
 }
 
@@ -43,7 +42,6 @@ export interface CourseCreationInstructor {
 /** Creation receipt that does not imply creator Course access. */
 export interface CreatedCourseInstance {
   readonly course: CourseInstanceSummary;
-  readonly creatorIsAssignedInstructor: boolean;
 }
 
 /** Same-origin client boundary for Course Instance creation and initial teaching team. */

@@ -160,6 +160,7 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             question_library_store.clone(),
             question_library_objects.clone(),
+            Arc::clone(&webwork_adapter),
             question_id_issuer.clone(),
         ))
         .merge(crate::question_pool_library::question_pool_library_router(

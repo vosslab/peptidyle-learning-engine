@@ -39,6 +39,7 @@ test("disclosed feedback preserves allowed accessible blocks and optional omissi
     correctness: false,
     choiceFeedback: [{ kind: "text", markdown: "This choice has no chromosome pair." }],
     incorrectFeedback: [{ kind: "text", markdown: "Review mitosis vocabulary." }],
+    generalFeedback: [{ kind: "text", markdown: "Compare homologous chromosomes." }],
   };
   assert.deepEqual(decodeStudentFeedback(feedback), feedback);
   assert.deepEqual(decodeStudentFeedback({}), {});

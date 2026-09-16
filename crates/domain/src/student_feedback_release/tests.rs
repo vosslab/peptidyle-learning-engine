@@ -27,7 +27,6 @@ fn quiz_and_exam_answers_wait_for_every_current_student() {
         score: true,
         per_item_correctness: true,
         submitted_response: true,
-        question_feedback: true,
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: true,
@@ -40,7 +39,6 @@ fn quiz_and_exam_answers_wait_for_every_current_student() {
         assert!(waiting.score);
         assert!(waiting.per_item_correctness);
         assert!(waiting.submitted_response);
-        assert!(waiting.question_feedback);
         assert!(waiting.class_statistics);
         assert_eq!(
             gate_quiz_exam_answers_for_current_cohort(released, assessment_type, true),
@@ -55,7 +53,6 @@ fn ordinary_assessment_answer_release_does_not_use_the_cohort_gate() {
         score: false,
         per_item_correctness: false,
         submitted_response: false,
-        question_feedback: false,
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
@@ -78,10 +75,9 @@ fn rule() -> StudentFeedbackReleaseRule {
         score: StudentFeedbackReleaseTiming::DuringAttempt,
         per_item_correctness: StudentFeedbackReleaseTiming::AfterSubmit,
         submitted_response: StudentFeedbackReleaseTiming::AfterSubmit,
-        question_feedback: StudentFeedbackReleaseTiming::AfterDue,
         question_answer: StudentFeedbackReleaseTiming::AfterClose,
         question_answer_explanation: StudentFeedbackReleaseTiming::AfterClose,
-        class_statistics: StudentFeedbackReleaseTiming::Never,
+        class_statistics: StudentFeedbackReleaseTiming::AfterDue,
     }
 }
 
@@ -124,7 +120,6 @@ fn independent_fields_follow_their_own_timings() {
             score: true,
             per_item_correctness: false,
             submitted_response: false,
-            question_feedback: false,
             question_answer: false,
             question_answer_explanation: false,
             class_statistics: false,
@@ -177,8 +172,8 @@ fn due_and_close_release_at_the_exact_resolved_boundaries() {
     let at_close = evaluate_student_feedback_release(rule(), &effective, stamp(30), None)
         .expect("allowed Student has a disclosure decision");
 
-    assert!(!just_before_due.question_feedback);
-    assert!(at_due.question_feedback);
+    assert!(!just_before_due.class_statistics);
+    assert!(at_due.class_statistics);
     assert!(!just_before_close.question_answer);
     assert!(!just_before_close.question_answer_explanation);
     assert!(at_close.question_answer);
@@ -191,15 +186,17 @@ fn absent_due_and_close_do_not_release_timed_fields() {
         evaluate_student_feedback_release(rule(), &allowed(None, None), stamp(100), Some(stamp(1)))
             .expect("allowed Student has a disclosure decision");
 
-    assert!(!decision.question_feedback);
+    assert!(!decision.class_statistics);
     assert!(!decision.question_answer);
     assert!(!decision.question_answer_explanation);
 }
 
 #[test]
 fn never_stays_hidden_after_every_other_release() {
+    let mut release_rule = rule();
+    release_rule.class_statistics = StudentFeedbackReleaseTiming::Never;
     let decision = evaluate_student_feedback_release(
-        rule(),
+        release_rule,
         &allowed(Some(stamp(20)), Some(stamp(30))),
         stamp(30),
         Some(stamp(1)),
@@ -208,7 +205,6 @@ fn never_stays_hidden_after_every_other_release() {
 
     assert!(decision.score);
     assert!(decision.per_item_correctness);
-    assert!(decision.question_feedback);
     assert!(decision.question_answer);
     assert!(decision.question_answer_explanation);
     assert!(!decision.class_statistics);
@@ -270,7 +266,6 @@ fn feedback_projection_allowlists_each_released_field() {
         score: true,
         per_item_correctness: true,
         submitted_response: true,
-        question_feedback: true,
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
@@ -295,12 +290,11 @@ fn feedback_projection_allowlists_each_released_field() {
 }
 
 #[test]
-fn withheld_question_answer_is_absent_while_authorized_feedback_still_releases() {
+fn withheld_question_answer_is_absent_while_provided_feedback_is_shown() {
     let decision = StudentFeedbackReleaseDecision {
         score: false,
         per_item_correctness: false,
         submitted_response: false,
-        question_feedback: true,
         question_answer: false,
         question_answer_explanation: false,
         class_statistics: false,
@@ -332,7 +326,6 @@ fn independently_derived_answer_explanation_releases_without_an_answer_wrapper()
         score: false,
         per_item_correctness: false,
         submitted_response: false,
-        question_feedback: false,
         question_answer: false,
         question_answer_explanation: true,
         class_statistics: false,
@@ -363,7 +356,6 @@ fn student_response_inspection_projects_only_permitted_correctness_and_score() {
         score: true,
         per_item_correctness: true,
         submitted_response: true,
-        question_feedback: true,
         question_answer: true,
         question_answer_explanation: true,
         class_statistics: false,
@@ -392,7 +384,6 @@ fn stale_scoring_removes_both_score_and_correctness_permissions() {
         score: true,
         per_item_correctness: true,
         submitted_response: true,
-        question_feedback: false,
         question_answer: false,
         question_answer_explanation: false,
         class_statistics: false,

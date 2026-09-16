@@ -351,7 +351,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
           assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule, \
           assessment_attempt_resume_rule, assessment_question_display_rule, \
           assessment_navigation_rule, assessment_question_order_rule, feedback_score, \
-          feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback, \
+          feedback_per_item_correctness, feedback_submitted_response, \
           feedback_question_answer, feedback_question_answer_explanation, \
           feedback_class_statistics, assessment_status) OVERRIDING SYSTEM VALUE \
          VALUES ($1, $2, $5, $3, 'adopted', $2, 1, $4, clock_timestamp(), clock_timestamp(), 'regular_assignment', \
@@ -361,7 +361,7 @@ async fn seed(admin: &sqlx::postgres::PgPool) {
                  clock_timestamp() + interval '3 hours', 600, 2, 'reject', \
                  'highest', 'reuse_selection', 'new_variation', 'resumable', \
                  'one_question_at_a_time', 'free_navigation', 'shuffled', 'after_submit', \
-                 'after_submit', 'after_submit', 'after_submit', 'after_submit', 'after_submit', \
+                 'after_submit', 'after_submit', 'after_submit', 'after_submit', \
                  'after_submit', 'released')",
     )
     .bind(id(ASSESSMENT))

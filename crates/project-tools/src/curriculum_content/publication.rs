@@ -8,11 +8,13 @@ use anyhow::{Context, Result, bail, ensure};
 use learning_data_access::{
     AuthoringDraft, AuthoringDraftStore, BlueprintCourseStore, CreateAuthoringDraftInput,
     DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore, DraftQuestionUuid,
-    PublishedQuestionLibraryEntry, QuestionLibraryStore, SessionTokenHash,
-    StoredBlueprintAssessmentEntry, StoredBlueprintCourse, StoredBlueprintCourseContent,
+    PublishedQuestionLibraryEntry, QuestionLibraryStore, QuestionPoolLibraryStore,
+    SessionTokenHash, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
+    StoredBlueprintCourseContent,
     postgres::{
         PostgresAuthoringDraftStore, PostgresBlueprintCourseStore,
-        PostgresDraftQuestionSourceBindingStore, PostgresQuestionLibraryStore, lazy_pool,
+        PostgresDraftQuestionSourceBindingStore, PostgresQuestionLibraryStore,
+        PostgresQuestionPoolCreationStore, PostgresQuestionPoolLibraryStore, lazy_pool,
     },
 };
 use objects::{ObjectAddress, ObjectStore, PutObject};
@@ -41,8 +43,12 @@ use super::{
     repository_root,
 };
 
+mod blueprint_input;
+mod pools;
 mod receipt;
 
+use blueprint_input::{blueprint_input, replacement_source};
+use pools::{PublishedPools, publish_static_pools};
 pub(crate) use receipt::Receipt;
 
 const SESSION_HASH_ENV: &str = "PLE_CURRICULUM_PUBLICATION_SESSION_TOKEN_HASH";
@@ -80,6 +86,8 @@ pub(crate) async fn publish_with_context(
     let drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let bindings = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
     let library = PostgresQuestionLibraryStore::new(pool.clone());
+    let pool_creator = PostgresQuestionPoolCreationStore::new(pool.clone());
+    let pool_library = PostgresQuestionPoolLibraryStore::new(pool.clone());
     let blueprints = PostgresBlueprintCourseStore::new(pool);
     let objects = server_core::composition::question_library_object_store_from_env()
         .await
@@ -96,21 +104,23 @@ pub(crate) async fn publish_with_context(
     ))
     .map_err(|_| anyhow::anyhow!("curriculum content license is not publishable"))?;
     if let Some(retained) = matching_blueprint(session, &manifest.course, &blueprints).await? {
-        let published = retained_published_references(
+        let (published, published_pools) = retained_published_references(
             session,
             &manifest,
             &retained,
             &library,
+            &pool_library,
             &authorship,
             &license,
         )
         .await?;
-        let input = blueprint_input(&manifest, &published, &replacement_revisions)?;
+        let input = blueprint_input(&manifest, &published_pools, &replacement_revisions)?;
         let has_pending_replacement = validate_loaded_content(
             &retained.content,
             &input,
             Some(&manifest),
             &published,
+            &published_pools,
             &replacement_revisions,
             true,
         )?;
@@ -136,6 +146,7 @@ pub(crate) async fn publish_with_context(
                 &input,
                 Some(&manifest),
                 &published,
+                &published_pools,
                 &replacement_revisions,
                 false,
             )?;
@@ -196,12 +207,22 @@ pub(crate) async fn publish_with_context(
             }
         }
     }
-    let input = blueprint_input(&manifest, &published, &replacement_revisions)?;
+    let published_pools = publish_static_pools(
+        session,
+        &manifest,
+        &published,
+        &replacement_revisions,
+        &pool_creator,
+        &issuer,
+    )
+    .await?;
+    let input = blueprint_input(&manifest, &published_pools, &replacement_revisions)?;
     let (reference, revision) = create_blueprint(
         session,
         &input,
         &manifest,
         &published,
+        &published_pools,
         &replacement_revisions,
         &blueprints,
     )
@@ -295,9 +316,10 @@ async fn retained_published_references(
     manifest: &Manifest,
     retained: &StoredBlueprintCourse,
     library: &PostgresQuestionLibraryStore,
+    pool_library: &PostgresQuestionPoolLibraryStore,
     authorship: &QuestionAuthorship,
     license: &QuestionLicense,
-) -> Result<BTreeMap<String, QuestionRevisionReference>> {
+) -> Result<(BTreeMap<String, QuestionRevisionReference>, PublishedPools)> {
     let Some(module) = retained.content.modules.first() else {
         bail!("retained curriculum Blueprint has no module");
     };
@@ -306,6 +328,7 @@ async fn retained_published_references(
         "retained curriculum Blueprint topic mapping conflicts with the manifest"
     );
     let mut published = BTreeMap::new();
+    let mut published_pools = PublishedPools::new();
     for (assessment, topic) in module.assessments.iter().zip(&manifest.topics) {
         ensure!(
             assessment.content.entries.len() == topic.banks.len(),
@@ -322,17 +345,22 @@ async fn retained_published_references(
                 continue;
             }
             let StoredBlueprintAssessmentEntry::Pool {
-                question_revisions, ..
+                question_pool_revision,
+                ..
             } = entry
             else {
                 bail!("retained curriculum Blueprint entries must remain Question Pools");
             };
+            let published_pool = pool_library
+                .load_published_question_pool_revision(session, question_pool_revision)
+                .await
+                .context("resolving retained curriculum Question Pool Revision")?;
             ensure!(
-                question_revisions.len() == bank.rows.len(),
+                published_pool.members.len() == bank.rows.len(),
                 "retained curriculum Pool membership conflicts with bank {}",
                 bank.slug
             );
-            for (reference, row) in question_revisions.iter().zip(&bank.rows) {
+            for (reference, row) in published_pool.members.iter().zip(&bank.rows) {
                 let entry = library
                     .load_published_question_revision_library_entry(session, reference)
                     .await
@@ -344,9 +372,18 @@ async fn retained_published_references(
                     "retained curriculum source identity duplicated: {key}"
                 );
             }
+            let bank_key = (topic.slug.clone(), bank.slug.clone());
+            ensure!(
+                published_pools
+                    .insert(bank_key.clone(), published_pool)
+                    .is_none(),
+                "retained curriculum Pool identity duplicated: {}/{}",
+                bank_key.0,
+                bank_key.1
+            );
         }
     }
-    Ok(published)
+    Ok((published, published_pools))
 }
 
 type DraftIndex = BTreeMap<(String, String), Vec<question_model::DraftQuestionReference>>;
@@ -533,6 +570,7 @@ fn ensure_entry_compatible(
         || entry.question_type != question_type(row.question_type)
         || entry.source_media_type != "text/x-wework-pg"
         || entry.source_object_checksum.as_str() != row.pg_sha256
+        || entry.webwork_pg_path.as_deref() != Some(row.webwork_pg_path.as_str())
         || entry.authorship != *authorship
         || entry.question_license != *license
     {
@@ -541,105 +579,9 @@ fn ensure_entry_compatible(
             row.row_id
         );
     }
-    // The Question Library entry does not expose WeBWorK's immutable source
-    // path. The retained Blueprint path is verified through the exact source
-    // revision above; new publication binds this manifest path before publish.
+    // The retained Revision must preserve the exact registered path used by
+    // the WeBWorK renderer, not merely identical source bytes.
     Ok(())
-}
-
-fn blueprint_input(
-    manifest: &Manifest,
-    published: &BTreeMap<String, QuestionRevisionReference>,
-    replacements: &ReplacementRevisions,
-) -> Result<CreateBlueprintCourseInput> {
-    let mut assessments = Vec::with_capacity(manifest.topics.len());
-    for topic in &manifest.topics {
-        let mut entries = Vec::with_capacity(topic.banks.len());
-        for bank in &topic.banks {
-            if replacement_source(manifest, topic, bank).is_some() {
-                let revision = replacements
-                    .get(&(topic.slug.clone(), bank.slug.clone()))
-                    .with_context(|| {
-                        format!(
-                            "accepted canonical replacement is missing for {}/{}",
-                            topic.slug, bank.slug
-                        )
-                    })?;
-                entries.push(BlueprintAssessmentEntryInput::Fixed(
-                    ReusableFixedQuestionInput {
-                        question_id: revision.question_id.clone(),
-                        points_possible: AssessmentPointValue::from_whole(1),
-                        scoring_rule: AssessmentEntryScoringRule::Normal,
-                        question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                        question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-                    },
-                ));
-                continue;
-            }
-            let items = bank
-                .rows
-                .iter()
-                .map(|row| {
-                    published
-                        .get(&source_key(topic, bank, row))
-                        .map(|reference| reference.question_id.clone())
-                        .with_context(|| {
-                            format!("published curriculum source is missing for {}", row.row_id)
-                        })
-                })
-                .collect::<Result<Vec<_>>>()?;
-            entries.push(BlueprintAssessmentEntryInput::Pool(ReusablePoolInput {
-                items,
-                selection_count: bank.selection_count,
-                points_per_item: AssessmentPointValue::from_whole(1),
-                scoring_rule: AssessmentEntryScoringRule::Normal,
-                selection_rule: QuestionPoolSelectionRule {
-                    selected_question_order: QuestionPoolSelectedQuestionOrder::QuestionPoolOrder,
-                },
-                question_attempt_limit: QuestionAttemptLimit { max_attempts: None },
-                question_attempt_time_limit: QuestionAttemptTimeLimit::Unlimited,
-            }));
-        }
-        assessments.push(BlueprintAssessmentContentInput {
-            assessment_type: manifest.course.assessment_type,
-            title: topic.title.clone(),
-            instructions: AssessmentInstructions::try_new(topic.instructions.clone())
-                .map_err(|_| anyhow::anyhow!("curriculum topic instructions are invalid"))?,
-            entries,
-            defaults: BlueprintAssessmentDefaults {
-                assessment_attempt_time_limit_seconds: None,
-                attempt_limit: None,
-                late_work_rule: LateWorkRule::Reject,
-                activity_rules: AssessmentActivityRules::default(),
-                student_feedback_release_rule: StudentFeedbackReleaseRule::for_assessment_type(
-                    manifest.course.assessment_type,
-                ),
-            },
-        });
-    }
-    let input = CreateBlueprintCourseInput {
-        short_name: manifest.course.short_name.clone(),
-        long_name: manifest.course.long_name.clone(),
-        modules: vec![CreateBlueprintModuleInput {
-            label: manifest.course.module_label.clone(),
-            assessments,
-        }],
-    };
-    input
-        .validate()
-        .map_err(|error| anyhow::anyhow!("curriculum Blueprint input is invalid: {error}"))?;
-    Ok(input)
-}
-
-fn replacement_source<'a>(
-    manifest: &'a Manifest,
-    topic: &Topic,
-    bank: &super::Bank,
-) -> Option<&'a ParameterizedSource> {
-    manifest.parameterized_sources.iter().find(|source| {
-        source.topic_slug == topic.slug
-            && source.replaces_static_bank_slug.as_deref() == Some(bank.slug.as_str())
-    })
 }
 
 async fn create_blueprint(
@@ -647,6 +589,7 @@ async fn create_blueprint(
     input: &CreateBlueprintCourseInput,
     manifest: &Manifest,
     published: &BTreeMap<String, QuestionRevisionReference>,
+    published_pools: &PublishedPools,
     replacements: &ReplacementRevisions,
     store: &PostgresBlueprintCourseStore,
 ) -> Result<(question_model::BlueprintCourseReference, BlueprintRevision)> {
@@ -672,6 +615,7 @@ async fn create_blueprint(
         input,
         Some(manifest),
         published,
+        published_pools,
         replacements,
         false,
     )?;
@@ -683,6 +627,7 @@ fn validate_loaded_content(
     expected: &CreateBlueprintCourseInput,
     manifest: Option<&Manifest>,
     expected_revisions: &BTreeMap<String, QuestionRevisionReference>,
+    expected_pools: &PublishedPools,
     replacements: &ReplacementRevisions,
     allow_pending_replacement: bool,
 ) -> Result<bool> {
@@ -720,7 +665,7 @@ fn validate_loaded_content(
             match (actual, expected) {
                 (
                     StoredBlueprintAssessmentEntry::Pool {
-                        question_revisions,
+                        question_pool_revision,
                         selection_count,
                         points_per_item,
                         scoring_rule,
@@ -730,11 +675,25 @@ fn validate_loaded_content(
                     },
                     BlueprintAssessmentEntryInput::Pool(expected),
                 ) => {
+                    let manifest = manifest
+                        .context("curriculum manifest is required for exact Pool checks")?;
+                    let topic = manifest.topics.get(assessment_index).with_context(|| {
+                        "curriculum Blueprint Assessment has no manifest topic for exact Pool check"
+                    })?;
+                    let bank = topic.banks.get(entry_index).with_context(
+                        || "curriculum Blueprint Pool has no manifest bank for exact Pool check",
+                    )?;
+                    let expected_pool = expected_pools
+                        .get(&(topic.slug.clone(), bank.slug.clone()))
+                        .with_context(|| {
+                            format!(
+                                "curriculum Pool is missing for {}/{}",
+                                topic.slug, bank.slug
+                            )
+                        })?;
                     ensure!(
-                        question_revisions
-                            .iter()
-                            .map(|reference| &reference.question_id)
-                            .eq(expected.items.iter())
+                        question_pool_revision == &expected_pool.question_pool_revision
+                            && question_pool_revision.question_pool_id == expected.question_pool_id
                             && selection_count == &expected.selection_count
                             && points_per_item == &expected.points_per_item
                             && scoring_rule == &expected.scoring_rule
@@ -744,14 +703,6 @@ fn validate_loaded_content(
                         "curriculum Blueprint Pool pins or policy differs"
                     );
                     if !expected_revisions.is_empty() {
-                        let manifest = manifest
-                            .context("curriculum manifest is required for exact pin checks")?;
-                        let topic = manifest.topics.get(assessment_index).with_context(|| {
-                            "curriculum Blueprint Assessment has no manifest topic for exact pin check"
-                        })?;
-                        let bank = topic.banks.get(entry_index).with_context(
-                            || "curriculum Blueprint Pool has no manifest bank for exact pin check",
-                        )?;
                         let expected_pins = bank
                             .rows
                             .iter()
@@ -767,7 +718,7 @@ fn validate_loaded_content(
                                     })
                             })
                             .collect::<Result<Vec<_>>>()?;
-                        ensure_exact_pool_pins(question_revisions, &expected_pins)?;
+                        ensure_exact_pool_pins(&expected_pool.members, &expected_pins)?;
                     }
                 }
                 (
@@ -816,7 +767,7 @@ fn validate_loaded_content(
                 }
                 (
                     StoredBlueprintAssessmentEntry::Pool {
-                        question_revisions,
+                        question_pool_revision,
                         selection_count,
                         points_per_item,
                         scoring_rule,
@@ -855,8 +806,17 @@ fn validate_loaded_content(
                                 })
                         })
                         .collect::<Result<Vec<_>>>()?;
+                    let retained_pool = expected_pools
+                        .get(&(topic.slug.clone(), bank.slug.clone()))
+                        .with_context(|| {
+                            format!(
+                                "retained curriculum Pool is missing for {}/{}",
+                                topic.slug, bank.slug
+                            )
+                        })?;
                     ensure!(
-                        selection_count == &bank.selection_count
+                        question_pool_revision == &retained_pool.question_pool_revision
+                            && selection_count.get() == bank.selection_count
                             && *points_per_item == AssessmentPointValue::from_whole(1)
                             && *scoring_rule == AssessmentEntryScoringRule::Normal
                             && *selection_rule
@@ -869,7 +829,7 @@ fn validate_loaded_content(
                             && *question_attempt_time_limit == QuestionAttemptTimeLimit::Unlimited,
                         "accepted static Pool policy differs before canonical replacement"
                     );
-                    ensure_exact_pool_pins(question_revisions, &expected_pins)?;
+                    ensure_exact_pool_pins(&retained_pool.members, &expected_pins)?;
                     has_pending_replacement = true;
                 }
                 _ => bail!("curriculum Blueprint entry kind differs"),

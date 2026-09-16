@@ -108,7 +108,7 @@ INSERT INTO ple_data.assignment (
     question_variation_rule, assignment_attempt_resume_rule,
     assignment_question_display_rule, assignment_navigation_rule,
     assignment_question_order_rule, feedback_score, feedback_per_item_correctness,
-    feedback_submitted_response, feedback_question_feedback, feedback_question_answer,
+    feedback_submitted_response, feedback_question_answer,
     feedback_question_answer_explanation, feedback_class_statistics, assignment_status
 ) VALUES
     ('40000000-0000-0000-0000-000000000001',
@@ -117,21 +117,21 @@ INSERT INTO ple_data.assignment (
      'Unrelease target', '', 'accept', 'answer_all', 'latest', 'unlimited',
      'reuse_selection', 'reuse_variation', 'resumable', 'all_questions',
      'free_navigation', 'authored_order', 'after_submit', 'after_submit',
-     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never', 'released'),
+     'after_submit', 'after_submit', 'after_submit', 'never', 'released'),
     ('40000000-0000-0000-0000-000000000002',
      '30000000-0000-0000-0000-000000000001', 1, 1,
      '20000000-0000-0000-0000-000000000003', clock_timestamp(), clock_timestamp(),
      'Statistics survivor', '', 'accept', 'answer_all', 'latest', 'unlimited',
      'reuse_selection', 'reuse_variation', 'resumable', 'all_questions',
      'free_navigation', 'authored_order', 'after_submit', 'after_submit',
-     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never', 'released'),
+     'after_submit', 'after_submit', 'after_submit', 'never', 'released'),
     ('40000000-0000-0000-0000-000000000003',
      '30000000-0000-0000-0000-000000000001', 1, 1,
      '20000000-0000-0000-0000-000000000003', clock_timestamp(), clock_timestamp(),
      'Unrelease lock race', '', 'accept', 'answer_all', 'latest', 'unlimited',
      'reuse_selection', 'reuse_variation', 'resumable', 'all_questions',
      'free_navigation', 'authored_order', 'after_submit', 'after_submit',
-     'after_submit', 'after_submit', 'after_submit', 'after_submit', 'never', 'released');
+     'after_submit', 'after_submit', 'after_submit', 'never', 'released');
 INSERT INTO ple_data.assignment_entry (
     assignment_entry_id, assignment_id, authored_position, entry_kind,
     availability, scoring_rule, question_id, question_revision_number, points_possible

@@ -5,11 +5,8 @@ import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
-import type {
-  AssessmentQuestionPickerEntry,
-  LiveAssessmentWorkspace,
-  SaveLiveAssessmentInput,
-} from "../../api/assessment_release";
+import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { AssessmentQuestionPickerEntry } from "../../api/assessment_release";
 import { useApplicationApi } from "../../api/application_api";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
@@ -19,6 +16,7 @@ import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import {
   appendAvailableFixedQuestion,
   moveAssessmentEntry,
+  questionSaveInput,
   questionRevisionKey,
   removeAssessmentEntry,
 } from "./assessment_workspace_questions_model";
@@ -36,29 +34,13 @@ export function nextQuestionEditDirty(current: boolean, event: QuestionEditDirty
   return true;
 }
 
-/** Builds the closed save payload from the editable Assessment workspace values only. */
-export function questionSaveInput(
-  current: LiveAssessmentWorkspace,
-  title: string,
-  entries: ReadonlyArray<AssessmentEntry>,
-): SaveLiveAssessmentInput {
-  return {
-    title,
-    instructions: current.instructions,
-    entries,
-    dueAt: current.dueAt,
-    availableAt: current.availableAt,
-    closesAt: current.closesAt,
-    lateWorkRule: current.lateWorkRule,
-    assessmentAttemptTimeLimitSeconds: current.assessmentAttemptTimeLimitSeconds,
-    attemptLimit: current.attemptLimit,
-    activityRules: current.activityRules,
-    studentFeedbackReleaseRule: current.studentFeedbackReleaseRule,
-  };
-}
-
 function entryId(): AssessmentEntryId {
   return crypto.randomUUID();
+}
+
+function questionRevisionInspectionPath(reference: QuestionRevisionReference): string {
+  // ASVS 1.2.2: encode the displayed Question identity before placing it in a route path.
+  return `/library/${encodeURIComponent(reference.questionId)}?revision=${reference.revisionNumber}`;
 }
 
 function questionPoolEntry(
@@ -244,7 +226,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     try {
       await workspace.save(questionSaveInput(workspace.assessment().workspace, title(), entries()));
       setDirty((current) => nextQuestionEditDirty(current, "saveSucceeded"));
-      setMessage("Questions and order saved. Review assessment policies when you are ready.");
+      setMessage("Questions and order saved. Review Assessment Properties when you are ready.");
       return true;
     } catch (error: unknown) {
       const conflict = error instanceof LiveAssessmentWorkspaceConflictError;
@@ -506,6 +488,10 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         <p class="assessment-editor-note">
           Adding a Question pins the exact Available revision shown here.
         </p>
+        <p>
+          <A href="/library">Search Question Library</A> or{" "}
+          <A href="/library/browse">Browse Question Library</A>.
+        </p>
         <Show
           when={availableToAdd().length > 0}
           fallback={<p>No additional Available Questions are ready to add.</p>}
@@ -516,6 +502,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                 <li>
                   <strong>{candidate.reference.questionId}</strong> * Revision{" "}
                   {candidate.reference.revisionNumber}: {candidate.description}{" "}
+                  <A href={questionRevisionInspectionPath(candidate.reference)}>Inspect</A>{" "}
                   <button
                     type="button"
                     disabled={busy() || needsReload() || entries().length >= MAX_ASSIGNMENT_ENTRIES}
@@ -632,7 +619,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
             "policies",
           )}
         >
-          Review assessment policies
+          Review Assessment Properties
         </A>
       </p>
     </section>

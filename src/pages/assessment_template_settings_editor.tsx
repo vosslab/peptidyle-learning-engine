@@ -14,7 +14,6 @@ const FEEDBACK_FIELDS = [
   ["score", "Score"],
   ["per_item_correctness", "Per-item correctness"],
   ["submitted_response", "Submitted response"],
-  ["question_feedback", "Question Feedback"],
   ["question_answer", "Question Answer"],
   ["question_answer_explanation", "Question Answer Explanation"],
   ["class_statistics", "Class statistics"],

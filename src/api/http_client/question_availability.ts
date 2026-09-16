@@ -16,7 +16,7 @@ import {
 } from "../decoders/question_availability";
 import { decodeQuestionDetails } from "../decoders/question_library";
 import { ApiProtocolError, ApiRequestError } from "./error";
-import { encodedId, requestSameOrigin, type ApiFetch } from "./request";
+import { encodedId, requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function questionPath(questionId: QuestionId): string {
@@ -24,6 +24,13 @@ function questionPath(questionId: QuestionId): string {
 }
 
 function exactRevisionPath(reference: QuestionRevisionReference): string {
+  if (
+    !Number.isSafeInteger(reference.revisionNumber) ||
+    reference.revisionNumber < 1 ||
+    reference.revisionNumber > 4_294_967_295
+  ) {
+    throw new ApiProtocolError("Question Revision number must be one positive u32");
+  }
   return `${questionPath(reference.questionId)}/revisions/${encodeURIComponent(String(reference.revisionNumber))}`;
 }
 
@@ -119,6 +126,8 @@ export function createQuestionAvailabilityClient(
       const result = await questionJson(fetchImplementation, basePath, path, decodeQuestionDetails);
       return sameQuestionRevision(result.body, reference, path);
     },
+    questionRevisionPreviewDocumentUrl: (reference) =>
+      requestPath(basePath, `${exactRevisionPath(reference)}/preview-document`),
     archiveQuestion: async (
       questionId,
       confirmationTitle,

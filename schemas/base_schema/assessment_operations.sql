@@ -31,7 +31,7 @@ $$;
 
 CREATE FUNCTION ple_api.list_assessments_due_soon()
 RETURNS TABLE (
-    course_reference_number bigint,
+    course_reference_number text,
     course_long_name text,
     assessment_reference_number text,
     assessment_type text,
@@ -41,7 +41,7 @@ RETURNS TABLE (
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT course.reference_number,
+    SELECT course.public_reference,
            course.course_long_name,
            assessment.public_reference,
            assessment.assessment_type,
@@ -50,6 +50,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            floor(extract(epoch FROM assessment.due_at) * 1000)::bigint
       FROM ple_data.assessment AS assessment
       JOIN ple_data.course_instance AS course ON course.course_id = assessment.course_id
+     -- ASVS 8.2.2 and 8.3.1: derive every returned Course from the current
+     -- session's server-side Instructor authority.
      WHERE ple_api.current_session_account_is_course_instructor(course.course_id)
        AND assessment.assessment_status IN ('unreleased', 'released')
        AND assessment.due_at >= pg_catalog.statement_timestamp()
@@ -124,7 +126,6 @@ RETURNS TABLE (
     feedback_score text,
     feedback_per_item_correctness text,
     feedback_submitted_response text,
-    feedback_question_feedback text,
     feedback_question_answer text,
     feedback_question_answer_explanation text,
     feedback_class_statistics text,
@@ -180,7 +181,6 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            assessment.feedback_score,
            assessment.feedback_per_item_correctness,
            assessment.feedback_submitted_response,
-           assessment.feedback_question_feedback,
            assessment.feedback_question_answer,
            assessment.feedback_question_answer_explanation,
            assessment.feedback_class_statistics,

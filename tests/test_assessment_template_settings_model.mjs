@@ -31,7 +31,6 @@ function template(assessmentType, attemptLimit) {
         score: "after_submit",
         per_item_correctness: "after_submit",
         submitted_response: "after_submit",
-        question_feedback: "never",
         question_answer: "never",
         question_answer_explanation: "never",
         class_statistics: "never",

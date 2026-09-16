@@ -57,12 +57,6 @@ export interface StudentAssessmentAttemptResponseSaveAcknowledgement {
 export interface StudentAssessmentAttemptSubmissionResult {
   readonly assessmentAttempt: AssessmentAttemptReference;
   readonly submissionState: "submitted";
-  /** Current Assessment points applied to immutable stored credit fractions. */
-  /** Null only when a backend has accepted work but will report credit later. */
-  readonly score: {
-    readonly pointsEarned: number;
-    readonly pointsPossible: number;
-  } | null;
 }
 
 export interface StudentAssessmentAttemptNavigationClient {

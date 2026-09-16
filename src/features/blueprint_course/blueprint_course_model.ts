@@ -120,7 +120,6 @@ function defaultDefaults(assessmentType: AssessmentType): BlueprintAssessmentDef
       score: "after_submit",
       per_item_correctness: "after_submit",
       submitted_response: "after_submit",
-      question_feedback: "never",
       question_answer:
         assessmentType === "practice_question_assignment"
           ? "after_submit"

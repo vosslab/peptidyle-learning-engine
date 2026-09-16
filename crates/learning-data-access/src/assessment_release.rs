@@ -63,7 +63,7 @@ pub struct SaveLiveAssessmentInput {
     /// The nine independent Assessment activity rules.
     #[serde(default)]
     pub activity_rules: AssessmentActivityRules,
-    /// The seven independently configured Student feedback timings.
+    /// The six independently configured Student feedback timings.
     #[serde(default)]
     pub student_feedback_release_rule: StudentFeedbackReleaseRule,
     /// Ordered normalized current Assessment Entries. Every entry pins exact

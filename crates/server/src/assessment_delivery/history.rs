@@ -20,7 +20,7 @@ use domain::{
 };
 use learning_data_access::{
     LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, StudentAssessmentAttemptHistory,
-    StudentAssessmentAttemptHistoryEvidence,
+    StudentAssessmentAttemptHistoryEvidence, StoreError,
 };
 use question_model::{AssessmentAttemptReference, QuestionFeedback, StudentFeedback};
 use question_model::{AssessmentScoringState, LateWorkRule, Timestamp};
@@ -51,30 +51,22 @@ pub(super) async fn student_history(
         Ok(value) => {
             let decision = history_decision(&value);
             let mut history = project_history(&value);
-            if needs_released_content(decision) {
-                project_released_content(
-                    &state,
-                    token,
-                    assessment_attempt,
-                    &value,
-                    decision,
-                    &mut history,
-                )
-                .await;
+            if let Err(value) = project_released_content(
+                &state,
+                token,
+                assessment_attempt,
+                &value,
+                decision,
+                &mut history,
+            )
+            .await
+            {
+                return store_error(value);
             }
             crate::auth::no_store(Json(history).into_response())
         }
         Err(value) => store_error(value),
     }
-}
-
-fn needs_released_content(
-    decision: domain::student_feedback_release::StudentFeedbackReleaseDecision,
-) -> bool {
-    decision.submitted_response
-        || decision.question_feedback
-        || decision.question_answer
-        || decision.question_answer_explanation
 }
 
 fn project_history(
@@ -145,15 +137,11 @@ async fn project_released_content(
     evidence: &StudentAssessmentAttemptHistoryEvidence,
     decision: domain::student_feedback_release::StudentFeedbackReleaseDecision,
     history: &mut StudentAssessmentAttemptHistory,
-) {
-    let sources = match state
+) -> Result<(), StoreError> {
+    let sources = state
         .delivery
         .student_assessment_attempt_history_response_sources(token, assessment_attempt)
-        .await
-    {
-        Ok(sources) => sources,
-        Err(_) => return,
-    };
+        .await?;
     for source in sources {
         // ASVS 8.2.3: each protected teaching field is assigned only after
         // the server-owned disclosure decision and exact source read succeed.
@@ -177,14 +165,10 @@ async fn project_released_content(
             .cloned()
             .flatten();
         let question = &mut history.questions[question_index];
-        // General feedback is PLE-authored Revision metadata.  It remains
-        // available without asking the backend to replay or reconstruct any
-        // interaction feedback, but follows the independent Question
-        // Feedback release rule rather than answer-disclosure settings.
-        if decision.question_feedback {
-            question.feedback.general_feedback = general_feedback
-                .map(|markdown| vec![question_model::QuestionContentBlock::Text { markdown }]);
-        }
+        // General feedback is exact PLE-authored Revision metadata. It is
+        // shown when provided and has no separate delayed-release policy.
+        question.feedback.general_feedback = general_feedback
+            .map(|markdown| vec![question_model::QuestionContentBlock::Text { markdown }]);
         if decision.submitted_response
             && let Ok(presentation) =
                 reproduce_selected_issued_presentation(presentation_evidence.clone())
@@ -195,9 +179,7 @@ async fn project_released_content(
             Some(learning_data_access::StudentAssessmentAttemptPresentationSource::Ple {
                 source: ple_source,
                 ..
-            }) if decision.question_feedback
-                || decision.question_answer
-                || decision.question_answer_explanation =>
+            }) =>
             {
                 let Ok(resolved) = resolve_source(&state.objects, &ple_source).await else {
                     continue;
@@ -205,11 +187,7 @@ async fn project_released_content(
                 let teaching = adapter_ple::PleQuestionBackend::new()
                     .project_recorded_question_json_teaching_content(
                         &resolved,
-                        if decision.question_feedback {
-                            response.as_ref()
-                        } else {
-                            None
-                        },
+                        response.as_ref(),
                         recorded_result,
                     );
                 let Ok(teaching) = teaching else {
@@ -220,6 +198,7 @@ async fn project_released_content(
             _ => {}
         }
     }
+    Ok(())
 }
 
 fn project_teaching_feedback(
@@ -384,7 +363,6 @@ mod tests {
         let decision = history_decision(&evidence);
 
         assert!(decision.question_answer_explanation);
-        assert!(needs_released_content(decision));
     }
 
     #[test]
@@ -395,19 +373,16 @@ mod tests {
         evidence.feedback_rule.question_answer = StudentFeedbackReleaseTiming::AfterSubmit;
         evidence.feedback_rule.question_answer_explanation =
             StudentFeedbackReleaseTiming::AfterSubmit;
-        evidence.feedback_rule.question_feedback = StudentFeedbackReleaseTiming::AfterSubmit;
 
         let waiting = history_decision(&evidence);
 
         assert!(!waiting.question_answer);
         assert!(!waiting.question_answer_explanation);
-        assert!(waiting.question_feedback);
 
         evidence.all_students_completed = true;
         let released = history_decision(&evidence);
         assert!(released.question_answer);
         assert!(released.question_answer_explanation);
-        assert!(released.question_feedback);
     }
 
     #[test]

@@ -186,6 +186,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
     "choiceFeedback",
     "correctFeedback",
     "incorrectFeedback",
+    "generalFeedback",
     "questionAnswer",
     "questionAnswerExplanation",
   ]);
@@ -225,6 +226,14 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
           (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
         )
       : undefined;
+  const generalFeedback =
+    "generalFeedback" in record
+      ? decodeArray(
+          field(record, "generalFeedback", path),
+          `${path}.generalFeedback`,
+          (block, blockPath) => decodeQuestionContentBlock(block, blockPath, true),
+        )
+      : undefined;
   const questionAnswer =
     "questionAnswer" in record
       ? decodeArray(
@@ -248,6 +257,7 @@ export function decodeStudentFeedback(value: unknown, path = "response"): Studen
     ...(choiceFeedback === undefined ? {} : { choiceFeedback }),
     ...(correctFeedback === undefined ? {} : { correctFeedback }),
     ...(incorrectFeedback === undefined ? {} : { incorrectFeedback }),
+    ...(generalFeedback === undefined ? {} : { generalFeedback }),
     ...(questionAnswer === undefined ? {} : { questionAnswer }),
     ...(questionAnswerExplanation === undefined ? {} : { questionAnswerExplanation }),
   } satisfies StudentFeedback;

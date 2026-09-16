@@ -410,6 +410,7 @@ async function questionDetails(
     );
   return detail;
 }
+
 export function createResponseClient(
   fetchImplementation: ApiFetch,
   basePath: string,

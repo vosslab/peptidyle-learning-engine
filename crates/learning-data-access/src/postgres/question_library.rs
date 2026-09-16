@@ -331,6 +331,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         },
         source_object_checksum,
         source_media_type: row.try_get("source_media_type").map_err(map_sqlx_error)?,
+        webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
     })
 }
 

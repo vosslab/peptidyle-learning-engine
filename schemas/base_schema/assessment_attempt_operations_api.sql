@@ -84,7 +84,9 @@ END $$;
 
 REVOKE ALL ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.assert_current_student_assessment_attempt(bigint),
+    ple_private.assessment_attempt_start_gate(uuid, uuid),
     ple_private.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
+    ple_private.prepare_current_assessment_attempt_start_decision(bigint, text),
     ple_private.prepare_current_assessment_attempt_start(bigint, text),
     ple_private.read_started_student_assessment_attempt(uuid),
     ple_private.prepare_assessment_attempt_finalization(uuid),
@@ -101,6 +103,7 @@ REVOKE ALL ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.lock_assessment_for_student_work(uuid),
     ple_private.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
+    ple_private.prepare_current_assessment_attempt_start_decision(bigint, text),
     ple_private.prepare_current_assessment_attempt_start(bigint, text),
     ple_private.read_started_student_assessment_attempt(uuid),
     ple_private.save_student_assessment_attempt_response(bigint, integer, jsonb),
@@ -120,6 +123,18 @@ RETURNS TABLE (assessment_attempt_id uuid, assessment_attempt_number integer, re
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api AS $$
     SELECT * FROM ple_private.start_assessment_attempt($1, $2, $3, $4, $5)
 $$;
+CREATE FUNCTION ple_api.prepare_current_assessment_attempt_start_decision(text, text)
+RETURNS TABLE (
+    resumable_assessment_attempt_id uuid,
+    resumable_assessment_attempt_number integer
+)
+LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$
+    SELECT * FROM ple_private.prepare_current_assessment_attempt_start_decision(
+        (SELECT course.reference_number FROM ple_data.course_instance AS course
+          WHERE course.public_reference = $1),
+        $2
+    )
+$$;
 CREATE FUNCTION ple_api.prepare_current_assessment_attempt_start(text, text)
 RETURNS TABLE (
     student_record_id uuid, assessment_id uuid, assessment_entry_id uuid,
@@ -129,7 +144,7 @@ RETURNS TABLE (
     pool_question_id text, pool_revision_number integer, question_backend text,
     selection_count integer,
     pool_selection_rule text, question_pool_reuse_rule text,
-    question_variation_rule text
+    question_variation_rule text, assessment_question_order_rule text
 )
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api, ple_data AS $$
     SELECT * FROM ple_private.prepare_current_assessment_attempt_start(
@@ -219,6 +234,7 @@ LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private, ple_api
     SELECT * FROM ple_private.save_student_assessment_accommodation($1, $2, $3, $4, $5, $6, $7, $8, $9)
 $$;
 REVOKE ALL ON FUNCTION ple_api.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
+    ple_api.prepare_current_assessment_attempt_start_decision(text, text),
     ple_api.prepare_current_assessment_attempt_start(text, text),
     ple_api.read_started_student_assessment_attempt(uuid),
     ple_api.save_student_assessment_attempt_response(bigint, integer, jsonb),
@@ -232,6 +248,7 @@ REVOKE ALL ON FUNCTION ple_api.start_assessment_attempt(uuid, uuid, uuid, jsonb,
     ple_api.save_student_assessment_accommodation(uuid, uuid, uuid, bigint, timestamptz, timestamptz, timestamptz, integer, integer)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.start_assessment_attempt(uuid, uuid, uuid, jsonb, jsonb),
+    ple_api.prepare_current_assessment_attempt_start_decision(text, text),
     ple_api.prepare_current_assessment_attempt_start(text, text),
     ple_api.read_started_student_assessment_attempt(uuid),
     ple_api.save_student_assessment_attempt_response(bigint, integer, jsonb),

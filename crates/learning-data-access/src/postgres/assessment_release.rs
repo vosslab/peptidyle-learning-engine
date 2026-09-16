@@ -762,7 +762,6 @@ fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<AssessmentEntry>
                     .map_err(|_| invalid("Question Pool Revision Number"))?,
             ).map_err(|_| invalid("Question Pool Revision Number"))?,
         };
-        index += 1;
         entries.push(AssessmentEntry::QuestionPool(QuestionPoolAssessmentEntry {
             id, question_pool_revision, availability, scoring_rule,
             selection_count: std::num::NonZeroU32::new(selection_count)
@@ -770,6 +769,15 @@ fn decode_entries(rows: &[sqlx::postgres::PgRow]) -> Result<Vec<AssessmentEntry>
             points_per_item: point_value(row, "points_per_item")?, selection_rule,
             question_attempt_limit: policy.0, question_attempt_time_limit: policy.1,
         }));
+        while let Some(member_row) = rows.get(index) {
+            let member_entry_id = member_row
+                .try_get::<Option<uuid::Uuid>, _>("assessment_entry_id")
+                .map_err(map_sqlx_error)?;
+            if member_entry_id != Some(raw_id) {
+                break;
+            }
+            index += 1;
+        }
     }
     Ok(entries)
 }

@@ -307,7 +307,6 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
                         per_item_correctness:
                             question_model::StudentFeedbackReleaseTiming::AfterSubmit,
                         submitted_response: question_model::StudentFeedbackReleaseTiming::AfterDue,
-                        question_feedback: question_model::StudentFeedbackReleaseTiming::AfterClose,
                         question_answer: question_model::StudentFeedbackReleaseTiming::Never,
                         question_answer_explanation:
                             question_model::StudentFeedbackReleaseTiming::AfterClose,

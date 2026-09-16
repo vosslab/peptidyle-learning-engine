@@ -11,6 +11,7 @@ import type {
 import { useApplicationApi } from "../../api/application_api";
 import { ApiRequestError } from "../../api/http_client/error";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
+import { AssessmentFixedQuestionPointsEditor } from "./assessment_fixed_question_points_editor";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import {
@@ -38,7 +39,6 @@ const FEEDBACK_FIELDS = [
     "Previous-attempt response",
     "Controls the Student's recorded response in previous attempts. Never leaves correctness visible when Per-item correctness permits it.",
   ],
-  ["question_feedback", "Question feedback"],
   ["question_answer", "Correct answer"],
   ["question_answer_explanation", "Question answer explanation"],
   [
@@ -125,6 +125,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   const [validationFailed, setValidationFailed] = createSignal(false);
   const [unreleaseImpact, setUnreleaseImpact] = createSignal<AssessmentUnreleaseImpact>();
   const [confirmationTitle, setConfirmationTitle] = createSignal("");
+  const [pointEditorActive, setPointEditorActive] = createSignal(false);
   let instructionSaveTimer: number | undefined;
   let activeRequestSeq: number | undefined;
 
@@ -196,7 +197,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
         );
         setPolicyState(next);
         if (next.persistence === "saved") {
-          setMessage("Assessment policies saved. Future Attempts use the current policy values.");
+          setMessage("Assessment Properties saved. Future Attempts use the current values.");
         }
         activeRequestSeq = undefined;
         startSave(next);
@@ -207,12 +208,12 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
         if (persistence === "conflict") {
           setNeedsReload(true);
           setMessage(
-            "This assessment changed elsewhere. Reload server state before saving; your typed policies remain here.",
+            "This Assessment changed elsewhere. Reload server state before saving; your typed values remain here.",
           );
         } else if (persistence === "rejected") {
-          setMessage("The server did not accept these policy values.");
+          setMessage("The server did not accept these Assessment Properties.");
         } else {
-          setMessage("Assessment policies were not saved. Retry with the current values.");
+          setMessage("Assessment Properties were not saved. Retry with the current values.");
         }
         activeRequestSeq = undefined;
       }
@@ -261,31 +262,36 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     setPolicyState(next);
     startSave(next);
   }
-  async function reload(): Promise<void> {
+  function adoptReloadedAssessment(current: LiveAssessmentWorkspace): void {
+    setInstructions(current.instructions);
+    setDueDate(dueDateDraft(current.dueAt));
+    setDueTime(dueTimeDraft(current.dueAt));
+    setAvailableDate(optionalScheduleDateDraft(current.availableAt));
+    setAvailableTime(optionalScheduleTimeDraft(current.availableAt));
+    setClosesDate(optionalScheduleDateDraft(current.closesAt));
+    setClosesTime(optionalScheduleTimeDraft(current.closesAt));
+    setTimeLimit(current.assessmentAttemptTimeLimitSeconds?.toString() ?? "");
+    setAttemptLimit(oneAttemptOnly ? "1" : (current.attemptLimit?.toString() ?? ""));
+    setLateWorkRule(current.lateWorkRule);
+    setActivityRules(current.activityRules);
+    setFeedbackRules(current.studentFeedbackReleaseRule);
+    setPolicyState((state) =>
+      baseAssessmentPolicyReloaded(state, baseAssessmentPolicyInput(current)),
+    );
+    setNeedsReload(false);
+    setReleaseValidation(undefined);
+  }
+  async function reload(): Promise<boolean> {
     setBusy(true);
     try {
       const latest = await workspace.reloadAssessment();
       const current = latest.workspace;
-      setInstructions(current.instructions);
-      setDueDate(dueDateDraft(current.dueAt));
-      setDueTime(dueTimeDraft(current.dueAt));
-      setAvailableDate(optionalScheduleDateDraft(current.availableAt));
-      setAvailableTime(optionalScheduleTimeDraft(current.availableAt));
-      setClosesDate(optionalScheduleDateDraft(current.closesAt));
-      setClosesTime(optionalScheduleTimeDraft(current.closesAt));
-      setTimeLimit(current.assessmentAttemptTimeLimitSeconds?.toString() ?? "");
-      setAttemptLimit(oneAttemptOnly ? "1" : (current.attemptLimit?.toString() ?? ""));
-      setLateWorkRule(current.lateWorkRule);
-      setActivityRules(current.activityRules);
-      setFeedbackRules(current.studentFeedbackReleaseRule);
-      setPolicyState((state) =>
-        baseAssessmentPolicyReloaded(state, baseAssessmentPolicyInput(current)),
-      );
-      setNeedsReload(false);
-      setReleaseValidation(undefined);
-      setMessage("Latest assessment loaded. Review the current policies.");
+      adoptReloadedAssessment(current);
+      setMessage("Latest Assessment loaded. Review the current Properties.");
+      return true;
     } catch {
-      setMessage("The latest assessment could not load. Your typed policies remain here.");
+      setMessage("The latest Assessment could not load. Your typed values remain here.");
+      return false;
     } finally {
       setBusy(false);
     }
@@ -336,7 +342,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       setMessage(
         conflict
           ? "This assessment changed elsewhere. Reload latest assessment before releasing it."
-          : "The assessment could not be released. Review its Questions and policies, then try again.",
+          : "The Assessment could not be released. Review its Questions and Properties, then try again.",
       );
     } finally {
       setBusy(false);
@@ -446,12 +452,17 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
           </p>
         )}
       </Show>
+      <AssessmentFixedQuestionPointsEditor
+        disabled={!allBaseAssessmentPolicyEditsPersisted(policyState()) || busy() || needsReload()}
+        onEditingChange={setPointEditorActive}
+        reloadLatest={reload}
+      />
       <fieldset
         class="assessment-workspace-policy-controls"
-        disabled={busy()}
+        disabled={busy() || pointEditorActive()}
         aria-busy={busy() || policyState().persistence === "saving"}
       >
-        <legend>Assessment policies</legend>
+        <legend>Assessment Properties</legend>
         <section class="assessment-editor-policy-panel">
           <h2>Assessment and delivery</h2>
           <label class="assessment-editor-field">
@@ -745,7 +756,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                                     ? "Move Available to no later than the Due date, save, then check release readiness again."
                                     : issue === "dueDateAfterClose"
                                       ? "Move Closes to the Due date or later, save, then check release readiness again."
-                                      : "Enter a positive time limit in Assessment policies, save, then check release readiness again."}
+                                      : "Enter a positive time limit in Assessment Properties, save, then check release readiness again."}
                       </li>
                     )}
                   </For>

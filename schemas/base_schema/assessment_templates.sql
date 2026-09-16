@@ -76,11 +76,6 @@ CREATE TABLE ple_private.assessment_template (
             'during_attempt', 'after_submit', 'after_due', 'after_close', 'never'
         )
     ),
-    feedback_question_feedback text NOT NULL CHECK (
-        feedback_question_feedback IN (
-            'during_attempt', 'after_submit', 'after_due', 'after_close', 'never'
-        )
-    ),
     feedback_question_answer text NOT NULL CHECK (
         feedback_question_answer IN (
             'during_attempt', 'after_submit', 'after_due', 'after_close', 'never'
@@ -195,7 +190,7 @@ BEGIN
        OR ARRAY(SELECT key FROM jsonb_object_keys(feedback_rules) AS key ORDER BY key)
             <> ARRAY[
                 'class_statistics', 'per_item_correctness', 'question_answer',
-                'question_answer_explanation', 'question_feedback', 'score',
+                'question_answer_explanation', 'score',
                 'submitted_response'
             ]::text[]
        OR EXISTS (
@@ -238,7 +233,7 @@ GRANT UPDATE (
     assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule,
     assessment_attempt_resume_rule, assessment_question_display_rule,
     assessment_navigation_rule, assessment_question_order_rule, feedback_score,
-    feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback,
+    feedback_per_item_correctness, feedback_submitted_response,
     feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics
 ) ON TABLE ple_private.assessment_template TO ple_api_owner;
 GRANT EXECUTE ON FUNCTION ple_private.assessment_template_name_is_valid(text),
@@ -299,7 +294,6 @@ BEGIN
                    'score', template.feedback_score,
                    'per_item_correctness', template.feedback_per_item_correctness,
                    'submitted_response', template.feedback_submitted_response,
-                   'question_feedback', template.feedback_question_feedback,
                    'question_answer', template.feedback_question_answer,
                    'question_answer_explanation',
                         template.feedback_question_answer_explanation,
@@ -375,7 +369,7 @@ BEGIN
         assessment_attempt_grade_rule, question_pool_reuse_rule, question_variation_rule,
         assessment_attempt_resume_rule, assessment_question_display_rule,
         assessment_navigation_rule, assessment_question_order_rule, feedback_score,
-        feedback_per_item_correctness, feedback_submitted_response, feedback_question_feedback,
+        feedback_per_item_correctness, feedback_submitted_response,
         feedback_question_answer, feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
         p_assessment_template_id, actor_id, p_template_name, p_assessment_type,
@@ -398,7 +392,7 @@ BEGIN
         CASE activity_rules ->> 'assessmentQuestionOrderRule'
             WHEN 'authoredOrder' THEN 'authored_order' ELSE 'shuffled' END,
         feedback_rules ->> 'score', feedback_rules ->> 'per_item_correctness',
-        feedback_rules ->> 'submitted_response', feedback_rules ->> 'question_feedback',
+        feedback_rules ->> 'submitted_response',
         feedback_rules ->> 'question_answer', feedback_rules ->> 'question_answer_explanation',
         feedback_rules ->> 'class_statistics'
     );
@@ -483,7 +477,6 @@ BEGIN
            feedback_score = feedback_rules ->> 'score',
            feedback_per_item_correctness = feedback_rules ->> 'per_item_correctness',
            feedback_submitted_response = feedback_rules ->> 'submitted_response',
-           feedback_question_feedback = feedback_rules ->> 'question_feedback',
            feedback_question_answer = feedback_rules ->> 'question_answer',
            feedback_question_answer_explanation =
                 feedback_rules ->> 'question_answer_explanation',

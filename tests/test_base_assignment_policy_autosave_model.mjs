@@ -33,7 +33,6 @@ const draft = {
     score: "afterSubmit",
     per_item_correctness: "afterSubmit",
     submitted_response: "afterSubmit",
-    question_feedback: "afterSubmit",
     question_answer: "afterSubmit",
     question_answer_explanation: "afterSubmit",
     class_statistics: "never",

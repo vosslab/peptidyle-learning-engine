@@ -15,7 +15,7 @@ use crate::{SaveBaseAssessmentPolicyInput, SaveLiveAssessmentInput, StoreError};
 #[rustfmt::skip]
 fn activity_rule_values(r: &AssessmentActivityRules) -> [&'static str; 7] { [match r.assessment_attempt_grade_rule { AssessmentAttemptGradeRule::First => "first", AssessmentAttemptGradeRule::Latest => "latest", AssessmentAttemptGradeRule::Highest => "highest", AssessmentAttemptGradeRule::InstructorSelected => "instructor_selected" }, match r.question_pool_reuse_rule { QuestionPoolReuseRule::ReuseSelection => "reuse_selection", QuestionPoolReuseRule::SelectAgain => "select_again" }, match r.question_variation_rule { AssessmentQuestionVariationRule::ReuseVariation => "reuse_variation", AssessmentQuestionVariationRule::NewVariation => "new_variation" }, match r.assessment_attempt_resume_rule { AssessmentAttemptResumeRule::Resumable => "resumable", AssessmentAttemptResumeRule::SingleSession => "single_session" }, match r.assessment_question_display_rule { AssessmentQuestionDisplayRule::AllQuestions => "all_questions", AssessmentQuestionDisplayRule::OneQuestionAtATime => "one_question_at_a_time" }, match r.assessment_navigation_rule { question_model::AssessmentNavigationRule::FreeNavigation => "free_navigation", question_model::AssessmentNavigationRule::ForwardOnly => "forward_only" }, match r.assessment_question_order_rule { AssessmentQuestionOrderRule::AuthoredOrder => "authored_order", AssessmentQuestionOrderRule::Shuffled => "shuffled" }] }
 #[rustfmt::skip]
-fn feedback_rule_values(r: &StudentFeedbackReleaseRule) -> [&'static str; 7] { [feedback_value(r.score), feedback_value(r.per_item_correctness), feedback_value(r.submitted_response), feedback_value(r.question_feedback), feedback_value(r.question_answer), feedback_value(r.question_answer_explanation), feedback_value(r.class_statistics)] }
+fn feedback_rule_values(r: &StudentFeedbackReleaseRule) -> [&'static str; 6] { [feedback_value(r.score), feedback_value(r.per_item_correctness), feedback_value(r.submitted_response), feedback_value(r.question_answer), feedback_value(r.question_answer_explanation), feedback_value(r.class_statistics)] }
 #[rustfmt::skip]
 fn feedback_value(v: StudentFeedbackReleaseTiming) -> &'static str { match v { StudentFeedbackReleaseTiming::DuringAttempt => "during_attempt", StudentFeedbackReleaseTiming::AfterSubmit => "after_submit", StudentFeedbackReleaseTiming::AfterDue => "after_due", StudentFeedbackReleaseTiming::AfterClose => "after_close", StudentFeedbackReleaseTiming::Never => "never" } }
 
@@ -28,7 +28,7 @@ pub(super) fn assessment_values_json(input: &SaveLiveAssessmentInput) -> Result<
         "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
         "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
         "assessment_attempt_grade_rule": activity[0], "question_pool_reuse_rule": activity[1], "question_variation_rule": activity[2], "assessment_attempt_resume_rule": activity[3], "assessment_question_display_rule": activity[4], "assessment_navigation_rule": activity[5], "assessment_question_order_rule": activity[6],
-        "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_feedback": feedback[3], "feedback_question_answer": feedback[4], "feedback_question_answer_explanation": feedback[5], "feedback_class_statistics": feedback[6]
+        "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_answer": feedback[3], "feedback_question_answer_explanation": feedback[4], "feedback_class_statistics": feedback[5]
     }))
 }
 
@@ -40,7 +40,7 @@ pub(super) fn base_assessment_policy_values_json(input: &SaveBaseAssessmentPolic
         "assessment_instructions": input.instructions.as_str(), "available_at": Value::Null, "due_at": Value::Null, "closes_at": Value::Null,
         "assessment_attempt_time_limit_seconds": input.assessment_attempt_time_limit_seconds.map(|value| value.get()), "assessment_attempt_limit": input.attempt_limit.map(|value| value.get()), "late_work_rule": late_work_rule(&input.late_work_rule),
         "assessment_attempt_grade_rule": activity[0], "question_pool_reuse_rule": activity[1], "question_variation_rule": activity[2], "assessment_attempt_resume_rule": activity[3], "assessment_question_display_rule": activity[4], "assessment_navigation_rule": activity[5], "assessment_question_order_rule": activity[6],
-        "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_feedback": feedback[3], "feedback_question_answer": feedback[4], "feedback_question_answer_explanation": feedback[5], "feedback_class_statistics": feedback[6]
+        "feedback_score": feedback[0], "feedback_per_item_correctness": feedback[1], "feedback_submitted_response": feedback[2], "feedback_question_answer": feedback[3], "feedback_question_answer_explanation": feedback[4], "feedback_class_statistics": feedback[5]
     })
 }
 

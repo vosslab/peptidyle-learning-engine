@@ -48,6 +48,13 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
         public_question_pool_id: &question_model::QuestionId,
     ) -> Result<PublishedQuestionPoolRevision, StoreError>;
 
+    /// Resolves one caller-selected immutable Revision of a published Pool.
+    async fn load_published_question_pool_revision(
+        &self,
+        session_token_hash: SessionTokenHash,
+        reference: &QuestionPoolRevisionReference,
+    ) -> Result<PublishedQuestionPoolRevision, StoreError>;
+
     /// Derives one exact Assessment-owned fork through Course, Assessment,
     /// and Entry authorization; callers cannot select a Pool Revision.
     async fn load_assessment_question_pool_fork(

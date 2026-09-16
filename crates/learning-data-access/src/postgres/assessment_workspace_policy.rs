@@ -81,10 +81,6 @@ pub(super) fn feedback_rules(
             row.try_get("feedback_submitted_response")
                 .map_err(map_sqlx_error)?,
         )?,
-        question_feedback: feedback_timing(
-            row.try_get("feedback_question_feedback")
-                .map_err(map_sqlx_error)?,
-        )?,
         question_answer: feedback_timing(
             row.try_get("feedback_question_answer")
                 .map_err(map_sqlx_error)?,

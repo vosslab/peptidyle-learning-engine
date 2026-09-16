@@ -17,9 +17,66 @@ The authoritative exhaustive record is the
   with only the Search entry, then starts the result workflow after input. Its session-bound,
   single-use in-document return snapshot restored query, filter, 80 loaded rows, and virtual-list
   position through visible return and browser Back. Accepted one-time compiled-browser evidence also
-  confirmed idle no-fetch and changed-session isolation. The temporary harness and screenshots
-  remain outside the repository during review; this is not connected HTTP evidence. C58 and C59
-  remain open.
+  confirmed idle no-fetch and changed-session isolation. The temporary harness and screenshots were
+  removed after acceptance; this is not connected HTTP evidence.
+
+- C58 closes seven advanced-search rows with accepted private PostgreSQL 17 and actual-server HTTP
+  evidence. One production Store/route fixture exercised ordinary words, quoted phrases, minus
+  exclusion, all five PLE field tags, active-vetted-Instructor access, anonymous and Student
+  concealment, and `no-store`. The bounded 69-Question fixture does not establish expert usability
+  or performance for a very large production library, so that separate row remains open.
+
+- C60 closes all eight Browse rows with accepted routed-component, actual-server grouping, and
+  private full-app browser evidence.
+  Browse now has distinct grouped subject/topic/tag/Question Type navigation, full-authorized-
+  snapshot counts, exact Browse-to-Search filter transfer, and the shared Question result path.
+  The exact-main app authenticated against the actual server and traversed overview, Biology,
+  Enzymes, and focused Search. Root manager visual review accepted the production-styled 1280 by 800 overview,
+  narrowed rows, and Search screenshots. Test asset transport is not deployment-gateway or WASM-
+  runtime evidence.
+
+- C61 closes three more Assessments Due Soon rows. Accepted private PostgreSQL 17, actual-server,
+  and exact-main browser evidence returned two upcoming Assessments across the Instructor's two
+  Courses, excluded an outsider Course, preserved anonymous/Student concealment, and matched each
+  visible Due value to the actual HTTP instant in the returned Account zone. The broad Assessment-
+  list scanability row remains open. Follow-up exact-main browser evidence rendered readable
+  Chicago Account-zone local Due values in a three-row Course list at 1280px and 720px while the
+  browser used Los Angeles time; representative proof across multiple Course lists is still
+  pending. Empty/error states, release workflow, WASM runtime, and deployment gateway were not
+  exercised.
+
+- C62 closes all five Assessment-editor-shell rows. Accepted private actual-HTTP and exact-main
+  browser evidence navigated the distinct Question and Properties tasks, added, moved, removed,
+  re-added, saved, and reloaded two exact Questions, persisted one Properties instructions edit,
+  rendered the grouped Properties layout in two desktop columns and one column at 720px, and saved
+  and reloaded fixed-Question point values `2.5` and `1` without changing other Assessment fields.
+  Cancel, Stay/Discard, and real concurrent-write reload/discard recovery passed. This does not
+  claim score recalculation or Released-Assessment editing. Broad cross-list scanability remains
+  open pending representative proof across multiple Course lists.
+
+- C64 and C65 close both Assessment-randomization rows. Accepted authenticated Student HTTP
+  evidence persisted authored and shuffled rules, observed a real Instructor save blocked behind
+  the Student-start lock, issued a complete exact fixed-and-Pool vector, and retained immutable
+  shuffled order on resume. Accepted exact-main browser evidence saved and reloaded **Randomize
+  question order** through actual HTTP. PLE Question authoring and its strict codec own
+  `randomizeChoices`; the source adapter compiles that declaration to `NativeChoiceOrder`, and the
+  presentation builder applies the nonce-derived choice order. Assessment activity rules have no
+  answer-choice override. This establishes ownership without claiming a runtime matrix of every
+  native choice permutation.
+
+- Accepted private actual-HTTP and exact-main evidence closes C63's visible-order and direct
+  Search/Browse rows. The editor showed a numbered order, moved the Questions, saved, and reloaded
+  the persisted result; separate direct links reached Search and Browse, browser Back restored the
+  editor, and the unsaved-changes guard preserved Stay and required deliberate Discard. Exact-
+  Revision inspection now resolves the authorized private source and checksum through the opaque
+  WeBWorK adapter and hardened iframe. Private PostgreSQL 17/MinIO plus unchanged-renderer HTTP
+  evidence returned 200 with hardened headers and concealed missing Revision, Student, and
+  anonymous requests; exact-main browser evidence rendered the prompt and five choices, with all
+  five Student Work counts remaining zero before and after in this isolated preview path. C63 stays
+  open because the renderer JavaScript dereferences `window.frameElement.id` when the hardened
+  sandbox has no same-origin frame element, before focus, popover, and parent telemetry. Do not
+  loosen the sandbox or rewrite sibling renderer HTML; successful hardened-embed behavior and a
+  state-preserving return remain unverified.
 
 - C77--C78 now have accepted source, strict TypeScript, focused projection-test, and compiled
   SolidJS/mock-API browser evidence. A fresh PostgreSQL 17 run also exercised the actual landing
@@ -87,8 +144,8 @@ The authoritative exhaustive record is the
 - Reordering must also have a precise keyboard-accessible method.
   - Source: `docs/HUMAN_GUIDANCE.md:180`
 
-- Themes should use biome and habitat names, such as Forest, Grassland, Ocean, and Desert.
-  - Source: `docs/HUMAN_GUIDANCE.md:181`
+- Implement the themes as specified in `docs/BIOME_THEME_PALETTES.md`
+  - Source: `docs/HUMAN_GUIDANCE.md:184`
 
 - UUIDs should never appear in visible content, navigation URLs, or copyable links.
   - Source: `docs/HUMAN_GUIDANCE.md:182`
@@ -295,62 +352,11 @@ The authoritative exhaustive record is the
 - **Watched** should help Instructors follow Questions where changes or activity matter to them.
   - Source: `docs/HUMAN_GUIDANCE.md:303`
 
-- Search should support Google-like syntax for more precise queries.
-  - Source: `docs/HUMAN_GUIDANCE.md:317`
-
-- Quoted text should search for an exact phrase.
-  - Source: `docs/HUMAN_GUIDANCE.md:318`
-
-- A minus sign should exclude matching terms.
-  - Source: `docs/HUMAN_GUIDANCE.md:319`
-
-- Search should support PubMed-like field tags such as `topic:genetics`.
-  - Source: `docs/HUMAN_GUIDANCE.md:320`
-
-- Field tags should use PLE concepts and vocabulary.
-  - Source: `docs/HUMAN_GUIDANCE.md:321`
-
-- Useful fields may include subject, topic, tags, Question Type, and author.
-  - Source: `docs/HUMAN_GUIDANCE.md:322`
-
-- Simple and advanced searches should use the same search box.
-  - Source: `docs/HUMAN_GUIDANCE.md:323`
-
-- The interface should make useful search syntax discoverable when needed.
-  - Source: `docs/HUMAN_GUIDANCE.md:325`
-
 - Search syntax should help expert users quickly narrow a very large Question Library.
-  - Source: `docs/HUMAN_GUIDANCE.md:326`
-
-- **Browse Question Library** helps Instructors explore Questions without knowing what to search for.
-  - Source: `docs/HUMAN_GUIDANCE.md:333`
-
-- Browse should help Instructors understand what the Question Library contains.
-  - Source: `docs/HUMAN_GUIDANCE.md:334`
-
-- Browse should emphasize subjects, topics, tags, Question Types, and other useful groupings.
-  - Source: `docs/HUMAN_GUIDANCE.md:335`
-
-- Browse should make moving from broad subjects to narrower topics easy.
-  - Source: `docs/HUMAN_GUIDANCE.md:336`
-
-- Browse should show useful counts where they help Instructors choose where to explore.
-  - Source: `docs/HUMAN_GUIDANCE.md:337`
-
-- Browse results should use the same dense Question presentation used by Search where practical.
-  - Source: `docs/HUMAN_GUIDANCE.md:338`
-
-- Instructors should be able to move from browsing into a more focused search.
-  - Source: `docs/HUMAN_GUIDANCE.md:339`
-
-- Search and Browse are different paths into the same **Question Library**.
-  - Source: `docs/HUMAN_GUIDANCE.md:340`
+  - Source: `docs/HUMAN_GUIDANCE.md:331`
 
 - The **Assessments** ribbon must include: Assessments Due Soon, My Assessment Templates.
   - Source: `docs/HUMAN_GUIDANCE.md:344`
-
-- **Assessments Due Soon** should emphasize Assessments that may need the Instructor's attention.
-  - Source: `docs/HUMAN_GUIDANCE.md:345`
 
 - Assessment lists should make Course, release status, due date, and other important state easy to scan.
   - Source: `docs/HUMAN_GUIDANCE.md:346`
@@ -358,41 +364,19 @@ The authoritative exhaustive record is the
 - **My Assessment Templates** should emphasize reusable Assessment design rather than Course activity.
   - Source: `docs/HUMAN_GUIDANCE.md:347`
 
-- Assessment editing has two editors:
-  - Source: `docs/HUMAN_GUIDANCE.md:348`
-
-- **Assessment Question Editor**: Selects, adds, removes, and orders Questions.
-  - Source: `docs/HUMAN_GUIDANCE.md:349`
-
 - **Assessment Properties Editor**: Controls dates, scoring, attempts, late work, and other Assessment settings.
   - Source: `docs/HUMAN_GUIDANCE.md:350`
-
-- The two Assessment editors should remain clearly distinct.
-  - Source: `docs/HUMAN_GUIDANCE.md:351`
-
-- The Assessment Question Editor should make Question order easy to understand at a glance.
-  - Source: `docs/HUMAN_GUIDANCE.md:352`
-
-- Adding Questions should provide direct paths to Search and Browse Question Library.
-  - Source: `docs/HUMAN_GUIDANCE.md:353`
+  - Current implementation: the named Properties Editor controls dates, instructions, Attempt/time limits, late work, order, and disclosure.
+  - Remaining gap: fixed-Question point values are not editable in Assessment Properties.
 
 - Instructors should be able to inspect a Question before adding it to an Assessment.
   - Source: `docs/HUMAN_GUIDANCE.md:354`
-
-- Assessment Properties should group related settings so important settings are easy to find.
-  - Source: `docs/HUMAN_GUIDANCE.md:355`
 
 - Instructors can randomize Question order for an Assessment.
   - Source: `docs/HUMAN_GUIDANCE.md:356`
 
 - Answer-choice randomization belongs to the Question, not the Assessment.
   - Source: `docs/HUMAN_GUIDANCE.md:357`
-
-- **Assessments Due Soon** shows upcoming Assessments across the Courses an **Instructor** teaches.
-  - Source: `docs/HUMAN_GUIDANCE.md:358`
-
-- Assessments Due Soon shows the Course and due time for each Assessment.
-  - Source: `docs/HUMAN_GUIDANCE.md:359`
 
 - Danger Zone contains **Assessment Unrelease**, **Archive Published Question**, and **Archive Blueprint Course**.
   - Source: `docs/HUMAN_GUIDANCE.md:363`

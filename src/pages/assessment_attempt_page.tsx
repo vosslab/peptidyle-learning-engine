@@ -75,10 +75,6 @@ function AttemptExperience(props: {
     "idle" | "submitting" | "submitted" | "error"
   >("idle");
   const [submissionError, setSubmissionError] = createSignal<string | null>(null);
-  const [submittedScore, setSubmittedScore] = createSignal<{
-    readonly pointsEarned: number;
-    readonly pointsPossible: number;
-  }>();
   const [remainingMilliseconds, setRemainingMilliseconds] = createSignal<number | null>(
     props.context.timerRemainingMilliseconds,
   );
@@ -259,7 +255,6 @@ function AttemptExperience(props: {
         setSubmissionError(saveError() ?? "Response was not saved.");
         return;
       }
-      if (result.score !== null) setSubmittedScore(result.score);
       setSubmissionState("submitted");
       // ASVS 1.2.2, 2.3.1, 8.2.2-8.2.3: enter the server-authorized, field-redacted result
       // view only after this exact whole-Attempt submission is accepted.
@@ -471,13 +466,6 @@ function AttemptExperience(props: {
         <section class="attempt-summary" aria-labelledby="assessment-submitted-heading">
           <h2 id="assessment-submitted-heading">Your answers were accepted</h2>
           <p>Your saved responses are submitted for this Assessment Attempt.</p>
-          <Show when={submittedScore()}>
-            {(score) => (
-              <p>
-                Score: {score().pointsEarned} of {score().pointsPossible} points
-              </p>
-            )}
-          </Show>
         </section>
       </Show>
 

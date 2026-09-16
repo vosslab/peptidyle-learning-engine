@@ -19,7 +19,6 @@ const baseInput = {
     score: "after_submit",
     per_item_correctness: "after_submit",
     submitted_response: "after_due",
-    question_feedback: "after_due",
     question_answer: "after_close",
     question_answer_explanation: "after_close",
     class_statistics: "never",
@@ -56,7 +55,6 @@ test("Assessment policy summary covers every Properties-owned decision in readab
   for (const category of [
     "Score",
     "correctness",
-    "Question Feedback",
     "Question Answer",
     "Explanation",
     "statistics",

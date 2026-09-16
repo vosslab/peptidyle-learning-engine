@@ -33,6 +33,17 @@ function assessmentQuestionsPath(courseReference: string, assessmentReference: s
   return `/instructor/courses/${courseReference}/assessments/${assessmentReference}/questions`;
 }
 
+function formatLocalDueDateAndTime(value: string | null): string {
+  if (value === null) return "No due date";
+  // UTC carries the server-local wall-clock fields without converting them to the browser zone.
+  const neutralCarrier = new Date(`${value}Z`);
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC",
+  }).format(neutralCarrier);
+}
+
 function AssessmentRow(props: {
   readonly courseReference: string;
   readonly assessment: CourseAssessmentSummary;
@@ -161,7 +172,7 @@ function AssessmentRow(props: {
         <h3>{assessment().title}</h3>
         <p class="instructor-list__metadata">Assessment {assessment().reference}</p>
         <p class="instructor-list__metadata">
-          Due: {assessment().dueAt ?? "No due date"} ({assessment().displayTimeZone})
+          Due: {formatLocalDueDateAndTime(assessment().dueAt)} ({assessment().displayTimeZone})
         </p>
       </div>
       <div class="instructor-list__actions">
@@ -334,11 +345,7 @@ export function CourseInstancePage(): JSX.Element {
             <section class="course-card" aria-labelledby="teaching-team-heading">
               <p class="card-kicker">Teaching Team</p>
               <h2 id="teaching-team-heading">Initial Teaching Team</h2>
-              <p>
-                {view().isAssignedInstructor
-                  ? "You are the Assigned Instructor for this Course Instance."
-                  : "You are an active Teaching Team Member for this Course Instance."}
-              </p>
+              <p>You are an active co-Instructor for this Course Instance.</p>
               <p>
                 {view().activeInstructorCount} active Instructor
                 {view().activeInstructorCount === 1 ? " is" : "s are"} currently recorded.

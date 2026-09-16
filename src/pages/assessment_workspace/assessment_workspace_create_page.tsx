@@ -171,8 +171,8 @@ export function AssessmentWorkspaceCreatePage(): JSX.Element {
           <p class="eyebrow">New assessment</p>
           <h1>Create an Assessment</h1>
           <p class="page-lede">
-            Choose an Assessment Type and enter a title. Questions and delivery policies have their
-            own focused steps next.
+            Choose an Assessment Type and enter a title. Questions and Assessment Properties have
+            their own focused steps next.
           </p>
         </header>
         <form

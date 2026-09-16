@@ -119,15 +119,15 @@
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `question_source_binding_fields_are_valid` maps `ple` to `pleQuestionJson`.
 - [ ] WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
   - Mismatch: the isolated opaque adapter proves renderer documents, ordered pairs, score, partial credit, and stateless state. Connected live-ownership proof remains required; PLE is not required to capture historic renderer feedback.
-- [ ] Question Backend feedback is transient unless the backend provides a robust way for PLE to preserve it.
-  - Evidence (runtime): the C910 fresh-PG17 procedure persisted only author-managed general feedback while retaining the same opaque `webworkPgml` source binding through two immutable Published Revisions. It did not capture renderer feedback.
-  - Mismatch: authorized Student HTTP delivery remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility.
-- [ ] PLE does not extract or reconstruct transient feedback from Question Backend source or output.
-  - Evidence (runtime): the C910 procedure changed only author-managed general feedback and retained the PGML binding path and checksum unchanged; it did not extract feedback from source or output.
-  - Mismatch: a connected authorized-delivery boundary proof remains unavailable while the server build is blocked by the current AWS Smithy dependency incompatibility.
-- [ ] Questions may have PLE-managed general feedback that remains separate from backend-generated interaction feedback.
-  - Evidence (runtime): `schemas/base_schema/question_authoring_operations.sql` stores `general_feedback` on immutable Question Revisions separately from the opaque source binding. The accepted fresh-PG17 procedure created an explicit PGML Draft/binding, saved feedback, published Revision 1, then saved feedback only and published Revision 2; old and new feedback read back immutably with the same format, path, and checksum.
-  - Mismatch: the authorized Student HTTP projection/release behavior remains unverified because the server build is blocked by the current AWS Smithy dependency incompatibility.
+- [x] Question Backend feedback is transient unless the backend provides a robust way for PLE to preserve it.
+  - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` projects recorded native PLE feedback from the exact retained response and source, while the WeBWorK branch does not reconstruct or persist transient renderer feedback.
+  - Evidence (runtime): the C910 isolated actual-HTTP proof exercised `crates/server/src/assessment_delivery/history.rs` `student_history`, stopping the renderer after issuance and then submitting and reading exact WeBWorK Revision history without a backend-feedback field.
+- [x] PLE does not extract or reconstruct transient feedback from Question Backend source or output.
+  - Evidence (source): `crates/server/src/assessment_delivery/history.rs` `project_released_content` invokes recorded teaching-content projection only for the native PLE source variant; the WeBWorK source remains opaque.
+  - Evidence (runtime): the C910 actual-HTTP proof exercised `crates/server/src/assessment_delivery/history.rs` `student_history`; the history read succeeded after the renderer stopped and exposed no choice, correct, or incorrect feedback reconstructed from the PGML source or rendered output.
+- [x] Questions may have PLE-managed general feedback that remains separate from backend-generated interaction feedback.
+  - Evidence (source): `schemas/base_schema/question_authoring_operations.sql` `ple_api.save_authoring_draft_general_feedback` stores immutable Revision `general_feedback` separately from the private source binding; `crates/server/src/assessment_delivery/history.rs` `project_released_content` assigns it independently of backend teaching-content projection.
+  - Evidence (runtime): the C910 actual Student start, bodyless submission, history, and exact-main browser proof exercised `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptSummaryPage`, rendering the exact Revision marker as General feedback with all six disclosure timings `Never` while response, score, correctness, answer, and explanation remained absent.
 - [ ] H5P owns its runtime, interactions, state, and scoring.
   - Mismatch: C870 leaves no current H5P source, import, adapter, or runtime seam, so H5P cannot yet own delivered runtime behavior.
   - Question: Which H5P content type(s) are supported first; for each which terminal xAPI event/score semantics are authoritative; are scoreless activities non-assessment only?
@@ -342,9 +342,9 @@
   - Evidence (source): `src/features/ple_question_json_authoring/question_json_feedback_fields.tsx` `PleQuestionJsonFeedbackFields` edits optional feedback.
 - [x] Optional Question Feedback is shown when the Question Backend provides it.
   - Evidence (source): `crates/domain/src/student_feedback_release.rs` `project_student_feedback` releases backend-provided feedback.
-  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `feedback_projection_allowlists_each_released_field` verifies released Question Feedback fields.
+  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies provided feedback without answer disclosure.
 - [x] Question Feedback does not use Assessment correct-answer disclosure settings.
-  - Evidence (source): `crates/domain/src/student_feedback_release.rs` `StudentFeedbackReleaseDecision` has a separate Question Feedback decision.
-  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_authorized_feedback_still_releases` verifies separate feedback and answer disclosure.
+  - Evidence (source): `crates/question_model/src/assessment_activity_rules.rs` `StudentFeedbackReleaseRule` omits Question Feedback from the six-field disclosure timing rule; `crates/domain/src/student_feedback_release.rs` `project_student_feedback` always projects feedback supplied at the submitted-history boundary while gating Question Answer separately.
+  - Evidence (test): `crates/domain/src/student_feedback_release/tests.rs` `withheld_question_answer_is_absent_while_provided_feedback_is_shown` verifies that separation.
 - [ ] Student workflows remain complete whether or not Students read Question Feedback.
-  - Mismatch: release projection is optional, but no end-to-end Student workflow test covers completion with feedback withheld and read.
+  - Verification pending: no end-to-end Student workflow proof covers completion when a Question provides feedback, when it provides none, and when the Student does or does not read the supplied feedback.

@@ -7,6 +7,10 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use adapter_webwork::{
+    HttpWebworkRenderer, ResolvedWebworkQuestionSource, WebworkAdapter,
+    WebworkQuestionSourceBinding,
+};
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -40,6 +44,7 @@ use question_model::ProductRole;
 
 const DEFAULT_PAGE_SIZE: u16 = 50;
 const MAX_PAGE_SIZE: u16 = 100;
+const WEBWORK_SOURCE_MEDIA_TYPE: &str = "text/x-wework-pg";
 
 mod facets;
 mod paging;
@@ -51,6 +56,7 @@ struct QuestionLibraryRouteState {
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     store: PostgresQuestionLibraryStore,
     objects: S3ObjectStore,
+    webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
     question_id_issuer: HmacQuestionIdIssuer,
 }
 
@@ -59,6 +65,7 @@ pub fn question_library_router(
     sessions: Arc<learning_data_access::postgres::PostgresSessionStore>,
     store: PostgresQuestionLibraryStore,
     objects: S3ObjectStore,
+    webwork: Arc<WebworkAdapter<HttpWebworkRenderer>>,
     question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
@@ -71,6 +78,10 @@ pub fn question_library_router(
         .route(
             "/api/questions/by-id/{question_id}/revisions/{revision_number}",
             get(question_revision_details),
+        )
+        .route(
+            "/api/questions/by-id/{question_id}/revisions/{revision_number}/preview-document",
+            get(question_revision_preview_document),
         )
         .route(
             "/api/questions/by-id/{question_id}/archive",
@@ -88,6 +99,7 @@ pub fn question_library_router(
             sessions,
             store,
             objects,
+            webwork,
             question_id_issuer,
         })
 }
@@ -320,22 +332,12 @@ async fn question_revision_details(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let question_id = match verified_question_id(&state.question_id_issuer, &question_id) {
-        Some(question_id) => question_id,
-        None => return concealed(),
-    };
-    let revision_number = match revision_number
-        .parse::<u32>()
-        .ok()
-        .and_then(|value| question_model::QuestionRevisionNumber::new(value).ok())
-    {
-        Some(value) => value,
-        None => return concealed(),
-    };
-    let reference = QuestionRevisionReference {
-        question_id,
-        revision_number,
-    };
+    let reference =
+        match verified_question_revision(&state.question_id_issuer, &question_id, &revision_number)
+        {
+            Some(reference) => reference,
+            None => return concealed(),
+        };
     let entry = match state
         .store
         .load_published_question_revision_library_entry(session_hash, &reference)
@@ -351,6 +353,78 @@ async fn question_revision_details(
     };
     let detail = details_from_resolved(resolved);
     question_response(Json(detail).into_response(), edit_number)
+}
+
+/// Renders one ephemeral, answer-free WeBWorK example for the exact Revision.
+///
+/// The authorized library read supplies every private binding fact. This route
+/// creates no Attempt, Student Work, response, submission, or grade.
+async fn question_revision_preview_document(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Path((question_id, revision_number)): Path<(String, String)>,
+) -> Response {
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let reference =
+        match verified_question_revision(&state.question_id_issuer, &question_id, &revision_number)
+        {
+            Some(reference) => reference,
+            None => return concealed(),
+        };
+    let entry = match state
+        .store
+        .load_published_question_revision_library_entry(session_hash, &reference)
+        .await
+    {
+        Ok(entry) => entry,
+        Err(error) => return store_error_response(error),
+    };
+    if entry.backend != QuestionBackend::Webwork {
+        return concealed();
+    }
+    if entry.source_media_type != WEBWORK_SOURCE_MEDIA_TYPE {
+        return unavailable();
+    }
+    let Some(webwork_pg_path) = entry.webwork_pg_path else {
+        return unavailable();
+    };
+    let binding =
+        match WebworkQuestionSourceBinding::new(entry.question_revision.clone(), webwork_pg_path) {
+            Ok(binding) => binding,
+            Err(_) => return unavailable(),
+        };
+    let source = match ResolvedWebworkQuestionSource::resolve(
+        &state.objects,
+        binding,
+        entry.source_object_reference,
+        entry.source_object_checksum,
+    )
+    .await
+    {
+        Ok(source) => source,
+        Err(_) => return unavailable(),
+    };
+    let document = match state
+        .webwork
+        .preview_document(
+            match preview_question_seed() {
+                Ok(seed) => seed,
+                Err(()) => return unavailable(),
+            },
+            &source,
+        )
+        .await
+    {
+        Ok(document) => document,
+        Err(_) => return unavailable(),
+    };
+    match String::from_utf8(document) {
+        Ok(document) => crate::webwork_document_route::preview_backend_document_response(document),
+        Err(_) => unavailable(),
+    }
 }
 
 async fn archive_question(
@@ -478,6 +552,28 @@ fn verified_question_id(
     question_id_issuer
         .validates_question_id(&question_id)
         .then_some(question_id)
+}
+
+fn verified_question_revision(
+    question_id_issuer: &HmacQuestionIdIssuer,
+    question_id: &str,
+    revision_number: &str,
+) -> Option<QuestionRevisionReference> {
+    Some(QuestionRevisionReference {
+        question_id: verified_question_id(question_id_issuer, question_id)?,
+        revision_number: revision_number
+            .parse::<u32>()
+            .ok()
+            .and_then(|value| question_model::QuestionRevisionNumber::new(value).ok())?,
+    })
+}
+
+fn preview_question_seed() -> Result<question_model::generation::QuestionSeed, ()> {
+    let mut bytes = [0_u8; 8];
+    getrandom::fill(&mut bytes).map_err(|_| ())?;
+    Ok(question_model::generation::QuestionSeed::new(
+        u64::from_be_bytes(bytes),
+    ))
 }
 
 /// Resolves only a server-HMAC-validated Question ID through the authorized

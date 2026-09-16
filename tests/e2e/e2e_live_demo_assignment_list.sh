@@ -150,7 +150,7 @@ foreign_course_reference() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); course=value.get("course",{}); reference=course.get("reference")
-if set(value)!={"course","creatorIsAssignedInstructor"} or value.get("creatorIsAssignedInstructor") is not False or not isinstance(reference,str) or not re.fullmatch(r"C-[1-9][0-9]{0,9}",reference):
+if set(value)!={"course"} or not isinstance(reference,str) or not re.fullmatch(r"C-[1-9][0-9]{0,9}",reference):
     raise SystemExit("Foreign Course Instance creation receipt is malformed")
 print(reference)
 ' "$1"

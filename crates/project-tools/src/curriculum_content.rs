@@ -433,9 +433,11 @@ fn validate_parameterized_sources(
             |_| anyhow::anyhow!("parameterized Genetics Question description is invalid"),
         )?;
         ensure!(
-            source.pg_source.starts_with("pg/topic")
-                && valid_pg_path(&source.webwork_pg_path)
-                && source.webwork_pg_path.starts_with("genetics/topic"),
+            parameterized_source_paths_match_topic(
+                &source.topic_slug,
+                &source.pg_source,
+                &source.webwork_pg_path,
+            ),
             "canonical Genetics source must be locally bundled under its topic path"
         );
         ensure!(
@@ -479,6 +481,21 @@ fn validate_parameterized_sources(
         std::str::from_utf8(&bytes).context("parameterized Genetics PG source is not UTF-8")?;
     }
     Ok(())
+}
+
+fn parameterized_source_paths_match_topic(
+    topic_slug: &str,
+    local_path: &Path,
+    webwork_path: &str,
+) -> bool {
+    let local_topic = Path::new("pg").join(topic_slug);
+    let webwork_topic = format!("genetics/{topic_slug}/");
+    local_path.starts_with(local_topic)
+        && local_path
+            .components()
+            .all(|component| matches!(component, Component::Normal(_)))
+        && valid_pg_path(webwork_path)
+        && webwork_path.starts_with(&webwork_topic)
 }
 
 fn source_format_paths_match(

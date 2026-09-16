@@ -41,8 +41,7 @@ BEGIN
         question_pool_reuse_rule, question_variation_rule,
         assessment_attempt_resume_rule, assessment_question_display_rule,
         assessment_navigation_rule, assessment_question_order_rule, feedback_score,
-        feedback_per_item_correctness, feedback_submitted_response,
-        feedback_question_feedback, feedback_question_answer,
+        feedback_per_item_correctness, feedback_submitted_response, feedback_question_answer,
         feedback_question_answer_explanation, feedback_class_statistics
     ) VALUES (
         p_assessment_id, course_row.course_id, 'direct', NULL, NULL, NULL,
@@ -50,7 +49,7 @@ BEGIN
         CASE WHEN p_assessment_type IN ('quiz', 'exam') THEN 1 ELSE NULL END,
         'reject', 'highest', 'reuse_selection', 'new_variation',
         'resumable', 'one_question_at_a_time', 'free_navigation', 'shuffled',
-        'after_submit', 'after_submit', 'after_submit', 'never',
+        'after_submit', 'after_submit', 'after_submit',
         CASE WHEN p_assessment_type IN ('practice_question_assignment', 'quiz', 'exam')
              THEN 'after_submit' ELSE 'never' END,
         CASE WHEN p_assessment_type IN ('quiz', 'exam')

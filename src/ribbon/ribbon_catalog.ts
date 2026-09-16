@@ -420,7 +420,7 @@ export const RIBBON_TASK_CATALOG = [
   },
   {
     id: "assessmentPolicies",
-    label: "Policies",
+    label: "Properties",
     destination: { kind: "route", routeId: "assessmentWorkspacePolicies" },
     requiredParams: ["courseRef", "assessmentRef"],
     taskGroup: "assessment",

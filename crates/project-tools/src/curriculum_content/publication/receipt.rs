@@ -96,7 +96,7 @@ impl Receipt {
                         .map(|bank| -> Result<ReceiptBank> {
                             let replacement = replacement_source(manifest, topic, bank);
                             let canonical_question_revision = replacement
-                                .map(|source| {
+                                .map(|_source| {
                                     replacements
                                         .get(&(topic.slug.clone(), bank.slug.clone()))
                                         .cloned()

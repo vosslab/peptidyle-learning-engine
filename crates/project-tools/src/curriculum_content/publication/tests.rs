@@ -1,5 +1,6 @@
 use super::*;
-use question_model::{QuestionId, QuestionRevisionNumber};
+use learning_data_access::PublishedQuestionPoolRevision;
+use question_model::{QuestionId, QuestionPoolRevisionReference, QuestionRevisionNumber};
 
 fn accepted_replacement() -> ParameterizedSource {
     ParameterizedSource {
@@ -28,6 +29,32 @@ fn reference(question_id: &str, revision_number: u32) -> QuestionRevisionReferen
         revision_number: QuestionRevisionNumber::new(revision_number)
             .expect("positive Question Revision Number"),
     }
+}
+
+fn static_pool(members: Vec<QuestionRevisionReference>) -> PublishedQuestionPoolRevision {
+    PublishedQuestionPoolRevision {
+        question_pool_revision: QuestionPoolRevisionReference {
+            question_pool_id: "6K3M-X9QX"
+                .parse::<QuestionId>()
+                .expect("valid Question Pool ID"),
+            revision_number: question_model::QuestionPoolRevisionNumber::new(1)
+                .expect("positive Pool Revision"),
+        },
+        members,
+    }
+}
+
+fn pool_maps(
+    pool: PublishedQuestionPoolRevision,
+) -> (
+    PublishedPools,
+    BTreeMap<QuestionId, QuestionPoolRevisionReference>,
+) {
+    let reference = pool.question_pool_revision.clone();
+    (
+        BTreeMap::from([(("topic".to_owned(), "bank".to_owned()), pool)]),
+        BTreeMap::from([(reference.question_pool_id.clone(), reference)]),
+    )
 }
 
 fn receipt_manifest() -> Manifest {
@@ -131,8 +158,9 @@ fn curriculum_blueprint_uses_the_manifest_assessment_type_feedback_default() {
         ("topic/bank/first".to_owned(), reference("7K3M-X9QX", 1)),
         ("topic/bank/second".to_owned(), reference("8K3M-X9QX", 1)),
     ]);
+    let (published_pools, _) = pool_maps(static_pool(published.values().cloned().collect()));
 
-    let input = blueprint_input(&manifest, &published, &ReplacementRevisions::new())
+    let input = blueprint_input(&manifest, &published_pools, &ReplacementRevisions::new())
         .expect("valid Practice Blueprint input");
     let assessment = &input.modules[0].assessments[0];
 
@@ -150,7 +178,7 @@ fn curriculum_blueprint_uses_the_manifest_assessment_type_feedback_default() {
 }
 
 #[test]
-fn retained_blueprint_rejects_a_newer_revision_of_the_same_question() {
+fn retained_blueprint_rejects_pool_reference_and_member_drift() {
     let manifest = receipt_manifest();
     let first = reference("7K3M-X9QX", 1);
     let second = reference("8K3M-X9QX", 2);
@@ -158,21 +186,26 @@ fn retained_blueprint_rejects_a_newer_revision_of_the_same_question() {
         ("topic/bank/first".to_owned(), first.clone()),
         ("topic/bank/second".to_owned(), second.clone()),
     ]);
-    let input = blueprint_input(&manifest, &published, &ReplacementRevisions::new())
+    let (published_pools, pool_revisions) =
+        pool_maps(static_pool(vec![first.clone(), second.clone()]));
+    let input = blueprint_input(&manifest, &published_pools, &ReplacementRevisions::new())
         .expect("valid Blueprint input");
     let pins = BTreeMap::from([
         (first.question_id.clone(), first.clone()),
         (second.question_id.clone(), second.clone()),
     ]);
-    let mut actual = StoredBlueprintCourseContent::from_create(input.clone(), &pins)
-        .expect("stored Blueprint content");
+    let mut actual =
+        StoredBlueprintCourseContent::from_create(input.clone(), &pins, &pool_revisions)
+            .expect("stored Blueprint content");
     let StoredBlueprintAssessmentEntry::Pool {
-        question_revisions, ..
+        question_pool_revision,
+        ..
     } = &mut actual.modules[0].assessments[0].content.entries[0]
     else {
         panic!("fixture retains one Question Pool");
     };
-    question_revisions[0] = reference("7K3M-X9QX", 2);
+    question_pool_revision.revision_number =
+        question_model::QuestionPoolRevisionNumber::new(2).expect("positive Pool Revision");
 
     assert!(
         validate_loaded_content(
@@ -180,6 +213,26 @@ fn retained_blueprint_rejects_a_newer_revision_of_the_same_question() {
             &input,
             Some(&manifest),
             &published,
+            &published_pools,
+            &ReplacementRevisions::new(),
+            false,
+        )
+        .is_err()
+    );
+    let mut changed_members = published_pools.clone();
+    changed_members
+        .get_mut(&("topic".to_owned(), "bank".to_owned()))
+        .expect("static Pool")
+        .members[0] = reference("7K3M-X9QX", 2);
+    let actual = StoredBlueprintCourseContent::from_create(input.clone(), &pins, &pool_revisions)
+        .expect("stored Blueprint content");
+    assert!(
+        validate_loaded_content(
+            &actual,
+            &input,
+            Some(&manifest),
+            &published,
+            &changed_members,
             &ReplacementRevisions::new(),
             false,
         )
@@ -197,18 +250,21 @@ fn accepted_replacement_requires_the_exact_static_pool_before_cas() {
         ("topic/bank/first".to_owned(), first.clone()),
         ("topic/bank/second".to_owned(), second.clone()),
     ]);
-    let static_input = blueprint_input(&manifest, &published, &ReplacementRevisions::new())
+    let (published_pools, pool_revisions) =
+        pool_maps(static_pool(vec![first.clone(), second.clone()]));
+    let static_input = blueprint_input(&manifest, &published_pools, &ReplacementRevisions::new())
         .expect("valid static Blueprint input");
     let pins = BTreeMap::from([
         (first.question_id.clone(), first.clone()),
         (second.question_id.clone(), second.clone()),
     ]);
-    let mut actual = StoredBlueprintCourseContent::from_create(static_input, &pins)
-        .expect("stored static Blueprint content");
+    let mut actual =
+        StoredBlueprintCourseContent::from_create(static_input, &pins, &pool_revisions)
+            .expect("stored static Blueprint content");
     manifest.parameterized_sources.push(accepted_replacement());
     let replacements =
         BTreeMap::from([(("topic".to_owned(), "bank".to_owned()), canonical.clone())]);
-    let replacement_input = blueprint_input(&manifest, &published, &replacements)
+    let replacement_input = blueprint_input(&manifest, &published_pools, &replacements)
         .expect("valid canonical replacement input");
 
     assert_eq!(
@@ -217,6 +273,7 @@ fn accepted_replacement_requires_the_exact_static_pool_before_cas() {
             &replacement_input,
             Some(&manifest),
             &published,
+            &published_pools,
             &replacements,
             true,
         )
@@ -226,6 +283,7 @@ fn accepted_replacement_requires_the_exact_static_pool_before_cas() {
     let converted = StoredBlueprintCourseContent::from_create(
         replacement_input.clone(),
         &BTreeMap::from([(canonical.question_id.clone(), canonical.clone())]),
+        &BTreeMap::new(),
     )
     .expect("stored canonical replacement Blueprint content");
     assert!(
@@ -234,6 +292,7 @@ fn accepted_replacement_requires_the_exact_static_pool_before_cas() {
             &replacement_input,
             Some(&manifest),
             &published,
+            &published_pools,
             &replacements,
             true,
         )
@@ -245,13 +304,14 @@ fn accepted_replacement_requires_the_exact_static_pool_before_cas() {
     else {
         panic!("fixture retains one static Question Pool");
     };
-    *selection_count = 2;
+    *selection_count = std::num::NonZeroU32::new(2).expect("positive selection count");
     assert!(
         validate_loaded_content(
             &actual,
             &replacement_input,
             Some(&manifest),
             &published,
+            &published_pools,
             &replacements,
             true,
         )

@@ -253,10 +253,9 @@ function formatDisclosureTiming(timing: StudentFeedbackReleaseTiming): string {
 
 function disclosureSummary(rule: StudentFeedbackReleaseRule | undefined): string | undefined {
   if (rule === undefined) return undefined;
-  const feedbackTiming = formatDisclosureTiming(rule.question_feedback);
   const questionAnswerTiming = formatDisclosureTiming(rule.question_answer);
   const questionAnswerExplanationTiming = formatDisclosureTiming(rule.question_answer_explanation);
-  return `Question Feedback is shown ${feedbackTiming}; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}.`;
+  return `Question Feedback is shown when provided; Question Answer is shown ${questionAnswerTiming}; Answer Explanation is shown ${questionAnswerExplanationTiming}.`;
 }
 
 function classStatisticsSummary(statistics: ClassStatistics): string {

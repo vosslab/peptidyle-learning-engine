@@ -115,6 +115,12 @@ function AssessmentAttemptHistoryContent(props: {
                 assetUrl={assetUrlForQuestion(question.questionRevision)}
               />
               <ReleasedBlocks
+                title="General feedback"
+                blocks={question.generalFeedback}
+                questionRevision={question.questionRevision}
+                assetUrl={assetUrlForQuestion(question.questionRevision)}
+              />
+              <ReleasedBlocks
                 title="Correct answer"
                 blocks={question.questionAnswer}
                 questionRevision={question.questionRevision}

@@ -718,35 +718,13 @@ async fn submit_attempt(api: &ProductApi, student: &TemporarySession, attempt: &
         .context("Live Demo Assessment submission receipt is invalid")?;
     ensure!(
         receipt.keys().map(String::as_str).collect::<Vec<_>>()
-            == ["assessmentAttempt", "score", "submissionState"],
+            == ["assessmentAttempt", "submissionState"],
         "Live Demo Assessment submission receipt is not closed"
     );
     ensure!(
         receipt.get("assessmentAttempt").and_then(Value::as_str) == Some(attempt)
             && receipt.get("submissionState").and_then(Value::as_str) == Some("submitted"),
         "Live Demo Assessment submission receipt is invalid"
-    );
-    let score = receipt
-        .get("score")
-        .and_then(Value::as_object)
-        .context("Live Demo native PLE submission did not return a score")?;
-    ensure!(
-        score.keys().map(String::as_str).collect::<Vec<_>>() == ["pointsEarned", "pointsPossible"],
-        "Live Demo Assessment score is not closed"
-    );
-    let points_earned = score
-        .get("pointsEarned")
-        .and_then(Value::as_f64)
-        .context("Live Demo Assessment score is invalid")?;
-    let points_possible = score
-        .get("pointsPossible")
-        .and_then(Value::as_f64)
-        .context("Live Demo Assessment score is invalid")?;
-    ensure!(
-        points_earned.is_finite()
-            && points_possible.is_finite()
-            && (0.0..=points_possible).contains(&points_earned),
-        "Live Demo Assessment score is invalid"
     );
     Ok(())
 }
