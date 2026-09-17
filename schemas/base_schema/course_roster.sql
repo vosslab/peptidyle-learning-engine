@@ -29,12 +29,28 @@ CREATE TABLE ple_private.course_roster_profile (
     course_id uuid NOT NULL REFERENCES ple_data.course_instance (course_id),
     student_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     roster_id text NOT NULL CHECK (char_length(roster_id) BETWEEN 1 AND 64 AND roster_id ~ '^[A-Za-z0-9._-]+$'),
+    roster_name text NOT NULL CHECK (char_length(roster_name) BETWEEN 1 AND 200
+        AND roster_name = btrim(roster_name,
+            U&'\0009\000A\000B\000C\000D\0020\0085\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000')
+        AND roster_name !~ U&'[\0001-\001F\007F-\009F]'),
     created_at timestamp with time zone NOT NULL,
     UNIQUE(course_id,student_account_id), UNIQUE(course_id,roster_id)
 );
 CREATE FUNCTION ple_private.reject_course_invitation_change() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,ple_private AS $$ BEGIN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='Course Invitations are immutable'; END $$;
 CREATE FUNCTION ple_private.reject_course_invitation_event_change() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,ple_private AS $$ BEGIN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='Course Invitation Events are immutable'; END $$;
-CREATE FUNCTION ple_private.reject_course_roster_profile_change() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog,ple_private AS $$ BEGIN RAISE EXCEPTION USING ERRCODE='55000',MESSAGE='a Course Roster Profile is immutable'; END $$;
+CREATE FUNCTION ple_private.reject_course_roster_profile_change()
+RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_private AS $$
+BEGIN
+    -- Column-level grants and immutable identity checks constrain name correction.
+    IF TG_OP = 'UPDATE' AND current_user = 'ple_api_owner'
+       AND ROW(NEW.course_roster_profile_id, NEW.course_id, NEW.student_account_id,
+               NEW.roster_id, NEW.created_at)
+           IS NOT DISTINCT FROM ROW(OLD.course_roster_profile_id, OLD.course_id,
+               OLD.student_account_id, OLD.roster_id, OLD.created_at) THEN
+        RETURN NEW;
+    END IF;
+    RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'a Course Roster Profile identity is immutable';
+END $$;
 -- ASVS 8.2.3/8.3.1: the normal roster has no email projection.  This private
 -- helper is the sole lower-level email read for the distinct, already-pending
 -- invitation delivery operation; callers cannot use it for active, revoked,
@@ -80,6 +96,7 @@ REVOKE ALL ON TABLE ple_private.course_invitation,ple_private.course_invitation_
 GRANT SELECT, INSERT, UPDATE (invitation_id) ON ple_private.course_invitation TO ple_api_owner;
 GRANT SELECT, INSERT ON ple_private.course_invitation_event,
     ple_private.course_roster_profile TO ple_api_owner;
+GRANT UPDATE (roster_name) ON ple_private.course_roster_profile TO ple_api_owner;
 CREATE POLICY course_invitation_api_owner_access ON ple_private.course_invitation FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
 CREATE POLICY course_invitation_event_api_owner_access ON ple_private.course_invitation_event FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
 CREATE POLICY course_roster_profile_api_owner_access ON ple_private.course_roster_profile FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);

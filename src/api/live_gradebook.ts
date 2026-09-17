@@ -7,7 +7,9 @@ import type { CourseInstanceReference } from "../../generated/api/CourseInstance
 /** One answer-free progress aggregate for an active Student. */
 export interface CourseGradebookStudentWork {
   readonly rosterId: string;
+  readonly rosterName: string;
   readonly assessmentReference: AssessmentReference;
+  readonly assessmentTitle: string;
   readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
   /** Derived from server time; no grading operation or queue state. */
   readonly expiredSubmitting: boolean;

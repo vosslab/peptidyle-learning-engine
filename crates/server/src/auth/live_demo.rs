@@ -2,7 +2,7 @@
 //!
 //! This module deliberately owns no alternate identity or session record. Its
 //! closed deployment configuration replaces only the identity-verification
-//! ceremony for the five documented demo personas.
+//! ceremony for the six documented demo personas.
 
 use std::{collections::BTreeSet, sync::Arc};
 
@@ -24,11 +24,12 @@ use super::{
 
 const MAX_DISPLAY_NAME_CHARACTERS: usize = 200;
 
-/// The five fixed, display-safe personas in a disposable live demo.
+/// The six fixed, display-safe personas in a disposable live demo.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SeededDemoPersona {
     ElenaInstructor,
+    PriyaInstructor,
     MaryStudent,
     JackStudent,
     AveryStudent,
@@ -36,8 +37,9 @@ pub enum SeededDemoPersona {
 }
 
 impl SeededDemoPersona {
-    const ALL: [Self; 5] = [
+    const ALL: [Self; 6] = [
         Self::ElenaInstructor,
+        Self::PriyaInstructor,
         Self::MaryStudent,
         Self::JackStudent,
         Self::AveryStudent,
@@ -46,7 +48,7 @@ impl SeededDemoPersona {
 
     fn required_product_role(self) -> ProductRole {
         match self {
-            Self::ElenaInstructor => ProductRole::Instructor,
+            Self::ElenaInstructor | Self::PriyaInstructor => ProductRole::Instructor,
             Self::MaryStudent | Self::JackStudent | Self::AveryStudent => ProductRole::Student,
             Self::MorganSysadmin => ProductRole::Sysadmin,
         }
@@ -507,36 +509,40 @@ mod tests {
             .expect("body");
         assert_eq!(
             body,
-            r#"{"accounts":[{"persona":"maryStudent","displayName":"MaryStudent"}],"unavailableAccountCount":4}"#
+            r#"{"accounts":[{"persona":"maryStudent","displayName":"MaryStudent"}],"unavailableAccountCount":5}"#
         );
     }
 
     #[tokio::test]
     async fn wrong_role_selection_revokes_the_unexposed_session() {
-        let records = Arc::new(Mutex::new(BTreeMap::new()));
-        let store = Arc::new(RoleMismatchStore(Arc::clone(&records)));
-        let router = live_demo_router(
-            store,
-            Some(
-                SeededDemoConfig::new(vec![entry(SeededDemoPersona::ElenaInstructor, 2)])
-                    .expect("valid subset"),
-            ),
-            SessionConfig::new(
-                SessionLifetime::from_seconds(60).expect("positive lifetime"),
-                super::super::CookieTransport::FirstPartyHttps,
-            ),
-        );
-        let response = router
-            .oneshot(
-                Request::post("/api/auth/live-demo/accounts")
-                    .header("content-type", "application/json")
-                    .body(Body::from(r#"{"persona":"elenaInstructor"}"#))
-                    .expect("request"),
-            )
-            .await
-            .expect("response");
-        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert!(records.lock().expect("test store lock").is_empty());
+        for persona in [
+            SeededDemoPersona::ElenaInstructor,
+            SeededDemoPersona::PriyaInstructor,
+        ] {
+            let records = Arc::new(Mutex::new(BTreeMap::new()));
+            let store = Arc::new(RoleMismatchStore(Arc::clone(&records)));
+            let router = live_demo_router(
+                store,
+                Some(SeededDemoConfig::new(vec![entry(persona, 2)]).expect("valid subset")),
+                SessionConfig::new(
+                    SessionLifetime::from_seconds(60).expect("positive lifetime"),
+                    super::super::CookieTransport::FirstPartyHttps,
+                ),
+            );
+            let response = router
+                .oneshot(
+                    Request::post("/api/auth/live-demo/accounts")
+                        .header("content-type", "application/json")
+                        .body(Body::from(
+                            serde_json::json!({ "persona": persona }).to_string(),
+                        ))
+                        .expect("request"),
+                )
+                .await
+                .expect("response");
+            assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+            assert!(records.lock().expect("test store lock").is_empty());
+        }
     }
 
     #[tokio::test]

@@ -4,6 +4,7 @@ import { MAX_ASSESSMENT_INSTRUCTIONS_UNICODE_SCALARS } from "../../../generated/
 import { MAX_ASSESSMENT_ORDERED_ENTRIES } from "../../../generated/api/MAX_ASSESSMENT_ORDERED_ENTRIES";
 import type { BlueprintComparisonSide } from "../../../generated/api/BlueprintComparisonSide";
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
+import type { CanonicalBlueprintCourse } from "../../../generated/api/CanonicalBlueprintCourse";
 import {
   DecodeError,
   decodePositiveInteger,
@@ -13,6 +14,7 @@ import {
   decodeStringEnum,
 } from "../decoder";
 import { decodeQuestionAttemptLimit, decodeQuestionAttemptTimeLimit } from "./question_model";
+import { decodeCourseClassification } from "./course_classification";
 import { decodeBoundedArray, field, requireOnlyFields } from "./shared";
 import {
   assessmentType,
@@ -128,6 +130,52 @@ function canonicalAssessment(value: unknown, path: string): void {
     },
   );
   if (entries.length === 0) throw new DecodeError(`${path}.entries`, "at least one entry");
+}
+
+/** Decodes the canonical accepted-result projection without inventing a second assessment parser. */
+export function decodeCanonicalBlueprintCourse(
+  value: unknown,
+  path = "response",
+): CanonicalBlueprintCourse {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["metadata", "modules"]);
+  const metadataPath = `${path}.metadata`;
+  const metadata = decodeRecord(field(record, "metadata", path), metadataPath);
+  requireOnlyFields(metadata, metadataPath, ["short_name", "long_name", "classification"]);
+  text(field(metadata, "short_name", metadataPath), `${metadataPath}.short_name`);
+  text(field(metadata, "long_name", metadataPath), `${metadataPath}.long_name`);
+  const classification = decodeCourseClassification(
+    field(metadata, "classification", metadataPath),
+    `${metadataPath}.classification`,
+  );
+  const modules = decodeBoundedArray(
+    field(record, "modules", path),
+    `${path}.modules`,
+    MAX_ASSESSMENT_ORDERED_ENTRIES,
+    (moduleValue, modulePath) => {
+      const module = decodeRecord(moduleValue, modulePath);
+      requireOnlyFields(module, modulePath, ["label", "assessments"]);
+      const label = text(field(module, "label", modulePath), `${modulePath}.label`);
+      const assessments = decodeBoundedArray(
+        field(module, "assessments", modulePath),
+        `${modulePath}.assessments`,
+        MAX_ASSESSMENT_ORDERED_ENTRIES,
+        (assessmentValue, assessmentPath) => {
+          canonicalAssessment(assessmentValue, assessmentPath);
+          return assessmentValue as CanonicalBlueprintCourse["modules"][number]["assessments"][number];
+        },
+      );
+      return { label, assessments };
+    },
+  );
+  return {
+    metadata: {
+      short_name: text(field(metadata, "short_name", metadataPath), `${metadataPath}.short_name`),
+      long_name: text(field(metadata, "long_name", metadataPath), `${metadataPath}.long_name`),
+      classification,
+    },
+    modules,
+  };
 }
 
 function questionIds(input: unknown, path: string): string[] {

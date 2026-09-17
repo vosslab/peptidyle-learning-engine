@@ -4,6 +4,10 @@ import { createComponent, type Component } from "solid-js";
 import type { RouteDefinition } from "@solidjs/router";
 
 import { AssessmentOverviewPage } from "./pages/assessment_overview_page";
+import {
+  MyChangeProposalsLivePage,
+  ChangeProposalDetailLivePage,
+} from "./features/blueprint_change_proposal/proposal_workspace";
 import { NotFoundPage } from "./pages/contract_pages";
 import { AssessmentAttemptSummaryPage } from "./pages/assessment_attempt_summary_page";
 import { BrowseLibraryRoutePage, LibraryRoutePage } from "./pages/library_route_page";
@@ -47,6 +51,8 @@ import {
 export { ROUTE_CONTRACT } from "./route_contract";
 
 const routeComponents: Readonly<Record<RouteId, Component>> = {
+  myChangeProposals: MyChangeProposalsLivePage,
+  changeProposalDetail: ChangeProposalDetailLivePage,
   courses: RoleHomeResolutionPage,
   instructorHome: InstructorHomePage,
   studentHome: StudentHomePage,

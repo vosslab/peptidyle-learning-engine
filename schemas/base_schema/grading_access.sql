@@ -115,7 +115,9 @@ CREATE FUNCTION ple_api.read_course_gradebook(p_course_public_reference text)
 RETURNS TABLE (
     course_public_reference text,
     roster_id text,
+    roster_name text,
     assessment_reference_number text,
+    assessment_title text,
     assessment_attempt_completion text,
     expired_submitting boolean,
     points_earned double precision,
@@ -134,7 +136,7 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
            AND instance.retention_lifecycle_state = 'active'
            AND ple_api.current_session_account_is_course_instructor(instance.course_id)
     ), active_student AS (
-        SELECT record.student_record_id, profile.roster_id
+        SELECT record.student_record_id, profile.roster_id, profile.roster_name
           FROM course
           JOIN ple_data.student_record AS record
             ON record.course_id = course.course_id
@@ -148,16 +150,19 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
             ON profile.course_id = course.course_id
            AND profile.student_account_id = record.student_account_id
     ), released_assessment AS (
-        SELECT assessment.assessment_id, assessment.public_reference
+        -- ASVS 8.2.2/8.2.3: titles stay in this authorized Course's released set.
+        SELECT assessment.assessment_id, assessment.public_reference, assessment.assessment_title
           FROM course
           JOIN ple_data.assessment AS assessment
             ON assessment.course_id = course.course_id
            AND assessment.assessment_status = 'released'
-         GROUP BY assessment.assessment_id, assessment.public_reference
+         GROUP BY assessment.assessment_id, assessment.public_reference, assessment.assessment_title
     ), gradebook AS (
         SELECT course.public_reference AS course_public_reference,
                student.roster_id,
+               student.roster_name,
                assessment.public_reference AS assessment_reference_number,
+               assessment.assessment_title,
                evidence.assessment_attempt_completion,
                coalesce(evidence.expired_submitting, false) AS expired_submitting,
                evidence.points_earned,
@@ -169,11 +174,11 @@ SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
               student.student_record_id, assessment.assessment_id
           ) AS evidence ON true
     )
-    SELECT course_public_reference, roster_id, assessment_reference_number,
+    SELECT course_public_reference, roster_id, roster_name, assessment_reference_number, assessment_title,
            assessment_attempt_completion, expired_submitting, points_earned, points_possible
       FROM gradebook
     UNION ALL
-    SELECT course.public_reference, NULL::text, NULL::text, NULL::text, NULL::boolean,
+    SELECT course.public_reference, NULL::text, NULL::text, NULL::text, NULL::text, NULL::text, NULL::boolean,
            NULL::double precision, NULL::double precision
       FROM course
      WHERE NOT EXISTS (SELECT 1 FROM gradebook)

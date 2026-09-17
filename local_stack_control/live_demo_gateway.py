@@ -12,6 +12,7 @@ import local_stack_control.models
 
 SEEDED_DEMO_PERSONAS = (
 	"elenaInstructor",
+	"priyaInstructor",
 	"maryStudent",
 	"jackStudent",
 	"averyStudent",

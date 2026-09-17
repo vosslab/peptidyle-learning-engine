@@ -62,6 +62,8 @@ export interface RouteContract {
     | "blueprintCourses"
     | "publicBlueprintSearch"
     | "blueprintCourseDetail"
+    | "myChangeProposals"
+    | "changeProposalDetail"
     | "assessmentCreate"
     | "assessmentWorkspaceOverview"
     | "assessmentWorkspaceQuestions"
@@ -89,6 +91,30 @@ export interface RouteContract {
 
 /** Product route order used by the application. */
 export const ROUTE_CONTRACT = [
+  {
+    id: "myChangeProposals",
+    path: "/blueprint-change-proposals",
+    surface: "Instructor own Blueprint Change Proposal records",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "courses",
+      taskGroup: "instructorCourses",
+      contentLayout: "fullWidth",
+    },
+  },
+  {
+    id: "changeProposalDetail",
+    path: "/blueprint-change-proposals/:proposalId",
+    surface: "Participant frozen Blueprint Change Proposal review",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "courses",
+      taskGroup: "instructorCourses",
+      contentLayout: "fullWidth",
+    },
+  },
   {
     id: "courses",
     path: "/",

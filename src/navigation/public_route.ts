@@ -72,6 +72,13 @@ export function parseBlueprintCourseReference(value: string): BlueprintCourseRou
   return parseOpaqueReference<"blueprintCourse">(value, "BP");
 }
 
+/** Syntax only: the existing opaque Proposal UUID is never an authorization grant. */
+export function parseBlueprintChangeProposalHandle(value: string): string | null {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value)
+    ? value
+    : null;
+}
+
 /** Human-facing IDs carry a type prefix plus six opaque Crockford characters. */
 function parseOpaqueReference<Kind extends string>(
   value: string,

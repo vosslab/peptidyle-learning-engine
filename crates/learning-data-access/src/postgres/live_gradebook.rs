@@ -57,7 +57,7 @@ impl CourseGradebookStore for PostgresCourseGradebookStore {
     ) -> Result<CourseGradebook, StoreError> {
         let mut transaction = self.begin(token).await?;
         let rows = sqlx::query(
-            "SELECT course_public_reference, roster_id, assessment_reference_number, \
+            "SELECT course_public_reference, roster_id, roster_name, assessment_reference_number, assessment_title, \
              assessment_attempt_completion, expired_submitting, \
              points_earned, points_possible \
              FROM ple_api.read_course_gradebook($1)",
@@ -101,6 +101,19 @@ fn decode_row(
         row.try_get("assessment_reference_number")
             .map_err(map_sqlx_error)?,
     )?;
+    let roster_name: String = row.try_get("roster_name").map_err(map_sqlx_error)?;
+    if roster_name.trim().is_empty()
+        || roster_name != roster_name.trim()
+        || roster_name.chars().count() > 200
+        || roster_name.chars().any(char::is_control)
+    {
+        return Err(invalid("Course roster name"));
+    }
+    // ASVS 2.2.1: enforce the stored title's nonempty, bounded display contract.
+    let assessment_title: String = row.try_get("assessment_title").map_err(map_sqlx_error)?;
+    if assessment_title.trim().is_empty() || assessment_title.chars().count() > 200 {
+        return Err(invalid("Assessment title"));
+    }
     let assessment_attempt_completion = match row
         .try_get::<Option<String>, _>("assessment_attempt_completion")
         .map_err(map_sqlx_error)?
@@ -134,7 +147,9 @@ fn decode_row(
     }
     Ok(Some(CourseGradebookStudentWork {
         roster_id,
+        roster_name,
         assessment_reference,
+        assessment_title,
         assessment_attempt_completion,
         expired_submitting,
         score,

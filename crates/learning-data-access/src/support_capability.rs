@@ -5,7 +5,15 @@ use question_model::{AccountReference, CourseInstanceReference, Timestamp};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{CourseRosterEntry, SessionTokenHash, StoreError};
+use crate::{CourseRosterEntryState, SessionTokenHash, StoreError};
+
+/// Existing task-specific repair projection excludes ordinary Course roster names.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SupportCourseRosterEntry {
+    pub roster_id: String,
+    pub state: CourseRosterEntryState,
+}
 
 /// Only the implemented Course-local Student roster repair scope is supported.
 /// SQL resolves an existing canonical profile and checks the original issuer's
@@ -103,7 +111,7 @@ pub trait SupportRepairCapabilityStore: Send + Sync {
         capability_id: Uuid,
         course: CourseInstanceReference,
         roster_id: String,
-    ) -> Result<Option<CourseRosterEntry>, StoreError>;
+    ) -> Result<Option<SupportCourseRosterEntry>, StoreError>;
 }
 
 #[cfg(test)]

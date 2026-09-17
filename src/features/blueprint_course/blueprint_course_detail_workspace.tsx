@@ -17,6 +17,7 @@ import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_c
 import { BlueprintHistory } from "./blueprint_history";
 import { BlueprintForkSource, BlueprintKnownForks } from "../blueprint_forks/blueprint_fork_review";
 import { BlueprintForkCreate } from "../blueprint_forks/blueprint_fork_create";
+import { ProposalTargetTools } from "../blueprint_change_proposal/proposal_workspace";
 import {
   blueprintLifecyclePresentation,
   replacementContentFromBlueprintModules,
@@ -588,6 +589,9 @@ export function BlueprintCourseDetailWorkspace(
               />
               <BlueprintHistory client={props.client} view={loaded().view} />
               <BlueprintForkCreate client={props.client} source={loaded().view} />
+              <Show when={props.proposalClient}>
+                {(client) => <ProposalTargetTools client={client()} target={loaded().view} />}
+              </Show>
               <BlueprintForkSource
                 client={props.client}
                 view={loaded().view}

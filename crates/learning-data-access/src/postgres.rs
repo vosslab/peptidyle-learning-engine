@@ -50,6 +50,8 @@ mod authoring;
 #[cfg(feature = "postgres")]
 mod authoring_assets;
 #[cfg(feature = "postgres")]
+mod blueprint_change_proposal;
+#[cfg(feature = "postgres")]
 mod blueprint_course;
 #[cfg(feature = "postgres")]
 mod blueprint_fork_apply;
@@ -110,6 +112,10 @@ mod question_library;
 mod question_pool_creation;
 #[cfg(feature = "postgres")]
 mod question_pool_library;
+#[cfg(feature = "postgres")]
+mod question_pool_stewardship;
+#[cfg(feature = "postgres")]
+pub use question_pool_stewardship::PostgresQuestionPoolStewardshipStore;
 #[cfg(feature = "postgres")]
 mod question_source;
 #[cfg(feature = "postgres")]

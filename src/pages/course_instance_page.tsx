@@ -5,6 +5,7 @@ import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import { CourseClassificationEditor } from "../components/course_classification_editor";
+import { CourseStudentWorkRecovery } from "../components/course_student_work_recovery";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
 import { parseCourseInstanceReference } from "../navigation/public_route";
@@ -315,6 +316,9 @@ export function CourseInstancePage(): JSX.Element {
   const [assessments] = createResource(courseReference, async (reference) =>
     applicationApi.client.listCourseAssessments(reference),
   );
+  const [profile, { refetch: refetchProfile }] = createResource(() =>
+    applicationApi.client.getProfile(),
+  );
 
   return (
     <section class="page" data-route-surface="courseInstance">
@@ -454,6 +458,32 @@ export function CourseInstancePage(): JSX.Element {
                 Appearance
               </A>
             </nav>
+            <Show
+              when={profile.error === undefined}
+              fallback={
+                <section aria-label="Instructor time zone unavailable">
+                  <p role="alert">
+                    Your Instructor time zone is unavailable. Refresh to try again.
+                  </p>
+                  <button type="button" class="quiet-button" onClick={() => void refetchProfile()}>
+                    Retry Instructor time zone
+                  </button>
+                </section>
+              }
+            >
+              <Show
+                when={profile()}
+                fallback={<p role="status">Loading your Instructor time zone...</p>}
+              >
+                {(settings) => (
+                  <CourseStudentWorkRecovery
+                    course={view().course.reference}
+                    client={applicationApi.client}
+                    displayTimeZone={settings().timeZone}
+                  />
+                )}
+              </Show>
+            </Show>
           </>
         )}
       </Show>

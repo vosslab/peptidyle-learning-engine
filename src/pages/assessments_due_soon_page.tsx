@@ -103,7 +103,10 @@ export function AssessmentsDueSoonPage(): JSX.Element {
               fallback={
                 <section class="empty-state">
                   <h2>No Assessments are due in the next 7 days.</h2>
-                  <p>Set a due date on an Assessment in a Course you teach to see it here.</p>
+                  <p>Manage Coursework to review or set due dates in the Courses you teach.</p>
+                  <A class="primary-link" href="/instructor">
+                    Manage Coursework
+                  </A>
                 </section>
               }
             >

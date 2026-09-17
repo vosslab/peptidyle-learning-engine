@@ -11,7 +11,10 @@ use crate::{LiveAssessmentAttemptScore, SessionTokenHash, StoreError};
 #[serde(rename_all = "camelCase")]
 pub struct CourseGradebookStudentWork {
     pub roster_id: String,
+    /// Instructor-provided, exact-Course roster label.
+    pub roster_name: String,
     pub assessment_reference: question_model::AssessmentReference,
+    pub assessment_title: String,
     pub assessment_attempt_completion: Option<question_model::AssessmentAttemptCompletion>,
     /// Derived only from server time and durable submission evidence.
     pub expired_submitting: bool,

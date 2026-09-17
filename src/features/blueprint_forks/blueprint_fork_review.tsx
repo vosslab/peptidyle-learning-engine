@@ -78,7 +78,7 @@ function coursePath(reference: string): string {
   return `/blueprint-courses/${encodeURIComponent(reference)}`;
 }
 
-function Settings(props: { readonly value: unknown }): JSX.Element {
+export function Settings(props: { readonly value: unknown }): JSX.Element {
   return (
     <dl class="blueprint-fork-settings">
       <For each={settingLines(props.value)}>
@@ -93,7 +93,7 @@ function Settings(props: { readonly value: unknown }): JSX.Element {
   );
 }
 
-function AssessmentSnapshot(props: {
+export function AssessmentSnapshot(props: {
   readonly snapshot: BlueprintComparisonSide["assessments"][number] | undefined;
   readonly side: BlueprintComparisonSide;
 }): JSX.Element {

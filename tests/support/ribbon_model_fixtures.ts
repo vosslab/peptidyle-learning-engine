@@ -32,6 +32,7 @@ const CANONICAL_FIXTURE_PARAMS = {
   questionRef: "7K3M-X9QP",
   draftQuestionRef: "D-1",
   blueprintCourseRef: "BP7K3M2Q",
+  proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 function catalogControl<Id extends RibbonDestinationId>(id: Id): RibbonCatalogControl<Id> {

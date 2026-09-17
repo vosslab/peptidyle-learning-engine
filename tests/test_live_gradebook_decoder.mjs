@@ -9,7 +9,9 @@ test("Gradebook distinguishes an expired submission still awaiting outcomes from
     studentWork: [
       {
         rosterId: "student-1",
+        rosterName: "Synthetic Student",
         assessmentReference: "A7K3M2Q",
+        assessmentTitle: "Protein structure practice",
         assessmentAttemptCompletion: "inProgress",
         expiredSubmitting: true,
         score: null,
@@ -17,6 +19,31 @@ test("Gradebook distinguishes an expired submission still awaiting outcomes from
     ],
   };
   assert.deepEqual(decodeCourseGradebook(gradebook), gradebook);
+  for (const rosterName of [undefined, null, "", "   ", "x".repeat(201), "Invalid\nName"]) {
+    assert.throws(() =>
+      decodeCourseGradebook({
+        ...gradebook,
+        studentWork: [{ ...gradebook.studentWork[0], rosterName }],
+      }),
+    );
+  }
+  const { assessmentTitle: _title, ...missingTitle } = gradebook.studentWork[0];
+  assert.throws(() => decodeCourseGradebook({ ...gradebook, studentWork: [missingTitle] }));
+  // The authorized title is required; malformed or expanded projections fail closed.
+  for (const assessmentTitle of [undefined, "", "   ", "x".repeat(201), 1]) {
+    assert.throws(() =>
+      decodeCourseGradebook({
+        ...gradebook,
+        studentWork: [{ ...gradebook.studentWork[0], assessmentTitle }],
+      }),
+    );
+  }
+  assert.throws(() =>
+    decodeCourseGradebook({
+      ...gradebook,
+      studentWork: [{ ...gradebook.studentWork[0], answerKey: "not authorized" }],
+    }),
+  );
   assert.throws(() =>
     decodeCourseGradebook({
       ...gradebook,
@@ -31,14 +58,18 @@ test("Gradebook accepts finite non-negative grade contribution pairs", () => {
     studentWork: [
       {
         rosterId: "bonus-student",
+        rosterName: "Synthetic Student",
         assessmentReference: "A7K3M2Q",
+        assessmentTitle: "Protein structure bonus",
         assessmentAttemptCompletion: "completed",
         expiredSubmitting: false,
         score: { pointsEarned: 3, pointsPossible: 0 },
       },
       {
         rosterId: "extra-credit-student",
+        rosterName: "Synthetic Student",
         assessmentReference: "A7K3M2R",
+        assessmentTitle: "Protein structure assignment",
         assessmentAttemptCompletion: "completed",
         expiredSubmitting: false,
         score: { pointsEarned: 4, pointsPossible: 2 },

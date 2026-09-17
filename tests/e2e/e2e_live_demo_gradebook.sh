@@ -108,12 +108,14 @@ rows=value["studentWork"]
 if not isinstance(rows,list) or not rows:
     raise SystemExit("Gradebook projection lacks active Student Work")
 for row in rows:
-    if set(row)!={"rosterId","assessmentReference","assessmentAttemptCompletion","expiredSubmitting","score"}:
+    if set(row)!={"rosterId","rosterName","assessmentReference","assessmentTitle","assessmentAttemptCompletion","expiredSubmitting","score"}:
         raise SystemExit("Gradebook projection exposed an unapproved field")
     if not isinstance(row["rosterId"],str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}",row["rosterId"]):
         raise SystemExit("Gradebook roster projection is invalid")
     if not isinstance(row["assessmentReference"],str) or not re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",row["assessmentReference"]):
         raise SystemExit("Gradebook Assessment projection is invalid")
+    if not isinstance(row["assessmentTitle"],str) or not row["assessmentTitle"].strip() or len(row["assessmentTitle"])>200:
+        raise SystemExit("Gradebook Coursework title projection is invalid")
     if row["assessmentAttemptCompletion"] not in (None,"inProgress","completed"):
         raise SystemExit("Gradebook Assessment Attempt completion is invalid")
     if not isinstance(row["expiredSubmitting"],bool):

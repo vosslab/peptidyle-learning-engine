@@ -89,8 +89,8 @@ authorization and evidence rules.
 
 ## Local identity selector
 
-The disposable local HTTPS entry currently offers a fixed five-persona
-identity selector: Elena Rivera (Instructor); Mary Okafor, Jack Nguyen, and
+The disposable local HTTPS entry currently offers a fixed six-persona
+identity selector: Elena Rivera and Priya Shah (Instructors); Mary Okafor, Jack Nguyen, and
 Avery Thompson (Students); and Morgan Delgado (Sysadmin). It replaces only
 identity verification, then the server resolves the configured Account and
 issues the ordinary authenticated session for a Student or Instructor. Morgan
@@ -98,6 +98,13 @@ selection creates only opaque pending MFA. PostgreSQL derives Morgan's stored
 Sysadmin role and issues a session only after it atomically consumes one
 unused, short-lived, Account- and browser-bound TOTP attestation. Stored roles
 and relationships still decide every authorization result.
+
+Priya has her own ordinary vetted Instructor Account and private authoring
+workspace, initially without Course Membership or Blueprint access. She can
+participate in multi-Instructor Blueprint collaboration through the ordinary
+sharing and Proposal workflows; selecting her identity grants no collaboration
+authority itself. This fixed fictional identity is disposable demonstration
+data, not production Account provisioning or arbitrary-account impersonation.
 
 The local controller provisions Morgan's genuine TOTP seed from the
 operating-system CSPRNG and writes a restricted, ignored, mode-0600 operator

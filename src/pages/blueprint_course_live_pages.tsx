@@ -44,6 +44,7 @@ export function BlueprintCoursesLivePage(): JSX.Element {
   return (
     <BlueprintCoursesRoutePage
       client={composition.client}
+      proposalClient={composition.client}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources}
     />
@@ -57,6 +58,7 @@ export function BlueprintCourseDetailLivePage(): JSX.Element {
   return (
     <BlueprintCourseDetailRoutePage
       client={composition.client}
+      proposalClient={composition.client}
       pickerRepository={composition.pickerRepository}
       pickerSources={composition.pickerSources}
       blueprintCourseRef={params["blueprintCourseRef"] ?? ""}

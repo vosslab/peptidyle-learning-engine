@@ -87,8 +87,8 @@ async function prepareStudentInvitation(
     await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
     await page.getByText("Roster tools", { exact: true }).click();
     await page
-      .getByLabel("Email, roster ID")
-      .fill("mary.okafor@biology.roosevelt.edu,screenshot-invitation");
+      .getByLabel("Email, roster ID, Course roster name")
+      .fill("mary.okafor@biology.roosevelt.edu,screenshot-invitation,Synthetic Invitation Student");
     await page.getByRole("button", { name: "Import roster", exact: true }).click();
     await page.getByText("screenshot-invitation", { exact: true }).waitFor();
   } finally {
@@ -116,7 +116,7 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
     await page.getByRole("button", { name: "Accept invitation", exact: true }).click();
     await page.getByText("Invitation accepted.", { exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_accepted", session);
-    await page.getByRole("link", { name: "Open assigned work", exact: true }).click();
+    await page.getByRole("link", { name: "Open course", exact: true }).click();
     await page.getByRole("heading", { name: INVITATION_COURSE_LONG_NAME, exact: true }).waitFor();
   } finally {
     await runtime.close(session);

@@ -46,6 +46,7 @@ import type { QuestionPresentation } from "../../generated/api/QuestionPresentat
 import type { PublicRouteReference } from "../navigation/public_route";
 import type { LiveDemoClient } from "./live_demo";
 import type { BlueprintCourseClient } from "./blueprint_course";
+import type { BlueprintChangeProposalClient } from "./blueprint_change_proposal";
 import type { CourseInstanceClient } from "./course_instance";
 import type { LiveCourseRosterClient } from "./course_roster";
 import type { LiveInvitationExportClient } from "./invitation_export";
@@ -67,10 +68,12 @@ import type { AssessmentStudentViewClient } from "./assessment_student_view";
 import type { AssessmentTemplateClient } from "./assessment_template";
 import type { QuestionBulkMetadataClient } from "./question_bulk_metadata";
 import type { ContentClassificationClient } from "./content_classification";
+import type { CourseStudentWorkRecoveryClient } from "./course_student_work_recovery";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
     BlueprintCourseClient,
+    BlueprintChangeProposalClient,
     CourseInstanceClient,
     LiveCourseRosterClient,
     LiveInvitationExportClient,
@@ -91,7 +94,8 @@ export interface ApiClient
     AssessmentStudentViewClient,
     AssessmentTemplateClient,
     QuestionBulkMetadataClient,
-    ContentClassificationClient {
+    ContentClassificationClient,
+    CourseStudentWorkRecoveryClient {
   /** Reads only the authenticated Account's role-neutral Profile settings. */
   readonly getProfile: () => Promise<ProfileSettings>;
   /** Reads only the authenticated Account's Account Settings preference. */

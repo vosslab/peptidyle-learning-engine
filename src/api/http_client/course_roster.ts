@@ -52,6 +52,7 @@ export function createLiveCourseRosterClient(
     getLiveCourseRoster: (course) =>
       rosterJson(fetchImplementation, basePath, courseRosterPath(course), decodeCourseRoster),
     importLiveCourseRoster: (course, input) =>
+      // ASVS 14.2.1/14.3.2: names stay in the POST body and protected no-store transport.
       rosterJson(fetchImplementation, basePath, courseRosterPath(course), decodeCourseRoster, {
         method: "POST",
         body: decodeCourseRosterImportInput(input),

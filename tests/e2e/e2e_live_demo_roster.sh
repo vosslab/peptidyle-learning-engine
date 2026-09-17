@@ -136,7 +136,7 @@ items=json.loads(sys.argv[1])
 if not isinstance(items,list) or len(items) != 2:
     raise SystemExit("Course Roster Import did not return its two reviewed rows")
 for item in items:
-    if not isinstance(item,dict) or set(item)!={"rosterId","state"}:
+    if not isinstance(item,dict) or set(item)!={"rosterId","rosterName","state"}:
         raise SystemExit("Course Roster Import response is not a closed roster projection")
     if item["state"] != "invitationPending":
         raise SystemExit("Course Roster Import did not retain pending Course Invitations")
@@ -211,13 +211,13 @@ prove_import() {
 		echo "Course Roster did not begin empty for its exact Course Instance" >&2
 		exit 1
 	fi
-	imported="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created"}]}')"
+	imported="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded","rosterName":"Synthetic Seeded Student"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created","rosterName":"Synthetic Created Student"}]}')"
 	if [ "$(response_status "$imported")" != "201" ]; then
 		echo "Instructor could not commit Course Roster Import" >&2
 		exit 1
 	fi
 	assert_import_projection "$(response_body "$imported")"
-	imported_again="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created"}]}')"
+	imported_again="$(request "/api/course-instances/$course_reference/roster" "$instructor_cookie" POST '{"entries":[{"email":"mary.okafor@biology.roosevelt.edu","rosterId":"m9-seeded","rosterName":"Synthetic Seeded Student"},{"email":"m9-created@biology.roosevelt.edu","rosterId":"m9-created","rosterName":"Synthetic Created Student"}]}')"
 	if [ "$(response_status "$imported_again")" != "201" ]; then
 		echo "Course Roster Import was not idempotent" >&2
 		exit 1

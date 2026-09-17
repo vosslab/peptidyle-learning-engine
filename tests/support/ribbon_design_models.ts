@@ -77,6 +77,7 @@ const CANONICAL_PARAMS = {
   questionRef: "7K3M-X9QP",
   draftQuestionRef: "D-1",
   blueprintCourseRef: "BP7K3M2Q",
+  proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 } as const satisfies Readonly<Record<RouteParamName, string>>;
 
 const SIGN_OUT = { kind: "action", id: "signOut", label: "Sign out" } as const;

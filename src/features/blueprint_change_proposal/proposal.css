@@ -1,0 +1,29 @@
+.blueprint-proposal {
+  margin-block: 2rem;
+  overflow-wrap: anywhere;
+}
+.proposal-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2rem;
+}
+.blueprint-proposal fieldset {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1rem;
+}
+.blueprint-proposal details {
+  margin-block: 1rem;
+}
+.blueprint-proposal summary {
+  cursor: pointer;
+  padding-block: 0.5rem;
+}
+.blueprint-proposal select {
+  max-width: 100%;
+}
+@media (max-width: 760px) {
+  .proposal-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

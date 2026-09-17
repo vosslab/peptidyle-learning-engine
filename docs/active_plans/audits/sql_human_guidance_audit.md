@@ -36,6 +36,21 @@ Production workload sizing, backup recovery, deployment credentials, and the
 rest of the application were not assessed; the conclusion concerns these SQL
 sources and their database behavior only.
 
+## Current bounded implementation receipts
+
+Blueprint Change Proposals have separate accepted isolated proof for the production HTTP boundary
+and the Instructor component. That is not compiled-main two-Instructor client/API proof, which
+remains pending.
+
+Pool stewardship has current canonical SQL/LDA proof for Pool-level Stars and Watches, including
+the final ASCII-space-only display-name correction. HTTP/UI controls and the required notification
+events remain pending.
+
+Native Student Work recovery has bounded connected evidence on demo `8258`; it does not establish
+the retention worker, all-reader coverage, or full screenshots. The Instructor-zone time-display
+correction is source-only and not deployed. These receipts neither lock all SQL nor change any
+checklist status or count.
+
 ## Relevance filter for Human Guidance
 
 Included requirements that SQL must represent, protect, calculate, or expose:
@@ -112,11 +127,11 @@ mutation to the application role.
 | Decision/change | Durable SQL contract to establish | Why before production |
 | --- | --- | --- |
 | Course classification | Required Discipline on both Blueprint and Instance; optional hierarchy-consistent Subject/Topic/Subtopic and Tags; Instance classification independent of source Blueprint | Adding mandatory classification later requires populating existing Courses and reconciling saved Blueprint metadata. Resolve this before writing long-lived Course data. |
-| Pool metadata and classification | Pool-level Title/Description and classification; first Question establishes Discipline/Subject; every addition matches; exact member Revisions remain pinned | Library Pools currently lack required metadata. Also decide what happens when a member Question's mutable lineage classification changes: a membership-insert check alone cannot preserve the Pool invariant thereafter. |
+| Pool metadata and classification | Pool-level Title/Description and classification; first Question establishes Discipline/Subject; every addition matches; exact member Revisions remain pinned | **2026-09-16 current-source addendum:** Pool metadata already exists. Creation establishes the pair; append checks only new admissions. A retained member may reclassify independently; remove/re-add is a new admission; and a source fork preserves Pool metadata and exact member pins. Human Guidance does not require an ongoing metadata-write veto. Historical actual-role/concurrency evidence is not refreshed here; connected and global acceptance remain open. |
 | Bloom metadata | Two independent required dimensions keyed to each Question/Pool Revision, with Instructor correction independent of immutable Revision content | This needs a distinct mutable metadata relationship or equivalent model. Placing corrected values inside immutable source would conflict with HG's no-new-Revision correction rule. Persistence must exist before mandatory publication metadata can be preserved. AI classification execution is outside this SQL work. |
 | Tags and vocabulary lifecycle | Reconcile the 64-Tag ceiling with HG; establish the promised Sysadmin Discipline lifecycle and how referenced vocabulary changes are handled | Naming, retirement and reference behavior become difficult to change after many objects refer to the vocabulary. Keep stable keys independent of display names; do not remove referenced vocabulary without defined behavior. |
 | Later Blueprint adoption | An explicit later-adoption relationship and exact Revision pin compatible with immutable creation/source evidence and complete Assessment adoption | Simply rewriting existing Course Origin would destroy historical meaning. Decide how later adoption and counts relate to original creation before storing production provenance. |
-| Blueprint Change Proposals | Persistent source/target exact Revision pins, canonical proposed content, selected acceptance/outcome, and stale-target handling; acceptance produces a target Revision, never direct daughter mutation | These are long-lived proposal/evidence identities, not a transient comparison screen. Retrofitting them after adoption/fork history accumulates is a substantial model change. |
+| Blueprint Change Proposals | Persistent source/target exact Revision pins, canonical proposed content, selected acceptance/outcome, and stale-target handling; acceptance produces a target Revision, never direct daughter mutation | **2026-09-16 current-source addendum:** immutable Proposal persistence now retains source/target Revision and metadata-event pins, and reconstructs canonical evidence through the existing exporter; it is not a duplicate JSON baseline. Participant reads permit the receiving owner to inspect an explicitly submitted Private source's exact Proposal evidence while ordinary Private-source and history reads remain denied. Create/read and stale-basis evidence have fresh actual-role proof, but selected/whole acceptance, accepted record/outcome, resulting target Revision, API/UI, and connected acceptance remain open. |
 | Blueprint Promoted and discovery | Sysadmin-controlled boolean stored independently from immutable reusable content and available in discovery queries | This required metadata should not force new Blueprint content Revisions or unrestricted Instructor updates. |
 | Pool stewardship | Stable Pool-level star/watch identities, public vetted-Instructor endorsements, private subscription data and required notification events | Match the separation already used for Questions/Blueprints. Resolve ownership and visibility before users build durable subscriptions. |
 | Required notification kinds | Stable representation for Question/Pool improvement-thread and impact events, in addition to Revision/fork notifications | Question notification kinds are currently restricted to Revision/fork. Resolve the event identities and privacy boundary before subscriptions depend on that closed set. |
@@ -398,14 +413,18 @@ and its operations provide normalized vocabulary, globally unique Subjects,
 multi-Discipline Subject associations, and classified published Questions.
 The working copy includes recent additions supporting that Question path.
 
-However, [course_core.sql](../../../schemas/base_schema/course_core.sql),
-[blueprints.sql](../../../schemas/base_schema/blueprints.sql), and
-[question_pools.sql](../../../schemas/base_schema/question_pools.sql) do not
-provide corresponding Course/Blueprint/Pool classification fields or a Pool
-membership classification invariant. Pools also lack the required Title and
-Description model. Vocabulary management does not expose the complete rename/
-retirement lifecycle described by the authority. These are missing SQL support,
-not evidence that every browser classification feature is absent.
+However, [course_core.sql](../../../schemas/base_schema/course_core.sql) and
+[blueprints.sql](../../../schemas/base_schema/blueprints.sql) do not provide
+the corresponding Course/Blueprint classification fields. **2026-09-16
+current-source addendum:** [question_pools.sql](../../../schemas/base_schema/question_pools.sql)
+does provide Pool Title, Description, and Discipline/Subject. It establishes
+the pair from the first member and checks new admissions only; retained members
+may reclassify independently, while remove/re-add is a new admission. A source
+fork preserves Pool metadata and exact member pins. This is the Human Guidance
+admission rule, not an ongoing metadata-write veto. Vocabulary management does
+not expose the complete rename/retirement lifecycle described by the authority.
+The addendum does not refresh actual-role/concurrency evidence or establish
+connected or global acceptance.
 
 The SQL contains no identifiable pair of required Bloom dimensions or their
 publication/correction persistence model. It also lacks full Question/Pool
@@ -423,8 +442,15 @@ No public statistics disclosure was demonstrated in this audit.
 
 Blueprint immutable revisions, exact Question pins, forks, availability, and
 lineage comparisons are present. SQL support for Sysadmin-controlled Promoted
-status and persistent Change Proposals with selected acceptance records is not
-evident. These are distinct from existing Question correction records.
+status is not evident. **2026-09-16 current-source addendum:** Change Proposal
+create/read persistence now keeps exact Revision and metadata-event pins and
+reconstructs canonical evidence through the existing exporter, without a
+duplicate JSON baseline. Explicit Proposal submission permits only the
+receiving owner to read its exact Private-source evidence; ordinary Private
+source and Revision-history access remains denied. Fresh actual-role proof
+covers this bounded foundation and stale basis; selected/whole acceptance,
+accepted record/outcome, resulting target Revision, API/UI, and connected
+acceptance remain open. These remain distinct from Question correction records.
 
 Course creation can adopt a Blueprint. Later adoption into an already created
 Course lacks a corresponding operation; the current source fields and Course
@@ -441,11 +467,23 @@ displayed metric is intended to retain historical enrollment.
 
 Course retention has explicit Active/Archived/Deleted states, bounded lifetime,
 deadline synchronization, and purge operations. Physical archived data remains
-until deletion. Nevertheless, the forward-only lifecycle and limited executor
-history projection do not supply a complete authorized recovery workflow;
-[assessment_attempt_history.sql](../../../schemas/base_schema/assessment_attempt_history.sql)
-explicitly distinguishes its archive projection from recovery. Human Guidance
-requires recoverability during the archive period.
+until deletion. The current bounded recovery slice now supplies an explicit,
+current-Course-Instructor select/recover path: `42501` means an ineligible or
+unavailable Course and is concealed as HTTP 404, while an eligible exhausted
+selection is HTTP 200 with an empty page. Isolated PostgreSQL actual-role proof
+covers the SQL guard, pagination, original-cutoff expiry, and deletion races;
+the current production server has separate isolated-database HTTP proof; and
+the Course workspace has separate actual-component/real-client-fixture proof.
+The UI uses deliberate select then recover actions, keeps retained HTML inert,
+and displays zero-based issued position 0 as Question 1. These receipts do not
+establish an integrated live browser/TLS/demo path, nullable-roster HTTP proof,
+all ordinary readers, or the retention worker/email lifecycle. The forward-only
+lifecycle and limited executor history projection therefore do not yet establish
+complete retention processing or global Human Guidance closure. Receipts:
+`/private/tmp/ple-course-recovery-selection-sql-20260916.md`,
+`/private/tmp/ple-course-recovery-http-proof-20260916.md`,
+`/private/tmp/ple-course-recovery-instructor-ui-20260916.md`, and
+`/private/tmp/ple-recovery-ui-independent-review-20260916.md`.
 
 The Question backend constraint in
 [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql),
@@ -714,9 +752,9 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Content classification, 644-690: one shared vocabulary; globally unique Subject; Subject in multiple Disciplines; Topic/Subtopic parentage | [content_classification.sql](../../../schemas/base_schema/content_classification.sql): vocabulary keys, associations and parent FKs | Supported model. Writer paths preserve nonempty Subject associations; arbitrary owner-level writes were not certified. |
 | Content classification, 644-690: normalized progressively longer names | [content_classification_operations.sql](../../../schemas/base_schema/content_classification_operations.sql): normalize helper and 120/240/480 limits | Supported. Normalization precedes command validation. |
 | Content classification, 644-690: Sysadmin manages Discipline; Instructor creates/selects other vocabulary; explicit association of existing Subject | [content_classification_operations.sql](../../../schemas/base_schema/content_classification_operations.sql): role guard, create/find/associate/list commands | Partial. Creation/selection/association supported; complete Discipline lifecycle management is absent. Explicit acceptance is a caller interaction. |
-| Content classification, 644-690: hierarchy selections; LibraryObject exactly one Discipline/Subject | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): required Question fields and composite FKs; [question_pools.sql](../../../schemas/base_schema/question_pools.sql) | Partial. Published Questions enforce hierarchy; Pools lack the required classification model. |
+| Content classification, 644-690: hierarchy selections; LibraryObject exactly one Discipline/Subject | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): required Question fields and composite FKs; [question_pools.sql](../../../schemas/base_schema/question_pools.sql): Pool classification and admission checks | Partial. Published Questions enforce hierarchy. Current Pool source establishes its Discipline/Subject from the first member and checks new admissions; retained members may reclassify independently, remove/re-add is a new admission, and source forks preserve Pool metadata and exact pins. This does not refresh actual-role/concurrency proof or establish connected or global acceptance. |
 | Course classification, 1076-1089: required Discipline; optional Subject/Topic/Subtopic/Tags; may differ from parent Blueprint | [course_core.sql](../../../schemas/base_schema/course_core.sql), [blueprints.sql](../../../schemas/base_schema/blueprints.sql) | Gap. Neither Course form has the required classification structure. |
-| Content classification/Library metadata, 644-690 and 998-1014: any number of Tags, including none | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): metadata Tag validator | Partial. Empty Tags supported, but a 64-Tag ceiling is imposed; Course/Pool Tags also absent. The ceiling needs reconciliation with the authority. |
+| Content classification/Library metadata, 644-690 and 998-1014: any number of Tags, including none | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): metadata Tag validator; [question_pools.sql](../../../schemas/base_schema/question_pools.sql): Pool metadata | Partial. Empty Tags supported, but a 64-Tag ceiling is imposed; Course Tags remain absent and Pool metadata stores Tags. The ceiling needs reconciliation with the authority. |
 | Data and history, 627-634: separate public from answer-bearing/identifying/private data | [foundation_roles.sql](../../../schemas/base_schema/foundation_roles.sql), private/data/audit schemas and command grants | Supported architecture; catalog confirms forced RLS. A complete policy adversarial audit is not claimed. |
 | Student and FERPA data, 691-709: exact Course membership and Student ownership | [authorization.sql](../../../schemas/base_schema/authorization.sql): exact record ownership; [assessment_attempt_operations.sql](../../../schemas/base_schema/assessment_attempt_operations.sql): current-Attempt ownership assertion | Supported source paths, subject to the support-scope concern already identified. |
 | Data/history and FERPA, 627-634 and 691-709: no Student evidence in ordinary logs/analytics/URLs/browser storage | Private evidence tables and narrow projections | Boundary. SQL separation contributes; logging, URLs and browser storage cannot be certified from schema files. |
@@ -727,7 +765,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Retention, 710-733: latest Assessment deadline starts retention; changing deadlines moves it within cap | [assessment_deadline_sync.sql](../../../schemas/base_schema/assessment_deadline_sync.sql): maximum current due instant and Course synchronization | Supported. No-deadline fallback is Active cutoff; that fallback is an implementation choice, not explicit HG wording. |
 | Retention, 710-733: inactivity, retention start, archive and deletion are distinct | [course_core.sql](../../../schemas/base_schema/course_core.sql), [course_retention_transitions.sql](../../../schemas/base_schema/course_retention_transitions.sql) | Supported. Inactivity alone does not purge Student Work. |
 | Retention, 710-733: configurable intervals; warnings before inactivity/archive | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): policy table; [course_retention_notifications.sql](../../../schemas/base_schema/course_retention_notifications.sql): queued/provider-acceptance evidence | Supported database scheduling/evidence. Actual notification delivery is external. Defaults are operational configuration. |
-| Retention, 710-733: archived work hidden ordinarily but recoverable until permanent deletion | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): ordinary-visibility helper; [assessment_attempt_access.sql](../../../schemas/base_schema/assessment_attempt_access.sql): Student context/access and active-reference readers | Accepted narrow ordinary-read correction: fresh canonical PostgreSQL 17 actual-role evidence hides archived context, access, and active references through the existing helper, while inactive-but-unarchived Work and Instructor Course metadata/teaching definitions remain available. This does not establish recovery access or closure: explicit Course Instructor recovery implementation, including race/expiry proof and an Instructor UI, remains open. Receipt: `/private/tmp/ple-ordinary-archive-visibility-20260916.md`; review: `/private/tmp/ple-ordinary-archive-visibility-review-20260916.md`. |
+| Retention, 710-733: archived work hidden ordinarily but recoverable until permanent deletion | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): ordinary-visibility helper; [assessment_attempt_access.sql](../../../schemas/base_schema/assessment_attempt_access.sql): Student context/access and active-reference readers | Ordinary reads remain hidden under fresh actual-role evidence. A separate implemented explicit Instructor recovery path has isolated SQL race/expiry proof, isolated production-server HTTP proof, and actual-component/real-client-fixture proof. Selection corrects unavailable/ineligible Course to concealed `42501`/404 while an eligible exhausted page is empty 200; issued position 0 displays as Question 1 and retained HTML is inert. It does not establish integrated live browser/TLS/demo, nullable-roster HTTP, all-reader, worker/email, or global closure. Receipts: `/private/tmp/ple-ordinary-archive-visibility-20260916.md`, `/private/tmp/ple-course-recovery-selection-sql-20260916.md`, `/private/tmp/ple-course-recovery-http-proof-20260916.md`, and `/private/tmp/ple-course-recovery-instructor-ui-20260916.md`. |
 | Retention processing, 734-741: stored-date decisions, late execution gives same decisions, repeated runs safe | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): absolute scheduled actions; transition state checks and notification keys | Narrow receipt observed repeat purge returning false with the captured scalar unchanged. It does not establish complete late/worker scheduling, retry, or deployed execution. |
 | Dates/time zones, 762-773: deadlines are instants; IANA zones independent of stored deadline | [assessments.sql](../../../schemas/base_schema/assessments.sql): timestamptz; [accounts.sql](../../../schemas/base_schema/accounts.sql): zone validation | Supported storage model; date-entry interpretation and display are outside SQL. |
 | Dates/time zones, 762-773: invited Student defaults to Instructor zone | [course_operations.sql](../../../schemas/base_schema/course_operations.sql): `apply_student_invitation_time_zone_default` invocation | Supported source path. Later zone changes are separate from deadline mutation. |
@@ -740,7 +778,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Common history, 742-761: monotonic Edit Numbers; sequential Revisions start at 1; fork has new identity | Draft/Assessment save CAS; [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql), [question_pools.sql](../../../schemas/base_schema/question_pools.sql), [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql) | Supported source paths. Blueprint metadata uses an opaque ETag, not a historical Revision identity. |
 | Common history, 742-761: exact Question/Pool delivery pins, responses, outcomes; SHA-256 source/assets | [assessment_attempts.sql](../../../schemas/base_schema/assessment_attempts.sql), [assessment_attempt_presentation.sql](../../../schemas/base_schema/assessment_attempt_presentation.sql), [object_records.sql](../../../schemas/base_schema/object_records.sql), [question_assets.sql](../../../schemas/base_schema/question_assets.sql) | Supported evidence structure. Object bytes and renderer reproduction remain external. |
 | Draft specifications, 784-795: private current state, save replaces, deletion, excluded from Library | [question_authoring_operations.sql](../../../schemas/base_schema/question_authoring_operations.sql): create/save/delete; [question_library_operations.sql](../../../schemas/base_schema/question_library_operations.sql) | Supported source operations. Abandoned-Draft cleanup is permissive HG language, not a production blocker. |
-| Draft/publication and metadata, 784-795 and 998-1014: required metadata before publication | [question_publication_operations.sql](../../../schemas/base_schema/question_publication_operations.sql): required classification, exact source, license/authorship publication | Partial. Question classification required; Bloom requirements and full Pool metadata are not enforced. |
+| Draft/publication and metadata, 784-795 and 998-1014: required metadata before publication | [question_publication_operations.sql](../../../schemas/base_schema/question_publication_operations.sql): required classification, exact source, license/authorship publication | Partial. Question classification is required; Bloom requirements and Pool publication-metadata validation are not established. |
 | Question formats, 796-805: eight author-declared immutable Types; native JSON internal source; QTI only interchange | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): eight-Type enum-like CHECK; [question_authoring_state.sql](../../../schemas/base_schema/question_authoring_state.sql): explicit format bindings | Supported type/format storage. Import translation and native source-shape validation are application responsibilities. |
 | Native JSON, 806-815: unversioned and static, no random seed | Source binding uses `pleQuestionJson`; [assessment_attempt_interaction.sql](../../../schemas/base_schema/assessment_attempt_interaction.sql): PLE seed/parameter hash must be NULL | Supported SQL invariants. No public/native format version column is introduced by these sources. |
 | Native JSON, 806-815: external URLs recorded/reviewable | Object/source bindings and asset records | Boundary. SQL stores source references; no dedicated complete external-URL registry was found. Native source validation/extraction was not reviewed. |
@@ -752,7 +790,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Question/Pool support content, 905-913, 934-942 and 968-983: optional Hints/Feedback/Worked Solutions, separate disclosure | Immutable Question `general_feedback`; no equivalent full Hint/Worked Solution/Pool support model | Partial capability. Optional content is not itself a blocker for production Questions that omit it. No requirement to populate absent optional content is inferred. |
 | Pools, 943-967: published Questions only; immutable own identity/Revisions; backend-independent members | [question_pools.sql](../../../schemas/base_schema/question_pools.sql): exact member FK to Question Revision, contiguous members and revision operations | Supported source model; nested Pools are not a permitted member type. |
 | Pools, 943-967 and 1282-1294: fork when reused in another Assessment; preserve exact Question pins | [assessment_pool_forks.sql](../../../schemas/base_schema/assessment_pool_forks.sql), [blueprint_pools.sql](../../../schemas/base_schema/blueprint_pools.sql): owned fork construction | Supported source paths. |
-| Pool metadata, 968-983: Title/Description; first Question sets Discipline/Subject; every added member matches | [question_pools.sql](../../../schemas/base_schema/question_pools.sql): Pool schema/create/append | Gap. Required metadata and matching-classification enforcement are missing. This is required, unlike optional support content. |
+| Pool metadata, 968-983: Title/Description; first Question sets Discipline/Subject; every added member matches | [question_pools.sql](../../../schemas/base_schema/question_pools.sql): Pool schema/create/append/fork | **2026-09-16 current-source addendum:** source provides the required Pool metadata and admission-time matching check. Retained members may reclassify independently; remove/re-add checks current metadata as a new admission, and source forks preserve Pool metadata and exact pins. Human Guidance does not require an ongoing metadata-write veto. This read-only reconciliation adds no fresh actual-role, connected, or global-acceptance proof. |
 | Pools, 943-967: resume preserves selections; new Attempt makes fresh selections; retain exact delivered pins | [assessment_pool_selection.sql](../../../schemas/base_schema/assessment_pool_selection.sql), [assessment_attempts.sql](../../../schemas/base_schema/assessment_attempts.sql): retained selection/member evidence | Supported source model. Distribution quality and repeated-start behavior were not runtime-tested. |
 | Library, 984-1014: global Questions and Pools, vetted Instructor reuse, no Drafts or Student Library access | [question_library_operations.sql](../../../schemas/base_schema/question_library_operations.sql): Instructor-only Question projection; Pool operations | Partial. Global published Question path exists; the combined discoverable Question-and-Pool projection is incomplete. |
 | Library, 984-1014: practical bulk metadata/search/filter/sort | [published_question_metadata_operations.sql](../../../schemas/base_schema/published_question_metadata_operations.sql): bulk CAS writer; Question Library projection/GIN index | Partial. Bulk Question metadata exists; query-side search/filter/paging and Pool coverage remain incomplete. UI search was not audited. |
@@ -778,7 +816,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Adoption/daughters, 1149-1159 and 1245-1261: auto-add new Assessments, explicit review of existing updates, never silent replacement | [course_blueprint_adoption.sql](../../../schemas/base_schema/course_blueprint_adoption.sql): append paths; [assessment_blueprint_updates.sql](../../../schemas/base_schema/assessment_blueprint_updates.sql): explicit apply | Supported SQL mechanisms. Automatically invoking them on publication is an orchestration responsibility not certified here. |
 | Blueprint forks, 1160-1176: new Private owned child, source pin, fresh Assessment/Pool identities, same exact Questions, independent subsequent history | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): fork; [blueprint_pools.sql](../../../schemas/base_schema/blueprint_pools.sql); fork receipt/lineage | Supported source construction paths. |
 | Blueprint lineage/comparison, 1160-1176 and 1204-1215: visible forks/owners, visible related current heads, on-request JSON comparison | [blueprint_lineage.sql](../../../schemas/base_schema/blueprint_lineage.sql): fork list and comparison sources | Supported source reads. Semantic difference calculation/presentation belongs to the domain/application. |
-| Change Proposals, 1177-1203: exact source/target pins, canonical proposed JSON, selected acceptance, durable outcome, stale-target handling; no direct daughter mutation | No corresponding proposal/acceptance persistence or command in either directory | Gap. Existing Question corrections are not Blueprint Change Proposals. |
+| Change Proposals, 1177-1203: exact source/target pins, canonical proposed JSON, selected acceptance, durable outcome, stale-target handling; no direct daughter mutation | [blueprint_change_proposals.sql](../../../schemas/base_schema/blueprint_change_proposals.sql) and the data-access Store persist immutable exact Revision/metadata-event pins, exporter-reconstructed canonical evidence, and a one-final-decision accepted result. The bounded receiving-owner backend accepts both Entire and Selected decisions under the target lock, preserving exact ordered Question/Pool Revision pins; accepted metadata-only changes create the required identical-content successor. | Partial. Fresh isolated actual-role proof accepts both decision forms, verifies final-decision-insert rollback of the successor, metadata, and Pool allocations, and confirms adopted daughter Course/Assessment/entry/Pool records remain unchanged. Source-copy create/read retains explicit Private-source sharing while ordinary Private source/history reads remain denied. API, human-readable proposal review/UI, connected acceptance, and concurrent work remain open; no global checklist-status change follows. |
 | Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): content JSON has modules; names are separate metadata; comparison loads both | Boundary/Partial. Stored content alone is not complete exchange JSON. Application assembly/round-trip was not reviewed; missing classification limits completeness today. |
 | Course Instances, 1232-1244: only co-Instructors/enrolled Students; teaching data; retained inactive metadata; new term uses new Instance | Course membership policies and lifecycle; no distinct rollover object | Supported source representation/access paths, not an exhaustive policy proof. |
 | Adoption counts, 1245-1261: count daughter Instances, retain parent/exact source | [course_core.sql](../../../schemas/base_schema/course_core.sql): source relationship; [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): discovery count | Narrow actual-role receipt retained each deleted daughter's anonymous distinct Account count exactly once; ordinary reimport/reclaim did not alter it. Broader discovery, worker, and deployed behavior remain unproved. |
@@ -914,3 +952,14 @@ does not establish complete purge coverage, worker scheduling, deployed behavior
 or a general SQL lock-order proof. Receipt:
 `/private/tmp/ple-course-purge-proof-20260916.md`; independent source review:
 `/private/tmp/ple-course-purge-sql-review-20260916.md`.
+
+## Archived invitation claim correction addendum
+
+The current claim guard now requires `retention_lifecycle_state = 'active'`
+after the Course-root lock and before the active-membership idempotent return.
+An Inactive but unarchived Course remains claimable; revocation is unchanged.
+Fresh PostgreSQL 17 actual-role `ple_auth`/`ple_app` proof passed: archived
+pending and idempotent claims return generic `42501` without child/event rows,
+and claim waited behind a real archive lock before the archive committed and
+the denial held. This does not prove deployment, touch live `8258`, or close
+full retention. Receipt: `/private/tmp/ple-archive-invitation-claim-fix-20260916.md`.

@@ -12,12 +12,29 @@ import {
 } from "./blueprint_fork_apply_model";
 import "./blueprint_fork_apply.css";
 type ApplyProps = {
-  readonly client: BlueprintCourseClient;
+  readonly client?: BlueprintCourseClient;
   readonly review: BlueprintComparisonView;
   readonly onApplied: () => void;
+  readonly proposalSelection?: {
+    readonly classificationControl: JSX.Element;
+    readonly hasClassificationSelection: () => boolean;
+    readonly disabled?: boolean;
+    readonly onChanged?: () => void;
+    readonly onReset?: () => void;
+    readonly submit: (
+      selection: BlueprintForkApplySelection,
+      shortName: boolean,
+      longName: boolean,
+    ) => Promise<void>;
+  };
 };
 /** Parent gates ownership and dirty work; authorization remains server-owned. */
 export function BlueprintForkApply(props: ApplyProps): JSX.Element {
+  return <BlueprintSelectionEditor {...props} />;
+}
+
+/** Input-driven inventory/layout controls; proposal callers supply their own review action. */
+export function BlueprintSelectionEditor(props: ApplyProps): JSX.Element {
   const [shortName, setShortName] = createSignal(false),
     [longName, setLongName] = createSignal(false);
   const [labels, setLabels] = createSignal<BlueprintForkApplySelection["sourceModuleLabels"]>([]);
@@ -33,7 +50,12 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
     forkSelectionProblem(props.review, layout(), labels(), contents()),
   );
   const selected = (): boolean =>
-    shortName() || longName() || labels().length > 0 || contents().length > 0 || edited();
+    shortName() ||
+    longName() ||
+    labels().length > 0 ||
+    contents().length > 0 ||
+    edited() ||
+    Boolean(props.proposalSelection?.hasClassificationSelection());
   const moduleLabel = (module: Layout["module"]): string => {
     if (module.kind === "newFromSource")
       return (
@@ -73,6 +95,7 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
     );
   };
   function edit(next: Layout[]): void {
+    props.proposalSelection?.onChanged?.();
     setLayout(next);
     setEdited(true);
     setMessage("");
@@ -89,6 +112,7 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
     );
   }
   function chooseModule(source: string, value: string): void {
+    props.proposalSelection?.onChanged?.();
     setLabels([
       ...labels().filter((c) => c.sourceModuleReference !== source),
       ...(value
@@ -107,6 +131,7 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
     if (next.length !== layout().length || value === "new") edit(next);
   }
   function chooseAssessment(source: string, value: string): void {
+    props.proposalSelection?.onChanged?.();
     setContents([
       ...contents().filter((c) => c.sourceAssessmentReference !== source),
       ...(value
@@ -129,6 +154,8 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
       place({ kind: "newFromSource", sourceAssessmentReference: source }, "");
   }
   function reset(): void {
+    props.proposalSelection?.onChanged?.();
+    props.proposalSelection?.onReset?.();
     setShortName(false);
     setLongName(false);
     setLabels([]);
@@ -142,6 +169,19 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
     setBusy(true);
     setMessage("");
     try {
+      if (props.proposalSelection) {
+        await props.proposalSelection.submit(
+          {
+            sourceModuleLabels: labels(),
+            sourceAssessments: contents(),
+            layout: edited() ? layout() : null,
+          },
+          shortName(),
+          longName(),
+        );
+        return;
+      }
+      if (!props.client) throw new Error("Fork client is unavailable.");
       await props.client.applyBlueprintFork(props.review.right.currentRevision.reference, {
         expectedSource: props.review.left.currentRevision,
         expectedFork: props.review.right.currentRevision,
@@ -200,21 +240,31 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
   return (
     <section
       class="blueprint-fork-apply"
-      aria-label="Apply reviewed changes to your fork"
+      aria-label={
+        props.proposalSelection ? "Choose proposal changes" : "Apply reviewed changes to your fork"
+      }
       aria-busy={busy()}
     >
-      <h3>Choose changes for your fork</h3>
+      <h3>
+        {props.proposalSelection
+          ? "Choose changes for the receiving Blueprint"
+          : "Choose changes for your fork"}
+      </h3>
       <p>
         Nothing is selected initially. Choose an existing target explicitly or create a new copy.
         Unselected target work stays in place unless you explicitly remove it from the destination.
       </p>
-      <fieldset disabled={busy() || locked()}>
+      <fieldset disabled={busy() || locked() || props.proposalSelection?.disabled}>
         <legend>Source names and complete content</legend>
+        {props.proposalSelection?.classificationControl}
         <label>
           <input
             type="checkbox"
             checked={shortName()}
-            onChange={(e) => setShortName(e.currentTarget.checked)}
+            onChange={(e) => {
+              props.proposalSelection?.onChanged?.();
+              setShortName(e.currentTarget.checked);
+            }}
           />{" "}
           Use source short name: {props.review.left.names.shortName}
         </label>
@@ -222,7 +272,10 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
           <input
             type="checkbox"
             checked={longName()}
-            onChange={(e) => setLongName(e.currentTarget.checked)}
+            onChange={(e) => {
+              props.proposalSelection?.onChanged?.();
+              setLongName(e.currentTarget.checked);
+            }}
           />{" "}
           Use source long name: {props.review.left.names.longName}
         </label>
@@ -451,12 +504,26 @@ export function BlueprintForkApply(props: ApplyProps): JSX.Element {
       <div class="blueprint-fork-layout-actions">
         <button
           type="button"
-          disabled={busy() || locked() || Boolean(problem()) || !selected()}
+          disabled={
+            busy() ||
+            locked() ||
+            Boolean(problem()) ||
+            !selected() ||
+            props.proposalSelection?.disabled
+          }
           onClick={() => void save()}
         >
-          {busy() ? "Copying selected content and saving..." : "Save selected changes to fork"}
+          {busy()
+            ? "Preparing..."
+            : props.proposalSelection
+              ? "Review chosen result"
+              : "Save selected changes to fork"}
         </button>
-        <button type="button" disabled={busy()} onClick={reset}>
+        <button
+          type="button"
+          disabled={busy() || props.proposalSelection?.disabled}
+          onClick={reset}
+        >
           Cancel selections
         </button>
       </div>

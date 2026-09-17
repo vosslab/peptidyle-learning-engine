@@ -11,13 +11,14 @@ excludes no Human Guidance scope, makes no all-SQL-locked claim, and leaves othe
 
 ## Current bounded receipts
 
-Bulk Question-ID Assessment addition has accepted source review and isolated component proof;
-connected acceptance remains separate. The Next/Mono font cascade has accepted source/static
-review only. Live Demo `3831` is building, not acceptance. Nine private laptop Type captures
-succeeded, but they do not replace a full 77-capture refresh. Receipts:
-`/private/tmp/ple-assessment-bulk-add-20260916.md`,
-`/private/tmp/ple-bulk-id-editor-review-20260916.md`, and
-`/private/tmp/ple-typography-cascade-final-review-20260916.md`.
+Current demo `8258` has bounded connected roster and native Student Work recovery evidence; the
+second-Instructor fixture proof passed, and the next rebuild awaits source-owner acknowledgment.
+Blueprint Change Proposal HTTP and the
+Instructor component have separate accepted isolated proof, but compiled-main two-Instructor
+client/API proof remains pending. Pool stewardship has current SQL/LDA proof only: HTTP/UI and
+required notifications remain pending. Recovery is connected for the native fixture; its
+Instructor-zone display correction is source-only and not deployed. All official screenshots and
+the full SQL lock remain pending. These receipts do not change checklist status or counts.
 
 ## Current bounded SQL corrections
 

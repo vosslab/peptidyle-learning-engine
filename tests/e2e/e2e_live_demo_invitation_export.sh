@@ -181,7 +181,7 @@ import_pending_invitation() {
 	local headers_path="$temporary_directory/roster-import.headers"
 	local status
 	status="$(request_to_files "/api/course-instances/$course/roster" "$instructor_cookie" POST \
-		'{"entries":[{"email":"m18-recipient@mail.roosevelt.edu","rosterId":"m18-pending"}]}' \
+		'{"entries":[{"email":"m18-recipient@mail.roosevelt.edu","rosterId":"m18-pending","rosterName":"Synthetic Pending Student"}]}' \
 		"$body_path" "$headers_path")"
 	assert_status "$status" "201"
 	if ! python3 -c '
@@ -190,7 +190,7 @@ value = json.load(open(sys.argv[1], encoding="utf-8"))
 if not isinstance(value, list) or len(value) != 1:
     raise SystemExit(1)
 row = value[0]
-raise SystemExit(0 if isinstance(row, dict) and set(row) == {"rosterId", "state"} and row.get("state") == "invitationPending" else 1)
+raise SystemExit(0 if isinstance(row, dict) and set(row) == {"rosterId", "rosterName", "state"} and row.get("state") == "invitationPending" else 1)
 ' "$body_path"; then
 		echo "Course Roster did not create the required pending Course Invitation" >&2
 		exit 1

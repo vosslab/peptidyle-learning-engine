@@ -8,5 +8,6 @@
 //! project tooling stay outside this product boundary.
 
 pub mod assessment_delivery;
+pub mod blueprint_change_proposal;
 pub mod blueprint_course;
 pub mod student_assessment_decision;

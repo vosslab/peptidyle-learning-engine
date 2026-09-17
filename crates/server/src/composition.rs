@@ -46,11 +46,16 @@ mod object_storage;
 
 use self::object_storage::{ObjectStoragePrincipal, object_store_from_env};
 
-const LIVE_DEMO_ACCOUNT_ID_ENV: [(SeededDemoPersona, &str, &str); 5] = [
+const LIVE_DEMO_ACCOUNT_ID_ENV: [(SeededDemoPersona, &str, &str); 6] = [
     (
         SeededDemoPersona::ElenaInstructor,
         "PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID",
         "Elena Rivera",
+    ),
+    (
+        SeededDemoPersona::PriyaInstructor,
+        "PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID",
+        "Priya Shah",
     ),
     (
         SeededDemoPersona::MaryStudent,
@@ -785,7 +790,7 @@ mod tests {
         .expect("trusted mappings should parse")
         .expect("one unambiguous mapping remains");
 
-        assert_eq!(config.unavailable_account_count(), 4);
+        assert_eq!(config.unavailable_account_count(), 5);
     }
 
     #[test]
@@ -824,7 +829,7 @@ mod tests {
             .expect("independent deployment values should parse")
             .expect("the two valid persona mappings remain available");
 
-        assert_eq!(config.unavailable_account_count(), 3);
+        assert_eq!(config.unavailable_account_count(), 4);
     }
 
     #[derive(Clone, Default)]

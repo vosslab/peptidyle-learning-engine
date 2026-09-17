@@ -15,6 +15,7 @@ import { requireOnlyFields } from "./decoders/shared";
 
 const SEEDED_DEMO_PERSONAS = [
   "elenaInstructor",
+  "priyaInstructor",
   "maryStudent",
   "jackStudent",
   "averyStudent",
@@ -93,19 +94,19 @@ export function decodeSeededDemoAccounts(value: unknown, path = "response"): See
   const record = closedRecord(value, path, ["accounts", "unavailableAccountCount"]);
   const accounts = decodeArray(record.accounts, `${path}.accounts`, decodeSeededDemoAccount);
   if (accounts.length > MAX_SEEDED_DEMO_ACCOUNTS) {
-    throw new DecodeError(`${path}.accounts`, "an array with at most five entries");
+    throw new DecodeError(`${path}.accounts`, "an array with at most six entries");
   }
   const unavailableAccountCount = decodeSafeInteger(
     record.unavailableAccountCount,
     `${path}.unavailableAccountCount`,
   );
   if (unavailableAccountCount < 0 || unavailableAccountCount > MAX_SEEDED_DEMO_ACCOUNTS) {
-    throw new DecodeError(`${path}.unavailableAccountCount`, "a safe integer from 0 through 5");
+    throw new DecodeError(`${path}.unavailableAccountCount`, "a safe integer from 0 through 6");
   }
   if (accounts.length + unavailableAccountCount !== MAX_SEEDED_DEMO_ACCOUNTS) {
     throw new DecodeError(
       path,
-      "accounts and unavailableAccountCount that account for exactly five personas",
+      "accounts and unavailableAccountCount that account for exactly six personas",
     );
   }
   const personas = accounts.map((account) => account.persona);

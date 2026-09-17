@@ -13,6 +13,8 @@ export function seededDemoDescription(persona: SeededDemoPersona): string {
   switch (persona) {
     case "elenaInstructor":
       return "Explore Elena Rivera's seeded Instructor account.";
+    case "priyaInstructor":
+      return "Explore Priya Shah's seeded Instructor account.";
     case "maryStudent":
       return "Explore Mary Okafor's seeded Student account.";
     case "jackStudent":
@@ -36,6 +38,7 @@ export function seededDemoAvailabilityStatus(unavailableAccountCount: number): s
 export function seededDemoRole(persona: SeededDemoPersona): "instructor" | "student" | "sysadmin" {
   switch (persona) {
     case "elenaInstructor":
+    case "priyaInstructor":
       return "instructor";
     case "morganSysadmin":
       return "sysadmin";

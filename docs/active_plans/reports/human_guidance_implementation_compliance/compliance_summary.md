@@ -10,6 +10,18 @@ correctness. This is private connected evidence, not an official 77-item screens
 broad type-interaction matrix. Receipts: `/private/tmp/ple-resumed-types-20260916.md` and
 `/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
 
+A separate owner-reported `8104` connected traversal covered all eight native types in both pointer
+and keyboard contexts, including Save/reload with exact issued pins and one whole-Attempt submission
+per context. Independent review accepted that bounded private receipt and screenshots. Root then
+independently verified that fetched `main.js` has the same SHA256 as current `dist/main.js`
+(`6aa85b2e19f197c47896f6e3e136e2d15167ecb2b7fa7178666e538668f02e54`) and that all 12 source-map
+entries under `src/components/question_response_controls/` match current source. This resolves only
+the earlier source-correspondence qualification: no successful owner-run stdout/stderr transcript
+was retained, so the exit-0 execution and assertion count remain owner-reported. No full responsive,
+touch, contrast, official-corpus, SQL/server, or broad Human Guidance closure is claimed. Receipts:
+`/private/tmp/ple-native-connected-interaction-20260916.md` and
+`/private/tmp/ple-native-interaction-receipt-review-20260916.md`.
+
 Current typography evidence is limited to the actual Student WeBWorK frame: `document.fonts` was
 loaded and body plus visible input computed Atkinson Hyperlegible Next first at 13.6px. The accepted
 source/local fixture sets a 16px body baseline, but that change is not deployed. Mono is not
@@ -28,12 +40,39 @@ Student/Course isolation. It is not current `8104` connected HTTP/browser save-r
 Separately, ordinary archived Student Work context, access, and active references are now hidden by
 the existing visibility helper under fresh canonical actual-role evidence; inactive-but-unarchived
 Work and Instructor Course metadata/teaching definitions remain available. The explicit Course
-Instructor recovery policy is settled, but recovery implementation remains open: no completed
-race/expiry proof or Instructor UI is claimed. Receipts:
+Instructor recovery slice is now implemented: isolated PostgreSQL actual-role evidence covers the
+SQL guard, pagination, original-cutoff expiry, and deletion races; separately, the actual
+production server has isolated-database HTTP evidence, and the Course workspace has
+actual-component/real-client-fixture evidence. The corrected selection contract uses `42501` for
+an unavailable/ineligible Course (concealed as 404), versus empty 200 for an eligible exhausted
+page. The UI requires explicit actions, keeps retained HTML inert, and renders zero-based issued
+position 0 as Question 1. This is not integrated live browser/TLS/demo acceptance, nullable-roster
+HTTP proof, all-reader coverage, retention-worker/email proof, or a C210/global closure. Receipts:
 `/private/tmp/ple-student-saved-progress-slice-20260916.md`,
 `/private/tmp/ple-student-saved-progress-sql-proof-20260916.md`, and
-`/private/tmp/ple-ordinary-archive-visibility-20260916.md`. Root pytest passed 7,565 tests in
+`/private/tmp/ple-ordinary-archive-visibility-20260916.md`,
+`/private/tmp/ple-course-recovery-selection-sql-20260916.md`,
+`/private/tmp/ple-course-recovery-http-proof-20260916.md`, and
+`/private/tmp/ple-course-recovery-instructor-ui-20260916.md`. Root pytest passed 7,565 tests in
 5.50 seconds; both strict TypeScript configurations passed earlier, before SQL-only changes.
+
+Current interface receipts (2026-09-16): bounded connected acceptance on canonical local runtime
+`8258` now covers S01's real claim, joined state, exact `Open course` destination, keyboard action,
+and late-result route isolation; I12's genuinely empty next-seven-days/Account-time-zone state and
+keyboard route to Instructor Course management; and I13's ordinary CSV import/correction, unchanged
+roster ID and scored Work, name/title-primary Gradebook recognition, and real Not started, In
+progress, and Completed and scored rows. This supersedes isolated-only status for those specific
+paths, not full UI/mobile/security/retention coverage, a 77-item corpus refresh, checklist
+promotion, or global I13/Human Guidance closure. Receipt:
+`/private/tmp/ple-rebuilt-roster-ui-acceptance-20260916.md`.
+
+Current reconciliation: demo `8258` also has bounded native Student Work recovery; the
+second-Instructor fixture proof passed, and the next rebuild awaits source-owner acknowledgment.
+Proposal HTTP and Instructor-component proof remain
+isolated pending compiled-main two-Instructor client/API proof. Pool stewardship is SQL/LDA-only,
+with HTTP/UI and notifications pending. Recovery's Instructor-zone display fix is source-only and
+not deployed. Official screenshots, full SQL lock, and checklist status/count changes remain
+pending.
 
 ### Historical status snapshots
 

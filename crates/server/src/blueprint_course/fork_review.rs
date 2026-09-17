@@ -92,7 +92,7 @@ fn project_comparison(
     })
 }
 
-fn comparison_side(
+pub(super) fn comparison_side(
     inventory: BlueprintComparisonInventory,
     current_revision: question_model::BlueprintRevisionReference,
     short_name: String,

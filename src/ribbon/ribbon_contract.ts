@@ -11,6 +11,7 @@ import {
   parseAssessmentAttemptReference,
   parseAssessmentReference,
   parseBlueprintCourseReference,
+  parseBlueprintChangeProposalHandle,
   parseCourseInstanceReference,
   parseCourseMembershipReference,
   parseDraftQuestionReference,
@@ -211,6 +212,7 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   questionRef: parseQuestionRouteReference,
   draftQuestionRef: parseDraftQuestionReference,
   blueprintCourseRef: parseBlueprintCourseReference,
+  proposalId: parseBlueprintChangeProposalHandle,
 };
 
 function routeForId(routeId: string): RouteContract | undefined {

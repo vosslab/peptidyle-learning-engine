@@ -42,6 +42,8 @@ use crate::{
     question_publication::HmacQuestionIdIssuer,
 };
 
+mod change_proposal_view;
+mod change_proposals;
 mod fork;
 mod fork_apply;
 mod fork_review;
@@ -49,8 +51,8 @@ mod history;
 mod known_forks;
 mod list;
 mod pool_members;
-mod responses;
 mod promotion;
+mod responses;
 
 use responses::{
     blueprint_response, blueprint_save_response, concealed, metadata_response, route_error,
@@ -82,6 +84,22 @@ pub fn blueprint_course_router(
     question_id_issuer: HmacQuestionIdIssuer,
 ) -> Router {
     Router::new()
+        .route(
+            "/api/course-blueprints/{reference}/change-proposals",
+            get(change_proposals::list_target).post(change_proposals::create),
+        )
+        .route(
+            "/api/blueprint-change-proposals",
+            get(change_proposals::list_mine),
+        )
+        .route(
+            "/api/blueprint-change-proposals/{proposal_id}",
+            get(change_proposals::detail),
+        )
+        .route(
+            "/api/blueprint-change-proposals/{proposal_id}/acceptance",
+            post(change_proposals::accept),
+        )
         .route(
             "/api/sysadmin/course-blueprints/{reference}/promotion",
             get(promotion::load_promotion).put(promotion::set_promotion),

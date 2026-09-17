@@ -162,8 +162,8 @@ print(json.dumps(payload, separators=(",", ":")))
 }
 
 claim_student_record() {
-	local course="$1" instructor_cookie="$2" student_cookie="$3" email="$4" roster_id="$5" imported claimed
-	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST "{\"entries\":[{\"email\":\"$email\",\"rosterId\":\"$roster_id\"}]}")"
+	local course="$1" instructor_cookie="$2" student_cookie="$3" email="$4" roster_id="$5" roster_name="$6" imported claimed
+	imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST "{\"entries\":[{\"email\":\"$email\",\"rosterId\":\"$roster_id\",\"rosterName\":\"$roster_name\"}]}")"
 	require_status "Instructor roster import" "$imported" 201
 	claimed="$(request "/api/course-instances/$course/roster/claim" "$student_cookie" POST '{}')"
 	require_status "Student Course Invitation claim" "$claimed" 200

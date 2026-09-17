@@ -136,8 +136,8 @@ prove_start() {
 	assert_concealed "$(request "/api/course-instances/$course/assignments/$assignment/access")"
 	assert_concealed "$(request "/api/course-instances/$course/assignments/$assignment/access" "$instructor")"
 	assert_concealed "$(request "/api/course-instances/$course/assignments/$assignment/start" "$sysadmin" POST '{}')"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu current-model-mary
-	claim_student_record "$course" "$instructor" "$jack" jack.nguyen@biology.roosevelt.edu current-model-jack
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu current-model-mary Mary
+	claim_student_record "$course" "$instructor" "$jack" jack.nguyen@biology.roosevelt.edu current-model-jack Jack
 	access="$(request "/api/course-instances/$course/assignments/$assignment/access" "$mary")"
 	require_status "Student Assignment Access" "$access" 200
 
@@ -232,7 +232,7 @@ prove_native_current_points() {
 	local instructor mary course assignment reference started attempt selected saved submitted initial_score workspace edit updated history gradebook
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"
 	course="$(new_course_reference "$instructor")"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu current-points-mary
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu current-points-mary Mary
 	reference="$(canonical_native_question_reference "$instructor")"
 	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Native Current Points" 300 "$reference")"
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$mary" POST '{}')"
@@ -272,7 +272,7 @@ prove_background_expiry() {
 	local instructor mary course assignment reference started attempt selected saved history completed=0 postgres evidence
 	instructor="$(persona_cookie elenaInstructor)"; mary="$(persona_cookie maryStudent)"
 	course="$(new_course_reference "$instructor")"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu expiry-worker-mary
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu expiry-worker-mary Mary
 	reference="$(canonical_native_question_reference "$instructor")"
 	assignment="$(create_released_backend_assignment "$course" "$instructor" ple "Background Expiry" 300 "$reference")"
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$mary" POST '{}')"
@@ -311,7 +311,7 @@ prove_webwork_submission() {
 	# by backend through the public Question Library rather than a test fixture.
 	bash "$repository_root/tests/e2e/e2e_live_demo_assignment_attempt.sh" --start >/dev/null
 	course="$(new_course_reference "$instructor")"
-	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu submission-journey-mary
+	claim_student_record "$course" "$instructor" "$mary" mary.okafor@biology.roosevelt.edu submission-journey-mary Mary
 	assignment="$(create_released_backend_assignment "$course" "$instructor" webwork "WeBWorK Submission")"
 	started="$(request "/api/course-instances/$course/assignments/$assignment/start" "$mary" POST '{}')"
 	require_status "WeBWorK Assignment start" "$started" 201

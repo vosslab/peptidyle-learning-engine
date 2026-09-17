@@ -349,9 +349,22 @@ AS $$
 $$;
 
 CREATE FUNCTION ple_api.list_course_roster(p_reference text)
-RETURNS TABLE(roster_id text, state text)
-LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT profile.roster_id,
+RETURNS TABLE(roster_id text, roster_name text, state text)
+LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+DECLARE selected_course uuid; retention_state text;
+BEGIN
+    SELECT course_id INTO selected_course FROM ple_data.course_instance
+     WHERE public_reference = p_reference;
+    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(selected_course) THEN
+        RETURN;
+    END IF;
+    SELECT retention_lifecycle_state INTO retention_state FROM ple_data.course_instance
+     WHERE course_id = selected_course FOR UPDATE;
+    IF retention_state IS DISTINCT FROM 'active'
+       OR NOT ple_api.current_session_account_is_course_instructor(selected_course) THEN
+        RETURN;
+    END IF;
+    RETURN QUERY SELECT profile.roster_id, profile.roster_name,
            CASE WHEN EXISTS (
                SELECT 1 FROM ple_data.course_membership AS membership
                 WHERE membership.course_id = course.course_id
@@ -384,6 +397,8 @@ LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, pl
        )
        AND ple_api.current_session_account_is_course_instructor(course.course_id)
      ORDER BY profile.roster_id
+    ;
+END
 $$;
 
 -- C26: this is an exact, task-scoped Student-record projection, not a Course
@@ -597,16 +612,17 @@ END
 $$;
 
 CREATE FUNCTION ple_api.import_course_roster(
-    p_reference text, p_normalized text[], p_delivery text[], p_roster text[]
+    p_reference text, p_normalized text[], p_delivery text[], p_roster text[], p_names text[]
 )
-RETURNS TABLE(roster_id text, state text)
+RETURNS TABLE(roster_id text, roster_name text, state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE course uuid; actor uuid; student uuid; item integer; now_at timestamptz;
     retention_state text;
 BEGIN
-    IF p_reference IS NULL OR cardinality(p_normalized) NOT BETWEEN 1 AND 50
+    IF p_reference IS NULL OR coalesce(cardinality(p_normalized), 0) NOT BETWEEN 1 AND 50
        OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_delivery)
-       OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_roster) THEN
+       OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_roster)
+       OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_names) THEN
         RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Import arguments are invalid';
     END IF;
     SELECT course_id INTO course FROM ple_data.course_instance WHERE public_reference = p_reference;
@@ -619,29 +635,53 @@ BEGIN
     -- lock, then serialize Course-local creation with the Course-first purge.
     SELECT retention_lifecycle_state INTO retention_state
       FROM ple_data.course_instance WHERE course_id = course FOR UPDATE;
-    IF NOT FOUND OR retention_state = 'deleted'
+    IF NOT FOUND OR retention_state IS DISTINCT FROM 'active'
        OR NOT ple_api.current_session_account_is_course_instructor(course) THEN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Course Roster Import requires an available Instructor Course Membership';
     END IF;
     now_at := pg_catalog.transaction_timestamp();
+    -- Validate the complete reviewed batch before any Account resolution.
     FOR item IN 1..cardinality(p_normalized) LOOP
         IF p_normalized[item] IS NULL OR p_delivery[item] IS NULL OR p_roster[item] IS NULL
-           OR p_roster[item] !~ '^[A-Za-z0-9._-]+$' THEN
+           OR char_length(p_roster[item]) NOT BETWEEN 1 AND 64
+           OR p_roster[item] !~ '^[A-Za-z0-9._-]+$'
+           OR p_names[item] IS NULL OR char_length(p_names[item]) NOT BETWEEN 1 AND 200
+           OR p_names[item] <> btrim(p_names[item],
+               U&'\0009\000A\000B\000C\000D\0020\0085\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000')
+           OR p_names[item] ~ U&'[\0001-\001F\007F-\009F]' THEN
             RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Import row is invalid';
         END IF;
+    END LOOP;
+    IF (SELECT count(DISTINCT value) FROM unnest(p_normalized) AS value) <> cardinality(p_normalized)
+       OR (SELECT count(DISTINCT value) FROM unnest(p_roster) AS value) <> cardinality(p_roster) THEN
+        RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Import row is repeated';
+    END IF;
+    FOR item IN 1..cardinality(p_normalized) LOOP
         student := ple_private.resolve_or_create_student_account(p_normalized[item], p_delivery[item]);
         -- The authentication email is resolved exactly once in the global
         -- Account boundary.  A Course needs only its local roster identifier.
+        IF EXISTS (SELECT 1 FROM ple_private.course_roster_profile AS profile
+            WHERE profile.course_id = course AND profile.student_account_id = student
+              AND profile.roster_id <> p_roster[item]) THEN
+            RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Course Roster Import identity does not match';
+        END IF;
         INSERT INTO ple_private.course_roster_profile
-        VALUES (pg_catalog.gen_random_uuid(), course, student, p_roster[item], now_at)
+            (course_roster_profile_id, course_id, student_account_id, roster_id, roster_name, created_at)
+        VALUES (pg_catalog.gen_random_uuid(), course, student, p_roster[item], p_names[item], now_at)
         ON CONFLICT (course_id, student_account_id) DO NOTHING;
+        UPDATE ple_private.course_roster_profile AS profile SET roster_name = p_names[item]
+         WHERE profile.course_id = course AND profile.student_account_id = student
+           AND profile.roster_name IS DISTINCT FROM p_names[item];
+        SELECT profile.roster_id, profile.roster_name INTO roster_id, roster_name
+          FROM ple_private.course_roster_profile AS profile
+         WHERE profile.course_id = course AND profile.student_account_id = student;
         IF EXISTS (
             SELECT 1 FROM ple_data.course_membership AS membership
              WHERE membership.course_id = course AND membership.account_id = student
                AND membership.role = 'student' AND ple_data.course_membership_is_active(membership.membership_id)
         ) THEN
-            roster_id := p_roster[item]; state := 'active_student';
+            state := 'active_student';
             RETURN NEXT; CONTINUE;
         END IF;
         IF NOT EXISTS (
@@ -663,7 +703,7 @@ BEGIN
             );
             PERFORM ple_audit.record_course_roster_event(course, student, actor, 'invitation_created');
         END IF;
-        roster_id := p_roster[item]; state := 'invitation_pending';
+        state := 'invitation_pending';
         RETURN NEXT;
     END LOOP;
 END
@@ -700,10 +740,10 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Invitation is unavailable';
     END IF;
     -- ASVS 15.4.2/15.4.3: Course -> Invitation/Student children matches purge;
-    -- reject permanent deletion before the active-membership fast path.
+    -- require ordinary retention access before the active-membership fast path.
     SELECT retention_lifecycle_state INTO retention_state
       FROM ple_data.course_instance WHERE course_id = course FOR UPDATE;
-    IF NOT FOUND OR retention_state = 'deleted' THEN
+    IF NOT FOUND OR retention_state <> 'active' THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Invitation is unavailable';
     END IF;
     IF EXISTS (
@@ -806,7 +846,7 @@ REVOKE ALL ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_th
     ple_api.list_pending_student_course_invitations(),
     ple_api.export_pending_course_invitations(text),
     ple_api.load_invitation_export_course(text),
-    ple_api.import_course_roster(text, text[], text[], text[]),
+    ple_api.import_course_roster(text, text[], text[], text[], text[]),
     ple_api.claim_course_invitation(uuid, uuid, uuid, text),
     ple_api.revoke_course_roster_entry(uuid, text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course_theme(uuid, text),
@@ -820,7 +860,7 @@ GRANT EXECUTE ON FUNCTION ple_api.read_course_theme(uuid), ple_api.update_course
     ple_api.list_pending_student_course_invitations(),
     ple_api.export_pending_course_invitations(text),
     ple_api.load_invitation_export_course(text),
-    ple_api.import_course_roster(text, text[], text[], text[]),
+    ple_api.import_course_roster(text, text[], text[], text[], text[]),
     ple_api.claim_course_invitation(uuid, uuid, uuid, text),
     ple_api.revoke_course_roster_entry(uuid, text, text) TO ple_app;
 

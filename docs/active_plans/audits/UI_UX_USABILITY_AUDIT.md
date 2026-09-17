@@ -74,6 +74,21 @@ issued Question Revision, whole-Attempt submission, and server-marked correctnes
 `/private/tmp/ple-resumed-types-20260916.md` and
 `/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
 
+Current native-interaction evidence (2026-09-16): the owner-reported connected `8104` traversal
+covered MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT in pointer and keyboard contexts:
+Save/reload and ordinary return restored each recorded response at its exact issued pin, then one
+whole-Attempt submission per context marked every native position Submitted. The independent
+read-only review accepted this deliberately bounded private receipt and its submitted screenshots.
+Root independently fetched current `https://localhost:8104/main.js`; its SHA256 matched local
+`dist/main.js` (`6aa85b2e19f197c47896f6e3e136e2d15167ecb2b7fa7178666e538668f02e54`), and all 12
+source-map entries below `src/components/question_response_controls/` matched current source. This
+resolves the review's source-correspondence qualification only. No retained owner successful-run
+stdout/stderr transcript exists, so the reported exit-0 execution and its assertion count remain
+owner-reported rather than independently replayable transcript evidence. No official corpus
+refresh, full responsive/touch/contrast matrix, new SQL/server claim, or broader UI closure follows.
+Receipts: `/private/tmp/ple-native-connected-interaction-20260916.md` and
+`/private/tmp/ple-native-interaction-receipt-review-20260916.md`.
+
 The Instructor preview header remains a separate gap: connected preview delivery is still blocked
 by its opaque-frame resource-policy defect, so Student captures do not establish that preview
 surface. See the retained open Instructor inspection receipt in
@@ -87,6 +102,15 @@ surface. See the retained open Instructor inspection receipt in
 - User need: recognize successful enrollment and proceed into the Course.
 - Acceptance: after acceptance, show a coherent joined state and make opening the Course or
   Coursework the next primary action. Verify the transition in a live walkthrough.
+- Receipt (2026-09-16): bounded connected acceptance on canonical local runtime `8258` used the
+  ordinary visible Student demo path to claim a Course. The joined page rendered `You joined this
+  course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter reached that
+  claimed Course. A held real claim response could not present the old Course's joined result after
+  navigation to another pending invitation; that route joined only through its own real claim.
+  This supersedes the isolated-only status for this bounded transition, not the full invitation
+  authorization, error, or mobile matrix. Receipts:
+  `/private/tmp/ple-rebuilt-roster-ui-acceptance-20260916.md` and
+  `/private/tmp/ple-student-invitation-joined-state-20260916.md`.
 
 ### S02: Coursework actions communicate little about the next step
 
@@ -438,6 +462,14 @@ while correcting its presentation.
   without a nearby route into the relevant Course or Assessment workflow.
 - Acceptance: offer a useful path to manage Coursework when the collection is empty, while
   retaining the time-window explanation. Verify wording for Courses with dates outside that window.
+- Receipt (2026-09-16): bounded connected acceptance on canonical local runtime `8258` rendered
+  the honest empty state with its next-seven-days/Account-time-zone explanation and `Manage
+  Coursework`; keyboard Enter reached the admitted Instructor Course-management destination. A
+  real Course Assessment deadline more than seven days out remained outside the empty page's
+  window. This supersedes isolated-only status for that empty-state path, not all dates, routes,
+  errors, or mobile keyboard coverage. Receipts:
+  `/private/tmp/ple-rebuilt-roster-ui-acceptance-20260916.md` and
+  `/private/tmp/ple-due-soon-empty-next-action-20260916.md`.
 
 ### I13: Gradebook recognition is based on IDs
 
@@ -448,6 +480,16 @@ while correcting its presentation.
 - Acceptance: show recognizable authorized roster names and Coursework titles, with IDs where
   useful. Explain result status in teaching language. Verify accurate not-started, active, and scored
   rows; establish the available name data before proposing new data collection.
+- Receipt (2026-09-16): bounded connected acceptance on canonical local runtime `8258` used the
+  ordinary Instructor demo path for CSV import and correction of required private Course-local
+  roster names. The same roster ID and existing scored Work remained after correction. The live
+  Gradebook showed roster names and Assessment titles as primary 1280-pixel text, supporting IDs
+  smaller, and matched its real Not started, In progress, and Completed and scored rows. This
+  supersedes isolated-only status for these connected paths, not a full Gradebook/UI/mobile,
+  security, retention, or Human Guidance closure. Receipts:
+  `/private/tmp/ple-rebuilt-roster-ui-acceptance-20260916.md`,
+  `/private/tmp/ple-roster-name-backend-20260916.md`, and
+  `/private/tmp/ple-roster-name-ui-20260916.md`.
 
 ### I14: generated Question wording joins separate words
 
@@ -457,6 +499,15 @@ while correcting its presentation.
 - Acceptance: preserve word spacing across markup boundaries in generated prompts and choices.
   Check the generator and rendered Backend output to locate ownership; inspect related examples.
   This is visible text evidence, independent of scientific-content correctness.
+- Receipt (2026-09-16): both canonical website PGML artifacts and their PLE delivery copies restore
+  only spaces after colored spans in `topic09-chromosome-shapes-matching` and
+  `topic09-chromosome-shapes-which-one`; `pg_sha256` now identifies corrected local bytes while
+  the immutable committed canonical URL/hash pins remain unchanged. Renderer lint, visible-text,
+  visual inspection, correct/wrong/partial matching grading, and seeded output checks passed; the
+  independent review accepted the bounded scope. No
+  generator, vendored WeBWorK/renderer, PLE demo, or official screenshot refresh changed. A future
+  upstream regeneration can overwrite the artifact-only correction absent separately authorized
+  producer repair. Receipt: `/private/tmp/ple-chromosome-spacing-receipts-20260916.md`.
 
 ### I15: preview height and control styling vary across surfaces
 

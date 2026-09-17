@@ -657,7 +657,7 @@ parameterized_sources:
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic09/chromosome_shapes-matching.pgml
-  pg_sha256: 39f2760eef7f15b5def229fca60a62619a6070883f872421b561162528245d8a
+  pg_sha256: 1abe72e09961e5d76bd4987a1d847f0de412a0504b3633522fb36be2d0df09d2
   webwork_pg_path: genetics/topic09/chromosome_shapes-matching.pgml
   canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic09/downloads/chromosome_shapes-matching.pgml
   canonical_author_source_sha256: 39f2760eef7f15b5def229fca60a62619a6070883f872421b561162528245d8a
@@ -673,7 +673,7 @@ parameterized_sources:
   question_type: multipleChoice
   source_format: pgml
   pg_source: pg/topic09/chromosome_shapes-which_one.pgml
-  pg_sha256: c560da8b32c3e37f0f981cd009bba8d88d1c918d5644a35167ba41e62108e210
+  pg_sha256: 4c7e431c3d04ade57ed731d0ef11d16c1a7d77fb2d683d14b831709d52089101
   webwork_pg_path: genetics/topic09/chromosome_shapes-which_one.pgml
   canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/e8bd31615225eab24b66f0b2ab862fe674dc9956/site_docs/genetics/topic09/downloads/chromosome_shapes-which_one.pgml
   canonical_author_source_sha256: c560da8b32c3e37f0f981cd009bba8d88d1c918d5644a35167ba41e62108e210

@@ -12,6 +12,7 @@ import {
 import { createResponseClient } from "./http_client/response";
 import { createTeachingOperationsClient } from "./http_client/teaching_operations";
 import { createBlueprintCourseClient } from "./http_client/blueprint_course";
+import { createBlueprintChangeProposalClient } from "./http_client/blueprint_change_proposal";
 import { createCourseInstanceClient } from "./http_client/course_instance";
 import { createLiveCourseRosterClient } from "./http_client/course_roster";
 import { createLiveInvitationExportClient } from "./http_client/invitation_export";
@@ -33,6 +34,7 @@ import { createAssessmentStudentViewClient } from "./http_client/assessment_stud
 import { createAssessmentTemplateClient } from "./http_client/assessment_template";
 import { createQuestionBulkMetadataClient } from "./http_client/question_bulk_metadata";
 import { createContentClassificationClient } from "./http_client/content_classification";
+import { createCourseStudentWorkRecoveryClient } from "./http_client/course_student_work_recovery";
 
 export {
   ApiProtocolError,
@@ -56,6 +58,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createLiveDemoClient(fetchImplementation, basePath),
     createTeachingOperationsClient(fetchImplementation, basePath),
     createBlueprintCourseClient(fetchImplementation, basePath),
+    createBlueprintChangeProposalClient(fetchImplementation, basePath),
     createCourseInstanceClient(fetchImplementation, basePath),
     createLiveCourseRosterClient(fetchImplementation, basePath),
     createLiveInvitationExportClient(fetchImplementation, basePath),
@@ -77,6 +80,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createAssessmentTemplateClient(fetchImplementation, basePath),
     createQuestionBulkMetadataClient(fetchImplementation, basePath),
     createContentClassificationClient(fetchImplementation, basePath),
+    createCourseStudentWorkRecoveryClient(fetchImplementation, basePath),
     responses,
     requests,
   );

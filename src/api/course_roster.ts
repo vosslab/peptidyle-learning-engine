@@ -6,6 +6,7 @@ import type { CourseInstanceReference } from "../../generated/api/CourseInstance
 export interface CourseRosterImportEntry {
   readonly email: string;
   readonly rosterId: string;
+  readonly rosterName: string;
 }
 
 /** A bounded Course Roster Import commit. */
@@ -16,6 +17,7 @@ export interface CourseRosterImportInput {
 /** The direct Teaching Team's course-scoped roster projection. */
 export interface CourseRosterEntry {
   readonly rosterId: string;
+  readonly rosterName: string;
   readonly state: "invitationPending" | "activeStudent";
 }
 

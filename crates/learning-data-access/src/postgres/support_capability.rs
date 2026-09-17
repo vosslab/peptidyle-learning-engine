@@ -8,8 +8,8 @@ use uuid::Uuid;
 use super::{Pool, connection::map_sqlx_error};
 use crate::random_uuid::random_uuid_v4;
 use crate::{
-    CourseRosterEntry, CourseRosterEntryState, IssueSupportRepairCapabilityInput, SessionTokenHash,
-    StoreError, SupportRepairCapabilityReceipt, SupportRepairCapabilityStore,
+    CourseRosterEntryState, IssueSupportRepairCapabilityInput, SessionTokenHash, StoreError,
+    SupportRepairCapabilityReceipt, SupportRepairCapabilityStore,
     SupportRepairCapabilityUseReceipt, SupportRepairResourceClass,
 };
 
@@ -124,7 +124,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
         capability_id: Uuid,
         course: CourseInstanceReference,
         roster_id: String,
-    ) -> Result<Option<CourseRosterEntry>, StoreError> {
+    ) -> Result<Option<crate::SupportCourseRosterEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
         let row = sqlx::query(
             "SELECT roster_id, state FROM ple_api.read_course_roster_entry_repair_support($1, $2, $3)",
@@ -143,7 +143,7 @@ impl SupportRepairCapabilityStore for PostgresSupportCapabilityStore {
                     "active_student" => CourseRosterEntryState::ActiveStudent,
                     _ => return Err(invalid("Course Roster state")),
                 };
-                Ok(CourseRosterEntry {
+                Ok(crate::SupportCourseRosterEntry {
                     roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
                     state,
                 })

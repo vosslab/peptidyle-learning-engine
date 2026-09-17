@@ -140,6 +140,9 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
       <header class="blueprint-course-page-heading">
         <p class="eyebrow">Blueprint Courses</p>
         <h1>Build reusable course structure</h1>
+        <Show when={props.proposalClient}>
+          <A href="/blueprint-change-proposals">My Change Proposals</A>
+        </Show>
         <p class="page-lede">
           Blueprint Courses contain reusable modules and assessments, with no Students or delivery
           dates.

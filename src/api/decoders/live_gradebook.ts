@@ -12,7 +12,8 @@ import {
   decodeString,
   decodeStringEnum,
 } from "../decoder";
-import { field, requireOnlyFields } from "./shared";
+import { decodeAssessmentTitle, field, requireOnlyFields } from "./shared";
+import { decodeRosterName } from "./course_roster";
 
 const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
@@ -56,7 +57,9 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
   const record = decodeRecord(value, path);
   requireOnlyFields(record, path, [
     "rosterId",
+    "rosterName",
     "assessmentReference",
+    "assessmentTitle",
     "assessmentAttemptCompletion",
     "expiredSubmitting",
     "score",
@@ -95,11 +98,16 @@ function studentWork(value: unknown, path: string): CourseGradebookStudentWork {
   }
   return {
     rosterId: rosterId(field(record, "rosterId", path), `${path}.rosterId`),
+    rosterName: decodeRosterName(field(record, "rosterName", path), `${path}.rosterName`),
     assessmentReference: assessmentReference(
       field(record, "assessmentReference", path),
       `${path}.assessmentReference`,
     ),
     assessmentAttemptCompletion,
+    assessmentTitle: decodeAssessmentTitle(
+      field(record, "assessmentTitle", path),
+      `${path}.assessmentTitle`,
+    ),
     expiredSubmitting,
     score,
   };

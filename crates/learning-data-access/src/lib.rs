@@ -20,6 +20,7 @@ mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
 mod authoring_assets;
+mod blueprint_change_proposal;
 mod blueprint_course;
 mod blueprint_history;
 mod blueprint_lineage;
@@ -49,6 +50,11 @@ mod question_fork;
 mod question_library;
 mod question_pool_creation;
 mod question_pool_library;
+mod question_pool_stewardship;
+pub use question_pool_stewardship::{
+    QuestionPoolStarProjection, QuestionPoolStarredInstructor, QuestionPoolStewardshipStore,
+    QuestionPoolWatchProjection,
+};
 mod question_source;
 mod question_star;
 mod question_watch;
@@ -132,6 +138,13 @@ pub use authoring::{
 };
 pub use authoring_assets::{
     AuthoringAssetsStore, OwnedDraftQuestionAsset, RegisterDraftQuestionAssetInput,
+};
+pub use blueprint_change_proposal::{
+    AcceptBlueprintChangeProposalInput, AcceptedBlueprintChangeProposal,
+    BlueprintChangeProposalAcceptedDecision, BlueprintChangeProposalAcceptedSummary,
+    BlueprintChangeProposalDecision, BlueprintChangeProposalListScope,
+    BlueprintChangeProposalReview, BlueprintChangeProposalStore, BlueprintChangeProposalSummary,
+    CreateBlueprintChangeProposalInput, StoredBlueprintChangeProposal,
 };
 pub use blueprint_course::{
     ApplyBlueprintForkInput, ApplyBlueprintForkResult, BlueprintCourseListRequest,
@@ -251,6 +264,6 @@ pub use session::{
 };
 pub use store_error::StoreError;
 pub use support_capability::{
-    IssueSupportRepairCapabilityInput, SupportRepairCapabilityReceipt,
+    IssueSupportRepairCapabilityInput, SupportCourseRosterEntry, SupportRepairCapabilityReceipt,
     SupportRepairCapabilityStore, SupportRepairCapabilityUseReceipt, SupportRepairResourceClass,
 };

@@ -11,27 +11,28 @@
 
 ### Behavior or Interface Changes
 
-- Recorded the accepted current batch: the FERPA policy set splits product boundary from deadline-anchored notice/archive/recovery/deletion with authorized recovery; invitation claim/revoke
-  and exact-Revision Bloom-pair storage/CAS have actual-role proof (AI,
-  publication, API, and UI remain open); Template minutes retain exact seconds; individual Add remains
-  alongside bulk Add; all 18 private Question-type captures, connected HOTSPOT pointer/keyboard proof,
-  and actual WeBWorK Next-font proof passed. Receipts: `/private/tmp/ple-invitation-claim-revoke-20260916.md`, `/private/tmp/ple-bloom-proof-20260916.md`, `/private/tmp/ple-template-duration-minutes-20260916.md`, `/private/tmp/ple-resumed-types-20260916.md`, and `/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
-  Retention configuration uses a 70-day notice lead, day-100 archive, and 265-day post-archive
-  interval; isolated PostgreSQL proof includes a day-200 archive that still deleted at day 365, but
-  does not establish deployed worker or email delivery. Receipt: `/private/tmp/ple-retention-operational-schedule-20260916.md`.
+- Recorded the accepted current batch: FERPA policy separates the product boundary from deadline-
+  anchored notice/archive/recovery/deletion with authorized recovery; invitation claim/revoke and exact-
+  Revision Bloom-pair storage/CAS have actual-role proof (AI, publication, API, and UI remain open);
+  Template minutes retain exact seconds; individual Add remains alongside bulk Add; all 18 private
+  Question-type captures, connected HOTSPOT pointer/keyboard, and actual WeBWorK Next-font proof passed.
+  I14 corrects only spaces after colored spans in two chromosome PGML artifacts and matching PLE
+  copies. Corrected local `pg_sha256` values coexist with unchanged immutable upstream URL/hash pins;
+  renderer lint, visible-text/visual inspection, and seeded correct/wrong/partial grading passed; independent review accepted the bounded scope. No
+  generator, vendored WeBWorK/renderer, PLE demo, or official screenshot refresh changed. A future
+  upstream regeneration can overwrite this artifact-only correction absent separately authorized
+  producer repair. Receipt: `/private/tmp/ple-chromosome-spacing-receipts-20260916.md`.
+  Receipts: `/private/tmp/ple-invitation-claim-revoke-20260916.md`, `/private/tmp/ple-bloom-proof-20260916.md`, `/private/tmp/ple-template-duration-minutes-20260916.md`, `/private/tmp/ple-resumed-types-20260916.md`, and `/private/tmp/ple-hotspot-connected-interaction-20260916.md`. Current S01 presentation binds its joined result and `Open course` route to the exact claimed Course reference; I12 retains its empty seven-day/Account-time-zone explanation with a keyboard-routable Instructor management action. I13 now has required private Course-local roster names for reviewed CSV correction and authorized primary roster-name/Gradebook-title display, with source/compile, isolated actual-role SQL (including Course-lock waits and retention purge), and actual-component proof. Archived invitation claim now requires active retention after the Course lock before idempotent return; inactive unarchived claim remains allowed and revoke is unchanged. PostgreSQL 17 actual-role proof passed including a claim waiting behind archive; no deployment/live `8258` or full-retention closure is claimed. Receipt: `/private/tmp/ple-archive-invitation-claim-fix-20260916.md`. These bounded UI receipts are not connected live-browser acceptance. Receipts: `/private/tmp/ple-student-invitation-joined-state-20260916.md`, `/private/tmp/ple-due-soon-empty-next-action-20260916.md`, `/private/tmp/ple-gradebook-coursework-title-slice-20260916.md`, and `/private/tmp/ple-roster-name-backend-20260916.md`. Retention configuration uses a 70-day notice lead, day-100 archive, and 265-day post-archive interval; isolated PostgreSQL proof includes a day-200 archive that still deleted at day 365, but does not establish deployed worker or email delivery. The explicit Instructor recovery slice has separate isolated SQL, production-server HTTP, and actual-component/real-client-fixture proof; unavailable/ineligible selection is concealed `42501`/404 while an eligible exhausted page is empty 200. It does not establish integrated live browser/TLS/demo, nullable-roster HTTP, all-reader, worker/email, or global closure. Receipts: `/private/tmp/ple-retention-operational-schedule-20260916.md`, `/private/tmp/ple-course-recovery-selection-sql-20260916.md`, `/private/tmp/ple-course-recovery-http-proof-20260916.md`, and `/private/tmp/ple-course-recovery-instructor-ui-20260916.md`.
 
-- Updated Human Guidance execution priority: finish the SQL foundation and highest-impact UI gates
-  first; Terra/Sol may run safe independent work in parallel, and full screenshots wait for those
-  gates. Fresh canonical Course-purge proof corrected the actual-role validator grant, retained the
-  anonymous deleted-daughter enrollment count, observed four waits, and refused post-purge
-  claim/import; no submitted-Work, complete-purge, worker, deployed, or general-lock claim follows.
-  Receipt: `/private/tmp/ple-course-purge-proof-20260916.md`.
+- Updated Human Guidance execution priority: finish the SQL foundation and highest-impact UI gates first;
+  Terra/Sol may run safe independent work in parallel, and full screenshots wait for those gates. Fresh
+  canonical Course-purge proof corrected the actual-role validator grant, retained the anonymous deleted-
+  daughter enrollment count, observed four waits, and refused post-purge claim/import; no submitted-Work,
+  complete-purge, worker, deployed, or general-lock claim follows. Receipt: `/private/tmp/ple-course-purge-proof-20260916.md`.
 
-- Tracked the new bulk Question-ID Assessment requirement as open: Course Instance bulk-ID addition
-  is under implementation, with independent review and connected proof pending. Recorded the
-  screenshot Question-button accessibility repair and the Next/Monosource work as isolated proof
-  only; neither establishes connected acceptance or all-Human-Guidance verification. Receipt:
-  `/private/tmp/ple-bulk-checklist-sync-20260916.md`.
+- Recorded bounded Blueprint Change Proposal backend acceptance without changing checklist status: actual-role proof accepts Entire/Selected receiving-owner decisions with exact pins, atomic rollback, metadata-only successor, and unchanged daughter records; API, readable UI, connected acceptance, and concurrent work remain open. Receipts: `/private/tmp/ple-proposal-acceptance-backend-20260916.md` and `/private/tmp/ple-proposal-acceptance-final-evidence-review-20260916.md`. Tracked the new bulk Question-ID Assessment requirement as open: Course Instance bulk-ID addition is under implementation,
+  with independent review and connected proof pending. The screenshot Question-button accessibility repair and Next/Monosource work
+  are isolated proof only; neither establishes connected acceptance or all-Human-Guidance verification. Receipt: `/private/tmp/ple-bulk-checklist-sync-20260916.md`.
 
 - Recorded the HOTSPOT delivery-batch receipt without changing checklist status. All Instructor
   captures and 16 private Student checkpoints passed, but nine type captures remain genuinely
@@ -45,13 +46,12 @@
   current live acceptance or 77-item capture refresh is claimed. Receipt:
   `/private/tmp/ple-hotspot-delivery-batch-receipt-20260916.md`.
 
-- Recorded the bounded Template single-Attempt SQL receipt. Fresh canonical PostgreSQL 17
-  installation as `ple_migrator` and actual-role `ple_auth`/`ple_app` proof passed: Quiz NULL
-  create rejected with no row, Quiz/Exam limit-one round-tripped, Exam NULL save rejected with
-  unchanged data/Edit Number, and Regular Assignment NULL remained unlimited. The labelled
-  tmpfs container was verified stopped and auto-removed. The proof was one-time and rollback-only;
-  live `8126` was untouched, and this does not claim deployed or runtime-wide SQL lock. Receipt:
-  `/private/tmp/ple-template-constraint-receipt-20260916.md`.
+- Recorded the bounded Template single-Attempt SQL receipt. Fresh canonical PostgreSQL 17 installation
+  as `ple_migrator` and actual-role `ple_auth`/`ple_app` proof passed: Quiz NULL create rejected with no
+  row, Quiz/Exam limit-one round-tripped, Exam NULL save rejected with unchanged data/Edit Number, and
+  Regular Assignment NULL remained unlimited. The labelled tmpfs container was verified stopped and
+  auto-removed. The proof was one-time and rollback-only; live `8126` was untouched, and this does not
+  claim deployed or runtime-wide SQL lock. Receipt: `/private/tmp/ple-template-constraint-receipt-20260916.md`.
 
 - Recorded the current connected Instructor WeBWorK preview delivery defect without changing a
   checklist status. Canonical runtime session 80773 reached `Ready` at `https://localhost:8126` and

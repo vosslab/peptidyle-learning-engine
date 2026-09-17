@@ -60,11 +60,12 @@ impl CourseRosterStore for PostgresCourseRosterStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let rows = sqlx::query("SELECT roster_id, state FROM ple_api.list_course_roster($1)")
-            .bind(course.as_string())
-            .fetch_all(&mut *transaction)
-            .await
-            .map_err(map_sqlx_error)?;
+        let rows =
+            sqlx::query("SELECT roster_id, roster_name, state FROM ple_api.list_course_roster($1)")
+                .bind(course.as_string())
+                .fetch_all(&mut *transaction)
+                .await
+                .map_err(map_sqlx_error)?;
         let entries = rows
             .iter()
             .map(decode_entry)
@@ -92,17 +93,22 @@ impl CourseRosterStore for PostgresCourseRosterStore {
             .iter()
             .map(|entry| entry.roster_id.clone())
             .collect::<Vec<_>>();
+        let roster_names = entries
+            .iter()
+            .map(|entry| entry.roster_name.clone())
+            .collect::<Vec<_>>();
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let rows = sqlx::query(
-            "SELECT roster_id, state \
-             FROM ple_api.import_course_roster($1, $2, $3, $4)",
+            "SELECT roster_id, roster_name, state \
+             FROM ple_api.import_course_roster($1, $2, $3, $4, $5)",
         )
         .bind(course.as_string())
         .bind(normalized_emails)
         .bind(delivery_emails)
         .bind(roster_ids)
+        .bind(roster_names)
         .fetch_all(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -178,6 +184,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<CourseRosterEntry, StoreE
     };
     Ok(CourseRosterEntry {
         roster_id: row.try_get("roster_id").map_err(map_sqlx_error)?,
+        roster_name: row.try_get("roster_name").map_err(map_sqlx_error)?,
         state,
     })
 }

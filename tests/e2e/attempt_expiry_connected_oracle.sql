@@ -133,12 +133,12 @@ $$;
 -- issued position remains in the possible-score denominator at zero credit.
 SET LOCAL ROLE ple_api_owner;
 INSERT INTO ple_private.course_roster_profile (
-    course_roster_profile_id, course_id, student_account_id, roster_id, created_at
+    course_roster_profile_id, course_id, student_account_id, roster_id, roster_name, created_at
 ) VALUES (
     'e3000000-0000-0000-0000-000000000003',
     '00000000-0000-0000-0000-00000000eb01',
     '00000000-0000-0000-0000-00000000ea02',
-    'expiry-student-920001', clock_timestamp()
+    'expiry-student-920001', 'Synthetic Expiry Student', clock_timestamp()
 )
 ON CONFLICT DO NOTHING;
 SET LOCAL ROLE ple_private_owner;

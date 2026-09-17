@@ -35,6 +35,7 @@ LOCAL_MARY_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[1].ac
 LOCAL_JACK_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[2].account_id
 LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[3].account_id
 LOCAL_MORGAN_SYSADMIN_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[4].account_id
+LOCAL_PRIYA_INSTRUCTOR_ACCOUNT_ID = local_stack_control.live_demo_seed.SEEDED_ACCOUNTS[5].account_id
 MIGRATION_DATABASE_OWNER = local_stack_control.lifecycle_database.MIGRATION_DATABASE_OWNER
 MIGRATION_ROLE = local_stack_control.lifecycle_database.MIGRATION_ROLE
 LIVE_DEMO_PERSONA_SETTINGS = tuple(
@@ -160,6 +161,7 @@ def configure_default_environment(
 	}
 	defaults.update({
 		"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID": LOCAL_INSTRUCTOR_ACCOUNT_ID,
+		"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID": LOCAL_PRIYA_INSTRUCTOR_ACCOUNT_ID,
 		"PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID": LOCAL_MARY_ACCOUNT_ID,
 		"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID": LOCAL_JACK_ACCOUNT_ID,
 		"PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID": LOCAL_APPROVAL_CANDIDATE_ACCOUNT_ID,
@@ -266,6 +268,7 @@ def validate_static(target: local_stack_control.models.ComposeTarget) -> dict[st
 	if local_stack_control.live_demo_gateway.is_tls_target(target):
 		required = required + (
 			"PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID", "PLE_LIVE_DEMO_MARY_STUDENT_ACCOUNT_ID",
+			"PLE_LIVE_DEMO_PRIYA_INSTRUCTOR_ACCOUNT_ID",
 			"PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID", "PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID",
 			"PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID",
 		)
@@ -841,44 +844,8 @@ def require_bundled_genetics_without_live_demo(
 ) -> None:
 	"""Prove the shipped Blueprint remains while the optional Demo root is absent."""
 	selected = target_of(target)
-	# The migrator image alone carries psql. Two fixed read-only queries use its
-	# existing capabilities: the migration role proves the Demo-only private
-	# roots are absent, and the API role proves the public reusable Blueprint is
-	# available while the fixed Demo Course is absent. Neither exposes a general
-	# SQL interface or broadens an application role.
-	script = (
-		"private_result=$(psql \"$PLE_MIGRATION_DATABASE_URL\" --no-psqlrc "
-		"--set=ON_ERROR_STOP=1 --quiet --tuples-only --no-align --command \""
-		"BEGIN; SET LOCAL ROLE ple_private_owner; "
-		"SELECT CASE WHEN "
-		"NOT EXISTS (SELECT 1 FROM ple_private.account WHERE account_id IN "
-		"('00000000-0000-0000-0000-000000000101'::uuid, "
-		"'00000000-0000-0000-0000-000000000102'::uuid, "
-		"'00000000-0000-0000-0000-000000000103'::uuid, "
-		"'00000000-0000-0000-0000-000000000104'::uuid, "
-		"'00000000-0000-0000-0000-000000000105'::uuid)) "
-		"AND NOT EXISTS (SELECT 1 FROM ple_private.account_authentication_email "
-		"WHERE account_id IN ('00000000-0000-0000-0000-000000000101'::uuid, "
-		"'00000000-0000-0000-0000-000000000102'::uuid, "
-		"'00000000-0000-0000-0000-000000000103'::uuid, "
-		"'00000000-0000-0000-0000-000000000104'::uuid)) "
-		"AND NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace "
-		"WHERE workspace_id = '00000000-0000-0000-0000-000000000201'::uuid) "
-		"THEN 'demo_roots_absent' ELSE 'invalid' END; COMMIT;\")\n"
-		"api_result=$(psql \"$DATABASE_URL\" --no-psqlrc --set=ON_ERROR_STOP=1 "
-		"--quiet --tuples-only --no-align --command \""
-		"BEGIN; SET LOCAL ROLE ple_app; "
-		f"SET LOCAL ple.session_account_id = '{BUNDLED_GENETICS_PUBLISHER_ACCOUNT_ID}'; "
-		"SELECT CASE WHEN "
-		"EXISTS (SELECT 1 FROM ple_api.list_blueprint_courses(false, true, 'Genetics', "
-		"NULL::text, NULL::text, 101) "
-		"WHERE short_name = 'Genetics' AND long_name = 'Fall Genetics' "
-		"AND availability = 'public' AND is_owner) "
-		f"AND NOT EXISTS (SELECT 1 FROM ple_api.read_course_theme('{LIVE_DEMO_COURSE_ID}'::uuid)) "
-		"THEN 'bundled_without_demo' ELSE 'invalid' END; COMMIT;\")\n"
-		"[ \"$private_result\" = demo_roots_absent ] && "
-		"[ \"$api_result\" = bundled_without_demo ] && "
-		"printf '%s\\n' \"$private_result/$api_result\""
+	script = local_stack_control.live_demo_seed.bundled_without_demo_oracle_script(
+		BUNDLED_GENETICS_PUBLISHER_ACCOUNT_ID, LIVE_DEMO_COURSE_ID
 	)
 	result = runner.run(
 		local_stack_control.compose.compose_argv(

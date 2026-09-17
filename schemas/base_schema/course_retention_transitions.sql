@@ -123,6 +123,13 @@ BEGIN
     IF TG_OP = 'DELETE' AND current_user = 'ple_course_retention_executor' THEN
         RETURN OLD;
     END IF;
+    IF TG_OP = 'UPDATE' AND current_user = 'ple_api_owner'
+       AND ROW(NEW.course_roster_profile_id, NEW.course_id, NEW.student_account_id,
+               NEW.roster_id, NEW.created_at)
+           IS NOT DISTINCT FROM ROW(OLD.course_roster_profile_id, OLD.course_id,
+               OLD.student_account_id, OLD.roster_id, OLD.created_at) THEN
+        RETURN NEW;
+    END IF;
     RAISE EXCEPTION USING ERRCODE = '55000', MESSAGE = 'a Course Roster Profile is immutable';
 END $$;
 

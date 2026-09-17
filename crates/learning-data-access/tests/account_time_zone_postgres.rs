@@ -241,10 +241,12 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
                     CourseRosterImportEntry {
                         email: "existing.student@example.edu".to_string(),
                         roster_id: "EXISTING".to_string(),
+                        roster_name: "Existing Synthetic Student".to_string(),
                     },
                     CourseRosterImportEntry {
                         email: "new.student@example.edu".to_string(),
                         roster_id: "NEW".to_string(),
+                        roster_name: "New Synthetic Student".to_string(),
                     },
                 ],
             },

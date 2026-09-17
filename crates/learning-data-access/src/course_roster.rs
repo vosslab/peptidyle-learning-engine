@@ -20,6 +20,8 @@ pub struct CourseRosterImportEntry {
     pub email: String,
     /// Course-scoped institutional roster identifier; never an Account identity.
     pub roster_id: String,
+    /// Instructor-provided human label retained only in this Course.
+    pub roster_name: String,
 }
 
 /// One bounded Course Roster Import request.
@@ -36,6 +38,7 @@ pub(crate) struct ValidatedCourseRosterImportEntry {
     pub normalized_email: String,
     pub delivery_email: String,
     pub roster_id: String,
+    pub roster_name: String,
 }
 
 impl CourseRosterImportInput {
@@ -81,10 +84,20 @@ impl CourseRosterImportInput {
                         "Course Roster Import roster identifier is invalid or repeated".to_string(),
                     ));
                 }
+                let roster_name = entry.roster_name.trim();
+                if roster_name.is_empty()
+                    || roster_name.chars().count() > 200
+                    || roster_name.chars().any(char::is_control)
+                {
+                    return Err(StoreError::InvalidRecord(
+                        "Course Roster Import name is invalid".to_string(),
+                    ));
+                }
                 Ok(ValidatedCourseRosterImportEntry {
                     normalized_email: email.normalized().to_string(),
                     delivery_email: email.delivery().to_string(),
                     roster_id: roster_id.to_string(),
+                    roster_name: roster_name.to_string(),
                 })
             })
             .collect()
@@ -104,6 +117,8 @@ fn is_institutional_student_email(email: &AuthenticationEmail) -> bool {
 pub struct CourseRosterEntry {
     /// Course-local roster identifier used for the roster and later export only.
     pub roster_id: String,
+    /// Private Course-local human label; not a global Account identity.
+    pub roster_name: String,
     /// Pending invitation or current Student Course Membership state.
     pub state: CourseRosterEntryState,
 }
@@ -170,6 +185,7 @@ mod tests {
             entries: vec![CourseRosterImportEntry {
                 email: "Student@biology.roosevelt.edu".to_string(),
                 roster_id: "bio301-student".to_string(),
+                roster_name: "Synthetic Student".to_string(),
             }],
         };
 
@@ -186,6 +202,7 @@ mod tests {
                 entries: vec![CourseRosterImportEntry {
                     email: email.to_string(),
                     roster_id: "bio301-student".to_string(),
+                    roster_name: "Synthetic Student".to_string(),
                 }],
             };
 
@@ -197,5 +214,37 @@ mod tests {
                 _ => panic!("noninstitutional email must be rejected before account resolution"),
             }
         }
+    }
+
+    #[test]
+    fn roster_names_are_course_labels_with_unicode_scalar_bounds() {
+        let input = |name: String| CourseRosterImportInput {
+            entries: vec![CourseRosterImportEntry {
+                email: "synthetic.student@example.edu".to_string(),
+                roster_id: "SYNTHETIC".to_string(),
+                roster_name: name,
+            }],
+        };
+        let valid = input("\u{00a0}Doe, Jane O'Brien\u{2003}".to_string())
+            .validated_entries()
+            .expect("trimmed punctuation is legitimate");
+        assert_eq!(valid[0].roster_name, "Doe, Jane O'Brien");
+        assert!(input("\u{1f9ec}".repeat(200)).validated_entries().is_ok());
+        for name in [
+            " ".to_string(),
+            "\u{1f9ec}".repeat(201),
+            "Jane\nDoe".to_string(),
+            "Jane\u{0085}Doe".to_string(),
+        ] {
+            assert!(input(name).validated_entries().is_err());
+        }
+        assert!(
+            serde_json::from_str::<CourseRosterImportEntry>(
+                r#"{"email":"synthetic@example.edu","rosterId":"S"}"#
+            )
+            .is_err()
+        );
+        assert!(serde_json::from_str::<CourseRosterImportEntry>(
+            r#"{"email":"synthetic@example.edu","rosterId":"S","rosterName":"Jane","globalName":"Jane"}"#).is_err());
     }
 }

@@ -28,6 +28,7 @@ test("live-demo decoders accept the closed Seeded Demo Accounts response", () =>
   const accounts = {
     accounts: [
       { persona: "elenaInstructor", displayName: "Elena Rivera" },
+      { persona: "priyaInstructor", displayName: "Priya Shah" },
       { persona: "maryStudent", displayName: "Mary Okafor" },
       { persona: "jackStudent", displayName: "Jack Nguyen" },
       { persona: "averyStudent", displayName: "Avery Thompson" },
@@ -44,7 +45,7 @@ test("live-demo decoders accept the closed Seeded Demo Accounts response", () =>
     () =>
       decodeSeededDemoAccounts({
         accounts: [{ ...accounts.accounts[0], role: "instructor" }],
-        unavailableAccountCount: 4,
+        unavailableAccountCount: 5,
       }),
     DecodeError,
   );
@@ -52,7 +53,7 @@ test("live-demo decoders accept the closed Seeded Demo Accounts response", () =>
     () =>
       decodeSeededDemoAccounts({
         accounts: [{ persona: "maryStudent", displayName: "M".repeat(201) }],
-        unavailableAccountCount: 4,
+        unavailableAccountCount: 5,
       }),
     DecodeError,
   );
@@ -64,10 +65,10 @@ test("live-demo decoder retains available personas and verifies the unavailable 
       { persona: "elenaInstructor", displayName: "Elena Rivera" },
       { persona: "morganSysadmin", displayName: "Morgan Delgado" },
     ],
-    unavailableAccountCount: 3,
+    unavailableAccountCount: 4,
   };
   assert.deepEqual(decodeSeededDemoAccounts(degraded), degraded);
-  for (const unavailableAccountCount of [-1, 6, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+  for (const unavailableAccountCount of [-1, 7, 1.5, Number.MAX_SAFE_INTEGER + 1]) {
     assert.throws(
       () => decodeSeededDemoAccounts({ ...degraded, unavailableAccountCount }),
       DecodeError,
@@ -90,7 +91,7 @@ test("direct-role requests stay same-origin, no-store, and carry only persona", 
       if (path === "/api/auth/live-demo/accounts" && request.method === "GET") {
         return jsonResponse({
           accounts: [{ persona: "morganSysadmin", displayName: "Morgan Delgado" }],
-          unavailableAccountCount: 4,
+          unavailableAccountCount: 5,
         });
       }
       return jsonResponse({ authenticated: true });

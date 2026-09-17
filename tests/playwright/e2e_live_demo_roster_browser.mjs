@@ -67,10 +67,11 @@ try {
   await page.waitForURL(/\/instructor\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}\/students$/u);
   await page.getByRole("heading", { name: "Students" }).waitFor();
   await page
-    .getByLabel("Email, roster ID")
-    .fill("mary.okafor@biology.roosevelt.edu,m9-browser-seeded");
+    .getByLabel("Email, roster ID, Course roster name")
+    .fill('mary.okafor@biology.roosevelt.edu,m9-browser-seeded,"Example, Synthetic Student"');
   await page.getByRole("button", { name: "Import roster" }).click();
-  await page.getByText("Roster import recorded.").waitFor();
+  await page.getByText("Roster import recorded.", { exact: false }).waitFor();
+  await page.getByText("Example, Synthetic Student", { exact: true }).waitFor();
   await page.getByText("Invitation pending").waitFor();
   await page.getByText("m9-browser-seeded").waitFor();
 } finally {

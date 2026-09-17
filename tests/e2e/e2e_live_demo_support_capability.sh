@@ -47,7 +47,7 @@ course_evidence="$(bash "$repository_root/tests/e2e/e2e_live_demo_course_instanc
 owned_course="$(printf '%s\n' "$course_evidence" | sed -n 's/^Course Instance support fixture: //p')"
 course_response="$(request '/api/course-instances' "$instructor_cookie")"; [ "$(status "$course_response")" = 200 ] || { echo "Instructor could not load Course Instances" >&2; exit 1; }
 course="$(course_reference "$(body "$course_response")" "$owned_course")"; sysadmin="$(sysadmin_reference)"
-imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"m17.support@biology.roosevelt.edu","rosterId":"m17-support"},{"email":"m18.support@biology.roosevelt.edu","rosterId":"m18-support"}]}')"
+imported="$(request "/api/course-instances/$course/roster" "$instructor_cookie" POST '{"entries":[{"email":"m17.support@biology.roosevelt.edu","rosterId":"m17-support","rosterName":"Synthetic Support Student"},{"email":"m18.support@biology.roosevelt.edu","rosterId":"m18-support","rosterName":"Synthetic Support Student"}]}')"
 [ "$(status "$imported")" = 201 ] || { echo "Instructor could not prepare the named Student support record" >&2; exit 1; }
 # A Sysadmin's platform authority never implies membership-based Course roster
 # access; exact-record repair is the only support path.
@@ -92,7 +92,7 @@ repair_record="$(request "$(repair_record_path "$student_repair")" "$sysadmin_co
 python3 -c 'import json,sys; x=json.loads(sys.argv[1]); expected={"rosterId","state"}; raise SystemExit(0 if set(x)==expected and x["rosterId"]=="m17-support" and x["state"]=="invitationPending" else "Exact Student support projection is invalid")' "$(body "$repair_record")"
 # Capability use never makes the Sysadmin a Course member or Instructor, so
 # the normal Instructor-only mutation remains concealed as well.
-concealed "$(request "/api/course-instances/$course/roster" "$sysadmin_cookie" POST '{"entries":[{"email":"m18.denied@biology.roosevelt.edu","rosterId":"m18-denied"}]}')"
+concealed "$(request "/api/course-instances/$course/roster" "$sysadmin_cookie" POST '{"entries":[{"email":"m18.denied@biology.roosevelt.edu","rosterId":"m18-denied","rosterName":"Synthetic Denied Student"}]}')"
 postgres="$(service_id postgres)"
 support_sql() { podman exec -i "$postgres" sh -lc 'exec psql -X -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At "$@"' sh "$@"; }
 # ASVS 8.3.2/8.3.3: a global Instructor cannot issue for an unrelated
@@ -110,8 +110,8 @@ SELECT :'authority_course_id','empty',:'authority_instructor_id','SUPPORT','Disp
 FROM ple_data.course_instance WHERE public_reference = split_part((SELECT resource_reference FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2);
 INSERT INTO ple_data.course_membership(membership_id,course_id,account_id,role,joined_at)
 VALUES (gen_random_uuid(),:'authority_course_id',:'authority_instructor_id','instructor',clock_timestamp());
-INSERT INTO ple_private.course_roster_profile(course_roster_profile_id,course_id,student_account_id,roster_id,created_at)
-SELECT :'authority_profile_id',:'authority_course_id',student_account_id,'m17-support',clock_timestamp()
+INSERT INTO ple_private.course_roster_profile(course_roster_profile_id,course_id,student_account_id,roster_id,roster_name,created_at)
+SELECT :'authority_profile_id',:'authority_course_id',student_account_id,'m17-support','Mary',clock_timestamp()
 FROM ple_private.course_roster_profile WHERE course_id=(SELECT course_id FROM ple_data.course_instance WHERE public_reference=split_part((SELECT resource_reference FROM ple_private.support_repair_capability WHERE capability_id=:'capability'), '/', 2)) AND roster_id='m17-support';
 INSERT INTO ple_private.course_invitation(invitation_id,course_id,target_account_id,membership_role,inviting_instructor_account_id,issued_at,expires_at)
 SELECT gen_random_uuid(),course_id,student_account_id,'student',:'authority_instructor_id',clock_timestamp(),clock_timestamp()+interval '1 hour'

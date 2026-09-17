@@ -14,6 +14,7 @@
 \ir question_lineages.sql
 \ir question_pools.sql
 \ir question_stewardship.sql
+\ir question_pool_stewardship.sql
 \ir question_watch_notifications.sql
 \ir object_records.sql
 \ir question_authoring_state.sql
@@ -27,6 +28,7 @@
 \ir blueprint_history.sql
 \ir blueprint_pools.sql
 \ir blueprint_lineage.sql
+\ir blueprint_change_proposals.sql
 \ir blueprint_stewardship.sql
 \ir blueprint_revision_integrity.sql
 \ir course_core.sql

@@ -28,7 +28,8 @@ BEGIN
             ('00000000-0000-0000-0000-000000000102'::uuid, 'student'::text),
             ('00000000-0000-0000-0000-000000000103'::uuid, 'student'::text),
             ('00000000-0000-0000-0000-000000000104'::uuid, 'student'::text),
-            ('00000000-0000-0000-0000-000000000105'::uuid, 'sysadmin'::text)
+            ('00000000-0000-0000-0000-000000000105'::uuid, 'sysadmin'::text),
+            ('00000000-0000-0000-0000-000000000107'::uuid, 'instructor'::text)
         ) AS expected(account_id, product_role)
         LEFT JOIN ple_private.account AS account
           ON account.account_id = expected.account_id
@@ -45,7 +46,8 @@ BEGIN
               ('00000000-0000-0000-0000-000000000102'::uuid),
               ('00000000-0000-0000-0000-000000000103'::uuid),
               ('00000000-0000-0000-0000-000000000104'::uuid),
-              ('00000000-0000-0000-0000-000000000105'::uuid)
+              ('00000000-0000-0000-0000-000000000105'::uuid),
+              ('00000000-0000-0000-0000-000000000107'::uuid)
           ) AS expected(account_id)
           LEFT JOIN LATERAL (
               SELECT event.state
@@ -61,7 +63,10 @@ BEGIN
     END IF;
     IF ple_private.verified_instructor_display_name(
         '00000000-0000-0000-0000-000000000101'::uuid
-    ) IS DISTINCT FROM 'Elena Martinez' THEN
+    ) IS DISTINCT FROM 'Elena Martinez'
+       OR ple_private.verified_instructor_display_name(
+           '00000000-0000-0000-0000-000000000107'::uuid
+       ) IS DISTINCT FROM 'Priya Shah' THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Live Demo Instructor vetted identity is incomplete';
     END IF;
@@ -70,7 +75,8 @@ BEGIN
             ('00000000-0000-0000-0000-000000000101'::uuid, 'elena.martinez@live-demo.invalid'::text),
             ('00000000-0000-0000-0000-000000000102'::uuid, 'mary.okafor@biology.roosevelt.edu'::text),
             ('00000000-0000-0000-0000-000000000103'::uuid, 'jack.nguyen@biology.roosevelt.edu'::text),
-            ('00000000-0000-0000-0000-000000000104'::uuid, 'avery.thompson@biology.roosevelt.edu'::text)
+            ('00000000-0000-0000-0000-000000000104'::uuid, 'avery.thompson@biology.roosevelt.edu'::text),
+            ('00000000-0000-0000-0000-000000000107'::uuid, 'priya.shah@live-demo.invalid'::text)
         ) AS expected(account_id, normalized_email)
         LEFT JOIN ple_private.account_authentication_email AS email
           ON email.account_id = expected.account_id
@@ -79,7 +85,10 @@ BEGIN
     )
        OR NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace
                        WHERE workspace_id = '00000000-0000-0000-0000-000000000201'
-                         AND owner_account_id = '00000000-0000-0000-0000-000000000101') THEN
+                         AND owner_account_id = '00000000-0000-0000-0000-000000000101')
+       OR NOT EXISTS (SELECT 1 FROM ple_private.authoring_workspace
+                       WHERE workspace_id = '00000000-0000-0000-0000-000000000206'
+                         AND owner_account_id = '00000000-0000-0000-0000-000000000107') THEN
         RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Live Demo authoring context is incomplete';
     END IF;
     IF current_setting('ple.installation_pilot_publication_session_id', true) IS NOT NULL
@@ -241,15 +250,16 @@ BEGIN
        )
        OR EXISTS (
            SELECT 1 FROM (VALUES
-               ('00000000-0000-0000-0000-000000000231'::uuid, '00000000-0000-0000-0000-000000000102'::uuid, 'BIO301-MARY'::text),
-               ('00000000-0000-0000-0000-000000000232'::uuid, '00000000-0000-0000-0000-000000000103'::uuid, 'BIO301-JACK'::text),
-               ('00000000-0000-0000-0000-000000000233'::uuid, '00000000-0000-0000-0000-000000000104'::uuid, 'BIO301-AVERY'::text)
-           ) AS expected(profile_id, student_id, roster_id)
+               ('00000000-0000-0000-0000-000000000231'::uuid, '00000000-0000-0000-0000-000000000102'::uuid, 'BIO301-MARY'::text, 'Mary'::text),
+               ('00000000-0000-0000-0000-000000000232'::uuid, '00000000-0000-0000-0000-000000000103'::uuid, 'BIO301-JACK'::text, 'Jack'::text),
+               ('00000000-0000-0000-0000-000000000233'::uuid, '00000000-0000-0000-0000-000000000104'::uuid, 'BIO301-AVERY'::text, 'Avery'::text)
+           ) AS expected(profile_id, student_id, roster_id, roster_name)
            LEFT JOIN ple_private.course_roster_profile AS profile
              ON profile.course_roster_profile_id = expected.profile_id
             AND profile.course_id = '00000000-0000-0000-0000-000000000220'
             AND profile.student_account_id = expected.student_id
             AND profile.roster_id = expected.roster_id
+            AND profile.roster_name = expected.roster_name
            WHERE profile.course_roster_profile_id IS NULL
        )
        OR EXISTS (

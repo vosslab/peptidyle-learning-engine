@@ -4,7 +4,7 @@ use std::{str::FromStr, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{DefaultBodyLimit, Path, State},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -42,6 +42,8 @@ pub fn course_roster_router(
             post(revoke_course_roster_entry),
         )
         .with_state(CourseRosterRouteState { sessions, roster })
+        // Fifty rows of bounded Unicode names plus emails/IDs and JSON escaping.
+        .layer(DefaultBodyLimit::max(256 * 1024))
 }
 
 async fn list_course_roster(

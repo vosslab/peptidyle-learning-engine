@@ -27,28 +27,39 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
     <Show
       when={props.gradebook.studentWork.length > 0}
       fallback={
-        <section class="gradebook-empty" aria-label="No active Student Work">
-          <h2>No active Students yet</h2>
-          <p>Student Assessment progress will appear here as answer-free course evidence.</p>
+        <section class="gradebook-empty" aria-label="No student progress to review">
+          <h2>No student progress to review yet</h2>
+          <p>
+            Progress and scores appear here when this Course has active Students and released
+            Coursework.
+          </p>
         </section>
       }
     >
-      <div class="gradebook-table-wrap" role="region" aria-label="Gradebook evidence">
+      <div class="gradebook-table-wrap" role="region" aria-label="Student progress and scores">
         <table class="gradebook-table">
           <thead>
             <tr>
-              <th scope="col">Roster ID</th>
-              <th scope="col">Assessment</th>
-              <th scope="col">Progress</th>
-              <th scope="col">Score</th>
+              <th scope="col">Student</th>
+              <th scope="col">Coursework</th>
+              <th scope="col">Progress status</th>
+              <th scope="col">Current score</th>
             </tr>
           </thead>
           <tbody>
             <For each={props.gradebook.studentWork}>
               {(work) => (
                 <tr>
-                  <td>{work.rosterId}</td>
-                  <td>{work.assessmentReference}</td>
+                  <td>
+                    {/* ASVS 1.2.1: roster names remain escaped text, never markup. */}
+                    <div>{work.rosterName}</div>
+                    <small>{work.rosterId}</small>
+                  </td>
+                  <td>
+                    {/* ASVS 1.2.1: JSX renders the Course title as text, never markup. */}
+                    <div>{work.assessmentTitle}</div>
+                    <small>{work.assessmentReference}</small>
+                  </td>
                   <td>{progressLabel(work.assessmentAttemptCompletion)}</td>
                   <td>{scoreLabel(work)}</td>
                 </tr>
@@ -68,13 +79,10 @@ function GradebookCoursePage(props: { readonly course: CourseInstanceReference }
     <section class="page gradebook-page" data-route-surface="gradebook">
       <p class="eyebrow">Course progress</p>
       <h1>Gradebook</h1>
-      <p class="page-lede">
-        Immutable grading evidence for this Course Instance. Student responses, Question answers,
-        Answer Keys, source content, and grader internals are not displayed here.
-      </p>
+      <p class="page-lede">Review student progress and scores for released Coursework.</p>
       <Show when={gradebook.loading}>
         <p class="loading-state" role="status">
-          Loading Gradebook evidence...
+          Loading student progress and scores...
         </p>
       </Show>
       <Show when={gradebook.error !== undefined}>

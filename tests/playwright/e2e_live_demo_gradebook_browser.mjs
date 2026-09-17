@@ -3,7 +3,7 @@
 import { chromium } from "playwright";
 
 const [port, course] = process.argv.slice(2);
-if (!/^[0-9]+$/u.test(port ?? "") || !/^C-[1-9][0-9]{0,9}$/u.test(course ?? "")) {
+if (!/^[0-9]+$/u.test(port ?? "") || !/^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u.test(course ?? "")) {
   throw new Error("expected the fixed HTTPS gateway port and a Course Instance reference");
 }
 
@@ -47,25 +47,31 @@ try {
     typeof first !== "object" ||
     Array.isArray(first) ||
     Object.keys(first).sort().join(",") !==
-      "assignmentAttemptCompletion,assignmentReference,expiredSubmitting,rosterId,score"
+      "assessmentAttemptCompletion,assessmentReference,assessmentTitle,expiredSubmitting,rosterId,rosterName,score"
   ) {
     throw new Error("Gradebook browser received non-answer-free Student Work evidence");
   }
 
   await page.locator('[data-route-surface="gradebook"]').waitFor();
   await page.getByRole("heading", { name: "Gradebook", exact: true }).waitFor();
-  const evidence = page.getByRole("region", { name: "Gradebook evidence" });
+  const evidence = page.getByRole("region", { name: "Student progress and scores" });
   await evidence.getByText(first.rosterId, { exact: true }).waitFor();
-  await evidence.getByText(first.assignmentReference, { exact: true }).waitFor();
+  await evidence.getByText(first.rosterName, { exact: true }).first().waitFor();
+  await evidence.getByText(first.assessmentTitle, { exact: true }).first().waitFor();
+  await evidence
+    .locator("small")
+    .getByText(first.assessmentReference, { exact: true })
+    .first()
+    .waitFor();
   const rendered = (await evidence.textContent()) ?? "";
   if (/student response|answer key|source content|grader internals/i.test(rendered)) {
     throw new Error("Gradebook browser rendered non-answer-free evidence");
   }
 
   const foreignResponse = page.waitForResponse((candidate) =>
-    candidate.url().endsWith("/api/course-instances/C-2147483647/gradebook"),
+    candidate.url().endsWith("/api/course-instances/CI000000/gradebook"),
   );
-  await page.goto(`${origin}/instructor/courses/C-2147483647/gradebook`, {
+  await page.goto(`${origin}/instructor/courses/CI000000/gradebook`, {
     waitUntil: "domcontentloaded",
   });
   if ((await foreignResponse).status() !== 404) {

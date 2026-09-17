@@ -9,7 +9,8 @@ INSERT INTO ple_private.account (account_id, product_role, created_at) VALUES
     ('00000000-0000-0000-0000-000000000102', 'student', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000103', 'student', clock_timestamp()),
     ('00000000-0000-0000-0000-000000000104', 'student', clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000105', 'sysadmin', clock_timestamp())
+    ('00000000-0000-0000-0000-000000000105', 'sysadmin', clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000107', 'instructor', clock_timestamp())
 ON CONFLICT (account_id) DO NOTHING;
 
 INSERT INTO ple_private.account_authentication_email (
@@ -18,7 +19,8 @@ INSERT INTO ple_private.account_authentication_email (
     ('00000000-0000-0000-0000-000000000101', 'elena.martinez@live-demo.invalid', 'elena.martinez@live-demo.invalid', clock_timestamp(), clock_timestamp()),
     ('00000000-0000-0000-0000-000000000102', 'mary.okafor@biology.roosevelt.edu', 'mary.okafor@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
     ('00000000-0000-0000-0000-000000000103', 'jack.nguyen@biology.roosevelt.edu', 'jack.nguyen@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
-    ('00000000-0000-0000-0000-000000000104', 'avery.thompson@biology.roosevelt.edu', 'avery.thompson@biology.roosevelt.edu', clock_timestamp(), clock_timestamp())
+    ('00000000-0000-0000-0000-000000000104', 'avery.thompson@biology.roosevelt.edu', 'avery.thompson@biology.roosevelt.edu', clock_timestamp(), clock_timestamp()),
+    ('00000000-0000-0000-0000-000000000107', 'priya.shah@live-demo.invalid', 'priya.shah@live-demo.invalid', clock_timestamp(), clock_timestamp())
 ON CONFLICT (account_id) DO NOTHING;
 
 -- The canonical Instructor is represented by the same immutable vetting and
@@ -36,6 +38,16 @@ BEGIN
         '00000000-0000-0000-0000-000000000101'::uuid,
         '00000000-0000-0000-0000-000000000105'::uuid, decision
     );
+    -- ASVS 8.3.1: Priya receives ordinary immutable vetting/creation evidence,
+    -- not a selector-only role or academic authority grant.
+    SELECT ple_audit.record_completed_instructor_identity_vetting_decision(
+        'priya.shah@live-demo.invalid', 'Priya Shah',
+        '00000000-0000-0000-0000-000000000105'::uuid
+    ) INTO decision;
+    PERFORM ple_audit.record_instructor_account_creation_event(
+        '00000000-0000-0000-0000-000000000107'::uuid,
+        '00000000-0000-0000-0000-000000000105'::uuid, decision
+    );
 END
 $$;
 
@@ -44,6 +56,11 @@ $$;
 INSERT INTO ple_private.authoring_workspace (workspace_id, owner_account_id, created_at)
 VALUES ('00000000-0000-0000-0000-000000000201',
         '00000000-0000-0000-0000-000000000101', clock_timestamp())
+ON CONFLICT (workspace_id) DO NOTHING;
+
+INSERT INTO ple_private.authoring_workspace (workspace_id, owner_account_id, created_at)
+VALUES ('00000000-0000-0000-0000-000000000206',
+        '00000000-0000-0000-0000-000000000107', clock_timestamp())
 ON CONFLICT (workspace_id) DO NOTHING;
 
 -- A new session is supplied on every publisher invocation.  Use the ordinary

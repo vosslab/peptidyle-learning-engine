@@ -297,7 +297,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
     }
 }
 
-async fn load_pool_memberships(
+pub(super) async fn load_pool_memberships(
     transaction: &mut Transaction<'_, Postgres>,
     revisions: &[StoredBlueprintRevision],
 ) -> Result<BTreeMap<QuestionPoolRevisionReference, Vec<QuestionRevisionReference>>, StoreError> {
