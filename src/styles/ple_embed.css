@@ -4,7 +4,11 @@
   --ple-font-mono:
     "Atkinson Hyperlegible Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", monospace;
+  --ple-document-font-size: 16px;
+  --ple-document-line-height: 1.48;
   --bs-body-font-family: var(--ple-font-text);
+  --bs-body-font-size: var(--ple-document-font-size);
+  --bs-body-line-height: var(--ple-document-line-height);
   --bs-font-monospace: var(--ple-font-mono);
   background: var(--ple-document-background, #ffffff);
   color: var(--ple-document-foreground, #1b1b1b);
@@ -18,9 +22,16 @@ body {
   max-width: 100%;
 }
 
+html {
+  font-size: var(--ple-document-font-size);
+  line-height: var(--ple-document-line-height);
+}
+
 body {
   margin: 0;
   padding: 1rem;
+  font-size: var(--ple-document-font-size);
+  line-height: var(--ple-document-line-height);
 }
 
 input,
@@ -28,6 +39,7 @@ button,
 select,
 textarea {
   font: inherit;
+  line-height: var(--ple-document-line-height);
 }
 
 :focus-visible {

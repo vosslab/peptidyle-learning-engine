@@ -30,6 +30,8 @@ export interface LiveStudentAssessmentLandingSummary {
   readonly assessmentAttemptCompletion: AssessmentAttemptCompletion | null;
   readonly canResumeAssessmentAttempt: boolean;
   readonly gradedQuestionCount: number;
+  /** Complete durable saved responses in the latest Attempt, without grading meaning. */
+  readonly savedQuestionCount: number;
   readonly questionCount: number;
   /** Omitted unless the selected highest submitted Attempt releases its Assessment score. */
   readonly assessmentScore?: AssessmentGradeContribution;

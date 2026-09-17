@@ -1,27 +1,33 @@
 # SQL production-readiness audit: Human Guidance and database speed
 
-Status: Final SQL-only production-readiness audit, 2026-09-16. Recommendations
-only. This audit writes its report; it does not change SQL, application code,
-existing documentation, or Git staging/history.
+Status: Historical SQL-only production-readiness audit, dated 2026-09-16, with
+dated narrow evidence addenda. Recommendations remain current except where an
+addendum explicitly supersedes a historical finding.
 
 ## Production-readiness conclusion
 
-**The audited SQL should not be approved for production in its current form.**
-Two reproduced database defects establish this conclusion without relying on
-browser behavior or treating every missing application feature as a database
-failure:
+**This audit does not approve the SQL for production in its current form.**
+The two reproduced database defects that established the original conclusion
+are now narrowly corrected in current source and supported by fresh PostgreSQL
+17.11 actual-role receipts: retained Question statistics increment from the
+private receipt winner rather than rebuilding after deletion, and support
+capability issuance no longer takes the redundant Account key-share lock.
+Those receipts supersede the two historical blockers only; they do not certify
+the remaining SQL or product boundaries below.
 
-1. Rebuilding Question statistics after private observation receipts are deleted
-   overwrites aggregate totals that Human Guidance requires PLE to retain.
-2. The installed support-capability issuance command fails because its definer
-   cannot take the Account row lock used by that command.
+The SQL also has remaining unverified or incomplete boundaries, particularly
+Course/Pool classification, Bloom metadata, Blueprint Change Proposals, and
+archive recovery. A narrower production scope could deliberately exclude an
+unfinished capability, but this audit does not assume such an approved scope or
+certify those paths.
 
-The SQL also lacks persistence/invariants for several required product concepts,
-particularly Course/Pool classification, Bloom metadata, Blueprint Change
-Proposals, and archive recovery. These are incomplete SQL capabilities, separate
-from the two reproduced defects. A narrower production scope could deliberately
-exclude an unfinished capability, but this audit does not assume such an approved
-scope or certify those paths.
+Historical source-only Course-purge reproduction is now superseded for its
+narrow boundary by a fresh canonical PostgreSQL 17.11 actual-role receipt. The
+canonical validator privilege correction is included: the retention executor can
+run the Course classification CHECK without a workaround grant, while PUBLIC
+execution remains revoked. That receipt does not expand the two narrow
+corrections above or certify complete purge descendants, worker execution,
+deployed behavior, or SQL locking outside the four observed wait orientations.
 
 Successful installation, forced RLS, fixed definer search paths, and immutable
 evidence provide a strong foundation. They do not establish correct execution of
@@ -89,17 +95,17 @@ this boundary: owning base modules may change before the first human-approved
 production deployment; afterward, structural changes use immutable forward
 migrations. Complete the foundational model work before that deployment.
 
-### Priority 1: repair reproduced defects
+### Historical Priority 1: corrected reproduced defects
 
 | Required change | SQL affected | Finished behavior |
 | --- | --- | --- |
 | Replace statistics reconstruction from deletable private receipts with a retained aggregate model | `statistics.sql`, retention cascades, `unrelease.sql` | FERPA deletion cannot reduce approved historical totals. New observations update exactly once; duplicate processing and concurrent observations cannot double count or lose increments. Define correction and Unrelease semantics explicitly rather than treating them as ordinary receipt reconstruction. |
 | Repair support-capability Account lock/privilege design | `support_repair_capability.sql`, Account grants and narrow repair projections | The legitimate support command succeeds under its actual definer and caller roles. An unrelated Instructor cannot issue access to another Course's records; a Sysadmin cannot substitute a different resource, purpose, recipient or expired/revoked capability. Issuance/use remain audited. |
 
-These changes are needed even for a narrower initial release that excludes other
-unfinished features. Do not solve the support failure by granting general Account
-mutation to the application role. Decide whether the lock is necessary and, if
-so, express its narrowly owned capability deliberately.
+The two listed changes are now in current source and have the narrow receipts
+described below. They remain historical audit recommendations, not proof that
+the broader release boundary is ready. Neither correction grants general Account
+mutation to the application role.
 
 ### Priority 2: settle required data contracts before the schema is frozen
 
@@ -136,8 +142,9 @@ to make this audit look complete.
   callers change without treating the receipt as a runtime-wide SQL lock.
 - Review supported writes under the actual role graph: row-lock privileges,
   cross-schema ownership, fixed definer paths, private table grants and RLS
-  predicates. The support failure shows why a successful superuser install alone
-  is insufficient. Inspect both authorized success and unauthorized isolation.
+  predicates. The historical support failure shows why a successful superuser
+  install alone is insufficient. Inspect both authorized success and
+  unauthorized isolation.
 - Confirm that updates cannot replace delivered evidence, revision numbers stay
   sequential, unchanged saves do not create history, stale edits do not overwrite,
   and point changes leave credit fractions unchanged. These contracts are more
@@ -171,9 +178,9 @@ on source inspection alone.
 Index and query changes remain possible after launch. Required identities,
 nullability, metadata ownership, revision relationships, retention semantics and
 capability boundaries deserve the earlier decisions because they determine the
-meaning of existing data. Approve the frozen SQL only once the reproduced defects
-are repaired and the required production data contract is implemented or its
-deliberate scope exclusions are recorded.
+meaning of existing data. Approve the frozen SQL only once the remaining required
+production data contract is implemented or its deliberate scope exclusions are
+recorded.
 
 ## Speed recommendations
 
@@ -329,7 +336,7 @@ from these SQL directories.
 
 ## SQL alignment with Human Guidance
 
-### Confirmed defect: retained statistics can be overwritten after deletion
+### Historical defect: retained statistics after deletion
 
 Human Guidance's FERPA/statistics sections require aggregate statistics to
 survive deletion of Student data. Retention deletes Attempt records and their
@@ -348,12 +355,19 @@ and rebuild function with minimal referenced-table scaffolding:
 | Delete one Attempt and its receipt | 2 | 1 |
 | Invoke the production rebuild again | 1 | 0 |
 
-This demonstrates the arithmetic/cascade failure, not execution of the complete
-authorized Course retention workflow. Fix the persistence model so deletion of
-private evidence cannot reduce already retained totals. This is a high-priority
-correctness issue and closely related to speed recommendation 2.
+This historical reproduction demonstrates the arithmetic/cascade failure, not
+execution of the complete authorized Course retention workflow. Current
+`statistics.sql` eliminates the rebuild path: its receipt winner calls the
+transactional `ple_data.increment_question_revision_statistics` UPSERT helper,
+and `unrelease.sql` no longer reads receipts or reconstructs counts. The fresh
+actual-role PostgreSQL 17.11 receipt at `/private/tmp/ple-sql-final-statistics.log`
+records retained counts through authorized Unrelease, duplicate refusal,
+concurrent increments, and rollback of a forced helper failure. It is narrow:
+it does not establish whole-Course retention, a full new-grade lifecycle after
+purge, public-statistics disclosure or thresholds, performance, or all SQL
+locking.
 
-### Confirmed defect: support-capability issuance cannot take its Account lock
+### Historical defect: support-capability issuance Account lock
 
 The full installed schema was exercised as `ple_app` with an Instructor session
 context and an active target Sysadmin. Calling
@@ -363,12 +377,17 @@ lines 147-191, failed with `permission denied for table account` at its
 [accounts.sql](../../../schemas/base_schema/accounts.sql), line 188, is SELECT
 only; the row-locking operation also requires the relevant UPDATE privilege.
 
-This blocks the SQL support workflow described by Human Guidance. Reconsider
-the necessary lock/ownership boundary rather than broadly granting Account
-updates. Separately, issuance validates the actor's global Instructor role but
-does not visibly bind the resource reference to that Instructor's Course
-authority. That is a source-only authorization concern for the repaired path;
-the failing issuance test did not demonstrate successful unauthorized access.
+Current `support_repair_capability.sql` removes that redundant Account lock
+without granting Account UPDATE. It resolves the canonical Student roster
+resource, requires the issuing Instructor's exact Course authority, and retains
+recipient/resource, expiry, revocation, and immutable-audit checks. The fresh
+actual-role PostgreSQL 17.11 receipt at
+`/private/tmp/ple-support-exact-authority-result.log` covers allowed issuance
+and use plus the named denial and audit cases. This supports the corrected
+Student-roster capability only. It does not prove all support access, all
+resource classes, concurrency, connected deployment, or a general FERPA
+authorization conclusion; canonical installation alone would not prove any of
+those boundaries.
 
 ### Partial implementation: classification, Pools, and publication metadata
 
@@ -645,8 +664,8 @@ pg_amcheck -U postgres -d audit_graph --install-missing \
 It exited zero without error output. Fresh, mostly empty tables make this a
 limited physical-integrity result. PostgreSQL has no built-in command that
 answers whether a schema is production-ready or complies with Human Guidance.
-The tool results supplement, rather than override, the two reproduced blockers
-and the required pre-freeze model work.
+The tool results supplement, rather than override, the historical blocker
+receipts and the remaining required pre-freeze model work.
 
 ## Filtered Human Guidance comparison
 
@@ -676,14 +695,14 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Instructor role, 148-157: vetted identity before creation; same global capabilities | [accounts.sql](../../../schemas/base_schema/accounts.sql): vetting decision, Instructor creation event and commands | Supported source path. No separate higher teaching Product Role is modeled. |
 | Instructor role, 148-157: private Course authority through membership | [authorization.sql](../../../schemas/base_schema/authorization.sql): exact Course Instructor/member predicates | Supported source path. Runtime review did not exhaust every RLS policy/caller. |
 | Instructor role, 148-157: answer-free Student view without identity change | [assessment_student_view.sql](../../../schemas/base_schema/assessment_student_view.sql): Instructor-scoped preview source/duration reads | Boundary. SQL authorizes as Instructor; source stripping and rendered absence of answers are application responsibilities. |
-| Student role, 158-179: global Account survives Course/term and Course retention | [course_membership.sql](../../../schemas/base_schema/course_membership.sql): separate Account and Course-scoped Student Record; [course_retention_transitions.sql](../../../schemas/base_schema/course_retention_transitions.sql): purge | Supported source model. Course deletion does not own/delete the global Account. |
+| Student role, 158-179: global Account survives Course/term and Course retention | [course_membership.sql](../../../schemas/base_schema/course_membership.sql): separate Account and Course-scoped Student Record; [course_retention_transitions.sql](../../../schemas/base_schema/course_retention_transitions.sql): purge | Accepted narrow actual-role receipt: one global Student Account remained after one adopted daughter was purged, while its Course-scoped memberships, records, profiles, invitations, and events were removed. This is not a complete descendant or deployed purge claim. |
 | Student role, 158-179: immutable Student email, multiple passkeys | [authentication.sql](../../../schemas/base_schema/authentication.sql): email-role trigger and many-to-one `passkey.account_id` | Supported. The email trigger rejects Student email updates. |
 | Student role, 158-179: find/create Student by institutional email during roster import | [accounts.sql](../../../schemas/base_schema/accounts.sql): Student resolver; [course_operations.sql](../../../schemas/base_schema/course_operations.sql): roster import | Boundary. Identity reuse exists; institutional eligibility remains a browser/server policy question. |
 | Student role, 158-179: Instructor can reset login access/send signup code | [authentication.sql](../../../schemas/base_schema/authentication.sql): passkey revocation/session/challenge records; [course_roster.sql](../../../schemas/base_schema/course_roster.sql): invitations | Boundary. Primitives exist; a complete Course-authorized reset operation was not established by SQL review. |
 | Student role, 158-179: ending enrollment revokes access without immediately deleting work; later restoration | [course_membership.sql](../../../schemas/base_schema/course_membership.sql): immutable episodes, started/ended events, one active episode | Supported persistence model. Restoration uses a new episode, not rewriting an ended episode. Full command execution was not tested. |
 | Student role, 158-179: bulk add, individual removal, no bulk removal product operation | [course_operations.sql](../../../schemas/base_schema/course_operations.sql): array roster import; membership transition model | Boundary. Bulk import exists; UI/command exposure of removals is outside the reviewed SQL guarantee. |
 | Sysadmin role, 180-191: platform authority does not automatically confer FERPA access | [authorization.sql](../../../schemas/base_schema/authorization.sql): distinct platform and Course predicates; [support_repair_capability.sql](../../../schemas/base_schema/support_repair_capability.sql) | Partial. The architecture separates scope; repaired support issuance also needs issuer/resource authority review. |
-| Sysadmin role, 180-191: task-scoped and audited support access | [support_repair_capability.sql](../../../schemas/base_schema/support_repair_capability.sql): issue command and capability events; roster repair projection | Defect. Installed issuance fails on Account row-lock privilege. No unauthorized read was demonstrated. |
+| Sysadmin role, 180-191: task-scoped and audited support access | [support_repair_capability.sql](../../../schemas/base_schema/support_repair_capability.sql): issue command and capability events; roster repair projection | Historical lock defect is corrected narrowly with a PostgreSQL 17.11 actual-role receipt. The current Student-roster capability does not establish all support or FERPA authority. |
 | Profile avatar interface, 312-333: random initial gallery avatar; shared gallery; Students cannot upload; Instructor/Sysadmin self images | [profile_media.sql](../../../schemas/base_schema/profile_media.sql): initial-avatar trigger, self-owned image validation and role-scoped operations; [provided_avatar_catalog.sql](../../../schemas/base_schema/provided_avatar_catalog.sql) | Supported database structure. Crop UI, pixel checks and cross-system media execution remain outside SQL certification. |
 
 ### Identity, classification, privacy, retention, and time
@@ -701,15 +720,15 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Data and history, 627-634: separate public from answer-bearing/identifying/private data | [foundation_roles.sql](../../../schemas/base_schema/foundation_roles.sql), private/data/audit schemas and command grants | Supported architecture; catalog confirms forced RLS. A complete policy adversarial audit is not claimed. |
 | Student and FERPA data, 691-709: exact Course membership and Student ownership | [authorization.sql](../../../schemas/base_schema/authorization.sql): exact record ownership; [assessment_attempt_operations.sql](../../../schemas/base_schema/assessment_attempt_operations.sql): current-Attempt ownership assertion | Supported source paths, subject to the support-scope concern already identified. |
 | Data/history and FERPA, 627-634 and 691-709: no Student evidence in ordinary logs/analytics/URLs/browser storage | Private evidence tables and narrow projections | Boundary. SQL separation contributes; logging, URLs and browser storage cannot be certified from schema files. |
-| FERPA, 691-709: Student Work/Attempts/submissions/grades follow Course purge; teaching definitions remain | [course_retention_transitions.sql](../../../schemas/base_schema/course_retention_transitions.sql): targeted deletion and dependent cascades | Supported source design. Entire authorized purge and object-store cleanup were not runtime-tested here. |
-| FERPA/statistics, 691-709 and 1015-1033: privacy-safe aggregates survive Student deletion | [statistics.sql](../../../schemas/base_schema/statistics.sql): rebuild; Attempt/receipt cascade | Defect. Retained counts are reduced by the next rebuild after receipt deletion. |
+| FERPA, 691-709: Student Work/Attempts/submissions/grades follow Course purge; teaching definitions remain | [course_retention_transitions.sql](../../../schemas/base_schema/course_retention_transitions.sql): targeted deletion and dependent cascades | Historical source-only assessment is superseded narrowly: fresh canonical actual-role archive/purge removed the observed Course-scoped Student evidence while teaching definitions and the other daughter remained. The fixture had no submitted Student Work, so descendant deletion, object-store cleanup, workers, deployment, and complete purge remain open. |
+| FERPA/statistics, 691-709 and 1015-1033: privacy-safe aggregates survive Student deletion | [statistics.sql](../../../schemas/base_schema/statistics.sql): receipt-gated increment; Attempt/receipt cascade | Historical rebuild defect is corrected narrowly with a PostgreSQL 17.11 actual-role receipt. Whole-Course retention and public-statistics policy remain unverified. |
 | FERPA/statistics, 691-709 and 1015-1033: no individual reconstruction; privacy thresholds for shared rollups | [statistics.sql](../../../schemas/base_schema/statistics.sql): count tables, private receipts and grants | Boundary/Partial. Aggregates are distinct from evidence, but thresholded shared display is not implemented here. No public disclosure was reproduced. |
 | Retention, 710-733: six-month creation-based Active cap; dates cannot extend beyond it | [course_core.sql](../../../schemas/base_schema/course_core.sql): UTC six-month cutoff and immutable schedule; Assessment validation | Supported source enforcement. |
 | Retention, 710-733: latest Assessment deadline starts retention; changing deadlines moves it within cap | [assessment_deadline_sync.sql](../../../schemas/base_schema/assessment_deadline_sync.sql): maximum current due instant and Course synchronization | Supported. No-deadline fallback is Active cutoff; that fallback is an implementation choice, not explicit HG wording. |
 | Retention, 710-733: inactivity, retention start, archive and deletion are distinct | [course_core.sql](../../../schemas/base_schema/course_core.sql), [course_retention_transitions.sql](../../../schemas/base_schema/course_retention_transitions.sql) | Supported. Inactivity alone does not purge Student Work. |
 | Retention, 710-733: configurable intervals; warnings before inactivity/archive | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): policy table; [course_retention_notifications.sql](../../../schemas/base_schema/course_retention_notifications.sql): queued/provider-acceptance evidence | Supported database scheduling/evidence. Actual notification delivery is external. Defaults are operational configuration. |
-| Retention, 710-733: archived work hidden ordinarily but recoverable until permanent deletion | [student_assessment_landing.sql](../../../schemas/base_schema/student_assessment_landing.sql): ordinary-visibility predicate; [assessment_attempt_history.sql](../../../schemas/base_schema/assessment_attempt_history.sql): limited archive executor projection | Partial. Ordinary exclusion exists; complete authorized recovery does not. Retained physical rows alone do not establish recovery. |
-| Retention processing, 734-741: stored-date decisions, late execution gives same decisions, repeated runs safe | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): absolute scheduled actions; transition state checks and notification keys | Supported source scheduling/idempotency design. No complete late/repeated execution scenario was run in this audit. |
+| Retention, 710-733: archived work hidden ordinarily but recoverable until permanent deletion | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): ordinary-visibility helper; [assessment_attempt_access.sql](../../../schemas/base_schema/assessment_attempt_access.sql): Student context/access and active-reference readers | Accepted narrow ordinary-read correction: fresh canonical PostgreSQL 17 actual-role evidence hides archived context, access, and active references through the existing helper, while inactive-but-unarchived Work and Instructor Course metadata/teaching definitions remain available. This does not establish recovery access or closure: explicit Course Instructor recovery implementation, including race/expiry proof and an Instructor UI, remains open. Receipt: `/private/tmp/ple-ordinary-archive-visibility-20260916.md`; review: `/private/tmp/ple-ordinary-archive-visibility-review-20260916.md`. |
+| Retention processing, 734-741: stored-date decisions, late execution gives same decisions, repeated runs safe | [course_retention.sql](../../../schemas/base_schema/course_retention.sql): absolute scheduled actions; transition state checks and notification keys | Narrow receipt observed repeat purge returning false with the captured scalar unchanged. It does not establish complete late/worker scheduling, retry, or deployed execution. |
 | Dates/time zones, 762-773: deadlines are instants; IANA zones independent of stored deadline | [assessments.sql](../../../schemas/base_schema/assessments.sql): timestamptz; [accounts.sql](../../../schemas/base_schema/accounts.sql): zone validation | Supported storage model; date-entry interpretation and display are outside SQL. |
 | Dates/time zones, 762-773: invited Student defaults to Instructor zone | [course_operations.sql](../../../schemas/base_schema/course_operations.sql): `apply_student_invitation_time_zone_default` invocation | Supported source path. Later zone changes are separate from deadline mutation. |
 
@@ -762,7 +781,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Change Proposals, 1177-1203: exact source/target pins, canonical proposed JSON, selected acceptance, durable outcome, stale-target handling; no direct daughter mutation | No corresponding proposal/acceptance persistence or command in either directory | Gap. Existing Question corrections are not Blueprint Change Proposals. |
 | Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): content JSON has modules; names are separate metadata; comparison loads both | Boundary/Partial. Stored content alone is not complete exchange JSON. Application assembly/round-trip was not reviewed; missing classification limits completeness today. |
 | Course Instances, 1232-1244: only co-Instructors/enrolled Students; teaching data; retained inactive metadata; new term uses new Instance | Course membership policies and lifecycle; no distinct rollover object | Supported source representation/access paths, not an exhaustive policy proof. |
-| Adoption counts, 1245-1261: count daughter Instances, retain parent/exact source | [course_core.sql](../../../schemas/base_schema/course_core.sql): source relationship; [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): discovery count | Supported. Derived lifetime Student metric separately degrades when memberships are purged. |
+| Adoption counts, 1245-1261: count daughter Instances, retain parent/exact source | [course_core.sql](../../../schemas/base_schema/course_core.sql): source relationship; [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): discovery count | Narrow actual-role receipt retained each deleted daughter's anonymous distinct Account count exactly once; ordinary reimport/reclaim did not alter it. Broader discovery, worker, and deployed behavior remain unproved. |
 | Names, 1262-1271: independent deliberate short/long names, short name preferably under about 16 characters | Course/Blueprint name fields and rename operations | Supported. The suggested compact length is guidance, not a mandatory SQL 16-character constraint. |
 
 ### Assessments, Attempts, submission, disclosure, and scoring
@@ -778,7 +797,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Submission defaults, 1370-1375: late work rejected; no new starts/submissions beyond due by default | [assessment_creation.sql](../../../schemas/base_schema/assessment_creation.sql): reject default; Attempt start/finalization due logic | Supported source defaults. Live Demo's explicit late-work acceptance is an override, not a global-default defect. |
 | Disclosure, 1376-1390: independent policies; Practice answers after submit; Quiz/Exam only after all Students complete, not correctness | Attempt policy snapshots; [assessment_attempt_history.sql](../../../schemas/base_schema/assessment_attempt_history.sql): submission-based cohort predicate | Boundary. SQL supplies immutable policy/cohort facts; adapter/server enforcement of answer disclosure was not audited. Creation's `after_submit` alone is not proof of premature Quiz answers. |
 | Disclosure/feedback, 1376-1390: backend feedback independent from correct-answer disclosure | History response/source binding, authored general feedback and separate policy fields | Boundary. SQL distinguishes facts; final feedback extraction/disclosure logic is external. |
-| Unrelease, 1391-1401: permanent Student Work deletion, content/settings retained, pre-release state, later release starts clean | [unrelease.sql](../../../schemas/base_schema/unrelease.sql): targeted purge, state and cascade | Supported source design. Its aggregate rebuild shares the retained-statistics defect, though Unrelease's own statistics policy needs explicit treatment. |
+| Unrelease, 1391-1401: permanent Student Work deletion, content/settings retained, pre-release state, later release starts clean | [unrelease.sql](../../../schemas/base_schema/unrelease.sql): targeted purge, state and cascade | Supported narrowly: Unrelease preserves retained statistics rather than rebuilding from deleted receipts. Complete destructive-work coverage and later-release lifecycle remain unverified. |
 | Attempts, 1402-1414: regular defaults unlimited; controlled repeat count; highest submitted score; fully automatic | NULL regular limit, start gate, [grading_access.sql](../../../schemas/base_schema/grading_access.sql): highest eligible score | Supported source model; backend evaluation/worker scheduling outside SQL execution proof. |
 | Response persistence, 1415-1430: complete saved response or none; mutable while open; survives sessions; no grading visible until whole submit | [assessment_attempt_operations.sql](../../../schemas/base_schema/assessment_attempt_operations.sql): upsert/read response, ownership/open/expiry checks; submission projection | Boundary. SQL enforces response-object shape and Attempt state, not type-specific educational completeness. Trusted server/adapter must decide completeness. |
 | Whole submission, 1415-1430: finalize all saved responses together; unanswered zero/incorrect and no backend call; no deferred outcome | [assessment_attempt_finalization.sql](../../../schemas/base_schema/assessment_attempt_finalization.sql): complete-evaluation set validation and unanswered closing | Supported SQL evidence/atomicity design for implemented backends. Backend dispatch and no-deferred-result behavior are application responsibilities. |
@@ -871,3 +890,27 @@ The tables, query, workload shape, plans, and observed outcomes above preserve
 the material evidence without adding permanent test code to the repository.
 No SQL, migration, browser code, tracked documentation, changelog, index, or Git
 history changes are part of this audit.
+
+## Course-purge evidence addendum
+
+Fresh canonical PostgreSQL 17.11 installation as `ple_migrator` accepted the
+canonical `course_classification_tags_are_valid` grant to
+`ple_course_retention_executor`; the earlier actual-role archive failure was a
+real privilege defect and is now corrected in source, not bypassed in the proof.
+The validator remains unavailable to PUBLIC.
+
+The one-time actual-role fixture retained anonymous per-Course enrollment count
+`1` for the deleted daughter, retained the same global Student Account and the
+other daughter's active membership, and refused import/claim after final purge.
+It observed four real lock waits through `pg_stat_activity` and
+`pg_blocking_pids`: purge behind Student claim, purge behind Instructor import,
+then Student claim and Instructor import behind final purge. Exact labelled
+container `ple-course-purge-proof-20260916` used network `none`, tmpfs data, and
+auto-remove; it was stopped and removed after the proof.
+
+This receipt is deliberately incomplete. Its Assessment had no submitted Student
+Work fixture, so it does not prove every Work/Attempt descendant deletion. It
+does not establish complete purge coverage, worker scheduling, deployed behavior,
+or a general SQL lock-order proof. Receipt:
+`/private/tmp/ple-course-purge-proof-20260916.md`; independent source review:
+`/private/tmp/ple-course-purge-sql-review-20260916.md`.

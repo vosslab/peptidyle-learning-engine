@@ -39,6 +39,7 @@
 \ir profile_media.sql
 \ir assessments.sql
 \ir question_library_operations.sql
+\ir question_bloom.sql
 \ir assessment_creation.sql
 \ir assessment_deadline_sync.sql
 \ir assessment_templates.sql
@@ -67,6 +68,7 @@
 \ir grading_access.sql
 \ir student_assessment_landing.sql
 \ir assessment_attempt_history.sql
+\ir archived_student_work_recovery.sql
 \ir statistics.sql
 \ir course_retention_transitions.sql
 \ir course_retention_notifications.sql

@@ -5,6 +5,38 @@ This reference applies the product and privacy decisions in
 retention. Classification follows meaning, not representation: an opaque ID or
 checksum remains sensitive when it links a Student to a protected record.
 
+## Related data policies
+
+These policies intentionally overlap where FERPA classification, authorization,
+and retention meet. [FERPA_DATA_POLICY.md](FERPA_DATA_POLICY.md) is the primary
+FERPA reference and owns the Student educational-record boundary.
+[RETENTION_POLICY.md](RETENTION_POLICY.md) owns retention-lifecycle details.
+This document owns the broader data-classification and handling model.
+
+User decisions and [HUMAN_GUIDANCE.md](HUMAN_GUIDANCE.md) remain the overall
+authority.
+
+## FERPA boundary
+
+PLE protectively classifies Course-scoped evidence of a Student's educational
+activity or outcome as a protected Student record. This includes membership
+history, Attempts and state, saved and final responses, grades and credit,
+Student-specific feedback, Student-linked timing, accommodations, activity,
+issued Question or Pool selections, interpretation evidence, analytics, and
+linkable opaque or pseudonymous IDs. Removing a name does not remove the
+sensitivity.
+
+Reusable Course content, Questions, Pools, Blueprints and Revisions, Instructor
+authoring, independent global Account data, and genuinely privacy-safe
+aggregates are outside that Student-record boundary only when independent of
+identifiable or linkable individual Student evidence. If any contains or links
+to Student evidence, its Student-linked portion remains protected. A Published
+Question reused by reference does not become Student Work; its Student-linked
+delivery or selection record remains protected. This is a PLE product
+classification, not a categorical legal ruling. "Not FERPA" does not mean
+public: global Account data remains personal and authentication-sensitive, and
+Answer Keys, private authoring, credentials, and backend state remain restricted.
+
 ## Decision procedure
 
 Before adding a datum:
@@ -26,7 +58,7 @@ Before adding a datum:
 | Blueprint content | Blueprint metadata and immutable Revisions | Private owner-only; Public to vetted Instructors; Archived only through explicit inclusion | Independent of Course Student-record retention |
 | Blueprint update and proposal data | Source and receiving Blueprint references, canonical differences, and acceptance decision | Daughter Course co-Instructors for Course updates; receiving Blueprint owner for Change Proposals | Retained with the Blueprint/Course relationship; never grants FERPA access |
 | Course teaching content | Course metadata, Assessment definitions, Questions, settings | Current Course relationships | Remains after FERPA-protected Student records are deleted |
-| FERPA-protected Student record | Course membership history, Attempt, response, score, timing, feedback, Student-linked analysis | The Student or equal co-Instructors for that Course; scoped support only | Notice, archive from normal interfaces, recovery period, permanent deletion |
+| Protected Student record | Membership history, Attempt/state, response, score/credit, timing/accommodations/activity, feedback, issued selection, interpretation evidence, analytics, linkable opaque ID | The Student or equal co-Instructors for that Course; scoped support only | Notice, archive from normal interfaces, recovery period, permanent deletion |
 | Global Account data | Account identity, immutable Product Role, authentication state | Account owner and narrow administration | Separate from Course record retention |
 | Private Question Backend state | Opaque render state, response mapping, provider token, private result | Never directly exposed except the exact authorized answer-free document or response control | Follows the Question source or Student Work it serves |
 | Credentials and secrets | Session credential, database URL, signing/encryption key | Never in ordinary DTOs, URLs, logs, screenshots, examples, or browser storage | Security rotation/revocation policy |
@@ -87,15 +119,13 @@ outcome before whole-Assessment submission.
 ## Student Work remains highly sensitive
 
 Treat any Student-linked Attempt ID, response, score, timing value, feedback,
-or Course analysis as FERPA-protected even if direct names have been removed.
+or Course analysis as protected even if direct names have been removed.
 Small-cell aggregates can still identify Students and remain protected.
 
 Removing a Student from a Course or deactivating an Account does not delete
-these records. The latest Assessment deadline starts the FERPA retention clock;
-the six-month Active limit caps deadline movement so Course reuse cannot delay
-FERPA retention indefinitely. Becoming Inactive is a separate transition and
-does not itself delete Student records. See
-[RETENTION_POLICY.md](RETENTION_POLICY.md).
+these records. [RETENTION_POLICY.md](RETENTION_POLICY.md) owns their lifecycle
+schedule and explains why a Course lifecycle transition does not itself delete
+Student records.
 
 ## Shared content is not automatically public
 

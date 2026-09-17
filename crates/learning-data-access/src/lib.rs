@@ -33,7 +33,11 @@ mod imathas_question_backend_session;
 mod instructor_account;
 mod invitation_export;
 mod live_gradebook;
+mod archived_student_work_recovery;
 mod live_student_course_landing;
+pub use archived_student_work_recovery::{
+    ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion, RecoverySummary,
+};
 mod object_record;
 mod pagination;
 pub mod postgres;

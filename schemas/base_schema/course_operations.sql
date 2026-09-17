@@ -602,6 +602,7 @@ CREATE FUNCTION ple_api.import_course_roster(
 RETURNS TABLE(roster_id text, state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE course uuid; actor uuid; student uuid; item integer; now_at timestamptz;
+    retention_state text;
 BEGIN
     IF p_reference IS NULL OR cardinality(p_normalized) NOT BETWEEN 1 AND 50
        OR cardinality(p_normalized) IS DISTINCT FROM cardinality(p_delivery)
@@ -614,6 +615,15 @@ BEGIN
             MESSAGE = 'Course Roster Import requires a current Instructor Course Membership';
     END IF;
     actor := ple_api.current_session_account_id();
+    -- ASVS 8.2.2/15.4.2/15.4.3: authorize before taking an untrusted target
+    -- lock, then serialize Course-local creation with the Course-first purge.
+    SELECT retention_lifecycle_state INTO retention_state
+      FROM ple_data.course_instance WHERE course_id = course FOR UPDATE;
+    IF NOT FOUND OR retention_state = 'deleted'
+       OR NOT ple_api.current_session_account_is_course_instructor(course) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Course Roster Import requires an available Instructor Course Membership';
+    END IF;
     now_at := pg_catalog.transaction_timestamp();
     FOR item IN 1..cardinality(p_normalized) LOOP
         IF p_normalized[item] IS NULL OR p_delivery[item] IS NULL OR p_roster[item] IS NULL
@@ -665,10 +675,35 @@ CREATE FUNCTION ple_api.claim_course_invitation(
 RETURNS TABLE(active_student_membership boolean)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE course uuid; student uuid; invitation uuid; inviter uuid; existing_record uuid; now_at timestamptz;
+    retention_state text;
 BEGIN
     student := ple_api.current_session_account_id();
     SELECT course_id INTO course FROM ple_data.course_instance WHERE public_reference = p_reference;
     IF NOT FOUND OR student IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Invitation is unavailable';
+    END IF;
+    -- ASVS 8.2.2: establish target-bound authority before locking a Course
+    -- supplied by the caller. Revalidate the owning path after the root lock.
+    IF NOT EXISTS (
+        SELECT 1 FROM ple_data.course_membership
+         WHERE course_id = course AND account_id = student AND role = 'student'
+           AND ple_data.course_membership_is_active(membership_id)
+    ) AND NOT EXISTS (
+        SELECT 1 FROM ple_private.course_invitation
+         WHERE course_id = course AND target_account_id = student AND membership_role = 'student'
+           AND expires_at > pg_catalog.clock_timestamp()
+           AND NOT EXISTS (
+               SELECT 1 FROM ple_private.course_invitation_event AS event
+                WHERE event.invitation_id = course_invitation.invitation_id
+           )
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Invitation is unavailable';
+    END IF;
+    -- ASVS 15.4.2/15.4.3: Course -> Invitation/Student children matches purge;
+    -- reject permanent deletion before the active-membership fast path.
+    SELECT retention_lifecycle_state INTO retention_state
+      FROM ple_data.course_instance WHERE course_id = course FOR UPDATE;
+    IF NOT FOUND OR retention_state = 'deleted' THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Invitation is unavailable';
     END IF;
     IF EXISTS (
@@ -719,12 +754,22 @@ BEGIN
     IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course) THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course roster entry is unavailable';
     END IF;
+    -- ASVS 15.4.2/15.4.3: serialize with claim and purge at the Course root
+    -- before reading membership or pending-event state. An Invitation lock
+    -- alone can wait after those reads and leave their eligibility stale.
+    PERFORM 1 FROM ple_data.course_instance WHERE course_id = course FOR UPDATE;
+    -- ASVS 8.2.2: authorization may change while the Course lock waits.
+    IF NOT FOUND OR NOT ple_api.current_session_account_is_course_instructor(course) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course roster entry is unavailable';
+    END IF;
     SELECT student_account_id INTO student FROM ple_private.course_roster_profile
      WHERE course_id = course AND roster_id = p_roster_id;
     IF NOT FOUND THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course roster entry is unavailable';
     END IF;
-    actor := ple_api.current_session_account_id(); now_at := pg_catalog.transaction_timestamp();
+    -- A transaction may have begun before the claim it waited behind; date
+    -- the revocation after serialization, not before that membership began.
+    actor := ple_api.current_session_account_id(); now_at := pg_catalog.clock_timestamp();
     SELECT membership_id INTO membership FROM ple_data.course_membership
      WHERE course_id = course AND account_id = student AND role = 'student'
        AND ple_data.course_membership_is_active(membership_id) LIMIT 1;

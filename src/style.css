@@ -448,50 +448,6 @@ h3 {
   grid-area: auto;
 }
 
-.course-create-form {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 0.7rem;
-  align-items: end;
-  margin: 0.7rem 0;
-  padding: 0.65rem 0;
-  border-block: 1px solid var(--ple-border);
-  border-radius: 0;
-  background: transparent;
-}
-
-.course-create-form h2 {
-  grid-column: 1 / -1;
-  margin: 0 0 0.2rem;
-  font-size: 1rem;
-}
-
-.course-create-form label {
-  display: grid;
-  gap: 0.25rem;
-  align-self: start;
-  color: var(--ple-muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.course-create-form label:has(#course-blueprint-source) {
-  grid-column: 1 / -1;
-}
-
-.course-create-form input,
-.course-create-form select {
-  width: 100%;
-}
-
-.course-create-form [role="status"] {
-  grid-column: 1 / -1;
-  min-height: 1.4rem;
-  margin: 0;
-  color: var(--ple-danger);
-  font-size: 0.84rem;
-}
-
 .primary-link,
 .quiet-link,
 .primary-action,
@@ -877,16 +833,6 @@ textarea:hover {
   }
 }
 
-@media (max-width: 64rem) {
-  .course-create-form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .course-create-form .primary-action {
-    justify-self: start;
-  }
-}
-
 @media (max-width: 48rem) {
   :root {
     --ple-control-min-height: 2.75rem;
@@ -939,11 +885,6 @@ textarea:hover {
 
   .instructor-list__actions {
     justify-content: flex-start;
-  }
-
-  .course-create-form {
-    grid-template-columns: 1fr;
-    align-items: stretch;
   }
 
   .presentation-preference {

@@ -131,9 +131,11 @@
 - [x] Student Accounts persist independently of Course data and Course retention.
   - Evidence (source): `schemas/base_schema/accounts.sql` `account` is separate from course-scoped `student_record`.
 - [ ] Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
-  - Mismatch: No Course retention policy or deletion transition is present to govern these records.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes private Attempt roots and Course-scoped Student records only after the archived state, while retaining Course teaching material and identity-free aggregate rows.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate proved the bounded Course purge and post-purge claim/import refusal, but its fixture had no submitted Student Work. Configured retention policy, worker execution, full Work-descendant coverage, and connected acceptance remain open.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-  - Mismatch: Student-data deletion and its preservation boundary are not implemented.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate retained the deleted Course row, but has no submitted Student Work or connected product proof for the complete teaching-material boundary.
 - [ ] **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
   - Mismatch: The Attempt table links a Student record and Assessment, but the implementation does not establish `Student Work` as the collective product term for all such records.
 - [x] Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
@@ -142,9 +144,11 @@
 - [ ] Student Work is an umbrella term; the underlying records retain their own identities and purposes.
   - Mismatch: Distinct Attempt, issued-Question, and Question-Pool-selection records show separate identities, but no implemented collective `Student Work` term establishes the required umbrella relationship.
 - [ ] Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
-  - Mismatch: Retention deletion is not implemented, so this separation has not been realized.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` preserves existing identity-free aggregate rows while deleting private Attempt roots and Course Student records; `schemas/base_schema/statistics.sql` defines the retained Question Revision count tables without Student identity fields.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate established the bounded deletion transition, but exercised no submitted Student Work or aggregate rows. Aggregate disclosure safety and complete retained-evidence coverage remain open.
 - [ ] Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
-  - Mismatch: Aggregate statistics exist, but no implemented Student-record deletion transition proves their retention behavior.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` explicitly preserves existing identity-free aggregate rows, and `schemas/base_schema/statistics.sql` retains Question Revision statistics independently of private grading receipts.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate proved bounded Student-record deletion but had no submitted Student Work or aggregate-statistics fixture. Pool statistics, privacy thresholds, product display, and connected retention acceptance remain open.
 - [ ] Aggregate Question statistics must not identify or allow reconstruction of individual Student activity.
   - Mismatch: `question_revision_statistics` omits direct identity fields, but the implementation has no demonstrated disclosure or small-cohort rule preventing aggregate counts from reconstructing an individual Student's activity.
 - [x] Published Question statistics retain accepted graded Attempt count and correct count.
@@ -182,7 +186,8 @@
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
 - [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
   delete Student records.
-  - Mismatch: Neither Course inactivity nor FERPA deletion transition is implemented.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` separates `ple_api.archive_course_student_records` from `ple_api.delete_course_student_records`; the latter requires the archived state and performs the deletion transaction.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate exercised archive then bounded deletion, but notification, configured intervals, worker scheduling, and connected interface behavior remain open.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
   - Mismatch: No Course retention processing exists for any calendar.
 - [ ] PLE should notify the **Instructor** before FERPA-sensitive Student data is archived.
@@ -190,9 +195,11 @@
 - [ ] Archived Student data should leave normal Instructor and Student interfaces but remain recoverable during the retention period.
   - Mismatch: No archive/recovery state or interface exclusion exists.
 - [ ] FERPA-sensitive Student data should be permanently deleted when its retention period expires.
-  - Mismatch: No retention-period expiry deletion exists.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` is an archived-Course deletion transition and is repeat-safe after a deleted state.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate proved the bounded delete operation and repeated-delete refusal; operational retention-period configuration, periodic execution, submitted-Work coverage, and connected acceptance remain open.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-  - Mismatch: Student-data deletion and its preservation boundary are not implemented.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate retained the deleted Course row, but has no submitted Student Work or connected product proof for the complete teaching-material boundary.
   - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.

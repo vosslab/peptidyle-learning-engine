@@ -17,9 +17,8 @@ import { boundedResponseJson, requireNoStore } from "./response";
 const CURRENT_METADATA_PATH = "/api/questions/bulk-metadata/current";
 const UPDATE_METADATA_PATH = "/api/questions/bulk-metadata";
 
-// boundedResponseJson counts UTF-16 code units in the pre-parse JSON text. A
-// valid serde_json response needs under 18 MiB for 1000 * (64 tags * 120 code
-// points at worst two units/escaped characters), four UUID fields, and syntax.
+// boundedResponseJson counts UTF-16 code units in the pre-parse JSON text. This
+// existing 18 MiB response budget remains independent of the uncapped Tag count.
 const MAX_BULK_METADATA_RESPONSE_CHARACTERS = 18 * 1_024 * 1_024;
 
 function exactOrderedIdSet(

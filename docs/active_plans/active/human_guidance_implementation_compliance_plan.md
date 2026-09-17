@@ -2,12 +2,12 @@
 
 ## Execution priority
 
-Start with the SQL foundation in
-[`sql_human_guidance_audit.md`](../audits/sql_human_guidance_audit.md), then the open
-interface work in [`UI_UX_USABILITY_AUDIT.md`](../audits/UI_UX_USABILITY_AUDIT.md).
-Independent UI work may proceed in parallel when it does not depend on the SQL foundation.
-This ordering excludes no Human Guidance scope, makes no all-SQL-locked claim, and leaves other
-compliance work pending.
+Complete the SQL foundation and the highest-impact open UI gates first:
+[`sql_human_guidance_audit.md`](../audits/sql_human_guidance_audit.md) and
+[`UI_UX_USABILITY_AUDIT.md`](../audits/UI_UX_USABILITY_AUDIT.md). Terra and Sol may run safe,
+independent work in parallel without overlapping ownership or depending on unfinished gates. Refresh
+the full screenshot corpus only after those SQL and highest-impact UI gates pass. This ordering
+excludes no Human Guidance scope, makes no all-SQL-locked claim, and leaves other compliance work pending.
 
 ## Current bounded receipts
 

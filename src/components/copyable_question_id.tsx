@@ -7,6 +7,11 @@ import "./copyable_question_id.css";
 export interface CopyableQuestionIdProps {
   readonly questionTitle: string;
   readonly displayId: string;
+  /**
+   * Library rows already display the Question title as their heading. Other
+   * callers retain the detailed reference presentation by default.
+   */
+  readonly presentation?: "detailed" | "compact";
 }
 export function CopyableQuestionId(props: CopyableQuestionIdProps): JSX.Element {
   // ASVS V2.2.1: display and copy only the allowlisted public Question-reference syntax.
@@ -26,7 +31,7 @@ export function CopyableQuestionId(props: CopyableQuestionIdProps): JSX.Element 
   }
   return (
     <div class="copyable-question-id">
-      <span>{props.questionTitle}</span>
+      {props.presentation !== "compact" && <span>{props.questionTitle}</span>}
       <span>Question reference</span>
       <code aria-label={`Question reference ${questionReference}`}>{questionReference}</code>
       <button

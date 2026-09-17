@@ -485,6 +485,7 @@ async fn student_attempt_state(
                     "assessmentAttemptCompletion",
                     "canResumeAssessmentAttempt",
                     "gradedQuestionCount",
+                    "savedQuestionCount",
                     "questionCount",
                 ],
                 &["assessmentScore"],

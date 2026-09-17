@@ -23,7 +23,9 @@ RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path = pg_catalog AS $$
            ARRAY(SELECT DISTINCT value FROM unnest(p_tags) AS tag(value)));
 $$;
 REVOKE ALL ON FUNCTION ple_data.course_classification_tags_are_valid(text[]) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_data.course_classification_tags_are_valid(text[]) TO ple_api_owner;
+-- Course retention updates are checked against this shared immutable validator.
+GRANT EXECUTE ON FUNCTION ple_data.course_classification_tags_are_valid(text[])
+    TO ple_api_owner, ple_course_retention_executor;
 
 CREATE TABLE ple_data.blueprint_course (
     blueprint_id uuid PRIMARY KEY,

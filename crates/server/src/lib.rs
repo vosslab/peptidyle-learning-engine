@@ -58,6 +58,7 @@ pub(crate) mod instructor_account;
 pub(crate) mod invitation_export;
 pub(crate) mod live_gradebook;
 /// Student-only Course and released Assessment landing routes.
+pub(crate) mod archived_student_work_recovery;
 pub(crate) mod live_student_course_landing;
 /// Authorized public Course-reference navigation route.
 pub(crate) mod navigation;

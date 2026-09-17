@@ -114,7 +114,7 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
              floor(extract(epoch FROM evaluated_at) * 1000)::bigint AS evaluated_at_millis, \
              assessment_attempt_number, \
              assessment_attempt_completion, can_resume_assessment_attempt, \
-             graded_question_count, question_count, \
+             graded_question_count, saved_question_count, question_count, \
              assessment_score_points_earned, assessment_score_points_possible \
              FROM ple_api.list_released_live_student_assessments($1)",
         )
@@ -178,6 +178,7 @@ fn decode_assessment(
         .try_get("can_resume_assessment_attempt")
         .map_err(map_sqlx_error)?;
     let graded_question_count = count(row, "graded_question_count")?;
+    let saved_question_count = count(row, "saved_question_count")?;
     let question_count = count(row, "question_count")?;
     // ASVS 2.2.1: validate the complete database contribution pair at the adapter boundary.
     let points_earned = optional_finite_nonnegative(row, "assessment_score_points_earned")?;
@@ -192,8 +193,11 @@ fn decode_assessment(
     };
     if question_count == 0
         || graded_question_count > question_count
+        || saved_question_count > question_count
         || (assessment_attempt_completion.is_none()
-            && (assessment_attempt_number.is_some() || graded_question_count != 0))
+            && (assessment_attempt_number.is_some()
+                || graded_question_count != 0
+                || saved_question_count != 0))
         || (assessment_attempt_completion.is_some() && assessment_attempt_number.is_none())
     {
         return Err(invalid("Assessment progress"));
@@ -210,6 +214,7 @@ fn decode_assessment(
         assessment_attempt_completion,
         can_resume_assessment_attempt,
         graded_question_count,
+        saved_question_count,
         question_count,
         assessment_score,
     })

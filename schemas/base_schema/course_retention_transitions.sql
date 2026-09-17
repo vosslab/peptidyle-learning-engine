@@ -220,6 +220,7 @@ AS $$
 DECLARE
     course_row ple_data.course_instance%ROWTYPE;
     delete_due_at timestamp with time zone;
+    students_ever_enrolled bigint;
 BEGIN
     IF p_course_id IS NULL OR p_evaluated_at IS NULL THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
@@ -263,6 +264,14 @@ BEGIN
      WHERE assessment.course_id = course_row.course_id
      FOR UPDATE;
 
+    -- ASVS 2.3.3/14.2.4: capture only the existing anonymous Course/Account
+    -- enrollment contribution, atomically with destruction of its evidence.
+    SELECT count(DISTINCT membership.account_id)
+      INTO students_ever_enrolled
+      FROM ple_data.course_membership AS membership
+     WHERE membership.course_id = course_row.course_id
+       AND membership.role = 'student';
+
     -- Preserve Account, Course, Assessment, Question, configuration, and
     -- existing identity-free aggregate rows.  Do not rebuild statistics after
     -- their identifiable receipts cascade with the private Work roots.
@@ -305,7 +314,8 @@ BEGIN
 
     UPDATE ple_data.course_instance
        SET retention_lifecycle_state = 'deleted',
-           student_data_deleted_at = p_evaluated_at
+           student_data_deleted_at = p_evaluated_at,
+           purged_students_ever_enrolled = students_ever_enrolled
      WHERE course_id = course_row.course_id;
     RETURN true;
 END

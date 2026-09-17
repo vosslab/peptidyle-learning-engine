@@ -60,20 +60,25 @@ export function AssessmentTemplateSettingsEditor(
           />
         </label>
         <label class="assessment-template-field">
-          Assessment duration override in seconds (optional, maximum 12 hours)
+          Assessment duration override in minutes (optional, maximum 720 minutes / 12 hours)
           <input
             type="number"
-            min="1"
-            max="43200"
-            step="1"
-            inputmode="numeric"
+            min={1 / 60}
+            max="720"
+            step="any"
+            inputmode="decimal"
             value={props.draft.timeLimit}
-            onInput={(event) => props.onPatch({ timeLimit: event.currentTarget.value })}
+            onInput={(event) => {
+              const timeLimit = event.currentTarget.value;
+              // Preserve the native number control's intermediate decimal while typing.
+              if (timeLimit !== props.draft.timeLimit) props.onPatch({ timeLimit });
+            }}
           />
           <small>
             Default: 1.5 minutes per Question, rounded up to a whole minute. Templates have no
             Questions; the default is calculated after Questions are added to the Assessment. Leave
-            the override blank to copy this default intent.
+            the override blank to copy this default intent. Fractional minutes are allowed, rounded
+            to the nearest second (minimum 1 second).
           </small>
         </label>
         <label class="assessment-template-field">

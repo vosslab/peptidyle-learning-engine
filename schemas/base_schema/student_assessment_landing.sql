@@ -2,27 +2,6 @@
 -- supplies only an unstarted Assessment's visible question count; an Assessment Attempt
 -- is interpreted entirely through its retained Student Work evidence.
 
--- The private retained-Work projections cannot read Course rows directly.
--- Keep this state predicate in the API owner's narrow, unexposed capability
--- instead of widening their table privileges.  ASVS 2.3.1.
-SET LOCAL ROLE ple_api_owner;
-CREATE FUNCTION ple_api.course_student_work_is_ordinarily_visible(
-    p_course_id uuid
-) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-    SELECT p_course_id IS NOT NULL
-       AND EXISTS (
-           SELECT 1
-             FROM ple_data.course_instance AS course
-            WHERE course.course_id = p_course_id
-              AND course.retention_lifecycle_state = 'active'
-       )
-$$;
-REVOKE ALL ON FUNCTION ple_api.course_student_work_is_ordinarily_visible(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.course_student_work_is_ordinarily_visible(uuid)
-    TO ple_private_owner;
-RESET ROLE;
-
 SET LOCAL ROLE ple_private_owner;
 
 -- ASVS 2.2.2, 8.2.3, 14.2.6: derive the exact session Student's effective
@@ -50,6 +29,7 @@ CREATE FUNCTION ple_private.read_student_released_assessment_landing_evidence(
     assessment_attempt_completion text,
     can_resume_assessment_attempt boolean,
     graded_question_count bigint,
+    saved_question_count bigint,
     question_count bigint,
     assessment_score_points_earned double precision,
     assessment_score_points_possible double precision
@@ -119,6 +99,7 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
            END,
            coalesce(resumable.can_resume_assessment_attempt, false),
            coalesce(evidence.graded_question_count, 0)::bigint,
+           coalesce(saved.saved_question_count, 0)::bigint,
            CASE WHEN assessment_attempt.assessment_attempt_id IS NULL
                 THEN assessment.current_question_count
                 ELSE coalesce(evidence.question_count, 0)::bigint
@@ -223,6 +204,16 @@ SET search_path = pg_catalog, ple_data, ple_private, ple_audit AS $$
       LEFT JOIN ple_private.assessment_submission AS assessment_score_submission
         ON assessment_score_submission.assessment_attempt_id = assessment_score_attempt.assessment_attempt_id
       LEFT JOIN LATERAL (
+          -- ASVS 14.2.6: expose only the count, never saved response contents.
+          SELECT count(response.question_attempt_id)::bigint AS saved_question_count
+            FROM ple_private.issued_question AS issued
+            JOIN ple_private.question_attempt AS question_attempt
+              ON question_attempt.issued_question_id = issued.issued_question_id
+            JOIN ple_private.assessment_attempt_saved_response AS response
+              ON response.question_attempt_id = question_attempt.question_attempt_id
+           WHERE issued.assessment_attempt_id = assessment_attempt.assessment_attempt_id
+      ) AS saved ON true
+      LEFT JOIN LATERAL (
           SELECT count(issued.issued_question_id)::bigint AS question_count,
                  count(*) FILTER (WHERE chain.is_complete)::bigint AS graded_question_count
             FROM ple_private.issued_question AS issued
@@ -292,6 +283,7 @@ CREATE FUNCTION ple_api.list_released_live_student_assessments(
     assessment_attempt_completion text,
     can_resume_assessment_attempt boolean,
     graded_question_count bigint,
+    saved_question_count bigint,
     question_count bigint,
     assessment_score_points_earned double precision,
     assessment_score_points_possible double precision

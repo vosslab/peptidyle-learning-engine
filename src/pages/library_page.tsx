@@ -930,6 +930,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                       <CopyableQuestionId
                         questionTitle={row.questionTitle}
                         displayId={row.displayId}
+                        presentation="compact"
                       />
                       <A
                         class="quiet-link"

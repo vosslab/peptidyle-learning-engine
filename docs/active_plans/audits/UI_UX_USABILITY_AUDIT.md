@@ -34,7 +34,8 @@ participant study was conducted.
 
 ### Student Question rendering coverage
 
-Status: requested; captures and interaction evidence pending.
+Status: bounded private Student presentation receipt completed; full interaction matrix and
+Instructor-preview coverage remain open.
 
 Review Student-facing delivery of one WeBWorK Question and each of the eight native PLE JSON
 Question Types specified in [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md). Instructor Library
@@ -62,6 +63,21 @@ and ORDER, demonstrate assigning or moving, correcting, and clearing responses t
 methods. Verify focus, prompt/control association, saved-response persistence, and contrast against
 actual rendered backgrounds. Record each Type separately, including unavailable Types as explicit
 coverage gaps. Screenshots establish presentation; interaction receipts establish usable behavior.
+
+Receipt (2026-09-16): the current authorized Student traversal produced 18 private unanswered
+captures and privacy checks: WeBWorK plus all eight released native types at laptop and phone
+widths. The captured HOTSPOT showed its revision-pinned raster surface and labeled selection cues.
+This establishes bounded presentation coverage only, not saved/submitted interaction for every type,
+and it does not promote the private captures to the official screenshot corpus. The separate
+canonical HOTSPOT workflow now proves pointer and keyboard selection, Save/reload of the exact
+issued Question Revision, whole-Attempt submission, and server-marked correctness. Receipts:
+`/private/tmp/ple-resumed-types-20260916.md` and
+`/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
+
+The Instructor preview header remains a separate gap: connected preview delivery is still blocked
+by its opaque-frame resource-policy defect, so Student captures do not establish that preview
+surface. See the retained open Instructor inspection receipt in
+`hg_checklist_parts/04_instructor_ui.md`.
 
 ### S01: accepted invitation retains pending-state actions
 
@@ -95,6 +111,19 @@ coverage gaps. Screenshots establish presentation; interaction receipts establis
 - User need: understand how much work is recorded during an active Attempt.
 - Acceptance: distinguish saved or answered progress from grading progress using Student language.
   Verify the summary against the actual recorded state; use grading counts where results are relevant.
+- Receipt (2026-09-16): [student_assessment_landing.sql](../../../schemas/base_schema/student_assessment_landing.sql)
+  and [student_course_landing_page.tsx](../../../src/pages/student_course_landing_page.tsx) now
+  carry an answer-free saved-response count and render active Coursework as `N of M responses
+  saved`; completed Coursework retains its existing grading and disclosed-score branch. Accepted
+  source review, focused Cargo, strict TypeScript, and 1280/390 component-browser gates passed.
+  A fresh canonical PostgreSQL 17 actual-role `ple_auth` -> `ple_app` proof observed no-Attempt
+  zero, an ordinary Student save from `0` to `1`, replacement remaining `1`, a later empty Attempt
+  returning `0`, and Student/Course isolation. Receipts:
+  `/private/tmp/ple-student-saved-progress-slice-20260916.md`,
+  `/private/tmp/ple-student-saved-progress-review-20260916.md`, and
+  `/private/tmp/ple-student-saved-progress-sql-proof-20260916.md`.
+  This is not connected acceptance: current `8104` did not run the HTTP/browser save-return-submit
+  journey, so S03 remains open for that proof.
 
 ### S04: Attempt history follows a tall settings summary
 
@@ -314,6 +343,21 @@ while correcting its presentation.
   tall as the result itself.
 - Acceptance: give each result one clear title and an aligned metadata/action arrangement. Keep
   bulk-selection scope accurate while presenting routine controls and explanations compactly.
+- Current receipt (2026-09-16): `CopyableQuestionId` in
+  `src/components/copyable_question_id.tsx` now accepts `presentation="compact"`; only the
+  `LibraryPage` result-row call in `src/pages/library_page.tsx` uses it. The row's existing `h2`
+  remains the one visible Question title, while normalized public reference, Copy reference,
+  polite copy status, selection, and Open question remain in their established components. The
+  detailed default remains available to other callers.
+- Scope: `updateSelection`, `selectLoadedQuestions`, and `openMetadataEditor` retain the existing
+  bulk-ID workflow. It remains additional to per-row selection and Open question inspection, and
+  its affected-loaded-Questions count, limit, and help text are not a connected bulk-operation
+  acceptance claim. The source review records no changes to virtualization, search, pagination, or
+  return-state symbols. Supplementary isolated-component proof and review:
+  `/private/tmp/ple-library-compact-reference-20260916.md` and
+  `/private/tmp/ple-library-reference-review-20260916.md` (reported TypeScript, Prettier, and
+  scoped diff checks). This is actual-component evidence, not an authenticated/deployed/full
+  Library UI closure.
 
 ### I08: Browse starts with an unexplained empty Subject region
 
@@ -370,6 +414,21 @@ while correcting its presentation.
 - Acceptance: keep collection scanning and the selected form task visible together where useful.
   Use familiar duration units and concise, accurate constraints. Fresh Template capture is required
   by the manifest; evaluate the current form before retaining any layout-specific conclusion.
+- Current receipt (2026-09-16): `TeachingCourseListPage` in
+  `src/pages/course_list_page.tsx` uses `isCreationExpanded` and the native Create Course Instance
+  disclosure to keep a populated Course collection visible before opening its existing form.
+  `createCourseInstance` retains classification, empty/adopted-source, validation, duplicate-request
+  guard, error, reset, and post-success focus behavior. `src/pages/course_list_page.css` owns the
+  focused hidden/disclosure and responsive form rules; list loading and Try again remain outside it.
+- Scope: the reported actual-component matrix covers closed/empty/adopted disclosure states,
+  draft/error retention, pending submit prevention, retry, keyboard activation, 200% text, and
+  no document horizontal overflow. Supplementary proof and independent source review are
+  `/private/tmp/ple-course-create-disclosure-20260916.md` and
+  `/private/tmp/ple-course-disclosure-review-20260916.md`; they report scoped TypeScript, ESLint,
+  Prettier, source-line, and diff checks. `src/style.css` fixes `color-scheme: light` and its
+  `--ple-surface`/`--ple-ink` light tokens under both browser preferences, so this is not a dark
+  implementation or distinct-dark acceptance. It is actual-component evidence, not connected,
+  deployed, or full-UI closure; Assessment Template duration and layout remain separate I11 work.
 
 ### I12: empty Due Soon guidance lacks a direct next step
 

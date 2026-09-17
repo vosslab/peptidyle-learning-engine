@@ -66,6 +66,7 @@ const ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   assessmentAttemptCompletion: "inProgress",
   canResumeAssessmentAttempt: true,
   gradedQuestionCount: 1,
+  savedQuestionCount: 1,
   questionCount: 4,
   assessmentScore: { pointsEarned: 7, pointsPossible: 8 },
 };
@@ -79,6 +80,7 @@ const BONUS_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   assessmentAttemptCompletion: "completed",
   canResumeAssessmentAttempt: false,
   gradedQuestionCount: 2,
+  savedQuestionCount: 0,
   questionCount: 2,
   assessmentScore: { pointsEarned: 3, pointsPossible: 0 },
 };
@@ -91,6 +93,7 @@ const WITHHELD_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   assessmentAttemptCompletion: "completed",
   canResumeAssessmentAttempt: false,
   gradedQuestionCount: 4,
+  savedQuestionCount: 0,
   questionCount: 4,
 };
 const UNSTARTED_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
@@ -100,6 +103,7 @@ const UNSTARTED_ASSESSMENT: LiveStudentAssessmentLandingSummary = {
   assessmentAttemptNumber: null,
   assessmentAttemptCompletion: null,
   gradedQuestionCount: 0,
+  savedQuestionCount: 0,
 };
 
 function coursesFor(
@@ -162,6 +166,16 @@ export function mountStudentCourseEntryM6Harness(
   const applicationApi = {
     client: {
       listLiveStudentCourses: () => Promise.resolve(courses),
+      startLiveAssessment: () =>
+        Promise.resolve({
+          assessmentAttempt: "R-6",
+          assessment: ASSESSMENT.reference,
+          attemptNumber: ASSESSMENT.assessmentAttemptNumber,
+          resumed: true,
+          title: ASSESSMENT.title,
+          instructions: "",
+          questions: [],
+        }),
       listLiveStudentAssessments: () =>
         Promise.resolve(
           caseName === "landing"

@@ -10,6 +10,7 @@ use learning_data_access::{
     SessionLifetime, SysadminTotpSeed, SysadminTotpStore,
     postgres::{
         Pool, PostgresAccountAvatarGallery, PostgresAccountTimeZoneStore,
+        PostgresArchivedStudentWorkRecoveryStore,
         PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
         PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
         PostgresAuthoringAssetsStore, PostgresAuthoringDraftStore, PostgresBlueprintCourseStore,
@@ -110,6 +111,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresCourseGradebookStore::new(pool.clone());
     let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
+    let archived_student_work_recovery = PostgresArchivedStudentWorkRecoveryStore::new(pool.clone());
     let profile_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
     let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
     let assessment_pool_selection_counts =
@@ -280,6 +282,12 @@ pub async fn production_router_from_env() -> Result<Router> {
             Arc::clone(&sessions),
             gradebook,
         ))
+        .merge(
+            crate::archived_student_work_recovery::archived_student_work_recovery_router(
+                Arc::clone(&sessions),
+                archived_student_work_recovery,
+            ),
+        )
         .merge(
             crate::live_student_course_landing::live_student_course_landing_router(
                 Arc::clone(&sessions),

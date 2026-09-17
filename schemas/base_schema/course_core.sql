@@ -56,6 +56,12 @@ CREATE TABLE ple_data.course_instance (
         CHECK (retention_lifecycle_state IN ('active', 'archived', 'deleted')),
     student_data_archived_at timestamp with time zone,
     student_data_deleted_at timestamp with time zone,
+    -- Identity-free discovery evidence, captured once at permanent deletion.
+    purged_students_ever_enrolled bigint CHECK (purged_students_ever_enrolled >= 0),
+    CHECK (
+        (retention_lifecycle_state = 'deleted' AND purged_students_ever_enrolled IS NOT NULL)
+        OR (retention_lifecycle_state <> 'deleted' AND purged_students_ever_enrolled IS NULL)
+    ),
     CHECK (
         (source_kind = 'empty'
             AND blueprint_course_reference_number IS NULL
@@ -113,6 +119,10 @@ RETURNS trigger LANGUAGE plpgsql SET search_path = pg_catalog, ple_data
 AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
+        IF NEW.purged_students_ever_enrolled IS NOT NULL THEN
+            RAISE EXCEPTION USING ERRCODE = '55000',
+                MESSAGE = 'a Course enrollment count is captured only at Student-data deletion';
+        END IF;
         NEW.active_until_at := COALESCE(
             NEW.active_until_at,
             ((NEW.created_at AT TIME ZONE 'UTC') + INTERVAL '6 months') AT TIME ZONE 'UTC'
@@ -134,6 +144,19 @@ BEGIN
             MESSAGE = 'a Course Instance Active lifetime is six months from creation';
     END IF;
     IF TG_OP = 'UPDATE' THEN
+        -- ASVS 8.2.3/14.2.4: only the owning deletion transition may capture
+        -- anonymous enrollment evidence; metadata callers cannot rewrite it.
+        IF NEW.purged_students_ever_enrolled IS DISTINCT FROM OLD.purged_students_ever_enrolled
+           AND NOT (
+               current_user = 'ple_course_retention_executor'
+               AND OLD.retention_lifecycle_state = 'archived'
+               AND NEW.retention_lifecycle_state = 'deleted'
+               AND OLD.purged_students_ever_enrolled IS NULL
+               AND NEW.purged_students_ever_enrolled IS NOT NULL
+           ) THEN
+            RAISE EXCEPTION USING ERRCODE = '55000',
+                MESSAGE = 'a Course purged enrollment count is immutable';
+        END IF;
         IF OLD.course_lifecycle_state = 'inactive' AND (
             NEW.course_lifecycle_state IS DISTINCT FROM OLD.course_lifecycle_state
             OR NEW.course_became_inactive_at IS DISTINCT FROM OLD.course_became_inactive_at

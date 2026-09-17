@@ -65,6 +65,39 @@ Starting an Attempt makes fresh Pool selections. Returning to the same Attempt
 preserves its selections. Student Work keeps the exact Pool Revision and
 Published Question Revision delivered.
 
+## Bloom classification
+
+One exact Published Question Revision or Question Pool Revision has two independent
+Bloom dimensions. The Cognitive Process is one of Remember, Understand, Apply,
+Analyze, Evaluate, or Create. The Knowledge Dimension is one of Factual Knowledge,
+Conceptual Knowledge, Procedural Knowledge, or Metacognitive Knowledge. Their ordered
+pair determines the derived classification label and matrix position; neither is
+a third stored field. Classification describes full-credit cognitive work, not
+Question Difficulty. A Pool describes its intended work as a whole, not an inherited
+or highest member classification. [BLOOM_TAXONOMY_GUIDE.md](BLOOM_TAXONOMY_GUIDE.md)
+owns teaching interpretation.
+
+Dedicated SQL relations attach a non-null checked pair to the exact composite
+Question or Pool Revision key. A separate positive classification Edit Number starts
+at 1. Active Instructors with current exact Library read access can correct either
+or both dimensions by supplying the complete pair and expected classification Edit
+Number. Keeping the unchanged dimension in that pair does not couple their meanings.
+SQL locks the pair, rejects stale edits, and advances this counter only for a changed
+pair. An exact no-op preserves the counter; a stale no-op still refuses. Corrections
+do not change source, content Revision Numbers, member pins, lineage metadata tokens,
+Assessment references, or Student Work.
+
+The trusted initialization seam inserts once and cannot overwrite a correction.
+It validates storage values, not semantic correctness or model origin. AI initial
+assignment during publication and required classification before Library entry remain
+the product contract, not completed runtime behavior. This foundation does not yet
+require every Revision to have a pair or hide unclassified Library entries. Atomic
+publication attachment, protected AI preparation bound to exact source, all Question
+and Pool creation/append/fork/adoption producers, legacy classification, typed
+read/correction routes, search, and reporting remain cutover dependencies. Forks need
+their own whole-Pool judgment; corrected source classification is not an automatic
+AI-assigned target classification. No default classification or provider is selected.
+
 ## Assessment selection and Student Work
 
 An Assessment contains ordered positions, each holding a Published Question or

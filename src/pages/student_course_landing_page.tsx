@@ -56,7 +56,12 @@ function AssessmentCard(props: {
           <dd>{display().completionLabel}</dd>
         </div>
       </dl>
-      <Show when={props.assessment.assessmentAttemptCompletion !== null}>
+      <Show when={props.assessment.assessmentAttemptCompletion === "inProgress"}>
+        <p class="student-coursework-card__progress">
+          {props.assessment.savedQuestionCount} of {props.assessment.questionCount} responses saved
+        </p>
+      </Show>
+      <Show when={props.assessment.assessmentAttemptCompletion === "completed"}>
         <p class="student-coursework-card__grade">
           {props.assessment.gradedQuestionCount} of {props.assessment.questionCount} questions
           graded

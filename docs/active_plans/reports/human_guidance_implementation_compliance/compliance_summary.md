@@ -2,28 +2,64 @@
 
 ## Current connected acceptance
 
-Current HOTSPOT delivery receipt (2026-09-16): all Instructor captures and 16 private Student
-checkpoints passed, but nine type captures are delivery-blocked: context returned 200 while progress
-returned 404 from an issue-only Attempt with nine issued positions and no Question Attempts. The
-first-issuance Ready asset-binding correction has independent source acceptance and fresh PostgreSQL
-17 actual-role `ple_auth`/`ple_app` rollback proof for exact checksums/dimensions, Pending refusal,
-retained-helper behavior, and outsider denial; the isolated container was stopped and auto-removed.
-Root Cargo plus three focused Rust tests predates the correction; Python passed 7,548 tests in 5.48
-seconds. Normal publisher integration and resume recovery remain under review. No current live
-acceptance or 77-item capture refresh is claimed. Receipt:
-`/private/tmp/ple-hotspot-delivery-batch-receipt-20260916.md`.
+Current receipt (2026-09-16): canonical runtime `8104` delivered all 18 private Student captures
+(the eight native types and WeBWorK at laptop and phone widths). The unchanged canonical HOTSPOT
+workflow then passed Avery's pointer path and Jack's keyboard Space path: selection, Save,
+reload with the same issued Question ID and Revision, whole-Attempt submission, and server-marked
+correctness. This is private connected evidence, not an official 77-item screenshot refresh or
+broad type-interaction matrix. Receipts: `/private/tmp/ple-resumed-types-20260916.md` and
+`/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
 
-Current preview delivery defect receipt (2026-09-16): canonical runtime session 80773 reached
+Current typography evidence is limited to the actual Student WeBWorK frame: `document.fonts` was
+loaded and body plus visible input computed Atkinson Hyperlegible Next first at 13.6px. The accepted
+source/local fixture sets a 16px body baseline, but that change is not deployed. Mono is not
+demonstrated in this example: its declared faces were unloaded and no `code` or `pre` appeared.
+The opaque Instructor-preview CORP defect remains open; its sibling and header surfaces are
+unchanged. Source-only recovery and saved-progress work remain in progress and are not completion
+claims. Root Python session 88093 passed 7,556 tests in 5.55 seconds; the main TypeScript check and
+lint configuration session 33088 passed. The canonical checklist parser reports 1,010 requirements:
+451 verified, 514 open, and 45 N/A; `--diff` and `--consistency` both verified 1,010 of 1,010.
+The 16px fixture review is `/private/tmp/ple-webwork-body-scale-review-20260916.md`.
+
+Current bounded additions (2026-09-16): S03 saved-progress source, focused Cargo, strict
+TypeScript, and component-browser evidence passed, and fresh canonical PostgreSQL 17 actual-role
+evidence observed zero-to-one save, duplicate-safe replacement, later-Attempt zero, and
+Student/Course isolation. It is not current `8104` connected HTTP/browser save-return-submit proof.
+Separately, ordinary archived Student Work context, access, and active references are now hidden by
+the existing visibility helper under fresh canonical actual-role evidence; inactive-but-unarchived
+Work and Instructor Course metadata/teaching definitions remain available. The explicit Course
+Instructor recovery policy is settled, but recovery implementation remains open: no completed
+race/expiry proof or Instructor UI is claimed. Receipts:
+`/private/tmp/ple-student-saved-progress-slice-20260916.md`,
+`/private/tmp/ple-student-saved-progress-sql-proof-20260916.md`, and
+`/private/tmp/ple-ordinary-archive-visibility-20260916.md`. Root pytest passed 7,565 tests in
+5.50 seconds; both strict TypeScript configurations passed earlier, before SQL-only changes.
+
+### Historical status snapshots
+
+The receipts below preserve earlier evidence and decisions. Their earlier runtime ports, capture
+counts, and blocked-delivery statements are historical context, not current status.
+
+Historical HOTSPOT delivery receipt (2026-09-16): all Instructor captures and 16 private Student
+checkpoints passed, but nine type captures were then delivery-blocked: context returned 200 while
+progress returned 404 from an issue-only Attempt with nine issued positions and no Question Attempts.
+The first-issuance Ready asset-binding correction had independent source acceptance and fresh
+PostgreSQL 17 actual-role `ple_auth`/`ple_app` rollback proof for exact checksums/dimensions, Pending
+refusal, retained-helper behavior, and outsider denial; the isolated container was stopped and
+auto-removed. Root Cargo plus three focused Rust tests predated the correction; Python passed 7,548
+tests in 5.48 seconds. Receipt: `/private/tmp/ple-hotspot-delivery-batch-receipt-20260916.md`.
+
+Historical preview delivery defect receipt (2026-09-16): canonical runtime session 80773 reached
 `Ready` at `https://localhost:8126` and exited 0. Three actual Instructor WeBWorK previews returned
 documents, but their opaque sandbox blocked PLE CSS, framework CSS, bridge, and renderer scripts
 with `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`: same-origin CORP conflicts with the opaque preview
 origin. Independent PLE CSS review still passes, but CSS-only authority cannot repair this
 delivery-policy defect. Ordinary Student delivery has a different source policy, not current runtime
-proof. Pytest session 35084 passed 7,548 tests in 5.77 seconds. HOTSPOT remains independently
-sourced/offline with no PNG publication; full capture is pending. Only the affected
-Instructor-inspection row remains open pending separately authorized resource-policy work; this is
-not a blanket compliance block. The earlier isolated `window.frameElement.id` failure remains
-unverified while scripts are blocked and needs retesting after resource delivery works. Connected
+proof. Pytest session 35084 passed 7,548 tests in 5.77 seconds. HOTSPOT remained independently
+sourced/offline with no PNG publication; full capture was pending. Only the affected
+Instructor-inspection row remained open pending separately authorized resource-policy work; this was
+not a blanket compliance block. The earlier isolated `window.frameElement.id` failure remained
+unverified while scripts were blocked and needs retesting after resource delivery works. Connected
 Library probe 56322 passed only its narrow search receipt; full capture 83237 stopped at the stale
 `My Question Drafts` selector, so no corpus was published. Receipt:
 `/private/tmp/ple-preview-defect-evidence-receipt-20260916.md`.
@@ -264,6 +300,31 @@ or global Human Guidance acceptance. Course/Pool classification, Bloom, Change P
 and resource-specific support authority remain audit work. The current reconciliation receipt above
 supersedes the former generator-drift statement without changing this evidence boundary.
 
+### September 16 Course-purge receipt
+
+Fresh canonical PostgreSQL 17.11 actual-role evidence now supersedes the
+historical source-only Course-purge assessment for this narrow boundary. The
+real `ple_course_retention_executor` initially failed the Course tags CHECK
+because `course_classification_tags_are_valid` lacked its execute grant. The
+canonical source correction grants that immutable validator to the API owner and
+retention executor only; PUBLIC remains revoked. No proof-only grant or trigger
+bypass was used.
+
+The final fixture retained anonymous deleted-daughter enrollment count `1`, the
+same global Student Account, and the second daughter's active membership; it
+removed the observed first-daughter Course-scoped Student records, memberships,
+profiles, invitations, and roster/invitation events. Post-purge Student claim
+and Instructor roster import both refused. Four waits were observed through
+PostgreSQL lock diagnostics: purge waited behind claim and import, then claim
+and import waited behind final purge. The exact network-none, tmpfs,
+auto-remove container was stopped and auto-removed.
+
+The Assessment had no submitted Student Work fixture. This is not complete purge
+descendant, worker, deployed, or general SQL-lock proof, and it changes no
+checklist row or status. Receipts:
+`/private/tmp/ple-course-purge-proof-20260916.md` and
+`/private/tmp/ple-course-purge-sql-review-20260916.md`.
+
 ### September 16 shared classification finding
 
 Current HG requires one global Discipline -> Subject -> Topic -> Subtopic vocabulary for Courses
@@ -400,14 +461,14 @@ inventory while remaining Human Guidance interpretation authority.
 | --- | ---: | ---: | ---: | ---: |
 | 01 | 12 | 4 | 26 | 42 |
 | 02 | 25 | 18 | 8 | 51 |
-| 03 | 35 | 62 | 0 | 97 |
-| 04 | 68 | 70 | 0 | 138 |
+| 03 | 35 | 73 | 2 | 110 |
+| 04 | 68 | 71 | 0 | 139 |
 | 05 | 27 | 34 | 2 | 63 |
 | 06 | 33 | 74 | 0 | 107 |
-| 07 | 81 | 109 | 2 | 192 |
+| 07 | 82 | 108 | 2 | 192 |
 | 08 | 80 | 73 | 4 | 157 |
 | 09 | 89 | 59 | 1 | 149 |
-| **Total** | **450** | **503** | **43** | **996** |
+| **Total** | **451** | **514** | **45** | **1,010** |
 
 The Assessment part closes four exact current-rescore rows. Independent review accepted
 private PostgreSQL 17 production-SQL lifecycle proof at

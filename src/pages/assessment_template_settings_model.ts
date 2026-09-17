@@ -37,7 +37,10 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
     name: template.name,
     assessmentType: template.assessmentType,
     instructions: template.settings.instructions,
-    timeLimit: template.settings.assessmentAttemptTimeLimitSeconds?.toString() ?? "",
+    timeLimit:
+      template.settings.assessmentAttemptTimeLimitSeconds === null
+        ? ""
+        : (template.settings.assessmentAttemptTimeLimitSeconds / 60).toString(),
     attemptLimit: assessmentTypeHasOneAttempt(template.assessmentType)
       ? "1"
       : (template.settings.attemptLimit?.toString() ?? ""),
@@ -52,24 +55,25 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
 export function assessmentTemplateSettings(
   draft: AssessmentTemplateDraft,
 ): AssessmentTemplateDraftResult {
-  const timeLimit = optionalPositiveIntegerDraft(draft.timeLimit);
+  const timeLimitSeconds = draft.timeLimit === "" ? null : Math.round(Number(draft.timeLimit) * 60);
+  const validTimeLimit =
+    draft.timeLimit === "" ||
+    (/^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/u.test(draft.timeLimit) &&
+      Number(draft.timeLimit) >= 1 / 60 &&
+      Number(draft.timeLimit) <= 720);
   const attemptLimit = optionalPositiveIntegerDraft(
     assessmentTypeHasOneAttempt(draft.assessmentType) ? "1" : draft.attemptLimit,
   );
-  if (
-    !timeLimit.valid ||
-    !attemptLimit.valid ||
-    (timeLimit.value !== null && timeLimit.value > 43_200)
-  ) {
+  if (!validTimeLimit || !attemptLimit.valid) {
     return {
       error:
-        "Enter a duration override of 1 to 43200 seconds (12 hours), or leave it blank for the calculated default. Attempt limits must be positive whole numbers or blank.",
+        "Enter a duration override in minutes, from 1/60 minute (1 second) to 720 minutes (12 hours), or leave it blank for the calculated default. Fractional minutes are rounded to the nearest second. Attempt limits must be positive whole numbers or blank.",
     };
   }
 
   const settings: AssessmentTemplateSettings = {
     instructions: draft.instructions,
-    assessmentAttemptTimeLimitSeconds: timeLimit.value,
+    assessmentAttemptTimeLimitSeconds: timeLimitSeconds,
     attemptLimit: attemptLimit.value,
     lateWorkRule: draft.lateWorkRule,
     activityRules: {

@@ -89,6 +89,7 @@ function decodeAssessmentSummary(
     "assessmentAttemptCompletion",
     "canResumeAssessmentAttempt",
     "gradedQuestionCount",
+    "savedQuestionCount",
     "questionCount",
     "assessmentScore",
   ]);
@@ -111,6 +112,11 @@ function decodeAssessmentSummary(
     field(record, "questionCount", path),
     `${path}.questionCount`,
   );
+  // ASVS 2.2.1/2.2.3: saved progress is bounded by the retained issued total.
+  const savedQuestionCount = decodeNonnegativeInteger(
+    field(record, "savedQuestionCount", path),
+    `${path}.savedQuestionCount`,
+  );
   const assessmentScoreValue = record.assessmentScore;
   const assessmentScore =
     assessmentScoreValue === undefined
@@ -118,8 +124,11 @@ function decodeAssessmentSummary(
       : decodeAssessmentGradeContribution(assessmentScoreValue, `${path}.assessmentScore`);
   if (
     gradedQuestionCount > questionCount ||
+    savedQuestionCount > questionCount ||
     (assessmentAttemptCompletion === null &&
-      (assessmentAttemptNumber !== null || gradedQuestionCount !== 0)) ||
+      (assessmentAttemptNumber !== null ||
+        gradedQuestionCount !== 0 ||
+        savedQuestionCount !== 0)) ||
     (assessmentAttemptCompletion !== null && assessmentAttemptNumber === null)
   ) {
     throw new DecodeError(path, "internally consistent self-only Assessment progress");
@@ -140,6 +149,7 @@ function decodeAssessmentSummary(
       `${path}.canResumeAssessmentAttempt`,
     ),
     gradedQuestionCount,
+    savedQuestionCount,
     questionCount,
     ...(assessmentScore === undefined ? {} : { assessmentScore }),
   };

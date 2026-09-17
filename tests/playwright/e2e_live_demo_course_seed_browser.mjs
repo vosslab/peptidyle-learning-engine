@@ -79,7 +79,7 @@ async function expectAttempt(page) {
 }
 
 async function resumeAttempt(page) {
-  await openAssignment(page);
+  await assignmentCard(page).getByRole("link", { name: "Resume Assignment", exact: true }).click();
   await expectAttempt(page);
 }
 
@@ -139,7 +139,8 @@ async function verifyJack(page) {
   const card = assignmentCard(page);
   await expect(card).toHaveCount(1);
   await expect(card.getByText("In progress", { exact: true })).toBeVisible();
-  await expect(card.getByText("0 of 4 questions graded", { exact: true })).toBeVisible();
+  await expect(card.getByText("2 of 4 responses saved", { exact: true })).toBeVisible();
+  await expect(card.getByText(/questions graded/u)).toHaveCount(0);
   await expect(card.getByText(/Score/u)).toHaveCount(0);
   await resumeAttempt(page);
   await signOutVisible(page);

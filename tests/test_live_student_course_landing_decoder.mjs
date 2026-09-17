@@ -35,6 +35,7 @@ function assessment(overrides = {}) {
     assessmentAttemptCompletion: "inProgress",
     canResumeAssessmentAttempt: true,
     gradedQuestionCount: 1,
+    savedQuestionCount: 1,
     questionCount: 4,
     ...overrides,
   };

@@ -30,7 +30,6 @@ const CLASSIFICATION_LABELS: Readonly<Record<ClassificationField, string>> = {
   subtopicUuid: "Subtopic",
 };
 
-const MAX_TAGS = 64;
 const MAX_TEXT_CODE_POINTS = 120;
 function hasControlCharacter(value: string): boolean {
   return [...value].some((character) => {
@@ -85,7 +84,6 @@ function validatedTags(value: string): ReadonlyArray<string> {
     .filter((tag) => tag.length > 0)
     .map((tag) => validatedText(tag, "Each tag"));
   if (tags.length === 0) throw new Error("Enter at least one replacement tag, or choose Clear.");
-  if (tags.length > MAX_TAGS) throw new Error(`Enter at most ${MAX_TAGS} tags.`);
   if (new Set(tags).size !== tags.length) throw new Error("Enter each tag only once.");
   return tags;
 }

@@ -267,8 +267,9 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
     await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
     const available = page.locator('section[aria-labelledby="available-questions-heading"]');
+    const idsToAdd: string[] = [];
     for (const { summary } of selected) {
-      // Exact discovered ID + immutable Revision, not first Add Question or title-only guessing.
+      // Exact discovered ID + immutable Revision, not a first-row or title-only guess.
       const identity = `${summary.questionId} * Revision ${summary.latestQuestionRevision.revisionNumber}:`;
       const row = available.getByRole("listitem").filter({ hasText: identity });
       await row.first().waitFor();
@@ -276,8 +277,16 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
         throw new Error(
           `Exact published Revision is unavailable for selection: ${summary.metadata.questionTitle}`,
         );
-      await row.getByRole("button", { name: "Add Question", exact: true }).click();
+      idsToAdd.push(summary.questionId);
     }
+    await page.getByLabel("Question IDs to add", { exact: true }).fill(idsToAdd.join("\n"));
+    await page.getByRole("button", { name: "Add Questions by ID", exact: true }).click();
+    await page
+      .getByText(
+        `${idsToAdd.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
+        { exact: true },
+      )
+      .waitFor();
     await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
     await page
       .getByText("Questions and order saved. Review Assessment Properties when you are ready.")

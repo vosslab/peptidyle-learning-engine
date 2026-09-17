@@ -207,6 +207,36 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage("Entry removed. Save Questions when ready.");
   }
 
+  function appendAvailableQuestions(
+    candidates: ReadonlyArray<AssessmentQuestionPickerEntry>,
+  ): void {
+    setEntries((current) => {
+      let next = current;
+      for (const candidate of candidates)
+        next = appendAvailableFixedQuestion(next, candidate, entryId());
+      return next;
+    });
+    setDirty((current) => nextQuestionEditDirty(current, "add"));
+  }
+
+  function add(candidate: AssessmentQuestionPickerEntry): void {
+    if (busy()) return;
+    if (needsReload()) {
+      setMessage("Reload the latest Assessment before adding an entry.");
+      return;
+    }
+    if (remainingQuestionCapacity() === 0) {
+      setMessage(
+        "An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions.",
+      );
+      return;
+    }
+    appendAvailableQuestions([candidate]);
+    setMessage(
+      "Available published Question added with its exact revision pin. Save Questions when ready.",
+    );
+  }
+
   function addQuestionsById(): void {
     if (busy()) return;
     if (needsReload()) {
@@ -253,14 +283,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       );
       return;
     }
-    setEntries((current) => {
-      let next = current;
-      for (const candidate of candidates)
-        next = appendAvailableFixedQuestion(next, candidate, entryId());
-      return next;
-    });
+    appendAvailableQuestions(candidates);
     setQuestionIdsToAdd("");
-    setDirty((current) => nextQuestionEditDirty(current, "add"));
     setMessage(
       `${candidates.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
     );
@@ -736,6 +760,13 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                   <strong>{candidate.reference.questionId}</strong> * Revision{" "}
                   {candidate.reference.revisionNumber}: {candidate.description}{" "}
                   <A href={questionRevisionInspectionPath(candidate.reference)}>Inspect</A>{" "}
+                  <button
+                    type="button"
+                    disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
+                    onClick={() => add(candidate)}
+                  >
+                    Add Question
+                  </button>
                 </li>
               )}
             </For>

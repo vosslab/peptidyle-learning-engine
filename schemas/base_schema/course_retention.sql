@@ -13,8 +13,13 @@ CREATE TABLE ple_data.course_retention_policy (
     CHECK (archive_notice_lead_time <= archive_after_retention_start)
 );
 
--- These are operational defaults, not product-policy constants.  A deployment
--- administrator can set its local FERPA periods before retention processing.
+-- These are operational defaults, not product-policy constants.  The retention
+-- start is the latest Assessment deadline: archive at day 100, with a day-30
+-- notice expressed as a 70-day lead (100 - 70), then delete at day 365 through
+-- the 265-day interval after the same absolute archive cutoff (100 + 265).
+-- The independent 14-day inactive-Course warning remains unchanged.
+-- A deployment administrator can set its local FERPA periods before retention
+-- processing.
 INSERT INTO ple_data.course_retention_policy (
     inactive_warning_lead_time,
     archive_notice_lead_time,
@@ -22,9 +27,9 @@ INSERT INTO ple_data.course_retention_policy (
     delete_after_archive
 ) VALUES (
     INTERVAL '14 days',
-    INTERVAL '14 days',
-    INTERVAL '5 years',
-    INTERVAL '90 days'
+    INTERVAL '70 days',
+    INTERVAL '100 days',
+    INTERVAL '265 days'
 );
 
 CREATE FUNCTION ple_data.course_retention_due_actions(p_evaluated_at timestamp with time zone)
@@ -104,4 +109,25 @@ CREATE POLICY course_retention_policy_data_owner_access
     ON ple_data.course_retention_policy FOR ALL TO ple_data_owner
     USING (true) WITH CHECK (true);
 
+RESET ROLE;
+
+-- The private retained-Work projections cannot read Course rows directly.
+-- Keep this state predicate in the API owner's narrow, unexposed capability
+-- instead of widening their table privileges.  ASVS 2.3.1.
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.course_student_work_is_ordinarily_visible(
+    p_course_id uuid
+) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_data AS $$
+    SELECT p_course_id IS NOT NULL
+       AND EXISTS (
+           SELECT 1
+             FROM ple_data.course_instance AS course
+            WHERE course.course_id = p_course_id
+              AND course.retention_lifecycle_state = 'active'
+       )
+$$;
+REVOKE ALL ON FUNCTION ple_api.course_student_work_is_ordinarily_visible(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.course_student_work_is_ordinarily_visible(uuid)
+    TO ple_private_owner;
 RESET ROLE;

@@ -427,6 +427,7 @@ remain interpretive authority, but are not checklist items.
 
 - [x] Use [Atkinson Hyperlegible Next](https://www.brailleinstitute.org/freefont/) as the main PLE font.
   - Evidence (source): `src/style.css` `:root` sets `Atkinson Hyperlegible Next` as the first font family.
+  - Evidence (runtime): `src/style.css` `:root` was confirmed by a current authorized Student WeBWorK iframe probe at 1440 and 390 CSS pixels: `document.fonts` was loaded and computed `Atkinson Hyperlegible Next` first on both the body and its visible input. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
 - [x] Use [Atkinson Hyperlegible Mono](https://www.brailleinstitute.org/freefont/) for code and other monospace text.
   - Evidence (source): `src/styles/browser_fonts.css` `--ple-font-mono` applies the local `Atkinson Hyperlegible Mono` family to `code`, `kbd`, `pre`, and `samp` through normal and italic `@font-face` declarations.
   - Evidence (source): `pipeline/build.mjs` `BROWSER_FONT_BUNDLES` copies and verifies the Mono assets in the production `dist` output.
@@ -1245,9 +1246,11 @@ remain interpretive authority, but are not checklist items.
 - [x] Student Accounts persist independently of Course data and Course retention.
   - Evidence (source): `schemas/base_schema/accounts.sql` `account` is separate from course-scoped `student_record`.
 - [ ] Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
-  - Mismatch: No Course retention policy or deletion transition is present to govern these records.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes private Attempt roots and Course-scoped Student records only after the archived state, while retaining Course teaching material and identity-free aggregate rows.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate proved the bounded Course purge and post-purge claim/import refusal, but its fixture had no submitted Student Work. Configured retention policy, worker execution, full Work-descendant coverage, and connected acceptance remain open.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-  - Mismatch: Student-data deletion and its preservation boundary are not implemented.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate retained the deleted Course row, but has no submitted Student Work or connected product proof for the complete teaching-material boundary.
 - [ ] **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
   - Mismatch: The Attempt table links a Student record and Assessment, but the implementation does not establish `Student Work` as the collective product term for all such records.
 - [x] Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
@@ -1256,9 +1259,11 @@ remain interpretive authority, but are not checklist items.
 - [ ] Student Work is an umbrella term; the underlying records retain their own identities and purposes.
   - Mismatch: Distinct Attempt, issued-Question, and Question-Pool-selection records show separate identities, but no implemented collective `Student Work` term establishes the required umbrella relationship.
 - [ ] Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
-  - Mismatch: Retention deletion is not implemented, so this separation has not been realized.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` preserves existing identity-free aggregate rows while deleting private Attempt roots and Course Student records; `schemas/base_schema/statistics.sql` defines the retained Question Revision count tables without Student identity fields.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate established the bounded deletion transition, but exercised no submitted Student Work or aggregate rows. Aggregate disclosure safety and complete retained-evidence coverage remain open.
 - [ ] Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
-  - Mismatch: Aggregate statistics exist, but no implemented Student-record deletion transition proves their retention behavior.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` explicitly preserves existing identity-free aggregate rows, and `schemas/base_schema/statistics.sql` retains Question Revision statistics independently of private grading receipts.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate proved bounded Student-record deletion but had no submitted Student Work or aggregate-statistics fixture. Pool statistics, privacy thresholds, product display, and connected retention acceptance remain open.
 - [ ] Aggregate Question statistics must not identify or allow reconstruction of individual Student activity.
   - Mismatch: `question_revision_statistics` omits direct identity fields, but the implementation has no demonstrated disclosure or small-cohort rule preventing aggregate counts from reconstructing an individual Student's activity.
 - [x] Published Question statistics retain accepted graded Attempt count and correct count.
@@ -1296,7 +1301,8 @@ remain interpretive authority, but are not checklist items.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
 - [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
   delete Student records.
-  - Mismatch: Neither Course inactivity nor FERPA deletion transition is implemented.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` separates `ple_api.archive_course_student_records` from `ple_api.delete_course_student_records`; the latter requires the archived state and performs the deletion transaction.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate exercised archive then bounded deletion, but notification, configured intervals, worker scheduling, and connected interface behavior remain open.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
   - Mismatch: No Course retention processing exists for any calendar.
 - [ ] PLE should notify the **Instructor** before FERPA-sensitive Student data is archived.
@@ -1304,9 +1310,11 @@ remain interpretive authority, but are not checklist items.
 - [ ] Archived Student data should leave normal Instructor and Student interfaces but remain recoverable during the retention period.
   - Mismatch: No archive/recovery state or interface exclusion exists.
 - [ ] FERPA-sensitive Student data should be permanently deleted when its retention period expires.
-  - Mismatch: No retention-period expiry deletion exists.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` is an archived-Course deletion transition and is repeat-safe after a deleted state.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate proved the bounded delete operation and repeated-delete refusal; operational retention-period configuration, periodic execution, submitted-Work coverage, and connected acceptance remain open.
 - [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
-  - Mismatch: Student-data deletion and its preservation boundary are not implemented.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate retained the deleted Course row, but has no submitted Student Work or connected product proof for the complete teaching-material boundary.
   - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.
@@ -1435,6 +1443,7 @@ remain interpretive authority, but are not checklist items.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `workspace_import` treats `qti` as an import format, not a source binding.
 - [x] MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT Question Types should be supported.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision` CHECK lists all eight types.
+  - Evidence (runtime): `tests/playwright/screenshot_corpus/scenarios_student_types.ts` `captureTypes` supplied current authorized Student delivery of each eight released native types at laptop and phone widths (18 unanswered captures including WeBWorK); exact issued Question Revision membership and permitted-response privacy checks passed. This is private presentation coverage, not an eight-type interaction matrix. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
 - [x] Question Type is immutable author-declared educational metadata on a Published Question Revision.
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `question_revision_is_immutable` protects `question_type` on a revision.
 - [x] PLE uses Question Type for search, filtering, labeling, and presentation.
@@ -1458,6 +1467,7 @@ remain interpretive authority, but are not checklist items.
   - Evidence (runtime): `schemas/base_schema/assessment_attempts.sql` `validate_issued_question_reproduction` passed in `/private/tmp/ple-native-seed-proof.sh --isolated --native-seed-http` against PostgreSQL 17: shuffled-position-2 native seed/hash were null, real WeBWorK retained numeric seed/64-character hash privately, public start/read/save/resume/restored payloads omitted both fields, resume retained the same issued Questions and saved native response, and invalid native seed insertion failed. Artifact: `/private/tmp/ple-native-seed-artifacts.KfY7Op`.
 - [x] Native PLE JSON supports MC, MA, FIB, MULTI-FIB, NUM, MATCH, ORDER, and HOTSPOT.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonResponse` defines all eight native types.
+  - Evidence (runtime): `tests/playwright/screenshot_corpus/scenarios_student_types.ts` `captureTypes` supplied current authorized Student delivery of each released native type at laptop and phone widths with exact published Revision checks. The 16 native captures establish presentation only; response interaction, save/reload, and grading remain separately scoped per type. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
 - [x] External URLs used by native JSON Questions are explicitly recorded and reviewable.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `PleQuestionJsonDocumentBody` records the author-declared `externalResources` inventory as source metadata only, without fetching or browser permission; `validate_external_resources` bounds and de-duplicates recorded URLs.
   - Evidence (source): `crates/adapters/ple/src/question_json/source_document.rs` `validate_external_resource_url` accepts only bounded, printable, absolute HTTPS URLs without user information.
@@ -1501,10 +1511,12 @@ remain interpretive authority, but are not checklist items.
   - Mismatch: author-supplied JavaScript is not implemented.
 - [ ] Author-supplied JavaScript operates independently of PLE application APIs and privileged state.
   - Mismatch: author-supplied JavaScript is not implemented.
-- [ ] Native interactive Question Types such as HOTSPOT use PLE-owned interaction code.
-  - Verification pending: Raster upload, authoring, publication preparation, and PLE-owned controls exist; connected author/save/publish, worker Ready, Student grading, rendered evidence, and SVG remain unproved or absent.
+- [x] Native interactive Question Types such as HOTSPOT use PLE-owned interaction code.
+  - Evidence (source): `src/components/question_response_controls/question_response_control.tsx` `QuestionResponseControl` dispatches a delivered `hotspot` format to `HotspotResponse`; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` owns the image overlay, labeled native region controls, response serialization, and Save handoff.
+  - Evidence (runtime): `tests/playwright/screenshot_corpus/hotspot_workflow.ts` `exerciseHotspot` passed unchanged for Avery's pointer input and Jack's keyboard Space input: each selected the PLE-owned region, saved, reloaded the exact issued Question ID and Revision with the selection intact, submitted the whole Attempt, and received `Marked correct.` from server grading. Receipt: `/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
 - [ ] HOTSPOT content uses supported static assets such as images and SVG.
-  - Verification pending: Bounded PNG/JPEG/WebP Draft assets have validation and prepared delivery; connected Ready/rendered Student evidence is unproved, and SVG is not implemented.
+  - Evidence (source): `schemas/base_schema/draft_question_assets.sql` `validate_draft_question_asset` accepts only bounded PNG, JPEG, and WebP raster evidence; `src/components/question_response_controls/hotspot.tsx` `HotspotResponse` renders the revision-pinned image surface.
+  - Verification pending: Connected canonical proof now covers a prepared published raster image, its loaded Student surface, and selection. SVG remains unsupported because the accepted media types exclude `image/svg+xml`, so the images-and-SVG requirement remains open.
 - [ ] Grading and correctness decisions remain server-owned and independent of author-supplied JavaScript.
   - Mismatch: author JavaScript is absent; no runtime proof covers this interaction boundary.
 - [ ] External JavaScript dependencies and CDN domains are explicitly recorded and reviewable.
@@ -1870,27 +1882,33 @@ remain interpretive authority, but are not checklist items.
 #### Question Library object statistics
 
 - [ ] Published Questions and Question Pools may retain privacy-safe aggregate statistics.
-  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+  - Evidence (source): `schemas/base_schema/statistics.sql` `question_revision_statistics` and `question_revision_choice_statistics` retain identity-free Question Revision counts; `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` preserves those aggregate rows while deleting Course Student evidence.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate had no submitted Student Work or aggregate-statistics fixture. Pool Revision/use/selection statistics, privacy thresholds, product display, and connected retention acceptance remain open.
 - [ ] Statistics are kept separately for each Published Question Revision and Question Pool Revision.
-  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+  - Evidence (source): `schemas/base_schema/statistics.sql` keys Question statistics by `(question_id, revision_number)` and preserves those identity-free rows through `ple_api.delete_course_student_records`.
+  - Verification pending: no Pool Revision/use/selection statistics model exists, and the 2026-09-16 actual-role PostgreSQL 17 purge gate exercised neither submitted Work nor aggregate rows.
 - [ ] Each Published Question Revision may retain aggregate counts of correct, incorrect, partial-credit,
   and unanswered results.
-  - Mismatch: private aggregate capture exists, but no released Question Statistics surface establishes this product behavior.
+  - Evidence (source): `schemas/base_schema/statistics.sql` `question_revision_statistics` retains accepted graded-Attempt and correct counts by exact Question Revision, and `question_revision_choice_statistics` retains eligible choice counts.
+  - Verification pending: the complete result-count model, released Instructor Statistics surface, disclosure/privacy rules, and connected acceptance remain open.
 - [x] Eligible Question Types may also retain aggregate answer-choice counts.
   - Evidence (source): `schemas/base_schema/statistics.sql` `selected_count` stores aggregate choice counts.
   - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] Each Question Pool Revision may retain aggregate statistics for its use and Question selections.
-  - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
+  - Verification pending: `schemas/base_schema/statistics.sql` supplies only Question Revision aggregates, which the deletion transition preserves. Pool Revision/use/selection statistics and their privacy/retention oracle are not implemented.
 - [ ] Published Question and Question Pool statistics may combine Revisions when clearly labeled and
   privacy thresholds are met.
   - Verification pending: `schemas/base_schema/statistics.sql` `question_revision_statistics` supplies Question-only aggregate context; this requirement now also applies to Pool Revisions/use/selection or revised privacy/retention semantics. Audit the exact aggregate model and privacy/retention oracle; Question-only evidence is insufficient.
 - [ ] Aggregate statistics contain counts rather than Student Attempts or identifiable Student records.
-  - Mismatch: private aggregate evidence exists, but no released Question Statistics surface establishes the required product behavior.
+  - Evidence (source): `schemas/base_schema/statistics.sql` stores count fields by Question Revision and choice, while `schemas/base_schema/course_retention_transitions.sql` deletes private Attempt roots and keeps existing identity-free aggregate rows.
+  - Verification pending: no accepted aggregate disclosure/small-cohort rule, Pool aggregate model, or connected product surface proves that all exposed statistics prevent reconstruction of Student activity.
 - [ ] Privacy-safe aggregate statistics remain after the underlying Student records are deleted.
-  - Mismatch: retention transition needs runtime or connected-oracle proof.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` explicitly preserves existing identity-free aggregate rows; `schemas/base_schema/statistics.sql` documents retained Question Revision statistics after Course Student-record deletion.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate exercised no submitted Student Work or aggregate rows. Pool statistics, privacy thresholds, and connected retention acceptance remain open.
 - [ ] Student data retention removes the underlying Student evidence without removing approved aggregate
   statistics.
-  - Mismatch: needs runtime or connected-oracle evidence for retention and aggregate preservation.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` removes private Attempt roots and Course Student evidence while preserving existing identity-free aggregate rows.
+  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate proved bounded deletion but had no submitted Student Work or aggregate-statistics fixture. Approved aggregate policy, Pool coverage, and connected acceptance remain open.
 - [ ] Removing Student names alone does not make statistics anonymous.
   - Mismatch: no released Question Statistics policy establishes this behavior.
 - [ ] Shared statistics should be shown only when individual Students cannot reasonably be identified
@@ -1903,25 +1921,31 @@ remain interpretive authority, but are not checklist items.
 
 - [ ] Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
   Knowledge Dimension.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores non-null Cognitive Process and Knowledge Dimension pairs by exact immutable Question or Pool Revision, with an independent classification Edit Number.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved bounded Question and Pool storage/correction behavior, but publication-required attachment, AI initial assignment, typed API/UI projection, and search/reporting remain absent.
 - [ ] The two Bloom dimensions are independent and together determine the object's Bloom Classification.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` validates the two independent closed-vocabulary fields and stores a complete pair rather than a derived matrix value.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved pair validation and bounded correction, but publication-required attachment, AI initial assignment, typed API/UI projection, and search/reporting remain absent.
 - [ ] Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores the two guide-defined classification dimensions separately from Question source, scoring, and immutable content Revision data.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves bounded metadata storage only; AI semantic classification, publication admission, Instructor-facing interpretation, and search/reporting remain absent.
 - [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores a Pool Revision's own pair by `(question_pool_id, revision_number)`, rather than deriving it from member Questions.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves bounded Pool pair storage/correction only; AI whole-Pool assignment, publication admission, typed API/UI projection, and search/reporting remain absent.
 - [ ] Bloom Classification is required before a Published Question or Question Pool enters the Question
   Library.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Mismatch: `schemas/base_schema/question_bloom.sql` provides exact-Revision storage, but publication producers do not yet atomically initialize it or hide unclassified objects from Library admission; legacy rows can remain unclassified and visible.
 - [ ] AI assigns the initial Bloom Classification as part of publication.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Mismatch: `schemas/base_schema/question_bloom.sql` has no protected AI preparation, model-origin evidence, source-bound stale-result handling, or atomic publication producer wiring. The 2026-09-16 actual-role gate used synthetic initial pairs, not AI output.
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` `ple_api.correct_question_revision_bloom` and `ple_api.correct_question_pool_revision_bloom` CAS-update only the paired metadata and classification Edit Number, not the immutable content Revision.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved Instructor allow/outsider denial, no-op/stale behavior, and immutable before/after snapshots; typed Store/server/API transport, read/token projection, and browser correction behavior remain absent.
 - [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Mismatch: `schemas/base_schema/question_bloom.sql` supplies storage and correction only; no typed search/reporting query, API projection, or Instructor interface consumes either Bloom dimension.
 - [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
-  - Mismatch: `schemas/base_schema/question_lineages.sql` `published_question_metadata` and `schemas/base_schema/question_pools.sql` `question_pool_revision` have no two-dimensional Bloom model; publication, AI assignment, correction without a Revision, and search/reporting proof remain absent for this requirement.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` accepts only the guide's six Cognitive Process and four Knowledge Dimension spellings.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves those bounded storage values only; AI classification, publication-required attachment, Instructor-facing teaching interpretation, and search/reporting remain absent.
 
 #### Question Library stewardship specifications
 

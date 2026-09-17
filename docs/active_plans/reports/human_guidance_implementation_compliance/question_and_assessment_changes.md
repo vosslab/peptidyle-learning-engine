@@ -174,6 +174,18 @@ The authoritative exhaustive record is the
 
 ## Evidence updates
 
+- Fresh canonical PostgreSQL 17.11 Course-purge evidence supersedes the earlier
+  historical source-only statement for its narrow actual-role boundary. The
+  canonical validator grant repaired a real retention-executor CHECK failure
+  without PUBLIC access or a proof-only workaround. One deleted daughter kept
+  anonymous enrollment count `1`; the global Student Account and other daughter
+  remained, while observed Course-scoped Student records, memberships, profiles,
+  invitations, and roster/invitation events were removed. Claim/import refusal
+  after purge and four diagnostic lock waits passed. There was no submitted
+  Student Work fixture, so this does not prove every Assessment Work/Attempt
+  descendant, worker/deployed behavior, or complete locking. No checklist status
+  changes. Receipt: `/private/tmp/ple-course-purge-proof-20260916.md`.
+
 - Current timing integration uses Human Guidance SHA256
   `e1bff34982563f3e3100aa23e3744134ff004b382984bb65a3bb27d5fe74db6b` and preserves prior
   reconciliation and scoring evidence. The accepted 250 delivered-Question import bound closes

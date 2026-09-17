@@ -88,6 +88,7 @@ struct AssessmentSummary {
     assessment_attempt_completion: Option<AssessmentAttemptCompletion>,
     can_resume_assessment_attempt: bool,
     graded_question_count: u32,
+    saved_question_count: u32,
     question_count: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     assessment_score: Option<learning_data_access::LiveAssessmentGradeContribution>,
@@ -180,6 +181,7 @@ async fn list_assessments(
                         assessment_attempt_completion: assessment.assessment_attempt_completion,
                         can_resume_assessment_attempt: assessment.can_resume_assessment_attempt,
                         graded_question_count: assessment.graded_question_count,
+                        saved_question_count: assessment.saved_question_count,
                         question_count: assessment.question_count,
                         assessment_score: assessment.assessment_score,
                     })

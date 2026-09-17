@@ -68,6 +68,8 @@ pub struct LiveStudentAssessmentLandingSummary {
     pub can_resume_assessment_attempt: bool,
     /// Questions with an immutable Grading Result in the current Assessment Attempt.
     pub graded_question_count: u32,
+    /// Complete durable saved responses in the latest Assessment Attempt; not grading evidence.
+    pub saved_question_count: u32,
     /// Total questions in the current Assessment; an existing Attempt retains its issued-question evidence.
     pub question_count: u32,
     /// Highest submitted Assessment score when that Attempt's disclosure permits it.

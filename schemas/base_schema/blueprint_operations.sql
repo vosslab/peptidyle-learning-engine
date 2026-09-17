@@ -464,11 +464,16 @@ BEGIN
            course.owner_account_id = ple_api.current_session_account_id(),
            (SELECT count(*) FROM ple_data.course_instance AS adoption
              WHERE adoption.blueprint_course_reference_number = course.reference_number),
-           (SELECT count(DISTINCT (membership.course_id, membership.account_id))
+           (SELECT COALESCE(sum(CASE
+                       WHEN adoption.retention_lifecycle_state = 'deleted'
+                           THEN adoption.purged_students_ever_enrolled
+                       ELSE (SELECT count(DISTINCT membership.account_id)
+                               FROM ple_data.course_membership AS membership
+                              WHERE membership.course_id = adoption.course_id
+                                AND membership.role = 'student')
+                   END), 0)::bigint
               FROM ple_data.course_instance AS adoption
-              JOIN ple_data.course_membership AS membership ON membership.course_id = adoption.course_id
-             WHERE adoption.blueprint_course_reference_number = course.reference_number
-               AND membership.role = 'student'),
+             WHERE adoption.blueprint_course_reference_number = course.reference_number),
            course.discipline_uuid, course.subject_uuid, course.topic_uuid,
            course.subtopic_uuid, course.tags
       FROM ple_data.blueprint_course AS course

@@ -11,15 +11,21 @@
 
 ### Behavior or Interface Changes
 
-- Recorded audit-first Human Guidance execution priority: complete the SQL foundation audit, then
-  the open UI/UX audit, while allowing independent unblocked UI work in parallel. No Human
-  Guidance scope is excluded, no all-SQL-locked claim is made, and other compliance work remains
-  pending. Accepted bounded evidence covers bulk Question-ID Assessment source review plus
-  isolated component proof and Next/Mono source/static cascade review only. Live Demo `3831` is
-  building, not acceptance; nine private laptop Type captures do not replace a full 77-capture
-  refresh. Receipts: `/private/tmp/ple-assessment-bulk-add-20260916.md`,
-  `/private/tmp/ple-bulk-id-editor-review-20260916.md`, and
-  `/private/tmp/ple-typography-cascade-final-review-20260916.md`.
+- Recorded the accepted current batch: the FERPA policy set splits product boundary from deadline-anchored notice/archive/recovery/deletion with authorized recovery; invitation claim/revoke
+  and exact-Revision Bloom-pair storage/CAS have actual-role proof (AI,
+  publication, API, and UI remain open); Template minutes retain exact seconds; individual Add remains
+  alongside bulk Add; all 18 private Question-type captures, connected HOTSPOT pointer/keyboard proof,
+  and actual WeBWorK Next-font proof passed. Receipts: `/private/tmp/ple-invitation-claim-revoke-20260916.md`, `/private/tmp/ple-bloom-proof-20260916.md`, `/private/tmp/ple-template-duration-minutes-20260916.md`, `/private/tmp/ple-resumed-types-20260916.md`, and `/private/tmp/ple-hotspot-connected-interaction-20260916.md`.
+  Retention configuration uses a 70-day notice lead, day-100 archive, and 265-day post-archive
+  interval; isolated PostgreSQL proof includes a day-200 archive that still deleted at day 365, but
+  does not establish deployed worker or email delivery. Receipt: `/private/tmp/ple-retention-operational-schedule-20260916.md`.
+
+- Updated Human Guidance execution priority: finish the SQL foundation and highest-impact UI gates
+  first; Terra/Sol may run safe independent work in parallel, and full screenshots wait for those
+  gates. Fresh canonical Course-purge proof corrected the actual-role validator grant, retained the
+  anonymous deleted-daughter enrollment count, observed four waits, and refused post-purge
+  claim/import; no submitted-Work, complete-purge, worker, deployed, or general-lock claim follows.
+  Receipt: `/private/tmp/ple-course-purge-proof-20260916.md`.
 
 - Tracked the new bulk Question-ID Assessment requirement as open: Course Instance bulk-ID addition
   is under implementation, with independent review and connected proof pending. Recorded the

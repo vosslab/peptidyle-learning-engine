@@ -81,6 +81,11 @@ BEGIN
     -- effective policy values, never accommodation identity or another record.
     SELECT ple_api.current_session_student_record_id(assessment_row.course_id) INTO student_record_id_value;
     IF student_record_id_value IS NULL OR NOT ple_api.current_session_account_owns_student_record(assessment_row.course_id, student_record_id_value) THEN RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable'; END IF;
+    -- ASVS 8.2.2, 8.2.3, 8.3.1: effective Student policy and retained
+    -- Attempt history are ordinary Work, not reusable teaching definitions.
+    IF NOT ple_api.course_student_work_is_ordinarily_visible(assessment_row.course_id) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Assessment is unavailable';
+    END IF;
     SELECT * INTO accommodation_row FROM ple_private.student_assessment_accommodation WHERE student_record_id = student_record_id_value AND assessment_id = assessment_row.assessment_id;
     available_at := COALESCE(accommodation_row.available_at, assessment_row.available_at);
     due_at := COALESCE(accommodation_row.due_at, assessment_row.due_at);
@@ -164,7 +169,7 @@ END $$;
 
 CREATE FUNCTION ple_private.read_active_student_assessment_attempt_reference(p_course_reference_number bigint, p_assessment_reference_number text)
 RETURNS TABLE (assessment_attempt_reference_number bigint) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT assessment_attempt.reference_number FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE p_course_reference_number BETWEEN 1 AND 2147483647 AND ple_api.course_reference_number_for_assessment_attempt(assessment.course_id) = p_course_reference_number AND assessment.public_reference = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.current_session_account_owns_student_record(assessment.course_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
+    SELECT assessment_attempt.reference_number FROM ple_private.assessment_attempt AS assessment_attempt JOIN ple_data.assessment AS assessment ON assessment.assessment_id = assessment_attempt.assessment_id WHERE p_course_reference_number BETWEEN 1 AND 2147483647 AND ple_api.course_reference_number_for_assessment_attempt(assessment.course_id) = p_course_reference_number AND assessment.public_reference = p_assessment_reference_number AND NOT EXISTS (SELECT 1 FROM ple_private.assessment_submission AS submission WHERE submission.assessment_attempt_id = assessment_attempt.assessment_attempt_id) AND (assessment_attempt.expires_at IS NULL OR assessment_attempt.expires_at > pg_catalog.statement_timestamp()) AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id) AND ple_api.current_session_account_owns_student_record(assessment.course_id, assessment_attempt.student_record_id) ORDER BY assessment_attempt.assessment_attempt_number DESC LIMIT 1
 $$;
 
 -- Pool-member selection is immutable Student Work evidence.  The start
@@ -226,6 +231,8 @@ BEGIN
         ON assessment.assessment_id = assessment_attempt.assessment_id
      WHERE p_assessment_attempt_reference_number BETWEEN 1 AND 2147483647
        AND assessment_attempt.reference_number = p_assessment_attempt_reference_number
+       -- ASVS 8.2.2, 8.3.1: ownership does not bypass ordinary Work archive.
+       AND ple_api.course_student_work_is_ordinarily_visible(assessment.course_id)
        AND ple_api.current_session_account_owns_student_record(
            assessment.course_id, assessment_attempt.student_record_id
        );

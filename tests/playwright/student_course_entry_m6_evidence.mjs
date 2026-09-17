@@ -94,8 +94,9 @@ try {
     has: page.getByRole("heading", { name: "Protein structure practice", exact: true }),
   });
   await regularCard
-    .getByText("1 of 4 questions graded · Assessment score 7 / 8", { exact: true })
+    .getByText("1 of 4 responses saved", { exact: true })
     .waitFor({ state: "visible" });
+  assert.equal(await regularCard.getByText(/questions graded|Assessment score/u).count(), 0);
   const bonusCard = page
     .getByRole("article")
     .filter({ has: page.getByRole("heading", { name: "Bonus protein challenge", exact: true }) });

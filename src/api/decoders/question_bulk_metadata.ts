@@ -16,7 +16,6 @@ import {
 } from "../decoder";
 import { decodeQuestionId, field, requireOnlyFields } from "./shared";
 
-const MAX_SHARED_METADATA_VALUES = 64;
 const MAX_SHARED_METADATA_TEXT_CODE_POINTS = 120;
 function decodeClassificationUuid(value: unknown, path: string): string {
   const uuid = decodeUuid(value, path);
@@ -54,9 +53,6 @@ function decodeSharedMetadataText(value: unknown, path: string): string {
 
 function decodeTags(value: unknown, path: string): Array<string> {
   const tags = decodeArray(value, path, decodeSharedMetadataText);
-  if (tags.length > MAX_SHARED_METADATA_VALUES) {
-    throw new DecodeError(path, `at most ${MAX_SHARED_METADATA_VALUES} tags`);
-  }
   if (new Set(tags).size !== tags.length) throw new DecodeError(path, "unique tags");
   return tags;
 }

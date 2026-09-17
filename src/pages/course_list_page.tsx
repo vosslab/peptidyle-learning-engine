@@ -20,6 +20,7 @@ import {
 } from "../components/course_classification_fields";
 import { CourseClassificationSummary } from "../components/course_classification_summary";
 import { decodeCourseClassification } from "../api/decoders/course_classification";
+import "./course_list_page.css";
 
 type AdoptableBlueprintCourse = Pick<
   BlueprintCourseSummaryView,
@@ -153,15 +154,24 @@ function TeachingCourseListPage(): JSX.Element {
   const [endDate, setEndDate] = createSignal("");
   const [isCreating, setIsCreating] = createSignal(false);
   const [creationError, setCreationError] = createSignal<string | null>(null);
+  const [creationDisclosure, setCreationDisclosure] = createSignal<boolean | undefined>(
+    creationSource() === "adopted" ? true : undefined,
+  );
 
   const visibleCourses = createMemo(() => {
     const seen = new Set<string>();
-    return [...createdCourses(), ...(courses() ?? [])].filter((course) => {
+    const loadedCourses = courses.error === undefined ? (courses() ?? []) : [];
+    return [...createdCourses(), ...loadedCourses].filter((course) => {
       if (seen.has(course.reference)) return false;
       seen.add(course.reference);
       return true;
     });
   });
+  const isCreationExpanded = createMemo(
+    () =>
+      creationDisclosure() ??
+      (!courses.loading && courses.error === undefined && visibleCourses().length === 0),
+  );
   const adoptableBlueprints = createMemo(() => {
     const linked = linkedBlueprint.error === undefined ? linkedBlueprint() : undefined;
     const chosen = chosenBlueprint();
@@ -227,6 +237,7 @@ function TeachingCourseListPage(): JSX.Element {
         term: { startDate: startDate(), endDate: endDate() },
       });
       setCreatedCourses((current) => [created.course, ...current]);
+      setCreationDisclosure(false);
       setCreationSource("empty");
       setBlueprintChoice("");
       setChosenBlueprint(undefined);
@@ -257,9 +268,21 @@ function TeachingCourseListPage(): JSX.Element {
         dates and settings before releasing Assessments to students.
       </p>
       <Show when={isInstructor()}>
+        <button
+          class="quiet-action course-create-disclosure"
+          type="button"
+          aria-expanded={isCreationExpanded()}
+          aria-controls="create-course-instance"
+          disabled={isCreating()}
+          onClick={() => setCreationDisclosure(!isCreationExpanded())}
+        >
+          <span aria-hidden="true">{isCreationExpanded() ? "\u25be" : "\u25b8"}</span>
+          Create Course Instance
+        </button>
         <form
           id="create-course-instance"
           class="course-create-form"
+          hidden={!isCreationExpanded()}
           aria-busy={isCreating()}
           novalidate
           onSubmit={(event) => void createCourseInstance(event)}
@@ -441,7 +464,10 @@ function TeachingCourseListPage(): JSX.Element {
         when={visibleCourses().length > 0}
         fallback={
           <Show when={!courses.loading && courses.error === undefined && isInstructor()}>
-            <p class="empty-state">No Course Instances are teaching yet.</p>
+            <p class="empty-state">
+              No Course Instances are teaching yet. Use Create Course Instance to start an empty
+              Course or adopt a Blueprint Course.
+            </p>
           </Show>
         }
       >

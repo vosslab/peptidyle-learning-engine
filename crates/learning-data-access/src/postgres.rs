@@ -87,7 +87,9 @@ mod invitation_export;
 #[cfg(feature = "postgres")]
 mod live_gradebook;
 #[cfg(feature = "postgres")]
+mod archived_student_work_recovery;
 mod live_student_course_landing;
+pub use archived_student_work_recovery::PostgresArchivedStudentWorkRecoveryStore;
 #[cfg(feature = "postgres")]
 mod migrations;
 #[cfg(feature = "postgres")]

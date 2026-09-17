@@ -164,6 +164,7 @@
 
 - [x] Use [Atkinson Hyperlegible Next](https://www.brailleinstitute.org/freefont/) as the main PLE font.
   - Evidence (source): `src/style.css` `:root` sets `Atkinson Hyperlegible Next` as the first font family.
+  - Evidence (runtime): `src/style.css` `:root` was confirmed by a current authorized Student WeBWorK iframe probe at 1440 and 390 CSS pixels: `document.fonts` was loaded and computed `Atkinson Hyperlegible Next` first on both the body and its visible input. Receipt: `/private/tmp/ple-resumed-types-20260916.md`.
 - [x] Use [Atkinson Hyperlegible Mono](https://www.brailleinstitute.org/freefont/) for code and other monospace text.
   - Evidence (source): `src/styles/browser_fonts.css` `--ple-font-mono` applies the local `Atkinson Hyperlegible Mono` family to `code`, `kbd`, `pre`, and `samp` through normal and italic `@font-face` declarations.
   - Evidence (source): `pipeline/build.mjs` `BROWSER_FONT_BUNDLES` copies and verifies the Mono assets in the production `dist` output.
