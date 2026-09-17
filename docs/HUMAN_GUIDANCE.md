@@ -37,6 +37,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   Assignments.
 - Quizzes and Exams do not use H5P because its runtime exposes answers and correctness to the
   Student browser.
+- public API for instructors to use AI to control their classes.
+- public API perhaps modeled after BrickLink OAuth https://www.bricklink.com/v3/api.page?page=auth
+
 
 ## Development principles
 
