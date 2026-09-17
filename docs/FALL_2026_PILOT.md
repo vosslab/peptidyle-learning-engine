@@ -62,7 +62,9 @@ The same content is available from the local mirror:
 
 `OTHER_REPOS/biology-problems-website/site_docs/`
 
-The local mirror may be used when direct repository access is more useful for importing, transforming, or inspecting the source content.
+The local mirror may be useful when repository access makes the source content easier to inspect or import.
+
+Questions explicitly labeled for **BIOL 301** are watered-down variants and are excluded from the Fall 2026 pilot.
 
 #### Question source and import guidance
 
@@ -74,6 +76,8 @@ When parameterized PG or PGML source exists, use that canonical algorithmic sour
 
 For simple static Questions, **PLE-native JSON** is the canonical internal machine format. Native JSON Questions are static rather than algorithmic.
 
-Importers should translate external formats into the appropriate PLE-managed Question representation while preserving the information needed to reproduce the Question through its Question Backend.
+BiologyProblems.org can export static Question content through **QTI**. For the Fall 2026 pilot, investigate using that QTI content to bring suitable BiologyProblems.org Questions into PLE-native JSON.
+
+QTI serves as an interchange format for this content rather than the canonical PLE representation. The existing BiologyProblems.org and PLE tooling should guide the appropriate import path and transformations.
 
 The initial primary Question Backends are **PLE-native JSON** and **WeBWorK**. WeBWorK owns PG/PGML rendering, controls, answer evaluators, partial credit, and feedback.
