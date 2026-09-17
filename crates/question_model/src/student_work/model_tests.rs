@@ -340,7 +340,10 @@ fn question_attempt_browser_wire_omits_reproduction_details() {
         Some(&serde_json::json!(attempt.issued_question.to_string()))
     );
     assert!(wire.get("issuedCapability").is_some());
-    assert_eq!(wire.get("finalizedResponse"), Some(&serde_json::Value::Null));
+    assert_eq!(
+        wire.get("finalizedResponse"),
+        Some(&serde_json::Value::Null)
+    );
     assert!(wire.get("submission").is_none());
 }
 

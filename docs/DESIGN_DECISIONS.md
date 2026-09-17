@@ -1152,6 +1152,25 @@ behavior by implication.
 
 ## Implementation and evidence
 
+### One Live Demo runtime owns every browser evidence lane
+
+**Decision.** PLE has one canonical Podman Live Demo runtime. Its one Caddy gateway serves the
+production frontend bundle, owns the local HTTPS browser origin, proxies the API and public assets,
+and applies the shared routing, readiness, and browser-security policy from
+`containers/Caddyfile`. `./launchers/run_live_demo.sh`, Playwright, screenshot capture, and focused
+connected browser verification all exercise that same topology, seeded data model, gateway
+behavior, and application paths.
+
+**Why.** A browser-test-specific gateway or alternate demo topology can pass while the human Live
+Demo is broken, turning test plumbing into an accidental second product runtime. Caddy remains a
+small, deliberate infrastructure boundary; duplicating its behavior does not.
+
+**Consequence.** The browser Compose overlay may add only mechanics required to run the same
+canonical runtime under browser automation, such as scoped certificate trust and fixed test
+addressing. It must not replace the Caddyfile, routing, headers, readiness,
+asset delivery, frontend bundle, authentication model, or seeded product graph. A gateway change is
+accepted only through both the normal Live Demo launcher and the canonical connected-browser path.
+
 ### One canonical database baseline serves fresh installation
 
 **Decision.** Pre-production database structure has one reviewed canonical

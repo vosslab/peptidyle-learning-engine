@@ -17,6 +17,21 @@
   box-shadow: none;
 }
 
+.roster-empty-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ple-space-2);
+}
+
+.roster-empty-state .empty-state {
+  margin: 0;
+}
+
+.roster-empty-state .primary-action {
+  margin: 0;
+}
+
 .roster-tools {
   margin-top: var(--ple-space-3);
   border-top: 1px solid var(--ple-border);
@@ -69,4 +84,14 @@
   display: grid;
   gap: var(--ple-space-3);
   margin-top: var(--ple-space-4);
+}
+
+@media (max-width: 32rem) {
+  .roster-empty-state {
+    align-items: stretch;
+  }
+
+  .roster-empty-state .primary-action {
+    width: 100%;
+  }
 }

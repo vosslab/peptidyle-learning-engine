@@ -2,10 +2,11 @@
 import { defineConfig } from "@playwright/test";
 
 import { liveDemoInputsFromEnvironment } from "./tests/playwright/browser_suite_live_config";
+import { liveDemoChromiumArgs } from "./tests/playwright/helper_gateway_trust.mjs";
 
 export interface ProductionBrowserUse {
   readonly baseURL: string;
-  readonly ignoreHTTPSErrors: true;
+  readonly launchOptions: { readonly args: string[] };
 }
 
 function requireOwnerInput(
@@ -25,7 +26,7 @@ export function productionBrowserUse(
   environment: Readonly<Record<string, string | undefined>>,
 ): ProductionBrowserUse {
   const input = requireOwnerInput(environment);
-  return { baseURL: input.baseUrl, ignoreHTTPSErrors: true };
+  return { baseURL: input.baseUrl, launchOptions: { args: liveDemoChromiumArgs(input.baseUrl) } };
 }
 
 /** Shared only by real-stack scenarios after the configuration accepted owner input. */
@@ -42,6 +43,6 @@ export default defineConfig({
   use: {
     baseURL: browserUse.baseURL,
     headless: true,
-    ignoreHTTPSErrors: browserUse.ignoreHTTPSErrors,
+    launchOptions: browserUse.launchOptions,
   },
 });

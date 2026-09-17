@@ -317,7 +317,8 @@ prove_webwork_submission() {
 	require_status "WeBWorK Assignment start" "$started" 201
 	attempt="$(python3 -c 'import json,re,sys; value=json.loads(sys.argv[1]); attempt=value.get("assignmentAttempt"); assert isinstance(attempt,str) and re.fullmatch(r"R-[1-9][0-9]*",attempt); print(attempt)' "$(response_body "$started")")"
 	port="$(gateway_port)"
-	node tests/playwright/e2e_live_demo_webwork_submission_browser.mjs "$port" "$attempt"
+	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
+		node tests/playwright/e2e_live_demo_webwork_submission_browser.mjs "$port" "$attempt"
 	selected="$(request "/api/assignment-attempts/$attempt/student-question?position=1" "$mary")"
 	require_status "WeBWorK saved-response reload" "$selected" 200
 	assert_saved_backend_response "$selected"

@@ -70,6 +70,8 @@ mod content_classification;
 #[cfg(feature = "postgres")]
 pub use content_classification::PostgresContentClassificationStore;
 #[cfg(feature = "postgres")]
+mod archived_student_work_recovery;
+#[cfg(feature = "postgres")]
 mod course_banner;
 #[cfg(feature = "postgres")]
 mod course_blueprint_adoption;
@@ -88,8 +90,6 @@ mod instructor_account;
 mod invitation_export;
 #[cfg(feature = "postgres")]
 mod live_gradebook;
-#[cfg(feature = "postgres")]
-mod archived_student_work_recovery;
 mod live_student_course_landing;
 pub use archived_student_work_recovery::PostgresArchivedStudentWorkRecoveryStore;
 #[cfg(feature = "postgres")]

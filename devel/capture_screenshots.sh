@@ -65,6 +65,7 @@ if [[ -z "$PLE_LOCAL_DEMO_TOTP_SETUP_FILE" ]]; then
 	exit 1
 fi
 export PLE_LOCAL_DEMO_TOTP_SETUP_FILE
+export NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt"
 
 if [[ "$headed" == "--headed" ]]; then
 	DEBUG="" PWDEBUG="" node --import tsx "$runner" "$mode" --headed "$live_demo_entry"

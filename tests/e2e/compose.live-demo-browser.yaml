@@ -1,16 +1,10 @@
-# Production-auth and local-storage composition for the one disposable live-demo browser lane.
+# Browser addressing and identity fixtures for the canonical disposable Live Demo.
 # Invoke only with containers/compose.yaml through the owner-locked lifecycle adapter.
 
 services:
   api:
-    build:
-      # ASVS 15.2.3: only this disposable-browser overlay selects the binary
-      # containing the feature-gated lease-interruption seam. Production keeps
-      # the ordinary target from containers/compose.yaml.
-      target: live-demo-fault
     environment:
       PLE_QTI_RUNTIME_ENABLED: "1"
-      PLE_STORAGE_TOPOLOGY: disposable-local
       PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:?set by e2e_browser_suite_owner.py}
       PLE_TRUSTED_PROXY_CIDRS: ${PLE_TRUSTED_PROXY_CIDRS:?set by e2e_browser_suite_owner.py}
       PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID: ${PLE_LIVE_DEMO_ELENA_INSTRUCTOR_ACCOUNT_ID:-}
@@ -19,27 +13,10 @@ services:
       PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID: ${PLE_LIVE_DEMO_JACK_STUDENT_ACCOUNT_ID:-}
       PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID: ${PLE_LIVE_DEMO_AVERY_STUDENT_ACCOUNT_ID:-}
       PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID: ${PLE_LIVE_DEMO_MORGAN_SYSADMIN_ACCOUNT_ID:-}
-  worker:
-    environment:
-      PLE_STORAGE_TOPOLOGY: disposable-local
-
   gateway:
-    volumes: !override
-      - ../tests/e2e/Caddyfile.live-demo-browser:/etc/caddy/Caddyfile:ro
-      - ../dist:/srv/peptidyle:ro
-    healthcheck:
-      test: !override
-        - CMD
-        - curl
-        - --insecure
-        - --fail
-        - --silent
-        - --show-error
-        - --max-time
-        - "2"
-        - --header
-        - "Host: localhost:${PLE_GATEWAY_HOST_PORT:?set by e2e_browser_suite_owner.py}"
-        - https://localhost:8080/
+    # Browser acceptance adds only the disposable storage-network attachment.
+    # TLS, routing, headers, readiness, and production-bundle delivery all come
+    # from the canonical containers/Caddyfile mounted by the base composition.
     networks:
       - default
 

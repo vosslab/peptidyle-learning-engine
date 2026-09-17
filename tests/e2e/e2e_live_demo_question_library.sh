@@ -422,7 +422,8 @@ print(any(item.get("summary", {}).get("questionId") == sys.argv[2] for item in j
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/playwright/e2e_live_demo_question_library_browser.mjs "$port"
+	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
+		node tests/playwright/e2e_live_demo_question_library_browser.mjs "$port"
 	echo "Question Library browser: navigation, search, and detail complete"
 }
 

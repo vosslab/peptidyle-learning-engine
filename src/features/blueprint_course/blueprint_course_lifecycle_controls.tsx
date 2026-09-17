@@ -9,6 +9,8 @@ import { blueprintLifecyclePresentation } from "./blueprint_course_model";
 
 export interface BlueprintCourseLifecycleControlsProps {
   readonly view: BlueprintCourseView;
+  /** Keeps teaching work above supporting lifecycle administration in the detail workspace. */
+  readonly placement: "primary" | "administration";
   readonly editing: boolean;
   readonly metadataSaving: boolean;
   readonly hasUnsavedContent: boolean;
@@ -27,9 +29,8 @@ export function BlueprintCourseLifecycleControls(
 ): JSX.Element {
   const lifecycle = (): ReturnType<typeof blueprintLifecyclePresentation> =>
     blueprintLifecyclePresentation(props.view.availability, props.view.read_access);
-  return (
-    <>
-      <p class="blueprint-course-field-help">{lifecycle().meaning}</p>
+  if (props.placement === "primary") {
+    return (
       <nav class="blueprint-course-detail-actions" aria-label="Blueprint Course actions">
         <Show when={lifecycle().canAdopt}>
           <A
@@ -46,6 +47,11 @@ export function BlueprintCourseLifecycleControls(
           </button>
         </Show>
       </nav>
+    );
+  }
+  return (
+    <>
+      <p class="blueprint-course-field-help">{lifecycle().meaning}</p>
       <Show
         when={
           lifecycle().canPublish ||

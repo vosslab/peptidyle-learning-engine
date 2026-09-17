@@ -146,7 +146,8 @@ podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -
 
 echo "Gradebook authority: current Course Instructor receives answer-free immutable grading evidence with concealed foreign access"
 if [ "$mode" = "browser" ]; then
-    node tests/playwright/e2e_live_demo_gradebook_browser.mjs "$(gateway_port)" "$course"
+    NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
+        node tests/playwright/e2e_live_demo_gradebook_browser.mjs "$(gateway_port)" "$course"
     echo "Gradebook browser: visible current-Instructor answer-free grading evidence with concealed foreign access complete"
 fi
 echo "Live Demo Gradebook: PASS"

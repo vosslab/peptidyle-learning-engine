@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 import { expect } from "@playwright/test";
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 import {
   chooseSeededIdentity,
@@ -156,10 +157,9 @@ async function verifyAvery(page) {
   await signOutVisible(page);
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
 const context = await browser.newContext({
   baseURL: origin,
-  ignoreHTTPSErrors: true,
 });
 const page = await context.newPage();
 

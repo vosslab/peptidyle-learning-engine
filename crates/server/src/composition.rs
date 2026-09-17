@@ -10,13 +10,13 @@ use learning_data_access::{
     SessionLifetime, SysadminTotpSeed, SysadminTotpStore,
     postgres::{
         Pool, PostgresAccountAvatarGallery, PostgresAccountTimeZoneStore,
-        PostgresArchivedStudentWorkRecoveryStore,
-        PostgresAssessmentAttemptExpirySweepStore, PostgresAssessmentPoolForkStore,
-        PostgresAssessmentPoolSelectionCountStore, PostgresAssessmentTemplateStore,
-        PostgresAuthoringAssetsStore, PostgresAuthoringDraftStore, PostgresBlueprintCourseStore,
-        PostgresBlueprintLineageStore, PostgresBlueprintStewardshipStore,
-        PostgresBulkPublishedQuestionMetadataStore, PostgresContentClassificationStore,
-        PostgresCourseBannerStore, PostgresCourseGradebookStore, PostgresCourseInstanceStore,
+        PostgresArchivedStudentWorkRecoveryStore, PostgresAssessmentAttemptExpirySweepStore,
+        PostgresAssessmentPoolForkStore, PostgresAssessmentPoolSelectionCountStore,
+        PostgresAssessmentTemplateStore, PostgresAuthoringAssetsStore, PostgresAuthoringDraftStore,
+        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
+        PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
+        PostgresContentClassificationStore, PostgresCourseBannerStore,
+        PostgresCourseGradebookStore, PostgresCourseInstanceStore,
         PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
         PostgresCourseRosterStore, PostgresCourseThemeStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
@@ -25,10 +25,11 @@ use learning_data_access::{
         PostgresLiveStudentCourseLandingStore, PostgresPublicAssetPublicationStore,
         PostgresQuestionAssetDeliveryStore, PostgresQuestionForkStore,
         PostgresQuestionLibraryStore, PostgresQuestionPoolCreationStore,
-        PostgresQuestionPoolLibraryStore, PostgresQuestionStarStore,
-        PostgresQuestionWatchNotificationStore, PostgresQuestionWatchStore, PostgresSessionStore,
-        PostgresSupportCapabilityStore, PostgresSysadminTotpStore, ProductionLoginProfile,
-        SysadminTotpSeedKeyId, SysadminTotpSeedKeyRing, local_development_pool, production_pool,
+        PostgresQuestionPoolLibraryStore, PostgresQuestionPoolStewardshipStore,
+        PostgresQuestionStarStore, PostgresQuestionWatchNotificationStore,
+        PostgresQuestionWatchStore, PostgresSessionStore, PostgresSupportCapabilityStore,
+        PostgresSysadminTotpStore, ProductionLoginProfile, SysadminTotpSeedKeyId,
+        SysadminTotpSeedKeyRing, local_development_pool, production_pool,
     },
 };
 use objects::s3::S3ObjectStore;
@@ -103,6 +104,7 @@ pub async fn production_router_from_env() -> Result<Router> {
     let content_classification = PostgresContentClassificationStore::new(pool.clone());
     let question_pool_creation = PostgresQuestionPoolCreationStore::new(pool.clone());
     let question_pool_library = PostgresQuestionPoolLibraryStore::new(pool.clone());
+    let question_pool_stewardship = PostgresQuestionPoolStewardshipStore::new(pool.clone());
     let question_forks = PostgresQuestionForkStore::new(pool.clone());
     let question_stars = PostgresQuestionStarStore::new(pool.clone());
     let question_watches = PostgresQuestionWatchStore::new(pool.clone());
@@ -116,7 +118,8 @@ pub async fn production_router_from_env() -> Result<Router> {
     let invitation_exports = PostgresInvitationExportStore::new(pool.clone());
     let gradebook = PostgresCourseGradebookStore::new(pool.clone());
     let student_course_landing = PostgresLiveStudentCourseLandingStore::new(pool.clone());
-    let archived_student_work_recovery = PostgresArchivedStudentWorkRecoveryStore::new(pool.clone());
+    let archived_student_work_recovery =
+        PostgresArchivedStudentWorkRecoveryStore::new(pool.clone());
     let profile_time_zones = PostgresAccountTimeZoneStore::new(pool.clone());
     let assessment_pool_forks = PostgresAssessmentPoolForkStore::new(pool.clone());
     let assessment_pool_selection_counts =
@@ -193,6 +196,13 @@ pub async fn production_router_from_env() -> Result<Router> {
             question_library_objects.clone(),
             question_id_issuer.clone(),
         ))
+        .merge(
+            crate::question_pool_stewardship::question_pool_stewardship_router(
+                Arc::clone(&sessions),
+                question_pool_stewardship,
+                question_id_issuer.clone(),
+            ),
+        )
         .merge(
             crate::question_bulk_metadata::question_bulk_metadata_router(
                 Arc::clone(&sessions),

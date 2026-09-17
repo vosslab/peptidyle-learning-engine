@@ -2,7 +2,7 @@
 // Selector contract: Questions Ribbon tab (src/ribbon/ribbon_catalog.ts:137-147), then Browse
 // Question Library and My Draft Questions Ribbon tasks (src/ribbon/ribbon_catalog.ts:324-335,
 // 372-383); Question Library heading (src/pages/library_page.tsx:163); Draft Question control and
-// My Question Drafts heading
+// My Draft Questions heading
 // (src/pages/question_drafts_page.tsx:101,106); JSON editor surface and private-draft status
 // (src/features/ple_question_json_authoring/question_json_editor_page.tsx:420-422,439-442);
 // Question License (src/features/ple_question_json_authoring/question_json_metadata_fields.tsx:92-105);
@@ -50,7 +50,6 @@ test.describe("instructor authoring on the production PLE stack", () => {
     try {
       context = await browser.newContext({
         viewport: { width: 1280, height: 800 },
-        ignoreHTTPSErrors: true,
       });
       observeContextOrigins(context, pageOrigins, requestOrigins);
       const page = await context.newPage();
@@ -66,7 +65,7 @@ test.describe("instructor authoring on the production PLE stack", () => {
       ).toBeVisible();
       await ribbonTasks.getByRole("link", { name: "My Draft Questions", exact: true }).click();
       await expect(
-        page.getByRole("heading", { name: "My Question Drafts", exact: true }),
+        page.getByRole("heading", { name: "My Draft Questions", exact: true }),
       ).toBeVisible();
       await page.getByRole("button", { name: "New Draft Question", exact: true }).click();
       await expect(page.locator('[data-route-surface="pleQuestionJsonEditor"]')).toBeVisible();
@@ -78,6 +77,8 @@ test.describe("instructor authoring on the production PLE stack", () => {
       );
       await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
       await page.getByLabel("Question Authors").fill("Live Demo Instructor");
+      await page.getByLabel("Discipline (required)").selectOption({ index: 1 });
+      await page.getByLabel("Subject (required)").selectOption({ index: 1 });
       await page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Published", exact: true })).toBeVisible();
       const publishedConfirmation = page

@@ -8,6 +8,7 @@ import {
 import { questionSearchRequest } from "../src/api/question_library_repository.ts";
 import { questionSearchPath } from "../src/api/question_search_query.ts";
 import {
+  recoverLibrarySearch,
   searchHandoffQuery,
   searchWithinResultsPath,
 } from "../src/pages/library_search_parameters.ts";
@@ -35,6 +36,7 @@ function query() {
     tag: "review",
     subjects: ["biochemistry"],
     topics: ["inheritance"],
+    sort: "publishedNewest",
   };
 }
 function row() {
@@ -51,7 +53,7 @@ function row() {
   };
 }
 
-test("Library URL handoff and strict wire request retain hierarchy alongside text and Tags", () => {
+test("Library URL handoff and strict wire request retain hierarchy, filters, and sort", () => {
   const original = query();
   const restored = searchHandoffQuery(
     new URL(searchWithinResultsPath(original), "https://example.test").search,
@@ -70,12 +72,14 @@ test("Library URL handoff and strict wire request retain hierarchy alongside tex
   assert.equal(parameters.get("text"), original.search);
   assert.equal(parameters.get("tags"), "review");
   assert.equal(parameters.get("subjects"), "biochemistry");
+  assert.equal(parameters.get("sort"), "publishedNewest");
   assert.equal(parameters.get("cursor"), "next-page");
   const empty = new URL(
     questionSearchPath(questionSearchRequest(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY, null)),
     "https://example.test",
   ).searchParams;
   for (const field of Object.keys(identities)) assert.equal(empty.has(field), false);
+  assert.equal(empty.get("sort"), "titleAscending");
 });
 
 test("Library cascade clears descendants and cross mode without changing independent filters", () => {
@@ -109,10 +113,32 @@ test("Library request rejects malformed identities, incomplete chains, false boo
   ]) {
     assert.throws(() => questionSearchPath({ ...request, ...change }));
   }
+  assert.throws(() => questionSearchPath({ ...request, sort: "unknown" }));
   assert.throws(() => searchHandoffQuery("?cross_discipline=1"));
+  assert.throws(() => searchHandoffQuery("?sort=unknown"));
+  assert.throws(() => searchHandoffQuery("?sort=titleAscending&sort=publishedNewest"));
 });
 
-test("Library continuation, Retry and detail return preserve the applied identity tuple", async () => {
+test("Library malformed URL recovery removes only the rejected strict options", () => {
+  const invalidSort = new URL(searchWithinResultsPath(query()), "https://example.test");
+  invalidSort.searchParams.append("sort", "titleAscending");
+  const recoveredSort = searchHandoffQuery(recoverLibrarySearch(invalidSort.search));
+  assert.equal(recoveredSort.sort, "titleAscending");
+  assert.equal(recoveredSort.tag, "review");
+  assert.deepEqual(libraryClassificationFilter(recoveredSort), identities);
+
+  const recoveredClassification = searchHandoffQuery(
+    recoverLibrarySearch("?subject_uuid=bad&sort=publishedNewest&tag=review"),
+  );
+  assert.equal(recoveredClassification.sort, "publishedNewest");
+  assert.equal(recoveredClassification.tag, "review");
+  assert.deepEqual(
+    libraryClassificationFilter(recoveredClassification),
+    libraryClassificationFilter(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY),
+  );
+});
+
+test("Library continuation, Retry and detail return preserve identity and sort", async () => {
   const requests = [];
   let failNext = true;
   const session = new QuestionLibraryBrowseSession(
@@ -145,6 +171,10 @@ test("Library continuation, Retry and detail return preserve the applied identit
   assert.deepEqual(
     requests.map((request) => request.cursor),
     [null, "next-page", "next-page"],
+  );
+  assert.deepEqual(
+    requests.map((request) => request.value.sort),
+    ["publishedNewest", "publishedNewest", "publishedNewest"],
   );
   const scope = {};
   const token = "00000000-0000-0000-0000-000000000099";

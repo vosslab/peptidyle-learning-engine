@@ -39,7 +39,9 @@ pub mod capability;
 pub mod course;
 /// Mandatory current classification for both Course forms.
 pub mod course_classification;
-pub use course_classification::{CourseClassification, CourseClassificationError, CourseMetadataEtag};
+pub use course_classification::{
+    CourseClassification, CourseClassificationError, CourseMetadataEtag,
+};
 /// Closed, browser-safe course appearance and banner presentation contracts.
 pub mod course_appearance;
 /// Validated inclusive course-calendar bounds and authoritative IANA zone.
@@ -241,7 +243,7 @@ pub use crate::question_library::{
     QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
     QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,
     QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
-    QuestionSearchResult, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
+    QuestionSearchResult, QuestionSearchSort, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
     QuestionSearchTopicFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
     QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
 };

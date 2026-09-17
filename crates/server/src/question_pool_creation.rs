@@ -171,11 +171,7 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
         if input.validate().is_err() {
             return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Question Pool is invalid");
         }
-        match state
-            .pools
-            .create_question_pool(session.clone(), input)
-            .await
-        {
+        match state.pools.create_question_pool(session, input).await {
             Ok(created) => {
                 return crate::auth::no_store(
                     (

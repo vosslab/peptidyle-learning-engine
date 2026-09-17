@@ -1,6 +1,7 @@
 // Production-browser proof for visible Sysadmin Instructor Account management.
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const port = process.argv[2];
 if (!/^[0-9]+$/.test(port ?? "")) {
@@ -8,8 +9,8 @@ if (!/^[0-9]+$/.test(port ?? "")) {
 }
 
 const origin = `https://localhost:${port}`;
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ ignoreHTTPSErrors: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
+const context = await browser.newContext();
 const page = await context.newPage();
 
 try {

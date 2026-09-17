@@ -336,16 +336,22 @@ Blueprint Assessments, retains Published Question IDs and exact Revisions,
 and forks Pools into new Pool IDs with the same exact initial membership.
 Source changes are not automatically applied to forks.
 
-**Adoption** connects a Course Instance to a Blueprint Course at creation or
-later. Creating a Course Instance from a Public Blueprint is an adoption and
-copies every Assessment, its Questions, forked Pools, and reusable settings
-from the selected exact Blueprint Revision. The daughter records its parent
+**Adoption** connects a Blueprint Course and a Course Instance. Creating a new
+Course Instance from a Public Blueprint Course establishes Adoption and copies
+every Assessment, its Questions, forked Pools, and reusable settings from the
+selected exact Blueprint Revision. The daughter records its parent Blueprint
 and adopted Revision; copied Assessments are independent current Course state,
-Unreleased, with dates unset. Blueprint adoption count tracks Course Instances
-created from that Blueprint. Human Guidance allows later adoption but does not
-fully specify its handling of existing Course content or adoption counts.
+Unreleased, with dates unset. A Blueprint Course tracks its Adoption count.
 
-**Daughter Course Instance** is a Course Instance connected to a parent Blueprint.
+**Create Blueprint from Course Instance** creates a new Blueprint Course from
+an existing Course Instance's reusable structure and establishes Adoption. The
+new Blueprint Course records the existing Course Instance as its source and
+counts it as the new Blueprint Course's first Adoption. The originating Course
+Instance remains the same teaching instance. This source relationship is distinct
+from the parent/adopted-Revision provenance of a daughter Course Instance.
+
+**Daughter Course Instance** is a Course Instance created from a parent Blueprint
+Course through Adoption.
 New Blueprint Revisions are offered to daughters for Instructor review and
 approval; changes to
 existing Assessments are never silently applied. A newly added Blueprint

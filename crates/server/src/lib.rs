@@ -5,6 +5,8 @@
 //! Gradebook, Assessment, asset-delivery, and support-capability routes over
 //! their typed Store contracts and PostgreSQL capabilities.
 
+/// Student-only Course and released Assessment landing routes.
+pub(crate) mod archived_student_work_recovery;
 /// Student Assessment Access and answer-free initial delivery routes.
 pub(crate) mod assessment_delivery;
 /// Closed Instructor commands for Assessment-owned immutable Question Pool forks.
@@ -30,7 +32,6 @@ pub(crate) mod author_content_document_route;
 pub mod authoring;
 mod authoring_assets;
 mod authoring_source;
-mod question_publication_assets;
 /// Instructor-owned reusable Blueprint Course routes.
 pub(crate) mod blueprint_course;
 /// Vetted-Instructor Blueprint Course Star and private Watch routes.
@@ -56,9 +57,8 @@ pub(crate) mod http_security;
 pub(crate) mod instructor_account;
 /// Protected direct-Instructor invitation-mailer export route.
 pub(crate) mod invitation_export;
+mod library_search_terms;
 pub(crate) mod live_gradebook;
-/// Student-only Course and released Assessment landing routes.
-pub(crate) mod archived_student_work_recovery;
 pub(crate) mod live_student_course_landing;
 /// Authorized public Course-reference navigation route.
 pub(crate) mod navigation;
@@ -80,9 +80,11 @@ mod question_library;
 mod question_pool_creation;
 /// Published Pool Library browse/current detail and owned fork detail routes.
 mod question_pool_library;
-mod library_search_terms;
+/// Vetted-Instructor Pool Stars and actor-private Pool Watch state.
+mod question_pool_stewardship;
 /// Server-only verified Question Publication coordination.
 pub mod question_publication;
+mod question_publication_assets;
 /// Vetted-Instructor Question Star state and aggregate endorsement routes.
 mod question_stewardship;
 /// Private self-only vetted-Instructor Question Watch routes.

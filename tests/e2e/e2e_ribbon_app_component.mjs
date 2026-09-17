@@ -133,6 +133,44 @@ test(topologyRowsTestName, async () => {
   assert.ok(html.indexOf("Instructor") < html.indexOf("Assessments"));
 });
 
+test("required Instructor choices remain visible without inventing unfinished routes", async () => {
+  const RealAppRibbon = await loadAppRibbonForSsr();
+  const model = M6_RIBBON_FIXTURES.productInstructor;
+  const html = renderToString(() => createComponent(RealAppRibbon, { model }));
+
+  for (const control of fixtureControls(model)) {
+    assert.match(html, new RegExp(`data-ribbon-control="${control.id}"`), control.label);
+    if (control.availability === "Available") {
+      assert.match(
+        html,
+        new RegExp(
+          `<a[^>]*href="${control.href}"[^>]*data-ribbon-control="${control.id}"|<a[^>]*data-ribbon-control="${control.id}"[^>]*href="${control.href}"`,
+        ),
+        `${control.label} retains its established navigation`,
+      );
+      continue;
+    }
+    const unavailableOpeningTag = html.match(
+      new RegExp(`<span[^>]*data-ribbon-control="${control.id}"[^>]*>`),
+    )?.[0];
+    assert.ok(unavailableOpeningTag, `${control.label} remains visible`);
+    assert.match(unavailableOpeningTag, /aria-disabled="true"/);
+    assert.match(unavailableOpeningTag, /data-ribbon-availability="unavailable"/);
+    assert.doesNotMatch(unavailableOpeningTag, /href=/);
+    assert.match(
+      html,
+      new RegExp(
+        [
+          `data-ribbon-control="${control.id}"[^>]*>[\\s\\S]*?`,
+          `class="ple-app-ribbon__control-label">${control.label}</span>[\\s\\S]*?`,
+          `class="ple-app-ribbon__availability-label">Not available yet</span>`,
+        ].join(""),
+      ),
+      `${control.label} explains its unfinished status visibly and accessibly`,
+    );
+  }
+});
+
 test("AppRibbon omits the Task Row when declared route topology has no Task Group", async () => {
   const RealAppRibbon = await loadAppRibbonForSsr();
   const html = renderToString(() =>

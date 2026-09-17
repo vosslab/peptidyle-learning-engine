@@ -396,17 +396,16 @@ async fn save_source(
             "Draft Question changed before this save",
         );
     }
-    if let Some(surface) = &source.hotspot_surface {
-        if let Err(error) = crate::authoring_assets::require_surface(
+    if let Some(surface) = &source.hotspot_surface
+        && let Err(error) = crate::authoring_assets::require_surface(
             state.assets.as_ref(),
             session_hash,
             reference,
             surface,
         )
         .await
-        {
-            return private_store_error(error);
-        }
+    {
+        return private_store_error(error);
     }
     let source_record =
         match put_workspace_source(&state.objects, current.workspace, source.bytes.clone()).await {

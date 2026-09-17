@@ -1,4 +1,4 @@
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 
 /// SHA-256 integrity evidence for bytes named by a Source Object Reference.
 ///

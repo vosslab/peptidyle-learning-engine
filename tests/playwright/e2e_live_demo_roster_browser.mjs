@@ -1,6 +1,7 @@
 // Production-browser proof for visible Course Roster Import and current roster projection.
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const port = process.argv[2];
 if (!/^[0-9]+$/.test(port ?? "")) {
@@ -12,8 +13,8 @@ const runId = Date.now();
 const blueprintTitle = `Browser M9 Blueprint ${runId}`;
 const courseShortName = `M9-${runId}`;
 const courseLongName = `Browser M9 Course ${runId}`;
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ ignoreHTTPSErrors: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
+const context = await browser.newContext();
 const page = await context.newPage();
 
 try {

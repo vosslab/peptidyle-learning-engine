@@ -6,7 +6,7 @@
   - Mismatch: The current paths implement related records but do not verify the complete product distinction.
 - [ ] **Blueprint Courses** provide reusable course designs for **Course Instances**.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
-- [x] Course Instances may be created from a Blueprint Course or started empty.
+- [x] Course Instances may start independently with no parent Blueprint Course, or an **Instructor** may create them from a Blueprint Course.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CourseInstanceCreationSource` and `src/api/decoders/course_instance.ts` `decodeCreateCourseInstanceInput` accept strict Empty or exact Adopted source forms.
   - Evidence (runtime): `src/pages/course_list_page.tsx` `TeachingCourseListPage` was exercised against the actual server in bounded exact-main browser proof: Empty creation persisted without Blueprint-list requests; separate Public Blueprint exact-Revision adoption created a daughter Course and Unreleased Practice Assessment. Successful API responses were `no-store`. This creation-only row does not establish direct started-empty Assessment authoring or the full teaching lifecycle.
 - [ ] A Course can have multiple co-**Instructors** with equal teaching authority.
@@ -17,12 +17,12 @@
   - Evidence (source): `schemas/base_schema/course_membership.sql` `assert_assigned_instructor_membership` rejects a Course Instance without a current assigned Instructor membership.
 - [ ] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
   - Mismatch: `CourseInstanceView.is_assigned_instructor` exposes a special authority distinction.
-- [ ] **Adoption** connects a Course Instance to a Blueprint Course.
+- [ ] **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
-- [ ] Adoption may occur when the Course Instance is created or later.
+- [ ] An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
-- [ ] A Course Instance connected to a Blueprint Course is a daughter Course Instance of that Blueprint Course.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
+- [x] A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+  - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 
 ### Course classification specifications
 
@@ -64,7 +64,9 @@
   - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the full vetted-Instructor visibility and reusability claim.
 - [ ] Blueprint Courses contain only **Published Questions** and published **Question Pools**.
   - Mismatch: Current pin validation covers Question revisions but not the required published Pool behavior.
-- [ ] An **Instructor** may deliberately publish an existing Course Instance structure as a new Blueprint Course.
+- [ ] An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+  - Mismatch: No Course Instance-to-Blueprint publishing route or store operation was found.
+- [ ] Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
   - Mismatch: No Course Instance-to-Blueprint publishing route or store operation was found.
 
 #### Blueprint Course lifecycle specifications
@@ -359,29 +361,29 @@
 - [ ] Inactive Courses are past Course Instances and retain Course metadata, including after
   FERPA-sensitive Student data is removed.
   - Mismatch: No inactive Course lifecycle and retention linkage was verified in A8 paths.
-- [ ] An **Instructor** may deliberately publish reusable Course Instance structure as a new **Blueprint Course**.
+- [ ] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Mismatch: No Course Instance-to-Blueprint publishing operation exists.
 - [x] A new academic term uses a new Course Instance. Rollover is not a separate product model.
   - Evidence (source): `crates/question_model/src/course_term.rs` `CourseTerm` is input to each `CreateCourseInstanceInput`; no rollover model was found.
 
 #### Blueprint adoption and daughter Course Instances
 
-- [x] An **adoption** occurs when an **Instructor** creates a Course Instance from a Blueprint Course.
-  - Evidence (source): `crates/learning-data-access/src/postgres/course_instance.rs` `create_course_instance` consumes Blueprint source inputs during creation.
-- [x] Blueprint Courses track how many Course Instances have been created from them as their adoption count.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` computes `total_adoptions` by counting Course Instances with each Blueprint reference.
+- [ ] **Adoption** connects a Blueprint Course and a Course Instance through either Course creation workflow.
+  - Mismatch: Current evidence verifies the Blueprint-to-new-Course-Instance path only; no Course Instance-to-new-Blueprint operation or source relationship was found.
+- [x] Creating a new Course Instance from a Blueprint Course establishes an Adoption and increases that Blueprint Course's **Adoption count** by one.
+  - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance_creation_event` records the Blueprint reference and Revision at creation, and `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` computes `total_adoptions` from those Course Instances.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` asserts the adopted Blueprint summary has `total_adoptions` equal to 1.
-- [x] A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+- [ ] Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
+  - Mismatch: No Course Instance-to-new-Blueprint operation or originating-Course Adoption count was found.
+- [x] A Course Instance created from a Blueprint Course is a **daughter Course Instance** of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 - [x] A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` includes `blueprint_course` and `blueprint_revision`.
-- [x] Creating a Course Instance from a Blueprint Course counts as an adoption of that Blueprint Course.
-  - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance_creation_event` records the Blueprint reference and Revision at creation.
-- [x] The new Course Instance receives every Assessment from the selected Blueprint Revision.
+- [x] A daughter Course Instance receives every Assessment from the selected Blueprint Revision.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` constructs the Course Assessments from selected Blueprint content.
-- [ ] Creating a Course Instance from a Blueprint Course copies its Assessments, Questions, Question Pools, and reusable settings.
+- [ ] Creating a daughter Course Instance copies the Blueprint Course's Assessments, Questions, Question Pools, and reusable settings.
   - Mismatch: Current adoption evidence does not verify published Pool copying.
-- [x] Course Instance Assessments created from a Blueprint Course start unreleased with dates unset.
+- [x] Course Instance Assessments created from Blueprint Assessments start unreleased with dates unset.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` initializes adopted Assessments as unreleased with delivery dates unset.
 - [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.

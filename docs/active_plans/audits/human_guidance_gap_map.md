@@ -14,8 +14,10 @@ Existing A/C identifiers below are historical correction provenance, not ordinal
 Unchanged accepted terminal/MATCH/scoring/timing/Blueprint evidence is retained.
 
 - Part 01 / Product vocabulary and glossary: new global and topical definitions remain open for
-  independent model/behavior evidence. Later adoption is an explicit current requirement, not
-  closed by create-time adoption proof. Non-closable KISS constraints remain binding audited N/A.
+  independent model/behavior evidence. Course Instance creation can select a Blueprint source;
+  creating a new Blueprint from existing Course Instance structure establishes Adoption with
+  distinct source provenance, counts that Course Instance as the new Blueprint's first Adoption,
+  and remains open. Non-closable KISS constraints remain binding audited N/A.
 - Part 03 / Profile avatar interface: current random assignment/gallery consistency, Student
   collection/selection, and shared Instructor/Sysadmin upload/cropping requirements remain open
   absent complete current browser/authorization acceptance. The bounded creation-trigger proof
@@ -774,12 +776,12 @@ product question, and A3-21 is the one N/A permission classification.
 
 ## A4: Instructor interface
 
-The A4 audit has 87 owning unchecked bullets. There are no exact duplicates and no HG-unlocked
+The A4 audit has 88 owning unchecked bullets. There are no exact duplicates and no HG-unlocked
 or product-decision exemption. C49, C64, C66, C72, C73, and C74 contribute prerequisites but
 flip no A4 bullet. The following are per-bullet records; each repeats its evidence,
 source, dependencies, closure owner, and verification rather than inheriting those fields.
 
-### A4-01 - Instructor navigation and empty states (frontend ribbon/shared collection UI; 7)
+### A4-01 - Instructor navigation and empty states (frontend ribbon/shared collection UI; 8)
 
 #### A4-01.1
 
@@ -802,13 +804,22 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-01.3
 
 - HG bullet: "All required ribbon choices remain visible even when their collection is empty."
-- Current evidence and concrete mismatch: several required choices remain future destinations, and no zero-record visibility matrix proves all required choices stay visible.
-- Owning source area: shared Instructor-navigation frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/library_page.tsx.
+- Current evidence and concrete mismatch: source and focused component evidence show that required Instructor choices do not depend on collection data; connected HTTPS evidence with an empty collection remains pending.
+- Owning source area: shared Instructor-navigation frontend: src/ribbon/app_ribbon.tsx, src/ribbon/app_ribbon.css, src/ribbon/ribbon_catalog.ts.
 - Dependencies: C12, C46, C56, and C61.
 - Closure owner: C44.
-- Verification: route tests for zero-record collections and desktop Playwright navigation/empty-state screenshots.
+- Verification: focused Ribbon component tests and desktop connected Playwright proof with an empty collection.
 
 #### A4-01.4
+
+- HG bullet: "All required Instructor ribbon choices remain visible even when their target page is not implemented or complete."
+- Current evidence and concrete mismatch: focused component evidence retains required Instructor choices and presents unfinished destinations as visibly unavailable without inventing links; connected HTTPS browser evidence remains pending.
+- Owning source area: shared Instructor-navigation frontend: src/ribbon/app_ribbon.tsx, src/ribbon/app_ribbon.css, src/ribbon/ribbon_catalog.ts.
+- Dependencies: C12, C46, C56, and C61.
+- Closure owner: C44.
+- Verification: focused Ribbon component tests and desktop connected Playwright proof that working choices navigate while unfinished choices remain visible and unusable.
+
+#### A4-01.5
 
 - HG bullet: "Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so."
 - Current evidence and concrete mismatch: `src/pages/library_page.tsx` has no first-item action, and no accepted empty-collection action evidence covers the required pages.
@@ -817,7 +828,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 - Closure owner: C44.
 - Verification: route tests for zero-record collections and desktop Playwright navigation/empty-state screenshots.
 
-#### A4-01.5
+#### A4-01.6
 
 - HG bullet: "Similar pages should place similar actions in consistent locations."
 - Current evidence and concrete mismatch: no cross-page placement contract or acceptance evidence establishes consistent actions.
@@ -826,7 +837,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 - Closure owner: C44.
 - Verification: route tests for zero-record collections and desktop Playwright navigation/empty-state screenshots.
 
-#### A4-01.6
+#### A4-01.7
 
 - HG bullet: "Instructor pages should be composed around the teaching task rather than collections of padded components."
 - Current evidence and concrete mismatch: no rendered-layout or workflow evidence establishes task-centered Instructor pages.
@@ -835,7 +846,7 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 - Closure owner: C44.
 - Verification: route tests for zero-record collections and desktop Playwright navigation/empty-state screenshots.
 
-#### A4-01.7
+#### A4-01.8
 
 - HG bullet: "Instructor Course and Assessment lists should be dense and easy to scan, more like a spreadsheet than cards."
 - Current evidence and concrete mismatch: Course and Assessment rows exist, but no accepted visual evidence establishes shared spreadsheet-like scanning.
@@ -1800,9 +1811,9 @@ after the underlying Student records are deleted.` points to A6 D11.
 | D03 | Human-readable titles and identifiers should be used wherever people must recognize, copy, or enter them. One `assignment_title` projection is not a surface audit. | C216 |
 | D04 | FERPA-sensitive Student data should not become ordinary logs, analytics, URLs, or long-lived browser storage. `src/log.ts` leaves redaction later. | C201 |
 | D05 | FERPA access should be scoped through exact Course membership and **Student** ownership. Predicate exists but denial/runtime evidence is absent. | C203 |
-| D06-D07 | Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy; Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted. No transition proves either. | C208 |
+| D06-D07 | Closed by C208: fresh PostgreSQL 17 actual-role proof deleted a populated submitted Student Work graph at expiry while retaining the Account, Course, Assessment, Question, immutable source, settings, and an unrelated Course membership. | C208 |
 | D08-D09 | **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance; Student Work is an umbrella term; the underlying records retain their own identities and purposes. | C204 |
-| D10-D11 | Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics; Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted. | C208 |
+| D10-D11 | Closed by C208: the populated retention proof removed identifiable Student evidence while retaining the existing anonymous Question Revision aggregate. Aggregate disclosure safety remains the distinct D12 product question. | C208 |
 | D12 | Aggregate Question statistics must not identify or allow reconstruction of individual Student activity. No disclosure rule exists. | Product question Q-A6-STAT-01 |
 | D13-D14 | Course retention follows Course Instance dates/six-month Active lifetime; latest Assessment deadline starts the FERPA retention clock. | C206 |
 | D15 | Creating or extending a later Assessment deadline may move dates, but not beyond the six-month Active lifetime. | C207 |
@@ -1812,7 +1823,7 @@ after the underlying Student records are deleted.` points to A6 D11.
 | D20 | Course inactivity and FERPA deletion are separate transitions. | C206 |
 | D21-D22 | Retention works for all academic calendars; Instructor is notified before archive. | C209 |
 | D23 | Archived Student data leaves normal interfaces but remains recoverable during retention. | C210 |
-| D24 | FERPA-sensitive data is permanently deleted at expiry. | C208 |
+| D24 | Closed by C208: premature deletion was refused, expiry deletion succeeded, repeat deletion returned false, and concurrent executors serialized to one transition. | C208 |
 | D25 | FERPA retention intervals are operational configuration. | C206 |
 | D26-D30 | Worker finds passed deadlines, executes rather than defines policy, is late-run equivalent and repeat-safe. | C209 |
 | D31 | Be conservative about creating revisions. | C211 |
@@ -1863,10 +1874,10 @@ policy.
 | C204 | `crates/question_model/src/student_work.rs`; named Student Work aggregate composes distinct Attempt/response/issuance/submission/grading/receipt identities. | `source source_me.sh && python3 tests/_temp/hg_a6_c204_probe.py` |
 | C206 | `schemas/base_schema/course_retention.sql`; consume C808's existing `course_core.sql` creation/lifecycle facts and add only operational policy schedule and due actions: `warn_inactive`, `notify_archive`, `archive`, and `delete`. It owns no duplicate Course-core fields or triggers and no generic recovery state/queue/snapshot service. | `source source_me.sh && python3 tests/_temp/hg_a6_c206_schedule_probe.py` |
 | C207 | `schemas/base_schema/assignments.sql`; after C206 and C809, Assignment save/release synchronizes latest due and atomically rejects a due date beyond the current `active_until_at`. | Expanded `source source_me.sh && python3 tests/_temp/hg_a6_c207_deadline_probe.py` with deterministic concurrency; retain only if the behavior earns permanent status. |
-| C208 | `course_retention.sql` archive/delete procedures. Archive hides but retains protected Course records; delete removes identifiable records while preserving Account, Course metadata, definitions, Questions, settings, and existing aggregate rows. | `source source_me.sh && python3 tests/_temp/hg_a6_c208_transition_probe.py` |
+| C208 | Complete. `course_retention.sql` archive/delete procedures retain protected Course records through archive and delete identifiable submitted Student Work at expiry while preserving Account, Course metadata, definitions, Questions, settings, unrelated Course membership, and existing aggregate rows. Fresh PostgreSQL 17 actual-role proof also covered premature, repeated, unauthorized, and concurrent deletion outcomes. The large schema-shaped fixture remains one-time evidence rather than a permanent test. | Accepted 2026-09-16 disposable actual-role receipt; `source source_me.sh && cargo check -p learning-data-access --no-default-features --features postgres --tests` passed. |
 | C215 | `crates/learning-data-access/src/retention.rs` only. Add the least-privilege store interface/adapter that returns stored due actions and commits their transitions; it flips no bullet. | `source source_me.sh && python3 tests/_temp/hg_a6_c215_store_probe.py` |
 | C209 | `crates/server/src/worker.rs` only. Consume C215 due actions, invoke C851's retention-notification boundary, archive/delete even when the provider fails, and never calculate dates. Closes D18, D21-D22, D26, D28-D30. | `source source_me.sh && python3 tests/_temp/hg_a6_c209_worker_probe.py`; lease-gated `bash tests/_temp/hg_a6_c209_retention_e2e.sh` |
-| C210 | `schemas/base_schema/attempt_history.sql` and `student_assignment_landing.sql` normal reads exclude archived Work while a protected pre-delete read remains available. | `source source_me.sh && python3 tests/_temp/hg_a6_c210_visibility_probe.py`; `npx playwright test tests/_temp/hg_a6_c210_visibility.spec.ts` |
+| C210 | Complete. `assessment_attempt_history.sql`, `student_assessment_landing.sql`, `grading_access.sql`, `assessment_attempt_access.sql`, and the explicit `archived_student_work_recovery.sql` path keep archived Work out of normal readers while preserving bounded current-Instructor recovery before expiry/deletion. | Fresh PostgreSQL 17.11 actual-role plus production-server proof covered active visibility, the real retention archive, every current ordinary Student Work route, Instructor Gradebook, current-Instructor-only recovery, expiry concealment, and physical deletion. Receipt: `/private/tmp/ple-c210-archived-visibility-20260916.md`. No permanent test retained. |
 | C211 | `schemas/base_schema/question_authoring_operations.sql`; turn the already implemented A7 Published Question distinction (source/answer/grading/feedback/assets revise; title/description/tags/subject/topic do not) into a connected invariant. It depends on no unclosed A7 milestone. | `source source_me.sh && python3 tests/_temp/hg_a6_c211_revision_probe.py` |
 | C212 | `schemas/base_schema/assignments.sql` Pool tables/edit functions, after A7 published-Pool lineage design. Immutable Pool Revision identity and sequential per-Pool number. | `source source_me.sh && python3 tests/_temp/hg_a6_c212_pool_probe.py` |
 | C213 | `schemas/base_schema/attempts.sql` selection/issuance constraints persist exact Pool Revision with selected Published Question Revision. | `source source_me.sh && python3 tests/_temp/hg_a6_c213_pin_probe.py` |
@@ -2206,8 +2217,8 @@ Every A8 temporary path below is ignored, run directly, and removed at that row'
 | C416 | 140,142,144,146,148,171 | A8 sole writer: new schemas/base_schema/blueprint_change_proposals.sql and ChangeProposalStore/API. Receiver accepts subset; current Revision plus ETag checks stale/conflict in one transaction; acceptance creates one receiver Revision then calls C410. | C401,C410,C415. It cannot close until C421 browser success. | tests/_temp/hg_a8_c416_proposal_service_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c416_proposal_service_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C421. |
 | C417 | 182,184,186 | Lines 182/184's Public Blueprint adoption and Empty Instructor creation are verified by accepted private actual HTTP/exact-main browser proof. Adopted Course read showed one Unreleased Practice Assessment, exact origin Revision, finite Attempt limit, fixed Question Revision/points, and dates unset. A follow-up actual-main Empty Course created a direct-origin Practice Assessment, added/saved one available fixed Question pin, set Due/time limit, passed readiness, and released it. Real Student roster import/claim showed Released visibility/pre-start facts, and a separate native fixed-Question HTTP proof saved/submitted a graded 1/1 Attempt then issued another unlimited Practice Attempt. Line 186's complete Student/delivery settings and Pool behavior remain under review. | C7 sole Course root/state writer; C503 tagged origin and one direct native fixed-Question path are observed, but remaining Pool/full Student browser delivery is required; C49/C72 require Public-only adoption; C52 supplies adoption projection. Two creation subbullets closed, not C417 completion. | Focused strict Rust/Node wire tests and accepted private Empty/Adopted/direct-author/release, member-visibility, and native Attempt HTTP/browser artifacts; future Pool/full Student delivery/grading proof before remaining closure. |
 | C418 | 192,194 | Contract only: warning before six months, Active to Inactive exactly at six months, deadline cap at active_until, latest due date starts separate FERPA clock. | C206/C207/C208 sole retention writers; C53 term-cap writer; C46 UI recipient. No flip until their gates. | tests/_temp/hg_a8_c418_retention_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c418_retention_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a6_c206_schedule_probe.py; source source_me.sh && python3 tests/_temp/hg_a6_c207_deadline_probe.py; remove after C208/C53. |
-| C419 | 197 | A8 sole writer: new schemas/base_schema/course_blueprint_publication.sql and CourseBlueprintPublicationStore/API. Publish reusable structure as a new Private Blueprint lineage; strip Students, dates, delivery settings, Work; only published Q/Pools; never convert/mutate source Instance. | C6 Blueprint boundary, C7 Instance read contract, C406 published predicate, C417 create/delivery. C73 omitted: publication does not consume adoption defaults. Backend result is contributor only until C420 browser UI succeeds. | tests/_temp/hg_a8_c419_publish_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c419_publish_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C420. |
-| C420 | 34 | UI only, new src/features/course_blueprint_publication/; calls C419 publish-new API and never calls conversion. | C48/C55 own editor shells. Close after leased browser gate. | tests/_temp/hg_a8_c420_publish_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c420_publish_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c420_publish_ui.spec.ts; remove after browser gate. |
+| C419 | 197 | A8 sole writer: new schemas/base_schema/course_blueprint_publication.sql and CourseBlueprintPublicationStore/API. Create a new Private Blueprint lineage from reusable Course Instance structure; strip Students, dates, delivery settings, and Work; retain only published Questions/Pools; record the Course Instance as source without converting or mutating it. | C6 Blueprint boundary, C7 Instance read contract, C406 published predicate, C417 create/delivery. This establishes Adoption with distinct source provenance and counts the originating Course Instance as the new Blueprint's first Adoption. Backend result is contributor only until C420 browser UI succeeds. | tests/_temp/hg_a8_c419_publish_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c419_publish_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C420. |
+| C420 | 34 | UI only, new src/features/course_blueprint_publication/; calls C419's create-new-Blueprint API and never retypes or mutates the source Course Instance. | C48/C55 own editor shells. Close after leased browser gate. | tests/_temp/hg_a8_c420_publish_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c420_publish_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c420_publish_ui.spec.ts; remove after browser gate. |
 | C421 | contributor only | UI only, new src/features/blueprint_change_proposals/; C416 submit/accept/read API. | C48 owns editor shell. C416's 6 bullet closure waits for this leased browser success. | tests/_temp/hg_a8_c421_proposal_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c421_proposal_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c421_proposal_ui.spec.ts; remove after C416 close. |
 | C422 | 245 | UI-only compact-name advisory component, no hard schema limit. | C30 human identity rule; A4 input owner. | tests/_temp/hg_a8_c422_short_name_hint_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c422_short_name_hint_probe.py; lease: npx playwright test tests/_temp/hg_a8_c422_short_name_hint.spec.ts; remove after UI gate. |
 | C423 | contributor to C409,C856 | UI only, new src/features/blueprint_stewardship/; consumes C408/C409/C856 server results and C47/C48 shells. The active vetted Instructor can Star/Unstar, Watch/Unwatch, see Star count, exact C856 names on Public/Archived Blueprint Star lists, and only their own Watch state. | C409,C856,C47,C48. Its browser success is required to close lines 94,96,100 through C409 and 102 through C856. | tests/_temp/hg_a8_c423_stewardship_ui_probe.py and tests/_temp/hg_a8_c423_stewardship.spec.ts; source source_me.sh && python3 tests/_temp/hg_a8_c423_stewardship_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c423_stewardship.spec.ts; remove both after C409/C856 close; PYTEST_STYLE: temporary workflow proof only; do not promote a UI snapshot. |

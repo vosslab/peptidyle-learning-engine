@@ -290,6 +290,12 @@ while correcting its presentation.
   its import and invitation-export controls. A local malformed import shows the existing invalid
   input feedback and records no roster API write. Roster names remain an independent data and
   permitted-display gap.
+- Empty-roster follow-up (2026-09-16): the empty explanation now has a local Import Students action
+  that opens the same Roster tools disclosure and moves focus to its existing import field. A
+  temporary canonical HTTPS walkthrough covered keyboard activation, 1280px and 320px layouts,
+  and the transition from empty state to the ordinary populated Student table after one import.
+  Populated-row actions and bulk behavior did not change. No permanent test was retained because
+  the stable disclosure/import behavior already has broader roster acceptance ownership.
 
 ### I03: successful roster import looks like an error
 
@@ -357,6 +363,14 @@ while correcting its presentation.
 - Acceptance: on the current admitted editors, keep the Assessment title and release state
   recognizable. Use aligned Question records with compact supporting details and clear actions.
   Reproduce on current routes; the manifest retires the legacy multi-tab workspace.
+- Current bounded receipt (2026-09-16): the Course Instance workspace now leads with its ordered
+  Assessments and adjacent Create Assessment action. Each compact row exposes its order, title,
+  release state, public reference, due time, and local edit/lifecycle actions; Course metadata and
+  administration follow as secondary details. Temporary actual-component evidence passed empty,
+  loading, error, populated, long-label, keyboard-first action, and overflow cases at 1280 by 800
+  and 320 pixels. Strict TypeScript, focused Node, formatting, and diff checks passed. This is not
+  canonical Live Demo acceptance, and Assessment editor breadcrumbs plus Question-row density
+  remain separate I06 work.
 
 ### I07: search results repeat the title and fragment actions
 
@@ -425,6 +439,15 @@ while correcting its presentation.
 - Acceptance: identify ownership, visibility, and action eligibility clearly on the current object.
   Keep structure editing and adoption easy to find, with consequential availability actions grouped
   separately. Verify same-object state and server authorization before claiming an eligibility bug.
+- Current receipt (2026-09-16): the Blueprint detail now places its server-authorized Adopt or Edit
+  action and reusable Blueprint Assessment structure before history, forks, proposals, comparison,
+  and lifecycle administration. The lifecycle predicates and actions are unchanged; only their
+  teaching-task versus administration placement differs. Focused Blueprint tests passed, and a
+  temporary browser walkthrough on the canonical HTTPS Live Demo verified the populated DOM order,
+  owner edit toggle, adoption target, long-title layout, and 1280px/640px presentation. The empty
+  screenshot in that temporary receipt is layout-only evidence, not a claim that an empty Blueprint
+  is reachable. This closes the reported hierarchy defect but not same-object lifecycle-state or
+  authorization acceptance for I10.
 
 ### I11: setup and Template forms consume excess laptop height
 
@@ -452,7 +475,15 @@ while correcting its presentation.
   Prettier, source-line, and diff checks. `src/style.css` fixes `color-scheme: light` and its
   `--ple-surface`/`--ple-ink` light tokens under both browser preferences, so this is not a dark
   implementation or distinct-dark acceptance. It is actual-component evidence, not connected,
-  deployed, or full-UI closure; Assessment Template duration and layout remain separate I11 work.
+  deployed, or full-UI closure.
+- Current Assessment Template receipt (2026-09-16): an empty Template collection exposes creation
+  automatically. Once Templates exist, the collection remains first and creation collapses behind
+  a keyboard-operable disclosure; successful creation collapses the form and selects the new
+  Template. The Type constraint is now concise, while the existing minute-based duration,
+  validation, save, error, conflict, and unsaved-change behavior remains intact. Strict TypeScript,
+  focused client tests, formatting, diff checks, and temporary actual-component Chromium proofs at
+  1280px and 390px passed. Receipt: `/private/tmp/ple-template-hierarchy-20260916.md`. Connected
+  canonical Live Demo acceptance and the fresh manifest screenshot remain pending.
 
 ### I12: empty Due Soon guidance lacks a direct next step
 
@@ -520,6 +551,15 @@ while correcting its presentation.
 - Acceptance: size previews for content and task, preserving correct Backend layout. Style
   PLE-owned controls consistently and verify focus and selected states. Distinguish Backend-owned
   controls from PLE controls when assigning changes.
+- Current delivery receipt (2026-09-17): a rebuilt canonical HTTPS Instructor workflow rendered a
+  representative generated WeBWorK prompt, form, and focusable control in the intentional opaque
+  sandbox with zero page errors. PLE CSS/bridge, renderer scripts, and the reviewed font loaded; the
+  font carried anonymous wildcard CORS and cross-origin CORP. Parent DOM/storage remained denied,
+  unapproved assets returned empty 404 responses, and no Student Work or grade route was requested.
+  The former `frameElement` error is closed by omitting only the renderer's parent-telemetry loader
+  from no-write previews; Student documents remain exact. This establishes delivery and isolation,
+  not yet a conclusion about the audit's cross-question height consistency or fresh screenshots.
+  Receipt: `/private/tmp/ple-connected-webwork-preview-receipt-20260916.md`.
 
 ### I16: Profile emphasizes avatar descriptions over account settings
 
@@ -540,7 +580,18 @@ while correcting its presentation.
 - Acceptance: expose the active order and a useful sort choice; preserve it through filters,
   pagination, and return from Question inspection. Verify equal values and missing metadata across
   several pages. Establish current route behavior before claiming functional absence.
-- Open detail: supported fields and defaults should follow actual metadata and task needs.
+- Current receipt (2026-09-16): Question Library now exposes Title (A-Z) as the default and Recently
+  published as the alternate order whenever Browse or an active Search has results to order. The
+  initial Search remains focused on entering a query. Both orders use required metadata and the
+  public Question ID as a stable tie-break; versioned cursors bind the active order and reject
+  changed-order continuation. The order survives filters, pagination, Browse-to-Search handoff,
+  retry, and return from Question inspection. Malformed URL order state is rejected and recoverable
+  without discarding valid filters. Focused Rust/Node contracts, TypeScript, lint/format, and
+  temporary actual-component desktop/390px proofs passed. Fresh canonical HTTPS Live Demo proof
+  then verified initial-Search simplicity, Browse and active-Search controls, descending publication
+  order across 50 records, Backend-filter preservation, browser Back, and visible return navigation.
+  The seed had no equal-timestamp pair and no next cursor, so durable focused tests remain the
+  evidence for the tie-break and cursor behavior. Fresh official screenshots remain pending.
 
 ## Classification implementation questions
 

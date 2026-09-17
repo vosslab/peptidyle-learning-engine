@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "../helper_gateway_trust.mjs";
 
 import { loadManifest, validateScenarioClosure, type CaptureManifest } from "./manifest";
 import {
@@ -64,7 +65,10 @@ async function replay(
   const entryUrl = requireEntryUrl(entryArgument);
   const outputRoot = path.join(resultRoot, mode === "publish" ? "staging" : "verify");
   await prepareOutputRoot(outputRoot);
-  const browser = await chromium.launch({ headless: !headed });
+  const browser = await chromium.launch({
+    headless: !headed,
+    args: liveDemoChromiumArgs(entryUrl.href),
+  });
   try {
     const runtime = createScenarioRuntime({
       browser,

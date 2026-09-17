@@ -323,7 +323,8 @@ if not isinstance(revision, dict) or revision != {"questionId": question_id, "re
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/playwright/e2e_live_demo_authoring_browser.mjs "$port"
+	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
+		node tests/playwright/e2e_live_demo_authoring_browser.mjs "$port"
 	echo "Authoring browser: My Question Drafts, private editing, and publication complete"
 }
 

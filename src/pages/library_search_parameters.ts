@@ -10,11 +10,20 @@ import {
   type QuestionLibraryBrowseQuery,
 } from "./library_page_model";
 
-/** Explicit recovery removes only the rejected hierarchy, retaining unrelated URL state. */
-export function clearLibraryClassificationSearch(search: string): string {
+/** Removes only rejected strict URL state while retaining valid Library options. */
+export function recoverLibrarySearch(search: string): string {
   const parameters = new URLSearchParams(search);
-  for (const field of LIBRARY_CLASSIFICATION_UUID_FIELDS) parameters.delete(field);
-  parameters.delete("cross_discipline");
+  try {
+    parseLibraryClassificationParameters(parameters);
+  } catch {
+    for (const field of LIBRARY_CLASSIFICATION_UUID_FIELDS) parameters.delete(field);
+    parameters.delete("cross_discipline");
+  }
+  try {
+    librarySort(parameters);
+  } catch {
+    parameters.delete("sort");
+  }
   const serialized = parameters.toString();
   return serialized === "" ? "" : `?${serialized}`;
 }
@@ -23,6 +32,17 @@ function boundedValues(parameters: URLSearchParams, name: string): Array<string>
   return parameters
     .getAll(name)
     .filter((value) => value.trim().length > 0 && Array.from(value).length <= 256);
+}
+
+function librarySort(parameters: URLSearchParams): QuestionLibraryBrowseQuery["sort"] {
+  // ASVS 2.2.1: reject unknown URL state rather than widening it into a server request.
+  const values = parameters.getAll("sort");
+  if (values.length > 1) throw new Error("Question Library sort must appear at most once");
+  const value = values[0] ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.sort;
+  if (value !== "titleAscending" && value !== "publishedNewest") {
+    throw new Error("Question Library sort is invalid");
+  }
+  return value;
 }
 
 export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
@@ -40,6 +60,7 @@ export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
     capability: boundedValues(parameters, "capability")[0] ?? null,
     questionLicense: boundedValues(parameters, "questionLicense")[0] ?? null,
     usedInMyCourses: boundedValues(parameters, "usedInMyCourses")[0] ?? null,
+    sort: librarySort(parameters),
   };
 }
 
@@ -71,6 +92,9 @@ export function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): stri
     if (value !== null) parameters.set(field, value);
   }
   if (query.search !== "") parameters.set("search", query.search);
+  if (query.sort !== EMPTY_QUESTION_LIBRARY_BROWSE_QUERY.sort) {
+    parameters.set("sort", query.sort);
+  }
   const serialized = parameters.toString();
   return serialized.length === 0 ? "/library" : `/library?${serialized}`;
 }

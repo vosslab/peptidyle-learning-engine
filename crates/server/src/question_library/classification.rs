@@ -7,6 +7,9 @@ use super::{route_error, store_error_response};
 
 /// ASVS 2.2.1/2.2.2/2.2.3: validate real global identities and their
 /// associations after authentication, including the selected cross-mode parent.
+// The route returns this response immediately; boxing it would add an allocation
+// and require the route boundary to unwrap solely to preserve Axum's `Response`.
+#[allow(clippy::result_large_err)]
 pub(super) async fn validate(
     store: &impl ContentClassificationStore,
     token: SessionTokenHash,

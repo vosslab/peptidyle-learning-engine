@@ -48,6 +48,7 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "evidence",
   "used_in_my_courses",
   "authorship",
+  "sort",
   "cursor",
   "page_size",
 ] as const;
@@ -230,6 +231,10 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
   // Keep the current visible source explicit in every cursor-bound request.
   // `any` is a closed scope, not an omitted identity fallback.
   parameters.set("authorship", authorship);
+  parameters.set(
+    "sort",
+    questionSearchEnum(query.sort, ["titleAscending", "publishedNewest"], "Question Library sort"),
+  );
   if (query.cursor !== null) {
     parameters.set("cursor", questionSearchCursor(query.cursor));
   }

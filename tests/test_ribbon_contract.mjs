@@ -26,6 +26,7 @@ const PARAMETER_VALUES = {
   questionRef: "7K3MX9QP",
   draftQuestionRef: "D-1",
   blueprintCourseRef: "BP7K3M2Q",
+  proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 };
 const CATALOG = [...TAB_CATALOG, ...RIBBON_TASK_CATALOG];
 

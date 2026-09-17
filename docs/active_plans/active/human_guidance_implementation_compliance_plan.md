@@ -36,8 +36,8 @@ are not connected-browser, deployed-app, or global-closure demonstrations.
 Fresh PostgreSQL 17.11 installation through `ple_migrator` also retained exactly the three valid
 unique indexes with no duplicate access paths; independent review accepted the three removals.
 
-Residual audit work remains for Course/Pool classification, Bloom, Change Proposals, recovery,
-and resource-specific support authority. The current reconciliation receipt below supersedes the
+Residual audit work remains for classification actual-role/connected acceptance, Bloom, Change
+Proposals, recovery, and resource-specific support authority. The current reconciliation receipt below supersedes the
 former generator-drift statement; it changes inventory accounting only, not product acceptance.
 
 ## Current HOTSPOT delivery receipt
@@ -68,6 +68,24 @@ after resource delivery works. Connected Library probe 56322 passed only its nar
 full capture 83237 stopped at the stale `My Question Drafts` selector, so no corpus was published.
 Receipt:
 `/private/tmp/ple-preview-defect-evidence-receipt-20260916.md`.
+
+Approved preview-resource boundary (2026-09-16): keep the iframe opaque and expose only the exact
+PLE stylesheet, bridge, and local font paths through the canonical Caddy gateway. The backend asset
+proxy may serve installation-owned `webwork2_files`, `pg_files/js`, and `pg_files/node_modules`
+cross-origin; generated and unclassified `pg_files` remain same-origin. Fonts alone receive
+anonymous wildcard CORS without credentials. Neither boundary consults PLE session authority,
+forwards browser credentials, or returns upstream cookies. This is the complete authorized policy,
+not permission for another gateway or a wider public renderer namespace. The connected proof below
+closes this delivery-policy defect without making broader screenshot or all-preview claims.
+
+Current closure receipt (2026-09-17): the rebuilt canonical HTTPS Live Demo passed the focused
+Instructor WeBWorK preview workflow with owner-scoped certificate trust. The opaque frame retained a
+null `frameElement` and denied parent DOM/storage access while the prompt, form, focusable control,
+PLE CSS/bridge, renderer scripts, and reviewed font loaded. The font response carried anonymous
+wildcard CORS and cross-origin CORP; protected, unclassified, and missing assets returned empty 404
+responses without SPA fallback. The preview-only parent-telemetry omission removed the former page
+error without weakening the sandbox or changing Student document bytes. No Student Work or grading
+route was requested. Receipt: `/private/tmp/ple-connected-webwork-preview-receipt-20260916.md`.
 
 ## Current Pool text/Tags and CSS receipt
 
@@ -133,7 +151,8 @@ in 5.58 seconds after initial-Search hierarchy recovery and Pool wiring. Questio
 URL recovery have accepted isolated actual-component/router/fake-client proof; Pool discovery has
 accepted isolated actual `LibraryPage` fixture-browser proof. No HTTP, deployed, or connected
 acceptance follows, and no checklist row closes. Library remains name-only in the connected product pending
-current-source acceptance; Pool text/Tags filtering is unavailable, and distinct Question/Pool modes
+current-source acceptance. This is a historical receipt: Pool text/Tags filtering is now implemented
+source with bounded evidence above, while connected acceptance remains open. Distinct Question/Pool modes
 need no mixed engine or shared cursor. Inventory remains 999 occurrences: 450 verified, 504 open,
 and 45 N/A. Receipt: `/private/tmp/ple-library-ui-batch-evidence-receipt-20260916.md`.
 
@@ -635,9 +654,12 @@ interpreted its area (context, with HG authoritative).
 - Spend deep review time on behavior, and record wording or cosmetic differences with a single
   mismatch line.
 
-Runtime verification: start the disposable stack (`./launchers/run_live_demo.sh`) under the
-isolation result from Milestone 1 step 5, drive it with Playwright or `curl` against the seeded
-demo, use synthetic records and dates through existing E2E fixtures or a
+Runtime verification uses one canonical Live Demo runtime: start
+`./launchers/run_live_demo.sh --headless`, then drive its canonical HTTPS browser origin through
+the shared `containers/Caddyfile`. `devel/run_playwright_tests.sh`, screenshot capture, and
+connected browser evidence exercise that same runtime; Playwright-only mechanics are limited to
+browser execution, such as scoped certificate trust and fixed test addressing. Do not add a
+second gateway or alternate Live Demo path. Use synthetic records and dates through existing E2E fixtures or a
 `tests/_temp/hg_audit_<part>_*` probe. Synthetic records carry the `hg_audit_<part>_` prefix so
 evidence from one auditor is distinguishable from another's. Probes are deleted when the part
 passes its gate. Existing `tests/`, `tests/e2e/`, `tests/playwright/`, `docs/screenshots/`, and
@@ -862,7 +884,10 @@ confirmation clean; changelog entry.
 - HG bullets closed: "**Course Instance**: A course used for teaching. It has **Students**,
   deadlines, releases, and other course settings. It may be created from a Blueprint Course or
   started empty."
-- Expected behavior: C7 may now implement the explicit `Empty | Adopted` Course root and its
+- Expected behavior: Course Instance creation selects the explicit `Empty | Adopted` Course root.
+  An existing Course Instance may separately create a new Blueprint Course from its reusable
+  structure, which records that Course Instance as its source; the Create-Blueprint boundary remains
+  open and does not alter C7's creation-source evidence. C7 may now implement its
   independent teaching state (memberships, deadlines, releases, and Course settings). The C503
   tagged direct-versus-adopted Assessment origin is now in `schemas/base_schema/assessments.sql`,
   and `ple_data.create_assessment` creates direct-origin rows with no Blueprint source. Accepted
@@ -1666,7 +1691,7 @@ merely to obtain a passing result.
 
 | Contract | Expected behavior | Exact owned boundary | Closure / contribution | Dependencies | Focused gate |
 | --- | --- | --- | --- | --- | --- |
-| C44 | Dense Instructor ribbon and zero-record collections expose available tasks, first actions, and consistent placement. | `src/ribbon/ribbon_catalog.ts`, `src/pages/course_list_page.tsx`, `src/pages/library_page.tsx` | Closes A4-01 (7). | C12; C46, C56, C61. | `node --test tests/test_ribbon_catalog.mjs tests/test_ribbon_route_contract.mjs`; `node tests/e2e/e2e_ribbon_destination_ledger.mjs` |
+| C44 | Dense Instructor ribbon keeps every required choice visible when collections are empty, keeps unfinished destinations visible but unavailable, and gives zero-record collections first actions with consistent placement. | `src/ribbon/app_ribbon.tsx`, `src/ribbon/app_ribbon.css`, `src/ribbon/ribbon_catalog.ts`, `src/pages/course_list_page.tsx`, `src/pages/library_page.tsx` | Closes A4-01 (8). | C12; C46, C56, C61. | `node --import tsx --test tests/test_ribbon_contract.mjs tests/e2e/e2e_ribbon_app_component.mjs`; connected desktop Playwright Ribbon proof with an empty collection and unfinished destinations; `node tests/e2e/e2e_ribbon_destination_ledger.mjs` |
 | C45 | Student View presents the server-authorized answer-free/no-write projection. | `src/pages/assessment_workspace/assessment_workspace_student_view_page.tsx` | Closes A4-02 (1) only after the unavailable route becomes the required projection. | C12, C74; pending A9 no-write preview API. | Required future verification after implementation: use a seeded Instructor/Student Work fixture to prove the projection contains no answers and creates no Student Work, Attempt, submission, or grade. Retain a permanent external-contract test only if it earns status under `docs/PYTEST_STYLE.md`; browser proof then exercises the implemented route. |
 | C46 | Courses offers distinct active/inactive/public-search destinations and teaching activity. | `src/ribbon/ribbon_catalog.ts`, `src/pages/course_list_page.tsx`, `src/pages/course_instance_page.tsx` | Closes A4-03 (5). | C7; C12; C47, C55. | `node --test tests/test_course_instance_summary.mjs tests/test_ribbon_route_contract.mjs`; `bash tests/e2e/e2e_live_demo_course_instance.sh --browser` |
 | C47 | Instructor can query and narrow Public Blueprint Courses. | `src/pages/blueprint_course_search_page.tsx`, `src/api/blueprint_course.ts` | Bounded acceptance closes G-A4-04 (2): exact submitted names, Public-only filtering, literal query text, query-bound paging, empty reset, detail, and adoption preselection. | C19 accepted; no broader Course-creation, login/TLS, accessibility, manual-chooser, Properties, or comparison closure. | Accepted actual HTTP and compiled-main browser receipt: `/private/tmp/ple-blueprint-owned-pool-artifacts.C6RwpH/public-search-result.json` and `public-search-browser.json`; `ple_data` remains unchanged. |
@@ -1828,10 +1853,10 @@ not create a new product policy.
 | C205 | D12 remains open. | Product question: **What shared-statistics release rule, including minimum cohort and intersection behavior, makes a slice not reasonably identifying for PLE?** HG, `DATA_CLASSIFICATION.md`, `RETENTION_POLICY.md`, and `DESIGN_DECISIONS.md` require protection but do not resolve it. Record in fresh unresolved report; no numeric threshold is invented. | Retain `[ ]` with `Reason: product decision still unclear` and exact `Question:`. |
 | C206 | D13-D14, D16-D17, D20, D25, D27. Store the new operational policy schedule/due actions consuming the audited existing Course-core facts; clock calculation has no action side effect. | new `schemas/base_schema/course_retention.sql`: policy schedule and due actions `warn_inactive`, `notify_archive`, `archive`, `delete`, archive marker. It consumes, rather than duplicates, current `course_core.sql` facts. No generic recovery state/queue/snapshot service. | `source source_me.sh && python3 tests/_temp/hg_a6_c206_schedule_probe.py` |
 | C207 | D15, D19. Assessment release/save synchronizes `latest_assessment_due_at` and rejects `due_at` past existing `active_until_at`, atomically under concurrent Course/Assessment edits. | `schemas/base_schema/course_core.sql`; `schemas/base_schema/assessments.sql`; private `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`; exact retention readers, installation order, and canonical Live Demo seed/oracle; depends on C206 and C809. | Accepted independent PostgreSQL 17 actual-API proofs covered all three save APIs, release, current MAX/no-Due fallback, immutable Active cap, stale CAS, wrong authorization, cap rollback, deterministic two-Assessment concurrency, archive race/freeze, helper ACL, and seeded current MAX; the ignored proof was removed after acceptance. |
-| C208 | D06-D07, D10-D11, D24. Archive protects Course Student records; delete at expiry removes identifiable records while preserving Account, Course metadata, definitions, Questions, settings, and existing aggregates. | `schemas/base_schema/course_retention.sql` transition procedures; depends on C206. Statistics disclosure is C205, not a C208 prerequisite. | `source source_me.sh && python3 tests/_temp/hg_a6_c208_transition_probe.py` |
+| C208 | Complete for D06-D07, D10-D11, D24. Archive protects Course Student records; delete at expiry removes identifiable records while preserving Account, Course metadata, definitions, Questions, settings, unrelated Course membership, and existing aggregates. Fresh PostgreSQL 17 actual-role proof covered submitted Student Work, premature/repeated/unauthorized deletion, and a concurrent-executor wait. | `schemas/base_schema/course_retention_transitions.sql` transition procedures; depends on C206. Statistics disclosure is C205, not a C208 prerequisite. | Accepted one-time disposable receipt dated 2026-09-16; the large schema-shaped proof did not earn permanent-test status. `cargo check -p learning-data-access --no-default-features --features postgres --tests` passed. |
 | C215 | Contributor to C209. Store interface/adapter returns stored due actions and commits transitions under its least-privilege database capability; flips no HG bullet. | `crates/learning-data-access/src/retention.rs`; depends on C206, C208. | `source source_me.sh && python3 tests/_temp/hg_a6_c215_store_probe.py` |
 | C209 | D18, D21-D22, D26, D28-D30. Worker consumes C215 stored due actions, invokes only C851's retention-notification boundary, and archives/deletes; late and repeated runs are equivalent. Provider failure never blocks archive/delete. | `crates/server/src/worker.rs`; depends on C215,C851. | `source source_me.sh && python3 tests/_temp/hg_a6_c209_worker_probe.py`; lease-gated `bash tests/_temp/hg_a6_c209_retention_e2e.sh` |
-| C210 | D23. Normal reads exclude archived Work while a protected pre-delete read remains available. | `schemas/base_schema/attempt_history.sql` and `schemas/base_schema/student_assignment_landing.sql`; depends on C208. No general recovery workflow/state machine. | `source source_me.sh && python3 tests/_temp/hg_a6_c210_visibility_probe.py`; `npx playwright test tests/_temp/hg_a6_c210_visibility.spec.ts` |
+| C210 | D23. Normal reads exclude archived Work while a protected pre-delete read remains available. | Complete. Current owners are `schemas/base_schema/assessment_attempt_history.sql`, `student_assessment_landing.sql`, `grading_access.sql`, `assessment_attempt_access.sql`, and the explicit `archived_student_work_recovery.sql` path; depends on C208. Fresh PostgreSQL 17.11 actual-role and production-server proof covered submitted Work across the complete ordinary Student route inventory and Instructor Gradebook before/after archive, current-Instructor-only recovery, expiry concealment, and deletion. No general recovery workflow/state machine or permanent test was added. | Accepted one-time receipt: `/private/tmp/ple-c210-archived-visibility-20260916.md`. Canonical browser presentation remains part of final connected acceptance, not a second SQL mechanism. |
 | C211 | D31. Revision creation remains conservative: source/answer/grading/feedback/assets revise; title/description/tags/subject/topic do not. | `schemas/base_schema/question_authoring_operations.sql`; it connects the already implemented A7 Published Question rule and has no unclosed A7 dependency. | `source source_me.sh && python3 tests/_temp/hg_a6_c211_revision_probe.py` |
 | C212 | D32-D34. Published Pool has immutable identity and sequential per-Pool Revision Numbers. | `schemas/base_schema/assignments.sql` Pool tables/edit functions; depends on A7 published-Pool/public-ID/revision correction. | `source source_me.sh && python3 tests/_temp/hg_a6_c212_pool_probe.py` |
 | C213 | D35. Issuance pins exact Pool Revision with selected Published Question Revision. | `schemas/base_schema/attempts.sql` selection/issuance constraints; depends on C212 and A7 correction that new Attempts select freshly. | `source source_me.sh && python3 tests/_temp/hg_a6_c213_pin_probe.py` |
@@ -1874,6 +1899,10 @@ meaningful regression test. C317's 13,000-Question exercise is permanently tempo
 evidence. A failed gate leaves the named occurrence `[ ]`, records the failure, and repairs only
 that boundary; it never makes a new policy or broad refactor.
 
+Each correction milestone makes that temporary-proof promotion-or-removal decision when it closes;
+R3 verifies that those decisions were carried out. It does not defer a plan-wide test-retention
+decision until after the work that created the tests is no longer being reviewed.
+
 C338's TypeScript temporary seam uses exactly `node --import tsx
 tests/_temp/hg_a7_c338_bulk_api_seam.mjs`; the canonical gap-map row owns the same command.
 
@@ -1909,7 +1938,7 @@ their recipient must verify the behavior before a checklist bullet changes. A8 o
 isolated modules/tables named in the map; work that changes an existing shared C6/C7/C19/C46-C55/
 C72/C73/C206/C216 boundary waits for its named owner.
 
-The accepted decisions are locked in the map: in-app Watch projection for Revision/publish/archive/restore; six-month Active-to-Inactive policy with warning/deadline/FERPA-clock rules; publish-new Private Blueprint rather than Instance conversion; import into a new actor-owned Private Blueprint; subset Change-Proposal acceptance with Revision/ETag conflict handling; and C880-C884's explicit, Revision-based Blueprint fork update. Backend evidence is not a closure where the map declares an Instructor browser workflow (C411, C413, C420, C421, C423-C425) necessary.
+The accepted decisions are locked in the map: in-app Watch projection for Revision/publish/archive/restore; six-month Active-to-Inactive policy with warning/deadline/FERPA-clock rules; create a new Private Blueprint by copying reusable Course Instance structure while the source Course Instance remains unchanged; import into a new actor-owned Private Blueprint; subset Change-Proposal acceptance with Revision/ETag conflict handling; and C880-C884's explicit, Revision-based Blueprint fork update. Backend evidence is not a closure where the map declares an Instructor browser workflow (C411, C413, C420, C421, C423-C425) necessary.
 
 ### C880-C884: Blueprint fork review and selective-save chain
 
@@ -1966,11 +1995,11 @@ state remain excluded, and no source change applies automatically.
 
 | ID | Atomic owner and outcome | Dependencies | Temporary proof and permanent-test decision |
 | --- | --- | --- | --- |
-| C880 | VERIFIED except the expanded changed-content detail: current pairs match Assessments by shared Question IDs across renamed, reordered, and split content, with disjoint sets unmatched. | C412,C414. | Accepted 18-request actual HTTP receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`; no permanent test. The collapsed browser detail remains open. |
-| C881 | VERIFIED: ordinary visibility and nonenumeration permit arbitrary visible related sibling/transitive current pairs in either orientation. | C412,C51,C880. | The accepted lineage receipt conceals Private intermediates and denies unrelated pairs; no permanent test. |
-| C882 | VERIFIED: the server derives on-request current-pair canonical JSON comparison without persistence. | C880,C881. | The accepted lineage receipt records real GETs with unchanged product and Student Work fingerprints; no permanent test. |
-| C883 | VERIFIED: selected Apply uses fresh local Assessment/Pool identities, explicit existing/new targets, CAS/ownership/Archived guards, and atomic rollback. | C882. | Accepted 84-request HTTP receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`; no permanent test and no populated Student Work claim. |
-| C884 | VERIFIED for the current-pair Instructor review and selected Apply workflow at desktop and narrow viewports. | C883. | Accepted compiled-main browser receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`; it does not close broader C413, login/TLS, or full accessibility. |
+| C880 | Historical contributor evidence: current pairs used shared Question IDs across renamed, reordered, and split content, with disjoint sets unmatched. The current same-lineage comparison contract remains open. | C412,C414. | Accepted 18-request actual HTTP receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.pWOqCs/blueprint-lineage-pair-http-proof.json`; no permanent test. The collapsed browser detail remains open. |
+| C881 | Historical contributor evidence: ordinary visibility and nonenumeration covered the earlier related-pair scope. The current visible sibling/transitive-pair contract remains open. | C412,C51,C880. | The accepted lineage receipt conceals Private intermediates and denies unrelated pairs; no permanent test. |
+| C882 | Historical contributor evidence: the server derived an earlier current-pair canonical JSON comparison without persistence. The current related-pair review remains open. | C880,C881. | The accepted lineage receipt records real GETs with unchanged product and Student Work fingerprints; no permanent test. |
+| C883 | Historical contributor evidence: earlier selected Apply used fresh local Assessment/Pool identities, explicit targets, CAS/ownership/Archived guards, and rollback. It requires revalidation against the corrected comparison input. | C882. | Accepted 84-request HTTP receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.vs0NCo/blueprint-local-id-apply-http-proof.json`; no permanent test and no populated Student Work claim. |
+| C884 | Historical contributor evidence: an earlier current-pair Instructor review and selected-Apply workflow ran at desktop and narrow viewports. It cannot close while C883 requires corrected-input revalidation. | C883. | Accepted compiled-main browser receipt at `/private/tmp/ple-blueprint-owned-pool-artifacts.wVCQ4m/comparison-browser.json`; it does not close broader C413, login/TLS, or full accessibility. |
 
 Latest-authority reconciliation (2026-09-16): the table above preserves prior contributor outcomes,
 not completion of the current comparison contract. C880 is OPEN for shared-Question-ID Assessment
@@ -2165,7 +2194,7 @@ replace, or clean that shared suite.
 
 ## Milestone R1: Regenerate derived evidence
 
-After the last correction milestone closes: regenerate screenshots and capture manifest
+After the last correction milestone closes: perform final freshness verification by regenerating screenshots and capture manifest
 (`docs/screenshots/`), the Ribbon destination ledger (`tests/e2e/e2e_ribbon_destination_ledger.mjs`
 -> `docs/ux/RIBBON_DESTINATION_LEDGER.md`), Graphify output, and `docs/SCREENSHOT_ATLAS.md`.
 Remove `Generated evidence stale:` notes. Gate: regeneration commands exit 0; screenshot contract
@@ -2173,13 +2202,16 @@ tests pass; changelog entry.
 
 ### Interim full-corpus refresh checkpoint
 
-Before final R1 acceptance, run one fresh Live Demo replay that captures every current manifest
+After the SQL foundation and highest-impact UI gates pass, but before the remaining compliance work
+finishes, run one fresh replay of the canonical Live Demo runtime that captures every current manifest
 entry for Public, Instructor, Student, and Sysadmin, then regenerate and validate the manifest and
 atlas together. The Student portion explicitly includes all eight native Question Types and a
 WeBWorK delivery/review scenario. A required scenario without a newly captured PNG keeps the
 corpus unrefreshed; a static-only check cannot substitute for replay. Keep stale or retired images
-outside the current corpus and record them as such. This checkpoint adds no alternate release
-path, status bookkeeping, or dependency graph; R1 remains the final derived-evidence gate.
+outside the current corpus and record them as such. This interim audit checkpoint uses the same
+gateway, seeded topology, production bundle, and application paths as normal Live Demo use;
+it creates no alternate release path. R1 remains the final freshness-verification gate after all
+later corrections.
 
 ## Milestone R2: Re-audit the checklist
 
@@ -2195,11 +2227,12 @@ checklist (Milestone B, second run), and R3 lists the still-unclear items in its
 
 ## Milestone R3: Final verification and cleanup
 
-- `source source_me.sh && ./launchers/all_test.sh` green.
 - Remove legacy tables, routes, DTOs, page files, CSS, tests, and fixtures that the HG model
   replaced.
-- Review permanent tests added by this plan; keep those protecting important stable behavior
-  that could plausibly regress; delete the rest and every `tests/_temp/hg_*` probe.
+- Confirm each correction milestone made and executed its permanent-test decision; delete every
+  rejected test and every `tests/_temp/hg_*` probe.
+- After that cleanup, `./launchers/run_fast_checks.sh` is green and the required connected
+  browser acceptance uses `devel/run_playwright_tests.sh` against the canonical Live Demo runtime.
 - Prepend the final summary block to the checklist: `[x]`/`[ ]`/`N/A` counts per top-level HG
   section, date, `git rev-parse HEAD:docs/HUMAN_GUIDANCE.md`.
 - `git mv` the plan to `docs/archive/`; the checklist stays in `docs/active_plans/audits/` as
@@ -2252,7 +2285,7 @@ human-facing label unless a real workflow needs one. Published Question and Ques
 | R1 | Regeneration exits 0; screenshot contract tests pass |
 | B | Fresh reports cover every `[ ]` once; links test passes; counts match the checklist summary |
 | R2 | Re-audit complete; every remaining `[ ]` carries `HG: no locked-in design` or `product decision still unclear`; reports refreshed |
-| R3 | `all_test.sh` green; cleanup done; summary block; plan archived |
+| R3 | Cleanup and milestone-level test decisions complete; `run_fast_checks.sh` green; canonical connected browser acceptance passes; summary block; plan archived |
 
 Latest Student response distinction rewrite: live HG requires visually distinct current Question,
 saved-response status and keyboard focus, plus response-effect labels distinguishing Save/Clear/

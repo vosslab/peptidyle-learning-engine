@@ -675,15 +675,11 @@ pub(super) fn submission_store_error(value: StoreError) -> Response {
     match value {
         StoreError::NotFound | StoreError::Forbidden | StoreError::OwnershipMismatch => concealed(),
         StoreError::Conflict | StoreError::AlreadyExists | StoreError::RetryableTransaction => {
-            error(
-                StatusCode::PRECONDITION_FAILED,
-                "Question response changed",
-            )
+            error(StatusCode::PRECONDITION_FAILED, "Question response changed")
         }
-        StoreError::LifecycleConflict => error(
-            StatusCode::CONFLICT,
-            "Question response lifecycle conflict",
-        ),
+        StoreError::LifecycleConflict => {
+            error(StatusCode::CONFLICT, "Question response lifecycle conflict")
+        }
         StoreError::InvalidRecord(_) => error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Student Response is invalid",

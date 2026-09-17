@@ -1,16 +1,18 @@
 //! Stateless, query-bound Question Library continuation tokens.
 
+use std::cmp::Ordering;
+
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use question_model::{
     MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES, QuestionId, QuestionSearchFilter,
-    QuestionSearchRequest,
+    QuestionSearchRequest, QuestionSearchSort,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::{DEFAULT_PAGE_SIZE, ResolvedQuestionLibraryEntry};
 
-const CURSOR_VERSION: u8 = 1;
+const CURSOR_VERSION: u8 = 2;
 // A Question Title permits 512 Unicode scalars. JSON escaping uses up to six
 // bytes per scalar, with fixed cursor fields remaining within this bound.
 const MAX_CURSOR_BYTES: usize = 4_096;
@@ -20,18 +22,30 @@ const MAX_CURSOR_BYTES: usize = 4_096;
 struct Cursor {
     version: u8,
     query_digest: [u8; 32],
-    title: String,
-    question_id: QuestionId,
+    position: CursorPosition,
 }
 
-/// Selects one stable title-and-ID ordered page from an already authorized,
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "sort", rename_all = "camelCase")]
+enum CursorPosition {
+    TitleAscending {
+        title: String,
+        question_id: QuestionId,
+    },
+    PublishedNewest {
+        published_at_millis: i64,
+        question_id: QuestionId,
+    },
+}
+
+/// Selects one stable, visibly ordered page from an already authorized,
 /// answer-free query snapshot. The cursor is only a query binding and position;
 /// ordinary session authorization remains required for every request.
 pub(super) fn page<'entry>(
     matching: &mut Vec<&'entry ResolvedQuestionLibraryEntry>,
     query: &QuestionSearchRequest,
 ) -> Result<(Vec<&'entry ResolvedQuestionLibraryEntry>, Option<String>), ()> {
-    matching.sort_by(|left, right| entry_key(left).cmp(&entry_key(right)));
+    matching.sort_by(|left, right| compare_entries(left, right, query.sort));
     let cursor = query
         .cursor
         .as_deref()
@@ -41,7 +55,7 @@ pub(super) fn page<'entry>(
     let after_cursor = matching.iter().copied().filter(|entry| {
         cursor
             .as_ref()
-            .is_none_or(|cursor| entry_key(entry) > cursor_key(cursor))
+            .is_none_or(|cursor| compare_entry_to_cursor(entry, cursor, query.sort).is_gt())
     });
     let page = after_cursor.take(page_size + 1).collect::<Vec<_>>();
     let has_next_page = page.len() > page_size;
@@ -52,23 +66,69 @@ pub(super) fn page<'entry>(
     Ok((items, next_cursor))
 }
 
-fn entry_key(entry: &ResolvedQuestionLibraryEntry) -> (&str, &QuestionId) {
-    (
-        entry.summary.metadata.question_title.as_str(),
-        &entry.summary.question_id,
-    )
+fn compare_entries(
+    left: &ResolvedQuestionLibraryEntry,
+    right: &ResolvedQuestionLibraryEntry,
+    sort: QuestionSearchSort,
+) -> Ordering {
+    match sort {
+        QuestionSearchSort::TitleAscending => left
+            .summary
+            .metadata
+            .question_title
+            .cmp(&right.summary.metadata.question_title)
+            .then_with(|| left.summary.question_id.cmp(&right.summary.question_id)),
+        QuestionSearchSort::PublishedNewest => right
+            .summary
+            .published_at
+            .cmp(&left.summary.published_at)
+            .then_with(|| left.summary.question_id.cmp(&right.summary.question_id)),
+    }
 }
 
-fn cursor_key(cursor: &Cursor) -> (&str, &QuestionId) {
-    (&cursor.title, &cursor.question_id)
+fn compare_entry_to_cursor(
+    entry: &ResolvedQuestionLibraryEntry,
+    cursor: &Cursor,
+    sort: QuestionSearchSort,
+) -> Ordering {
+    match (sort, &cursor.position) {
+        (
+            QuestionSearchSort::TitleAscending,
+            CursorPosition::TitleAscending { title, question_id },
+        ) => entry
+            .summary
+            .metadata
+            .question_title
+            .cmp(title)
+            .then_with(|| entry.summary.question_id.cmp(question_id)),
+        (
+            QuestionSearchSort::PublishedNewest,
+            CursorPosition::PublishedNewest {
+                published_at_millis,
+                question_id,
+            },
+        ) => published_at_millis
+            .cmp(&entry.summary.published_at.as_unix_millis())
+            .then_with(|| entry.summary.question_id.cmp(question_id)),
+        _ => Ordering::Equal,
+    }
 }
 
 fn encode_cursor(entry: &ResolvedQuestionLibraryEntry, query: &QuestionSearchRequest) -> String {
+    let position = match query.sort {
+        QuestionSearchSort::TitleAscending => CursorPosition::TitleAscending {
+            title: entry.summary.metadata.question_title.clone(),
+            question_id: entry.summary.question_id.clone(),
+        },
+        QuestionSearchSort::PublishedNewest => CursorPosition::PublishedNewest {
+            published_at_millis: entry.summary.published_at.as_unix_millis(),
+            question_id: entry.summary.question_id.clone(),
+        },
+    };
     let cursor = Cursor {
         version: CURSOR_VERSION,
         query_digest: query_digest(query),
-        title: entry.summary.metadata.question_title.clone(),
-        question_id: entry.summary.question_id.clone(),
+        position,
     };
     let bytes = serde_json::to_vec(&cursor).expect("Question Library cursor serializes");
     URL_SAFE_NO_PAD.encode(bytes)
@@ -84,9 +144,16 @@ fn decode_cursor(value: &str, query: &QuestionSearchRequest) -> Result<Cursor, (
         return Err(());
     }
     let cursor = serde_json::from_slice::<Cursor>(&bytes).map_err(|_| ())?;
+    let valid_position = match (query.sort, &cursor.position) {
+        (QuestionSearchSort::TitleAscending, CursorPosition::TitleAscending { title, .. }) => {
+            !title.is_empty()
+        }
+        (QuestionSearchSort::PublishedNewest, CursorPosition::PublishedNewest { .. }) => true,
+        _ => false,
+    };
     if cursor.version != CURSOR_VERSION
         || cursor.query_digest != query_digest(query)
-        || cursor.title.is_empty()
+        || !valid_position
         || URL_SAFE_NO_PAD.encode(&bytes) != value
     {
         return Err(());
@@ -156,6 +223,16 @@ mod tests {
                 subtopic_uuid: None,
             },
         }
+    }
+
+    fn published_entry(
+        title: &str,
+        question_id: &str,
+        published_at_millis: i64,
+    ) -> ResolvedQuestionLibraryEntry {
+        let mut entry = entry(title, question_id);
+        entry.summary.published_at = Timestamp::from_unix_millis(published_at_millis);
+        entry
     }
 
     #[test]
@@ -237,13 +314,55 @@ mod tests {
         }
         .normalized()
         .expect("query normalizes");
-        let cursor = Cursor {
-            version: CURSOR_VERSION,
-            query_digest: query_digest(&original),
-            title: "Gene question".to_string(),
-            question_id: "0000-X00N".parse().expect("canonical question ID"),
+        let value = encode_cursor(&entry("Gene question", "0000-X00N"), &original);
+
+        assert!(decode_cursor(&value, &changed).is_err());
+    }
+
+    #[test]
+    fn newest_publication_order_pages_equal_timestamps_by_question_id() {
+        let entries = [
+            published_entry("Old", "0000-X00N", 100),
+            published_entry("Same timestamp B", "0000-X02R", 200),
+            published_entry("Same timestamp A", "0000-X01P", 200),
+        ];
+        let first_query = QuestionSearchRequest {
+            sort: QuestionSearchSort::PublishedNewest,
+            page_size: Some(2),
+            ..QuestionSearchRequest::default()
+        }
+        .normalized()
+        .expect("query normalizes");
+        let (first, cursor) =
+            page(&mut entries.iter().collect(), &first_query).expect("first page succeeds");
+        assert_eq!(
+            first
+                .iter()
+                .map(|entry| entry.summary.question_id.to_string())
+                .collect::<Vec<_>>(),
+            vec!["0000-X01P", "0000-X02R"]
+        );
+
+        let second_query = QuestionSearchRequest {
+            cursor,
+            ..first_query
         };
-        let value = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&cursor).expect("cursor serializes"));
+        let (second, next_cursor) =
+            page(&mut entries.iter().collect(), &second_query).expect("continuation succeeds");
+        assert_eq!(second[0].summary.question_id.to_string(), "0000-X00N");
+        assert!(next_cursor.is_none());
+    }
+
+    #[test]
+    fn continuation_rejects_a_changed_visible_sort() {
+        let original = QuestionSearchRequest::default()
+            .normalized()
+            .expect("default query normalizes");
+        let value = encode_cursor(&entry("Gene", "0000-X00N"), &original);
+        let changed = QuestionSearchRequest {
+            sort: QuestionSearchSort::PublishedNewest,
+            ..original
+        };
 
         assert!(decode_cursor(&value, &changed).is_err());
     }

@@ -215,6 +215,22 @@
   gap: var(--ple-layout-gap);
 }
 
+.blueprint-course-primary-structure {
+  display: grid;
+  gap: var(--ple-layout-gap);
+  min-width: 0;
+  padding-block: var(--ple-layout-gap);
+  border-block: 1px solid var(--ple-border);
+}
+
+.blueprint-course-primary-structure > .blueprint-course-section-heading {
+  align-items: end;
+}
+
+.blueprint-course-primary-structure > .blueprint-course-section-heading p {
+  max-width: 72ch;
+}
+
 .blueprint-course-owner-controls .blueprint-course-inspection {
   display: grid;
   gap: var(--ple-layout-gap);

@@ -8,6 +8,7 @@
 //   metadata, archive/restore, and dirty-navigation controls.
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const port = process.argv[2];
 if (!/^[0-9]+$/.test(port ?? "")) {
@@ -18,8 +19,8 @@ const origin = `https://localhost:${port}`;
 const runId = Date.now();
 const courseShortName = `Browser BP ${runId}`;
 const courseLongName = `Browser Blueprint Course ${runId}`;
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ ignoreHTTPSErrors: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
+const context = await browser.newContext();
 const page = await context.newPage();
 const createPath = /^\/api\/course-blueprints$/u;
 
@@ -122,7 +123,7 @@ try {
   await page.getByRole("heading", { name: courseLongName }).waitFor();
   await page.getByText(/Current Revision 1\./u).waitFor();
 
-  const discoveryContext = await browser.newContext({ ignoreHTTPSErrors: true });
+  const discoveryContext = await browser.newContext();
   try {
     const discoveryPage = await discoveryContext.newPage();
     await discoveryPage.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });

@@ -129,7 +129,7 @@ async fn fork_published_question(
     };
     let source_question_revision = match state
         .forks
-        .load_available_question_fork_source(session.clone(), &source_question_revision)
+        .load_available_question_fork_source(session, &source_question_revision)
         .await
     {
         Ok(value) => value,
@@ -155,7 +155,7 @@ async fn fork_published_question(
         };
         match state
             .forks
-            .fork_published_question_to_draft(session.clone(), input)
+            .fork_published_question_to_draft(session, input)
             .await
         {
             Ok(fork) => {

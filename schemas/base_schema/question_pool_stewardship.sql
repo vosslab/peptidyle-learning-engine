@@ -45,7 +45,7 @@ BEGIN
     PERFORM 1 FROM ple_data.question_pool
      WHERE public_question_pool_id = p_public_question_pool_id;
     IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
+        RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Star requires a published Question Pool';
     END IF;
     IF p_starred THEN
@@ -148,7 +148,7 @@ BEGIN
     PERFORM 1 FROM ple_data.question_pool
      WHERE public_question_pool_id = p_public_question_pool_id;
     IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
+        RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Watch requires a published Question Pool';
     END IF;
     IF p_watched THEN
@@ -183,7 +183,7 @@ BEGIN
     PERFORM 1 FROM ple_data.question_pool
      WHERE public_question_pool_id = p_public_question_pool_id;
     IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
+        RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Pool Watch requires a published Question Pool';
     END IF;
     RETURN QUERY SELECT EXISTS (

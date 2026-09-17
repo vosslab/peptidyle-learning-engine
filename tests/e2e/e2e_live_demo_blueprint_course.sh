@@ -526,7 +526,8 @@ print(reference, metadata_etag)
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/playwright/e2e_live_demo_blueprint_course_browser.mjs "$port"
+	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
+		node tests/playwright/e2e_live_demo_blueprint_course_browser.mjs "$port"
 	echo "Blueprint Course browser: visible Revision 1 creation and explicit Save complete"
 }
 

@@ -2,12 +2,16 @@
 
 # Standard Library
 import json
+import os
 import pathlib
+import re
 import urllib.parse
 
 import local_stack_control.compose
+import local_stack_control.discovery
 import local_stack_control.env_file
 import local_stack_control.models
+import local_stack_control.process
 
 
 SEEDED_DEMO_PERSONAS = (
@@ -18,6 +22,49 @@ SEEDED_DEMO_PERSONAS = (
 	"averyStudent",
 	"morganSysadmin",
 )
+
+
+#============================================
+def write_browser_certificate_trust(
+	runner: local_stack_control.process.CommandRunner,
+	repo_root: pathlib.Path,
+	workspace: pathlib.Path,
+	origin: str,
+) -> None:
+	"""Export only this ready gateway's public CA and Chromium intermediate pin."""
+	containers, _, _ = local_stack_control.discovery.discover_resources(
+		runner, repo_root, local_stack_control.models.LIVE_DEMO_BROWSER_PROJECT
+	)
+	gateways = [item for item in containers if item.service == "gateway" and item.running]
+	if len(gateways) != 1:
+		raise local_stack_control.models.ControllerError("browser trust requires one running gateway")
+	certificates = {}
+	for name in ("root", "intermediate"):
+		result = runner.run([
+			"podman", "exec", gateways[0].id, "cat",
+			f"/data/caddy/pki/authorities/local/{name}.crt",
+		], cwd=repo_root)
+		if result.returncode != 0:
+			raise local_stack_control.models.ControllerError("gateway public certificate is unavailable")
+		certificates[name] = result.stdout
+	pin = runner.run([
+		"node", "--input-type=module", "-e",
+		"import {readFileSync} from 'node:fs';"
+		"import {X509Certificate,createHash} from 'node:crypto';"
+		"const key=new X509Certificate(readFileSync(0)).publicKey;"
+		"console.log(createHash('sha256').update(key.export({type:'spki',format:'der'})).digest('base64'));",
+	], cwd=repo_root, stdin=certificates["intermediate"])
+	if pin.returncode != 0 or re.fullmatch(r"[A-Za-z0-9+/]{43}=\n?", pin.stdout) is None:
+		raise local_stack_control.models.ControllerError("gateway certificate pin could not be derived")
+	# ASVS 12.3.2/12.3.4: trust the owner's CA in this test process only, never all TLS errors.
+	files = {
+		"gateway-root.crt": certificates["root"],
+		"gateway-browser-trust.json": json.dumps({"origin": origin, "spki": pin.stdout.strip()}),
+	}
+	for name, content in files.items():
+		descriptor = os.open(workspace / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+		with os.fdopen(descriptor, "w", encoding="ascii") as output:
+			output.write(content)
 
 
 #============================================
@@ -76,14 +123,12 @@ def is_tls_target(target: local_stack_control.models.ComposeTarget) -> bool:
 
 #============================================
 def gateway_url(target: local_stack_control.models.ComposeTarget) -> str:
-	"""Return the selected loopback gateway origin after validating its port."""
+	"""Return the one canonical HTTPS loopback gateway origin."""
 	values = local_stack_control.env_file.env_settings(target.env_file)
 	port = values.get("PLE_GATEWAY_HOST_PORT", "8080")
 	if not port.isdecimal() or not 1 <= int(port) <= 65535:
 		raise local_stack_control.models.ControllerError("selected gateway port is invalid")
-	if is_tls_target(target):
-		return f"https://localhost:{port}/"
-	return f"http://127.0.0.1:{port}/"
+	return f"https://localhost:{port}/"
 
 
 #============================================

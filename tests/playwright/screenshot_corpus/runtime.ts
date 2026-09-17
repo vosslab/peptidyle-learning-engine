@@ -121,7 +121,6 @@ export function createScenarioRuntime(options: {
       colorScheme: "light",
       deviceScaleFactor: 1,
       hasTouch: viewport.mobile,
-      ignoreHTTPSErrors: true,
       isMobile: viewport.mobile,
       reducedMotion: "reduce",
       viewport: { width: viewport.width, height: viewport.height },

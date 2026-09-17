@@ -156,13 +156,13 @@ async fn import_fork(
             source_public_question_pool_id: source_public_question_pool_id.clone(),
             authored_position: request.authored_position,
             selection_count: request.selection_count,
-            points_per_item: request.points_per_item.clone(),
+            points_per_item: request.points_per_item,
             selected_question_order: request.selected_question_order,
             scoring_rule: request.scoring_rule,
         };
         match state
             .forks
-            .import_assessment_question_pool_fork(token.clone(), input)
+            .import_assessment_question_pool_fork(token, input)
             .await
         {
             Ok(result) => {
@@ -263,6 +263,10 @@ async fn append_fork_revision(
     }
 }
 
+// Route handlers return decoding failures immediately; boxing would add an
+// allocation and require every handler to unwrap solely to preserve Axum's
+// `Response` return type.
+#[allow(clippy::result_large_err)]
 async fn decode_json<T: serde::de::DeserializeOwned>(request: Request) -> Result<T, Response> {
     let is_json = request
         .headers()

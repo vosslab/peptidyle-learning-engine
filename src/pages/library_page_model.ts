@@ -8,6 +8,7 @@ import {
 } from "../api/library_classification_filter";
 import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
+import type { QuestionSearchSort } from "../../generated/api/QuestionSearchSort";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS";
@@ -79,6 +80,8 @@ export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter 
   readonly usedInMyCourses: string | null;
   /** Closed server-resolved authorship scope; browser rows never carry Account identity. */
   readonly authorship: QuestionSearchAuthorship;
+  /** Server-owned deterministic order retained with this exact query. */
+  readonly sort: QuestionSearchSort;
 }
 
 /** Honest notice that a free-form facet group is only the bounded leading set. */
@@ -493,6 +496,7 @@ export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   questionLicense: null,
   usedInMyCourses: null,
   authorship: "any",
+  sort: "titleAscending",
 };
 
 export function normalizeQuestionLibraryBrowseQuery(
@@ -511,6 +515,7 @@ export function normalizeQuestionLibraryBrowseQuery(
     questionLicense: query.questionLicense,
     usedInMyCourses: query.usedInMyCourses,
     authorship: query.authorship,
+    sort: query.sort,
   };
 }
 

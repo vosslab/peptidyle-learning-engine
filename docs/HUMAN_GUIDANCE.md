@@ -369,6 +369,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Instructor menu has **Courses**, **Questions**, and **Assessments** in one dense top bar.
 - Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
 - All required ribbon choices remain visible even when their collection is empty.
+- All required Instructor ribbon choices remain visible even when their target page is not implemented or complete.
 - A working navigation destination remains visible when its collection is empty.
 - A future or unavailable capability should not appear as a usable control until its workflow exists.
 - Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.

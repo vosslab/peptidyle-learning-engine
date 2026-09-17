@@ -118,6 +118,10 @@ fn receipt_response(
     response
 }
 
+// Route handlers return decoding failures immediately; boxing would add an
+// allocation and require every handler to unwrap solely to preserve Axum's
+// `Response` return type.
+#[allow(clippy::result_large_err)]
 async fn decode_json<T: serde::de::DeserializeOwned>(request: Request) -> Result<T, Response> {
     let is_json = request
         .headers()

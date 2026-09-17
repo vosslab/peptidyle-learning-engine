@@ -19,8 +19,8 @@ use domain::{
     },
 };
 use learning_data_access::{
-    LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, StudentAssessmentAttemptHistory,
-    StudentAssessmentAttemptHistoryEvidence, StoreError,
+    LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, StoreError,
+    StudentAssessmentAttemptHistory, StudentAssessmentAttemptHistoryEvidence,
 };
 use question_model::{AssessmentAttemptReference, QuestionFeedback, StudentFeedback};
 use question_model::{AssessmentScoringState, LateWorkRule, Timestamp};
@@ -175,27 +175,24 @@ async fn project_released_content(
         {
             project_response(question, response.clone(), &presentation);
         }
-        match presentation_source {
-            Some(learning_data_access::StudentAssessmentAttemptPresentationSource::Ple {
-                source: ple_source,
-                ..
-            }) =>
-            {
-                let Ok(resolved) = resolve_source(&state.objects, &ple_source).await else {
-                    continue;
-                };
-                let teaching = adapter_ple::PleQuestionBackend::new()
-                    .project_recorded_question_json_teaching_content(
-                        &resolved,
-                        response.as_ref(),
-                        recorded_result,
-                    );
-                let Ok(teaching) = teaching else {
-                    continue;
-                };
-                project_teaching_feedback(question, decision, recorded_result, teaching);
-            }
-            _ => {}
+        if let Some(learning_data_access::StudentAssessmentAttemptPresentationSource::Ple {
+            source: ple_source,
+            ..
+        }) = presentation_source
+        {
+            let Ok(resolved) = resolve_source(&state.objects, &ple_source).await else {
+                continue;
+            };
+            let teaching = adapter_ple::PleQuestionBackend::new()
+                .project_recorded_question_json_teaching_content(
+                    &resolved,
+                    response.as_ref(),
+                    recorded_result,
+                );
+            let Ok(teaching) = teaching else {
+                continue;
+            };
+            project_teaching_feedback(question, decision, recorded_result, teaching);
         }
     }
     Ok(())

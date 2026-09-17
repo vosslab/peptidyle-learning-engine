@@ -22,11 +22,11 @@ const actionTimeoutMs = 30_000;
 const scenarioTimeoutMs = 120_000;
 const seededCourseTitle = "Biochemistry 301: Proteins and Peptides";
 const savedTheme: CourseTheme = "forest";
-const contextOptions = { ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } };
+const contextOptions = { viewport: { width: 1280, height: 800 } };
 
 // Complete, non-animated PNG. The server decodes these bytes and derives its WebP renditions.
 const validPng = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAMAAAACCAYAAACddGYaAAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRAD/AP8A/6C9p5MAAAATSURBVAjXY+RRsvjPAAVMDEgAAB+cAWl6WZF6AAAAAElFTkSuQmCC",
+  "iVBORw0KGgoAAAANSUhEUgAAAAUAAAABCAYAAAAW/mTzAAAADklEQVR4nGMQCej5j44BXiAJrM6VRRcAAAAASUVORK5CYII=",
   "base64",
 );
 
@@ -35,7 +35,9 @@ async function openAppearanceFromCourseActions(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Course actions", exact: true })
     .getByRole("link", { name: "Appearance", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/instructor\/courses\/C-[1-9][0-9]*\/appearance$/u);
+  await expect(page).toHaveURL(
+    /\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/appearance$/u,
+  );
   await expect(page.locator("#main-content")).toBeFocused();
   await expect(page.locator('[data-route-surface="courseAppearance"]')).toBeVisible();
   await expect(
@@ -62,12 +64,19 @@ async function createSecondCourseThroughVisibleControls(
   shortName: string,
   longName: string,
 ): Promise<void> {
-  await page.getByLabel("Blueprint Course Revision").selectOption({ index: 1 });
+  await page.locator('button[aria-controls="create-course-instance"]').click();
+  await page.getByLabel("Start with").selectOption("adopted");
+  await page.getByLabel("Blueprint Course", { exact: true }).selectOption({ index: 1 });
   await page.getByLabel("Course short name").fill(shortName);
   await page.getByLabel("Course long name").fill(longName);
+  await page.getByLabel("Discipline (required)").selectOption({ index: 1 });
+  await page.getByLabel("Subject (optional)").selectOption({ index: 1 });
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
-  await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
+  await page
+    .locator("#create-course-instance")
+    .getByRole("button", { name: "Create Course Instance", exact: true })
+    .click();
   const course = page.getByRole("article").filter({
     has: page.getByRole("heading", { name: longName, exact: true }),
   });
@@ -129,7 +138,7 @@ test.describe("Course Appearance propagation on the production PLE stack", () =>
           buffer: validPng,
         });
         await expect(instructor.locator("[data-course-banner-local-preview]")).toBeVisible();
-        await instructor.getByRole("button", { name: "Save banner", exact: true }).click();
+        await instructor.getByRole("button", { name: /^(?:Save|Replace) banner$/u }).click();
         await expect(
           instructor.locator(".course-appearance-form").last().getByRole("status"),
         ).toContainText("Banner saved.");

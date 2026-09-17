@@ -2,7 +2,7 @@
 use axum::http::StatusCode;
 use question_model::{
     Capability, QuestionBackend, QuestionSearchAuthorship, QuestionSearchCourseUse,
-    QuestionSearchRequest,
+    QuestionSearchRequest, QuestionSearchSort,
 };
 use serde::Deserialize;
 
@@ -49,6 +49,8 @@ pub(super) struct QuestionSearchQuery {
     #[serde(default)]
     authorship: QuestionSearchAuthorship,
     #[serde(default)]
+    sort: QuestionSearchSort,
+    #[serde(default)]
     cursor: Option<String>,
     #[serde(default)]
     page_size: Option<u16>,
@@ -86,6 +88,7 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
             question_licenses: query.question_licenses,
             used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
+            sort: query.sort,
             cursor: query.cursor,
             page_size: query.page_size.or(Some(DEFAULT_PAGE_SIZE)),
         }

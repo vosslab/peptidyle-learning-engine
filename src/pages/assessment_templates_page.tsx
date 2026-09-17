@@ -1,6 +1,6 @@
 // assessment_templates_page.tsx - Instructor-owned reusable Assessment settings.
 
-import { For, Show, createSignal, onMount, type JSX } from "solid-js";
+import { For, Show, createMemo, createSignal, onMount, type JSX } from "solid-js";
 
 import type { AssessmentTemplate } from "../../generated/api/AssessmentTemplate";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
@@ -59,7 +59,12 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
   const [createName, setCreateName] = createSignal("");
   const [createType, setCreateType] = createSignal<AssessmentType>("regular_assignment");
   const [creating, setCreating] = createSignal(false);
+  const [createDisclosure, setCreateDisclosure] = createSignal<boolean>();
   let pendingReplacement: (() => void) | undefined;
+
+  const isCreateExpanded = createMemo(
+    () => createDisclosure() ?? (listState() === "ready" && templates().length === 0),
+  );
 
   async function loadTemplates(): Promise<void> {
     setListState("loading");
@@ -132,6 +137,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
       });
       setTemplates((current) => replaceTemplate(current, response.template));
       setCreateName("");
+      setCreateDisclosure(false);
       openResponse(response);
       setStatusIsError(false);
       setStatus("Template created with the canonical settings for its Assessment Type.");
@@ -247,44 +253,6 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
       <div class="assessment-templates-layout">
         <aside class="assessment-template-overview" aria-labelledby="template-overview-heading">
           <h2 id="template-overview-heading">Your Templates</h2>
-          <form
-            class="assessment-template-create"
-            onSubmit={(event) => {
-              event.preventDefault();
-              createTemplate();
-            }}
-          >
-            <h3>Create a Template</h3>
-            <label class="assessment-template-field">
-              Template name
-              <input
-                maxlength="200"
-                value={createName()}
-                disabled={creating() || detailBusy()}
-                onInput={(event) => setCreateName(event.currentTarget.value)}
-              />
-            </label>
-            <label class="assessment-template-field">
-              Assessment Type
-              <select
-                value={createType()}
-                disabled={creating() || detailBusy()}
-                onChange={(event) => {
-                  if (isAssessmentType(event.currentTarget.value)) {
-                    setCreateType(event.currentTarget.value);
-                  }
-                }}
-              >
-                <For each={ASSESSMENT_TYPE_OPTIONS}>
-                  {(option) => <option value={option.value}>{option.label}</option>}
-                </For>
-              </select>
-            </label>
-            <button class="primary-action" type="submit" disabled={creating() || detailBusy()}>
-              {creating() ? "Creating Template..." : "Create Template"}
-            </button>
-          </form>
-
           <Show when={listState() === "loading"}>
             <p class="assessment-template-list-state" role="status">
               Loading your Templates...
@@ -301,7 +269,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
           <Show when={listState() === "ready" && templates().length === 0}>
             <div class="empty-state assessment-template-list-state">
               <h3>No Templates yet</h3>
-              <p>Create one above to save settings you use often.</p>
+              <p>Create one below to save settings you use often.</p>
             </div>
           </Show>
           <Show when={listState() === "ready" && templates().length > 0}>
@@ -331,6 +299,57 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
               </For>
             </ul>
           </Show>
+
+          <button
+            class="quiet-action assessment-template-create-disclosure"
+            type="button"
+            aria-expanded={isCreateExpanded()}
+            aria-controls="create-assessment-template"
+            disabled={creating() || detailBusy()}
+            onClick={() => setCreateDisclosure(!isCreateExpanded())}
+          >
+            <span aria-hidden="true">{isCreateExpanded() ? "\u25be" : "\u25b8"}</span>
+            Create a Template
+          </button>
+          <form
+            id="create-assessment-template"
+            class="assessment-template-create"
+            hidden={!isCreateExpanded()}
+            aria-busy={creating()}
+            onSubmit={(event) => {
+              event.preventDefault();
+              createTemplate();
+            }}
+          >
+            <label class="assessment-template-field">
+              Template name
+              <input
+                maxlength="200"
+                value={createName()}
+                disabled={creating() || detailBusy()}
+                onInput={(event) => setCreateName(event.currentTarget.value)}
+              />
+            </label>
+            <label class="assessment-template-field">
+              Assessment Type
+              <select
+                value={createType()}
+                disabled={creating() || detailBusy()}
+                onChange={(event) => {
+                  if (isAssessmentType(event.currentTarget.value)) {
+                    setCreateType(event.currentTarget.value);
+                  }
+                }}
+              >
+                <For each={ASSESSMENT_TYPE_OPTIONS}>
+                  {(option) => <option value={option.value}>{option.label}</option>}
+                </For>
+              </select>
+            </label>
+            <button class="primary-action" type="submit" disabled={creating() || detailBusy()}>
+              {creating() ? "Creating Template..." : "Create Template"}
+            </button>
+          </form>
         </aside>
 
         <section class="assessment-template-editor" aria-labelledby="template-editor-heading">
@@ -395,8 +414,7 @@ export function AssessmentTemplatesSurface(props: AssessmentTemplatesSurfaceProp
                       </For>
                     </select>
                     <small>
-                      Changing Type keeps every setting below unchanged, except Quiz and Exam use
-                      exactly one Assessment Attempt.
+                      Quiz and Exam use one Assessment Attempt. Other settings stay unchanged.
                     </small>
                   </label>
                 </div>

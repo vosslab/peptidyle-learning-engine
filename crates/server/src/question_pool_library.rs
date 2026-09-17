@@ -136,7 +136,7 @@ async fn list_pools(
     if !filter.has_valid_structure() {
         return bad_request("Question Pool classification hierarchy is invalid");
     }
-    match valid_classification(&state.classifications, token.clone(), filter).await {
+    match valid_classification(&state.classifications, token, filter).await {
         Ok(true) => {}
         Ok(false) => return bad_request("Question Pool classification is invalid"),
         Err(error) => return store_error(error),
@@ -208,7 +208,7 @@ async fn current_pool(
     };
     let revision = match state
         .pools
-        .load_current_published_question_pool(token.clone(), &pool_id)
+        .load_current_published_question_pool(token, &pool_id)
         .await
     {
         Ok(value) => value,
@@ -251,7 +251,7 @@ async fn assessment_fork(
     };
     let record = match state
         .pools
-        .load_assessment_question_pool_fork(token.clone(), course, assessment, entry)
+        .load_assessment_question_pool_fork(token, course, assessment, entry)
         .await
     {
         Ok(value) => value,
@@ -288,6 +288,10 @@ async fn assessment_fork(
     )
 }
 
+// Route handlers return these errors immediately; boxing them would add an
+// allocation and require every handler to unwrap solely to preserve Axum's
+// `Response` return type.
+#[allow(clippy::result_large_err)]
 async fn revision_view(
     state: &RouteState,
     token: SessionTokenHash,
@@ -302,7 +306,7 @@ async fn revision_view(
         }
         let entry = state
             .questions
-            .load_published_question_revision_library_entry(token.clone(), &member)
+            .load_published_question_revision_library_entry(token, &member)
             .await
             .map_err(store_error)?;
         let question = answer_free_reusable_question_view(&state.objects, entry)
@@ -330,7 +334,7 @@ async fn valid_classification(
         return Ok(true);
     };
     if !store
-        .list_disciplines(token.clone())
+        .list_disciplines(token)
         .await?
         .iter()
         .any(|item| item.uuid == discipline)
@@ -342,7 +346,7 @@ async fn valid_classification(
     };
     // Cross-Discipline mode still validates the selected Discipline/Subject edge.
     if !store
-        .list_subjects(token.clone(), discipline)
+        .list_subjects(token, discipline)
         .await?
         .iter()
         .any(|item| item.uuid == subject)
@@ -353,7 +357,7 @@ async fn valid_classification(
         return Ok(true);
     };
     if !store
-        .list_topics(token.clone(), subject)
+        .list_topics(token, subject)
         .await?
         .iter()
         .any(|item| item.uuid == topic)

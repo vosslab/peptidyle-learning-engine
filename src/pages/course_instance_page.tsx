@@ -1,4 +1,4 @@
-// course_instance_page.tsx - Course Instance Teaching Team workspace.
+// course_instance_page.tsx - Instructor Course Instance teaching workspace.
 
 import { A, useParams } from "@solidjs/router";
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
@@ -50,6 +50,7 @@ function formatLocalDueDateAndTime(value: string | null): string {
 function AssessmentRow(props: {
   readonly courseReference: string;
   readonly assessment: CourseAssessmentSummary;
+  readonly position: number;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
   const [assessment, setAssessment] = createSignal(props.assessment);
@@ -169,9 +170,11 @@ function AssessmentRow(props: {
   }
 
   return (
-    <article class="instructor-list__row instructor-list__row--assessment">
+    <li class="instructor-list__row instructor-list__row--assessment">
       <div class="instructor-list__identity">
-        <p class="instructor-list__kind">{assessmentStatusLabel(assessment().status)} Assessment</p>
+        <p class="instructor-list__kind">
+          Assessment {props.position} - {assessmentStatusLabel(assessment().status)}
+        </p>
         <h3>{assessment().title}</h3>
         <p class="instructor-list__metadata">Assessment {assessment().reference}</p>
         <p class="instructor-list__metadata">
@@ -181,7 +184,7 @@ function AssessmentRow(props: {
       <div class="instructor-list__actions">
         <A
           ref={(element) => (assessmentQuestionsLink = element)}
-          class="primary-link"
+          class="quiet-link"
           href={assessmentQuestionsPath(props.courseReference, assessment().reference)}
         >
           Edit Assessment
@@ -299,7 +302,7 @@ function AssessmentRow(props: {
           </p>
         )}
       </Show>
-    </article>
+    </li>
   );
 }
 
@@ -326,7 +329,7 @@ export function CourseInstancePage(): JSX.Element {
         <p class="loading-state">Loading Course Instance...</p>
       </Show>
       <Show
-        when={course()}
+        when={course.error === undefined ? course() : undefined}
         fallback={
           <Show when={course.error !== undefined}>
             <section class="route-error" role="alert">
@@ -343,70 +346,30 @@ export function CourseInstancePage(): JSX.Element {
       >
         {(view) => (
           <>
-            <p class="eyebrow">Course Instance · {view().course.reference}</p>
-            <h1>{view().course.longName}</h1>
-            <CourseClassificationEditor
-              value={view().course.classification}
-              metadataEtag={view().course.metadataEtag}
-              canEdit
-              save={async (classification, etag) => {
-                const saved = await applicationApi.client.updateCourseInstanceClassification(
-                  view().course.reference,
-                  classification,
-                  etag,
-                );
-                mutateCourse({
-                  ...view(),
-                  course: {
-                    ...view().course,
-                    classification: saved.classification,
-                    metadataEtag: saved.metadataEtag,
-                  },
-                });
-              }}
-              reload={async () => {
-                const current = await applicationApi.client.getCourseInstance(
-                  view().course.reference,
-                );
-                mutateCourse(current);
-                return {
-                  classification: current.course.classification,
-                  metadataEtag: current.course.metadataEtag,
-                };
-              }}
-            />
-            <Show when={view().blueprintOrigin}>
-              {(origin) => (
-                <>
-                  <p class="page-lede" data-blueprint-origin>
-                    Adopted from Blueprint{" "}
-                    <A href={`/blueprint-courses/${origin().reference}`}>{origin().reference}</A>,
-                    Revision {origin().adoptedRevision}; source now Revision{" "}
-                    {origin().currentRevision}.
+            <header class="course-instance-page__identity">
+              <p class="eyebrow">Course Instance · {view().course.reference}</p>
+              <h1>{view().course.longName}</h1>
+            </header>
+            <section
+              class="course-instance-page__assessments"
+              aria-labelledby="course-assessments-heading"
+            >
+              <header class="course-instance-page__section-heading">
+                <div>
+                  <p class="eyebrow">Teaching workflow</p>
+                  <h2 id="course-assessments-heading">Assessments</h2>
+                  <p class="course-instance-page__section-lede">
+                    Assessments appear in Course order. Open one to edit its Questions and
+                    Properties.
                   </p>
-                  <Show when={BigInt(origin().currentRevision) > BigInt(origin().adoptedRevision)}>
-                    <p class="page-lede" data-blueprint-revision-notice>
-                      Newer Blueprint Revision available
-                    </p>
-                    <CourseBlueprintUpdateReviewList courseReference={view().course.reference} />
-                  </Show>
-                </>
-              )}
-            </Show>
-            <p class="page-lede">
-              Course Term: {view().course.term.startDate} through {view().course.term.endDate}.
-            </p>
-            <section class="course-card" aria-labelledby="teaching-team-heading">
-              <p class="card-kicker">Teaching Team</p>
-              <h2 id="teaching-team-heading">Initial Teaching Team</h2>
-              <p>You are an active co-Instructor for this Course Instance.</p>
-              <p>
-                {view().activeInstructorCount} active Instructor
-                {view().activeInstructorCount === 1 ? " is" : "s are"} currently recorded.
-              </p>
-            </section>
-            <section aria-labelledby="course-assessments-heading">
-              <h2 id="course-assessments-heading">Assessments</h2>
+                </div>
+                <A
+                  class="primary-link"
+                  href={`/instructor/courses/${view().course.reference}/assessments/new`}
+                >
+                  Create Assessment
+                </A>
+              </header>
               <Show when={assessments.loading}>
                 <p class="loading-state">Loading Assessments...</p>
               </Show>
@@ -416,74 +379,175 @@ export function CourseInstancePage(): JSX.Element {
                 </p>
               </Show>
               <Show
-                when={(assessments()?.length ?? 0) > 0}
+                when={assessments.error === undefined && (assessments()?.length ?? 0) > 0}
                 fallback={
                   <Show when={!assessments.loading && assessments.error === undefined}>
-                    <p class="empty-state">No Assessments have been created for this course.</p>
+                    <div class="empty-state course-instance-page__assessment-empty">
+                      <h3>No Assessments yet</h3>
+                      <p>
+                        Assessments organize the ordered activities delivered to Students. Use
+                        Create Assessment to add the first activity for this Course Instance.
+                      </p>
+                    </div>
                   </Show>
                 }
               >
-                <div class="instructor-list" aria-label="Assessments">
+                <ol class="instructor-list course-instance-page__assessment-list">
                   <For each={assessments()}>
-                    {(assessment) => (
+                    {(assessment, index) => (
                       <AssessmentRow
                         courseReference={view().course.reference}
                         assessment={assessment}
+                        position={index() + 1}
                       />
                     )}
                   </For>
-                </div>
+                </ol>
               </Show>
             </section>
-            <nav
-              class="course-card-actions course-instance-page__actions"
-              aria-label="Course actions"
-            >
-              <A
-                class="primary-link"
-                href={`/instructor/courses/${view().course.reference}/students`}
-              >
-                Open Students
-              </A>
-              <A
-                class="quiet-link"
-                href={`/instructor/courses/${view().course.reference}/assessments/new`}
-              >
-                Create Assessment
-              </A>
-              <A
-                class="quiet-link"
-                href={`/instructor/courses/${view().course.reference}/appearance`}
-              >
-                Appearance
-              </A>
-            </nav>
-            <Show
-              when={profile.error === undefined}
-              fallback={
-                <section aria-label="Instructor time zone unavailable">
-                  <p role="alert">
-                    Your Instructor time zone is unavailable. Refresh to try again.
+            <section class="course-instance-page__details" aria-labelledby="course-details-heading">
+              <header>
+                <p class="eyebrow">Course administration</p>
+                <h2 id="course-details-heading">Course details</h2>
+                <p class="course-instance-page__section-lede">
+                  Review this teaching period, its classification, source, and Course access.
+                </p>
+              </header>
+              <div class="course-instance-page__detail-grid">
+                <section
+                  class="course-instance-page__detail-group"
+                  aria-labelledby="course-term-heading"
+                >
+                  <h3 id="course-term-heading">Course Term</h3>
+                  <p>
+                    {view().course.term.startDate} through {view().course.term.endDate}
                   </p>
-                  <button type="button" class="quiet-button" onClick={() => void refetchProfile()}>
-                    Retry Instructor time zone
-                  </button>
                 </section>
-              }
-            >
-              <Show
-                when={profile()}
-                fallback={<p role="status">Loading your Instructor time zone...</p>}
-              >
-                {(settings) => (
-                  <CourseStudentWorkRecovery
-                    course={view().course.reference}
-                    client={applicationApi.client}
-                    displayTimeZone={settings().timeZone}
+                <section
+                  class="course-instance-page__detail-group"
+                  aria-labelledby="teaching-team-heading"
+                >
+                  <h3 id="teaching-team-heading">Teaching Team</h3>
+                  <p>You are an active co-Instructor for this Course Instance.</p>
+                  <p>
+                    {view().activeInstructorCount} active Instructor
+                    {view().activeInstructorCount === 1 ? " is" : "s are"} currently recorded.
+                  </p>
+                </section>
+                <section
+                  class="course-instance-page__detail-group course-instance-page__detail-group--wide"
+                  aria-labelledby="course-classification-heading"
+                >
+                  <h3 id="course-classification-heading">Classification</h3>
+                  <CourseClassificationEditor
+                    value={view().course.classification}
+                    metadataEtag={view().course.metadataEtag}
+                    canEdit
+                    save={async (classification, etag) => {
+                      const saved = await applicationApi.client.updateCourseInstanceClassification(
+                        view().course.reference,
+                        classification,
+                        etag,
+                      );
+                      mutateCourse({
+                        ...view(),
+                        course: {
+                          ...view().course,
+                          classification: saved.classification,
+                          metadataEtag: saved.metadataEtag,
+                        },
+                      });
+                    }}
+                    reload={async () => {
+                      const current = await applicationApi.client.getCourseInstance(
+                        view().course.reference,
+                      );
+                      mutateCourse(current);
+                      return {
+                        classification: current.course.classification,
+                        metadataEtag: current.course.metadataEtag,
+                      };
+                    }}
                   />
-                )}
-              </Show>
-            </Show>
+                </section>
+                <Show when={view().blueprintOrigin}>
+                  {(origin) => (
+                    <section
+                      class="course-instance-page__detail-group course-instance-page__detail-group--wide"
+                      aria-labelledby="blueprint-source-heading"
+                    >
+                      <h3 id="blueprint-source-heading">Blueprint source</h3>
+                      <p data-blueprint-origin>
+                        Adopted from Blueprint{" "}
+                        <A href={`/blueprint-courses/${origin().reference}`}>
+                          {origin().reference}
+                        </A>
+                        , Revision {origin().adoptedRevision}; source now Revision{" "}
+                        {origin().currentRevision}.
+                      </p>
+                      <Show
+                        when={BigInt(origin().currentRevision) > BigInt(origin().adoptedRevision)}
+                      >
+                        <p data-blueprint-revision-notice>Newer Blueprint Revision available</p>
+                        <CourseBlueprintUpdateReviewList
+                          courseReference={view().course.reference}
+                        />
+                      </Show>
+                    </section>
+                  )}
+                </Show>
+              </div>
+              <section
+                class="course-instance-page__administration"
+                aria-labelledby="course-administration-heading"
+              >
+                <h3 id="course-administration-heading">Course tools</h3>
+                <nav class="course-instance-page__actions" aria-label="Course actions">
+                  <A
+                    class="quiet-link"
+                    href={`/instructor/courses/${view().course.reference}/students`}
+                  >
+                    Open Students
+                  </A>
+                  <A
+                    class="quiet-link"
+                    href={`/instructor/courses/${view().course.reference}/appearance`}
+                  >
+                    Appearance
+                  </A>
+                </nav>
+                <Show
+                  when={profile.error === undefined}
+                  fallback={
+                    <section aria-label="Instructor time zone unavailable">
+                      <p role="alert">
+                        Your Instructor time zone is unavailable. Refresh to try again.
+                      </p>
+                      <button
+                        type="button"
+                        class="quiet-button"
+                        onClick={() => void refetchProfile()}
+                      >
+                        Retry Instructor time zone
+                      </button>
+                    </section>
+                  }
+                >
+                  <Show
+                    when={profile()}
+                    fallback={<p role="status">Loading your Instructor time zone...</p>}
+                  >
+                    {(settings) => (
+                      <CourseStudentWorkRecovery
+                        course={view().course.reference}
+                        client={applicationApi.client}
+                        displayTimeZone={settings().timeZone}
+                      />
+                    )}
+                  </Show>
+                </Show>
+              </section>
+            </section>
           </>
         )}
       </Show>

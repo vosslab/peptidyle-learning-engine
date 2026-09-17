@@ -1285,6 +1285,16 @@
         "captureIds": ["instructor_blueprint_course_detail_laptop"]
       },
       {
+        "routeId": "myChangeProposals",
+        "status": "deferred",
+        "reason": "Blueprint Change Proposals require a compiled-main two-Instructor Live Demo workflow before rendered evidence is claimed."
+      },
+      {
+        "routeId": "changeProposalDetail",
+        "status": "deferred",
+        "reason": "Blueprint Change Proposals require a compiled-main two-Instructor Live Demo workflow before rendered evidence is claimed."
+      },
+      {
         "routeId": "assessmentCreate",
         "status": "captured",
         "captureIds": ["instructor_assignment_creation_laptop"]

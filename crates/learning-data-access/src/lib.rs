@@ -7,6 +7,7 @@ use domain::assessment_activity::AssessmentActivityError;
 
 mod account_avatar;
 mod account_time_zone;
+mod archived_student_work_recovery;
 mod assessment_attempt;
 mod assessment_delivery;
 mod assessment_pool_fork;
@@ -34,7 +35,6 @@ mod imathas_question_backend_session;
 mod instructor_account;
 mod invitation_export;
 mod live_gradebook;
-mod archived_student_work_recovery;
 mod live_student_course_landing;
 pub use archived_student_work_recovery::{
     ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion, RecoverySummary,
@@ -240,8 +240,7 @@ pub use question_pool_creation::{
 };
 pub use question_pool_library::{
     AssessmentQuestionPoolForkRecord, PublishedQuestionPoolRevision, QuestionPoolDiscoveryFilter,
-    QuestionPoolLibraryStore,
-    QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
+    QuestionPoolLibraryStore, QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
 };
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,

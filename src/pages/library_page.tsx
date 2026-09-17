@@ -27,7 +27,7 @@ import {
   searchHandoffQuery,
   hasExactBrowseFilters,
   searchWithinResultsPath,
-  clearLibraryClassificationSearch,
+  recoverLibrarySearch,
 } from "./library_search_parameters";
 import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
@@ -80,6 +80,12 @@ function backendLabel(value: string): string {
     imathas: "IMathAS",
   };
   return labels[value] ?? value;
+}
+
+function selectedQuestionLibrarySort(value: string): QuestionLibraryBrowseQuery["sort"] {
+  // ASVS 2.2.1: retain only the closed server-supported sort values at the UI boundary.
+  if (value === "titleAscending" || value === "publishedNewest") return value;
+  throw new Error("Question Library sort selection is invalid");
 }
 
 function RetainedSelectOption(props: {
@@ -137,7 +143,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     }
   }
   const initialHandoffQuery = routeHandoff(location.search);
-  const [invalidClassification, setInvalidClassification] = createSignal(
+  const [invalidLinkOptions, setInvalidLinkOptions] = createSignal(
     returnState === null && initialHandoffQuery === null,
   );
   const [query, setQuery] = createSignal<QuestionLibraryBrowseQuery>(
@@ -176,7 +182,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     const routeSearch = location.search;
     if (returnState !== null) return;
     const handoffQuery = routeHandoff(routeSearch);
-    setInvalidClassification(handoffQuery === null);
+    setInvalidLinkOptions(handoffQuery === null);
     if (handoffQuery === null || props.mode !== "search") return;
     if (!hasExactBrowseFilters(handoffQuery)) return;
     setQuery(handoffQuery);
@@ -250,9 +256,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     );
 
   function changeQuery(change: Partial<QuestionLibraryBrowseQuery>): void {
-    if (invalidClassification()) return;
+    if (invalidLinkOptions()) return;
     if (selectedIds().size > 0) {
-      setSelectionNotice("Selection cleared because the search or filters changed.");
+      setSelectionNotice("Selection cleared because the search, filters, or order changed.");
     }
     setSelectedIds(new Set<string>());
     setEditorMetadata(null);
@@ -264,10 +270,10 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     void session.reset(next);
   }
 
-  function clearInvalidClassification(): void {
-    const search = clearLibraryClassificationSearch(location.search);
+  function resetInvalidLinkOptions(): void {
+    const search = recoverLibrarySearch(location.search);
     const recoveredQuery = searchHandoffQuery(search);
-    setInvalidClassification(false);
+    setInvalidLinkOptions(false);
     navigate(`${location.pathname}${search}${location.hash}`, { replace: true });
     // Exact search filters are applied by the route effect; other modes need an explicit reset.
     if (props.mode !== "search" || !hasExactBrowseFilters(recoveredQuery)) {
@@ -408,7 +414,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     onCleanup(() => observer.disconnect());
     if (returnState !== null) {
       session.restore(returnState.query, returnState.browseState);
-    } else if (props.mode === "browse" && !invalidClassification()) {
+    } else if (props.mode === "browse" && !invalidLinkOptions()) {
       void session.reset(query());
     }
   });
@@ -426,18 +432,18 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           ? "Explore what the library contains, then narrow from a broad subject to exact topics."
           : "Find a current published question to study, reuse, or assign."}
       </p>
-      <Show when={invalidClassification()}>
+      <Show when={invalidLinkOptions()}>
         <div role="alert">
           <p>
-            This Library link has invalid classification filters. No search has been run. Clear the
-            classification filters to continue with the other filters in this link.
+            This Library link has invalid filter or order options. No search has been run. Reset the
+            invalid options to continue with the valid options in this link.
           </p>
-          <button type="button" onClick={clearInvalidClassification}>
-            Clear classification filters
+          <button type="button" onClick={resetInvalidLinkOptions}>
+            Reset invalid Library options
           </button>
         </div>
       </Show>
-      <Show when={!invalidClassification()}>
+      <Show when={!invalidLinkOptions()}>
         <Show when={props.poolLibraryClient}>
           {(client) => (
             <details
@@ -771,6 +777,23 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             changeQuery={changeQuery}
             startOver={() => changeQuery(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY)}
           />
+        </Show>
+        <Show when={props.mode === "browse" || state().kind !== "initial"}>
+          <div class="question-library-controls" role="group" aria-label="Result order">
+            <label>
+              Order results
+              <select
+                value={query().sort}
+                onChange={(event) =>
+                  changeQuery({ sort: selectedQuestionLibrarySort(event.currentTarget.value) })
+                }
+                disabled={editorBusy()}
+              >
+                <option value="titleAscending">Title (A-Z)</option>
+                <option value="publishedNewest">Recently published</option>
+              </select>
+            </label>
+          </div>
         </Show>
         <Show when={displayedRows().length > 0 || selectedIds().size > 0}>
           <section class="question-library-bulk-toolbar" aria-label="Bulk Question actions">

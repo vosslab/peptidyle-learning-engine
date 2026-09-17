@@ -127,7 +127,7 @@ async fn create_template(State(state): State<RouteState>, request: Request) -> R
     };
     let request = match json_request::<CreateAssessmentTemplateRequest>(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let template = AssessmentTemplate::new(
         AssessmentTemplateId::generate(),
@@ -163,7 +163,7 @@ async fn save_template(
     };
     let request = match json_request::<SaveAssessmentTemplateRequest>(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     // ASVS 2.2.3: Assessment Type and settings are independently explicit.
     // A Type change never causes the server to overwrite supplied settings.
@@ -199,7 +199,7 @@ async fn create_assessment_from_template(
     };
     let request = match json_request::<CreateAssessmentFromTemplateRequest>(request).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let input = CreateAssessmentFromTemplateInput {
         template_id: request.template_id,
@@ -215,28 +215,28 @@ async fn create_assessment_from_template(
     }
 }
 
-async fn json_request<T: for<'de> Deserialize<'de>>(request: Request) -> Result<T, Response> {
+async fn json_request<T: for<'de> Deserialize<'de>>(request: Request) -> Result<T, Box<Response>> {
     if !has_json_content_type(request.headers()) {
-        return Err(route_error(
+        return Err(Box::new(route_error(
             StatusCode::UNSUPPORTED_MEDIA_TYPE,
             "Assessment Template requires JSON",
-        ));
+        )));
     }
     let bytes = to_bytes(request.into_body(), MAX_ASSESSMENT_TEMPLATE_REQUEST_BYTES)
         .await
         .map_err(|_| {
-            route_error(
+            Box::new(route_error(
                 StatusCode::PAYLOAD_TOO_LARGE,
                 "Assessment Template is too large",
-            )
+            ))
         })?;
     // ASVS 1.5.2 and 2.2.1-2.2.2: deserialize only closed model-backed
     // request shapes, after authentication, and reject every unknown field.
     serde_json::from_slice(&bytes).map_err(|_| {
-        route_error(
+        Box::new(route_error(
             StatusCode::UNPROCESSABLE_ENTITY,
             "Assessment Template is invalid",
-        )
+        ))
     })
 }
 

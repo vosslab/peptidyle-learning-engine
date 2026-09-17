@@ -4,8 +4,12 @@ This document answers one operational question: why does each container in the
 fixed developer stack exist? The owner uses
 [containers/compose.yaml](../containers/compose.yaml) plus
 `tests/e2e/compose.live-demo-browser.yaml`.
-The base defines common services, networks, hardening, and one-shot setup; the
-owner overlay selects seeded production authentication and the TLS gateway. The
+The base defines common services, networks, hardening, and one-shot setup. It
+selects the `live-demo` application image with disposable-storage support; the
+API and application workers share that image. The base `containers/Caddyfile`
+owns the one HTTPS gateway. The owner overlay supplies seeded authentication
+fixtures, the gateway's public-asset network attachment, and fixed
+gateway-network addressing for the same runtime. The
 normal path is `./launchers/run_live_demo.sh`. Direct controller operations use
 `source source_me.sh && python3 local_stack.py`.
 Focused private `local_stack_control` modules and the canonical browser owner
@@ -38,7 +42,7 @@ generic worker work. Both remain separate from the browser-facing API.
 
 | Service                  | Necessary role                                                                                                                                                         | Durable state                                                                          | Network boundary                                                                                |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `gateway`                | Serves the built browser client and forwards same-origin `/api` and `/health` requests to the API. It is the only PLE browser entry point.                             | None. The built `dist/` directory is mounted read-only.                                | Publishes one loopback port; joins only `gateway_api`.                                          |
+| `gateway`                | Serves the built browser client and forwards same-origin `/api`, `/health`, and public-asset requests. It is the only PLE browser entry point.                         | None. The built `dist/` directory is mounted read-only.                                | Publishes one loopback port; joins `gateway_api`, plus the browser owner's data network only for public assets. |
 | `api`                    | Authenticates sessions, authorizes course actions, coordinates attempts, and delivers either PLE-native presentations or exact backend-owned documents.                | None in the container. Authoritative records live in PostgreSQL and MinIO.             | Joins the data network, `gateway_api`, and `renderer_private`.                                  |
 | `worker`                 | Runs Assessment Attempt expiry submission through the ordinary whole-Assessment path; it has read-only Question Source access and private renderer access for WeBWorK. | None in the container. Attempt records are in PostgreSQL; source objects are in MinIO. | Joins the data network and `renderer_private`; no browser, gateway, or public outbound network. |
 | `public-asset-publisher` | One-shot, profile-selected public-asset publication after its own pending registry record exists; it is not a generic background worker.                               | None in the container. Its own Job state is in PostgreSQL.                             | Joins the data network only.                                                                    |

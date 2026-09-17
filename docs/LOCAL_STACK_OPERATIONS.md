@@ -129,6 +129,9 @@ bundle, creates a fresh fixed target, waits for the HTTPS gateway, and prints it
 to open. `open` opens the exact URL of an already-running fixed target without restarting it;
 `--open` is a compatible shorthand for `start --open`, which creates a fresh target and opens it.
 `--headless` remains an accepted explicit spelling of the default non-opening behavior.
+The launcher and Playwright both use the gateway mounted from
+[`containers/Caddyfile`](../containers/Caddyfile); the browser Compose overlay does not replace or
+reimplement gateway routing, headers, readiness, assets, or bundle delivery.
 
 The fixed target is always:
 

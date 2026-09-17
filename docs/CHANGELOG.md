@@ -11,6 +11,110 @@
 
 ### Behavior or Interface Changes
 
+- Updated the registered Instructor authoring acceptance journey to the current My Draft Questions
+  heading and required Discipline/Subject publication contract. The focused canonical HTTPS
+  scenario now publishes successfully with scoped gateway trust; this changes test setup only, not
+  product behavior.
+
+- Accepted the bounded C210 archived-Work visibility contract. Fresh PostgreSQL 17.11 actual-role
+  and production-server proof created submitted Work, showed it through active Student readers and
+  Instructor Gradebook, archived through the real retention executor, and then confirmed concealment
+  across the full ordinary Student Work route inventory and Gradebook. Only the current Course
+  Instructor's explicit recovery path succeeded before expiry; Student, unrelated Instructor, and
+  anonymous requests were concealed. Expiry concealed recovery while Work still existed, and later
+  deletion removed Work while preserving the Account and Assessment definition. No leak, new state
+  machine, source repair, or permanent test was needed.
+
+- Added visible, deterministic Question Library ordering end to end. Browse and active Search offer
+  Title (A-Z) and Recently published; initial Search stays simple. The selected order is bound into
+  versioned cursors, uses Question ID as its equal-value tie-break, and survives filters, pagination,
+  route handoff, retry, and Question-detail return. Invalid or duplicated URL order state now has a
+  working narrow recovery path that preserves valid filters. Focused Rust/Node contracts,
+  TypeScript, lint/format, temporary responsive component proofs, and fresh canonical HTTPS Live
+  Demo acceptance passed. The live seed verified descending order across 50 records plus filter and
+  return-state preservation; it had no equal-timestamp pair or next page, so focused contracts retain
+  ownership of tie-break and cursor regression coverage.
+
+- Removed the renderer's parent-frame telemetry loader only from opaque, no-write Instructor
+  WeBWorK previews. The loader assumes a non-null `frameElement`, which the intentional opaque
+  sandbox denies; Student delivery keeps the exact renderer document, and malformed or ambiguous
+  matching loaders are concealed. Focused Rust tests, package compilation, independent review, and
+  a temporary browser characterization passed. Rebuilt canonical connected acceptance remains
+  pending.
+
+- Replaced Playwright's broad TLS-error bypass with owner-scoped trust for the current disposable
+  gateway. After readiness, the fixed owner exports its private-workspace root CA and intermediate
+  public-key pin; Node API requests trust that CA process-locally and Chromium accepts only the
+  matching pin. Wrong pins, missing CA input, and mismatched origins fail before or during launch,
+  and no host keychain or persistent browser profile changes. Focused controller, TypeScript,
+  lint/format, shell, Python, registered authentication, and independent correct/wrong-pin proofs
+  passed. A gateway CA replacement intentionally requires a canonical owner restart.
+
+- Removed the remaining alternate API-build label from browser automation. Canonical base Compose
+  now selects the disposable-storage Live Demo binary shared by the API and application workers;
+  the browser overlay supplies only identity/addressing environment and the gateway's required data-
+  network attachment. The unused `live-demo-fault` stage and redundant overlay storage overrides
+  are gone. Focused controller tests and base/base-plus-overlay Compose rendering passed; connected
+  rebuild acceptance remains pending.
+
+- Added the obvious first action to an empty Course roster. Import Students now opens the existing
+  Roster tools disclosure and focuses its import field; populated rosters and bulk behavior are
+  unchanged. A temporary canonical HTTPS walkthrough passed keyboard activation, the empty-to-
+  populated transition, and 1280/320-pixel layouts. No new permanent test or import mechanism was
+  added.
+
+- Reconciled the opaque Instructor-preview resource contract with the canonical gateway and backend
+  proxy. Only the exact PLE embed stylesheet, bridge, and local fonts are public through Caddy;
+  installation-owned renderer namespaces may load cross-origin, while generated and unclassified
+  `pg_files` remain same-origin. Fonts alone receive anonymous wildcard CORS, and neither boundary
+  forwards browser credentials or renderer cookies. The screenshot manifest now explicitly defers
+  the two real Change Proposal routes until their compiled-main two-Instructor workflow exists,
+  restoring closed static route coverage without fabricating screenshots.
+
+- Reordered the Blueprint detail around reusable teaching structure: authorized Adopt/Edit actions
+  and Blueprint Assessments now precede history, forks, proposals, comparison, and lifecycle
+  administration without changing server-derived lifecycle eligibility. Focused tests and a
+  temporary canonical-HTTPS browser walkthrough passed at 1280 and 640 pixels. Assessment Templates
+  now show an empty collection's creation form immediately, but keep populated Template rows ahead
+  of a keyboard-operable creation disclosure; successful creation collapses the form and selects the
+  new Template. The Template slice passed strict TypeScript, focused client tests, formatting, and
+  temporary actual-component Chromium proof; connected acceptance and fresh official screenshots
+  remain pending.
+
+- Clarified Blueprint/Course Instance Adoption terminology: creating a Blueprint from a Course
+  Instance records the originating Course Instance as the new Blueprint's source and first Adoption
+  without changing that teaching instance. A daughter Course Instance remains the opposite,
+  Blueprint-to-Course provenance direction and records its parent Blueprint and adopted Revision.
+
+- Reordered the Course Instance workspace around its teaching task: ordered Assessments and the
+  adjacent Create Assessment action now lead the page, the empty state explains the collection and
+  first action, and Course metadata, source, access, appearance, and recovery follow as secondary
+  details. Temporary rendered empty/loading/error/populated evidence passed at 1280 by 800 and 320
+  pixels; strict TypeScript, five focused Node tests, formatting, and diff checks passed. Connected
+  Course-workspace acceptance remains pending.
+
+- Accepted the bounded C208 retention transition. Fresh PostgreSQL 17 actual-role proof created a
+  released Assessment with issued Question, saved response, whole-Assessment submission,
+  `question_response`, grading result/receipt, and aggregate; expiry deletion removed identifiable
+  Student Work while preserving the global Account, teaching definitions, immutable source,
+  unrelated Course membership, and anonymous aggregate. Premature deletion was refused, repeated
+  deletion returned false, and two executors serialized as one true transition followed by one false
+  reread. The five C208 checklist owners now close; worker scheduling, notices, normal-interface
+  archive visibility/recovery, and aggregate disclosure thresholds remain separate open work. The
+  proof stays one-time because a large schema-shaped permanent fixture did not earn its maintenance
+  cost.
+
+- Kept the two Ribbon visibility requirements distinct: required choices remain visible when their
+  collection is empty, and required Instructor choices also remain visible when a target page is not
+  implemented or complete. Focused connected proof on the canonical HTTPS Live Demo showed zero
+  Course rows while all four required Course choices remained visible: implemented choices retained
+  exact links and unfinished choices were labeled non-links with `aria-disabled="true"`. Caddy used
+  only the repository `containers/Caddyfile`; no page errors or unexpected browser failures occurred.
+  The two checklist rows now carry verified status, and the temporary proof remains outside the
+  permanent suite. The registered connected authentication scenario also passes after removing an
+  exact-copy assertion that duplicated prose already covered by the pending-MFA heading, absent
+  session cookie, and protected-route denial.
+
 - Recorded the accepted current batch: FERPA policy separates the product boundary from deadline-
   anchored notice/archive/recovery/deletion with authorized recovery; invitation claim/revoke and exact-
   Revision Bloom-pair storage/CAS have actual-role proof (AI, publication, API, and UI remain open);
@@ -53,20 +157,22 @@
   auto-removed. The proof was one-time and rollback-only; live `8126` was untouched, and this does not
   claim deployed or runtime-wide SQL lock. Receipt: `/private/tmp/ple-template-constraint-receipt-20260916.md`.
 
-- Recorded the current connected Instructor WeBWorK preview delivery defect without changing a
-  checklist status. Canonical runtime session 80773 reached `Ready` at `https://localhost:8126` and
-  exited 0; three actual preview documents then blocked PLE CSS, framework CSS, bridge, and renderer
-  scripts with `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`, because same-origin CORP conflicts with the
-  opaque preview origin. Independent PLE CSS review remains accepted, but CSS-only authority cannot
-  repair this resource-policy defect. Ordinary Student delivery uses a different source policy and
-  is not current runtime proof. Pytest session 35084 passed 7,548 tests in 5.77 seconds. The one
-  Instructor-inspection row remains open pending separately authorized resource-policy work; this is
-  not a blanket compliance block. HOTSPOT remains independently sourced/offline with no PNG
-  publication and full capture pending. The earlier isolated `window.frameElement.id` failure
-  remains unverified while scripts are blocked and needs retesting after resource delivery works.
-  Connected Library probe 56322 passed only its narrow search receipt; full capture 83237 stopped
-  at the stale `My Question Drafts` selector, so no corpus was published. Receipt:
-  `/private/tmp/ple-preview-defect-evidence-receipt-20260916.md`.
+- Historical preview evidence recorded canonical runtime session 80773 reaching `Ready` at
+  `https://localhost:8126` and exiting 0 before three Instructor WeBWorK documents blocked PLE CSS,
+  framework CSS, bridge, and renderer scripts with `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin` at the
+  opaque preview origin. Independent PLE CSS review remained accepted; ordinary Student delivery
+  used a different source policy and was not runtime proof. Pytest session 35084 passed 7,548 tests
+  in 5.77 seconds. HOTSPOT remained offline without PNG publication. Library probe 56322 passed its
+  narrow search receipt, while capture 83237 stopped at stale `My Question Drafts` and published no
+  corpus. The current PLE-owned repair keeps both sandboxes and global policy: exact gateway embed
+  CSS/bridge/Next/Mono files and proxy installation namespaces now receive cross-origin CORP;
+  generated/unclassified `pg_files` stay same-origin, font CORS is noncredentialed, browser
+  credentials are not forwarded, and upstream cookies are discarded. Five focused Rust tests,
+  both Caddy syntax checks, and isolated gateway header/404 checks passed. Browser iframe/font,
+  parent isolation, renderer behavior, focus/height, `window.frameElement.id`, Student delivery,
+  and the Instructor-inspection row remain open. Receipts:
+  `/private/tmp/ple-preview-defect-evidence-receipt-20260916.md` and
+  `/private/tmp/ple-preview-asset-repair-20260916.md`.
 
 - Recorded the current bounded Pool text/Tags and control-surface CSS receipt. Pool text/Tags
   filtering is implemented source with accepted backend/frontend review, a fresh canonical
@@ -203,8 +309,8 @@
   focused Markdown/ASCII/whitespace checks passed 2,589 tests and diff whitespace passed.
   Receipt: `/private/tmp/ple-connected-pool-classification-receipt.md`.
 
-- Reconciled current Human Guidance checklist evidence without closing requirements. Replaced
-  obsolete Pool-metadata absence claims with bounded actual-role SQL/source receipts and named
+- Reconciled current Human Guidance checklist evidence without closing requirements; clarified independent Course Instance creation, adoption, and Course Instance-to-new-Blueprint source relationships (the creation operation remains open). Replaced
+  absence claims with bounded actual-role SQL/source receipts and named
   rebuilt HTTP/browser proof still pending; retained separate attribution/support gaps. Recorded
   frozen-source support E2E session 38897 PASS and the exact pre-build image-prune receipt without
   broad support, runtime-rebuild, or global compliance claims. Restored verbatim generated link

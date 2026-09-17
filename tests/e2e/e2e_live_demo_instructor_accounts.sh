@@ -403,7 +403,8 @@ prove_service() {
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/playwright/e2e_live_demo_instructor_accounts_browser.mjs "$port"
+	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
+		node tests/playwright/e2e_live_demo_instructor_accounts_browser.mjs "$port"
 	echo "Instructor Account browser: visible Sysadmin account lifecycle complete"
 }
 

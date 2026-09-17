@@ -16,8 +16,8 @@ pub const MAX_QUESTION_SEARCH_TAG_FILTERS: usize = 64;
 
 /// Maximum encoded continuation cursor length for Question Library search.
 ///
-/// The title-and-Question-ID keyset cursor must carry a maximum-length Question
-/// Title; it is intentionally distinct from the smaller generic list cursor.
+/// The longest sort key must carry a maximum-length Question Title and public
+/// Question ID; this is intentionally distinct from the smaller generic cursor.
 pub const MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES: usize = 5_462;
 
 /// Maximum reviewed Question Author names returned in one Question Search facet snapshot.
@@ -58,6 +58,17 @@ pub enum QuestionSearchAuthorship {
     Any,
     /// Include publications whose immutable author list contains the current Account.
     AuthoredByCurrentAccount,
+}
+
+/// Visible deterministic order for Question Library discovery.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum QuestionSearchSort {
+    /// Order by Question Title, then stable public Question ID.
+    #[default]
+    TitleAscending,
+    /// Order newest publication first, then stable public Question ID.
+    PublishedNewest,
 }
 
 /// Server-computed count for one exact reviewed Question Author display name.
@@ -179,13 +190,16 @@ pub struct QuestionSearchRequest {
     ///
     /// This closed filter carries no browser-provided Account identity.
     pub authorship: QuestionSearchAuthorship,
+    /// Visible deterministic result order.
+    #[serde(default)]
+    pub sort: QuestionSearchSort,
     /// Opaque continuation cursor from this exact normalized query.
     pub cursor: Option<String>,
     /// Requested bounded page size. `None` selects the server default.
     pub page_size: Option<u16>,
 }
 
-/// Normalized D1 filter meaning retained by a personal saved search.
+/// Normalized D1 filter and order meaning retained by a personal saved search.
 ///
 /// Pagination is intentionally absent: running a saved search always starts a
 /// fresh current-Question Search with a server-selected page size.
@@ -213,6 +227,8 @@ pub struct QuestionSearchFilter {
     pub question_licenses: Vec<QuestionLicense>,
     pub used_in_my_courses: QuestionSearchCourseUse,
     pub authorship: QuestionSearchAuthorship,
+    #[serde(default)]
+    pub sort: QuestionSearchSort,
 }
 
 impl QuestionSearchFilter {
@@ -241,6 +257,7 @@ impl QuestionSearchFilter {
             question_licenses: query.question_licenses,
             used_in_my_courses: query.used_in_my_courses,
             authorship: query.authorship,
+            sort: query.sort,
         })
     }
 
@@ -269,6 +286,7 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             question_licenses: filter.question_licenses,
             used_in_my_courses: filter.used_in_my_courses,
             authorship: filter.authorship,
+            sort: filter.sort,
             cursor: None,
             page_size: None,
         }
@@ -294,6 +312,7 @@ impl Default for QuestionSearchRequest {
             question_licenses: Vec::new(),
             used_in_my_courses: QuestionSearchCourseUse::Any,
             authorship: QuestionSearchAuthorship::Any,
+            sort: QuestionSearchSort::TitleAscending,
             cursor: None,
             page_size: None,
         }
@@ -523,9 +542,10 @@ mod tests {
     }
 
     #[test]
-    fn authored_scope_is_a_closed_account_bound_filter_and_survives_saved_search_conversion() {
+    fn authored_scope_and_visible_sort_survive_saved_search_conversion() {
         let query = QuestionSearchRequest {
             authorship: QuestionSearchAuthorship::AuthoredByCurrentAccount,
+            sort: QuestionSearchSort::PublishedNewest,
             ..QuestionSearchRequest::default()
         };
         assert_eq!(
@@ -541,6 +561,11 @@ mod tests {
         assert_eq!(
             filter.fresh_query().authorship,
             QuestionSearchAuthorship::AuthoredByCurrentAccount
+        );
+        assert_eq!(filter.sort, QuestionSearchSort::PublishedNewest);
+        assert_eq!(
+            filter.fresh_query().sort,
+            QuestionSearchSort::PublishedNewest
         );
     }
 

@@ -1,6 +1,7 @@
 // Production-browser proof for visible Course Instance creation and initial Teaching Team entry.
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const port = process.argv[2];
 if (!/^[0-9]+$/.test(port ?? "")) {
@@ -12,8 +13,8 @@ const runId = Date.now();
 const blueprintTitle = `Browser M8 Blueprint ${runId}`;
 const courseShortName = `M8-${runId}`;
 const courseLongName = `Browser M8 Course ${runId}`;
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ ignoreHTTPSErrors: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
+const context = await browser.newContext();
 const page = await context.newPage();
 
 try {
@@ -71,8 +72,8 @@ try {
   await page.getByRole("link", { name: "Open Course Instance" }).first().click();
   await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
   await page.getByRole("heading", { name: courseLongName }).waitFor();
-  await page.getByRole("heading", { name: "Initial Teaching Team" }).waitFor();
-  await page.getByText("You are the Assigned Instructor for this Course Instance.").waitFor();
+  await page.getByRole("heading", { name: "Teaching Team", exact: true }).waitFor();
+  await page.getByText("You are an active co-Instructor for this Course Instance.").waitFor();
 } finally {
   await context.close();
   await browser.close();

@@ -30,6 +30,7 @@ import { createQuestionWatchClient } from "./http_client/question_watch";
 import { createQuestionStarClient } from "./http_client/question_star";
 import { createQuestionPoolLibraryClient } from "./http_client/question_pool_library";
 import { createQuestionPoolCreationClient } from "./http_client/question_pool_creation";
+import { createQuestionPoolStewardshipClient } from "./http_client/question_pool_stewardship";
 import { createAssessmentStudentViewClient } from "./http_client/assessment_student_view";
 import { createAssessmentTemplateClient } from "./http_client/assessment_template";
 import { createQuestionBulkMetadataClient } from "./http_client/question_bulk_metadata";
@@ -76,6 +77,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createQuestionStarClient(fetchImplementation, basePath),
     createQuestionPoolLibraryClient({ fetch: fetchImplementation, basePath }),
     createQuestionPoolCreationClient(fetchImplementation, basePath),
+    createQuestionPoolStewardshipClient(fetchImplementation, basePath),
     createAssessmentStudentViewClient(fetchImplementation, basePath),
     createAssessmentTemplateClient(fetchImplementation, basePath),
     createQuestionBulkMetadataClient(fetchImplementation, basePath),

@@ -247,7 +247,8 @@ prove_import() {
 prove_browser() {
 	local port
 	port="$(gateway_port)"
-	node tests/playwright/e2e_live_demo_roster_browser.mjs "$port"
+	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
+		node tests/playwright/e2e_live_demo_roster_browser.mjs "$port"
 	echo "Course Roster browser: visible Instructor import and protected roster projection complete"
 }
 

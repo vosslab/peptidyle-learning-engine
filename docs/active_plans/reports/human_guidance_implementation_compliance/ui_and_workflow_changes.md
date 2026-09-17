@@ -432,6 +432,9 @@ The authoritative exhaustive record is the
 - All required ribbon choices remain visible even when their collection is empty.
   - Source: `docs/HUMAN_GUIDANCE.md:236`
 
+- All required Instructor ribbon choices remain visible even when their target page is not implemented or complete.
+  - Source: `docs/HUMAN_GUIDANCE.md:237`
+
 - Empty collection pages should explain what the collection is for and provide an obvious action to create or add the first item when the user can do so.
   - Source: `docs/HUMAN_GUIDANCE.md:239`
 

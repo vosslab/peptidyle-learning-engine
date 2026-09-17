@@ -33,6 +33,7 @@ export function CourseRosterPage(): JSX.Element {
   const [toolMessage, setToolMessage] = createSignal<RosterFeedback>();
   const [busy, setBusy] = createSignal(false);
   let rosterTools: HTMLDetailsElement | undefined;
+  let rosterImport: HTMLTextAreaElement | undefined;
 
   createEffect(() => {
     reference();
@@ -128,6 +129,11 @@ export function CourseRosterPage(): JSX.Element {
     }
   }
 
+  function startRosterImport(): void {
+    if (rosterTools !== undefined) rosterTools.open = true;
+    requestAnimationFrame(() => rosterImport?.focus());
+  }
+
   return (
     <section class="page roster-page" data-route-surface="courseRoster">
       <p class="eyebrow">Course Instance roster</p>
@@ -163,7 +169,19 @@ export function CourseRosterPage(): JSX.Element {
             <h2 id="current-roster-heading">Current roster</h2>
             <Show
               when={entries().length > 0}
-              fallback={<p class="empty-state">No roster entries yet.</p>}
+              fallback={
+                <div class="roster-empty-state">
+                  <p class="empty-state">No roster entries yet.</p>
+                  <button
+                    class="primary-action"
+                    type="button"
+                    aria-controls="live-course-roster-import"
+                    onClick={startRosterImport}
+                  >
+                    Import Students
+                  </button>
+                </div>
+              }
             >
               <div class="roster-table-wrap">
                 <table class="roster-table">
@@ -226,6 +244,7 @@ export function CourseRosterPage(): JSX.Element {
               value={importText()}
               onInput={(event) => setImportText(event.currentTarget.value)}
               aria-describedby="live-course-roster-import-help"
+              ref={(element) => (rosterImport = element)}
             />
             <p id="live-course-roster-import-help" class="field-help">
               One CSV row per line, up to 50 rows; optional header: email,roster_id,roster_name.

@@ -106,7 +106,7 @@ async fn manifest(
     };
     let token = match instructor(&state, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let snapshot = match state
         .store
@@ -137,7 +137,7 @@ async fn presentation(
 ) -> Response {
     let expected = match edit_header(&headers) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some((course, assessment, question_revision)) = route_question_references(
         &state.question_id_issuer,
@@ -150,7 +150,7 @@ async fn presentation(
     };
     let token = match instructor(&state, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let source = match state
         .store
@@ -188,7 +188,7 @@ async fn document(
 ) -> Response {
     let expected = match document_edit_query(raw_query.as_deref()) {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let Some((course, assessment, question_revision)) = route_question_references(
         &state.question_id_issuer,
@@ -201,7 +201,7 @@ async fn document(
     };
     let token = match instructor(&state, &headers).await {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => return *response,
     };
     let source = match state
         .store
@@ -598,59 +598,77 @@ fn verified_revision(
         .ok_or(())
 }
 
-fn edit_header(headers: &HeaderMap) -> Result<AssessmentEditNumber, Response> {
+fn edit_header(headers: &HeaderMap) -> Result<AssessmentEditNumber, Box<Response>> {
     // ASVS 2.2.1 and 2.2.2: accept only the strong, canonical saved-edit
     // precondition at the trusted request boundary.
     let value = headers.get(header::IF_MATCH).ok_or_else(|| {
-        error(
+        Box::new(error(
             StatusCode::PRECONDITION_REQUIRED,
             "Assessment Edit Number is required",
-        )
+        ))
     })?;
-    let value = value
-        .to_str()
-        .map_err(|_| error(StatusCode::BAD_REQUEST, "Assessment Edit Number is invalid"))?;
+    let value = value.to_str().map_err(|_| {
+        Box::new(error(
+            StatusCode::BAD_REQUEST,
+            "Assessment Edit Number is invalid",
+        ))
+    })?;
     let value = value
         .strip_prefix('"')
         .and_then(|candidate| candidate.strip_suffix('"'))
-        .ok_or_else(|| error(StatusCode::BAD_REQUEST, "Assessment Edit Number is invalid"))?;
-    value
-        .parse()
-        .map_err(|_| error(StatusCode::BAD_REQUEST, "Assessment Edit Number is invalid"))
+        .ok_or_else(|| {
+            Box::new(error(
+                StatusCode::BAD_REQUEST,
+                "Assessment Edit Number is invalid",
+            ))
+        })?;
+    value.parse().map_err(|_| {
+        Box::new(error(
+            StatusCode::BAD_REQUEST,
+            "Assessment Edit Number is invalid",
+        ))
+    })
 }
 
-fn document_edit_query(raw_query: Option<&str>) -> Result<AssessmentEditNumber, Response> {
+fn document_edit_query(raw_query: Option<&str>) -> Result<AssessmentEditNumber, Box<Response>> {
     let raw_query = raw_query.ok_or_else(|| {
-        error(
+        Box::new(error(
             StatusCode::PRECONDITION_REQUIRED,
             "Assessment Edit Number is required",
-        )
+        ))
     })?;
     let pairs = url::form_urlencoded::parse(raw_query.as_bytes()).collect::<Vec<_>>();
     let [(name, value)] = pairs.as_slice() else {
-        return Err(error(
+        return Err(Box::new(error(
             StatusCode::BAD_REQUEST,
             "Assessment Edit Number is invalid",
-        ));
+        )));
     };
     if name != "editNumber" {
-        return Err(error(
+        return Err(Box::new(error(
             StatusCode::BAD_REQUEST,
             "Assessment Edit Number is invalid",
-        ));
+        )));
     }
-    AssessmentEditNumber::from_str(value)
-        .map_err(|_| error(StatusCode::BAD_REQUEST, "Assessment Edit Number is invalid"))
+    AssessmentEditNumber::from_str(value).map_err(|_| {
+        Box::new(error(
+            StatusCode::BAD_REQUEST,
+            "Assessment Edit Number is invalid",
+        ))
+    })
 }
 
-async fn instructor(state: &StateData, headers: &HeaderMap) -> Result<SessionTokenHash, Response> {
+async fn instructor(
+    state: &StateData,
+    headers: &HeaderMap,
+) -> Result<SessionTokenHash, Box<Response>> {
     instructor_with_sessions(state.sessions.as_ref(), headers).await
 }
 
 async fn instructor_with_sessions(
     sessions: &dyn SessionStore,
     headers: &HeaderMap,
-) -> Result<SessionTokenHash, Response> {
+) -> Result<SessionTokenHash, Box<Response>> {
     let cookie = headers
         .get_all(header::COOKIE)
         .iter()
@@ -660,8 +678,8 @@ async fn instructor_with_sessions(
         .map(|values| values.join("; "));
     match resolve_session(sessions, cookie.as_deref()).await {
         Ok(value) if value.record.product_role == ProductRole::Instructor => Ok(value.session_hash),
-        Ok(_) | Err(AuthError::Unauthenticated) => Err(concealed()),
-        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(unavailable()),
+        Ok(_) | Err(AuthError::Unauthenticated) => Err(Box::new(concealed())),
+        Err(AuthError::Unavailable(_) | AuthError::Randomness(_)) => Err(Box::new(unavailable())),
     }
 }
 

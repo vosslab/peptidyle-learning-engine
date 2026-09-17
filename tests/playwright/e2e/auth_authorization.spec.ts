@@ -56,7 +56,7 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
   const contexts: BrowserContext[] = [];
   const pageOrigins = new Set<string>();
   const requestOrigins = new Set<string>();
-  const contextOptions = { ignoreHTTPSErrors: true, viewport: { width: 1280, height: 800 } };
+  const contextOptions = { viewport: { width: 1280, height: 800 } };
   try {
     const publicContext = await browser.newContext(contextOptions);
     const elenaContext = await browser.newContext(contextOptions);
@@ -99,11 +99,6 @@ test("authentication and authorization: seeded sessions and role-owned boundarie
         morgan.getByRole("heading", {
           level: 3,
           name: "Verify Morgan Delgado's administrator access",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(
-        morgan.getByText("This step does not create a session until the code is accepted.", {
           exact: true,
         }),
       ).toBeVisible();

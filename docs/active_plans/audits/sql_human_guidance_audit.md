@@ -126,17 +126,17 @@ mutation to the application role.
 
 | Decision/change | Durable SQL contract to establish | Why before production |
 | --- | --- | --- |
-| Course classification | Required Discipline on both Blueprint and Instance; optional hierarchy-consistent Subject/Topic/Subtopic and Tags; Instance classification independent of source Blueprint | Adding mandatory classification later requires populating existing Courses and reconciling saved Blueprint metadata. Resolve this before writing long-lived Course data. |
+| Course classification | Required Discipline on both Blueprint and Instance; optional hierarchy-consistent Subject/Topic/Subtopic and Tags; Instance classification independent of source Blueprint | **2026-09-16 current-source addendum:** `course_core.sql` and `blueprints.sql` now store the required Discipline plus optional hierarchy and Tags independently. The historical absence finding is superseded; actual-role and connected acceptance remain separate. |
 | Pool metadata and classification | Pool-level Title/Description and classification; first Question establishes Discipline/Subject; every addition matches; exact member Revisions remain pinned | **2026-09-16 current-source addendum:** Pool metadata already exists. Creation establishes the pair; append checks only new admissions. A retained member may reclassify independently; remove/re-add is a new admission; and a source fork preserves Pool metadata and exact member pins. Human Guidance does not require an ongoing metadata-write veto. Historical actual-role/concurrency evidence is not refreshed here; connected and global acceptance remain open. |
 | Bloom metadata | Two independent required dimensions keyed to each Question/Pool Revision, with Instructor correction independent of immutable Revision content | This needs a distinct mutable metadata relationship or equivalent model. Placing corrected values inside immutable source would conflict with HG's no-new-Revision correction rule. Persistence must exist before mandatory publication metadata can be preserved. AI classification execution is outside this SQL work. |
-| Tags and vocabulary lifecycle | Reconcile the 64-Tag ceiling with HG; establish the promised Sysadmin Discipline lifecycle and how referenced vocabulary changes are handled | Naming, retirement and reference behavior become difficult to change after many objects refer to the vocabulary. Keep stable keys independent of display names; do not remove referenced vocabulary without defined behavior. |
-| Later Blueprint adoption | An explicit later-adoption relationship and exact Revision pin compatible with immutable creation/source evidence and complete Assessment adoption | Simply rewriting existing Course Origin would destroy historical meaning. Decide how later adoption and counts relate to original creation before storing production provenance. |
+| Tags and vocabulary lifecycle | Any number of Tags, including none; establish the promised Sysadmin Discipline lifecycle and how referenced vocabulary changes are handled | **2026-09-16 current-source addendum:** current Course and Blueprint Tag validators impose no 64-Tag ceiling. The historical ceiling finding is superseded. Discipline lifecycle and referenced-vocabulary behavior remain open. |
+| Course Instance structure publication | Authorized creation of a new Blueprint Course by copying reusable structure from an existing Course Instance, with explicit source and content boundaries | **2026-09-16 superseding clarification:** Course Instance creation can use a Blueprint source, while this separate workflow creates a new Blueprint that records the unchanged existing Course Instance as its source. Creating and copying the reusable structure remains an application-domain gap. |
 | Blueprint Change Proposals | Persistent source/target exact Revision pins, canonical proposed content, selected acceptance/outcome, and stale-target handling; acceptance produces a target Revision, never direct daughter mutation | **2026-09-16 current-source addendum:** immutable Proposal persistence now retains source/target Revision and metadata-event pins, and reconstructs canonical evidence through the existing exporter; it is not a duplicate JSON baseline. Participant reads permit the receiving owner to inspect an explicitly submitted Private source's exact Proposal evidence while ordinary Private-source and history reads remain denied. Create/read and stale-basis evidence have fresh actual-role proof, but selected/whole acceptance, accepted record/outcome, resulting target Revision, API/UI, and connected acceptance remain open. |
 | Blueprint Promoted and discovery | Sysadmin-controlled boolean stored independently from immutable reusable content and available in discovery queries | This required metadata should not force new Blueprint content Revisions or unrestricted Instructor updates. |
 | Pool stewardship | Stable Pool-level star/watch identities, public vetted-Instructor endorsements, private subscription data and required notification events | Match the separation already used for Questions/Blueprints. Resolve ownership and visibility before users build durable subscriptions. |
 | Required notification kinds | Stable representation for Question/Pool improvement-thread and impact events, in addition to Revision/fork notifications | Question notification kinds are currently restricted to Revision/fork. Resolve the event identities and privacy boundary before subscriptions depend on that closed set. |
 | Supported backend set | Consistent allowed backend/source types across authoring, revisions, delivery, reproduction and whole-Attempt completion | The current schema admits iMathAS records that the saved-response completion path cannot finalize, and excludes H5P. Complete required SQL support or deliberately restrict the initial production backend scope; do not claim capability based on a backend CHECK alone. |
-| Assessment-only response terminology and parentage | Align the per-Question response record and related grading identities with `question_response`; link the evidence explicitly to its owning Assessment submission | This audit observed names that implied a nonexistent independent Question action. Its recommendation was to resolve that terminology drift before names became frozen production SQL contracts. Preserve per-Question response/credit evidence; only the Assessment Attempt is submitted. |
+| Assessment-only response terminology and parentage | `question_response` per-Question evidence explicitly belongs to its owning Assessment submission | **2026-09-16 current-source addendum:** the terminology and parentage repair has fresh PostgreSQL 17.11 actual-role evidence. The historical finding below is retained only to explain why this stable Assessment-only boundary matters. |
 | Archive recovery | A narrowly authorized SQL recovery/read capability providing sufficient retained responses, exact delivery evidence and outcomes during the archive period | Physical rows and header summaries do not establish recoverability. Recovery need not reverse the archive state; it must provide the required evidence without reopening ordinary access or extending permanent deletion. |
 | Canonical Blueprint metadata/content boundary | Define which SQL fields form complete exchange JSON, including names/classification; preserve ordered reusable content and exact pins | Stored Revision content currently contains modules while names are separate. Freeze the database-to-canonical-representation contract; do not assume the content column alone is a complete exchange object. Serialization implementation remains outside scope. |
 
@@ -183,12 +183,12 @@ features.
 
 ### Priority 4: reduce SQL cost before launch
 
-Start with the measured Revision-observation index and exact duplicate issued-
-Question index below. Design the statistics correctness fix to avoid repeated
-full rebuilds. Then measure bounded Library discovery, latest-state lookups,
-Course purge cascades and hot-Assessment contention with realistic data sizes.
-Do not add all foreign-key diagnostics as indexes or change lock semantics based
-on source inspection alone.
+The historical Revision-observation index/rebuild and exact-duplicate-index proposals below are
+superseded: retained statistics now increment atomically without rebuilding, and the duplicate
+indexes have been removed. Measure only currently exercised bounded Library discovery,
+latest-state lookups, Course purge cascades, and hot-Assessment contention with realistic data
+sizes. Do not add all foreign-key diagnostics as indexes or change lock semantics based on source
+inspection alone.
 
 Index and query changes remain possible after launch. Required identities,
 nullability, metadata ownership, revision relationships, retention semantics and
@@ -199,9 +199,9 @@ recorded.
 
 ## Speed recommendations
 
-### 1. Index statistics observations by Question Revision
+### Historical 1. Index statistics observations by Question Revision (superseded)
 
-**Measured candidate; highest confidence speed improvement.**
+**Historical measured candidate; superseded by the retained-counter design.**
 [statistics.sql](../../../schemas/base_schema/statistics.sql), lines 59-100 and
 118-145, rebuilds aggregate statistics by filtering observation receipts on
 `question_id` and `revision_number`. Its primary key and unique Attempt key do
@@ -238,13 +238,12 @@ GROUP BY question_id, revision_number;
 ```
 
 These are single executions on uniform synthetic data, not an application
-latency promise. Index size, receipt insertion cost, hot-Revision skew, choice
-aggregation, and concurrent grading were not measured. Use representative
-data and repeated [EXPLAIN ANALYZE with buffers](https://www.postgresql.org/docs/17/using-explain.html)
-before selecting the final index. Address the aggregate-retention defect below
-alongside this work; faster reconstruction still loses historical counts.
+latency promise. Current `statistics.sql` no longer performs this reconstruction
+query, so the candidate index is not an open recommendation. If a future measured
+current query needs an index, use representative data and repeated
+[EXPLAIN ANALYZE with buffers](https://www.postgresql.org/docs/17/using-explain.html).
 
-### 2. Stop rebuilding a growing Revision's entire aggregate on each observation
+### Historical 2. Stop rebuilding a growing Revision's entire aggregate on each observation (completed)
 
 **Source inference; potentially larger benefit than the index.**
 [statistics.sql](../../../schemas/base_schema/statistics.sql), lines 165-245,
@@ -253,15 +252,14 @@ new observation revisits earlier observations; cumulative work can grow
 quadratically with receipt count. Per-Revision serialization also concentrates
 contention on widely used Questions.
 
-Consider incrementing retained aggregates exactly once when an observation
-receipt is first accepted, with atomic counters and the existing idempotency
-identity. Keep a separate reconciliation operation rather than rebuilding on
-every grade. Preserve historical totals when personally identifiable receipts
-are deleted. Measure a popular Revision and many independent Revisions under
-concurrent grading, including duplicate delivery and rollback. Choice counts
-and correction/Unrelease behavior need the same treatment.
+Current `statistics.sql` increments retained aggregates exactly once when an
+observation receipt wins, with the existing idempotency identity; it does not
+rebuild after every grade. The fresh PostgreSQL 17.11 actual-role receipt covers
+duplicate refusal, concurrent increments, rollback, and Unrelease retention.
+Future performance work must begin with a current measured bottleneck rather
+than revive this completed redesign.
 
-### 3. Remove three exact duplicate indexes; assess overlapping lookup indexes
+### Historical 3. Remove three exact duplicate indexes (completed); assess overlapping lookup indexes
 
 **Confirmed DDL duplication; savings not benchmarked.**
 [assessment_attempts.sql](../../../schemas/base_schema/assessment_attempts.sql),
@@ -280,7 +278,8 @@ operator classes, collations, expressions, included columns and predicates when
 checking duplication; this pass compared those catalog properties. Preserve the
 unique indexes. No production write-cost reduction was benchmarked here.
 
-The Attempt unique key at line 65 and lookup index at lines 382-383 also overlap.
+The three exact duplicate copies have now been removed; current fresh installation
+retains the three valid unique access paths. The Attempt unique key at line 65 and lookup index at lines 382-383 also overlap.
 The latter changes the final column's direction; with equality on Student and
 Assessment, a backward scan of the unique index may satisfy the latest-Attempt
 lookup. Confirm actual plans before removing that second index. Constraint
@@ -413,18 +412,19 @@ and its operations provide normalized vocabulary, globally unique Subjects,
 multi-Discipline Subject associations, and classified published Questions.
 The working copy includes recent additions supporting that Question path.
 
-However, [course_core.sql](../../../schemas/base_schema/course_core.sql) and
-[blueprints.sql](../../../schemas/base_schema/blueprints.sql) do not provide
-the corresponding Course/Blueprint classification fields. **2026-09-16
-current-source addendum:** [question_pools.sql](../../../schemas/base_schema/question_pools.sql)
-does provide Pool Title, Description, and Discipline/Subject. It establishes
+**2026-09-16 current-source addendum:** the historical Course/Blueprint absence
+is superseded. [course_core.sql](../../../schemas/base_schema/course_core.sql) and
+[blueprints.sql](../../../schemas/base_schema/blueprints.sql) now provide required
+Discipline, optional hierarchy, and unbounded Tags independently for Course
+Instances and Blueprint Courses. [question_pools.sql](../../../schemas/base_schema/question_pools.sql)
+also provides Pool Title, Description, and Discipline/Subject. It establishes
 the pair from the first member and checks new admissions only; retained members
 may reclassify independently, while remove/re-add is a new admission. A source
 fork preserves Pool metadata and exact member pins. This is the Human Guidance
 admission rule, not an ongoing metadata-write veto. Vocabulary management does
 not expose the complete rename/retirement lifecycle described by the authority.
-The addendum does not refresh actual-role/concurrency evidence or establish
-connected or global acceptance.
+These source updates do not by themselves establish actual-role, connected, or
+global acceptance.
 
 The SQL contains no identifiable pair of required Bloom dimensions or their
 publication/correction persistence model. It also lacks full Question/Pool
@@ -452,11 +452,13 @@ covers this bounded foundation and stale basis; selected/whole acceptance,
 accepted record/outcome, resulting target Revision, API/UI, and connected
 acceptance remain open. These remain distinct from Question correction records.
 
-Course creation can adopt a Blueprint. Later adoption into an already created
-Course lacks a corresponding operation; the current source fields and Course
-Origin are immutable in [course_core.sql](../../../schemas/base_schema/course_core.sql),
-lines 161-215. Implement later adoption through an explicit relationship/history
-model rather than silently rewriting original creation evidence.
+**2026-09-16 superseding clarification:** The historical recommendation for later
+attachment to an existing Blueprint is superseded. Course Instance creation can use
+a Blueprint source; an existing Course Instance can instead create a new Blueprint
+from its reusable structure, which records that Course Instance as its source. The immutable
+creation/source fields in [course_core.sql](../../../schemas/base_schema/course_core.sql)
+remain appropriate. No Course Instance-to-new-Blueprint creation operation is
+present in the audited SQL boundary.
 
 The Blueprint discovery projection derives `total_students_ever_enrolled` from
 membership rows. Retention deletes Student memberships, so that derivation cannot
@@ -541,10 +543,10 @@ Sources consulted from
 | Primary keys and installed integrity | All 131 data/private/audit tables have a primary key; zero unvalidated constraints; zero invalid/not-ready indexes. | Pass for catalog structure. This does not prove the constraints express every required invariant. |
 | Conditional required fields and NULL semantics | Exact Entry CHECK/NOT NULL/generated definitions copied with LIKE accepted fixed Question points=NULL and a Pool entry with selection_count/points_per_item/order=NULL. Negative fixed points were rejected. | Additional reproduced DDL weakness. Add explicit non-NULL conditions to mandatory variants before freezing the schema. Supported command validation is a separate question. |
 | Foreign-key indexing | Referencing-side indexes are not implicit. Earlier diagnostic identified 144 overinclusive candidates. | Measure high-volume join/delete paths; prioritize actual Course purge/Attempt cascades. Do not add 144 indexes by rote. |
-| Duplicate indexes | Catalog confirmed three exact duplicated access paths on issued Question, per-Question finalized-response, and Assessment-submission records. | Remove redundant nonunique copies after reviewing SQL dependencies/callers; keep unique constraint indexes. Write/storage savings are unquantified. |
-| Assessment-only submission boundary | At audit time, the only reviewed INSERT into the per-Question finalized-response table occurred inside whole-Assessment finalization, after creating the Assessment submission record. Its child-state trigger checked Question Attempt state/time but not the parent Assessment submission directly. | The audit found terminology drift and a source-identified parent-invariant weakness. Its recommendation was to use `question_response` and strengthen parent coupling before freezing. No independent Student Question finalization operation was found. This historical finding does not verify a later repair. |
+| Duplicate indexes | Historical catalog evidence found three exact duplicated access paths on issued Question, per-Question finalized-response, and Assessment-submission records. | **Superseded:** the redundant nonunique copies were removed; a fresh installation retains the three valid unique access paths. The write/storage savings remain unquantified. |
+| Assessment-only submission boundary | Historical source review found the per-Question finalized-response evidence written only during whole-Assessment finalization, but without an explicit parent-submission invariant. | **Superseded:** `question_response` and its explicit Assessment-submission parentage have fresh PostgreSQL 17.11 actual-role evidence. No independent Student Question finalization operation was found. |
 | Unused indexes and partial indexes | Question search GIN has no matching search predicate in the reviewed Library command; active passkey/challenge/expiry indexes already use partial predicates. | Reconcile search query/index usage. Do not drop an index merely because a fresh test database reports zero scans; production/replica usage was not inspected. |
-| Index type and predicate match | B-trees cover many exact identity/ordering lookups; GIN is used for Question text search. Statistics Revision filtering lacked a useful leading key and improved in the prior measured experiment. | Keep workload-based index choices. No evidence justifies replacing B-trees wholesale with Hash/BRIN or adding generic GIN indexes to all JSON. |
+| Index type and predicate match | B-trees cover many exact identity/ordering lookups; GIN is used for Question text search. The historical statistics Revision-filtering experiment is superseded by the retained-counter design. | Keep workload-based index choices. No evidence justifies replacing B-trees wholesale with Hash/BRIN or adding generic GIN indexes to all JSON. |
 | Query volume/projection and expression indexing | Explicit public/Student projections coexist with internal SELECT * row locking; Library returns an unbounded catalog with correlated metadata work. | Internal complete-row loading is not automatically a defect. Bound expensive catalog projections and connect search to the existing expression index. |
 | NOT IN/NULL pitfalls and COUNT semantics | NOT IN appears chiefly in closed-value validation. Nullable validation arguments and variant CHECKs need three-valued-logic care; aggregates use both count(*) and deliberate filtered counts. | No new wrong-count/nullable-subquery result was reproduced. Do not mechanically rewrite every NOT IN or count(column); address the concrete NULL holes. |
 | Relational data hidden in JSON | Accounts, memberships, pins and grading are relational. Canonical Blueprint content and opaque response/backend evidence use JSON with relational pin/member tables alongside it. | No basis for a blanket JSON removal. Keep essential FK/ownership/hierarchy invariants relational and avoid placing new required metadata only in unvalidated JSON. |
@@ -563,7 +565,7 @@ It also provides positive evidence for type selection, catalog integrity and a
 limited structural restore. It does not turn source-supported command contracts
 into tested concurrency or production-performance guarantees.
 
-### Historical schema terminology finding: Assessment submission is the sole boundary
+### Historical schema terminology finding: Assessment submission is the sole boundary (superseded)
 
 **Questions are not submitted independently.** A Student submits an Assessment
 Attempt, and that transaction finalizes its saved responses and outcomes.
@@ -584,13 +586,13 @@ However, the deferred trigger in
 [assessment_attempt_interaction.sql](../../../schemas/base_schema/assessment_attempt_interaction.sql),
 lines 119-130 and 168-169, checks accepted Question Attempt state and timestamp
 without explicitly requiring the owning Assessment's submission record/time.
-This is a source-identified invariant weakness, not a demonstrated independent
-submission through an application-role command. Before the production freeze,
-rename the table to **`question_response`**, align related grading identifiers
-with that name, and make its parent
-Assessment-submission relationship explicit in SQL. Preserve necessary per-
-Question credit/evidence; do not confuse removing misleading terminology with
-removing the response/grading facts needed to interpret the submitted Assessment.
+This was a source-identified invariant weakness, not a demonstrated independent
+submission through an application-role command. It is now repaired: the table is
+**`question_response`**, related grading identifiers use that terminology, and its
+parent Assessment-submission relationship is explicit in SQL. Fresh PostgreSQL
+17.11 actual-role evidence covers the bounded parentage contract. Preserve
+necessary per-Question credit/evidence; the repair does not remove the
+response/grading facts needed to interpret the submitted Assessment.
 
 PostgreSQL 17 references supporting these judgments:
 [data types](https://www.postgresql.org/docs/17/datatype.html),
@@ -662,12 +664,11 @@ There are narrower pre-freeze concerns:
    used: an identifying JSON Object Address is not rendered safe merely by lack
    of an FK. No actual leaked Student object or blob was reproduced here, and
    external object-store cleanup is outside this SQL audit.
-4. **Missing explicit Assessment-submission parent.** The audit's proposed
-   `question_response` table connected through Question Attempt to issued
-   Question/Assessment Attempt, but did not explicitly require the parent
-   Assessment submission. This is the historical parent-invariant concern
-   detailed above, rather than a disconnected-table finding; it does not verify
-   a later repair.
+4. **Historical missing explicit Assessment-submission parent (superseded).**
+   The audit's proposed `question_response` table connected through Question
+   Attempt to issued Question/Assessment Attempt, but did not explicitly require
+   the parent Assessment submission. The current repair makes that relationship
+   explicit and has fresh actual-role evidence.
 
 For deletion, incoming FK edges on Question Attempts, response/grading records,
 statistics receipts and correction targets were inspected. Their cascades support
@@ -753,8 +754,8 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Content classification, 644-690: normalized progressively longer names | [content_classification_operations.sql](../../../schemas/base_schema/content_classification_operations.sql): normalize helper and 120/240/480 limits | Supported. Normalization precedes command validation. |
 | Content classification, 644-690: Sysadmin manages Discipline; Instructor creates/selects other vocabulary; explicit association of existing Subject | [content_classification_operations.sql](../../../schemas/base_schema/content_classification_operations.sql): role guard, create/find/associate/list commands | Partial. Creation/selection/association supported; complete Discipline lifecycle management is absent. Explicit acceptance is a caller interaction. |
 | Content classification, 644-690: hierarchy selections; LibraryObject exactly one Discipline/Subject | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): required Question fields and composite FKs; [question_pools.sql](../../../schemas/base_schema/question_pools.sql): Pool classification and admission checks | Partial. Published Questions enforce hierarchy. Current Pool source establishes its Discipline/Subject from the first member and checks new admissions; retained members may reclassify independently, remove/re-add is a new admission, and source forks preserve Pool metadata and exact pins. This does not refresh actual-role/concurrency proof or establish connected or global acceptance. |
-| Course classification, 1076-1089: required Discipline; optional Subject/Topic/Subtopic/Tags; may differ from parent Blueprint | [course_core.sql](../../../schemas/base_schema/course_core.sql), [blueprints.sql](../../../schemas/base_schema/blueprints.sql) | Gap. Neither Course form has the required classification structure. |
-| Content classification/Library metadata, 644-690 and 998-1014: any number of Tags, including none | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): metadata Tag validator; [question_pools.sql](../../../schemas/base_schema/question_pools.sql): Pool metadata | Partial. Empty Tags supported, but a 64-Tag ceiling is imposed; Course Tags remain absent and Pool metadata stores Tags. The ceiling needs reconciliation with the authority. |
+| Course classification, 1076-1089: required Discipline; optional Subject/Topic/Subtopic/Tags; may differ from parent Blueprint | [course_core.sql](../../../schemas/base_schema/course_core.sql), [blueprints.sql](../../../schemas/base_schema/blueprints.sql) | Current source supports independent Course Instance and Blueprint classification. This supersedes the historical absence finding; actual-role and connected acceptance remain open. |
+| Content classification/Library metadata, 644-690 and 998-1014: any number of Tags, including none | [question_lineages.sql](../../../schemas/base_schema/question_lineages.sql): metadata Tag validator; [question_pools.sql](../../../schemas/base_schema/question_pools.sql): Pool metadata; Course/Blueprint validators | Current source supports empty or unbounded Tags for Questions, Pools, Course Instances, and Blueprint Courses. This supersedes the historical 64-Tag/Course-Tag absence finding; connected and global acceptance remain open. |
 | Data and history, 627-634: separate public from answer-bearing/identifying/private data | [foundation_roles.sql](../../../schemas/base_schema/foundation_roles.sql), private/data/audit schemas and command grants | Supported architecture; catalog confirms forced RLS. A complete policy adversarial audit is not claimed. |
 | Student and FERPA data, 691-709: exact Course membership and Student ownership | [authorization.sql](../../../schemas/base_schema/authorization.sql): exact record ownership; [assessment_attempt_operations.sql](../../../schemas/base_schema/assessment_attempt_operations.sql): current-Attempt ownership assertion | Supported source paths, subject to the support-scope concern already identified. |
 | Data/history and FERPA, 627-634 and 691-709: no Student evidence in ordinary logs/analytics/URLs/browser storage | Private evidence tables and narrow projections | Boundary. SQL separation contributes; logging, URLs and browser storage cannot be certified from schema files. |
@@ -804,9 +805,9 @@ identify the SQL object or operation to inspect. The statuses mean:
 | HG requirement and locator | SQL evidence | Assessment |
 | --- | --- | --- |
 | Courses, 1062-1075: two forms; create empty/adopted; assigned Instructor; equal co-Instructor teaching authority | [course_operations.sql](../../../schemas/base_schema/course_operations.sql): creation/add Instructor; [course_membership.sql](../../../schemas/base_schema/course_membership.sql): deferred assigned-Instructor invariant | Supported. Assignment preserves one required Instructor; teaching predicates grant authority by membership rather than founder status. |
-| Courses, 1062-1075: adoption can occur at creation or later | Course creation/adoption commands and immutable Course Origin | Partial. Creation adoption works in source; later adoption lacks an operation/model. |
+| Courses, 1062-1075: Course Instance creation can use a Blueprint source; existing Course Instance structure can create a new Blueprint source relationship | Course creation/adoption commands and immutable Course Origin | Partial. The creation-source boundary is supported. **2026-09-16:** this supersedes the historical later-attachment finding; no Course Instance-to-new-Blueprint creation operation was found. |
 | Blueprint structure, 1090-1099: reusable only, no Students/dates/relative schedules; published-only content | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): exact-key canonical content validator, immutable Question pins | Supported reusable schema/validator. JSON names/classification completeness is assessed below. |
-| Blueprint structure/Instances, 1090-1099 and 1232-1244: publish existing Course structure as new Blueprint | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): creation from caller-supplied canonical content | Boundary. SQL can create the target; full extraction/conversion from a Course requires application-domain verification. |
+| Blueprint structure/Instances, 1090-1099 and 1232-1244: create a new Blueprint from existing Course structure | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): creation from caller-supplied canonical content | Gap. SQL can create the target, but no operation copies reusable Course Instance structure into a new Blueprint while recording the unchanged Course Instance as its source; that creation workflow requires an application-domain boundary. |
 | Blueprint lifecycle, 1100-1125: Private/Public/Archived, new/forks Private; ownership; public history; no Private/Archived adoption | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql), [blueprint_history.sql](../../../schemas/base_schema/blueprint_history.sql), Course creation checks | Supported source lifecycle/read/adoption predicates. |
 | Blueprint lifecycle, 1100-1125: adopted Public cannot return Private; archive read-only, excluded normally, forkable/restorable | Availability operation, bounded discovery flags, save/archive checks and fork operation | Supported source path. The explicit archive include flag is honored by discovery. |
 | Blueprint revisions, 1126-1136: changed Save creates next Revision, unchanged Save no-op; metadata/name changes independent | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): save checksum/content comparison, metadata ETag and rename | Supported source semantics. SQL stores one saved Revision sequence. |
@@ -817,7 +818,7 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Blueprint forks, 1160-1176: new Private owned child, source pin, fresh Assessment/Pool identities, same exact Questions, independent subsequent history | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): fork; [blueprint_pools.sql](../../../schemas/base_schema/blueprint_pools.sql); fork receipt/lineage | Supported source construction paths. |
 | Blueprint lineage/comparison, 1160-1176 and 1204-1215: visible forks/owners, visible related current heads, on-request JSON comparison | [blueprint_lineage.sql](../../../schemas/base_schema/blueprint_lineage.sql): fork list and comparison sources | Supported source reads. Semantic difference calculation/presentation belongs to the domain/application. |
 | Change Proposals, 1177-1203: exact source/target pins, canonical proposed JSON, selected acceptance, durable outcome, stale-target handling; no direct daughter mutation | [blueprint_change_proposals.sql](../../../schemas/base_schema/blueprint_change_proposals.sql) and the data-access Store persist immutable exact Revision/metadata-event pins, exporter-reconstructed canonical evidence, and a one-final-decision accepted result. The bounded receiving-owner backend accepts both Entire and Selected decisions under the target lock, preserving exact ordered Question/Pool Revision pins; accepted metadata-only changes create the required identical-content successor. | Partial. Fresh isolated actual-role proof accepts both decision forms, verifies final-decision-insert rollback of the successor, metadata, and Pool allocations, and confirms adopted daughter Course/Assessment/entry/Pool records remain unchanged. Source-copy create/read retains explicit Private-source sharing while ordinary Private source/history reads remain denied. API, human-readable proposal review/UI, connected acceptance, and concurrent work remain open; no global checklist-status change follows. |
-| Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): content JSON has modules; names are separate metadata; comparison loads both | Boundary/Partial. Stored content alone is not complete exchange JSON. Application assembly/round-trip was not reviewed; missing classification limits completeness today. |
+| Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): content JSON has modules; names are separate metadata; comparison loads both | Boundary/Partial. Stored content alone is not complete exchange JSON. Application assembly/round-trip was not reviewed. |
 | Course Instances, 1232-1244: only co-Instructors/enrolled Students; teaching data; retained inactive metadata; new term uses new Instance | Course membership policies and lifecycle; no distinct rollover object | Supported source representation/access paths, not an exhaustive policy proof. |
 | Adoption counts, 1245-1261: count daughter Instances, retain parent/exact source | [course_core.sql](../../../schemas/base_schema/course_core.sql): source relationship; [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): discovery count | Narrow actual-role receipt retained each deleted daughter's anonymous distinct Account count exactly once; ordinary reimport/reclaim did not alter it. Broader discovery, worker, and deployed behavior remain unproved. |
 | Names, 1262-1271: independent deliberate short/long names, short name preferably under about 16 characters | Course/Blueprint name fields and rename operations | Supported. The suggested compact length is guidance, not a mandatory SQL 16-character constraint. |
@@ -918,7 +919,9 @@ operations. Speed changes should preserve these contracts.
   browser/server policy not tested.
 - Additional QC: fresh catalog inspection, exact Entry shape-clone boundary
   probes and base-schema/structural-seed dump/restore succeeded as described
-  above. Two more duplicate indexes and mandatory NULL shape holes were found.
+  above. Historical QC found two more duplicate indexes and mandatory NULL shape
+  holes; the duplicate indexes are now removed, while the separate NULL-shape
+  work remains as recorded above.
 - Performance: one before/after count-query experiment only. No production data,
   concurrent-user benchmark, complete choice-count rebuild benchmark, cluster
   tuning measurement, or cross-system provisioning acceptance was performed.

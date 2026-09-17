@@ -51,8 +51,14 @@ The authoritative exhaustive record is the
 - **Blueprint Course**: A reusable course used to create **Course Instances**. It has no enrolled **Students** or deadlines.
   - Source: `docs/HUMAN_GUIDANCE.md:73`
 
-- **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may be created from a Blueprint Course or started empty.
+- **Course Instance**: A course used for teaching. It has **Students**, deadlines, releases, and other course settings. It may start independently with no parent **Blueprint Course**, or an **Instructor** may create it from a **Blueprint Course**.
   - Source: `docs/HUMAN_GUIDANCE.md:75`
+
+- **Adoption**: A connection between a **Blueprint Course** and a **Course Instance**. An **Instructor** establishes Adoption by creating a new Course Instance from a Blueprint Course or by creating a new Blueprint Course from an existing Course Instance's reusable structure.
+  - Source: `docs/HUMAN_GUIDANCE.md:76`
+
+- **Create Blueprint from Course Instance**: Creating a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records the existing Course Instance as its source, and that Course Instance remains the same teaching instance.
+  - Source: `docs/HUMAN_GUIDANCE.md:77`
 
 - **Published Question**: A validated question in the global **Question Library**, available to vetted **Instructors**.
   - Source: `docs/HUMAN_GUIDANCE.md:76`

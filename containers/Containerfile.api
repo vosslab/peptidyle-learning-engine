@@ -102,12 +102,8 @@ COPY --chown=peptidyle:peptidyle --from=database-migrator-builder /build/content
 HEALTHCHECK NONE
 ENTRYPOINT ["/usr/local/bin/ple-database-tools"]
 
-# Keep the named browser-overlay target while it shares the ordinary Live Demo
-# binary after retirement of the grading-worker fault build.
-FROM live-demo AS live-demo-fault
-
 # Keep this final target production-safe for direct `podman build` use. The
-# replica E2E Compose override selects the named target above explicitly.
+# canonical local Compose file selects the live-demo target explicitly.
 FROM runtime-base AS production
 COPY --from=production-builder /build/target/release/server_core /usr/local/bin/peptidyle-api
 ENTRYPOINT ["/usr/local/bin/peptidyle-api"]

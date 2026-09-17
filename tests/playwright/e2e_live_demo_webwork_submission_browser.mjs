@@ -5,6 +5,7 @@
 // captures the renderer-owned form response through its public bridge.
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const [port, attempt] = process.argv.slice(2);
 if (!/^[0-9]+$/u.test(port ?? "") || !/^R-[1-9][0-9]{0,9}$/u.test(attempt ?? "")) {
@@ -12,8 +13,8 @@ if (!/^[0-9]+$/u.test(port ?? "") || !/^R-[1-9][0-9]{0,9}$/u.test(attempt ?? "")
 }
 
 const origin = `https://localhost:${port}`;
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ ignoreHTTPSErrors: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
+const context = await browser.newContext();
 const page = await context.newPage();
 
 async function makeOneOrdinaryEdit(frame) {

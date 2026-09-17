@@ -20,8 +20,9 @@ pub use crate::question_search::{
     QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchCapabilityFacet,
     QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
     QuestionSearchFilter, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
-    QuestionSearchRequestError, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
-    QuestionSearchTopicFacet, QuestionTypeFacet, normalized_question_search_group_value,
+    QuestionSearchRequestError, QuestionSearchSort, QuestionSearchSubjectFacet,
+    QuestionSearchTagFacet, QuestionSearchTopicFacet, QuestionTypeFacet,
+    normalized_question_search_group_value,
 };
 pub use crate::response::QuestionType;
 

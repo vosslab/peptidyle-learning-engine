@@ -64,15 +64,16 @@ guide.
 podman compose -f containers/compose.yaml \
   --env-file containers/env.local ps
 gateway_port="$(awk -F= '$1 == "PLE_GATEWAY_HOST_PORT" {print $2}' containers/env.local)"
-curl -s "http://127.0.0.1:${gateway_port:-8080}/health"
+curl --insecure --silent --show-error "https://localhost:${gateway_port:-8080}/health"
 ```
 
 The first command shows host-published mappings. The second uses the recorded
-gateway selection rather than assuming a port. See
+gateway selection rather than assuming a port and bypasses trust only for this
+diagnostic request to the disposable internal certificate. See
 [LOCAL_STACK_OPERATIONS.md](LOCAL_STACK_OPERATIONS.md) for startup, health, and
 recovery commands. The fixed production-auth browser, screenshot, and
-service-oracle owner uses its own HTTPS origin and lifecycle commands; it does
-not use this raw Compose inspection path.
+service-oracle owner uses this same canonical HTTPS gateway through its typed
+lifecycle commands; raw Compose inspection is diagnostic only.
 
 ## Unimplemented OpenTofu design
 

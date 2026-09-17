@@ -357,7 +357,9 @@ services:
     build:
       context: ..
       dockerfile: containers/Containerfile.api
-      target: production
+      # The canonical local stack uses disposable storage. Browser automation
+      # exercises this same binary, and every application worker shares it.
+      target: live-demo
     depends_on:
       postgres:
         condition: service_healthy
@@ -628,12 +630,13 @@ services:
         [
           "CMD",
           "curl",
+          "--insecure",
           "--fail",
           "--silent",
           "--show-error",
           "--max-time",
           "2",
-          "http://127.0.0.1:8080/",
+          "https://localhost:8080/",
         ]
       interval: 10s
       timeout: 3s

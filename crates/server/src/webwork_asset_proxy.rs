@@ -13,7 +13,7 @@ use axum::{
     extract::{OriginalUri, Path, State},
     http::{
         HeaderValue, StatusCode,
-        header::{CACHE_CONTROL, CONTENT_TYPE, LOCATION},
+        header::{ACCESS_CONTROL_ALLOW_ORIGIN, CACHE_CONTROL, CONTENT_TYPE, LOCATION},
     },
     response::{IntoResponse, Response},
     routing::{MethodFilter, on},
@@ -126,7 +126,7 @@ async fn get_asset(
         Some(value) => value,
         None => return concealed(),
     };
-    asset_response(prefix.as_str(), content_type, bytes)
+    asset_response(prefix.as_str(), raw_path, content_type, bytes)
 }
 
 /// Validates the un-decoded browser path before the trusted renderer URL is
@@ -194,6 +194,26 @@ fn safe_content_type(value: Option<&HeaderValue>) -> Option<HeaderValue> {
     allowed.then(|| HeaderValue::from_str(value).ok()).flatten()
 }
 
+fn is_public_installation_asset(raw_path: &str) -> bool {
+    raw_path.starts_with("webwork2_files/")
+        || raw_path.starts_with("pg_files/js/")
+        || raw_path.starts_with("pg_files/node_modules/")
+}
+
+fn is_font_content_type(value: &HeaderValue) -> bool {
+    let Ok(value) = value.to_str() else {
+        return false;
+    };
+    let Some(media_type) = value.split(';').next() else {
+        return false;
+    };
+    let media_type = media_type.trim().to_ascii_lowercase();
+    matches!(
+        media_type.as_str(),
+        "font/woff" | "font/woff2" | "application/font-woff" | "application/vnd.ms-fontobject"
+    )
+}
+
 async fn read_bounded(mut response: reqwest::Response) -> Option<Vec<u8>> {
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await.ok()? {
@@ -205,7 +225,12 @@ async fn read_bounded(mut response: reqwest::Response) -> Option<Vec<u8>> {
     Some(bytes)
 }
 
-fn asset_response(prefix: &str, content_type: HeaderValue, bytes: Vec<u8>) -> Response {
+fn asset_response(
+    prefix: &str,
+    raw_path: &str,
+    content_type: HeaderValue,
+    bytes: Vec<u8>,
+) -> Response {
     let cache_control = if prefix == "webwork2_files" {
         "public, max-age=86400"
     } else {
@@ -213,14 +238,28 @@ fn asset_response(prefix: &str, content_type: HeaderValue, bytes: Vec<u8>) -> Re
     };
     let mut response = Response::new(Body::from(bytes));
     let headers = response.headers_mut();
+    let public_static = is_public_installation_asset(raw_path);
+    let public_font = public_static && is_font_content_type(&content_type);
     headers.insert(CONTENT_TYPE, content_type);
     headers.insert(CACHE_CONTROL, HeaderValue::from_static(cache_control));
-    // This explicit same-origin CORP policy matches the dynamic API default
-    // without changing that default for unrelated routes.
+    // ASVS 3.4.2 and 3.5.8: only installation-published framework namespaces
+    // used by the opaque preview can be embedded cross-origin. Question-
+    // dependent pg_files/tmp and every unclassified pg_files path retain
+    // same-origin CORP.
+    let corp = if public_static {
+        "cross-origin"
+    } else {
+        "same-origin"
+    };
     headers.insert(
         "cross-origin-resource-policy",
-        HeaderValue::from_static("same-origin"),
+        HeaderValue::from_static(corp),
     );
+    // Opaque-origin font fetches use CORS. Fonts in these installation-owned
+    // namespaces carry no identity or protected content and never allow credentials.
+    if public_font {
+        headers.insert(ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+    }
     response
 }
 
@@ -265,10 +304,32 @@ mod tests {
         .expect("test asset proxy router")
     }
 
-    async fn upstream_response(uri: axum::http::Uri) -> HttpResponse<Body> {
+    async fn upstream_response(
+        uri: axum::http::Uri,
+        headers: axum::http::HeaderMap,
+    ) -> HttpResponse<Body> {
+        if headers.contains_key("cookie") || headers.contains_key("authorization") {
+            return StatusCode::BAD_REQUEST.into_response();
+        }
         match uri.path() {
             "/webwork2_files/js/app.js" => {
-                response("application/javascript", b"window.pg = 1;".to_vec())
+                let mut response = response("application/javascript", b"window.pg = 1;".to_vec());
+                response
+                    .headers_mut()
+                    .insert("set-cookie", HeaderValue::from_static("renderer=private"));
+                response
+            }
+            "/webwork2_files/css/bootstrap.b6855fc0.min.css" => {
+                response("text/css", b".problem { display: block; }".to_vec())
+            }
+            "/pg_files/node_modules/mathquill/dist/fonts/Symbola.woff2" => {
+                response("Font/WOFF2; version=1", vec![1, 2, 3])
+            }
+            "/pg_files/js/apps/test.js" => {
+                response("application/javascript", b"window.pgApp = 1;".to_vec())
+            }
+            "/pg_files/tmp/unclassified.js" => {
+                response("application/javascript", b"window.other = 1;".to_vec())
             }
             "/pg_files/tmp/plot.png" => response("image/png", vec![1, 2, 3]),
             "/webwork2_files/redirect" => {
@@ -317,8 +378,14 @@ mod tests {
         );
         assert_eq!(
             static_asset.headers()["cross-origin-resource-policy"],
-            "same-origin"
+            "cross-origin"
         );
+        assert!(
+            !static_asset
+                .headers()
+                .contains_key(ACCESS_CONTROL_ALLOW_ORIGIN)
+        );
+        assert!(!static_asset.headers().contains_key("set-cookie"));
 
         let generated = app
             .oneshot(
@@ -330,6 +397,98 @@ mod tests {
             .unwrap();
         assert_eq!(generated.status(), StatusCode::OK);
         assert_eq!(generated.headers()[CACHE_CONTROL], "no-store");
+        assert_eq!(
+            generated.headers()["cross-origin-resource-policy"],
+            "same-origin"
+        );
+        assert!(
+            !generated
+                .headers()
+                .contains_key(ACCESS_CONTROL_ALLOW_ORIGIN)
+        );
+    }
+
+    #[tokio::test]
+    async fn exposes_only_reviewed_public_static_assets_to_opaque_previews() {
+        let app = proxy().await;
+        let stylesheet = app
+            .clone()
+            .oneshot(
+                Request::get("/api/webwork-assets/webwork2_files/css/bootstrap.b6855fc0.min.css")
+                    .header("cookie", "ple_session=must-not-forward")
+                    .header("authorization", "Bearer must-not-forward")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(stylesheet.status(), StatusCode::OK);
+        assert_eq!(
+            stylesheet.headers()["cross-origin-resource-policy"],
+            "cross-origin"
+        );
+        assert!(
+            !stylesheet
+                .headers()
+                .contains_key(ACCESS_CONTROL_ALLOW_ORIGIN)
+        );
+
+        let font = app
+            .clone()
+            .oneshot(
+                Request::get(
+                    "/api/webwork-assets/pg_files/node_modules/mathquill/dist/fonts/Symbola.woff2",
+                )
+                .body(Body::empty())
+                .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(font.status(), StatusCode::OK);
+        assert_eq!(
+            font.headers()["cross-origin-resource-policy"],
+            "cross-origin"
+        );
+        assert_eq!(font.headers()[ACCESS_CONTROL_ALLOW_ORIGIN], "*");
+
+        let pg_installation_script = app
+            .clone()
+            .oneshot(
+                Request::get("/api/webwork-assets/pg_files/js/apps/test.js")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(pg_installation_script.status(), StatusCode::OK);
+        assert_eq!(
+            pg_installation_script.headers()["cross-origin-resource-policy"],
+            "cross-origin"
+        );
+        assert!(
+            !pg_installation_script
+                .headers()
+                .contains_key(ACCESS_CONTROL_ALLOW_ORIGIN)
+        );
+
+        let unclassified = app
+            .oneshot(
+                Request::get("/api/webwork-assets/pg_files/tmp/unclassified.js")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unclassified.status(), StatusCode::OK);
+        assert_eq!(
+            unclassified.headers()["cross-origin-resource-policy"],
+            "same-origin"
+        );
+        assert!(
+            !unclassified
+                .headers()
+                .contains_key(ACCESS_CONTROL_ALLOW_ORIGIN)
+        );
     }
 
     #[tokio::test]

@@ -14,6 +14,8 @@ use crate::assessment_delivery::{StateData, concealed, student};
 
 const DOCUMENT_CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
 const PREVIEW_DOCUMENT_CSP: &str = "sandbox allow-scripts; default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'";
+const PARENT_TELEMETRY_SCRIPT_PATH: &str =
+    "/api/webwork-assets/webwork2_files/js/apps/Problem/problem.";
 
 /// Serves the immutable retained renderer document, or an ephemeral
 /// backend-authored resume render for its saved opaque response, for one
@@ -85,7 +87,46 @@ pub(crate) fn backend_document_response(document: String) -> Response {
 
 /// Applies a response-level script-only sandbox to a no-write preview document.
 pub(crate) fn preview_backend_document_response(document: String) -> Response {
-    document_response(document, PREVIEW_DOCUMENT_CSP)
+    match without_preview_parent_telemetry(document) {
+        Some(document) => document_response(document, PREVIEW_DOCUMENT_CSP),
+        None => concealed(),
+    }
+}
+
+fn without_preview_parent_telemetry(mut document: String) -> Option<String> {
+    // The renderer always includes this parent-frame telemetry/result-popover
+    // loader. Its frameElement access cannot run in an opaque preview, which has
+    // neither Student interaction reporting nor grading results. Omit only that
+    // exact loader; do not interpret Question controls or change Student bytes.
+    const OPEN: &str = "<script defer src=\"";
+    const CLOSE: &str = "\"></script>";
+    let Some(path_start) = document.find(PARENT_TELEMETRY_SCRIPT_PATH) else {
+        return Some(document);
+    };
+    if document[path_start + PARENT_TELEMETRY_SCRIPT_PATH.len()..]
+        .contains(PARENT_TELEMETRY_SCRIPT_PATH)
+    {
+        return None;
+    }
+    let start = document[..path_start].rfind(OPEN)?;
+    let source_end = path_start + document[path_start..].find(CLOSE)?;
+    let source = url::Url::parse(&document[start + OPEN.len()..source_end]).ok()?;
+    let filename = source.path().strip_prefix(PARENT_TELEMETRY_SCRIPT_PATH)?;
+    let recognized_filename = filename == "js"
+        || filename.strip_suffix(".min.js").is_some_and(|hash| {
+            !hash.is_empty() && hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+        });
+    if !recognized_filename
+        || !matches!(source.scheme(), "http" | "https")
+        || !source.username().is_empty()
+        || source.password().is_some()
+        || source.query().is_some()
+        || source.fragment().is_some()
+    {
+        return None;
+    }
+    document.replace_range(start..source_end + CLOSE.len(), "");
+    Some(document)
 }
 
 fn document_response(document: String, content_security_policy: &'static str) -> Response {
@@ -121,9 +162,15 @@ fn document_response(document: String, content_security_policy: &'static str) ->
 mod tests {
     use super::*;
 
-    #[test]
-    fn preview_document_has_response_level_script_only_sandbox() {
-        let response = preview_backend_document_response("<!doctype html>".to_string());
+    #[tokio::test]
+    async fn preview_omits_parent_telemetry_and_keeps_student_document_unchanged() {
+        let script = format!(
+            "<script defer src=\"https://ple.example{PARENT_TELEMETRY_SCRIPT_PATH}da1d2ec5.min.js\"></script>"
+        );
+        let content =
+            "<form><input name=\"backend-owned\"></form><script src=\"/ple_bridge.js\"></script>";
+        let document = format!("<!doctype html>{script}{content}");
+        let response = preview_backend_document_response(document.clone());
 
         assert_eq!(response.status(), StatusCode::OK);
         assert_eq!(
@@ -137,5 +184,26 @@ mod tests {
         assert!(PREVIEW_DOCUMENT_CSP.starts_with("sandbox allow-scripts;"));
         assert!(!PREVIEW_DOCUMENT_CSP.contains("allow-forms"));
         assert!(!PREVIEW_DOCUMENT_CSP.contains("allow-same-origin"));
+        let preview = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(preview, format!("<!doctype html>{content}"));
+
+        let student = backend_document_response(document.clone());
+        let student = axum::body::to_bytes(student.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        assert_eq!(student, document);
+    }
+
+    #[test]
+    fn preview_refuses_an_unrecognized_parent_telemetry_loader() {
+        let document = format!(
+            "<script async src=\"https://ple.example{PARENT_TELEMETRY_SCRIPT_PATH}js\"></script>"
+        );
+        assert_eq!(
+            preview_backend_document_response(document).status(),
+            StatusCode::NOT_FOUND
+        );
     }
 }

@@ -193,6 +193,7 @@ export function questionSearchRequest(
     question_licenses: selectedQuestionLicense(query.questionLicense),
     used_in_my_courses: query.usedInMyCourses === "used" ? "used" : "any",
     authorship,
+    sort: query.sort,
     cursor,
     page_size: QUESTION_LIBRARY_PAGE_SIZE,
   };

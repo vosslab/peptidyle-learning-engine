@@ -77,6 +77,7 @@ def environment_for(
 	write_private(input_path, json.dumps(value, separators=(",", ":"), ensure_ascii=True))
 	result = dict(os.environ)
 	result.update({
+		"NODE_EXTRA_CA_CERTS": str(private / "gateway-root.crt"),
 		"PLE_LIVE_DEMO_BROWSER_REQUIRED": "1",
 		"PLE_LIVE_DEMO_BROWSER_INPUT_FILE": str(input_path),
 		"PLE_LIVE_DEMO_BROWSER_ORIGIN_RECEIPT_FILE": str(origin_path),
@@ -100,7 +101,9 @@ def run_current_milestone_journeys() -> None:
 	"""Run the supported visible-browser journeys serially."""
 	for name, argv in CURRENT_MILESTONE_JOURNEYS:
 		print("==> production-browser journey: " + name, flush=True)
-		result = subprocess.run(argv, cwd=ROOT, check=False)
+		environment = dict(os.environ)
+		environment["NODE_EXTRA_CA_CERTS"] = str(workspace() / "gateway-root.crt")
+		result = subprocess.run(argv, cwd=ROOT, env=environment, check=False)
 		if result.returncode != 0:
 			raise RuntimeError("production-browser journey failed: " + name)
 

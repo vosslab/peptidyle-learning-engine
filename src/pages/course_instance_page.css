@@ -1,47 +1,108 @@
-/* Course Instance owns the presentation of its semantic Course actions nav. */
+/* Course Instance keeps the ordered teaching workflow ahead of administration. */
 
-.course-theme-scope section.course-card[aria-labelledby="teaching-team-heading"] {
-  grid-template-areas: "kicker membership" "title count";
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--ple-space-1) var(--ple-space-5);
-  min-height: 0;
-  margin-block: var(--ple-space-3);
-  padding: var(--ple-space-3) 0;
-  border: 0;
-  border-block: 1px solid var(--ple-border);
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+.course-instance-page__identity {
+  margin-block-end: var(--ple-space-5);
 }
 
-.course-theme-scope section.course-card[aria-labelledby="teaching-team-heading"] > p {
+.course-instance-page__assessments,
+.course-instance-page__details {
+  display: grid;
+  gap: var(--ple-space-3);
+}
+
+.course-instance-page__section-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--ple-space-5);
+  align-items: end;
+  padding-block-end: var(--ple-space-3);
+  border-block-end: 1px solid var(--ple-border-strong);
+}
+
+.course-instance-page__section-heading h2,
+.course-instance-page__details h2 {
   margin: 0;
 }
 
-.course-theme-scope
-  section.course-card[aria-labelledby="teaching-team-heading"]
-  > p:nth-of-type(2) {
-  grid-area: membership;
+.course-instance-page__section-lede {
+  max-inline-size: 68ch;
+  margin: var(--ple-space-1) 0 0;
+  color: var(--ple-muted);
 }
 
-.course-theme-scope
-  section.course-card[aria-labelledby="teaching-team-heading"]
-  > p:nth-of-type(3) {
-  grid-area: count;
+.course-instance-page__assessment-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.course-instance-page__assessment-empty {
+  display: grid;
+  gap: var(--ple-space-1);
+}
+
+.course-instance-page__assessment-empty h3,
+.course-instance-page__assessment-empty p {
+  margin: 0;
+}
+
+.course-instance-page__details {
+  margin-block-start: var(--ple-section-gap);
+  padding-block-start: var(--ple-section-gap);
+  border-block-start: 1px solid var(--ple-border-strong);
+}
+
+.course-instance-page__detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ple-space-3) var(--ple-space-5);
+}
+
+.course-instance-page__detail-group,
+.course-instance-page__administration {
+  min-inline-size: 0;
+  padding-block-start: var(--ple-space-2);
+  border-block-start: 1px solid var(--ple-border);
+}
+
+.course-instance-page__detail-group--wide {
+  grid-column: 1 / -1;
+}
+
+.course-instance-page__detail-group h3,
+.course-instance-page__administration h3,
+.course-instance-page__detail-group p {
+  margin: 0;
+}
+
+.course-instance-page__detail-group p + p {
+  margin-block-start: var(--ple-space-1);
+}
+
+.course-instance-page__administration {
+  display: grid;
+  gap: var(--ple-space-2);
 }
 
 .course-instance-page__actions {
-  flex-direction: row;
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--ple-space-2);
-  margin-block-start: var(--ple-space-3);
 }
 
 @media (max-width: 48rem) {
-  .course-theme-scope section.course-card[aria-labelledby="teaching-team-heading"] {
-    grid-template-areas: "kicker" "title" "membership" "count";
+  .course-instance-page__section-heading,
+  .course-instance-page__detail-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .course-instance-page__section-heading .primary-link {
+    justify-self: start;
+  }
+
+  .course-instance-page__detail-group--wide {
+    grid-column: auto;
   }
 }
 
@@ -66,21 +127,21 @@
   }
 }
 
-.instructor-list__row--assignment {
+.instructor-list__row--assessment {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.assignment-inline-editor,
-.assignment-inline-editor__message {
+.assessment-inline-editor,
+.assessment-inline-editor__message {
   grid-column: 1 / -1;
 }
 
-.assignment-inline-editor {
+.assessment-inline-editor {
   padding-top: var(--ple-space-2);
   border-top: 1px solid var(--ple-border);
 }
 
-.assignment-inline-editor fieldset {
+.assessment-inline-editor fieldset {
   display: grid;
   gap: var(--ple-space-2);
   margin: 0;
@@ -88,21 +149,21 @@
   border: 0;
 }
 
-.assignment-inline-editor__fields,
-.assignment-inline-editor__schedule {
+.assessment-inline-editor__fields,
+.assessment-inline-editor__schedule {
   display: grid;
   gap: var(--ple-space-2);
 }
 
-.assignment-inline-editor__fields {
+.assessment-inline-editor__fields {
   grid-template-columns: minmax(12rem, 1fr) minmax(18rem, 1fr);
 }
 
-.assignment-inline-editor__schedule {
+.assessment-inline-editor__schedule {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.assignment-inline-editor__field {
+.assessment-inline-editor__field {
   display: grid;
   gap: var(--ple-space-1);
   min-inline-size: 0;
@@ -111,26 +172,26 @@
   font-weight: 700;
 }
 
-.assignment-inline-editor__field input {
+.assessment-inline-editor__field input {
   min-inline-size: 0;
 }
 
-.assignment-inline-editor__actions {
+.assessment-inline-editor__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--ple-space-2);
 }
 
-.assignment-inline-editor__message {
+.assessment-inline-editor__message {
   margin: var(--ple-space-2) 0 0;
   color: var(--ple-muted);
   font-size: 0.88rem;
 }
 
 @media (max-width: 48rem) {
-  .instructor-list__row--assignment,
-  .assignment-inline-editor__fields,
-  .assignment-inline-editor__schedule {
+  .instructor-list__row--assessment,
+  .assessment-inline-editor__fields,
+  .assessment-inline-editor__schedule {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -139,9 +200,7 @@
   .course-instance-page__actions {
     width: 100%;
     min-width: 0;
-    margin-inline-start: 0;
     justify-content: flex-start;
-    flex-wrap: wrap;
     overflow-x: visible;
   }
 

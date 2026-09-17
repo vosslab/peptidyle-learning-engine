@@ -33,7 +33,11 @@ impl CourseClassification {
                     || !(1..=120).contains(&text.chars().count())
                     || text.chars().any(char::is_control)
             })
-            || self.tags.iter().collect::<std::collections::BTreeSet<_>>().len()
+            || self
+                .tags
+                .iter()
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
                 != self.tags.len()
         {
             return Err(CourseClassificationError);
@@ -61,26 +65,36 @@ pub struct CourseMetadataEtag(Uuid);
 
 impl CourseMetadataEtag {
     /// Rebuilds a validator returned by trusted storage.
-    pub fn from_uuid(value: Uuid) -> Self { Self(value) }
+    pub fn from_uuid(value: Uuid) -> Self {
+        Self(value)
+    }
     /// Storage representation, never a content Revision.
-    pub fn as_uuid(self) -> Uuid { self.0 }
+    pub fn as_uuid(self) -> Uuid {
+        self.0
+    }
 }
 
 impl std::str::FromStr for CourseMetadataEtag {
     type Err = CourseClassificationError;
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         let parsed = Uuid::parse_str(value).map_err(|_| CourseClassificationError)?;
-        (parsed.to_string() == value).then_some(Self(parsed)).ok_or(CourseClassificationError)
+        (parsed.to_string() == value)
+            .then_some(Self(parsed))
+            .ok_or(CourseClassificationError)
     }
 }
 
 impl TryFrom<String> for CourseMetadataEtag {
     type Error = CourseClassificationError;
-    fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() }
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
 }
 
 impl From<CourseMetadataEtag> for String {
-    fn from(value: CourseMetadataEtag) -> Self { value.0.to_string() }
+    fn from(value: CourseMetadataEtag) -> Self {
+        value.0.to_string()
+    }
 }
 
 impl std::fmt::Display for CourseMetadataEtag {

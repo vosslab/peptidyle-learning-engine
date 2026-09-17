@@ -83,8 +83,11 @@ podman build --platform linux/amd64 -f containers/Containerfile.api -t peptidyle
 ## Ports and localhost
 
 Podman forwards published ports from the virtual machine to macOS `localhost`,
-so `curl http://localhost:8080/health` works from the host exactly as it would
-on Linux. Inside the compose network, services address each other by service
+so `curl --insecure https://localhost:8080/health` reaches the canonical Live
+Demo HTTPS gateway from the host exactly as it would on Linux. The controller-
+managed browser path trusts only that disposable gateway's internal CA; the
+diagnostic command above does not change the host trust store. Inside the
+compose network, services address each other by service
 name (`postgres`, `minio`), not `localhost`. See
 `docs/CONTAINER_PORT_MAPPING.md` for port selection.
 

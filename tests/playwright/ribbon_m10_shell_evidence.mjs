@@ -205,9 +205,57 @@ try {
       .evaluateAll((controls) =>
         controls.map((control) => control.getAttribute("data-ribbon-control")),
       ),
-    ["courses", "questions", "productAssessments", "myBlueprintCourses"],
-    "the current Instructor Product route exposes its admitted Courses, Questions, and Assessments " +
-      "Tabs plus the backed My Blueprint Courses task",
+    [
+      "courses",
+      "questions",
+      "productAssessments",
+      "myBlueprintCourses",
+      "myActiveCourses",
+      "myInactiveCourses",
+      "searchPublicBlueprintCourses",
+    ],
+    "the current Instructor Product route retains every required Courses choice even when " +
+      "its target page is unfinished",
+  );
+  assert.deepEqual(
+    await currentCase
+      .locator('.ple-app-ribbon__task-area[data-ribbon-task-area="instructorCourses"]')
+      .locator("[data-ribbon-control]")
+      .evaluateAll((controls) =>
+        controls.map((control) => ({
+          id: control.getAttribute("data-ribbon-control"),
+          availability: control.getAttribute("data-ribbon-availability"),
+          ariaDisabled: control.getAttribute("aria-disabled"),
+          href: control.getAttribute("href"),
+        })),
+      ),
+    [
+      {
+        id: "myBlueprintCourses",
+        availability: null,
+        ariaDisabled: null,
+        href: "/blueprint-courses",
+      },
+      {
+        id: "myActiveCourses",
+        availability: "unavailable",
+        ariaDisabled: "true",
+        href: null,
+      },
+      {
+        id: "myInactiveCourses",
+        availability: "unavailable",
+        ariaDisabled: "true",
+        href: null,
+      },
+      {
+        id: "searchPublicBlueprintCourses",
+        availability: null,
+        ariaDisabled: null,
+        href: "/blueprint-courses/search/public",
+      },
+    ],
+    "working Instructor choices remain links while unfinished choices stay visible and unusable",
   );
   assert.deepEqual(
     await currentCase
@@ -353,7 +401,7 @@ try {
     "route-scope label release does not restart the direct Course Instance query",
   );
   assert.equal(
-    await courseInstance.locator(".eyebrow").textContent(),
+    await courseInstance.locator(".course-instance-page__identity .eyebrow").textContent(),
     "Course Instance · CI7K3M2Q",
     "the Course Instance surface owns its exact public-reference eyebrow",
   );

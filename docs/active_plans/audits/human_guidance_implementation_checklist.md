@@ -564,8 +564,14 @@ remain interpretive authority, but are not checklist items.
   - Mismatch: `src/ribbon/ribbon_catalog.ts` labels the third tab "Assignments," not the required "Assessments."
 - [x] Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
   - Evidence (source): `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` falls back to `RibbonIcon` `circle-user` when no Profile image or provided avatar exists.
-- [ ] All required ribbon choices remain visible even when their collection is empty.
-  - Mismatch: several required choices have `future` destinations in `src/ribbon/ribbon_catalog.ts` and are not admitted as usable controls.
+- [x] All required ribbon choices remain visible even when their collection is empty.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `TaskArea` renders required Ribbon choices from the role catalog independently of collection contents.
+  - Evidence (test): `tests/e2e/e2e_ribbon_app_component.mjs` `required Instructor choices remain visible without inventing unfinished routes` verifies the complete required Instructor choice set with no collection-data dependency.
+  - Evidence (runtime): `src/ribbon/app_ribbon.tsx` `TaskArea` passed focused connected HTTPS proof on the canonical Live Demo with zero Course rows while all four required Course choices remained visible at 1280 by 800.
+- [x] All required Instructor ribbon choices remain visible even when their target page is not implemented or complete.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `TaskArea` retains every required Instructor Courses, Questions, and Assessments choice while `UnavailableRibbonChoice` presents unfinished destinations without a link.
+  - Evidence (test): `tests/e2e/e2e_ribbon_app_component.mjs` `required Instructor choices remain visible without inventing unfinished routes` verifies that available choices retain their established links and unfinished choices remain visible, disabled, labeled, and without `href`.
+  - Evidence (runtime): `src/ribbon/app_ribbon.tsx` `UnavailableRibbonChoice` passed focused connected HTTPS proof on the canonical Live Demo: unfinished Active and Inactive Course choices were visible non-links with `aria-disabled="true"` and `Not available yet`, while both implemented choices retained their exact routes.
 - [x] A working navigation destination remains visible when its collection is empty.
   - Evidence (source): `src/pages/course_list_page.tsx` `TeachingCourseListPage` retains the courses route and renders an empty state.
 - [x] A future or unavailable capability should not appear as a usable control until its workflow exists.
@@ -1245,12 +1251,12 @@ remain interpretive authority, but are not checklist items.
   - Evidence (test): `tests/e2e/e2e_live_demo_support_capability.sh` `prove_issue` exercises named-record repair issuance, concealment, use, and revocation.
 - [x] Student Accounts persist independently of Course data and Course retention.
   - Evidence (source): `schemas/base_schema/accounts.sql` `account` is separate from course-scoped `student_record`.
-- [ ] Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
+- [x] Course work, Attempts, submissions, grades, and other FERPA-sensitive data follow the Course retention policy.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes private Attempt roots and Course-scoped Student records only after the archived state, while retaining Course teaching material and identity-free aggregate rows.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate proved the bounded Course purge and post-purge claim/import refusal, but its fixture had no submitted Student Work. Configured retention policy, worker execution, full Work-descendant coverage, and connected acceptance remain open.
-- [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL 17 actual-role proof with a released Assessment, issued Question, saved response, whole-Assessment submission, `question_response`, grading result, grading receipt, and aggregate; deletion removed the identifiable Student Work descendants at the stored expiry.
+- [x] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate retained the deleted Course row, but has no submitted Student Work or connected product proof for the complete teaching-material boundary.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL 17 actual-role proof retaining the global Student Account, Course, Assessment, Published Question, immutable source, settings, and an unrelated Course membership after the populated Student Work was deleted.
 - [ ] **Student Work** is the collective term for FERPA-sensitive records created by a Student in a Course Instance.
   - Mismatch: The Attempt table links a Student record and Assessment, but the implementation does not establish `Student Work` as the collective product term for all such records.
 - [x] Student Work includes Assessment Attempts, saved Question responses, grading outcomes, and the evidence needed to interpret that work after an Attempt is submitted.
@@ -1258,12 +1264,12 @@ remain interpretive authority, but are not checklist items.
   - Evidence (test): `tests/e2e/attempt_expiry_connected_oracle.sql` `first_score` verifies retained response finalization and resulting score evidence.
 - [ ] Student Work is an umbrella term; the underlying records retain their own identities and purposes.
   - Mismatch: Distinct Attempt, issued-Question, and Question-Pool-selection records show separate identities, but no implemented collective `Student Work` term establishes the required umbrella relationship.
-- [ ] Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
+- [x] Student retention removes identifiable Student evidence, not privacy-safe aggregate Question statistics.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` preserves existing identity-free aggregate rows while deleting private Attempt roots and Course Student records; `schemas/base_schema/statistics.sql` defines the retained Question Revision count tables without Student identity fields.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate established the bounded deletion transition, but exercised no submitted Student Work or aggregate rows. Aggregate disclosure safety and complete retained-evidence coverage remain open.
-- [ ] Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL 17 actual-role proof deleting populated identifiable Student Work while retaining its existing anonymous Question Revision aggregate.
+- [x] Privacy-safe aggregate Question statistics remain after the underlying Student records are deleted.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` explicitly preserves existing identity-free aggregate rows, and `schemas/base_schema/statistics.sql` retains Question Revision statistics independently of private grading receipts.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate proved bounded Student-record deletion but had no submitted Student Work or aggregate-statistics fixture. Pool statistics, privacy thresholds, product display, and connected retention acceptance remain open.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL 17 actual-role proof retaining the accepted-graded and correct counts after their submitted Student Work and private receipts were deleted.
 - [ ] Aggregate Question statistics must not identify or allow reconstruction of individual Student activity.
   - Mismatch: `question_revision_statistics` omits direct identity fields, but the implementation has no demonstrated disclosure or small-cohort rule preventing aggregate counts from reconstructing an individual Student's activity.
 - [x] Published Question statistics retain accepted graded Attempt count and correct count.
@@ -1309,12 +1315,12 @@ remain interpretive authority, but are not checklist items.
   - Mismatch: No Student-data archiving or associated notification exists.
 - [ ] Archived Student data should leave normal Instructor and Student interfaces but remain recoverable during the retention period.
   - Mismatch: No archive/recovery state or interface exclusion exists.
-- [ ] FERPA-sensitive Student data should be permanently deleted when its retention period expires.
+- [x] FERPA-sensitive Student data should be permanently deleted when its retention period expires.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` is an archived-Course deletion transition and is repeat-safe after a deleted state.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate proved the bounded delete operation and repeated-delete refusal; operational retention-period configuration, periodic execution, submitted-Work coverage, and connected acceptance remain open.
-- [ ] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` refused a premature transition, deleted populated Student Work at the stored due time, returned false on repeat, and serialized two concurrent executors as one true transition followed by one false reread in fresh PostgreSQL 17 actual-role proof.
+- [x] Course metadata, Assessment definitions, Questions, settings, and other teaching material remain after Student data is deleted.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` deletes Course-scoped Student records and private Student evidence without deleting Course, Assessment, Question, or configuration relations.
-  - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 purge gate retained the deleted Course row, but has no submitted Student Work or connected product proof for the complete teaching-material boundary.
+  - Evidence (runtime): `schemas/base_schema/course_retention_transitions.sql` `ple_api.delete_course_student_records` passed a fresh PostgreSQL 17 actual-role proof retaining the global Student Account, Course, Assessment, Published Question, immutable source, settings, and an unrelated Course membership after the populated Student Work was deleted.
   - Owner: 06_data.md / Student and FERPA data (first occurrence; identical requirement and status).
 - [ ] FERPA retention intervals are operational configuration rather than separate product decisions.
   - Mismatch: No operational FERPA retention interval configuration exists.
@@ -1978,7 +1984,7 @@ remain interpretive authority, but are not checklist items.
   - Mismatch: The current paths implement related records but do not verify the complete product distinction.
 - [ ] **Blueprint Courses** provide reusable course designs for **Course Instances**.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
-- [x] Course Instances may be created from a Blueprint Course or started empty.
+- [x] Course Instances may start independently with no parent Blueprint Course, or an **Instructor** may create them from a Blueprint Course.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CourseInstanceCreationSource` and `src/api/decoders/course_instance.ts` `decodeCreateCourseInstanceInput` accept strict Empty or exact Adopted source forms.
   - Evidence (runtime): `src/pages/course_list_page.tsx` `TeachingCourseListPage` was exercised against the actual server in bounded exact-main browser proof: Empty creation persisted without Blueprint-list requests; separate Public Blueprint exact-Revision adoption created a daughter Course and Unreleased Practice Assessment. Successful API responses were `no-store`. This creation-only row does not establish direct started-empty Assessment authoring or the full teaching lifecycle.
 - [ ] A Course can have multiple co-**Instructors** with equal teaching authority.
@@ -1989,12 +1995,12 @@ remain interpretive authority, but are not checklist items.
   - Evidence (source): `schemas/base_schema/course_membership.sql` `assert_assigned_instructor_membership` rejects a Course Instance without a current assigned Instructor membership.
 - [ ] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
   - Mismatch: `CourseInstanceView.is_assigned_instructor` exposes a special authority distinction.
-- [ ] **Adoption** connects a Course Instance to a Blueprint Course.
+- [ ] **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
-- [ ] Adoption may occur when the Course Instance is created or later.
+- [ ] An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
   - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
-- [ ] A Course Instance connected to a Blueprint Course is a daughter Course Instance of that Blueprint Course.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
+- [x] A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+  - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 
 ### Course classification specifications
 
@@ -2036,7 +2042,9 @@ remain interpretive authority, but are not checklist items.
   - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the full vetted-Instructor visibility and reusability claim.
 - [ ] Blueprint Courses contain only **Published Questions** and published **Question Pools**.
   - Mismatch: Current pin validation covers Question revisions but not the required published Pool behavior.
-- [ ] An **Instructor** may deliberately publish an existing Course Instance structure as a new Blueprint Course.
+- [ ] An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+  - Mismatch: No Course Instance-to-Blueprint publishing route or store operation was found.
+- [ ] Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
   - Mismatch: No Course Instance-to-Blueprint publishing route or store operation was found.
 
 #### Blueprint Course lifecycle specifications
@@ -2331,29 +2339,29 @@ remain interpretive authority, but are not checklist items.
 - [ ] Inactive Courses are past Course Instances and retain Course metadata, including after
   FERPA-sensitive Student data is removed.
   - Mismatch: No inactive Course lifecycle and retention linkage was verified in A8 paths.
-- [ ] An **Instructor** may deliberately publish reusable Course Instance structure as a new **Blueprint Course**.
+- [ ] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Mismatch: No Course Instance-to-Blueprint publishing operation exists.
 - [x] A new academic term uses a new Course Instance. Rollover is not a separate product model.
   - Evidence (source): `crates/question_model/src/course_term.rs` `CourseTerm` is input to each `CreateCourseInstanceInput`; no rollover model was found.
 
 #### Blueprint adoption and daughter Course Instances
 
-- [x] An **adoption** occurs when an **Instructor** creates a Course Instance from a Blueprint Course.
-  - Evidence (source): `crates/learning-data-access/src/postgres/course_instance.rs` `create_course_instance` consumes Blueprint source inputs during creation.
-- [x] Blueprint Courses track how many Course Instances have been created from them as their adoption count.
-  - Evidence (source): `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` computes `total_adoptions` by counting Course Instances with each Blueprint reference.
+- [ ] **Adoption** connects a Blueprint Course and a Course Instance through either Course creation workflow.
+  - Mismatch: Current evidence verifies the Blueprint-to-new-Course-Instance path only; no Course Instance-to-new-Blueprint operation or source relationship was found.
+- [x] Creating a new Course Instance from a Blueprint Course establishes an Adoption and increases that Blueprint Course's **Adoption count** by one.
+  - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance_creation_event` records the Blueprint reference and Revision at creation, and `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` computes `total_adoptions` from those Course Instances.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` asserts the adopted Blueprint summary has `total_adoptions` equal to 1.
-- [x] A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+- [ ] Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
+  - Mismatch: No Course Instance-to-new-Blueprint operation or originating-Course Adoption count was found.
+- [x] A Course Instance created from a Blueprint Course is a **daughter Course Instance** of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 - [x] A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `CreateCourseInstanceInput` includes `blueprint_course` and `blueprint_revision`.
-- [x] Creating a Course Instance from a Blueprint Course counts as an adoption of that Blueprint Course.
-  - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance_creation_event` records the Blueprint reference and Revision at creation.
-- [x] The new Course Instance receives every Assessment from the selected Blueprint Revision.
+- [x] A daughter Course Instance receives every Assessment from the selected Blueprint Revision.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` constructs the Course Assessments from selected Blueprint content.
-- [ ] Creating a Course Instance from a Blueprint Course copies its Assessments, Questions, Question Pools, and reusable settings.
+- [ ] Creating a daughter Course Instance copies the Blueprint Course's Assessments, Questions, Question Pools, and reusable settings.
   - Mismatch: Current adoption evidence does not verify published Pool copying.
-- [x] Course Instance Assessments created from a Blueprint Course start unreleased with dates unset.
+- [x] Course Instance Assessments created from Blueprint Assessments start unreleased with dates unset.
   - Evidence (source): `schemas/base_schema/course_blueprint_adoption.sql` `ple_data.initialize_course_assessments` initializes adopted Assessments as unreleased with delivery dates unset.
 - [x] New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
   - Evidence (source): `src/pages/course_blueprint_update_review.tsx` `CourseBlueprintUpdateReviewList` lazily obtains the authorized current-parent Course summary and offers each adopted Assessment for review; `src/api/assessment_release.ts` `CourseBlueprintUpdateReview` excludes direct local Assessments and carries matching, removed-source, Type-mismatch, changed, and automatically-added correspondences.

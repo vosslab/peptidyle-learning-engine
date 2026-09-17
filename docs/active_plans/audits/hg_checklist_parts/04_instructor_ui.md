@@ -12,8 +12,14 @@
   - Mismatch: `src/ribbon/ribbon_catalog.ts` labels the third tab "Assignments," not the required "Assessments."
 - [x] Instructor Profile uses a generic user icon until the **Instructor** adds a Profile image.
   - Evidence (source): `src/features/profile_avatar/ribbon_account_avatar.tsx` `RibbonAccountAvatar` falls back to `RibbonIcon` `circle-user` when no Profile image or provided avatar exists.
-- [ ] All required ribbon choices remain visible even when their collection is empty.
-  - Mismatch: several required choices have `future` destinations in `src/ribbon/ribbon_catalog.ts` and are not admitted as usable controls.
+- [x] All required ribbon choices remain visible even when their collection is empty.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `TaskArea` renders required Ribbon choices from the role catalog independently of collection contents.
+  - Evidence (test): `tests/e2e/e2e_ribbon_app_component.mjs` `required Instructor choices remain visible without inventing unfinished routes` verifies the complete required Instructor choice set with no collection-data dependency.
+  - Evidence (runtime): `src/ribbon/app_ribbon.tsx` `TaskArea` passed focused connected HTTPS proof on the canonical Live Demo with zero Course rows while all four required Course choices remained visible at 1280 by 800.
+- [x] All required Instructor ribbon choices remain visible even when their target page is not implemented or complete.
+  - Evidence (source): `src/ribbon/app_ribbon.tsx` `TaskArea` retains every required Instructor Courses, Questions, and Assessments choice while `UnavailableRibbonChoice` presents unfinished destinations without a link.
+  - Evidence (test): `tests/e2e/e2e_ribbon_app_component.mjs` `required Instructor choices remain visible without inventing unfinished routes` verifies that available choices retain their established links and unfinished choices remain visible, disabled, labeled, and without `href`.
+  - Evidence (runtime): `src/ribbon/app_ribbon.tsx` `UnavailableRibbonChoice` passed focused connected HTTPS proof on the canonical Live Demo: unfinished Active and Inactive Course choices were visible non-links with `aria-disabled="true"` and `Not available yet`, while both implemented choices retained their exact routes.
 - [x] A working navigation destination remains visible when its collection is empty.
   - Evidence (source): `src/pages/course_list_page.tsx` `TeachingCourseListPage` retains the courses route and renders an empty state.
 - [x] A future or unavailable capability should not appear as a usable control until its workflow exists.

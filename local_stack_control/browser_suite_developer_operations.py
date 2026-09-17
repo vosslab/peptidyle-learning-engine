@@ -15,6 +15,7 @@ import local_stack_control.browser_suite_lease
 import local_stack_control.browser_suite_reset
 import local_stack_control.env_file
 import local_stack_control.live_demo_target
+import local_stack_control.live_demo_gateway
 import local_stack_control.models
 import local_stack_control.process
 from local_stack_control.browser_suite_private_state import DeveloperBrowserSuiteError
@@ -103,6 +104,9 @@ def default_operations(
 		if completed.returncode != 0:
 			diagnostic = launch_diagnostic(completed.stdout + "\n" + completed.stderr)
 			raise DeveloperBrowserSuiteError("developer browser stack launch failed: " + diagnostic)
+		local_stack_control.live_demo_gateway.write_browser_certificate_trust(
+			runner, root, workspace, target.origin
+		)
 		return RunningDeveloperStack(target.manifest_path, target.origin)
 
 	def stop_stack(running: RunningDeveloperStack, root: pathlib.Path) -> None:

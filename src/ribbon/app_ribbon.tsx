@@ -108,6 +108,28 @@ function RibbonLink(props: {
   );
 }
 
+function UnavailableRibbonChoice(props: { readonly control: RibbonControlModel }): JSX.Element {
+  const glyph = (): RibbonGlyphId | undefined =>
+    props.control.iconBearing ? ribbonGlyphForDestination(props.control.id) : undefined;
+  const status = (): string => {
+    if (props.control.availability === "Checking") return "Checking availability";
+    return props.control.destination.kind === "future" ? "Not available yet" : "Unavailable";
+  };
+  return (
+    <span
+      class={`ple-app-ribbon__link ple-app-ribbon__link--${props.control.presentation} ple-app-ribbon__link--unavailable`}
+      aria-disabled="true"
+      data-ribbon-control={props.control.id}
+      data-ribbon-presentation={props.control.presentation}
+      data-ribbon-availability="unavailable"
+    >
+      <Show when={glyph()}>{(id) => <RibbonIcon glyph={id()} />}</Show>
+      <span class="ple-app-ribbon__control-label">{props.control.label}</span>
+      <span class="ple-app-ribbon__availability-label">{status()}</span>
+    </span>
+  );
+}
+
 function emitRibbonAction(event: MouseEvent, action: RibbonActionDescriptor): void {
   const target = event.currentTarget as HTMLButtonElement;
   target.dispatchEvent(
@@ -204,20 +226,33 @@ function RibbonOverflowCues(props: { readonly state: RibbonOverflowCueState }): 
 function TaskArea(props: {
   readonly area: RibbonTaskAreaModel;
   readonly pendingNavigation: RibbonPendingNavigation;
+  readonly showUnavailable: boolean;
 }): JSX.Element {
-  const controls = (): ReadonlyArray<RibbonControlModel & { href: string }> =>
-    props.area.controls.filter(visibleControl);
+  const controls = (): ReadonlyArray<RibbonControlModel> =>
+    props.showUnavailable ? props.area.controls : props.area.controls.filter(visibleControl);
   return (
     <Show when={controls().length > 0}>
       <span class="ple-app-ribbon__task-area" data-ribbon-task-area={props.area.id}>
         <span class="ple-app-ribbon__task-area-label">{props.area.label}</span>
         <For each={controls()}>
-          {(control) => (
-            <RibbonLink control={control} pendingNavigation={props.pendingNavigation} />
-          )}
+          {(control) =>
+            visibleControl(control) ? (
+              <RibbonLink control={control} pendingNavigation={props.pendingNavigation} />
+            ) : (
+              <UnavailableRibbonChoice control={control} />
+            )
+          }
         </For>
       </span>
     </Show>
+  );
+}
+
+function isRequiredInstructorTaskArea(area: RibbonTaskAreaModel): boolean {
+  return (
+    area.id === "instructorCourses" ||
+    area.id === "instructorQuestions" ||
+    area.id === "instructorAssessments"
   );
 }
 
@@ -566,7 +601,16 @@ export function AppRibbon(props: AppRibbonProps): JSX.Element {
             }}
           >
             <For each={props.model.taskAreas}>
-              {(area) => <TaskArea area={area} pendingNavigation={pendingNavigation} />}
+              {(area) => (
+                <TaskArea
+                  area={area}
+                  pendingNavigation={pendingNavigation}
+                  showUnavailable={
+                    props.model.context.productLabel === "Instructor" &&
+                    isRequiredInstructorTaskArea(area)
+                  }
+                />
+              )}
             </For>
           </nav>
           <RibbonOverflowCues state={taskOverflow} />

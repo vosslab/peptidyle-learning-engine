@@ -3,6 +3,7 @@
 // Publication controls: src/features/ple_question_json_authoring/question_json_editor_page.tsx:739.
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 import assert from "node:assert/strict";
 
 const port = process.argv[2];
@@ -12,8 +13,8 @@ if (!/^[0-9]+$/.test(port ?? "")) {
 
 const origin = `https://localhost:${port}`;
 const questionTitle = `Browser publication path ${Date.now()}`;
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ ignoreHTTPSErrors: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
+const context = await browser.newContext();
 const page = await context.newPage();
 
 async function classificationUuid(path, key, name) {

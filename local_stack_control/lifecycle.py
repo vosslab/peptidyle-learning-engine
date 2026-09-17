@@ -133,6 +133,7 @@ def configure_default_environment(
 	values = local_stack_control.env_file.env_settings(target.env_file)
 	runtime_directory = target.env_file.parent
 	secret_directory = runtime_directory / ".secrets"
+	gateway_port = values.get("PLE_GATEWAY_HOST_PORT", "8080")
 	defaults = {
 		"POSTGRES_PASSWORD": os.urandom(24).hex(),
 		"MINIO_ROOT_PASSWORD": os.urandom(24).hex(),
@@ -148,7 +149,7 @@ def configure_default_environment(
 			secret_directory / local_stack_control.local_totp_authenticator.MORGAN_TOTP_ARTIFACT_FILE
 		),
 		"PLE_WEBWORK_RENDERER_VERSION_FILE": str(secret_directory / "question-renderer-version"),
-		"PLE_PUBLIC_ASSET_BASE_URL": "http://127.0.0.1:9000/public-assets",
+		"PLE_PUBLIC_ASSET_BASE_URL": f"https://localhost:{gateway_port}/public-assets",
 		"PLE_GATEWAY_HOST_PORT": "8080",
 		"PLE_WEBWORK_RENDERER_BASE_URL": "http://webwork-renderer:3000/",
 		"PLE_WEBWORK_REQUEST_TIMEOUT_SECONDS": "15",

@@ -5,6 +5,7 @@
 // Question picker discovers its seeded published Question through its visible result.
 
 import { chromium } from "playwright";
+import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const port = process.argv[2];
 if (!/^[0-9]+$/.test(port ?? "")) {
@@ -18,8 +19,8 @@ const courseShortName = `Current-${runId}`;
 const courseLongName = `Browser current Course ${runId}`;
 const assignmentTitle = `Browser current Assignment ${runId}`;
 const assessmentDurationOverrideLabel = /^Assessment duration override in seconds\b/u;
-const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ ignoreHTTPSErrors: true });
+const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
+const context = await browser.newContext();
 const page = await context.newPage();
 
 async function firstNonEmptyOptionValue(select) {

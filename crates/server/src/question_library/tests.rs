@@ -1,6 +1,7 @@
 use crate::question_publication::QuestionIdSecret;
 use async_trait::async_trait;
 use axum::http::{HeaderValue, Uri};
+use question_model::QuestionSearchSort;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
@@ -147,7 +148,7 @@ fn question_search_query_accepts_single_filter_values_and_defaults() {
     let uri: Uri = concat!(
         "/api/questions/search?backends=ple&author_names=Ada&tags=protein",
         "&question_types=multipleChoice&capabilities=hints",
-        "&question_licenses=CC-BY-4.0"
+        "&question_licenses=CC-BY-4.0&sort=publishedNewest"
     )
     .parse()
     .expect("test URI parses");
@@ -160,6 +161,7 @@ fn question_search_query_accepts_single_filter_values_and_defaults() {
     assert_eq!(request.backends, vec![QuestionBackend::Ple]);
     assert_eq!(request.author_names, vec!["ada"]);
     assert_eq!(request.tags, vec!["protein"]);
+    assert_eq!(request.sort, QuestionSearchSort::PublishedNewest);
 
     let default_uri: Uri = "/api/questions/search".parse().expect("test URI parses");
     let default_query = Query::<QuestionSearchQuery>::try_from_uri(&default_uri)
@@ -169,6 +171,7 @@ fn question_search_query_accepts_single_filter_values_and_defaults() {
         QuestionSearchRequest::try_from(default_query).expect("valid default query request");
     assert!(default_request.backends.is_empty());
     assert!(default_request.author_names.is_empty());
+    assert_eq!(default_request.sort, QuestionSearchSort::TitleAscending);
     assert_eq!(default_request.page_size, Some(DEFAULT_PAGE_SIZE));
 }
 
@@ -182,6 +185,8 @@ fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields()
         "discipline_uuid=bad",
         "cross_discipline=yes",
         "cross_discipline=false&cross_discipline=true",
+        "sort=unknown",
+        "sort=titleAscending&sort=publishedNewest",
     ] {
         let uri: Uri = format!("/api/questions/search?{query}")
             .parse()
