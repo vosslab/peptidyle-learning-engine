@@ -159,6 +159,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 - PLE accounts should be global across PLE and use passwordless passkeys and email authentication.
 - Email is not configured for the Live Demo yet; use the visible seeded-role entry for demo access.
+- The local Live Demo should not enforce a single browser origin; I want to reach it over a
+  firewalled LAN or Tailscale by binding to 0.0.0.0. The local TLS certificate stays because the
+  login security tests depend on it.
 - The three major user types are **Sysadmins**, **Instructors**, and **Students**.
 - Potential future user roles are **Course Observers**, **Student Observers**, and **Graders**.
 - **Students** are required to use their university or institutional (`.edu` in the USA) email accounts.

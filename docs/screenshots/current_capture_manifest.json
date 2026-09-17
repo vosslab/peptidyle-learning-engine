@@ -587,21 +587,6 @@
       "gallery": { "order": 640, "caption": "Course Invitation review" }
     },
     {
-      "id": "student_invitation_accepted_laptop",
-      "path": "student/invitation_accepted_laptop.png",
-      "role": "student",
-      "routeId": "studentCourseInvitation",
-      "area": "courses",
-      "workflow": "course invitation",
-      "state": "accepted",
-      "scenario": "student_invitation",
-      "checkpoint": "invitation_accepted",
-      "viewport": "laptop",
-      "privacyProfile": "student_self",
-      "gallery": { "order": 650, "caption": "Accepted Course Invitation" }
-    },
-
-    {
       "id": "student_course_not_started_laptop",
       "path": "student/course_not_started_laptop.png",
       "role": "student",
@@ -1388,7 +1373,7 @@
       {
         "routeId": "studentCourseInvitation",
         "status": "captured",
-        "captureIds": ["student_invitation_detail_laptop", "student_invitation_accepted_laptop"]
+        "captureIds": ["student_invitation_detail_laptop"]
       },
       {
         "routeId": "studentCourseLanding",

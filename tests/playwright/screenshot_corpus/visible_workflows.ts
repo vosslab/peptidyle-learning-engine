@@ -13,7 +13,9 @@ import {
 
 export const COURSE_TITLE = "Biochemistry 301: Proteins and Peptides";
 export const ASSIGNMENT_TITLE = "Chapter 1 Pilot Practice";
-export const ASSESSMENT_TYPE_LABEL = "Regular Assignment";
+// The seeded Live Demo Assessment is a Practice Question Assignment; card links and the
+// overview Start button render `{verb} {type label}`.
+export const ASSESSMENT_TYPE_LABEL = "Practice Question Assignment";
 
 export type SeededPersona =
   "Elena Rivera" | "Mary Okafor" | "Jack Nguyen" | "Avery Thompson" | "Morgan Delgado";
