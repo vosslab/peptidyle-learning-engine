@@ -37,12 +37,8 @@ use question_model::{
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{
-    auth::{AuthError, resolve_session},
-    question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer},
-};
+use crate::auth::{AuthError, resolve_session};
 
-const QUESTION_FORK_IDENTITY_ATTEMPTS: usize = 8;
 const IDEMPOTENCY_KEY: HeaderName = HeaderName::from_static("idempotency-key");
 
 #[derive(Clone)]
@@ -52,22 +48,6 @@ struct RouteState {
     library: PostgresQuestionLibraryStore,
     drafts: PostgresAuthoringDraftStore,
     objects: S3ObjectStore,
-    question_id_issuer: Arc<dyn QuestionForkIdIssuer>,
-}
-
-/// Trusted issuance capability for a fork's future Question ID.
-trait QuestionForkIdIssuer: Send + Sync {
-    fn issue_question_id(
-        &self,
-    ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError>;
-}
-
-impl QuestionForkIdIssuer for RandomQuestionIdIssuer {
-    fn issue_question_id(
-        &self,
-    ) -> Result<QuestionId, crate::question_publication::QuestionIdIssuanceError> {
-        QuestionIdIssuer::issue_question_id(self)
-    }
 }
 
 /// Registers the canonical active-Instructor fork command.
@@ -77,7 +57,6 @@ pub fn question_fork_router(
     library: PostgresQuestionLibraryStore,
     drafts: PostgresAuthoringDraftStore,
     objects: S3ObjectStore,
-    question_id_issuer: RandomQuestionIdIssuer,
 ) -> Router {
     question_fork_router_with_trusted_dependencies(
         sessions,
@@ -85,7 +64,6 @@ pub fn question_fork_router(
         library,
         drafts,
         objects,
-        Arc::new(question_id_issuer),
     )
 }
 
@@ -95,7 +73,6 @@ fn question_fork_router_with_trusted_dependencies(
     library: PostgresQuestionLibraryStore,
     drafts: PostgresAuthoringDraftStore,
     objects: S3ObjectStore,
-    question_id_issuer: Arc<dyn QuestionForkIdIssuer>,
 ) -> Router {
     Router::new()
         .route(
@@ -108,7 +85,6 @@ fn question_fork_router_with_trusted_dependencies(
             library,
             drafts,
             objects,
-            question_id_issuer,
         })
 }
 
@@ -185,18 +161,8 @@ async fn fork_published_question(
         Err(response) => return *response,
     };
 
-    for _ in 0..QUESTION_FORK_IDENTITY_ATTEMPTS {
-        let forked_question_id = match state.question_id_issuer.issue_question_id() {
-            Ok(value) => value,
-            Err(_) => {
-                return route_error(
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    "Question Fork is unavailable",
-                );
-            }
-        };
-        let proposed_draft_question_id = Uuid::now_v7();
-        let target_source_record = match state
+    let proposed_draft_question_id = Uuid::now_v7();
+    let target_source_record = match state
             .objects
             .put(PutObject {
                 address: ObjectAddress::WorkspaceQuestionSource {
@@ -208,82 +174,64 @@ async fn fork_published_question(
                 created_at: crate::authoring::now(),
             })
             .await
-        {
-            Ok(value) => value,
-            Err(ObjectStoreError::AlreadyExists) => continue,
-            Err(_) => return unavailable(),
-        };
-        let target_source_address = target_source_record.address.clone();
-        let target_hotspot_asset = match copy_hotspot_asset(
+    {
+        Ok(value) => value,
+        Err(_) => return unavailable(),
+    };
+    let target_source_address = target_source_record.address.clone();
+    let target_hotspot_asset = match copy_hotspot_asset(
             &state.objects,
             workspace,
             proposed_draft_question_id,
             hotspot_asset.as_ref(),
         )
         .await
-        {
-            Ok(value) => value,
-            Err(ObjectStoreError::AlreadyExists) => {
-                if state.objects.delete(&target_source_address).await.is_err() {
-                    return unavailable();
-                }
-                continue;
+    {
+        Ok(value) => value,
+        Err(_) => {
+            if state.objects.delete(&target_source_address).await.is_err() {
+                return unavailable();
             }
-            Err(_) => return unavailable(),
-        };
-        let target_asset_address = target_hotspot_asset
+            return unavailable();
+        }
+    };
+    let target_asset_address = target_hotspot_asset
             .as_ref()
             .map(|asset| asset.target_record.address.clone());
-        let input = ForkPublishedQuestionInput {
+    let input = ForkPublishedQuestionInput {
             source_question_revision: source_question_revision.clone(),
-            forked_question_id,
             workspace,
             proposed_draft_question_id,
             target_source_record,
             hotspot_asset: target_hotspot_asset,
             idempotency_key,
-        };
-        match state
+    };
+    match state
             .forks
             .fork_published_question_to_draft(session, input)
             .await
-        {
-            Ok(fork) => {
-                if !fork.created_new {
-                    cleanup_replayed_candidates(
-                        &state.objects,
-                        &target_source_address,
-                        target_asset_address.as_ref(),
-                    )
-                    .await;
-                }
-                return crate::auth::no_store(
-                    (
-                        StatusCode::CREATED,
-                        Json(ForkedQuestionResponse {
-                            draft_question: fork.draft_question,
-                        }),
-                    )
-                        .into_response(),
-                );
-            }
-            Err(ForkPublishedQuestionError::IdentityCollision) => {
-                if cleanup_candidates(
+    {
+        Ok(fork) => {
+            if !fork.created_new {
+                cleanup_replayed_candidates(
                     &state.objects,
                     &target_source_address,
                     target_asset_address.as_ref(),
                 )
                 .await
-                .is_err()
-                {
-                    return unavailable();
-                }
-                continue;
             }
-            Err(ForkPublishedQuestionError::Store(error)) => return store_error_response(error),
+            crate::auth::no_store(
+                (
+                    StatusCode::CREATED,
+                    Json(ForkedQuestionResponse {
+                        draft_question: fork.draft_question,
+                    }),
+                )
+                    .into_response(),
+            )
         }
+        Err(ForkPublishedQuestionError::Store(error)) => store_error_response(error),
     }
-    unavailable()
 }
 
 struct VerifiedForkHotspotAsset {

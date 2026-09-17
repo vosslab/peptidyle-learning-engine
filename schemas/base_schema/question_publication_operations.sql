@@ -535,7 +535,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.load_draft_question_publication_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid
 ) RETURNS TABLE (object_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
-    media_type text, created_at_millis bigint, reserved_question_id text)
+    media_type text, created_at_millis bigint)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.load_draft_question_publication_source(
         p_draft_question_uuid, p_expected_edit_number, p_workspace_id)

@@ -235,19 +235,11 @@ where
         )
         .await?;
 
-        let identity_attempts = if publication_source.reserved_question_id.is_some() {
-            1
-        } else {
-            PUBLICATION_IDENTITY_ATTEMPTS
-        };
-        for _ in 0..identity_attempts {
-            let question_id = match &publication_source.reserved_question_id {
-                Some(question_id) => question_id.clone(),
-                None => self
-                    .question_id_issuer
-                    .issue_question_id()
-                    .map_err(QuestionPublicationError::QuestionIdIssuance)?,
-            };
+        for _ in 0..PUBLICATION_IDENTITY_ATTEMPTS {
+            let question_id = self
+                .question_id_issuer
+                .issue_question_id()
+                .map_err(QuestionPublicationError::QuestionIdIssuance)?;
             let revision = QuestionRevisionReference {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
@@ -380,11 +372,6 @@ where
             )
             .await
             .map_err(QuestionPublicationError::Store)?;
-        if publication_source.reserved_question_id.is_some() {
-            return Err(QuestionPublicationError::Store(
-                StoreError::LifecycleConflict,
-            ));
-        }
         let source_record = publication_source.source_record;
         validate_workspace_question_source_object_record(command.workspace, &source_record)
             .map_err(QuestionPublicationError::Store)?;

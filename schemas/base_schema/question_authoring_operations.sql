@@ -692,7 +692,7 @@ REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
-    ple_private.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+    ple_private.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_private.current_session_account_owns_draft_question(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
@@ -800,7 +800,7 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.delete_draft_question(p_reference_number, p_expected_edit_number)
 $$;
 REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
-    ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+    ple_api.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_api.current_session_account_owns_draft_question(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
@@ -810,7 +810,7 @@ REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
-    ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+    ple_api.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_api.current_session_account_owns_draft_question(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
