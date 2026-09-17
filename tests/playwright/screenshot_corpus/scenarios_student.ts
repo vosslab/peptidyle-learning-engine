@@ -67,7 +67,19 @@ async function prepareStudentInvitation(
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await page.getByRole("heading", { name: "Course Instances you teach", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
+    // Create Course Instance is a disclosure that auto-expands only for an empty list; the
+    // seeded Instructor already teaches one Course, so expand it when still collapsed.
+    const createDisclosure = page.getByRole("button", {
+      name: "Create Course Instance",
+      exact: true,
+    });
+    await page.getByText("Loading Course Instances...").waitFor({ state: "hidden" });
+    if ((await createDisclosure.getAttribute("aria-expanded")) !== "true") {
+      await createDisclosure.click();
+    }
+    const createForm = page.locator("form#create-course-instance");
+    await createForm.waitFor();
     await page.getByRole("combobox", { name: "Start with", exact: true }).selectOption("adopted");
     await page
       .getByRole("combobox", { name: "Blueprint Course", exact: true })
@@ -79,7 +91,7 @@ async function prepareStudentInvitation(
     await page.getByLabel("Course long name").fill(INVITATION_COURSE_LONG_NAME);
     await page.getByLabel("Course Term start date").fill("2026-09-01");
     await page.getByLabel("Course Term end date").fill("2026-12-18");
-    await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
+    await createForm.getByRole("button", { name: "Create Course Instance", exact: true }).click();
     const created = courseCard(page, INVITATION_COURSE_LONG_NAME);
     await created.waitFor();
     await created.getByRole("link", { name: "Open Course Instance", exact: true }).click();
@@ -111,7 +123,10 @@ async function studentInvitation(runtime: ScenarioRuntime): Promise<void> {
     await invitation.waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_index", session);
     await invitation.getByRole("link", { name: "Review invitation", exact: true }).click();
-    await page.getByRole("heading", { name: "Join this course", exact: true }).waitFor();
+    await page
+      .getByRole("heading", { level: 1, name: INVITATION_COURSE_LONG_NAME, exact: true })
+      .waitFor();
+    await page.getByRole("button", { name: "Accept invitation", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "invitation_detail", session);
     await page.getByRole("button", { name: "Accept invitation", exact: true }).click();
     await page.getByText("Invitation accepted.", { exact: true }).waitFor();

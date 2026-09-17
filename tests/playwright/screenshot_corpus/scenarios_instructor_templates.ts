@@ -24,8 +24,16 @@ async function instructorTemplates(runtime: ScenarioRuntime): Promise<void> {
     await session.page
       .getByRole("heading", { level: 1, name: "My Assessment Templates" })
       .waitFor();
-    // Create a Template is a disclosure button; the form stays hidden until it is expanded.
-    await session.page.getByRole("button", { name: "Create a Template", exact: true }).click();
+    // Create a Template is a disclosure button. It auto-expands once a ready list has zero
+    // Templates, so wait for the list, then expand only when it is still collapsed.
+    const createDisclosure = session.page.getByRole("button", {
+      name: "Create a Template",
+      exact: true,
+    });
+    await session.page.getByText("Loading your Templates...").waitFor({ state: "hidden" });
+    if ((await createDisclosure.getAttribute("aria-expanded")) !== "true") {
+      await createDisclosure.click();
+    }
     const createTemplateForm = session.page.locator("form#create-assessment-template");
     await createTemplateForm.waitFor();
     await createTemplateForm
