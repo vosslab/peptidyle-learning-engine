@@ -106,8 +106,7 @@ async fn publish_validated_with_context(
     let classification_store =
         learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
     let library = PostgresQuestionLibraryStore::new(pool.clone());
-    let bloom = server_core::composition::bloom_publication_preparation_from_env(pool)
-        .context("configuring the Bloom Classification provider")?;
+    let bloom = server_core::composition::bloom_publication_preparation(pool);
     let mut classifications = BTreeMap::new();
     let objects = server_core::composition::question_library_object_store_from_env()
         .await

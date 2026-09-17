@@ -21,29 +21,6 @@ deployment procedure.
   [Brewfile](../Brewfile) and [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - PostgreSQL 17 is supplied by the local stack's migrator image; do not substitute
   an unreviewed client for canonical schema operations.
-- A native Ollama installation and an explicitly selected local model are required
-  for any workflow that publishes Questions, including fresh installation content.
-  PLE does not install or download a model.
-
-### Configure Question publication classification
-
-Question publication classifies the exact protected source with a private native
-Ollama provider before PostgreSQL prepares its one-use publication receipt. Set all
-three values in the operator-owned environment:
-
-```text
-PLE_BLOOM_OLLAMA_BASE_URL=https://ollama.example.edu/
-PLE_BLOOM_MODEL=operator-selected-model:tag
-PLE_BLOOM_CONTEXT_TOKENS=8192
-```
-
-The origin must be credential-free and HTTPS outside a verified disposable-local
-topology. Disposable-local operation may use a contained loopback, private-address,
-or single-label Compose service origin. The selected model must already appear in
-Ollama's local model list; PLE never pulls it. Omitting all three settings keeps
-non-publication use available, but every Question publication fails closed. A partial
-or malformed selection prevents composition from starting.
-
 ## Set up a checkout
 
 ```bash
@@ -97,30 +74,33 @@ that freeze; see [DATABASE_STRUCTURE.md](DATABASE_STRUCTURE.md) and
 
 ## Installation content and Live Demo
 
-After services are ready, installation data publishes the complete Genetics
-Blueprint through the ordinary content-publication path. It is installation
-content, not a fixture, SQL dump, or separate pilot deployment. The same default
-operation also creates the complete ordinary, removable Live Demo teaching graph:
+Automated initial Bloom Classification is deferred. PLE does not currently
+configure an AI provider. Publication persistence still requires a prepared
+Bloom receipt, so installation-data publication remains unavailable until that
+separate cutover is complete. Structural installation and ordinary
+non-publication runtime do not require an AI backend.
+
+After the Bloom publication cutover, installation data will publish the complete
+Genetics Blueprint through the ordinary content-publication path. It will remain
+installation content, not a fixture, SQL dump, or separate pilot deployment. The
+same operation will create the complete ordinary, removable Live Demo teaching graph:
 
 ```bash
 cargo tools installation-data provision
 ```
 
-The Genetics Blueprint has eleven ordered topic Assessments and is reusable by
-vetted Instructors when Public. `--without-live-demo` does not omit
-this example course; it omits only the fictional Live Demo teaching graph.
-`provision` runs content publication and the database-owned Live Demo graph, then
-creates the Live Demo's cross-system Student Work and grading effects through their
-owning product paths. `apply` remains the narrower convergent installation operation
-and does not create a complete Live Demo. The local-stack controller supplies the
-required migrator, publisher, storage, API, and worker capabilities. The graph is
-documented in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md) and uses the same schema and
-lifecycle as other teaching records.
+The Genetics Blueprint will have eleven ordered topic Assessments and be reusable
+by vetted Instructors when Public. `--without-live-demo` will omit only the
+fictional Live Demo teaching graph. `provision` will run content publication and
+the database-owned Live Demo graph, then create cross-system Student Work and
+grading effects through their owning product paths. `apply` will remain the
+narrower convergent installation operation. The local-stack controller supplies
+the required migrator, publisher, storage, API, and worker capabilities. The
+graph is documented in [LIVE_DEMO_SPEC.md](LIVE_DEMO_SPEC.md).
 
-For a local disposable stack, Live Demo data is selected by default. Explicitly
-opt out of the Live Demo before provisioning with the controller command below;
-the bundled Genetics Blueprint remains present and the convenience launcher does
-not expose this option:
+After the Bloom publication cutover, Live Demo data will be selected by default
+for a local disposable stack. The controller command below will explicitly omit
+the Live Demo while retaining the Genetics Blueprint:
 
 ```bash
 source source_me.sh && python3 local_stack.py start --headless --without-live-demo
@@ -136,8 +116,8 @@ projection:
 cargo tools database verify
 ```
 
-For a local developer stack, start the default Live Demo and stop it through its
-owner:
+After the Bloom publication cutover, start the default local Live Demo and stop it
+through its owner:
 
 ```bash
 ./launchers/run_live_demo.sh --headless
@@ -150,8 +130,9 @@ itself prove the connected service or visible browser acceptance gates. See
 
 ## Production installation
 
-After the structural base, API, worker, publisher, object storage, and browser
-origin are ready, the short-lived audited administration environment runs
+After the Bloom publication cutover and after the structural base, API, worker,
+publisher, object storage, and browser origin are ready, the short-lived audited
+administration environment runs
 `cargo tools installation-data provision` to publish the bundled Genetics example
 and create the complete known-good Live Demo. An installation owner can instead
 run `cargo tools installation-data provision --without-live-demo`; that still

@@ -63,12 +63,15 @@ short-reference concepts are implementation drift pending audit or removal, not 
 - Part 07 / Library stewardship: improvement-thread and impact-notice lifecycles are settled and
   implemented in source. Question owner/Sysadmin administration, Sysadmin-only Pool administration,
   vetted-Instructor text threads, retained resolved/cancelled records, and Sysadmin read-only
-  Library mode await final review and major-milestone proof. Four-event private Watch delivery is
-  in progress, so notification rows remain open.
+  Library mode await final review and major-milestone proof. Fresh PostgreSQL 17 actual-role proof
+  closes four-event private Watch delivery as SQL; connected controls and browser notification
+  presentation remain open.
 - Part 07 / PLE support: accepted C910 general-feedback receipts remain partial context; independent
   Hints/Worked Solutions, disclosure, Pool attachment, coexistence, and Revision behavior remain open.
-- Part 07 / Library object statistics and Bloom metadata: Pool statistics and provider-backed
-  publication remain open. Exact Question and Pool Revision reads now project each pair with its
+- Part 07 / Library object statistics and Bloom metadata: Pool statistics and application-owned
+  classifier/provider orchestration remain open. Fresh PostgreSQL 17 actual-role proof closes
+  protected Bloom preparation, receipt binding, and Question/Pool Library admission as SQL. Exact
+  Question and Pool Revision reads now project each pair with its
   independent Edit Number. Typed complete-pair correction Stores and routes, exact-target editors,
   stale reload without automatic retry, draft retention, and completion focus are source-backed;
   connected two-Instructor, denied-role, and browser proof remains open. Library discovery has two
@@ -78,9 +81,10 @@ short-reference concepts are implementation drift pending audit or removal, not 
   page, role, and browser proof remains open. Assessment source projects exact fixed, retained, and
   Assessment-owned Pool-fork pairs and stably orders them by cognitive process, knowledge dimension,
   then prior position; connected mixed-entry sort/save/reload and concurrent-save proof remains open.
-- Part 08 / Blueprint forks: accepted exact-member-pin HTTP evidence is retained. Expanded
-  Change Proposal persistence, canonical content scope, selective acceptance records, stale targets,
-  comparison of changed Questions/Pools, and selected daughter incorporation need current proof.
+- Part 08 / Blueprint forks: accepted exact-member-pin HTTP evidence is retained. Fresh actual-role
+  proof closes Change Proposal persistence, canonical content scope, Entire/Selected acceptance,
+  retained outcomes, stale targets, and unchanged daughters as SQL. Connected two-Instructor/API/UI
+  review, comparison of changed Questions/Pools, and selected daughter incorporation remain open.
 - Part 09 / Assessment Unrelease: current deletion/reset source is partial proof; re-audit explicit
   deletion scope, Student unavailability, teaching-definition retention, normal editing/revalidation,
   and empty later-release work. Preserve accepted unchanged scoring closures and their limitations.
@@ -2212,16 +2216,16 @@ Sysadmins administer Question thread state and impact notices; Pool administrati
 Threads record their creation Revision, impact notices may name an affected Revision, and resolved
 or cancelled records remain visible. Sysadmins use a read-only Library mode outside these explicit
 administration actions. C871-C873 source is implemented but awaits final review and major-milestone
-actual-role SQL/browser proof. C874/C875 remain open while four-event private Watch delivery is
-repaired and proved.
+browser proof. Fresh PostgreSQL 17 actual-role proof closes the C874/C875 SQL delivery boundary for
+all four event kinds; connected multi-identity controls and notification presentation remain open.
 
 | ID   | Kind; occurrences; one boundary and outcome                                                                                                                                                                                        | Prerequisites / handoff                       | Exact focused gate and test lifetime                                                                                                                                                        |
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | C871 | implemented source contributor; 0; retained text-only threads target stable Question/Pool lineages, record the creation Revision, accept vetted-Instructor participation, permit own-post edits, and retain open/resolved records. | Hands C873,C874; final review/proof pending. | Major-milestone fresh-schema/LDA authorization matrix; remove temporary proof. Retain no inventory test. |
 | C872 | implemented source contributor; 0; retained impact notices target stable Question/Pool lineages, may name an affected Revision, and preserve active/cancelled current records under Question-owner/Sysadmin or Pool-Sysadmin administration. | Hands C873,C874; final review/proof pending. | Major-milestone fresh-schema/LDA lifecycle matrix; remove temporary proof. |
 | C873 | implemented source contributor; 0; server/API/browser surfaces expose vetted-Instructor threads, explicit owner/Sysadmin administration, and Sysadmin read-only Library content controls. | C871,C872; hands C875; final review/proof pending. | Major-milestone authorization/browser workflow proof; remove temporary probe. No component snapshot. |
-| C874 | open contributor; 0; source-bound outbox writers emit exactly revision, fork, improvement-thread, and impact-notice events with no generic notification hook. | C346,C871,C872; hands C875. | Repair and prove the transaction/outbox matrix at the major milestone; remove temporary proof. Retain only an earned stable authorization or idempotency contract. |
-| C875 | open closure; 1; private in-app Watch delivery covers all four event classes without exposing Watch identities to Students, anonymous users, or unauthorized Instructors. | C373,C873,C874. | Major-milestone connected multi-identity/four-event proof; remove temporary probe. Retain only an earned stable private-notification authorization outcome. |
+| C874 | closed SQL contributor; 0; source-bound outbox writers emit exactly revision, fork, improvement-thread, and impact-notice events with no generic notification hook. | C346,C871,C872; hands C875. | Fresh PostgreSQL 17 actual-role proof passed. Keep connected control and presentation proof separate. |
+| C875 | open application closure; 1; private in-app Watch delivery covers all four event classes without exposing Watch identities to Students, anonymous users, or unauthorized Instructors. | C373,C873,C874. | SQL delivery is closed. Major-milestone connected multi-identity/browser proof remains required; remove temporary probe. Retain only an earned stable private-notification authorization outcome. |
 
 ### A7 coordination notes
 
@@ -2451,8 +2455,8 @@ After dependency-closed tranche, use only existing Browser Suite lease:
 Then generator build/diff/consistency. Do not start, stop, replace, or clean up the shared Browser Suite.
 
 Latest three-bullet follow-up: Sysadmin interface work priority is audited N/A; searchable
-Blueprint Promoted and exclusive Sysadmin control are binding open
-gaps. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
+Blueprint Promoted and exclusive Sysadmin control are closed SQL rows with browser integration
+remaining open. Prior 940-bullet evidence is retained. Submitted R-4 progress is reopened narrowly because
 disabled navigation says `Question - of 4` and `0 saved`; the four current active-navigation closures
 remain accepted. Actual expired summary shows retained correct MATCH Q2 `1 / 1` with all four
 pairs and feedback, other three Questions incorrect `0 / 1`, total `1 / 4`. Their Closed/response-

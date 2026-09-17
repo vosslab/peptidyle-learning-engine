@@ -252,30 +252,20 @@ filesystem boundary. Test that durable contract offline; record the real
 Podman/browser execution separately as one-time evidence.
 
 Run `cargo tools pilot-content` to validate the tracked Pilot source and
-compiler contract. The installation-data operation is the sole supported
-path for publishing those Questions as part of the Live Demo: it uses the
-ordinary publisher and then the idempotent database manifest. The result is
-ordinary published content and ordinary product data, so no protected
-host-only replay manifest is retained.
+compiler contract. After the Bloom publication cutover, the installation-data
+operation will remain the sole supported path for publishing those Questions as
+part of the Live Demo. It will use the ordinary publisher and then the
+idempotent database manifest. The result will be ordinary published content and
+ordinary product data, so no protected host-only replay manifest is retained.
+
+Automated initial Bloom Classification is deferred. The current PLE runtime
+does not compose an AI provider. Publication still reaches the provider-neutral
+preparation boundary and fails before writes because SQL and data access retain
+the prepared-receipt contract. That cutover remains separate work; ordinary
+non-publication server composition requires no AI configuration.
 
 Browser scenarios remain separate from the permanent fast lane and should be
 rerun when a material change affects their declared boundary.
-
-### Bloom Classification provider boundary
-
-`server_core::bloom_classification` owns protected candidate construction, the
-provider trait, the native Ollama adapter, and coupling provider output to the exact
-receipt candidate. Provider inference finishes before the short PostgreSQL receipt
-transaction starts. A new-lineage identity collision may prepare another receipt
-from that same sealed result; it must not call the model again.
-
-The adapter uses only the fixed `/api/chat` and `/api/tags` paths at the validated
-operator origin. It disables redirects and ambient proxies, admits one concurrent
-call without an unbounded wait queue, and enforces fixed connect, total, evidence,
-and response limits. Source, prompt, and raw provider output are prohibited from
-logs and consumer-facing errors. Keep browser APIs, Pool publication orchestration,
-provider queues, provider tables, model downloads, and rules-based fallback outside
-this boundary unless a later approved plan owns them.
 
 ## Run local services
 

@@ -108,9 +108,6 @@ services:
       # Keep profile selection valid for PostgreSQL-only baseline verification;
       # installation-data validates this value before it uses object storage.
       PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:-}
-      PLE_BLOOM_OLLAMA_BASE_URL: ${PLE_BLOOM_OLLAMA_BASE_URL:-}
-      PLE_BLOOM_MODEL: ${PLE_BLOOM_MODEL:-}
-      PLE_BLOOM_CONTEXT_TOKENS: ${PLE_BLOOM_CONTEXT_TOKENS:-}
       # Provisioning uses the canonical browser origin for session-bound API
       # requests while dialing the API directly only in disposable-local mode.
       PLE_BROWSER_ORIGIN: ${PLE_BROWSER_ORIGIN:-}
@@ -370,11 +367,6 @@ services:
       # uses this only for its local transport attestation path; its service
       # login and database authority remain unchanged.
       PLE_STORAGE_TOPOLOGY: ${PLE_STORAGE_TOPOLOGY:?set PLE_STORAGE_TOPOLOGY in the env file}
-      # Question publication fails closed when the installation has not
-      # selected all three private Bloom provider values.
-      PLE_BLOOM_OLLAMA_BASE_URL: ${PLE_BLOOM_OLLAMA_BASE_URL:-}
-      PLE_BLOOM_MODEL: ${PLE_BLOOM_MODEL:-}
-      PLE_BLOOM_CONTEXT_TOKENS: ${PLE_BLOOM_CONTEXT_TOKENS:-}
       # Service Login Setup replaces this fail-closed sentinel with the Local
       # Stack Controller-generated API login URL before the API can connect.
       DATABASE_URL: ${PLE_API_DATABASE_URL:-postgres://ple_api_login:service-login-setup-required@postgres:5432/${POSTGRES_DB:-peptidyle}}

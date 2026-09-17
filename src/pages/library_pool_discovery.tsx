@@ -206,7 +206,8 @@ export function LibraryPoolDiscovery(props: {
     setDetailError(false);
     if (items().length === 0) void readPage();
     queueMicrotask(() => {
-      (returnButton ?? poolSearchInput)?.focus({ preventScroll: true });
+      const focusTarget = returnButton?.isConnected ? returnButton : poolSearchInput;
+      focusTarget?.focus({ preventScroll: true });
       window.scrollTo({ top: returnScroll });
     });
   }

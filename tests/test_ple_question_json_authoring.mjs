@@ -186,6 +186,11 @@ function publicationSummary(backend = "ple") {
     authorship: { authors: [{ displayName: "Fixture Instructor" }] },
     availability: { availability: "available" },
     publishedAt: 1786000000000,
+    bloom: {
+      cognitiveProcess: "Understand",
+      knowledgeDimension: "Conceptual Knowledge",
+      classificationEditNumber: "1",
+    },
   };
 }
 

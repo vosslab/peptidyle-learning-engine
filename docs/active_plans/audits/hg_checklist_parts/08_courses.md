@@ -249,49 +249,69 @@
 #### Blueprint Course Change Proposal specifications
 
 - [ ] A **Blueprint Course Change Proposal** proposes changes from one Blueprint Course to another.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh actual-role proof for persisted Proposals with exact pins, canonical content, and stale-basis locking.
+  - Verification pending: connected two-Instructor/API/UI review remains open.
 - [ ] An **Instructor** can create a Change Proposal for a Blueprint Course they do not own.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records the closed authorized SQL persistence boundary.
+  - Verification pending: connected two-Instructor/API/UI review remains open.
 - [ ] A Change Proposal records the source Blueprint Course and exact Blueprint Revision.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records exact source/target Revision-pin SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] A Change Proposal records the target Blueprint Course and exact Blueprint Revision used for comparison.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records exact source/target Revision-pin SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] The proposed changes are represented using the canonical Blueprint Course JSON format.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical evidence reconstruction through the existing exporter.
+  - Verification pending: connected API/UI review remains open.
 - [ ] PLE compares the proposed JSON with the target Blueprint Revision to determine the proposed changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical persisted evidence and stale-basis SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] A Change Proposal should present those changes in a human-readable interface rather than requiring
       the receiving **Instructor** to review raw JSON.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records persisted canonical evidence as the closed SQL boundary.
+  - Verification pending: the human-readable connected Instructor interface remains open.
 - [ ] A Change Proposal may include any Blueprint Course content represented in its canonical JSON.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical content-scope SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] Changes may include Course names and metadata, Assessment names and settings, Assessment additions
       and removals, and Question membership changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical content-scope SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] Question content changes belong to the Published Question and are not Blueprint Course changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records unchanged-daughter and immutable-Revision SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] PLE should present proposed changes in terms meaningful to Instructors rather than as raw JSON changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records persisted canonical evidence as the closed SQL boundary.
+  - Verification pending: the Instructor-facing connected presentation remains open.
 - [ ] The receiving **Instructor** can review proposed changes before changing the target Blueprint Course.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records persisted proposal and stale-basis SQL proof.
+  - Verification pending: connected two-Instructor review remains open.
 - [ ] The receiving Instructor decides which proposed changes to accept.
-  - Mismatch: No Change Proposal acceptance operation exists.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh actual-role Entire and Selected acceptance proof.
+  - Verification pending: connected two-Instructor decision workflow remains open.
 - [ ] The receiving Instructor may accept the entire Change Proposal or selected proposed changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh actual-role Entire and Selected acceptance proof.
+  - Verification pending: connected two-Instructor decision workflow remains open.
 - [ ] Accepted changes are applied to the current target Blueprint Course and create a new Blueprint Revision.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records atomic successor-Revisions and one durable outcome.
+  - Verification pending: connected API/UI review remains open.
 - [ ] The Change Proposal remains a record of what was proposed and what was accepted.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records one durable outcome with retained exact evidence.
+  - Verification pending: connected API/UI review remains open.
 - [ ] If the target Blueprint Course changes after the proposal was created, PLE should show that the
       proposal was based on an older target Revision.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records stale-basis locking proof.
+  - Verification pending: connected stale-state presentation remains open.
 - [ ] PLE should not silently apply a proposal against a newer target Revision when the changes no longer
       apply cleanly.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records stale-basis locking and atomic refusal proof.
+  - Verification pending: connected stale-state presentation remains open.
 - [ ] Change Proposals never directly change daughter Course Instances.
-  - Mismatch: No Change Proposal implementation exists to verify this invariant.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records unchanged-daughter actual-role proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] Daughter Course Instances receive accepted changes through the normal Blueprint incorporation workflow.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records unchanged-daughter SQL proof.
+  - Verification pending: connected incorporation workflow remains open.
 
 #### Blueprint Course comparison specifications
 
@@ -341,7 +361,8 @@
 - [ ] Blueprint Revisions can be compared through their canonical JSON representations.
   - Mismatch: No canonical JSON comparison surface was found.
 - [ ] Blueprint Course Change Proposals use canonical JSON to identify changes between Blueprint Revisions.
-  - Mismatch: No Change Proposal implementation exists.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical evidence reconstruction and exact Revision-pin actual-role proof.
+  - Verification pending: connected Instructor comparison and review remain open.
 - N/A Canonical Blueprint JSON may support offline inspection or editing, even if it is not optimized for hand editing.
   - Reason: This explicitly optional future capability does not require implemented behavior.
 - [x] Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.

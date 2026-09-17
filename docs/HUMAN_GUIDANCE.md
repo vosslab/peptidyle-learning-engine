@@ -24,6 +24,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   requirements.
 - This section overrides implementation language elsewhere in this document until an item is moved
   out of this section.
+- AI-backed Bloom classification is desired but deferred until a later release.
+- Any AI backend is desired but deferred and low priority for the current PLE.
+- No specific AI backend is selected.
 - iMathAS is a desired Question Backend deferred until a later release.
 - H5P is a desired Question Backend deferred until a later release.
 - Future H5P use is limited to Regular Assignments, Bonus Assignments, and Practice Question

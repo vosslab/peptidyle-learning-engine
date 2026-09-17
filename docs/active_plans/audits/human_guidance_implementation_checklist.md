@@ -1798,7 +1798,8 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (runtime): `schemas/base_schema/question_publication_operations.sql` `ple_private.publish_new_question_lineage` passed the accepted C879 3-by-3 PostgreSQL publication proof: each exact source Revision license was preserved across three supported compatible CC licenses and every mismatched requested license was rejected.
 - [ ] Watching a Published Question drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Verification pending: retained vetted-Instructor improvement threads and owner/Sysadmin impact notices now have Question and Pool SQL/LDA/server/browser source boundaries. Four-event private Watch delivery is still in progress, and final review plus major-milestone SQL/browser proof remain pending.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
+  - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
 #### Published Question behavior specifications
 
@@ -1880,7 +1881,8 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Verification pending: Source-contributor audit must confirm only exact Published Question Revision members and no Pool-member input; broad runtime evidence remains pending.
 - [ ] Watching a Question Pool drives in-app notifications for new Revisions, forks, improvement
   threads, and impact notices.
-  - Verification pending: retained vetted-Instructor improvement threads and Sysadmin-managed Pool impact notices now have SQL/LDA/server/browser source boundaries. Four-event private Watch delivery is still in progress, and final review plus major-milestone SQL/browser proof remain pending.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for all four private Watch event kinds.
+  - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 
 #### Question Pool metadata
 
@@ -2014,24 +2016,27 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
   Knowledge Dimension.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` stores non-null pairs by exact immutable Question or Pool Revision. `crates/question_model/src/bloom_classification.rs` defines the browser-safe pair and its independent Edit Number; Question and exact Pool reads project it through `src/pages/library_page_model.ts` and `src/pages/library_pool_discovery.tsx`.
-  - Verification pending: provider-backed publication, AI initial assignment, and connected actual-role/browser reads remain open.
+  - Verification pending: classifier/provider selection and orchestration plus connected browser reads remain open; fresh actual-role proof closes the SQL boundary.
 - [ ] The two Bloom dimensions are independent and together determine the object's Bloom Classification.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` validates the two independent closed-vocabulary fields and stores a complete pair rather than a derived matrix value. `crates/learning-data-access/src/question_library.rs` and `crates/learning-data-access/src/question_pool_library.rs` return the pair with its exact-Revision Edit Number.
-  - Verification pending: provider-backed publication, AI initial assignment, and connected actual-role/browser reads remain open.
+  - Verification pending: classifier/provider selection and orchestration plus connected browser reads remain open; fresh actual-role proof closes the SQL boundary.
 - [ ] Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` stores the two guide-defined classification dimensions separately from Question source, scoring, and immutable content Revision data. `src/components/bloom_classification.tsx` presents the exact pair and links its correction help to `docs/BLOOM_TAXONOMY_GUIDE.md`.
-  - Verification pending: AI semantic classification, provider-backed publication admission, and connected Instructor interpretation remain open.
+  - Verification pending: AI semantic classification, classifier/provider orchestration, and connected Instructor interpretation remain open; SQL publication admission is closed.
 - [ ] Bloom Classification supports Question Library search and Assessment item sorting.
   - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` projects every fixed Entry, including retained Entries, from its exact pinned Question Revision pair and every Pool Entry from its exact Assessment-owned fork Pool Revision pair. `src/pages/assessment_workspace/assessment_workspace_questions_model.ts` orders Cognitive Process, Knowledge Dimension, then prior position; equal pairs remain stable. The existing whole-Assessment Save retains its Edit Number CAS.
   - Verification pending: source implementation is present, but connected Instructor proof must sort mixed fixed and Pool Entries, save, reload, and show persisted order plus a concurrent-save conflict. Library discovery has source evidence but still needs connected proof, so this combined requirement remains open.
 - [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` stores a Pool Revision's own pair by `(question_pool_id, revision_number)`, rather than deriving it from member Questions.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves bounded Pool pair storage/correction only; AI whole-Pool assignment, publication admission, typed API/UI projection, and search/reporting remain absent.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of protected candidate/receipt binding and Pool Library admission.
+  - Verification pending: classifier/provider selection and orchestration, typed API/UI projection, and connected search/reporting remain open.
 - [ ] Bloom Classification is required before a Published Question or Question Pool enters the Question
   Library.
-  - Mismatch: `schemas/base_schema/question_bloom.sql` provides exact-Revision storage, but publication producers do not yet atomically initialize it or hide unclassified objects from Library admission; legacy rows can remain unclassified and visible.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof of deferred completeness and Question plus Pool Library admission through one-use protected receipts.
+  - Verification pending: configured classifier/provider orchestration and connected publication/browser acceptance remain open.
 - [ ] AI assigns the initial Bloom Classification as part of publication.
-  - Mismatch: `schemas/base_schema/question_bloom.sql` has no protected AI preparation, model-origin evidence, source-bound stale-result handling, or atomic publication producer wiring. The 2026-09-16 actual-role gate used synthetic initial pairs, not AI output.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records the closed SQL preparation boundary: protected candidate/receipt binding, one use, rollback restoration, and publication admission.
+  - Verification pending: application-owned classifier/provider selection, semantic classification, and connected publication proof remain open.
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` CAS-updates only paired metadata and its classification Edit Number. Typed Question and Pool Stores bind complete-pair commands to exact Revisions; `crates/server/src/question_library.rs` and `src/api/http_client/bloom_classification.ts` expose their routes. `src/components/bloom_classification.tsx` retains drafts, reloads stale state without retrying, and returns focus after completion; Question and Pool detail editors bind exact Revision targets.
@@ -2041,29 +2046,35 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Verification pending: connected multi-page, role, and browser proof remains required. It stays open independently of the connected mixed-entry Assessment-sort/save/reload/concurrent-save proof required by the preceding row.
 - [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` accepts only the guide's six Cognitive Process and four Knowledge Dimension spellings.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves those bounded storage values only; AI classification, publication-required attachment, Instructor-facing teaching interpretation, and search/reporting remain absent.
+  - Verification pending: fresh PostgreSQL 17 actual-role proof closes storage and publication-required attachment; classifier/provider semantics, Instructor-facing teaching interpretation, and connected search/reporting remain open.
 
 #### Question Library stewardship specifications
 
 - [ ] Question Library stewardship should use a GitHub-like model.
-  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records current Question/Pool Star and Watch SQL/LDA proof plus four-event private Watch delivery.
+  - Verification pending: connected Question/Pool workflows and browser presentation remain open.
 - [ ] Published Questions and Question Pools can be starred and watched.
-  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records current Question/Pool Star and private Watch persistence proof.
+  - Verification pending: connected Question/Pool controls and browser proof remain open.
 - [x] Star means favorite and visible endorsement.
   - Evidence (source): `schemas/base_schema/question_stewardship.sql` `set_current_question_star` records an active Instructor's Star only for a Published Question; `src/components/question_star_control.tsx` `QuestionStarControl` provides the visible Star and count surface.
   - Evidence (test): `tests/e2e/e2e_question_star_name_privacy.sh` `Question Star name privacy E2E` passed on 2026-09-15 with an active vetted Instructor's actual HTTP Star action and exact closed Star projection.
 - [ ] Vetted **Instructors** can see the star count and which vetted **Instructors** starred a Published
   Question or Question Pool.
-  - Verification pending: `schemas/base_schema/question_stewardship.sql` `validate_question_publication` supplies Published-Question stewardship context only. Re-audit this exact Question/Pool obligation, including private identity/watch projection and all named notification kinds; existing Question-only evidence does not establish Pool scope.
+  - Verification pending: current SQL/LDA proof covers Question/Pool stewardship persistence; connected authorized identity-list projection and browser proof remain open.
 - [ ] Watch means subscription.
-  - Mismatch: Question watches are not implemented.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records current private Question/Pool Watch persistence proof.
+  - Verification pending: connected subscription controls and browser proof remain open.
 - [ ] Watching a Published Question or Question Pool drives in-app notifications for new Revisions,
   forks, improvement threads, and impact notices.
-  - Verification pending: the two retained discussion lifecycles and their Question/Pool activity vocabulary are implemented in current source. The private four-event Watch delivery path is in progress; final review and major-milestone SQL/browser acceptance remain pending.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh PostgreSQL 17 actual-role proof for private Revision, fork, improvement-thread, and impact-notice delivery.
+  - Verification pending: final connected HTTP/UI and browser notification presentation remain open.
 - [ ] An **Instructor's** watch list remains private.
-  - Mismatch: Question watches are not implemented.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records private Question/Pool Watch persistence and recipient delivery.
+  - Verification pending: connected privacy and browser proof remain open.
 - [ ] **Students** and anonymous users do not receive **Instructor** identity lists or watch information.
-  - Mismatch: Question watch access controls are not implemented.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records the private recipient SQL boundary.
+  - Verification pending: connected anonymous/Student denial and browser proof remain open.
 ## Course specifications
 
 - [ ] **Courses** organize reusable teaching content and its delivery to **Students**.
@@ -2315,49 +2326,69 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 #### Blueprint Course Change Proposal specifications
 
 - [ ] A **Blueprint Course Change Proposal** proposes changes from one Blueprint Course to another.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh actual-role proof for persisted Proposals with exact pins, canonical content, and stale-basis locking.
+  - Verification pending: connected two-Instructor/API/UI review remains open.
 - [ ] An **Instructor** can create a Change Proposal for a Blueprint Course they do not own.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records the closed authorized SQL persistence boundary.
+  - Verification pending: connected two-Instructor/API/UI review remains open.
 - [ ] A Change Proposal records the source Blueprint Course and exact Blueprint Revision.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records exact source/target Revision-pin SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] A Change Proposal records the target Blueprint Course and exact Blueprint Revision used for comparison.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records exact source/target Revision-pin SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] The proposed changes are represented using the canonical Blueprint Course JSON format.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical evidence reconstruction through the existing exporter.
+  - Verification pending: connected API/UI review remains open.
 - [ ] PLE compares the proposed JSON with the target Blueprint Revision to determine the proposed changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical persisted evidence and stale-basis SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] A Change Proposal should present those changes in a human-readable interface rather than requiring
       the receiving **Instructor** to review raw JSON.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records persisted canonical evidence as the closed SQL boundary.
+  - Verification pending: the human-readable connected Instructor interface remains open.
 - [ ] A Change Proposal may include any Blueprint Course content represented in its canonical JSON.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical content-scope SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] Changes may include Course names and metadata, Assessment names and settings, Assessment additions
       and removals, and Question membership changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical content-scope SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] Question content changes belong to the Published Question and are not Blueprint Course changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records unchanged-daughter and immutable-Revision SQL proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] PLE should present proposed changes in terms meaningful to Instructors rather than as raw JSON changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records persisted canonical evidence as the closed SQL boundary.
+  - Verification pending: the Instructor-facing connected presentation remains open.
 - [ ] The receiving **Instructor** can review proposed changes before changing the target Blueprint Course.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records persisted proposal and stale-basis SQL proof.
+  - Verification pending: connected two-Instructor review remains open.
 - [ ] The receiving Instructor decides which proposed changes to accept.
-  - Mismatch: No Change Proposal acceptance operation exists.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh actual-role Entire and Selected acceptance proof.
+  - Verification pending: connected two-Instructor decision workflow remains open.
 - [ ] The receiving Instructor may accept the entire Change Proposal or selected proposed changes.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records fresh actual-role Entire and Selected acceptance proof.
+  - Verification pending: connected two-Instructor decision workflow remains open.
 - [ ] Accepted changes are applied to the current target Blueprint Course and create a new Blueprint Revision.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records atomic successor-Revisions and one durable outcome.
+  - Verification pending: connected API/UI review remains open.
 - [ ] The Change Proposal remains a record of what was proposed and what was accepted.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records one durable outcome with retained exact evidence.
+  - Verification pending: connected API/UI review remains open.
 - [ ] If the target Blueprint Course changes after the proposal was created, PLE should show that the
       proposal was based on an older target Revision.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records stale-basis locking proof.
+  - Verification pending: connected stale-state presentation remains open.
 - [ ] PLE should not silently apply a proposal against a newer target Revision when the changes no longer
       apply cleanly.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records stale-basis locking and atomic refusal proof.
+  - Verification pending: connected stale-state presentation remains open.
 - [ ] Change Proposals never directly change daughter Course Instances.
-  - Mismatch: No Change Proposal implementation exists to verify this invariant.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records unchanged-daughter actual-role proof.
+  - Verification pending: connected API/UI review remains open.
 - [ ] Daughter Course Instances receive accepted changes through the normal Blueprint incorporation workflow.
-  - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records unchanged-daughter SQL proof.
+  - Verification pending: connected incorporation workflow remains open.
 
 #### Blueprint Course comparison specifications
 
@@ -2407,7 +2438,8 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Blueprint Revisions can be compared through their canonical JSON representations.
   - Mismatch: No canonical JSON comparison surface was found.
 - [ ] Blueprint Course Change Proposals use canonical JSON to identify changes between Blueprint Revisions.
-  - Mismatch: No Change Proposal implementation exists.
+  - Evidence (runtime): `docs/active_plans/audits/sql_human_guidance_audit.md` records canonical evidence reconstruction and exact Revision-pin actual-role proof.
+  - Verification pending: connected Instructor comparison and review remain open.
 - N/A Canonical Blueprint JSON may support offline inspection or editing, even if it is not optimized for hand editing.
   - Reason: This explicitly optional future capability does not require implemented behavior.
 - [x] Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.

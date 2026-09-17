@@ -7,39 +7,36 @@ ordinary PLE product model. It gives a new installation useful data for
 end-to-end demonstration and acceptance; it is not a second schema, a mock
 application, or a special lifecycle of its own.
 
-After canonical database structure initialization, the operator runs the
-explicit installation-data provision command. That operation includes this
-environment by default; `--without-live-demo` omits the fictional teaching
-graph but retains ordinary shipped Genetics content. The choice never changes
-the installed schema or application model. Once
-provisioned, every record follows the same archive, retention, Unrelease, and
-deletion rules as corresponding product data. There is no demo-specific marker,
-role, teardown capability, or report artifact.
+After the Bloom publication cutover and canonical database initialization, the
+operator will run the installation-data provision command. That operation will
+include this environment by default; `--without-live-demo` will omit the
+fictional teaching graph but retain ordinary shipped Genetics content. The
+choice will not change the installed schema or application model. Once
+provisioned, every record will follow the same archive, retention, Unrelease,
+and deletion rules as corresponding product data. There will be no
+demo-specific marker, role, teardown capability, or report artifact.
 
-Local disposable stacks use the same installation-data path. Resetting one of
-those stacks replaces its storage; it is a development convenience, not a
+Local disposable stacks will use the same installation-data path. Resetting one
+of those stacks replaces its storage; it is a development convenience, not a
 separate product-data contract.
 
 ## Installation boundary
 
-The canonical base schema is DDL-only and creates no product data. The separate,
-explicit installation-data provision command includes the Live Demo by default. It
-first uses the ordinary Pilot Question publisher to create the required
-published Question Revisions and their object bindings, then applies the
-database-owned Live Demo graph. The publisher returns exact Question Revision
-references to the SQL manifest; the manifest validates that mapping before it
-creates dependent records. `--without-live-demo` leaves the fictional Live Demo
-graph unprovisioned while retaining the shipped Genetics content.
+The canonical base schema is DDL-only and creates no product data. After the
+Bloom publication cutover, the separate installation-data provision command
+will include the Live Demo by default. It will first use the ordinary Pilot
+Question publisher to create the required published Question Revisions and
+their object bindings, then apply the database-owned Live Demo graph. The
+publisher will return exact Question Revision references to the SQL manifest;
+the manifest will validate that mapping before it creates dependent records.
+`--without-live-demo` will leave the fictional Live Demo graph unprovisioned
+while retaining the shipped Genetics content.
 
-Fresh Pilot and shipped Genetics publication requires the installation-owned native
-Ollama Bloom provider described in
-[INSTALL.md](INSTALL.md#configure-question-publication-classification).
-The publisher sends exact protected source only to that private fixed origin, requires
-a complete two-dimensional classification, and prepares the existing one-use
-PostgreSQL receipt before atomic publication. Existing matching immutable Question
-provenance remains reusable without another model call. The installer never pulls a
-model; absent, partial, or unavailable provider selection stops new publication before
-creating Draft or source objects.
+Automated initial Bloom Classification is deferred, and the PLE runtime does
+not configure an AI provider. The current SQL and data-access publication
+contract still requires a prepared Bloom receipt, so fresh Question publication
+for this graph remains unavailable until that separate cutover is complete.
+This limitation does not add another Live Demo topology or gateway path.
 
 Question identifiers are ordinary opaque public IDs. Published Questions and
 Question Pools use the canonical `XXXX-ZXXX` form unchanged in storage, APIs,

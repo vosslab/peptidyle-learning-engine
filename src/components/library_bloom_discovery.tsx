@@ -90,7 +90,7 @@ export function LibraryBloomDiscovery(props: {
         <div class="question-library-bloom-report" aria-label="Bloom Classification report">
           <p>
             Counts describe all Questions matching every current filter, including both Bloom
-            selections—not only the Questions loaded below.
+            selections-not only the Questions loaded below.
           </p>
           <div>
             <section aria-labelledby="bloom-cognitive-counts">

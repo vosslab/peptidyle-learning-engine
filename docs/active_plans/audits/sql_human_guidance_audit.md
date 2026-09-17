@@ -469,11 +469,12 @@ establish actual-role, connected, or global acceptance.
 
 Current `question_bloom.sql` supersedes the historical absence finding: it stores the two required
 dimensions independently for exact Question and Pool Revisions and provides Instructor CAS
-correction without a content Revision. Publication and Pool-creation producers still do not
-atomically initialize the pair or exclude unclassified objects from Library admission, and the
-protected AI-result binding remains open. The SQL also lacks full Question/Pool optional Hint and
-Worked Solution persistence. Existing Question general feedback should not be mistaken for the
-complete support-content contract.
+correction without a content Revision. Fresh PostgreSQL 17 actual-role proof covers the protected,
+candidate-bound one-use receipt, rollback restoration, deferred completeness, and Question plus
+Pool Library admission. Choosing and operating a protected-content classifier/provider is
+application work; connected publication and browser proof remain open. The SQL also lacks full
+Question/Pool optional Hint and Worked Solution persistence. Existing Question general feedback
+should not be mistaken for the complete support-content contract.
 
 ### Partial implementation: stewardship, statistics, and Blueprint workflows
 
@@ -481,24 +482,25 @@ Question and Pool stars/watches plus retained Question/Pool improvement threads
 and impact notices have current SQL/LDA source support. Active vetted Instructors
 participate in text-only threads; Question owners and Sysadmins administer
 Question state/notices, while Pool administration is Sysadmin-only. Resolved
-threads and cancelled notices remain retained. Four-event private Watch delivery
-is in progress and not yet accepted.
+threads and cancelled notices remain retained. Fresh PostgreSQL 17 actual-role
+proof covers private Watch delivery for Revision, fork, improvement-thread, and
+impact-notice events. HTTP/UI controls and notification presentation remain open.
 Statistics provide accepted-graded and correct totals plus choice counts;
 the full Pool Revision statistics, partial/unanswered categories, and privacy-
 thresholded display contract are not represented by those counters alone.
 No public statistics disclosure was demonstrated in this audit.
 
 Blueprint immutable revisions, exact Question pins, forks, availability, and
-lineage comparisons are present. SQL support for Sysadmin-controlled Promoted
-status is not evident. **2026-09-16 current-source addendum:** Change Proposal
-create/read persistence now keeps exact Revision and metadata-event pins and
-reconstructs canonical evidence through the existing exporter, without a
-duplicate JSON baseline. Explicit Proposal submission permits only the
-receiving owner to read its exact Private-source evidence; ordinary Private
-source and Revision-history access remains denied. Fresh actual-role proof
-covers this bounded foundation and stale basis; selected/whole acceptance,
-accepted record/outcome, resulting target Revision, API/UI, and connected
-acceptance remain open. These remain distinct from Question correction records.
+lineage comparisons are present. Current source and isolated actual-role proof
+cover the Sysadmin-controlled Promoted flag, CAS mutation, and cursor-bound
+discovery. **2026-09-17 current-source addendum:** Change Proposal persistence
+keeps exact Revision and metadata-event pins, reconstructs canonical evidence
+through the existing exporter without a duplicate JSON baseline, and permits
+only the receiving owner to read exact Private-source evidence. Fresh actual-role
+proof covers stale-basis locking, Entire and Selected acceptance, one durable
+outcome, atomic successor creation, and unchanged daughters. API/UI and
+connected review remain open. These remain distinct from Question correction
+records.
 
 **2026-09-16 superseding clarification:** The historical recommendation for later
 attachment to an existing Blueprint is superseded. Course Instance creation can use
@@ -510,10 +512,11 @@ remain appropriate. **2026-09-17 current-source addendum:**
 now supplies the separate atomic Course-to-new-Blueprint operation and immutable source relation;
 fresh actual-role proof passed without mutating Course Origin or the source teaching instance.
 
-The Blueprint discovery projection derives `total_students_ever_enrolled` from
-membership rows. Retention deletes Student memberships, so that derivation cannot
-serve as a durable lifetime total. Use privacy-preserving aggregates if the
-displayed metric is intended to retain historical enrollment.
+The current retained-counter design supplies the privacy-preserving lifetime
+enrollment total independently of deletable membership rows. Fresh PostgreSQL
+17 actual-role proof covers exactly-once increments, rollback, concurrency, and
+Unrelease retention. Its browser label, disclosure, and connected presentation
+remain application evidence.
 
 ### Partial implementation: recovery and deferred backends
 

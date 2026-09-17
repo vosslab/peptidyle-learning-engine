@@ -67,6 +67,17 @@
 
 ### Fixes and Maintenance
 
+- Reconciled the SQL Human Guidance audit and generator-owned checklist parts with the current
+  Closed SQL ledger. Bloom preparation/admission, Question/Pool Watches and notifications,
+  Blueprint Promoted and Change Proposal persistence, and retained lifetime totals no longer appear
+  as missing SQL mechanisms. Their application, browser, worker, and connected proof remains open.
+- Removed the accidental native Ollama dependency from the PLE product runtime,
+  Compose environment, installation guidance, and Live Demo contract. PLE now
+  composes ordinary non-publication service paths without an AI backend. The
+  provider-neutral Bloom preparation boundary remains unconfigured, and the
+  SQL/data-access prepared-receipt dependency remains an explicit follow-up
+  before new Question or Pool publication can complete. Optional developer-side
+  Graphify model support is separate and unchanged.
 - Threaded trusted, one-use Bloom preparation receipts through Question Pool creation,
   Assessment Pool import/append, Blueprint Pool materialization, Course adoption, source updates,
   and daughter-Course propagation. Browser DTOs remain unchanged; missing prepared receipts stop

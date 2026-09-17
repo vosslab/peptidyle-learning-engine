@@ -16,9 +16,10 @@ second-Instructor fixture proof passed. The next rebuild needs compiled-main two
 client/API proof. Blueprint Change Proposal HTTP and the
 Instructor component have separate accepted isolated proof, but compiled-main two-Instructor
 client/API proof remains pending. Pool stewardship has current SQL/LDA proof only: HTTP/UI and
-required notifications remain pending. Recovery is connected for the native fixture; its
+notification presentation remain pending. Recovery is connected for the native fixture; its
 Instructor-zone display correction is source-only and not deployed. All official screenshots and
-the full SQL lock remain pending. These receipts do not change checklist status or counts.
+the remaining high-visibility UI/browser gates remain pending; the current SQL lock ledger has no
+open required SQL-owned row. These receipts do not change checklist status or counts.
 
 ## Current bounded SQL corrections
 
@@ -2290,6 +2291,8 @@ After the last correction milestone closes: perform final freshness verification
 -> `docs/ux/RIBBON_DESTINATION_LEDGER.md`), Graphify output, and `docs/SCREENSHOT_ATLAS.md`.
 Remove `Generated evidence stale:` notes. Gate: regeneration commands exit 0; screenshot contract
 tests pass; changelog entry.
+Deferred AI backend work, including AI-backed Bloom classification, is not a prerequisite for this
+milestone or its interim checkpoint.
 
 ### Interim full-corpus refresh checkpoint
 

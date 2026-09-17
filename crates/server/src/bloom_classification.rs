@@ -17,17 +17,12 @@ use objects::Sha256Checksum;
 use question_model::{BloomClassification, QuestionRevisionReference};
 use regex_lite::Regex;
 
-/// Native Ollama implementation of the private classifier contract.
-pub mod ollama;
-
 /// Maximum protected semantic evidence admitted to one classification request.
 pub const MAX_BLOOM_EVIDENCE_BYTES: usize = 1024 * 1024;
 
 /// Verified protected image evidence required to interpret a Question.
 pub struct BloomProtectedAssetEvidence {
     bytes: Arc<[u8]>,
-    checksum: Sha256Checksum,
-    media_type: String,
 }
 
 impl BloomProtectedAssetEvidence {
@@ -49,8 +44,6 @@ impl BloomProtectedAssetEvidence {
         }
         Ok(Self {
             bytes: Arc::from(bytes),
-            checksum,
-            media_type,
         })
     }
 }
@@ -59,7 +52,6 @@ impl BloomProtectedAssetEvidence {
 pub struct BloomQuestionEvidence {
     source_bytes: Arc<[u8]>,
     source_checksum: Sha256Checksum,
-    source_media_type: String,
     protected_assets: Vec<BloomProtectedAssetEvidence>,
 }
 
@@ -95,7 +87,6 @@ impl BloomQuestionEvidence {
         Ok(Self {
             source_bytes: Arc::from(source_bytes),
             source_checksum,
-            source_media_type,
             protected_assets,
         })
     }

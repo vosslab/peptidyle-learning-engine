@@ -1176,6 +1176,11 @@
         "captureIds": ["instructor_course_list_laptop"]
       },
       {
+        "routeId": "instructorInactiveCourses",
+        "status": "deferred",
+        "reason": "My Inactive Courses is available to Instructors and awaits a canonical Live Demo screenshot capture."
+      },
+      {
         "routeId": "studentHome",
         "status": "captured",
         "captureIds": ["student_course_list_laptop", "student_course_list_phone"]
