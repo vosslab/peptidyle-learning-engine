@@ -142,7 +142,12 @@ export function decodeQuestionSummary(
       strict,
     ),
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
-    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
+    // Bloom Classification is blank until the deferred AI daemon assigns it.
+    bloom: decodeNullable(
+      field(record, "bloom", path),
+      `${path}.bloom`,
+      decodeBloomClassificationView,
+    ),
   } satisfies QuestionSummary;
   if (decoded.latestQuestionRevision.questionId !== decoded.questionId) {
     throw new DecodeError(

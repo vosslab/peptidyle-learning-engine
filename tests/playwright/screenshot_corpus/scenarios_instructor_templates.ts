@@ -24,9 +24,10 @@ async function instructorTemplates(runtime: ScenarioRuntime): Promise<void> {
     await session.page
       .getByRole("heading", { level: 1, name: "My Assessment Templates" })
       .waitFor();
-    const createTemplateForm = session.page
-      .getByRole("heading", { level: 3, name: "Create a Template", exact: true })
-      .locator("xpath=ancestor::form");
+    // Create a Template is a disclosure button; the form stays hidden until it is expanded.
+    await session.page.getByRole("button", { name: "Create a Template", exact: true }).click();
+    const createTemplateForm = session.page.locator("form#create-assessment-template");
+    await createTemplateForm.waitFor();
     await createTemplateForm
       .getByRole("textbox", { name: "Template name", exact: true })
       .fill(TEMPLATE_NAME);

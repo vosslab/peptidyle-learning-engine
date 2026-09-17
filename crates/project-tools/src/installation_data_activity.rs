@@ -377,6 +377,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                 item,
                 &[
                     "classification",
+                    "lifecycleState",
                     "metadataEtag",
                     "reference",
                     "shortName",

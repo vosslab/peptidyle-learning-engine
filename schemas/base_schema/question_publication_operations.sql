@@ -256,9 +256,9 @@ BEGIN
 END
 $$;
 REVOKE ALL ON FUNCTION ple_private.publish_question_revision(
-    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb, uuid) FROM PUBLIC;
+    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.publish_question_revision(
-    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb, uuid) TO ple_api_owner;
+    uuid, bigint, uuid, text, integer, uuid, jsonb, bytea, bigint, text, bigint, text, uuid, jsonb) TO ple_api_owner;
 RESET ROLE;
 
 SET LOCAL ROLE ple_api_owner;

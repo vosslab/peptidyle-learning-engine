@@ -52,7 +52,8 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     const inactiveCourseList = session.page.getByLabel("Inactive Course Instances", {
       exact: true,
     });
-    await inactiveCourseList.waitFor();
+    // A zero-row list has no height, so Playwright reports it hidden; attachment is the state.
+    await inactiveCourseList.waitFor({ state: "attached" });
     if ((await inactiveCourseList.locator(".instructor-list__row--course").count()) !== 0) {
       throw new Error("The inactive Course list must have zero Course rows for this scenario.");
     }
@@ -81,7 +82,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("link", { name: "Gradebook", exact: true })
       .click();
     await session.page.locator('[data-route-surface="gradebook"]').waitFor();
-    await session.page.getByRole("cell", { name: "BIO301-JACK", exact: true }).first().waitFor();
+    await session.page.getByText("BIO301-JACK", { exact: true }).first().waitFor();
     await captureCheckpoint(runtime, scenario, "gradebook", session);
     await session.page.locator(".ple-app-ribbon__brand").click();
     await session.page.waitForURL((url) => url.pathname === "/instructor");

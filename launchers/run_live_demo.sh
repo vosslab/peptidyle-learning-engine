@@ -65,6 +65,26 @@ case "$command" in
     ;;
 esac
 
+# A suite that is already running keeps running: report its URL instead of clearing it.
+# Only an explicit `stop` clears an existing suite.
+suite_state="$repository_root/local_stack_state/live_demo_browser"
+control_receipt="$suite_state/developer-control.json"
+if [[ -f "$suite_state/developer-launch.json" && ! -f "$control_receipt" ]]; then
+  echo "Live Demo is still starting; wait for its ready URL or run ./launchers/run_live_demo.sh stop." >&2
+  exit 1
+fi
+if [[ -f "$control_receipt" ]]; then
+  entry_url="$(jq -r '.origin' "$control_receipt")sign-in"
+  echo "Live demo entry: $entry_url"
+  echo "Live Demo is already running; use ./launchers/run_live_demo.sh stop to clear it."
+  case "$headless" in
+    false)
+      exec python3 "$repository_root/local_stack.py" open
+      ;;
+  esac
+  exit 0
+fi
+
 "$repository_root/devel/setup_typescript.sh"
 
 case "$headless" in

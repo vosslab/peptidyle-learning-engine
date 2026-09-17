@@ -8,6 +8,7 @@ repository_root="$(dirname "$script_directory")"
 runner="$repository_root/tests/playwright/capture_live_demo_screenshots.mjs"
 mode="--publish"
 headed=""
+fresh=""
 
 for argument in "$@"; do
 	case "$argument" in
@@ -17,13 +18,18 @@ for argument in "$@"; do
 	--headed)
 		headed="--headed"
 		;;
+	--fresh)
+		fresh="yes"
+		;;
 	-h | --help)
 		printf '%s\n' \
-			"Usage: ./devel/capture_screenshots.sh [--verify] [--headed]" \
+			"Usage: ./devel/capture_screenshots.sh [--verify] [--headed] [--fresh]" \
 			"" \
-			"Default: capture and publish the complete manifest corpus headlessly." \
+			"Default: capture and publish the complete manifest corpus headlessly against the" \
+			"already-running Live Demo (start one with ./launchers/run_live_demo.sh --headless)." \
 			"--verify: validate tracked artifacts, replay live, and retain replay evidence." \
-			"--headed: open Chromium; local CLI authenticator still completes normal Sysadmin MFA."
+			"--headed: open Chromium; local CLI authenticator still completes normal Sysadmin MFA." \
+			"--fresh: stop, start, and afterwards stop an owned Live Demo instead of reusing one."
 		exit 0
 		;;
 	*)
@@ -40,14 +46,29 @@ if [[ "$mode" == "--verify" ]]; then
 fi
 
 "$repository_root/devel/setup_playwright.sh"
-"$repository_root/launchers/run_live_demo.sh" stop
 
-cleanup() {
-	"$repository_root/launchers/run_live_demo.sh" stop >/dev/null || true
-}
-trap cleanup EXIT
+source "$repository_root/source_me.sh"
 
-live_demo_output="$("$repository_root/launchers/run_live_demo.sh" --headless | tee /dev/stderr)"
+if [[ "$fresh" == "yes" ]]; then
+	"$repository_root/launchers/run_live_demo.sh" stop
+
+	cleanup() {
+		"$repository_root/launchers/run_live_demo.sh" stop >/dev/null || true
+	}
+	trap cleanup EXIT
+
+	live_demo_output="$("$repository_root/launchers/run_live_demo.sh" --headless | tee /dev/stderr)"
+else
+	# Reuse the running owned stack. A stack whose code is unchanged counts as fresh.
+	control_receipt="$repository_root/local_stack_state/live_demo_browser/developer-control.json"
+	if [[ ! -f "$control_receipt" ]]; then
+		printf 'No running Live Demo; start one with ./launchers/run_live_demo.sh --headless\n' >&2
+		exit 1
+	fi
+	live_demo_output="Live demo entry: $(jq -r '.origin' "$control_receipt")sign-in"
+	printf '%s\n' "$live_demo_output" >&2
+fi
+
 live_demo_entry="$(printf '%s\n' "$live_demo_output" | sed -n 's/^Live demo entry: //p')"
 if [[ -z "$live_demo_entry" ]]; then
 	printf 'The Live Demo did not report its entry URL.\n' >&2
@@ -55,7 +76,6 @@ if [[ -z "$live_demo_entry" ]]; then
 fi
 
 # Path-only handoff: the separate CLI child reads private setup material, not Chromium.
-source "$repository_root/source_me.sh"
 authenticator_output="$(python3 local_stack.py authenticator --env-file \
 	local_stack_state/live_demo_browser/workspace/env.local)"
 PLE_LOCAL_DEMO_TOTP_SETUP_FILE="$(printf '%s\n' "$authenticator_output" | \
@@ -71,6 +91,11 @@ if [[ "$headed" == "--headed" ]]; then
 	DEBUG="" PWDEBUG="" node --import tsx "$runner" "$mode" --headed "$live_demo_entry"
 else
 	DEBUG="" PWDEBUG="" node --import tsx "$runner" "$mode" "$live_demo_entry"
+fi
+
+if [[ "$fresh" != "yes" ]]; then
+	printf 'Screenshot corpus complete; the existing Live Demo stack is still running.\n'
+	exit 0
 fi
 
 "$repository_root/launchers/run_live_demo.sh" stop

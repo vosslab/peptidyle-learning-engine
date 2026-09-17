@@ -185,7 +185,8 @@ orchestration. Both are intentionally excluded from `pytest tests/`; see
 The current aggregate validates the active code and service contracts without claiming browser or
 visual acceptance. The screenshot command is a separate reproducible visual-evidence lane; its
 `--verify` mode replays the complete manifest through a clean stack. See
-[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md).
+[SCREENSHOT_CONTRACT.md](SCREENSHOT_CONTRACT.md) for policy and
+[HOW_TO_SCREENSHOT.md](HOW_TO_SCREENSHOT.md) for the step-by-step rebuild.
 `./devel/run_playwright_tests.sh --build` is the serial M19 real-stack
 production-browser owner. It remains separate from the aggregate gate; its
 fresh accepted 2026-09-07 result is recorded in the Live Demo evidence.

@@ -62,7 +62,8 @@ capabilities.
 
 ## Rebuild and verification
 
-`./devel/capture_screenshots.sh` is the supported rebuild entry point. It
+`./devel/capture_screenshots.sh` is the supported rebuild entry point;
+[HOW_TO_SCREENSHOT.md](HOW_TO_SCREENSHOT.md) walks through running it. It
 starts the seeded stack it owns, navigates normal visible PLE workflows, checks
 route, semantic-state, privacy, page-error, origin, and dimension invariants,
 then publishes every declared artifact and stops that stack. Capture support
