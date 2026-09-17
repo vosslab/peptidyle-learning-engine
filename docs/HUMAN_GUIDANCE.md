@@ -1120,11 +1120,10 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
   Knowledge Dimension.
 - The two Bloom dimensions are independent and together determine the object's Bloom Classification.
-- Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
 - Bloom Classification supports Question Library search and Assessment item sorting.
 - A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
-- Bloom Classification is required before a Published Question or Question Pool enters the Question
-  Library.
+- Bloom Classification is left blank when a Published Question or Question Pool enters the Question
+  Library, to be updated by AI later.
 - AI assigns the initial Bloom Classification as part of publication.
 - An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
