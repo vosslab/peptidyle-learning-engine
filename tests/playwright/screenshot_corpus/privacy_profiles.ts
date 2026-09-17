@@ -12,7 +12,8 @@ interface PrivacyProfile {
 }
 
 const NO_KEYS = new Set<string>();
-const SELECTED_RESPONSE_KEYS = new Set(["pointspossible"]);
+// A Student's own prior-Attempt score is self-only aggregate data, not an answer key.
+const SELECTED_RESPONSE_KEYS = new Set(["pointsearned", "pointspossible"]);
 const SELF_AGGREGATE_KEYS = new Set([
   "correct",
   "correctness",

@@ -9,7 +9,8 @@ import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
 import { enterSysadmin, scrollTop } from "./visible_workflows";
 
-const CREATED_EMAIL = "screenshot.instructor@live-demo.invalid";
+// Unique per run so replays on the same stack can create a fresh Account.
+const CREATED_EMAIL = `screenshot.instructor.${String(Date.now())}@live-demo.invalid`;
 const VERIFIED_INSTRUCTOR_DISPLAY_NAME = "Screenshot Instructor";
 
 async function captureCheckpoint(

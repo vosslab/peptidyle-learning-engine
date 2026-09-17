@@ -10,6 +10,17 @@
 
 ### Behavior or Interface Changes
 
+- Refreshed the complete canonical screenshot corpus (76 captures) from a fresh Live Demo through
+  `./devel/capture_screenshots.sh`, including the new Inactive Courses list and complete Student
+  coverage of all eight native Question Types plus WeBWorK at laptop and phone widths. The
+  `published_question_result` and `invitation_accepted` captures are retired; the invitation
+  scenario now captures an invited Student who never joins so it replays on the same stack.
+  Static corpus verification and the atlas regeneration passed.
+- `./devel/capture_screenshots.sh` now runs against the already-running Live Demo by default
+  (`--fresh` stops, starts, and stops an owned stack; `--only=<scenario,...>` stages selected
+  scenarios without publishing). `./launchers/run_live_demo.sh` no longer clears a running or
+  starting suite; it reports the entry URL, and only `stop` clears. A first start prints a
+  30-second heartbeat and keeps supervisor output in `local_stack_state/live_demo_browser/supervisor.log`.
 - B3 records source-approved Bloom Question Library discovery: two independent exact filters combine
   with every existing predicate, remain bound through saved searches, URL handoff, and opaque cursor
   continuation, and preserve existing sorts. Server facets describe the whole matching set with all
@@ -67,6 +78,14 @@
 
 ### Fixes and Maintenance
 
+- Repaired drift that blocked the Live Demo and screenshot replay: the base schema still granted
+  the pre-Bloom-receipt `publish_question_revision` signature (psql exit 3 on install); the Live
+  Demo seeder rejected the Course summary's new `lifecycleState` field; the Question Library
+  decoder refused `bloom: null` ("The library could not load"); `build.sh` now regenerates the
+  ignored `generated/api/QuestionIdSyntaxContract.ts` instead of only checking it. Screenshot
+  scenarios follow the current UI (Create Course Instance and Create a Template disclosures,
+  Practice Question Assignment labels, Course-name invitation heading, gradebook roster cells)
+  and stop asserting Student completion state or byte-level details the captures do not depend on.
 - Reconciled the SQL Human Guidance audit and generator-owned checklist parts with the current
   Closed SQL ledger. Bloom preparation/admission, Question/Pool Watches and notifications,
   Blueprint Promoted and Change Proposal persistence, and retained lifetime totals no longer appear

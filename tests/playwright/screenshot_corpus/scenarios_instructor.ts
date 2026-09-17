@@ -196,8 +196,11 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
     await session.page
       .getByRole("button", { name: "Review publication changes", exact: true })
       .click();
-    await session.page.getByLabel("Question Authors").waitFor();
-    await captureCheckpoint(runtime, scenario, "publication_review", session);
+    const questionAuthors = session.page.getByLabel("Question Authors");
+    await questionAuthors.waitFor();
+    // The review section renders below the editor form, so capture it in view.
+    await questionAuthors.scrollIntoViewIfNeeded();
+    await runtime.capture(session, runtime.record(scenario, "publication_review"));
   } finally {
     await runtime.close(session);
   }

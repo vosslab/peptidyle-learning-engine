@@ -110,11 +110,15 @@ function studentCourseChooserHeading(page: Page): Locator {
   return page.getByRole("heading", { name: "Your courses", exact: true });
 }
 
+/** Matches the overview's entry button whether the Attempt is new or resumable. */
+export const ASSESSMENT_ENTRY_BUTTON = new RegExp(`^(Start|Resume) ${ASSESSMENT_TYPE_LABEL}$`, "u");
+
 export async function openStudentAssignment(page: Page): Promise<void> {
   const card = assignmentCard(page);
-  await card.getByRole("link", { name: `Open ${ASSESSMENT_TYPE_LABEL}`, exact: true }).click();
+  // The card verb is Open, Resume, or Review depending on prior replays; the link is the same.
+  await card.locator("a.primary-link").click();
   await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
-  await page.getByRole("button", { name: `Start ${ASSESSMENT_TYPE_LABEL}`, exact: true }).waitFor();
+  await page.getByRole("button", { name: ASSESSMENT_ENTRY_BUTTON }).waitFor();
 }
 
 /** Opens the active Attempt through its Student Course landing and Assignment card. */

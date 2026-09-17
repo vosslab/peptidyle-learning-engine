@@ -56,14 +56,15 @@ async function verifyPublished(): Promise<PublishedContract> {
 }
 
 async function replay(
-  mode: "publish" | "verify",
+  mode: "publish" | "verify" | "only",
   entryArgument: string | undefined,
   headed: boolean,
+  onlyScenarioIds: ReadonlySet<string> = new Set(),
 ): Promise<void> {
   const publishedBefore = mode === "verify" ? await verifyPublished() : undefined;
   const contract = publishedBefore ?? (await loadContract());
   const entryUrl = requireEntryUrl(entryArgument);
-  const outputRoot = path.join(resultRoot, mode === "publish" ? "staging" : "verify");
+  const outputRoot = path.join(resultRoot, mode === "verify" ? "verify" : "staging");
   await prepareOutputRoot(outputRoot);
   const browser = await chromium.launch({
     headless: !headed,
@@ -76,7 +77,13 @@ async function replay(
       outputRoot,
       manifest: contract.manifest,
     });
-    for (const scenario of SCREENSHOT_SCENARIOS) {
+    const selected = SCREENSHOT_SCENARIOS.filter(
+      (scenario) => mode !== "only" || onlyScenarioIds.has(scenario.id),
+    );
+    if (mode === "only" && selected.length !== onlyScenarioIds.size) {
+      throw new Error("unknown screenshot scenario id in --only selection");
+    }
+    for (const scenario of selected) {
       console.log(`Running screenshot scenario ${scenario.id}`);
       try {
         await scenario.run(runtime);
@@ -84,6 +91,11 @@ async function replay(
         console.error(`Screenshot scenario ${scenario.id} failed.`);
         throw error;
       }
+    }
+    if (mode === "only") {
+      // Iteration aid: staged captures stay under test-results/ and nothing is published.
+      console.log(`Ran ${String(selected.length)} selected scenario(s) into ${outputRoot}.`);
+      return;
     }
     requireProducedClosure(runtime);
     if (mode === "publish") {
@@ -131,6 +143,12 @@ export async function main(arguments_: ReadonlyArray<string>): Promise<void> {
     console.log("Static screenshot corpus verification passed.");
     return;
   }
+  if (mode === "--only") {
+    if (firstArgument === undefined || secondArgument === undefined || extra.length > 0) {
+      throw new Error("usage: capture_live_demo_screenshots.mjs --only ENTRY_URL id[,id...]");
+    }
+    return replay("only", firstArgument, false, new Set(secondArgument.split(",")));
+  }
   const headed = firstArgument === "--headed";
   const entryArgument = headed ? secondArgument : firstArgument;
   if (extra.length > 0 || (headed ? secondArgument === undefined : secondArgument !== undefined)) {
@@ -139,6 +157,7 @@ export async function main(arguments_: ReadonlyArray<string>): Promise<void> {
   if (mode === "--publish") return replay("publish", entryArgument, headed);
   if (mode === "--verify") return replay("verify", entryArgument, headed);
   throw new Error(
-    "usage: capture_live_demo_screenshots.mjs --publish|--verify [--headed] ENTRY_URL",
+    "usage: capture_live_demo_screenshots.mjs --publish|--verify [--headed] ENTRY_URL " +
+      "| --only ENTRY_URL id[,id...]",
   );
 }

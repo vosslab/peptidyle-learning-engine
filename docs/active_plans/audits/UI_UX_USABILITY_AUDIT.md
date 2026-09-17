@@ -259,10 +259,10 @@ below reflects friction at those steps, rather than implementation effort.
 
 [current_capture_manifest.json](../../screenshots/current_capture_manifest.json) marks Assessment
 Templates as needing a fresh capture and the historical multi-tab Assignment workspace as retired.
-Its next replay registers source-backed My Active Courses and My Inactive Courses, including the
-Inactive Courses zero-row list; Watched remains a route-backed private inbox awaiting its dedicated
-rendered checkpoint. These manifest declarations do not claim fresh PNG evidence. File presence
-and filenames alone establish neither current route behavior nor successful task completion.
+The 2026-09-17 replay published fresh PNG evidence for My Active Courses and the My Inactive
+Courses zero-row list (which renders no empty-state copy); Watched remains a route-backed private
+inbox awaiting its dedicated rendered checkpoint. File presence and filenames alone establish
+neither current route behavior nor successful task completion.
 Reproduce findings on the admitted interface before making implementation changes. Preserve useful
 teaching behavior while correcting its presentation.
 

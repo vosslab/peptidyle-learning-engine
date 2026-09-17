@@ -9,6 +9,7 @@ runner="$repository_root/tests/playwright/capture_live_demo_screenshots.mjs"
 mode="--publish"
 headed=""
 fresh=""
+only_ids=""
 
 for argument in "$@"; do
 	case "$argument" in
@@ -20,6 +21,10 @@ for argument in "$@"; do
 		;;
 	--fresh)
 		fresh="yes"
+		;;
+	--only=*)
+		mode="--only"
+		only_ids="${argument#--only=}"
 		;;
 	-h | --help)
 		printf '%s\n' \
@@ -76,7 +81,9 @@ fi
 export PLE_LOCAL_DEMO_TOTP_SETUP_FILE
 export NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt"
 
-if [[ "$headed" == "--headed" ]]; then
+if [[ "$mode" == "--only" ]]; then
+	DEBUG="" PWDEBUG="" node --import tsx "$runner" --only "$live_demo_entry" "$only_ids"
+elif [[ "$headed" == "--headed" ]]; then
 	DEBUG="" PWDEBUG="" node --import tsx "$runner" "$mode" --headed "$live_demo_entry"
 else
 	DEBUG="" PWDEBUG="" node --import tsx "$runner" "$mode" "$live_demo_entry"
