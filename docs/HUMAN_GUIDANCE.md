@@ -88,8 +88,9 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Course**: The general term covering both **Blueprint Courses** and **Course Instances**.
 - **Blueprint Course**: A reusable Course used to create **Course Instances**. It has no enrolled **Students**, deadlines, or other teaching-specific delivery settings.
 - **Blueprint Revision**: A fixed version of a **Blueprint Course** preserved so its reusable content cannot change.
-- **Course Instance**: A Course used for teaching. It has **Students**, deadlines, releases, and other delivery settings. It may be created from a Blueprint Course or started empty.
-- **Adoption**: Connecting a **Course Instance** to a **Blueprint Course**. Adoption may occur when the Course Instance is created or later.
+- **Course Instance**: A Course used for teaching. It has **Students**, deadlines, releases, and other delivery settings. It may start independently with no parent **Blueprint Course**, or an **Instructor** may create it from a **Blueprint Course**.
+- **Adoption**: A connection between a **Blueprint Course** and a **Course Instance**. An **Instructor** establishes Adoption by creating a new Course Instance from a Blueprint Course or by creating a new Blueprint Course from an existing Course Instance's reusable structure.
+- **Create Blueprint from Course Instance**: Creating a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records the existing Course Instance as its source, and that Course Instance remains the same teaching instance.
 
 ### Assessment vocabulary
 
@@ -1081,14 +1082,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - **Courses** organize reusable teaching content and its delivery to **Students**.
 - PLE has two Course forms: **Blueprint Courses** and **Course Instances**.
 - **Blueprint Courses** provide reusable course designs for **Course Instances**.
-- Course Instances may be created from a Blueprint Course or started empty.
+- Course Instances may start independently with no parent Blueprint Course, or an **Instructor** may create them from a Blueprint Course.
 - A Course can have multiple co-**Instructors** with equal teaching authority.
 - **Sysadmins** can create Courses, but **Instructors** teach them.
 - Every Course Instance must have at least one assigned **Instructor**.
 - Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
-- **Adoption** connects a Course Instance to a Blueprint Course.
-- Adoption may occur when the Course Instance is created or later.
-- A Course Instance connected to a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+- **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
+- An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
+- A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
 
 ### Course classification specifications
 
@@ -1112,7 +1113,8 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Blueprint Courses do not contain dates or relative schedules.
 - Public Blueprint Courses are visible and reusable by every vetted **Instructor**.
 - Blueprint Courses contain only **Published Questions** and published **Question Pools**.
-- An **Instructor** may deliberately publish an existing Course Instance structure as a new Blueprint Course.
+- An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+- Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
 
 #### Blueprint Course lifecycle specifications
 
@@ -1256,19 +1258,19 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - Active Courses are current teaching Course Instances.
 - Inactive Courses are past Course Instances and retain Course metadata, including after
   FERPA-sensitive Student data is removed.
-- An **Instructor** may deliberately publish reusable Course Instance structure as a new **Blueprint Course**.
+- An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
 - A new academic term uses a new Course Instance. Rollover is not a separate product model.
 
 #### Blueprint adoption and daughter Course Instances
 
-- An **adoption** occurs when an **Instructor** creates a Course Instance from a Blueprint Course.
-- Blueprint Courses track how many Course Instances have been created from them as their adoption count.
-- A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
+- **Adoption** connects a Blueprint Course and a Course Instance through either Course creation workflow.
+- Creating a new Course Instance from a Blueprint Course establishes an Adoption and increases that Blueprint Course's **Adoption count** by one.
+- Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
+- A Course Instance created from a Blueprint Course is a **daughter Course Instance** of that Blueprint Course.
 - A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.
-- Creating a Course Instance from a Blueprint Course counts as an adoption of that Blueprint Course.
-- The new Course Instance receives every Assessment from the selected Blueprint Revision.
-- Creating a Course Instance from a Blueprint Course copies its Assessments, Questions, Question Pools, and reusable settings.
-- Course Instance Assessments created from a Blueprint Course start unreleased with dates unset.
+- A daughter Course Instance receives every Assessment from the selected Blueprint Revision.
+- Creating a daughter Course Instance copies the Blueprint Course's Assessments, Questions, Question Pools, and reusable settings.
+- Course Instance Assessments created from Blueprint Assessments start unreleased with dates unset.
 - New Blueprint Revisions are offered to daughter Course Instances for **Instructor** review.
 - Routine Blueprint changes should be quick for an **Instructor** to review and incorporate.
 - It should be obvious when a daughter Course Instance is based on an older Blueprint Revision.
