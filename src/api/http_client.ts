@@ -28,6 +28,7 @@ import { createLiveStudentCourseLandingClient } from "./http_client/live_student
 import { createQuestionAvailabilityClient } from "./http_client/question_availability";
 import { createQuestionWatchClient } from "./http_client/question_watch";
 import { createQuestionStarClient } from "./http_client/question_star";
+import { createQuestionForkClient } from "./http_client/question_fork";
 import { createQuestionPoolLibraryClient } from "./http_client/question_pool_library";
 import { createQuestionPoolCreationClient } from "./http_client/question_pool_creation";
 import { createQuestionPoolStewardshipClient } from "./http_client/question_pool_stewardship";
@@ -75,6 +76,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createQuestionAvailabilityClient(fetchImplementation, basePath),
     createQuestionWatchClient(fetchImplementation, basePath),
     createQuestionStarClient(fetchImplementation, basePath),
+    createQuestionForkClient(fetchImplementation, basePath),
     createQuestionPoolLibraryClient({ fetch: fetchImplementation, basePath }),
     createQuestionPoolCreationClient(fetchImplementation, basePath),
     createQuestionPoolStewardshipClient(fetchImplementation, basePath),

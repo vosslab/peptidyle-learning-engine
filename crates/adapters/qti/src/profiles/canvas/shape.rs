@@ -86,7 +86,7 @@ pub(super) fn valid_meta(root: &XmlNode) -> bool {
         && root.namespace_uri() == Some("http://canvas.instructure.com/xsd/cccv1p0")
         && root.attribute("identifier") == Some("assessment_meta")
         && attributes_are(root, &["identifier"])
-        && names(root) == ["title", "assessment"]
+        && names(root) == ["title", "assignment"]
         && structural_text(root)
         && root
             .children()
@@ -94,13 +94,13 @@ pub(super) fn valid_meta(root: &XmlNode) -> bool {
             .all(|child| child.namespace_uri() == root.namespace_uri())
         && exactly(root, "title")
             .is_some_and(|title| title.children().is_empty() && !text(title).trim().is_empty())
-        && exactly(root, "assessment").is_some_and(|assessment| {
-            attributes_are(assessment, &["identifier"])
-                && names(assessment) == ["title"]
-                && structural_text(assessment)
-                && assessment.children()[0].namespace_uri() == root.namespace_uri()
-                && assessment.children()[0].children().is_empty()
-                && !text(&assessment.children()[0]).trim().is_empty()
+        && exactly(root, "assignment").is_some_and(|assignment| {
+            attributes_are(assignment, &["identifier"])
+                && names(assignment) == ["title"]
+                && structural_text(assignment)
+                && assignment.children()[0].namespace_uri() == root.namespace_uri()
+                && assignment.children()[0].children().is_empty()
+                && !text(&assignment.children()[0]).trim().is_empty()
         })
 }
 fn valid_resource(node: &XmlNode) -> bool {

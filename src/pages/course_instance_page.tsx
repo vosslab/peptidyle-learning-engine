@@ -1,10 +1,17 @@
 // course_instance_page.tsx - Instructor Course Instance teaching workspace.
 
-import { A, useParams } from "@solidjs/router";
+import { A, useNavigate, useParams } from "@solidjs/router";
 import { createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
+import type { CourseInstanceSummary } from "../api/course_instance";
+import { decodeCreateBlueprintFromCourseInstanceInput } from "../api/decoders/course_instance";
+import { ApiRequestError } from "../api/http_client";
 import { CourseClassificationEditor } from "../components/course_classification_editor";
+import {
+  CourseClassificationFields,
+  type CourseClassificationDraft,
+} from "../components/course_classification_fields";
 import { CourseStudentWorkRecovery } from "../components/course_student_work_recovery";
 import type { CourseAssessmentSummary, LiveAssessmentStatus } from "../api/assessment_release";
 import { LiveAssessmentWorkspaceConflictError } from "../api/http_client/assessment_release";
@@ -45,6 +52,178 @@ function formatLocalDueDateAndTime(value: string | null): string {
     timeStyle: "short",
     timeZone: "UTC",
   }).format(neutralCarrier);
+}
+
+/** Creates a distinct private Blueprint while retaining the source Course Instance unchanged. */
+function CreateBlueprintFromCourseInstance(props: {
+  readonly course: CourseInstanceSummary;
+}): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const navigate = useNavigate();
+  const [open, setOpen] = createSignal(false);
+  const [shortName, setShortName] = createSignal(props.course.shortName);
+  const [longName, setLongName] = createSignal(props.course.longName);
+  const [classification, setClassification] = createSignal<CourseClassificationDraft>(
+    props.course.classification,
+  );
+  const [busy, setBusy] = createSignal(false);
+  const [message, setMessage] = createSignal("");
+  let dialog: HTMLDialogElement | undefined;
+  let opener: HTMLButtonElement | undefined;
+  let shortNameInput: HTMLInputElement | undefined;
+  let creationAction: { readonly payload: string; readonly key: string } | undefined;
+
+  function close(): void {
+    if (busy()) return;
+    if (dialog?.open) dialog.close();
+    setOpen(false);
+    queueMicrotask(() => opener?.focus());
+  }
+
+  function openDialog(): void {
+    setShortName(props.course.shortName);
+    setLongName(props.course.longName);
+    setClassification(props.course.classification);
+    setMessage("");
+    setOpen(true);
+    queueMicrotask(() => {
+      dialog?.showModal();
+      shortNameInput?.focus();
+    });
+  }
+
+  async function create(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    if (busy()) return;
+    let input;
+    try {
+      input = decodeCreateBlueprintFromCourseInstanceInput({
+        classification: classification(),
+        shortName: shortName(),
+        longName: longName(),
+      });
+    } catch {
+      setMessage(
+        "Enter trimmed Blueprint short and long names, choose a Discipline, and check the classification.",
+      );
+      shortNameInput?.focus();
+      return;
+    }
+    const payload = JSON.stringify(input);
+    if (creationAction?.payload !== payload) {
+      creationAction = { payload, key: crypto.randomUUID() };
+    }
+    setBusy(true);
+    setMessage("");
+    try {
+      const result = await applicationApi.client.createBlueprintFromCourseInstance(
+        props.course.reference,
+        input,
+        creationAction.key,
+      );
+      creationAction = undefined;
+      if (dialog?.open) dialog.close();
+      navigate(`/blueprint-courses/${encodeURIComponent(result.blueprintCourse.reference)}`);
+    } catch (error: unknown) {
+      setMessage(
+        error instanceof ApiRequestError && error.status === 401
+          ? "Your session ended. Sign in again, then return to this Course Instance."
+          : "The Blueprint could not be confirmed. Retry to confirm the same creation request.",
+      );
+      queueMicrotask(() => shortNameInput?.focus());
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={(element) => {
+          opener = element;
+        }}
+        class="quiet-action"
+        type="button"
+        onClick={openDialog}
+      >
+        Create Blueprint from Course Instance
+      </button>
+      <Show when={open()}>
+        <dialog
+          class="course-instance-blueprint-dialog"
+          aria-labelledby="course-instance-blueprint-heading"
+          aria-describedby="course-instance-blueprint-help"
+          ref={(element) => {
+            dialog = element;
+          }}
+          onCancel={(event) => {
+            event.preventDefault();
+            close();
+          }}
+        >
+          <header class="course-instance-blueprint-dialog__heading">
+            <div>
+              <h2 id="course-instance-blueprint-heading">Create Blueprint from Course Instance</h2>
+              <p id="course-instance-blueprint-help">
+                Creates a new Blueprint by copying reusable structure. This Course Instance remains
+                unchanged and becomes the new Blueprint Course's first Adoption.
+              </p>
+            </div>
+          </header>
+          <form aria-busy={busy()} onSubmit={(event) => void create(event)}>
+            <fieldset disabled={busy()}>
+              <div class="course-instance-blueprint-dialog__fields">
+                <label>
+                  Blueprint short name
+                  <input
+                    ref={(element) => {
+                      shortNameInput = element;
+                    }}
+                    name="shortName"
+                    value={shortName()}
+                    maxlength="200"
+                    autocomplete="off"
+                    required
+                    onInput={(event) => setShortName(event.currentTarget.value)}
+                  />
+                </label>
+                <label>
+                  Blueprint long name
+                  <input
+                    name="longName"
+                    value={longName()}
+                    maxlength="200"
+                    autocomplete="off"
+                    required
+                    onInput={(event) => setLongName(event.currentTarget.value)}
+                  />
+                </label>
+              </div>
+              <CourseClassificationFields
+                value={classification()}
+                disabled={busy()}
+                onChange={setClassification}
+              />
+              <div class="course-instance-blueprint-dialog__actions">
+                <button class="primary-action" type="submit">
+                  {busy() ? "Creating Blueprint..." : "Create Blueprint"}
+                </button>
+                <button class="quiet-action" type="button" onClick={close}>
+                  Cancel
+                </button>
+              </div>
+            </fieldset>
+          </form>
+          <Show when={busy()}>
+            <p role="status" aria-live="polite" aria-atomic="true">
+              Creating Blueprint from Course Instance...
+            </p>
+          </Show>
+          <Show when={message()}>{(value) => <p role="alert">{value()}</p>}</Show>
+        </dialog>
+      </Show>
+    </>
+  );
 }
 
 function AssessmentRow(props: {
@@ -516,6 +695,7 @@ export function CourseInstancePage(): JSX.Element {
                     Appearance
                   </A>
                 </nav>
+                <CreateBlueprintFromCourseInstance course={view().course} />
                 <Show
                   when={profile.error === undefined}
                   fallback={

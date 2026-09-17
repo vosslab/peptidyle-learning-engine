@@ -2,12 +2,9 @@
 
 //! Connected PostgreSQL oracle for immutable Blueprint Revision persistence.
 
-use std::{
-    collections::BTreeMap,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 use learning_data_access::postgres::{
@@ -26,8 +23,8 @@ use question_model::{
     BlueprintModuleEditChoice, BlueprintModuleReplacementInput, BlueprintRevision,
     CreateBlueprintCourseInput, CreateBlueprintModuleInput, LateWorkRule, QuestionAttemptLimit,
     QuestionAttemptTimeLimit, QuestionId, QuestionRevisionNumber, QuestionRevisionReference,
-    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, ReusableFixedQuestionInput,
-    StudentFeedbackReleaseRule,
+    RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput, RequestChecksum,
+    ReusableFixedQuestionInput, StudentFeedbackReleaseRule,
 };
 use sqlx::{Connection, PgConnection, Row};
 use tokio::sync::oneshot;
@@ -41,6 +38,9 @@ use blueprint_course_postgres_support::*;
 mod blueprint_course_postgres_adoption;
 #[path = "blueprint_course_postgres/append.rs"]
 mod blueprint_course_postgres_append;
+
+#[path = "blueprint_course_postgres/exchange.rs"]
+mod blueprint_course_postgres_exchange;
 
 #[path = "blueprint_course_postgres/promotion.rs"]
 mod blueprint_course_postgres_promotion;
@@ -56,29 +56,37 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     seed(&admin).await;
     admin.close().await;
 
-    let revision_one = initial_content();
-    let create_checksum = request(0x11);
-    let (reference, revision) = create(
-        &application_url,
-        id(0xb110),
-        create_checksum.clone(),
-        &revision_one,
-    )
-    .await;
-    assert_eq!(revision, 1);
-    let replay = create(&application_url, id(0xb111), create_checksum, &revision_one).await;
+    let application_pool = lazy_pool(&application_url).expect("application fixture pool");
+    let pool_ids = Arc::new(FixturePoolIdIssuer(AtomicUsize::new(0)));
+    let owner_store = PostgresBlueprintCourseStore::new(application_pool.clone())
+        .with_question_pool_id_issuer(pool_ids.clone());
+    let create_input = content_input("Revision one Assessment");
+    let created = owner_store
+        .create_blueprint_course(
+            token(),
+            RequestChecksum::from_bytes([0x11; 32]),
+            create_input.clone(),
+        )
+        .await
+        .expect("owner creates a new Blueprint through the application Store");
     assert_eq!(
-        replay,
-        (reference, 1),
+        created.blueprint_revision.revision,
+        BlueprintRevision::INITIAL
+    );
+    let replay = owner_store
+        .create_blueprint_course(
+            token(),
+            RequestChecksum::from_bytes([0x11; 32]),
+            create_input,
+        )
+        .await
+        .expect("create request replay");
+    assert_eq!(
+        replay.blueprint_revision, created.blueprint_revision,
         "create request replay returns its original Revision"
     );
-
-    let blueprint_reference = blueprint_public_reference(reference)
-        .await
-        .parse::<BlueprintCourseReference>()
-        .expect("Blueprint reference");
-    let application_pool = lazy_pool(&application_url).expect("application fixture pool");
-    let owner_store = PostgresBlueprintCourseStore::new(application_pool.clone());
+    let blueprint_reference = created.blueprint_revision.reference;
+    let reference = blueprint_reference_number(blueprint_reference).await;
     let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
     promotion_boundary(&owner_store, blueprint_reference).await;
     // Regression: a refactor could disclose Private immutable content or let
@@ -91,6 +99,13 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("owner reads a new Private Blueprint");
     assert_eq!(owner_private.availability, BlueprintAvailability::Private);
+    let revision_one = owner_private.content.clone();
+    blueprint_course_postgres_exchange::assert_actual_role_round_trip(
+        &owner_store,
+        blueprint_reference,
+        &owner_private,
+    )
+    .await;
     assert!(
         owner_store
             .list_blueprint_courses(token(), discovery(false))
@@ -158,7 +173,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         BlueprintAvailability::Public
     );
     let instance_store = PostgresCourseInstanceStore::new(application_pool.clone())
-        .with_question_pool_id_issuer(Arc::new(FixturePoolIdIssuer(AtomicUsize::new(0))));
+        .with_question_pool_id_issuer(pool_ids.clone());
     let adoption_term = near_now_term(&application_url).await;
     let adopted = instance_store
         .create_course_instance(
@@ -567,13 +582,16 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     choice: BlueprintAssessmentEditChoice::Retained {
                         blueprint_assessment_reference: retained_assessment,
                     },
-                    content: assessment_input("Moved retained Assessment"),
+                    content: retained_assessment_input(
+                        &current_content.modules[0].assessments[0].content,
+                        "Moved retained Assessment",
+                    ),
                 }],
             },
         ],
     };
     let append_store = PostgresBlueprintCourseStore::new(application_pool.clone())
-        .with_question_pool_id_issuer(Arc::new(FixturePoolIdIssuer(AtomicUsize::new(2))));
+        .with_question_pool_id_issuer(pool_ids.clone());
     let moved_receipt = append_store
         .save_blueprint_course(
             token(),
@@ -637,74 +655,6 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_immutable_child(&mut inspection, sealed_update, reference, 3).await;
     assert_immutable_child(&mut inspection, sealed_delete, reference, 3).await;
 
-    let store = PostgresBlueprintCourseStore::new(application_pool.clone());
-    let blueprint_reference = blueprint_public_reference(reference)
-        .await
-        .parse::<BlueprintCourseReference>()
-        .expect("Blueprint reference");
-    let exact_revision = BlueprintRevision::new(3).expect("Revision three");
-    let before_tamper = store
-        .load_blueprint_revision(
-            token(),
-            question_model::BlueprintRevisionReference {
-                reference: blueprint_reference,
-                revision: exact_revision,
-            },
-        )
-        .await
-        .expect("stored Revision checksum before tamper");
-    assert_eq!(before_tamper.content.modules.len(), 2);
-
-    let mut tamper = inspection.begin().await.expect("tamper transaction");
-    sqlx::query("SET LOCAL ROLE ple_data_owner")
-        .execute(&mut *tamper)
-        .await
-        .expect("tamper owner role");
-    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision NO FORCE ROW LEVEL SECURITY")
-        .execute(&mut *tamper)
-        .await
-        .expect("controlled tamper harness temporarily permits owner inspection");
-    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision DISABLE TRIGGER USER")
-        .execute(&mut *tamper)
-        .await
-        .expect("controlled tamper harness disables immutability trigger");
-    let tampered = sqlx::query(
-        "UPDATE ple_data.blueprint_course_revision \
-         SET content = jsonb_set(content, \
-             '{modules,0,assessments,0,blueprint_assessment_reference}', \
-             to_jsonb('00000000-0000-0000-0000-00000000b123'::text)) \
-         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = 3",
-    )
-    .bind(reference)
-    .execute(&mut *tamper)
-    .await
-    .expect("controlled identity tamper");
-    assert_eq!(
-        tampered.rows_affected(),
-        1,
-        "controlled tamper changed one Revision"
-    );
-    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision ENABLE TRIGGER USER")
-        .execute(&mut *tamper)
-        .await
-        .expect("tamper harness restores trigger");
-    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision FORCE ROW LEVEL SECURITY")
-        .execute(&mut *tamper)
-        .await
-        .expect("tamper harness restores forced RLS");
-    tamper.commit().await.expect("tamper commit");
-    assert!(matches!(
-        store
-            .load_blueprint_revision(
-                token(),
-                question_model::BlueprintRevisionReference {
-                    reference: blueprint_reference,
-                    revision: exact_revision,
-                },
-            )
-            .await,
-        Err(StoreError::InvalidRecord(_))
-    ));
     // These store operations are finished. Close their shared fixture pool
     // before the two direct application connections required by the head race;
     // retaining unrelated idle pools must not consume the login's real limit.
@@ -987,4 +937,12 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         .await
         .expect("release final inspection before append fixture");
     blueprint_course_postgres_append::assert_new_assessment_save_preserves_daughter_work().await;
+
+    assert_revision_checksum_mismatch(
+        migration_url,
+        &application_url,
+        reference,
+        blueprint_reference,
+    )
+    .await;
 }

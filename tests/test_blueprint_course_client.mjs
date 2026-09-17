@@ -129,6 +129,17 @@ function creationInput() {
   };
 }
 
+function canonicalExchange() {
+  return {
+    metadata: {
+      short_name: "Biochemistry",
+      long_name: "Biochemistry sequence",
+      classification,
+    },
+    modules: [{ label: "Week one", assessments: [contentInput()] }],
+  };
+}
+
 function replacementInput() {
   return {
     modules: [
@@ -446,6 +457,60 @@ test("B1 client sends Revision and metadata validators to their separate routes"
     client.createBlueprintCourse(missingTypeCreation, "create-without-type"),
     DecodeError,
   );
+});
+
+test("Canonical Blueprint exchange uses the one strict reusable-structure transport contract", async () => {
+  const requests = [];
+  const exchange = canonicalExchange();
+  const client = createHttpApiClient({
+    fetch: async (input, init) => {
+      const request = new Request(new URL(input.toString(), "https://ple.example"), init);
+      requests.push(request.clone());
+      if (request.method === "GET") return noStoreJson(exchange);
+      return noStoreJson({ ...blueprint("1"), reference: "BP7K3M2R" }, '"1"', 201);
+    },
+  });
+
+  assert.deepEqual(await client.exportBlueprintCourse("BP7K3M2Q"), exchange);
+  const imported = await client.importBlueprintCourse(exchange, "import-7");
+  assert.equal(imported.blueprintCourse.reference, "BP7K3M2R");
+  assert.equal(imported.blueprintCourse.availability, "private");
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ["GET", "/api/course-blueprints/BP7K3M2Q/export"],
+      ["POST", "/api/course-blueprints/import"],
+    ],
+  );
+  assert.equal(requests[1].headers.get("idempotency-key"), "import-7");
+  assert.deepEqual(await requests[1].json(), exchange);
+
+  await assert.rejects(
+    client.importBlueprintCourse({ ...exchange, unexpected: true }, "import-8"),
+    DecodeError,
+  );
+});
+
+test("Canonical Blueprint import rejects a receipt that is not a new actor-owned Private root", async () => {
+  const exchange = canonicalExchange();
+  const malformedReceipts = [
+    { availability: "public" },
+    { read_access: "active_instructor" },
+    { fork_source: { reference: "BP7K3M2Q", revision: "1" } },
+    { current_revision: { reference: "BP7K3M2R", revision: "2" } },
+  ];
+
+  for (const changes of malformedReceipts) {
+    const receipt = { ...blueprint("1"), reference: "BP7K3M2R", ...changes };
+    const client = createHttpApiClient({
+      fetch: () =>
+        Promise.resolve(noStoreJson(receipt, `"${receipt.current_revision.revision}"`, 201)),
+    });
+    await assert.rejects(
+      client.importBlueprintCourse(exchange, crypto.randomUUID()),
+      ApiProtocolError,
+    );
+  }
 });
 
 test("B1 client gives a typed conflict for a stale Blueprint Revision Save", async () => {

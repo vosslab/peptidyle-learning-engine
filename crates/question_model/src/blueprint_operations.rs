@@ -82,7 +82,7 @@ impl BlueprintAssessmentContent {
         entries: Vec<BlueprintAssessmentEntryContent>,
         defaults: BlueprintAssessmentDefaults,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        if entries.is_empty() || entries.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
+        if entries.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidEntryCount);
         }
         defaults.validate()?;
@@ -166,11 +166,11 @@ pub struct BlueprintCourseContent {
     modules: Vec<BlueprintCourseModuleContent>,
 }
 impl BlueprintCourseContent {
-    /// Validates nonempty ordered reusable modules.
+    /// Validates bounded ordered reusable modules, including an empty Course.
     pub fn new(
         modules: Vec<BlueprintCourseModuleContent>,
     ) -> Result<Self, BlueprintCourseValidationError> {
-        if modules.is_empty() || modules.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
+        if modules.len() > MAX_ASSESSMENT_ORDERED_ENTRIES {
             return Err(BlueprintCourseValidationError::InvalidModuleCount);
         }
         Ok(Self { modules })

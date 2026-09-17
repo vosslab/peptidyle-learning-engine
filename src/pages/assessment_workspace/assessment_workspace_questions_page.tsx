@@ -15,8 +15,12 @@ import { useApplicationApi } from "../../api/application_api";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
 import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
+import { SelectedAssessmentEntryIdentity } from "./assessment_workspace_selected_entry";
 import { normalizeQuestionIdSyntax } from "../../question_id";
-import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
+import {
+  AssessmentWorkspaceIdentity,
+  useAssessmentWorkspace,
+} from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import {
   appendAvailableFixedQuestion,
@@ -27,7 +31,6 @@ import {
 } from "./assessment_workspace_questions_model";
 import { UnsavedChangesGuard } from "./unsaved_changes_guard";
 import {
-  AssessmentEntrySummary,
   AssessmentBlueprintContentSummary,
   currentBlueprintUpdateContent,
 } from "./assessment_blueprint_update_review";
@@ -544,6 +547,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       <header class="assessment-workspace-header">
         <p class="eyebrow">Assessment workspace</p>
         <h1 id="assessment-questions-heading">Assessment Question Editor</h1>
+        <AssessmentWorkspaceIdentity />
         <p class="page-lede">
           Every Entry retains its exact Question Revision and stable identity for future Attempts.
         </p>
@@ -655,33 +659,52 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       <section class="assessment-editor-panel" aria-labelledby="selected-questions-heading">
         <h2 id="selected-questions-heading">Ordered Assessment Entries</h2>
         <Show when={entries().length > 0} fallback={<p>No Entries are selected.</p>}>
-          <ol>
+          <ol class="assessment-editor-list">
             <For each={entries()}>
               {(entry, index) => (
-                <li data-assessment-entry={entry.id}>
-                  <AssessmentEntrySummary entry={entry} description={description} />{" "}
-                  <button
-                    type="button"
-                    disabled={busy() || needsReload() || index() === 0}
-                    onClick={() => move(index(), -1)}
+                <li
+                  classList={{
+                    "assessment-editor-row": true,
+                    "assessment-editor-pool": entry.kind === "questionPool",
+                  }}
+                  data-assessment-entry={entry.id}
+                >
+                  <SelectedAssessmentEntryIdentity
+                    entry={entry}
+                    entryNumber={index() + 1}
+                    description={description}
+                  />
+                  <div
+                    class="assessment-editor-row-actions"
+                    role="group"
+                    aria-label={`Entry ${index() + 1} actions`}
                   >
-                    Move earlier
-                  </button>{" "}
-                  <button
-                    type="button"
-                    disabled={busy() || needsReload() || index() === entries().length - 1}
-                    onClick={() => move(index(), 1)}
-                  >
-                    Move later
-                  </button>{" "}
-                  <button
-                    type="button"
-                    disabled={busy() || needsReload()}
-                    aria-label={`Remove Assessment Entry ${index() + 1}`}
-                    onClick={() => remove(index())}
-                  >
-                    Remove
-                  </button>
+                    <button
+                      class="quiet-action"
+                      type="button"
+                      disabled={busy() || needsReload() || index() === 0}
+                      onClick={() => move(index(), -1)}
+                    >
+                      Move earlier
+                    </button>
+                    <button
+                      class="quiet-action"
+                      type="button"
+                      disabled={busy() || needsReload() || index() === entries().length - 1}
+                      onClick={() => move(index(), 1)}
+                    >
+                      Move later
+                    </button>
+                    <button
+                      class="quiet-action"
+                      type="button"
+                      disabled={busy() || needsReload()}
+                      aria-label={`Remove Assessment Entry ${index() + 1}`}
+                      onClick={() => remove(index())}
+                    >
+                      Remove
+                    </button>
+                  </div>
                   <Show when={questionPoolEntry(entry)}>
                     {(poolEntry) => (
                       <AssessmentPoolEntryEditor

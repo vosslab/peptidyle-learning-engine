@@ -18,7 +18,7 @@ try {
   await page
     .getByRole("button", { name: "Assume the role of Instructor Dr. Elena Rivera" })
     .click();
-  await page.waitForURL(`${origin}/`);
+  await page.waitForURL(`${origin}/library`);
 
   const gradebookResponse = page.waitForResponse((response) =>
     response.url().endsWith(`/api/course-instances/${course}/gradebook`),

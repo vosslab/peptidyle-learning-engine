@@ -91,6 +91,72 @@
   gap: var(--ple-space-2);
 }
 
+.course-instance-blueprint-dialog {
+  width: min(calc(100% - 2rem), 42rem);
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  overflow: auto;
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  color: var(--ple-text);
+  background: var(--ple-card-surface);
+  box-shadow: var(--ple-shadow);
+}
+
+.course-instance-blueprint-dialog[open],
+.course-instance-blueprint-dialog form,
+.course-instance-blueprint-dialog fieldset,
+.course-instance-blueprint-dialog__fields {
+  display: grid;
+  gap: var(--ple-space-3);
+}
+
+.course-instance-blueprint-dialog::backdrop {
+  background: rgb(18 31 44 / 48%);
+}
+
+.course-instance-blueprint-dialog__heading h2,
+.course-instance-blueprint-dialog__heading p,
+.course-instance-blueprint-dialog p {
+  margin: 0;
+}
+
+.course-instance-blueprint-dialog__heading p,
+.course-instance-blueprint-dialog > p {
+  margin-block-start: var(--ple-space-1);
+  color: var(--ple-muted);
+}
+
+.course-instance-blueprint-dialog fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.course-instance-blueprint-dialog__fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.course-instance-blueprint-dialog__fields label {
+  display: grid;
+  gap: var(--ple-space-1);
+  min-inline-size: 0;
+  color: var(--ple-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.course-instance-blueprint-dialog__fields input {
+  min-inline-size: 0;
+}
+
+.course-instance-blueprint-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-space-2);
+}
+
 @media (max-width: 48rem) {
   .course-instance-page__section-heading,
   .course-instance-page__detail-grid {
@@ -103,6 +169,10 @@
 
   .course-instance-page__detail-group--wide {
     grid-column: auto;
+  }
+
+  .course-instance-blueprint-dialog__fields {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

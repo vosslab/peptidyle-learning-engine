@@ -1,6 +1,7 @@
 // Strict same-origin transport for Course Instance creation and Teaching Team reads.
 
 import type { CourseInstanceReference } from "../../../generated/api/CourseInstanceReference";
+import { decodeBlueprintCourseView } from "../decoders/blueprint_course";
 import type { ApiClient } from "../client";
 import type { CourseInstanceClient } from "../course_instance";
 import { decodeCourseClassification } from "../decoders/course_classification";
@@ -11,6 +12,7 @@ import {
   decodeCourseInstanceList,
   decodeCourseInstanceRouteSummary,
   decodeCourseInstanceView,
+  decodeCreateBlueprintFromCourseInstanceInput,
   decodeCreateCourseInstanceInput,
   decodeCreatedCourseInstance,
 } from "../decoders/course_instance";
@@ -18,6 +20,24 @@ import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 import { parseCourseInstanceReference } from "../../navigation/public_route";
+
+const MAX_IDEMPOTENCY_KEY_BYTES = 128;
+
+function idempotencyKey(value: string, path: string): string {
+  if (
+    value.length === 0 ||
+    value.length > MAX_IDEMPOTENCY_KEY_BYTES ||
+    !Array.from(value).every((character) => {
+      const code = character.codePointAt(0);
+      return code !== undefined && code >= 0x21 && code <= 0x7e;
+    })
+  ) {
+    throw new ApiProtocolError(
+      `API ${path} Idempotency-Key must be 1 through 128 visible ASCII bytes`,
+    );
+  }
+  return value;
+}
 
 export function courseInstancePath(reference: CourseInstanceReference): string {
   if (parseCourseInstanceReference(reference) === null) {
@@ -56,6 +76,44 @@ export function createCourseInstanceClient(
   basePath: string,
 ): Pick<ApiClient, keyof CourseInstanceClient> {
   return {
+    createBlueprintFromCourseInstance: async (
+      reference,
+      input,
+      requestKey,
+    ): Promise<Awaited<ReturnType<CourseInstanceClient["createBlueprintFromCourseInstance"]>>> => {
+      const path = `${courseInstancePath(reference)}/course-blueprints`;
+      const response = await requestSameOrigin(fetchImplementation, basePath, path, {
+        method: "POST",
+        body: decodeCreateBlueprintFromCourseInstanceInput(input),
+        headers: { "idempotency-key": idempotencyKey(requestKey, path) },
+      });
+      requireNoStore(response, path);
+      if (!response.ok) throw new ApiRequestError(response.status, path);
+      if (response.status !== 201)
+        throw new ApiProtocolError(`API response ${path} must use status 201`);
+      const blueprintCourse = decodeBlueprintCourseView(
+        await boundedResponseJson(response, path),
+        "response",
+      );
+      const revisionEtag = response.headers.get("etag");
+      if (revisionEtag !== `"${blueprintCourse.current_revision.revision}"`) {
+        throw new ApiProtocolError(
+          `API response ${path} ETag must match its current Blueprint Revision`,
+        );
+      }
+      if (
+        blueprintCourse.availability !== "private" ||
+        blueprintCourse.read_access !== "blueprint_course_owner" ||
+        blueprintCourse.fork_source !== null ||
+        blueprintCourse.current_revision.reference !== blueprintCourse.reference ||
+        blueprintCourse.current_revision.revision !== "1"
+      ) {
+        throw new ApiProtocolError(
+          "Course-derived Blueprint must be an actor-owned Private root at Revision 1",
+        );
+      }
+      return { blueprintCourse, revisionEtag };
+    },
     updateCourseInstanceClassification: async (
       reference,
       classification,

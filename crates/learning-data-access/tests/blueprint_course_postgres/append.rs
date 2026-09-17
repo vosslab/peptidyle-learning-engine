@@ -20,21 +20,26 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     let mut inspection = adoption_inspection_connection().await;
     let url = std::env::var("DATABASE_URL").expect("application database URL");
     let application = lazy_pool(&url).expect("append application pool");
-    let initial = initial_content();
-    let (blueprint_number, _) = create(&url, id(0xb210), request(0x61), &initial).await;
-    let blueprint: BlueprintCourseReference = blueprint_public_reference(blueprint_number)
-        .await
-        .parse()
-        .expect("Blueprint public reference");
     let ids = Arc::new(AppendPoolIds(AtomicUsize::new(0)));
     let courses = PostgresCourseInstanceStore::new(application.clone())
         .with_question_pool_id_issuer(ids.clone());
     let store =
         PostgresBlueprintCourseStore::new(application.clone()).with_question_pool_id_issuer(ids);
+    let created = store
+        .create_blueprint_course(
+            token(),
+            question_model::RequestChecksum::from_bytes([0x61; 32]),
+            content_input("Revision one Assessment"),
+        )
+        .await
+        .expect("owner creates append fixture Blueprint through the application Store");
+    let blueprint = created.blueprint_revision.reference;
+    let blueprint_number = blueprint_reference_number(blueprint).await;
     let private = store
         .load_blueprint_course(token(), blueprint)
         .await
         .expect("owner loads Private Blueprint metadata");
+    let initial = private.content.clone();
     transition_blueprint_availability(
         &url,
         blueprint_number,
@@ -167,7 +172,10 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                         blueprint_assessment_reference: initial.modules[0].assessments[0]
                             .blueprint_assessment_reference,
                     },
-                    content: assessment_input("Changed existing source only"),
+                    content: retained_assessment_input(
+                        &initial.modules[0].assessments[0].content,
+                        "Changed existing source only",
+                    ),
                 },
                 BlueprintAssessmentReplacementInput {
                     choice: BlueprintAssessmentEditChoice::New,
@@ -253,11 +261,14 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                     choice: BlueprintAssessmentEditChoice::Retained {
                         blueprint_assessment_reference: assessment.blueprint_assessment_reference,
                     },
-                    content: assessment_input(if index == 0 {
-                        "Changed existing source only"
-                    } else {
-                        "New mixed Fixed and Pool Assessment"
-                    }),
+                    content: retained_assessment_input(
+                        &assessment.content,
+                        if index == 0 {
+                            "Changed existing source only"
+                        } else {
+                            "New mixed Fixed and Pool Assessment"
+                        },
+                    ),
                 })
                 .collect(),
         }],

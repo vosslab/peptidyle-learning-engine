@@ -124,7 +124,7 @@ persona_cookie() {
 
 assert_status() {
 	if [ "$1" != "$2" ]; then
-		echo "Invitation export returned an unexpected HTTP status" >&2
+		echo "Invitation export returned HTTP $1, expected $2" >&2
 		exit 1
 	fi
 }
@@ -150,28 +150,51 @@ raise SystemExit(0 if headers.get(name) == expected else 1)
 	fi
 }
 
-latest_course_reference() {
-	local instructor_cookie="$1"
-	local body_path="$temporary_directory/course-list.json"
-	local headers_path="$temporary_directory/course-list.headers"
-	local status
-	status="$(request_to_files '/api/course-instances' "$instructor_cookie" GET '' "$body_path" "$headers_path")"
-	assert_status "$status" "200"
-	python3 -c '
-import json, re, sys
-value = json.load(open(sys.argv[1], encoding="utf-8"))
-items = value.get("items") if isinstance(value, dict) else None
-references = [item.get("reference") for item in items or [] if isinstance(item, dict)]
-if not references or any(not isinstance(ref, str) or not re.fullmatch(r"C-[1-9][0-9]{0,9}", ref) for ref in references):
-    raise SystemExit("Course Instance list lacks public identities")
-print(max(references, key=lambda ref: int(ref[2:])))
-' "$body_path"
-}
-
 create_empty_course() {
 	local instructor_cookie="$1"
-	bash "$repository_root/tests/e2e/e2e_live_demo_course_instance.sh" --authority >/dev/null
-	latest_course_reference "$instructor_cookie"
+	local course payload body_path headers_path status
+	body_path="$temporary_directory/course-list.json"
+	headers_path="$temporary_directory/course-list.headers"
+	status="$(request_to_files '/api/course-instances' "$instructor_cookie" GET '' "$body_path" "$headers_path")"
+	assert_status "$status" "200"
+	payload="$(python3 -c '
+import datetime, json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+items = value.get("items") if isinstance(value, dict) else None
+if not isinstance(items, list) or not items or not isinstance(items[0], dict):
+	raise SystemExit("Instructor Course list lacks a reusable classification")
+classification = items[0].get("classification")
+if not isinstance(classification, dict):
+	raise SystemExit("Instructor Course list lacks a reusable classification")
+start = datetime.date.today()
+print(json.dumps({
+	"classification": classification,
+	"source": {"kind": "empty"},
+	"shortName": "M18 invitations",
+	"longName": "M18 Invitation Export Fixture",
+	"term": {
+		"startDate": start.isoformat(),
+		"endDate": (start + datetime.timedelta(days=30)).isoformat(),
+	},
+}, separators=(",", ":")))
+' "$body_path")"
+	body_path="$temporary_directory/course-created.json"
+	headers_path="$temporary_directory/course-created.headers"
+	status="$(request_to_files '/api/course-instances' "$instructor_cookie" POST "$payload" "$body_path" "$headers_path")"
+	assert_status "$status" "201"
+	if ! course="$(python3 -c '
+import json, re, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+course = value.get("course") if isinstance(value, dict) else None
+reference = course.get("reference") if isinstance(course, dict) else None
+if not isinstance(reference, str) or re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{6}", reference) is None:
+	raise SystemExit(1)
+print(reference)
+' "$body_path")"; then
+		echo "Course Instance creation did not return a canonical public reference" >&2
+		exit 1
+	fi
+	printf '%s\n' "$course"
 }
 
 import_pending_invitation() {
@@ -234,13 +257,13 @@ BEGIN
       JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
      WHERE namespace.nspname = 'ple_api'
        AND proc.proname = 'export_pending_course_invitations'
-       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_reference_number bigint';
+       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_public_reference text';
     SELECT proc.oid INTO v_course
       FROM pg_proc AS proc
       JOIN pg_namespace AS namespace ON namespace.oid = proc.pronamespace
      WHERE namespace.nspname = 'ple_api'
        AND proc.proname = 'load_invitation_export_course'
-       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_reference_number bigint';
+       AND pg_get_function_identity_arguments(proc.oid) = 'p_course_public_reference text';
     IF v_export IS NULL OR v_course IS NULL
        OR NOT has_function_privilege('ple_app', v_export, 'EXECUTE')
        OR NOT has_function_privilege('ple_app', v_course, 'EXECUTE')

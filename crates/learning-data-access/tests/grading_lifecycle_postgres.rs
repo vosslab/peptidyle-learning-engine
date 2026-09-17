@@ -24,6 +24,7 @@ async fn migration_pool() -> PgPool {
 // Protects the HG unanswered-zero invariant: evaluated zero credit is not
 // unanswered work, so Full Credit must continue to apply to the former only.
 #[tokio::test]
+#[ignore = "requires the disposable PostgreSQL 17 acceptance runtime"]
 async fn unanswered_scoring_preserves_evaluated_zero_credit_distinction() {
     let pool = migration_pool().await;
     let mut tx = pool.begin().await.expect("scoring contract transaction");

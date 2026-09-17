@@ -54,7 +54,7 @@ try {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
-  await page.waitForURL(`${origin}/`);
+  await page.waitForURL(`${origin}/instructor`);
   await page
     .getByRole("navigation", { name: "Ribbon tasks", exact: true })
     .getByRole("link", { name: "My Blueprint Courses", exact: true })
@@ -135,7 +135,7 @@ try {
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await discoveryPage.waitForURL(`${origin}/`);
+    await discoveryPage.waitForURL(`${origin}/instructor`);
     await discoveryPage
       .getByRole("navigation", { name: "Ribbon tasks", exact: true })
       .getByRole("link", { name: "My Blueprint Courses", exact: true })

@@ -27,7 +27,7 @@ try {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
-  await page.waitForURL(`${origin}/`);
+  await page.waitForURL(`${origin}/instructor`);
   await page
     .getByRole("navigation", { name: "Ribbon tasks", exact: true })
     .getByRole("link", { name: "My Blueprint Courses", exact: true })
@@ -59,7 +59,7 @@ try {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
-  await page.waitForURL(`${origin}/`);
+  await page.waitForURL(`${origin}/instructor`);
   await page.getByRole("heading", { name: "Course Instances you teach" }).waitFor();
   const source = page.getByLabel("Blueprint Course");
   await source.selectOption({ label: `${blueprintTitle} · Revision 1` });

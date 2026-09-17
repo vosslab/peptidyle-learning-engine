@@ -24,8 +24,11 @@ function isPublicAccountRoute(pathname: string): boolean {
   return routeId === "signIn";
 }
 
-function ribbonLabelsFor(routeData: CourseThemeRouteData | undefined): RibbonContextLabels {
-  if (routeData === undefined) return {};
+function ribbonLabelsFor(
+  routeData: CourseThemeRouteData | undefined,
+  assessmentTitle: string | undefined,
+): RibbonContextLabels {
+  if (routeData === undefined) return assessmentTitle === undefined ? {} : { assessmentTitle };
 
   if (routeData.kind === "assessmentAttempt") {
     const { context } = routeData;
@@ -48,6 +51,7 @@ function ribbonLabelsFor(routeData: CourseThemeRouteData | undefined): RibbonCon
   return {
     courseShortName: courseRouteView(routeData).summary.shortName,
     courseLongName: courseRouteView(routeData).summary.longName,
+    assessmentTitle,
   };
 }
 
@@ -152,7 +156,10 @@ export function App(props: RouteSectionProps): JSX.Element {
   const location = useLocation();
   const session = useSessionBootstrap();
   const pathname = (): string => location.pathname;
-  function ribbonModel(routeData: CourseThemeRouteData | undefined): RibbonModel | undefined {
+  function ribbonModel(
+    routeData: CourseThemeRouteData | undefined,
+    assessmentTitle: string | undefined,
+  ): RibbonModel | undefined {
     const currentPathname = pathname();
     if (isPublicAccountRoute(currentPathname)) return undefined;
 
@@ -169,7 +176,7 @@ export function App(props: RouteSectionProps): JSX.Element {
     return deriveRibbonModel(
       { route, params },
       { productRole: state.session.account.productRole },
-      ribbonLabelsFor(routeData),
+      ribbonLabelsFor(routeData, assessmentTitle),
     );
   }
 

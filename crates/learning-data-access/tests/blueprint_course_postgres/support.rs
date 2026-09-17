@@ -6,7 +6,16 @@ pub(super) struct FixturePoolIdIssuer(pub(super) AtomicUsize);
 
 impl CourseInstancePoolIdIssuer for FixturePoolIdIssuer {
     fn issue_question_pool_id(&self) -> Result<QuestionId, StoreError> {
-        const IDS: [&str; 4] = ["8K3M-X9Q1", "9K3M-X9Q2", "7K3M-X9Q3", "6K3M-X9Q4"];
+        const IDS: [&str; 8] = [
+            "8K3M-X9Q1",
+            "9K3M-X9Q2",
+            "7K3M-X9Q3",
+            "6K3M-X9Q4",
+            "5K3M-X9Q5",
+            "4K3M-X9Q6",
+            "3K3M-X9Q7",
+            "2K3M-X9Q8",
+        ];
         let index = self.0.fetch_add(1, Ordering::SeqCst);
         IDS.get(index)
             .ok_or_else(|| StoreError::Unavailable("fixture Pool IDs exhausted".to_string()))?
@@ -36,47 +45,15 @@ pub(super) async fn authenticate_application_transaction(
         .expect("application role");
 }
 
-pub(super) async fn create(
-    url: &str,
-    blueprint_id: Uuid,
-    checksum: Vec<u8>,
-    content: &StoredBlueprintCourseContent,
-) -> (i64, i64) {
-    let mut connection = PgConnection::connect(url)
-        .await
-        .expect("application connection");
-    let mut transaction = connection.begin().await.expect("application transaction");
-    authenticate_application_transaction(&mut transaction).await;
-    let row = sqlx::query(
-        "SELECT public_reference, blueprint_revision_number \
-         FROM ple_api.create_blueprint_course($1, $2, 'REV-ACC', \
-              'Revision acceptance Blueprint', $3, $4, '00000000-0000-0000-0000-00000000cc01', NULL, NULL, NULL, ARRAY[]::text[])",
-    )
-    .bind(blueprint_id)
-    .bind(checksum)
-    .bind(serde_json::to_value(content).expect("content JSON"))
-    .bind(
-        content
-            .checksum()
-            .expect("content checksum")
-            .as_bytes()
-            .to_vec(),
-    )
-    .fetch_one(&mut *transaction)
-    .await
-    .expect("Blueprint creation");
-    transaction
-        .commit()
-        .await
-        .expect("Blueprint creation commit");
-    let public_reference: String = row
-        .try_get("public_reference")
-        .expect("Blueprint public reference");
+/// Numeric references are relational inspection facts, never application input.
+pub(super) async fn blueprint_reference_number(
+    public_reference: question_model::BlueprintCourseReference,
+) -> i64 {
     let mut inspection = adoption_inspection_connection().await;
     let reference = sqlx::query_scalar(
         "SELECT reference_number FROM ple_data.blueprint_course WHERE public_reference = $1",
     )
-    .bind(public_reference)
+    .bind(public_reference.as_string())
     .fetch_one(&mut inspection)
     .await
     .expect("Blueprint relational identity");
@@ -84,11 +61,7 @@ pub(super) async fn create(
         .close()
         .await
         .expect("Blueprint inspection close");
-    (
-        reference,
-        row.try_get("blueprint_revision_number")
-            .expect("Blueprint Revision"),
-    )
+    reference
 }
 
 pub(super) async fn adoption_inspection_connection() -> PgConnection {
@@ -119,6 +92,113 @@ pub(super) async fn blueprint_public_reference(reference: i64) -> String {
         .await
         .expect("Blueprint inspection close");
     public_reference
+}
+
+/// Exact immutable member pins for one local Pool Revision.
+pub(super) async fn question_pool_member_pins(
+    pool: &question_model::QuestionPoolRevisionReference,
+) -> Vec<(String, i32)> {
+    let mut inspection = adoption_inspection_connection().await;
+    let pins = sqlx::query_as(
+        "SELECT member.question_id, member.question_revision_number \
+           FROM ple_data.question_pool AS pool \
+           JOIN ple_data.question_pool_revision_member AS member \
+             ON member.question_pool_id = pool.question_pool_id \
+          WHERE pool.public_question_pool_id = $1 AND member.revision_number = $2 \
+          ORDER BY member.member_position",
+    )
+    .bind(pool.question_pool_id.as_compact_str())
+    .bind(pool.revision_number.get() as i64)
+    .fetch_all(&mut inspection)
+    .await
+    .expect("Pool member pins");
+    inspection
+        .close()
+        .await
+        .expect("Pool member inspection close");
+    pins
+}
+
+/// The decoder must reject a sealed Revision whose stored content no longer
+/// matches its immutable checksum.
+pub(super) async fn assert_revision_checksum_mismatch(
+    migration_url: &str,
+    application_url: &str,
+    reference: i64,
+    blueprint_reference: question_model::BlueprintCourseReference,
+) {
+    let tamper_pool = lazy_pool(application_url).expect("tamper application pool");
+    let tamper_store = PostgresBlueprintCourseStore::new(tamper_pool.clone());
+    let exact_revision = BlueprintRevision::new(3).expect("Revision three");
+    let before_tamper = tamper_store
+        .load_blueprint_revision(
+            token(),
+            question_model::BlueprintRevisionReference {
+                reference: blueprint_reference,
+                revision: exact_revision,
+            },
+        )
+        .await
+        .expect("stored Revision checksum before tamper");
+    assert_eq!(before_tamper.content.modules.len(), 2);
+    let mut tamper_connection = PgConnection::connect(migration_url)
+        .await
+        .expect("tamper connection");
+    let mut tamper = tamper_connection.begin().await.expect("tamper transaction");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *tamper)
+        .await
+        .expect("tamper owner role");
+    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision NO FORCE ROW LEVEL SECURITY")
+        .execute(&mut *tamper)
+        .await
+        .expect("controlled tamper harness temporarily permits owner inspection");
+    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision DISABLE TRIGGER USER")
+        .execute(&mut *tamper)
+        .await
+        .expect("controlled tamper harness disables immutability trigger");
+    let tampered = sqlx::query(
+        "UPDATE ple_data.blueprint_course_revision \
+         SET content = jsonb_set(content, \
+             '{modules,0,assessments,0,blueprint_assessment_reference}', \
+             to_jsonb('00000000-0000-0000-0000-00000000b123'::text)) \
+         WHERE blueprint_course_reference_number = $1 AND blueprint_revision_number = 3",
+    )
+    .bind(reference)
+    .execute(&mut *tamper)
+    .await
+    .expect("controlled identity tamper");
+    assert_eq!(
+        tampered.rows_affected(),
+        1,
+        "controlled tamper changed one Revision"
+    );
+    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision ENABLE TRIGGER USER")
+        .execute(&mut *tamper)
+        .await
+        .expect("tamper harness restores trigger");
+    sqlx::query("ALTER TABLE ple_data.blueprint_course_revision FORCE ROW LEVEL SECURITY")
+        .execute(&mut *tamper)
+        .await
+        .expect("tamper harness restores forced RLS");
+    tamper.commit().await.expect("tamper commit");
+    assert!(matches!(
+        tamper_store
+            .load_blueprint_revision(
+                token(),
+                question_model::BlueprintRevisionReference {
+                    reference: blueprint_reference,
+                    revision: exact_revision,
+                },
+            )
+            .await,
+        Err(StoreError::InvalidRecord(_))
+    ));
+    tamper_pool.close().await;
+    tamper_connection
+        .close()
+        .await
+        .expect("release tamper connection");
 }
 
 /// Compare durable Blueprint state across denied commands, including receipts.
@@ -156,6 +236,7 @@ pub(super) async fn save(
     content: &StoredBlueprintCourseContent,
 ) -> Result<(i64, bool), sqlx::Error> {
     let public_reference = blueprint_public_reference(reference).await;
+    let encoded_content = database_content_json(content);
     let mut connection = PgConnection::connect(url)
         .await
         .expect("application connection");
@@ -171,7 +252,7 @@ pub(super) async fn save(
     .bind(public_reference)
     .bind(expected_revision)
     .bind(checksum)
-    .bind(serde_json::to_value(content).expect("content JSON"))
+    .bind(encoded_content)
     .bind(
         content
             .checksum()
@@ -194,6 +275,38 @@ pub(super) async fn save(
             Ok(value)
         }
         Err(error) => Err(error),
+    }
+}
+
+/// PostgreSQL content stores compact Question IDs; public values remain grouped.
+fn database_content_json(content: &StoredBlueprintCourseContent) -> serde_json::Value {
+    let mut encoded = serde_json::to_value(content).expect("Blueprint content JSON");
+    compact_question_ids(&mut encoded);
+    encoded
+}
+
+fn compact_question_ids(value: &mut serde_json::Value) {
+    match value {
+        serde_json::Value::Array(values) => {
+            for value in values {
+                compact_question_ids(value);
+            }
+        }
+        serde_json::Value::Object(values) => {
+            for value in values.values_mut() {
+                compact_question_ids(value);
+            }
+            for key in ["questionId", "question_id"] {
+                if let Some(serde_json::Value::String(question_id)) = values.get_mut(key) {
+                    *question_id = question_id
+                        .parse::<QuestionId>()
+                        .expect("fixture Question ID")
+                        .as_compact_str()
+                        .to_owned();
+                }
+            }
+        }
+        _ => {}
     }
 }
 
@@ -316,7 +429,7 @@ fn question_pool_id() -> QuestionId {
     "7654-X321".parse().expect("closed Pool ID fixture")
 }
 
-fn content_input(title: &str) -> CreateBlueprintCourseInput {
+pub(super) fn content_input(title: &str) -> CreateBlueprintCourseInput {
     CreateBlueprintCourseInput {
         classification: question_model::CourseClassification {
             discipline_uuid: uuid::Uuid::from_u128(0xcc01),
@@ -402,21 +515,38 @@ fn content_input(title: &str) -> CreateBlueprintCourseInput {
     }
 }
 
-pub(super) fn initial_content() -> StoredBlueprintCourseContent {
-    let pools = BTreeMap::from([(
-        question_pool_id(),
-        question_model::QuestionPoolRevisionReference {
-            question_pool_id: question_pool_id(),
-            revision_number: question_model::QuestionPoolRevisionNumber::new(1)
-                .expect("fixture Pool Revision"),
-        },
-    )]);
-    StoredBlueprintCourseContent::from_create(content_input("Revision one Assessment"), &pools)
-        .expect("closed Blueprint content fixture")
-}
-
 pub(super) fn assessment_input(title: &str) -> BlueprintAssessmentContentInput {
     content_input(title).modules.remove(0).assessments.remove(0)
+}
+
+/// Reuse an Assessment-owned Pool from the loaded expected head.
+pub(super) fn retained_assessment_input(
+    prior: &learning_data_access::StoredBlueprintAssessmentContent,
+    title: &str,
+) -> BlueprintAssessmentContentInput {
+    let mut input = assessment_input(title);
+    let mut prior_pools = prior.entries.iter().filter_map(|entry| match entry {
+        learning_data_access::StoredBlueprintAssessmentEntry::Pool {
+            question_pool_revision,
+            ..
+        } => Some(question_pool_revision.clone()),
+        learning_data_access::StoredBlueprintAssessmentEntry::Fixed { .. } => None,
+    });
+    for entry in &mut input.entries {
+        let question_model::BlueprintAssessmentEntryInput::Pool(pool) = entry else {
+            continue;
+        };
+        pool.pool = question_model::BlueprintPoolInputChoice::Retained {
+            question_pool_revision: prior_pools.next().expect("retained fixture Pool"),
+            members: None,
+            interchangeability_attested: false,
+        };
+    }
+    assert!(
+        prior_pools.next().is_none(),
+        "retained fixture Assessment Pool shape"
+    );
+    input
 }
 
 pub(super) fn changed_content(
@@ -534,6 +664,119 @@ pub(super) async fn seed(admin: &sqlx::postgres::PgPool) {
     .execute(&mut *transaction)
     .await
     .expect("explicit first Question metadata");
+    // This fixture names an ordinary Question Library Revision. Keep its
+    // immutable publication evidence complete so the selected Question stays
+    // valid for both ordinary Blueprint creation and canonical exchange import.
+    sqlx::query("SET LOCAL ROLE ple_private_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("private Question publication fixture role");
+    sqlx::query(
+        "INSERT INTO ple_private.object_record (\
+             object_id, object_address, object_storage_area, object_data_class, \
+             sha256, size_bytes, media_type, created_at\
+         ) SELECT $1, jsonb_build_object(\
+                 'kind', 'questionSource', \
+                 'questionRevision', jsonb_build_object('questionId', $2, 'revisionNumber', 1), \
+                 'object', $1\
+             ), 'private-content', 'question-source', decode(repeat('b1', 32), 'hex'), \
+             1, 'application/json', revision.published_at \
+           FROM ple_data.question_revision AS revision \
+          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+    )
+    .bind(id(0xb107))
+    .bind(QUESTION)
+    .execute(&mut *transaction)
+    .await
+    .expect("exact Question source Object Record");
+    sqlx::query(
+        "INSERT INTO ple_private.question_revision_source_binding (\
+             question_id, revision_number, backend, question_format, source_object_id, \
+             source_object_checksum, created_at\
+         ) SELECT $1, 1, 'ple', 'pleQuestionJson', $2, repeat('b1', 32), revision.published_at \
+           FROM ple_data.question_revision AS revision \
+          WHERE revision.question_id = $1 AND revision.revision_number = 1",
+    )
+    .bind(QUESTION)
+    .bind(id(0xb107))
+    .execute(&mut *transaction)
+    .await
+    .expect("exact Question source binding");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision_acceptance (\
+             question_id, revision_number, parent_revision_number, editor_account_id, \
+             accepted_by_account_id, accepted_at, reason_for_edit\
+         ) SELECT $1, 1, NULL, $2, $2, revision.published_at, 'Initial publication' \
+           FROM ple_data.question_revision AS revision \
+          WHERE revision.question_id = $1 AND revision.revision_number = 1",
+    )
+    .bind(QUESTION)
+    .bind(id(INSTRUCTOR))
+    .execute(&mut *transaction)
+    .await
+    .expect("Question Revision acceptance");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision_authorship (\
+             question_id, revision_number, author_position, author_display_name, author_account_id\
+         ) VALUES ($1, 1, 1, 'Blueprint fixture Instructor', $2)",
+    )
+    .bind(QUESTION)
+    .bind(id(INSTRUCTOR))
+    .execute(&mut *transaction)
+    .await
+    .expect("Question Revision authorship");
+    sqlx::query(
+        "INSERT INTO ple_data.question_revision_license (question_id, revision_number, spdx_expression) \
+         VALUES ($1, 1, 'CC-BY-4.0')",
+    )
+    .bind(QUESTION)
+    .execute(&mut *transaction)
+    .await
+    .expect("Question Revision license");
+    sqlx::query(
+        "INSERT INTO ple_data.question_ownership_event (\
+             question_ownership_event_id, question_id, owner_account_id, recorded_by_account_id, \
+             event_kind, occurred_at\
+         ) SELECT $1, $2, $3, $3, 'initial', revision.published_at \
+           FROM ple_data.question_revision AS revision \
+          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+    )
+    .bind(id(0xb108))
+    .bind(QUESTION)
+    .bind(id(INSTRUCTOR))
+    .execute(&mut *transaction)
+    .await
+    .expect("initial Question ownership");
+    sqlx::query(
+        "INSERT INTO ple_data.question_publication_event (\
+             event_id, question_id, revision_number, actor_account_id, occurred_at\
+         ) SELECT $1, $2, 1, $3, revision.published_at \
+           FROM ple_data.question_revision AS revision \
+          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+    )
+    .bind(id(0xb109))
+    .bind(QUESTION)
+    .bind(id(INSTRUCTOR))
+    .execute(&mut *transaction)
+    .await
+    .expect("Question publication event");
+    sqlx::query(
+        "INSERT INTO ple_data.question_availability_event (\
+             event_id, question_id, actor_account_id, availability, edit_number, reason, occurred_at\
+         ) SELECT $1, $2, $3, 'available', 1, NULL, revision.published_at \
+           FROM ple_data.question_revision AS revision \
+          WHERE revision.question_id = $2 AND revision.revision_number = 1",
+    )
+    .bind(id(0xb10a))
+    .bind(QUESTION)
+    .bind(id(INSTRUCTOR))
+    .execute(&mut *transaction)
+    .await
+    .expect("initial Question availability");
+    sqlx::query("SET LOCAL ROLE ple_data_owner")
+        .execute(&mut *transaction)
+        .await
+        .expect("data Question Pool fixture role");
     sqlx::query(
         "INSERT INTO ple_data.question_pool (\
              question_pool_id, public_question_pool_id, metadata_etag, current_revision_number, created_at, \

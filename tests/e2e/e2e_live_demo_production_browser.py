@@ -14,6 +14,7 @@ import sys
 
 import local_stack_control.browser_suite_developer
 import local_stack_control.browser_suite_lease
+import local_stack_control.local_totp_authenticator
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 E2E_DIRECTORY = ROOT / "tests" / "e2e"
@@ -26,7 +27,7 @@ CURRENT_MILESTONE_JOURNEYS = (
 	("assignment_release", ("bash", "tests/e2e/e2e_live_demo_assignment_release.sh", "--browser")),
 	("assignment_attempt", ("bash", "tests/e2e/e2e_live_demo_assignment_attempt.sh")),
 	("instructor_accounts", ("bash", "tests/e2e/e2e_live_demo_instructor_accounts.sh", "--browser")),
-	("support_capability", ("bash", "tests/e2e/e2e_live_demo_support_capability.sh", "--browser")),
+	("support_capability", ("bash", "tests/e2e/e2e_live_demo_support_capability.sh", "--issue")),
 	("invitation_export", ("bash", "tests/e2e/e2e_live_demo_invitation_export.sh", "--dry-run")),
 	("course_seed", ("node", "--import", "tsx", "tests/playwright/e2e_live_demo_course_seed_browser.mjs")),
 )
@@ -99,10 +100,15 @@ def run_contract(contract: e2e_browser_scenario_contract.ScenarioContract, origi
 
 def run_current_milestone_journeys() -> None:
 	"""Run the supported visible-browser journeys serially."""
+	private = workspace()
+	setup_uri = local_stack_control.local_totp_authenticator.write_authenticator_setup_uri(
+		private / local_stack_control.local_totp_authenticator.MORGAN_TOTP_ARTIFACT_FILE
+	)
 	for name, argv in CURRENT_MILESTONE_JOURNEYS:
 		print("==> production-browser journey: " + name, flush=True)
 		environment = dict(os.environ)
-		environment["NODE_EXTRA_CA_CERTS"] = str(workspace() / "gateway-root.crt")
+		environment["NODE_EXTRA_CA_CERTS"] = str(private / "gateway-root.crt")
+		environment["PLE_LOCAL_DEMO_TOTP_SETUP_FILE"] = str(setup_uri)
 		result = subprocess.run(argv, cwd=ROOT, env=environment, check=False)
 		if result.returncode != 0:
 			raise RuntimeError("production-browser journey failed: " + name)

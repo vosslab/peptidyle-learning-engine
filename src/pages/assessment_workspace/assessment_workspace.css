@@ -162,6 +162,36 @@
   max-width: 42ch;
 }
 
+.assessment-workspace-identity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.88rem;
+}
+
+.assessment-workspace-identity > div {
+  display: inline-flex;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.assessment-workspace-identity dt {
+  font-weight: 700;
+}
+
+.assessment-workspace-identity dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.assessment-workspace-identity dd[data-assessment-release-status] {
+  color: var(--ple-ink);
+  font-weight: 700;
+}
+
 .assessment-workspace-create {
   display: grid;
   gap: var(--ple-section-gap);
@@ -317,8 +347,8 @@
 }
 
 .student-view-question-document {
+  display: block;
   width: 100%;
-  min-height: 28rem;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-inset, 0.6rem);
   background: var(--ple-card-surface);
@@ -387,6 +417,11 @@
 }
 
 @media (max-width: 40rem) {
+  .assessment-workspace-identity {
+    display: grid;
+    gap: 0.2rem;
+  }
+
   .assessment-workspace-policies .assessment-editor-policy-set--disclosure,
   .assessment-workspace-policies .assessment-editor-policy-set--lifecycle,
   .assessment-workspace-policies .assessment-editor-policy-set--schedule {

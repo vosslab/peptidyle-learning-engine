@@ -92,7 +92,6 @@
 .question-library-webwork-preview {
   display: block;
   width: 100%;
-  min-height: 28rem;
   border: 1px solid var(--ple-border);
   border-radius: var(--ple-radius-inset, 0.6rem);
   background: var(--ple-card-surface);
@@ -113,6 +112,24 @@
 .question-star-control h2 {
   margin-block: var(--ple-space-2) var(--ple-space-1);
   font-size: 1rem;
+}
+
+.question-preference-control {
+  border-color: var(--ple-border);
+  background: var(--ple-card-surface);
+  color: var(--ple-ink);
+  font-weight: 700;
+}
+
+.question-preference-control.selected {
+  border-color: var(--ple-focus);
+  background: color-mix(in srgb, var(--ple-focus) 18%, var(--ple-card-surface));
+  box-shadow: inset 0 0 0 1px var(--ple-focus);
+}
+
+.question-preference-control:focus-visible {
+  outline: 0.2rem solid var(--ple-focus);
+  outline-offset: 0.2rem;
 }
 
 .question-archive-action,

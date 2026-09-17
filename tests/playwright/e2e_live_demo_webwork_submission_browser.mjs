@@ -1,4 +1,4 @@
-// Real browser capture for one opaque WeBWorK Assignment Attempt.
+// Real browser capture for one opaque WeBWorK Assessment Attempt.
 //
 // This deliberately manipulates the renderer's document as a browser does.
 // It neither knows nor classifies WeBWorK controls; the enclosing PLE surface
@@ -9,7 +9,7 @@ import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
 
 const [port, attempt] = process.argv.slice(2);
 if (!/^[0-9]+$/u.test(port ?? "") || !/^R-[1-9][0-9]{0,9}$/u.test(attempt ?? "")) {
-  throw new Error("expected a gateway port and an Assignment Attempt reference");
+  throw new Error("expected a gateway port and an Assessment Attempt reference");
 }
 
 const origin = `https://localhost:${port}`;
@@ -38,16 +38,16 @@ async function makeOneOrdinaryEdit(frame) {
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Assume the role of Student Mary Okafor" }).click();
-  await page.waitForURL(`${origin}/`);
-  await page.goto(`${origin}/assignment-attempts/${attempt}`, { waitUntil: "domcontentloaded" });
-  await page.locator('[data-route-surface="assignmentAttempt"]').waitFor();
+  await page.waitForURL(`${origin}/student`);
+  await page.goto(`${origin}/assessment-attempts/${attempt}`, { waitUntil: "domcontentloaded" });
+  await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
   const frame = page.frameLocator('iframe[title="Question document"]');
   await makeOneOrdinaryEdit(frame);
   await page.getByRole("button", { name: "Save response", exact: true }).click();
   await page.getByText("Response saved.", { exact: true }).waitFor();
 
   const persisted = page.waitForResponse((response) =>
-    response.url().includes(`/api/assignment-attempts/${attempt}/student-question?position=1`),
+    response.url().includes(`/api/assessment-attempts/${attempt}/student-question?position=1`),
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   const response = await persisted;

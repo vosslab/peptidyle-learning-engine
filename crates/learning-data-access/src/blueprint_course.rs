@@ -11,10 +11,10 @@ use question_model::{
     BlueprintCourseReference, BlueprintCourseValidationError, BlueprintMetadataEtag,
     BlueprintMetadataState, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintQuestionPoolContent, BlueprintRevision, BlueprintRevisionContent,
-    BlueprintRevisionReference, CreateBlueprintCourseInput, CreateBlueprintCourseReceipt,
-    QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId, QuestionPoolSelectionRule,
-    QuestionRevisionReference, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
-    RequestChecksum, SaveBlueprintCourseReceipt,
+    BlueprintRevisionReference, CanonicalBlueprintCourse, CreateBlueprintCourseInput,
+    CreateBlueprintCourseReceipt, QuestionAttemptLimit, QuestionAttemptTimeLimit, QuestionId,
+    QuestionPoolSelectionRule, QuestionRevisionReference, RenameBlueprintCourseInput,
+    ReplaceBlueprintCourseContentInput, RequestChecksum, SaveBlueprintCourseReceipt,
 };
 use serde::{Deserialize, Serialize};
 
@@ -514,6 +514,20 @@ pub trait BlueprintCourseStore: Send + Sync {
         session: SessionTokenHash,
         reference: BlueprintRevisionReference,
     ) -> Result<StoredBlueprintRevision, StoreError>;
+    /// Reads the current authorized Blueprint as complete reusable exchange data.
+    async fn export_blueprint_course(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+    ) -> Result<CanonicalBlueprintCourse, StoreError>;
+    /// Creates a distinct actor-owned Private Blueprint through the ordinary
+    /// Revision 1 transaction, allocating fresh child and Pool identities.
+    async fn import_blueprint_course(
+        &self,
+        session: SessionTokenHash,
+        request_checksum: RequestChecksum,
+        exchange: CanonicalBlueprintCourse,
+    ) -> Result<CreateBlueprintCourseReceipt, StoreError>;
     async fn create_blueprint_course(
         &self,
         session: SessionTokenHash,

@@ -16,9 +16,9 @@ use learning_data_access::{
         PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
         PostgresBlueprintStewardshipStore, PostgresBulkPublishedQuestionMetadataStore,
         PostgresContentClassificationStore, PostgresCourseBannerStore,
-        PostgresCourseGradebookStore, PostgresCourseInstanceStore,
-        PostgresCourseRetentionNotificationStore, PostgresCourseRetentionStore,
-        PostgresCourseRosterStore, PostgresCourseThemeStore,
+        PostgresCourseBlueprintPublicationStore, PostgresCourseGradebookStore,
+        PostgresCourseInstanceStore, PostgresCourseRetentionNotificationStore,
+        PostgresCourseRetentionStore, PostgresCourseRosterStore, PostgresCourseThemeStore,
         PostgresDraftQuestionSourceBindingStore, PostgresInstructorAccountStore,
         PostgresInstructorStudentViewStore, PostgresInvitationExportStore,
         PostgresLiveAssessmentDeliveryStore, PostgresLiveAssessmentStore,
@@ -145,6 +145,8 @@ pub async fn production_router_from_env() -> Result<Router> {
         .with_pool_id_issuer(Arc::new(question_id_issuer.clone()));
     let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone())
         .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+    let course_blueprint_publication = PostgresCourseBlueprintPublicationStore::new(pool.clone())
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
     let course_instances = PostgresCourseInstanceStore::new(pool.clone())
         .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
     let browser_boundary = production_browser_boundary_from_env()?;
@@ -220,6 +222,9 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::question_fork::question_fork_router(
             Arc::clone(&sessions),
             question_forks,
+            question_library_store.clone(),
+            authoring_drafts.clone(),
+            question_library_objects.clone(),
             question_id_issuer.clone(),
         ))
         .merge(crate::question_stewardship::question_stewardship_router(
@@ -243,6 +248,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::blueprint_course::blueprint_course_router(
             Arc::clone(&sessions),
             blueprint_courses,
+            course_blueprint_publication,
             blueprint_lineage,
             question_library_store,
             question_library_objects.clone(),

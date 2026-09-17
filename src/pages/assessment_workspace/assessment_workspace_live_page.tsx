@@ -1,6 +1,6 @@
 // assessment_workspace_live_page.tsx - one exact-authority loader for workspace child pages.
 
-import { A, useParams } from "@solidjs/router";
+import { A, useLocation, useParams } from "@solidjs/router";
 import {
   createContext,
   onMount,
@@ -31,6 +31,7 @@ import { AssessmentWorkspacePoliciesPage } from "./assessment_workspace_policies
 import { AssessmentWorkspaceQuestionsPage } from "./assessment_workspace_questions_page";
 import { AssessmentWorkspaceStudentViewPage } from "./assessment_workspace_student_view_page";
 import "./assessment_workspace.css";
+import { useSetAssessmentTitleForPath } from "../../ribbon/route_scope_context";
 
 export interface AssessmentWorkspaceContextValue {
   readonly courseReference: CourseInstanceRouteReference;
@@ -52,6 +53,46 @@ export function useAssessmentWorkspace(): AssessmentWorkspaceContextValue {
   const value = useContext(AssessmentWorkspaceContext);
   if (value === undefined) throw new Error("AssessmentWorkspaceLivePage is missing");
   return value;
+}
+
+function assessmentStatusLabel(
+  status: LiveAssessmentWorkspaceResponse["workspace"]["status"],
+): string {
+  switch (status) {
+    case "unreleased":
+      return "Unreleased";
+    case "released":
+      return "Released";
+    case "closed":
+      return "Closed";
+    case "archived":
+      return "Archived";
+  }
+}
+
+/** Compact, current identity shared by the Question and Properties work areas. */
+export function AssessmentWorkspaceIdentity(): JSX.Element {
+  const workspace = useAssessmentWorkspace();
+  const assessment = (): LiveAssessmentWorkspaceResponse["workspace"] =>
+    workspace.assessment().workspace;
+  return (
+    <dl class="assessment-workspace-identity" aria-label="Current Assessment">
+      <div>
+        <dt>Assessment</dt>
+        <dd>{assessment().title}</dd>
+      </div>
+      <div>
+        <dt>Release status</dt>
+        <dd data-assessment-release-status={assessment().status}>
+          {assessmentStatusLabel(assessment().status)}
+        </dd>
+      </div>
+      <div>
+        <dt>Current edit</dt>
+        <dd>{assessment().editNumber}</dd>
+      </div>
+    </dl>
+  );
 }
 
 type LoadState = "loading" | "unavailable" | "error";
@@ -129,7 +170,9 @@ export interface AssessmentWorkspaceLivePageProps {
 /** Resolves public references, proves the exact course relationship, then loads one workspace detail. */
 function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps): JSX.Element {
   const applicationApi = useApplicationApi();
+  const location = useLocation();
   const params = useParams();
+  const setAssessmentTitleForPath = useSetAssessmentTitleForPath();
   const [state, setState] = createSignal<LoadState>("loading");
   const [workspace, setWorkspace] = createSignal<AssessmentWorkspaceContextValue>();
   let retryButton: HTMLButtonElement | undefined;
@@ -139,6 +182,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
   }
 
   async function load(): Promise<void> {
+    const pathname = location.pathname;
     setState("loading");
     const courseReference = parseCourseInstanceReference(params["courseRef"] ?? "");
     const assessmentReference = parseAssessmentReference(params["assessmentRef"] ?? "");
@@ -151,13 +195,18 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
         courseReference,
         assessmentReference,
       );
+      if (location.pathname !== pathname) return;
       const [currentAssessment, setCurrentAssessment] = createSignal(assessment);
+      const replaceCurrentAssessment = (next: LiveAssessmentWorkspaceResponse): void => {
+        setCurrentAssessment(next);
+        setAssessmentTitleForPath(pathname, next.workspace.title);
+      };
       const reloadAssessment = async (): Promise<LiveAssessmentWorkspaceResponse> => {
         const latest = await applicationApi.client.getLiveAssessmentWorkspace(
           courseReference,
           assessmentReference,
         );
-        setCurrentAssessment(latest);
+        replaceCurrentAssessment(latest);
         return latest;
       };
       const save = async (
@@ -169,7 +218,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           input,
           currentAssessment().etag,
         );
-        setCurrentAssessment(saved);
+        replaceCurrentAssessment(saved);
         return saved;
       };
       const saveBaseAssessmentPolicy = async (
@@ -181,7 +230,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           input,
           currentAssessment().etag,
         );
-        setCurrentAssessment(saved);
+        replaceCurrentAssessment(saved);
         return saved;
       };
       const release = async (etag: string): Promise<LiveAssessmentWorkspaceResponse> => {
@@ -190,7 +239,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           assessmentReference,
           etag,
         );
-        setCurrentAssessment(released);
+        replaceCurrentAssessment(released);
         return released;
       };
       const unrelease = async (confirmationTitle: string): Promise<UnreleasedLiveAssessment> => {
@@ -200,7 +249,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
           confirmationTitle,
           currentAssessment().etag,
         );
-        setCurrentAssessment({ workspace: result.result.assessment, etag: result.etag });
+        replaceCurrentAssessment({ workspace: result.result.assessment, etag: result.etag });
         return result.result;
       };
       setWorkspace({
@@ -213,6 +262,7 @@ function AssessmentWorkspaceLiveContent(props: AssessmentWorkspaceLivePageProps)
         saveBaseAssessmentPolicy,
         reloadAssessment,
       });
+      setAssessmentTitleForPath(pathname, assessment.workspace.title);
     } catch (error: unknown) {
       const failureState: LoadState = error instanceof Error ? "error" : "unavailable";
       setState(failureState);

@@ -21,7 +21,8 @@ use learning_data_access::{
     StoredBlueprintAssessmentContent, StoredBlueprintAssessmentEntry, StoredBlueprintCourse,
     StoredBlueprintCourseContent,
     postgres::{
-        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore, PostgresQuestionLibraryStore,
+        PostgresBlueprintCourseStore, PostgresBlueprintLineageStore,
+        PostgresCourseBlueprintPublicationStore, PostgresQuestionLibraryStore,
         PostgresSessionStore,
     },
 };
@@ -44,6 +45,8 @@ use crate::{
 
 mod change_proposal_view;
 mod change_proposals;
+mod course_publication;
+mod exchange;
 mod fork;
 mod fork_apply;
 mod fork_review;
@@ -67,6 +70,7 @@ const MAX_IDEMPOTENCY_KEY_BYTES: usize = 128;
 pub(super) struct BlueprintCourseRouteState {
     pub(super) sessions: Arc<PostgresSessionStore>,
     pub(super) blueprints: PostgresBlueprintCourseStore,
+    pub(super) course_publication: PostgresCourseBlueprintPublicationStore,
     pub(super) lineage: PostgresBlueprintLineageStore,
     pub(super) question_library: PostgresQuestionLibraryStore,
     pub(super) objects: S3ObjectStore,
@@ -78,6 +82,7 @@ pub(super) struct BlueprintCourseRouteState {
 pub fn blueprint_course_router(
     sessions: Arc<PostgresSessionStore>,
     blueprints: PostgresBlueprintCourseStore,
+    course_publication: PostgresCourseBlueprintPublicationStore,
     lineage: PostgresBlueprintLineageStore,
     question_library: PostgresQuestionLibraryStore,
     objects: S3ObjectStore,
@@ -109,8 +114,17 @@ pub fn blueprint_course_router(
             get(list::list_blueprints).post(create_blueprint),
         )
         .route(
+            "/api/course-instances/{course}/course-blueprints",
+            post(course_publication::create),
+        )
+        .route("/api/course-blueprints/import", post(exchange::import))
+        .route(
             "/api/course-blueprints/{reference}",
             get(load_blueprint).put(save_blueprint),
+        )
+        .route(
+            "/api/course-blueprints/{reference}/export",
+            get(exchange::export),
         )
         .route(
             "/api/course-blueprints/{left}/compare/{right}",
@@ -167,6 +181,7 @@ pub fn blueprint_course_router(
         .with_state(BlueprintCourseRouteState {
             sessions,
             blueprints,
+            course_publication,
             lineage,
             question_library,
             objects,

@@ -316,14 +316,20 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Blueprint metadata ETag is stale';
     END IF;
     -- Reusable content advances through one directed lifecycle. A Public
-    -- lineage may become Private only before its first daughter Course
-    -- Instance; otherwise its adopted source remains Public. Every accepted
+    -- lineage may become Private only before its first Adoption, whether that
+    -- is a daughter or the originating source Course Instance. Every accepted
     -- transition is recorded below as an immutable metadata event.
     IF (v_course.availability = 'private' AND p_availability <> 'public')
        OR (v_course.availability = 'public' AND p_availability = 'private'
-           AND EXISTS (
-               SELECT 1 FROM ple_data.course_instance AS adoption
-                WHERE adoption.blueprint_course_reference_number = v_reference_number
+           AND (
+               EXISTS (
+                   SELECT 1 FROM ple_data.course_instance AS adoption
+                    WHERE adoption.blueprint_course_reference_number = v_reference_number
+               )
+               OR EXISTS (
+                   SELECT 1 FROM ple_data.blueprint_course_instance_source AS source
+                    WHERE source.blueprint_course_reference_number = v_reference_number
+               )
            ))
        OR (v_course.availability = 'public'
            AND p_availability NOT IN ('private', 'archived'))
@@ -462,8 +468,15 @@ BEGIN
            course.availability, course.metadata_etag,
            course.current_blueprint_revision_number,
            course.owner_account_id = ple_api.current_session_account_id(),
-           (SELECT count(*) FROM ple_data.course_instance AS adoption
-             WHERE adoption.blueprint_course_reference_number = course.reference_number),
+           (SELECT count(*) FROM (
+                SELECT adoption.course_id
+                  FROM ple_data.course_instance AS adoption
+                 WHERE adoption.blueprint_course_reference_number = course.reference_number
+                UNION
+                SELECT source.source_course_id
+                  FROM ple_data.blueprint_course_instance_source AS source
+                 WHERE source.blueprint_course_reference_number = course.reference_number
+           ) AS adopted_course),
            (SELECT COALESCE(sum(CASE
                        WHEN adoption.retention_lifecycle_state = 'deleted'
                            THEN adoption.purged_students_ever_enrolled
@@ -473,7 +486,15 @@ BEGIN
                                 AND membership.role = 'student')
                    END), 0)::bigint
               FROM ple_data.course_instance AS adoption
-             WHERE adoption.blueprint_course_reference_number = course.reference_number),
+              JOIN (
+                    SELECT daughter.course_id
+                      FROM ple_data.course_instance AS daughter
+                     WHERE daughter.blueprint_course_reference_number = course.reference_number
+                    UNION
+                    SELECT source.source_course_id
+                      FROM ple_data.blueprint_course_instance_source AS source
+                     WHERE source.blueprint_course_reference_number = course.reference_number
+              ) AS adopted_course ON adopted_course.course_id = adoption.course_id),
            course.discipline_uuid, course.subject_uuid, course.topic_uuid,
            course.subtopic_uuid, course.tags
       FROM ple_data.blueprint_course AS course

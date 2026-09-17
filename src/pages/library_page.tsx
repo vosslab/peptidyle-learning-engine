@@ -239,10 +239,6 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     }
     return current.facetTruncation;
   };
-  const browsingGroupsLoading = (): boolean => {
-    const current = state();
-    return current.kind === "loading" && current.rows.length === 0;
-  };
   const virtualWindow = (): Readonly<{
     readonly offset: number;
     readonly rows: ReadonlyArray<QuestionLibraryBrowseRow>;
@@ -770,7 +766,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
             query={query}
             hasExactBrowseFilters={() => hasExactBrowseFilters(query())}
             searchWithinResultsPath={() => searchWithinResultsPath(query())}
-            browsingGroupsLoading={browsingGroupsLoading}
+            browsingState={state}
             browseFacets={browseFacets}
             facetTruncation={facetTruncation}
             questionTypeLabel={questionTypeLabel}

@@ -54,6 +54,7 @@ schemas/
 |  +- object_records.sql              Typed object-record ownership
 |  +- blueprints.sql                  Blueprint lineage, save-created Revisions, and availability
 |  +- course_blueprint_adoption.sql   Complete atomic Public Blueprint adoption into Course Instance Assessments
+|  +- course_blueprint_publication.sql Atomic reusable Course structure copy into a distinct sourced Private Blueprint
 |  +- assessment_blueprint_updates.sql Derived retained-Assessment review and explicit reusable-content update
 |  +- course_*.sql                    Course terms, membership, roster, operations, and media
 |  +- profile_media.sql               Instructor profile-media ownership
@@ -166,8 +167,9 @@ existing Assessment release client rather than a separate update client.
 `generated/api/` are derivative; modify their Rust source and regenerate rather
 than editing them.
 
-`src/public/ple_bridge.js` is copied into the browser build and transports an
-entire backend-owned form as ordered string pairs. `src/styles/ple_embed.css`
+`src/public/ple_bridge.js` is copied into the browser build. Same-origin Student
+documents transport an entire backend-owned form as ordered string pairs; opaque
+WeBWorK previews emit only their bounded resize record. `src/styles/ple_embed.css`
 supplies the generic iframe baseline; it contains no WeBWorK or control-type
 selectors.
 

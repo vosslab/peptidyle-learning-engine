@@ -136,6 +136,14 @@ pub trait DraftQuestionSourceBindingStore: Send + Sync {
 
 /// Session-authorized resolution of the exact Draft Question Source selected
 /// for a publication attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DraftQuestionPublicationSource {
+    /// Exact current private source Object Record.
+    pub source_record: ObjectRecord,
+    /// Server-reserved Question identity for a fork, absent for ordinary Drafts.
+    pub reserved_question_id: Option<QuestionId>,
+}
+
 #[async_trait]
 pub trait DraftQuestionPublicationSourceStore: Send + Sync {
     /// Loads the current immutable Workspace Question Source Object Record only
@@ -146,7 +154,7 @@ pub trait DraftQuestionPublicationSourceStore: Send + Sync {
         draft_question_uuid: DraftQuestionUuid,
         expected_draft_question_edit_number: DraftQuestionEditNumber,
         workspace: WorkspaceId,
-    ) -> Result<ObjectRecord, StoreError>;
+    ) -> Result<DraftQuestionPublicationSource, StoreError>;
 }
 
 /// Trusted bytes-first original raster facts for one exact target Revision.
@@ -293,9 +301,10 @@ pub trait NewQuestionLineagePublicationStore: Send + Sync {
     /// the exact source bytes have been copied to immutable object storage.
     ///
     /// [`NewQuestionLineagePublicationError::IdentityCollision`] is reserved
-    /// for the `published_question` primary-key collision of a freshly minted
-    /// Question ID. Every other persistence failure remains a [`StoreError`],
-    /// so publication never retries or compensates an ambiguous outcome.
+    /// for a conclusively allocated Question ID: an existing Published
+    /// Question or another Draft's reservation. Every other persistence
+    /// failure remains a [`StoreError`], so publication never retries or
+    /// compensates an ambiguous outcome.
     async fn publish_new_question_lineage(
         &self,
         session_token_hash: SessionTokenHash,
@@ -311,7 +320,7 @@ pub trait NewQuestionLineagePublicationStore: Send + Sync {
 /// treating a generic database uniqueness error as safe to delete and retry.
 #[derive(Debug, Clone, PartialEq)]
 pub enum NewQuestionLineagePublicationError {
-    /// The newly minted Question ID already names a Published Question.
+    /// The candidate Question ID is already published or reserved elsewhere.
     IdentityCollision,
     /// Any non-identity persistence failure is ambiguous to object storage.
     Store(StoreError),

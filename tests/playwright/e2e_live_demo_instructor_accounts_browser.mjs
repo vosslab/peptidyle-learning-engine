@@ -2,6 +2,7 @@
 
 import { chromium } from "playwright";
 import { liveDemoChromiumArgs } from "./helper_gateway_trust.mjs";
+import { localDemoAuthenticationCode } from "./screenshot_corpus/local_demo_authenticator.ts";
 
 const port = process.argv[2];
 if (!/^[0-9]+$/.test(port ?? "")) {
@@ -16,7 +17,21 @@ const page = await context.newPage();
 try {
   await page.goto(`${origin}/sign-in`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Assume the role of Sysadmin Morgan Delgado" }).click();
-  await page.waitForURL(`${origin}/`);
+  const setupFile = process.env["PLE_LOCAL_DEMO_TOTP_SETUP_FILE"];
+  if (setupFile === undefined) {
+    throw new Error("Sysadmin browser acceptance requires the owned local authenticator path");
+  }
+  const code = await localDemoAuthenticationCode(setupFile);
+  await page.getByLabel("Authentication code", { exact: true }).fill(code);
+  await page
+    .getByRole("button", { name: "Verify and open administrator tools", exact: true })
+    .click();
+  const sysadminHome = page.getByRole("heading", { name: "System administration", exact: true });
+  const mfaFailure = page.getByRole("alert");
+  await Promise.race([sysadminHome.waitFor(), mfaFailure.waitFor()]);
+  if (await mfaFailure.isVisible()) {
+    throw new Error("Morgan's ordinary MFA form did not reach administrator tools");
+  }
   await page
     .getByRole("navigation", { name: "Ribbon tabs" })
     .getByRole("link", { name: "Instructor Accounts" })
@@ -26,11 +41,14 @@ try {
   await page.locator("#instructor-accounts-heading").waitFor();
 
   await page.locator("#instructor-account-email").fill(`m16-browser-${Date.now()}@example.invalid`);
+  await page
+    .getByLabel("Verified Instructor Display Name", { exact: true })
+    .fill("M16 Browser Instructor");
   await page.getByRole("button", { name: "Create Instructor Account" }).click();
   await page.getByText("Instructor Account created.").waitFor();
   const created = page.locator('section[aria-label="Instructor Accounts"] > .auth-panel').first();
-  const reference = await created.locator("h2").textContent();
-  if (!/^U-[1-9][0-9]{0,9}$/u.test(reference ?? "")) {
+  const reference = (await created.locator("h2").textContent())?.trim();
+  if (!/^U[0-9A-HJKMNP-TV-Z]{6}$/u.test(reference ?? "")) {
     throw new Error("created Instructor Account did not have a canonical public reference");
   }
   await created.locator(`#deactivate-reason-${reference}`).fill("Live demo access review");

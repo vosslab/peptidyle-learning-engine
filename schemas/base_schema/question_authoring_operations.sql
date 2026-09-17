@@ -43,19 +43,49 @@ CREATE FUNCTION ple_private.fork_published_question_to_draft(
     p_forked_question_id text,
     p_source_question_id text,
     p_source_revision_number integer,
-    p_idempotency_key uuid
+    p_idempotency_key uuid,
+    p_target_object_id uuid,
+    p_target_object_address jsonb,
+    p_target_sha256 bytea,
+    p_target_size_bytes bigint,
+    p_target_media_type text,
+    p_target_created_at_millis bigint,
+    p_hotspot_asset jsonb
 ) RETURNS TABLE (
     draft_question_uuid uuid,
     workspace_id uuid,
     reference_number bigint,
-    forked_question_id text
+    forked_question_id text,
+    created_new boolean
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE
     actor_id uuid;
-    resolved_workspace_id uuid;
     existing_source_question_id text;
     existing_source_revision_number integer;
+    created_at timestamptz := pg_catalog.clock_timestamp();
+    source_revision ple_data.question_revision%ROWTYPE;
+    source_metadata ple_data.published_question_metadata%ROWTYPE;
+    source_binding ple_private.question_revision_source_binding%ROWTYPE;
+    source_record ple_private.object_record%ROWTYPE;
+    expected_source_address jsonb;
+    asset_count bigint;
+    source_asset_id uuid;
+    source_asset_object_id uuid;
+    source_asset_checksum bytea;
+    source_asset_media_type text;
+    source_asset_size_bytes bigint;
+    source_asset_width integer;
+    source_asset_height integer;
+    target_asset_id uuid;
+    target_asset_object_id uuid;
+    target_asset_address jsonb;
+    target_asset_checksum bytea;
+    target_asset_size_bytes bigint;
+    target_asset_media_type text;
+    target_asset_created_at_millis bigint;
+    target_asset_width integer;
+    target_asset_height integer;
 BEGIN
     IF p_workspace_id IS NULL OR p_draft_question_uuid IS NULL
        OR p_forked_question_id IS NULL
@@ -73,6 +103,9 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '42501',
             MESSAGE = 'Question Fork requires an active Instructor and server-issued inputs';
     END IF;
+    -- The actor/key receipt is the first business-state read. A successful
+    -- replay remains recoverable after archive and does not inspect fresh
+    -- candidate objects that the server will delete as unregistered.
     PERFORM pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(actor_id::text || ':' || p_idempotency_key::text, 0));
     SELECT fork.source_question_id, fork.source_revision_number
@@ -88,13 +121,32 @@ BEGIN
         END IF;
         RETURN QUERY
         SELECT question.draft_question_uuid, question.workspace_id,
-               question.reference_number, fork.forked_question_id
+               question.reference_number, fork.forked_question_id, false
           FROM ple_private.draft_question_fork_source AS fork
           JOIN ple_private.draft_question AS question
             ON question.draft_question_uuid = fork.draft_question_uuid
          WHERE fork.actor_account_id = actor_id
            AND fork.idempotency_key = p_idempotency_key;
         RETURN;
+    END IF;
+    IF p_target_object_id IS NULL OR p_target_object_address IS NULL
+       OR p_target_sha256 IS NULL OR pg_catalog.octet_length(p_target_sha256) <> 32
+       OR p_target_size_bytes IS NULL OR p_target_size_bytes < 0
+       OR p_target_media_type IS NULL
+       OR pg_catalog.char_length(pg_catalog.btrim(p_target_media_type)) NOT BETWEEN 1 AND 255
+       OR p_target_created_at_millis IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Question Fork target source arguments are invalid';
+    END IF;
+    IF NOT ple_api.current_session_account_is_authoring_workspace_owner(p_workspace_id)
+       OR NOT EXISTS (
+           SELECT 1 FROM ple_private.authoring_workspace AS workspace
+            WHERE workspace.workspace_id = p_workspace_id
+              AND workspace.owner_account_id = actor_id
+              AND workspace.revoked_at IS NULL
+            FOR KEY SHARE) THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Question Fork requires the actor owner workspace';
     END IF;
     -- Recheck C876's reader predicate at the write boundary: a source
     -- archived between resolution and creation cannot become a new fork.
@@ -111,27 +163,177 @@ BEGIN
        -- archive that it observed only before the transition.
        FOR KEY SHARE OF lineage;
     IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
+        RAISE EXCEPTION USING ERRCODE = 'QF002',
             MESSAGE = 'Question Fork requires an available exact Published Question Revision';
     END IF;
-    resolved_workspace_id := ple_private.ensure_own_authoring_workspace(p_workspace_id);
+    SELECT * INTO STRICT source_revision
+      FROM ple_data.question_revision AS revision
+     WHERE revision.question_id = p_source_question_id
+       AND revision.revision_number = p_source_revision_number;
+    SELECT * INTO STRICT source_metadata
+      FROM ple_data.published_question_metadata AS metadata
+     WHERE metadata.question_id = p_source_question_id
+     FOR KEY SHARE;
+    SELECT * INTO STRICT source_binding
+      FROM ple_private.question_revision_source_binding AS binding
+     WHERE binding.question_id = p_source_question_id
+       AND binding.revision_number = p_source_revision_number
+     FOR KEY SHARE;
+    SELECT * INTO STRICT source_record
+      FROM ple_private.object_record AS record
+     WHERE record.object_id = source_binding.source_object_id;
+    expected_source_address := pg_catalog.jsonb_build_object(
+        'kind', 'workspaceQuestionSource', 'workspace', p_workspace_id,
+        'object', p_target_object_id);
+    IF p_target_object_address IS DISTINCT FROM expected_source_address
+       OR p_target_sha256 IS DISTINCT FROM source_record.sha256
+       OR pg_catalog.encode(p_target_sha256, 'hex') IS DISTINCT FROM source_binding.source_object_checksum
+       OR p_target_size_bytes IS DISTINCT FROM source_record.size_bytes
+       OR p_target_media_type IS DISTINCT FROM source_record.media_type
+       OR source_record.object_address IS DISTINCT FROM pg_catalog.jsonb_build_object(
+           'kind', 'questionSource',
+           'questionRevision', pg_catalog.jsonb_build_object(
+               'questionId', p_source_question_id,
+               'revisionNumber', p_source_revision_number),
+           'object', source_binding.source_object_id)
+       OR source_record.object_storage_area <> 'private-content'
+       OR source_record.object_data_class <> 'question-source' THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Question Fork target must preserve the exact source Revision bytes';
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended('question-id:' || p_forked_question_id, 0));
+    IF p_forked_question_id = p_source_question_id
+       OR EXISTS (
+           SELECT 1 FROM ple_data.published_question AS published
+            WHERE published.question_id = p_forked_question_id)
+       OR EXISTS (
+           SELECT 1 FROM ple_private.draft_question_fork_source AS reservation
+            WHERE reservation.forked_question_id = p_forked_question_id) THEN
+        RAISE EXCEPTION USING ERRCODE = 'QF001',
+            MESSAGE = 'Question Fork Question ID candidate is already allocated';
+    END IF;
+    IF source_revision.question_type = 'hotspot' THEN
+        SELECT pg_catalog.count(*) INTO asset_count
+          FROM ple_private.question_asset_publication AS publication
+         WHERE publication.question_id = p_source_question_id
+           AND publication.revision_number = p_source_revision_number;
+        IF source_revision.backend <> 'ple' OR asset_count <> 1 OR p_hotspot_asset IS NULL THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Native HOTSPOT fork requires one exact source raster';
+        END IF;
+        SELECT publication.asset_id, publication.source_object_id,
+               publication.source_object_checksum, publication.verified_media_type,
+               record.size_bytes, publication.intrinsic_width, publication.intrinsic_height
+          INTO STRICT source_asset_id, source_asset_object_id, source_asset_checksum,
+               source_asset_media_type, source_asset_size_bytes,
+               source_asset_width, source_asset_height
+          FROM ple_private.question_asset_publication AS publication
+          JOIN ple_private.object_record AS record
+            ON record.object_id = publication.source_object_id
+         WHERE publication.question_id = p_source_question_id
+           AND publication.revision_number = p_source_revision_number
+           AND record.object_address = pg_catalog.jsonb_build_object(
+               'kind', 'restrictedQuestionAsset',
+               'questionRevision', pg_catalog.jsonb_build_object(
+                   'questionId', p_source_question_id,
+                   'revisionNumber', p_source_revision_number),
+               'asset', publication.asset_id,
+               'object', publication.source_object_id)
+           AND record.object_storage_area = 'private-content'
+           AND record.object_data_class = 'question-asset'
+           AND record.sha256 = publication.source_object_checksum
+           AND record.media_type = publication.verified_media_type;
+        target_asset_id := (p_hotspot_asset ->> 'assetId')::uuid;
+        target_asset_object_id := (p_hotspot_asset ->> 'objectId')::uuid;
+        target_asset_address := p_hotspot_asset -> 'objectAddress';
+        target_asset_checksum := pg_catalog.decode(p_hotspot_asset ->> 'checksum', 'hex');
+        target_asset_size_bytes := (p_hotspot_asset ->> 'byteLength')::bigint;
+        target_asset_media_type := p_hotspot_asset ->> 'mediaType';
+        target_asset_created_at_millis := (p_hotspot_asset ->> 'createdAtMillis')::bigint;
+        target_asset_width := (p_hotspot_asset ->> 'intrinsicWidth')::integer;
+        target_asset_height := (p_hotspot_asset ->> 'intrinsicHeight')::integer;
+        IF target_asset_id IS DISTINCT FROM source_asset_id
+           OR target_asset_checksum IS DISTINCT FROM source_asset_checksum
+           OR target_asset_size_bytes IS DISTINCT FROM source_asset_size_bytes
+           OR target_asset_media_type IS DISTINCT FROM source_asset_media_type
+           OR target_asset_width IS DISTINCT FROM source_asset_width
+           OR target_asset_height IS DISTINCT FROM source_asset_height
+           OR target_asset_created_at_millis IS NULL
+           OR target_asset_address IS DISTINCT FROM pg_catalog.jsonb_build_object(
+               'kind', 'draftQuestionAsset', 'workspace', p_workspace_id,
+               'draftQuestionUuid', p_draft_question_uuid,
+               'asset', target_asset_id, 'object', target_asset_object_id) THEN
+            RAISE EXCEPTION USING ERRCODE = '23514',
+                MESSAGE = 'Question Fork target raster must preserve exact HOTSPOT evidence';
+        END IF;
+    ELSIF p_hotspot_asset IS NOT NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '23514',
+            MESSAGE = 'Only a native HOTSPOT fork may carry a Draft raster';
+    END IF;
     INSERT INTO ple_private.draft_question(
         draft_question_uuid, workspace_id, created_at, updated_at
     ) VALUES (
-        p_draft_question_uuid, resolved_workspace_id,
-        pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
+        p_draft_question_uuid, p_workspace_id, created_at, created_at
     ) RETURNING draft_question.reference_number INTO reference_number;
+    INSERT INTO ple_private.draft_question_metadata(
+        draft_question_uuid, question_title, question_description,
+        general_feedback, language, created_at, updated_at
+    ) VALUES (
+        p_draft_question_uuid, source_metadata.question_title,
+        source_metadata.question_description, source_revision.general_feedback,
+        source_metadata.language, created_at, created_at);
+    INSERT INTO ple_private.object_record(
+        object_id, object_address, object_storage_area, object_data_class,
+        sha256, size_bytes, media_type, created_at
+    ) VALUES (
+        p_target_object_id, expected_source_address, 'private-content',
+        'authoring-content', p_target_sha256, p_target_size_bytes,
+        p_target_media_type,
+        pg_catalog.to_timestamp(p_target_created_at_millis::double precision / 1000.0));
+    INSERT INTO ple_private.draft_question_source_binding(
+        draft_question_uuid, backend, question_format, question_type,
+        webwork_pg_path, imathas_deployment_reference, imathas_item_reference,
+        imathas_profile, source_object_id, source_object_checksum,
+        created_at, updated_at
+    ) VALUES (
+        p_draft_question_uuid, source_revision.backend, source_binding.question_format,
+        source_revision.question_type, source_binding.webwork_pg_path,
+        source_binding.imathas_deployment_reference, source_binding.imathas_item_reference,
+        source_binding.imathas_profile, p_target_object_id,
+        pg_catalog.encode(p_target_sha256, 'hex'), created_at, created_at);
+    IF source_revision.question_type = 'hotspot' THEN
+        INSERT INTO ple_private.object_record(
+            object_id, object_address, object_storage_area, object_data_class,
+            sha256, size_bytes, media_type, created_at
+        ) VALUES (
+            target_asset_object_id, target_asset_address, 'private-content',
+            'authoring-content', target_asset_checksum, target_asset_size_bytes,
+            target_asset_media_type,
+            pg_catalog.to_timestamp(target_asset_created_at_millis::double precision / 1000.0));
+        INSERT INTO ple_private.draft_question_asset(
+            draft_question_uuid, workspace_id, asset_id, source_object_id,
+            intrinsic_width, intrinsic_height
+        ) VALUES (
+            p_draft_question_uuid, p_workspace_id, target_asset_id,
+            target_asset_object_id, target_asset_width, target_asset_height);
+    END IF;
     INSERT INTO ple_private.draft_question_fork_source(
         draft_question_uuid, forked_question_id, actor_account_id, idempotency_key,
         source_question_id, source_revision_number, created_at
     ) VALUES (
         p_draft_question_uuid, p_forked_question_id, actor_id, p_idempotency_key,
-        p_source_question_id, p_source_revision_number, pg_catalog.clock_timestamp()
+        p_source_question_id, p_source_revision_number, created_at
     );
     draft_question_uuid := p_draft_question_uuid;
-    workspace_id := resolved_workspace_id;
+    workspace_id := p_workspace_id;
     forked_question_id := p_forked_question_id;
+    created_new := true;
     RETURN NEXT;
+EXCEPTION
+    WHEN unique_violation THEN
+        RAISE EXCEPTION USING ERRCODE = 'QF001',
+            MESSAGE = 'Question Fork allocation candidate collided';
 END
 $$;
 
@@ -495,7 +697,8 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
-    ple_private.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid),
+    ple_private.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+        uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_private.current_session_account_owns_draft_question(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
@@ -504,7 +707,8 @@ REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
-    ple_private.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid),
+    ple_private.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+        uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_private.current_session_account_owns_draft_question(uuid),
     ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
@@ -526,17 +730,28 @@ CREATE FUNCTION ple_api.fork_published_question_to_draft(
     p_forked_question_id text,
     p_source_question_id text,
     p_source_revision_number integer,
-    p_idempotency_key uuid
+    p_idempotency_key uuid,
+    p_target_object_id uuid,
+    p_target_object_address jsonb,
+    p_target_sha256 bytea,
+    p_target_size_bytes bigint,
+    p_target_media_type text,
+    p_target_created_at_millis bigint,
+    p_hotspot_asset jsonb
 ) RETURNS TABLE (
     draft_question_uuid uuid,
     workspace_id uuid,
     reference_number bigint,
-    forked_question_id text
+    forked_question_id text,
+    created_new boolean
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.fork_published_question_to_draft(
         p_workspace_id, p_draft_question_uuid, p_forked_question_id,
-        p_source_question_id, p_source_revision_number, p_idempotency_key)
+        p_source_question_id, p_source_revision_number, p_idempotency_key,
+        p_target_object_id, p_target_object_address, p_target_sha256,
+        p_target_size_bytes, p_target_media_type, p_target_created_at_millis,
+        p_hotspot_asset)
 $$;
 CREATE FUNCTION ple_api.current_session_account_owns_draft_question(
     p_draft_question_uuid uuid
@@ -602,7 +817,8 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.delete_draft_question(p_reference_number, p_expected_edit_number)
 $$;
 REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
-    ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid),
+    ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+        uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_api.current_session_account_owns_draft_question(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
@@ -611,7 +827,8 @@ REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.delete_draft_question(bigint, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
-    ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid),
+    ple_api.fork_published_question_to_draft(uuid, uuid, text, text, integer, uuid,
+        uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_api.current_session_account_owns_draft_question(uuid),
     ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),

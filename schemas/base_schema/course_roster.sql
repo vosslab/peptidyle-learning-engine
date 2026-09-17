@@ -100,6 +100,10 @@ GRANT UPDATE (roster_name) ON ple_private.course_roster_profile TO ple_api_owner
 CREATE POLICY course_invitation_api_owner_access ON ple_private.course_invitation FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
 CREATE POLICY course_invitation_event_api_owner_access ON ple_private.course_invitation_event FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
 CREATE POLICY course_roster_profile_api_owner_access ON ple_private.course_roster_profile FOR ALL TO ple_api_owner USING(true) WITH CHECK(true);
+CREATE POLICY course_invitation_private_owner_read ON ple_private.course_invitation
+    FOR SELECT TO ple_private_owner USING (true);
+CREATE POLICY course_invitation_event_private_owner_read ON ple_private.course_invitation_event
+    FOR SELECT TO ple_private_owner USING (true);
 REVOKE ALL ON FUNCTION ple_private.reject_course_invitation_change(),ple_private.reject_course_invitation_event_change(),ple_private.reject_course_roster_profile_change(),ple_private.assert_course_invitation_event_is_valid(),ple_private.pending_course_invitation_delivery_email(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.pending_course_invitation_delivery_email(uuid, uuid)
     TO ple_api_owner;

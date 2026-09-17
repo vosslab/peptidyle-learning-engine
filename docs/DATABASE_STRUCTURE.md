@@ -100,6 +100,15 @@ copies Blueprint Assessments into current Course Instance Assessments and
 retains exact Blueprint Revision provenance. Blueprints contain no Students,
 dates, time zones, or relative schedules.
 
+The reverse creation workflow does not convert or mutate its source Course
+Instance. It atomically creates a distinct actor-owned Private Blueprint at
+Revision 1 and records one immutable Blueprint-to-source-Course relation. That
+source Course counts as the Blueprint's first Adoption and contributes its
+distinct students-ever-enrolled count, but it is not a daughter Course and is
+never included in automatic daughter-update operations. Course-owned Pools are
+forked into fresh Blueprint-owned Pools with identical ordered exact member
+pins.
+
 The Blueprint-to-daughter relationship exposes newer Blueprint Revisions for
 Instructor review and approval. Existing Assessment changes are not applied
 silently, while a newly added Blueprint Assessment is copied automatically as

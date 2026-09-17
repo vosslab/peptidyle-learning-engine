@@ -21,11 +21,18 @@ import { AvatarVisual } from "./features/profile_avatar/provided_avatar_picker";
 import { RibbonAccountAvatar } from "./features/profile_avatar/ribbon_account_avatar";
 import { AppRibbon } from "./ribbon/app_ribbon";
 import type { RibbonBreadcrumbModel, RibbonModel } from "./ribbon/ribbon_contract";
-import { RouteScopeProvider, useRouteScopeData } from "./ribbon/route_scope_context";
+import {
+  RouteScopeProvider,
+  useAssessmentTitle,
+  useRouteScopeData,
+} from "./ribbon/route_scope_context";
 
 export interface ApplicationShellProps {
   readonly pathname: Accessor<string>;
-  readonly ribbonModel: (routeData: CourseThemeRouteData | undefined) => RibbonModel | undefined;
+  readonly ribbonModel: (
+    routeData: CourseThemeRouteData | undefined,
+    assessmentTitle: string | undefined,
+  ) => RibbonModel | undefined;
   readonly content: (pathname: string) => JSX.Element;
 }
 
@@ -209,7 +216,8 @@ export function ApplicationShell(props: ApplicationShellProps): JSX.Element {
     // unresolved) value and prevent later cache resolution from reaching the
     // Ribbon model.
     const routeData = useRouteScopeData();
-    const ribbonModel = createMemo(() => props.ribbonModel(routeData()));
+    const assessmentTitle = useAssessmentTitle();
+    const ribbonModel = createMemo(() => props.ribbonModel(routeData(), assessmentTitle()));
     const ribbonTaskRow = createMemo(() => {
       const model = ribbonModel();
       if (model === undefined) return undefined;

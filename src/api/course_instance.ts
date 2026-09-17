@@ -8,6 +8,8 @@ import type { CourseInstanceRouteSummary } from "../../generated/api/CourseInsta
 import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { CourseTheme } from "../../generated/api/CourseTheme";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
+import type { BlueprintCourseView } from "../../generated/api/BlueprintCourseView";
+import type { CreateBlueprintFromCourseInstanceInput } from "../../generated/api/CreateBlueprintFromCourseInstanceInput";
 
 /** Closed browser source: empty creation never names or reads a Blueprint. */
 export type CourseInstanceCreationSource =
@@ -63,8 +65,21 @@ export interface CreatedCourseInstance {
   readonly course: CourseInstanceSummary;
 }
 
+/** Receipt for a new private Blueprint derived from one Course Instance. */
+export interface CreatedBlueprintFromCourseInstance {
+  readonly blueprintCourse: BlueprintCourseView;
+  /** Strong validator for the new Blueprint's initial Revision. */
+  readonly revisionEtag: string;
+}
+
 /** Same-origin client boundary for Course Instance creation and initial teaching team. */
 export interface CourseInstanceClient {
+  /** Creates a new private Blueprint from one Course Instance's reusable structure. */
+  readonly createBlueprintFromCourseInstance: (
+    reference: CourseInstanceReference,
+    input: CreateBlueprintFromCourseInstanceInput,
+    idempotencyKey: string,
+  ) => Promise<CreatedBlueprintFromCourseInstance>;
   readonly updateCourseInstanceClassification: (
     reference: CourseInstanceReference,
     classification: CourseClassification,

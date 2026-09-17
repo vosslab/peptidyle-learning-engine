@@ -18,6 +18,7 @@ import type { InstructorStudentViewQuestionReference } from "../../../generated/
 import type { StudentQuestionPresentation } from "../../../generated/api/StudentQuestionPresentation";
 import { useApplicationApi } from "../../api/application_api";
 import { ApiRequestError, AssessmentConflictError } from "../../api/http_client";
+import { OpaqueWebworkPreviewFrame } from "../../components/opaque_webwork_preview_frame";
 import {
   QuestionPresentationRenderer,
   type AssetUrlResolver,
@@ -190,13 +191,10 @@ function DeliveryPolicy(props: {
 
 function PreviewDocument(props: { readonly src: string; readonly position: number }): JSX.Element {
   return (
-    <iframe
+    <OpaqueWebworkPreviewFrame
       class="student-view-question-document"
       src={props.src}
       title={`Question ${props.position} preview document`}
-      sandbox="allow-scripts"
-      referrerpolicy="no-referrer"
-      allow=""
     />
   );
 }

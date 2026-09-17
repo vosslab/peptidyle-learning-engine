@@ -35,9 +35,7 @@ async function openAppearanceFromCourseActions(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Course actions", exact: true })
     .getByRole("link", { name: "Appearance", exact: true })
     .click();
-  await expect(page).toHaveURL(
-    /\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/appearance$/u,
-  );
+  await expect(page).toHaveURL(/\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/appearance$/u);
   await expect(page.locator("#main-content")).toBeFocused();
   await expect(page.locator('[data-route-surface="courseAppearance"]')).toBeVisible();
   await expect(
@@ -65,8 +63,6 @@ async function createSecondCourseThroughVisibleControls(
   longName: string,
 ): Promise<void> {
   await page.locator('button[aria-controls="create-course-instance"]').click();
-  await page.getByLabel("Start with").selectOption("adopted");
-  await page.getByLabel("Blueprint Course", { exact: true }).selectOption({ index: 1 });
   await page.getByLabel("Course short name").fill(shortName);
   await page.getByLabel("Course long name").fill(longName);
   await page.getByLabel("Discipline (required)").selectOption({ index: 1 });

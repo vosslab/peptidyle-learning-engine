@@ -15,11 +15,10 @@ capability issuance no longer takes the redundant Account key-share lock.
 Those receipts supersede the two historical blockers only; they do not certify
 the remaining SQL or product boundaries below.
 
-The SQL also has remaining unverified or incomplete boundaries, particularly
-Course/Pool classification, Bloom metadata, Blueprint Change Proposals, and
-archive recovery. A narrower production scope could deliberately exclude an
-unfinished capability, but this audit does not assume such an approved scope or
-certify those paths.
+The SQL still has required incomplete boundaries, especially mandatory Bloom initialization and admission,
+notification kinds, and consistent supported-Backend coverage.
+The current ledger below is the release-facing status; dated findings later in
+this audit remain historical evidence unless the ledger points to them as open.
 
 Historical source-only Course-purge reproduction is now superseded for its
 narrow boundary by a fresh canonical PostgreSQL 17.11 actual-role receipt. The
@@ -36,20 +35,49 @@ Production workload sizing, backup recovery, deployment credentials, and the
 rest of the application were not assessed; the conclusion concerns these SQL
 sources and their database behavior only.
 
+## Current SQL lock ledger
+
+The SQL backend is **not locked** while any required SQL-owned row below is
+`Open`. Connected browser or presentation work does not reopen a `Closed SQL`
+row, but a failed current-source database proof does.
+
+| Required SQL-owned boundary | Status | Current evidence or remaining work |
+| --- | --- | --- |
+| Retained Question statistics and support-capability locking | Closed SQL | Fresh PostgreSQL 17.11 actual-role receipts supersede the two historical reproduced defects. |
+| Course and Pool classification, metadata, and mandatory-null shapes | Closed SQL | Current base-schema contracts and bounded actual-role receipts cover independent Course classification, Pool admission rules, and the corrected conditional shapes. |
+| Sysadmin vocabulary lifecycle and referenced-classification behavior | Open | Human Guidance assigns Discipline lifecycle to Sysadmins but does not define rename/retire/restore/delete states, selection of inactive values, or existing-reference behavior. Current foreign keys preserve references and the authorized command creates only. A product decision must precede implementation. |
+| Required Bloom metadata for every Question and Pool Revision | Open | Exact-Revision pair storage and Instructor CAS correction exist, but every Question/Pool Revision producer can still commit without the pair and Library admission does not require it. No AI preparation source is selected; defaults, browser-supplied values, or copied Pool values would contradict Human Guidance. |
+| Create a new Blueprint from an existing Course Instance's reusable structure | Closed SQL | `course_blueprint_publication.sql` locks the authorized source, copies only reusable ordered Assessment structure into a distinct actor-owned Private Revision 1, forks Course-owned Pools with exact ordered pins, and records immutable source provenance without changing the Course. Fresh PostgreSQL 17 actual-role proof covers denial/no-write, stale rollback, replay, source preservation, first-Adoption/student counts, and the lifecycle rollback rule. |
+| Blueprint Change Proposal persistence and Entire/Selected acceptance | Closed SQL | Fresh isolated actual-role proof covers exact pins, stale-basis locking, both decision forms, atomic outcome, and unchanged daughters. API, UI, and connected review remain application gates. |
+| Blueprint Promoted storage, Sysadmin mutation, and discovery | Closed SQL | Current source and isolated actual-role proof cover the lineage flag, authorization, CAS mutation, and cursor-bound discovery. |
+| Pool Stars and Watches | Closed SQL | Current canonical SQL/LDA proof covers public vetted-Instructor Stars and private Watches. |
+| Required Question/Pool notification kinds | Open | Human Guidance fixes stable Question/Pool targets, four event classes, in-app delivery, and private Watch lists. Current Question revision/fork rows lose exact event detail, Pool events and a self-only feed are absent, and improvement-thread/impact-notice identities and lifecycles still require product decisions. |
+| Supported Backend set across authoring, delivery, completion, and reproduction | Open | iMathAS is admitted but lacks complete server/LDA issuance, reproduction, and finalization. H5P remains intentionally absent until its supported content types and terminal xAPI/score semantics are decided. SQL admission alone cannot close either backend. |
+| Archived Student Work concealment, protected recovery, and expiry deletion | Closed SQL | C208/C210 PostgreSQL 17.11 actual-role and production-server proof covers ordinary-reader concealment, current-Instructor recovery, expiry, and deletion. Browser presentation remains outside the SQL lock. |
+| Canonical Blueprint metadata/content exchange boundary | Closed SQL | Retained PostgreSQL 17 actual-role proof authorizes export/import/re-export semantic deep equality, assigns fresh actor-owned Private Revision-1 Blueprint/module/Assessment/Pool identities, retains exact fixed and ordered Pool-member pins, leaves the source unchanged, and denies unauthorized access. |
+
 ## Current bounded implementation receipts
 
-Blueprint Change Proposals have separate accepted isolated proof for the production HTTP boundary
-and the Instructor component. That is not compiled-main two-Instructor client/API proof, which
-remains pending.
+Blueprint Change Proposals have accepted isolated SQL proof for both Entire and Selected
+acceptance, plus separate production HTTP-boundary and Instructor-component evidence. Compiled-main
+two-Instructor client/API proof remains an application gate, not unfinished SQL persistence.
 
 Pool stewardship has current canonical SQL/LDA proof for Pool-level Stars and Watches, including
 the final ASCII-space-only display-name correction. HTTP/UI controls and the required notification
 events remain pending.
 
-Native Student Work recovery has bounded connected evidence on demo `8258`; it does not establish
-the retention worker, all-reader coverage, or full screenshots. The Instructor-zone time-display
-correction is source-only and not deployed. These receipts neither lock all SQL nor change any
-checklist status or count.
+Native Student Work recovery now has fresh PostgreSQL 17.11 actual-role and production-server proof
+covering the ordinary Student route inventory, Instructor Gradebook concealment, protected
+current-Instructor recovery, expiry concealment, and deletion. The Instructor-zone time display and
+full screenshots remain application evidence. These receipts close the SQL recovery row only; they
+do not lock the other open ledger rows or change checklist status.
+
+Canonical Blueprint exchange has a reviewed model/Store/server implementation and retained
+PostgreSQL 17 actual-role proof for the strict, authority-free representation. Authorized
+export/import/re-export has semantic deep equality, creates a distinct actor-owned Private
+Revision-1 root with fresh Module, Assessment, and Pool identities, retains exact fixed and ordered
+Pool-member pins, leaves the source unchanged, and denies unauthorized access. It adds no exchange
+table or format envelope; the SQL row is Closed SQL.
 
 ## Relevance filter for Human Guidance
 
@@ -128,17 +156,17 @@ mutation to the application role.
 | --- | --- | --- |
 | Course classification | Required Discipline on both Blueprint and Instance; optional hierarchy-consistent Subject/Topic/Subtopic and Tags; Instance classification independent of source Blueprint | **2026-09-16 current-source addendum:** `course_core.sql` and `blueprints.sql` now store the required Discipline plus optional hierarchy and Tags independently. The historical absence finding is superseded; actual-role and connected acceptance remain separate. |
 | Pool metadata and classification | Pool-level Title/Description and classification; first Question establishes Discipline/Subject; every addition matches; exact member Revisions remain pinned | **2026-09-16 current-source addendum:** Pool metadata already exists. Creation establishes the pair; append checks only new admissions. A retained member may reclassify independently; remove/re-add is a new admission; and a source fork preserves Pool metadata and exact member pins. Human Guidance does not require an ongoing metadata-write veto. Historical actual-role/concurrency evidence is not refreshed here; connected and global acceptance remain open. |
-| Bloom metadata | Two independent required dimensions keyed to each Question/Pool Revision, with Instructor correction independent of immutable Revision content | This needs a distinct mutable metadata relationship or equivalent model. Placing corrected values inside immutable source would conflict with HG's no-new-Revision correction rule. Persistence must exist before mandatory publication metadata can be preserved. AI classification execution is outside this SQL work. |
+| Bloom metadata | Two independent required dimensions keyed to each Question/Pool Revision, with Instructor correction independent of immutable Revision content | **2026-09-17 current-source addendum:** `question_bloom.sql` supplies exact-Revision pair storage and Instructor CAS correction without content Revisions. Mandatory atomic initialization/admission and protected AI-result binding remain open. |
 | Tags and vocabulary lifecycle | Any number of Tags, including none; establish the promised Sysadmin Discipline lifecycle and how referenced vocabulary changes are handled | **2026-09-16 current-source addendum:** current Course and Blueprint Tag validators impose no 64-Tag ceiling. The historical ceiling finding is superseded. Discipline lifecycle and referenced-vocabulary behavior remain open. |
 | Course Instance structure publication | Authorized creation of a new Blueprint Course by copying reusable structure from an existing Course Instance, with explicit source and content boundaries | **2026-09-16 superseding clarification:** Course Instance creation can use a Blueprint source, while this separate workflow creates a new Blueprint that records the unchanged existing Course Instance as its source. Creating and copying the reusable structure remains an application-domain gap. |
-| Blueprint Change Proposals | Persistent source/target exact Revision pins, canonical proposed content, selected acceptance/outcome, and stale-target handling; acceptance produces a target Revision, never direct daughter mutation | **2026-09-16 current-source addendum:** immutable Proposal persistence now retains source/target Revision and metadata-event pins, and reconstructs canonical evidence through the existing exporter; it is not a duplicate JSON baseline. Participant reads permit the receiving owner to inspect an explicitly submitted Private source's exact Proposal evidence while ordinary Private-source and history reads remain denied. Create/read and stale-basis evidence have fresh actual-role proof, but selected/whole acceptance, accepted record/outcome, resulting target Revision, API/UI, and connected acceptance remain open. |
-| Blueprint Promoted and discovery | Sysadmin-controlled boolean stored independently from immutable reusable content and available in discovery queries | This required metadata should not force new Blueprint content Revisions or unrestricted Instructor updates. |
-| Pool stewardship | Stable Pool-level star/watch identities, public vetted-Instructor endorsements, private subscription data and required notification events | Match the separation already used for Questions/Blueprints. Resolve ownership and visibility before users build durable subscriptions. |
+| Blueprint Change Proposals | Persistent source/target exact Revision pins, canonical proposed content, selected acceptance/outcome, and stale-target handling; acceptance produces a target Revision, never direct daughter mutation | **2026-09-17 current-source addendum:** immutable Proposal persistence retains exact source/target pins and reconstructs canonical evidence through the existing exporter. Fresh actual-role proof covers stale-basis handling, Entire and Selected acceptance, one durable outcome, atomic successor creation, and unchanged daughters. API/UI and connected acceptance remain outside the SQL lock. |
+| Blueprint Promoted and discovery | Sysadmin-controlled boolean stored independently from immutable reusable content and available in discovery queries | **2026-09-17 current-source addendum:** current source and actual-role proof cover storage, Sysadmin-only CAS mutation, and cursor-bound discovery without creating a content Revision. |
+| Pool stewardship | Stable Pool-level star/watch identities, public vetted-Instructor endorsements, private subscription data and required notification events | **2026-09-17 current-source addendum:** Stars and Watches have current SQL/LDA proof. Required improvement-thread, impact, and Pool notification event kinds remain open as the separate notification row below. |
 | Required notification kinds | Stable representation for Question/Pool improvement-thread and impact events, in addition to Revision/fork notifications | Question notification kinds are currently restricted to Revision/fork. Resolve the event identities and privacy boundary before subscriptions depend on that closed set. |
 | Supported backend set | Consistent allowed backend/source types across authoring, revisions, delivery, reproduction and whole-Attempt completion | The current schema admits iMathAS records that the saved-response completion path cannot finalize, and excludes H5P. Complete required SQL support or deliberately restrict the initial production backend scope; do not claim capability based on a backend CHECK alone. |
 | Assessment-only response terminology and parentage | `question_response` per-Question evidence explicitly belongs to its owning Assessment submission | **2026-09-16 current-source addendum:** the terminology and parentage repair has fresh PostgreSQL 17.11 actual-role evidence. The historical finding below is retained only to explain why this stable Assessment-only boundary matters. |
 | Archive recovery | A narrowly authorized SQL recovery/read capability providing sufficient retained responses, exact delivery evidence and outcomes during the archive period | Physical rows and header summaries do not establish recoverability. Recovery need not reverse the archive state; it must provide the required evidence without reopening ordinary access or extending permanent deletion. |
-| Canonical Blueprint metadata/content boundary | Define which SQL fields form complete exchange JSON, including names/classification; preserve ordered reusable content and exact pins | Stored Revision content currently contains modules while names are separate. Freeze the database-to-canonical-representation contract; do not assume the content column alone is a complete exchange object. Serialization implementation remains outside scope. |
+| Canonical Blueprint metadata/content boundary | Complete exchange JSON includes Blueprint metadata and ordered reusable content with exact pins; relational data remains primary persistence | **2026-09-17 current-source addendum:** `CanonicalBlueprintCourse` assembles the complete authority-free exchange projection rather than exposing stored Revision content alone. PostgreSQL 17 actual-role export/import/re-export passed semantic deep equality, fresh identities, exact ordered pins, source preservation, and unauthorized denial. |
 
 If a required capability is intentionally deferred, record its approved exclusion
 from the production scope. That is a release decision, not evidence that the
@@ -426,10 +454,13 @@ not expose the complete rename/retirement lifecycle described by the authority.
 These source updates do not by themselves establish actual-role, connected, or
 global acceptance.
 
-The SQL contains no identifiable pair of required Bloom dimensions or their
-publication/correction persistence model. It also lacks full Question/Pool
-optional Hint and Worked Solution persistence. Existing Question general
-feedback should not be mistaken for the complete support-content contract.
+Current `question_bloom.sql` supersedes the historical absence finding: it stores the two required
+dimensions independently for exact Question and Pool Revisions and provides Instructor CAS
+correction without a content Revision. Publication and Pool-creation producers still do not
+atomically initialize the pair or exclude unclassified objects from Library admission, and the
+protected AI-result binding remains open. The SQL also lacks full Question/Pool optional Hint and
+Worked Solution persistence. Existing Question general feedback should not be mistaken for the
+complete support-content contract.
 
 ### Partial implementation: stewardship, statistics, and Blueprint workflows
 
@@ -457,8 +488,10 @@ attachment to an existing Blueprint is superseded. Course Instance creation can 
 a Blueprint source; an existing Course Instance can instead create a new Blueprint
 from its reusable structure, which records that Course Instance as its source. The immutable
 creation/source fields in [course_core.sql](../../../schemas/base_schema/course_core.sql)
-remain appropriate. No Course Instance-to-new-Blueprint creation operation is
-present in the audited SQL boundary.
+remain appropriate. **2026-09-17 current-source addendum:**
+[course_blueprint_publication.sql](../../../schemas/base_schema/course_blueprint_publication.sql)
+now supplies the separate atomic Course-to-new-Blueprint operation and immutable source relation;
+fresh actual-role proof passed without mutating Course Origin or the source teaching instance.
 
 The Blueprint discovery projection derives `total_students_ever_enrolled` from
 membership rows. Retention deletes Student memberships, so that derivation cannot
@@ -796,8 +829,8 @@ identify the SQL object or operation to inspect. The statuses mean:
 | Library, 984-1014: global Questions and Pools, vetted Instructor reuse, no Drafts or Student Library access | [question_library_operations.sql](../../../schemas/base_schema/question_library_operations.sql): Instructor-only Question projection; Pool operations | Partial. Global published Question path exists; the combined discoverable Question-and-Pool projection is incomplete. |
 | Library, 984-1014: practical bulk metadata/search/filter/sort | [published_question_metadata_operations.sql](../../../schemas/base_schema/published_question_metadata_operations.sql): bulk CAS writer; Question Library projection/GIN index | Partial. Bulk Question metadata exists; query-side search/filter/paging and Pool coverage remain incomplete. UI search was not audited. |
 | Statistics, 1015-1033: Revision-first totals and eligible choice counts, optional partial/unanswered/Pool aggregates | [statistics.sql](../../../schemas/base_schema/statistics.sql): Revision totals and choice tables | Partial optional capability. Missing optional categories/Pool statistics are not by themselves mandatory launch blockers; retained-count loss is. |
-| Bloom, 1034-1048: independent required Cognitive Process/Knowledge Dimension per Question/Pool Revision; editable without new Revision | No corresponding fields/relations/commands in either SQL directory | Gap. Required publication metadata and independent correction persistence absent. AI assignment itself is outside SQL. |
-| Stewardship, 1049-1061: public vetted-Instructor stars/identities; private watches; no Student/anonymous disclosure | [question_stewardship.sql](../../../schemas/base_schema/question_stewardship.sql): Question star/watch reads/writes | Partial. Question implementation exists; equivalent Pool stewardship was not found. |
+| Bloom, 1034-1048: independent required Cognitive Process/Knowledge Dimension per Question/Pool Revision; editable without new Revision | [question_bloom.sql](../../../schemas/base_schema/question_bloom.sql): exact-Revision pair tables, closed vocabularies, Edit Number, and Instructor correction commands | Partial. Storage and correction are supported. Mandatory atomic initialization/admission, protected AI preparation, and stale-result/source binding remain open. |
+| Stewardship, 1049-1061: public vetted-Instructor stars/identities; private watches; no Student/anonymous disclosure | [question_stewardship.sql](../../../schemas/base_schema/question_stewardship.sql) and Pool stewardship operations: Question and Pool star/watch reads/writes | Supported in current SQL/LDA proof. HTTP/UI and notifications are separate application/event gates. |
 | Stewardship/revisions, 914-933, 943-967 and 1049-1061: notifications for Revisions, forks, improvement threads, impact notices | [question_watch_notifications.sql](../../../schemas/base_schema/question_watch_notifications.sql): event kinds restricted to Revision/fork | Partial. Question Revision/fork notifications exist; thread/impact kinds and Pool notification model absent. |
 
 ### Courses and Blueprints
@@ -805,20 +838,20 @@ identify the SQL object or operation to inspect. The statuses mean:
 | HG requirement and locator | SQL evidence | Assessment |
 | --- | --- | --- |
 | Courses, 1062-1075: two forms; create empty/adopted; assigned Instructor; equal co-Instructor teaching authority | [course_operations.sql](../../../schemas/base_schema/course_operations.sql): creation/add Instructor; [course_membership.sql](../../../schemas/base_schema/course_membership.sql): deferred assigned-Instructor invariant | Supported. Assignment preserves one required Instructor; teaching predicates grant authority by membership rather than founder status. |
-| Courses, 1062-1075: Course Instance creation can use a Blueprint source; existing Course Instance structure can create a new Blueprint source relationship | Course creation/adoption commands and immutable Course Origin | Partial. The creation-source boundary is supported. **2026-09-16:** this supersedes the historical later-attachment finding; no Course Instance-to-new-Blueprint creation operation was found. |
+| Courses, 1062-1075: Course Instance creation can use a Blueprint source; existing Course Instance structure can create a new Blueprint source relationship | Course creation/adoption commands, immutable Course Origin, and [course_blueprint_publication.sql](../../../schemas/base_schema/course_blueprint_publication.sql) | Supported SQL in both directions. Course-to-Blueprint creation records a separate immutable source relation and leaves Course Origin and the teaching instance unchanged. |
 | Blueprint structure, 1090-1099: reusable only, no Students/dates/relative schedules; published-only content | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): exact-key canonical content validator, immutable Question pins | Supported reusable schema/validator. JSON names/classification completeness is assessed below. |
-| Blueprint structure/Instances, 1090-1099 and 1232-1244: create a new Blueprint from existing Course structure | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): creation from caller-supplied canonical content | Gap. SQL can create the target, but no operation copies reusable Course Instance structure into a new Blueprint while recording the unchanged Course Instance as its source; that creation workflow requires an application-domain boundary. |
+| Blueprint structure/Instances, 1090-1099 and 1232-1244: create a new Blueprint from existing Course structure | [course_blueprint_publication.sql](../../../schemas/base_schema/course_blueprint_publication.sql), [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql) | Supported SQL. The atomic operation derives reusable content from the locked authorized Course, creates a distinct Private Revision 1, records immutable source provenance, counts the source as an Adoption, and excludes it from daughter-update operations. |
 | Blueprint lifecycle, 1100-1125: Private/Public/Archived, new/forks Private; ownership; public history; no Private/Archived adoption | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql), [blueprint_history.sql](../../../schemas/base_schema/blueprint_history.sql), Course creation checks | Supported source lifecycle/read/adoption predicates. |
 | Blueprint lifecycle, 1100-1125: adopted Public cannot return Private; archive read-only, excluded normally, forkable/restorable | Availability operation, bounded discovery flags, save/archive checks and fork operation | Supported source path. The explicit archive include flag is honored by discovery. |
 | Blueprint revisions, 1126-1136: changed Save creates next Revision, unchanged Save no-op; metadata/name changes independent | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): save checksum/content comparison, metadata ETag and rename | Supported source semantics. SQL stores one saved Revision sequence. |
-| Blueprint stewardship, 1137-1148: searchable boolean Promoted controlled only by Sysadmin | [blueprints.sql](../../../schemas/base_schema/blueprints.sql), discovery and metadata operations | Gap. Promoted storage/control/query support absent. |
+| Blueprint stewardship, 1137-1148: searchable boolean Promoted controlled only by Sysadmin | [blueprints.sql](../../../schemas/base_schema/blueprints.sql), discovery and metadata operations | Supported by current source and isolated actual-role proof for storage, Sysadmin-only CAS mutation, and cursor-bound discovery. Connected application acceptance remains separate. |
 | Blueprint stewardship, 1137-1148: stars public, watches private, across Revisions; no auto-star on adoption/fork; revision/change notifications | [blueprint_stewardship.sql](../../../schemas/base_schema/blueprint_stewardship.sql): lineaged star/watch, restricted projections and Revision/lifecycle triggers | Supported source paths for existing event kinds; no claim of complete notification delivery. |
 | Adoption/daughters, 1149-1159 and 1245-1261: copy every Assessment/settings; exact source Revision; new unreleased/date-unset records | [course_operations.sql](../../../schemas/base_schema/course_operations.sql): complete source-member set check; [course_blueprint_adoption.sql](../../../schemas/base_schema/course_blueprint_adoption.sql) | Supported source operation. Date/source invariants are distinguished from application completeness. |
 | Adoption/daughters, 1149-1159 and 1245-1261: auto-add new Assessments, explicit review of existing updates, never silent replacement | [course_blueprint_adoption.sql](../../../schemas/base_schema/course_blueprint_adoption.sql): append paths; [assessment_blueprint_updates.sql](../../../schemas/base_schema/assessment_blueprint_updates.sql): explicit apply | Supported SQL mechanisms. Automatically invoking them on publication is an orchestration responsibility not certified here. |
 | Blueprint forks, 1160-1176: new Private owned child, source pin, fresh Assessment/Pool identities, same exact Questions, independent subsequent history | [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): fork; [blueprint_pools.sql](../../../schemas/base_schema/blueprint_pools.sql); fork receipt/lineage | Supported source construction paths. |
 | Blueprint lineage/comparison, 1160-1176 and 1204-1215: visible forks/owners, visible related current heads, on-request JSON comparison | [blueprint_lineage.sql](../../../schemas/base_schema/blueprint_lineage.sql): fork list and comparison sources | Supported source reads. Semantic difference calculation/presentation belongs to the domain/application. |
 | Change Proposals, 1177-1203: exact source/target pins, canonical proposed JSON, selected acceptance, durable outcome, stale-target handling; no direct daughter mutation | [blueprint_change_proposals.sql](../../../schemas/base_schema/blueprint_change_proposals.sql) and the data-access Store persist immutable exact Revision/metadata-event pins, exporter-reconstructed canonical evidence, and a one-final-decision accepted result. The bounded receiving-owner backend accepts both Entire and Selected decisions under the target lock, preserving exact ordered Question/Pool Revision pins; accepted metadata-only changes create the required identical-content successor. | Partial. Fresh isolated actual-role proof accepts both decision forms, verifies final-decision-insert rollback of the successor, metadata, and Pool allocations, and confirms adopted daughter Course/Assessment/entry/Pool records remain unchanged. Source-copy create/read retains explicit Private-source sharing while ordinary Private source/history reads remain denied. API, human-readable proposal review/UI, connected acceptance, and concurrent work remain open; no global checklist-status change follows. |
-| Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): content JSON has modules; names are separate metadata; comparison loads both | Boundary/Partial. Stored content alone is not complete exchange JSON. Application assembly/round-trip was not reviewed. |
+| Blueprint JSON, 1216-1229: complete metadata/content exchange, ordered Assessments, reusable-only data, reproducible import | [canonical_exchange.rs](../../../crates/question_model/src/blueprint_course/canonical_exchange.rs): `CanonicalBlueprintCourse` assembles metadata and ordered reusable content; [exchange.rs](../../../crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs): `assert_actual_role_round_trip` | Closed SQL. Retained PostgreSQL 17 actual-role export/import/re-export passed semantic deep equality, fresh identities, exact ordered pins, unchanged source, and unauthorized denial; relational storage remains primary. |
 | Course Instances, 1232-1244: only co-Instructors/enrolled Students; teaching data; retained inactive metadata; new term uses new Instance | Course membership policies and lifecycle; no distinct rollover object | Supported source representation/access paths, not an exhaustive policy proof. |
 | Adoption counts, 1245-1261: count daughter Instances, retain parent/exact source | [course_core.sql](../../../schemas/base_schema/course_core.sql): source relationship; [blueprint_operations.sql](../../../schemas/base_schema/blueprint_operations.sql): discovery count | Narrow actual-role receipt retained each deleted daughter's anonymous distinct Account count exactly once; ordinary reimport/reclaim did not alter it. Broader discovery, worker, and deployed behavior remain unproved. |
 | Names, 1262-1271: independent deliberate short/long names, short name preferably under about 16 characters | Course/Blueprint name fields and rename operations | Supported. The suggested compact length is guidance, not a mandatory SQL 16-character constraint. |
@@ -849,11 +882,10 @@ identify the SQL object or operation to inspect. The statuses mean:
 
 ### Production implications of this comparison
 
-The two **Defect** rows are immediate SQL blockers. Required **Gap** rows mean
-the full HG-defined data contract is not implemented, particularly mandatory
-classification/Bloom metadata and Proposal/recovery capabilities. They should
-be addressed or explicitly excluded from an approved release scope before
-claiming the SQL implements Human Guidance.
+The two historical **Defect** rows are corrected and no longer SQL blockers.
+The current lock decision comes from the ledger above. Its required `Open` rows
+mean the full HG-defined SQL contract is not implemented and must be completed
+before claiming the SQL backend is locked for this plan.
 
 Optional support content, optional statistics categories, future roles,
 preferred short-name length, UI interactions and external services are not

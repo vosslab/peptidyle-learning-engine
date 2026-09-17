@@ -1,6 +1,7 @@
 # UI, UX, and usability audit
 
-Date: 2026-09-16. Status: open findings from screenshot inspection.
+Date: 2026-09-16. Status: historical screenshot baseline with dated current-source and rendered
+receipts. Findings without an explicit current disposition remain open.
 
 [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md) owns durable product guidance. This audit records
 concrete examples and acceptance checks for implementation review.
@@ -17,10 +18,11 @@ information density, responsive presentation, and visible state. It covers Stude
 portrait tablets, narrow phones, and square displays as specified in HG. Instructor and Sysadmin
 workflows target laptop browsers.
 
-Screenshots establish visible presentation at capture time. Live behavior, keyboard traversal,
+The committed PNGs establish visible presentation at their capture time and are historical until
+the planned full canonical replay replaces the current corpus. Live behavior, keyboard traversal,
 accessible names, touch interaction, and current source remain verification work. Findings below
-remain open until the corresponding rendered and interaction checks pass. No runtime audit or
-participant study was conducted.
+remain open until the corresponding rendered and interaction checks pass. The initial inspection
+was not a runtime audit or participant study; dated receipts below add bounded runtime evidence.
 
 ## Review coverage
 
@@ -41,17 +43,17 @@ Review Student-facing delivery of one WeBWorK Question and each of the eight nat
 Question Types specified in [HUMAN_GUIDANCE.md](../../HUMAN_GUIDANCE.md). Instructor Library
 previews supplement this evidence; Student delivery captures establish the requested presentation.
 
-| Example | Required visible content |
-| --- | --- |
-| WeBWorK | Backend-rendered prompt, response controls, and permitted feedback |
-| MC | Single-answer choice selection |
-| MA | Multiple-answer choice selection |
-| FIB | One text-entry blank |
-| MULTI-FIB | Multiple independently identifiable text-entry blanks |
-| NUM | Numeric response and any relevant unit or tolerance instructions |
-| MATCH | Prompts, shared choice bank, and visible assigned matches |
-| ORDER | Items and their current ordering |
-| HOTSPOT | Static visual asset and visible selection cues |
+| Example   | Required visible content                                           |
+| --------- | ------------------------------------------------------------------ |
+| WeBWorK   | Backend-rendered prompt, response controls, and permitted feedback |
+| MC        | Single-answer choice selection                                     |
+| MA        | Multiple-answer choice selection                                   |
+| FIB       | One text-entry blank                                               |
+| MULTI-FIB | Multiple independently identifiable text-entry blanks              |
+| NUM       | Numeric response and any relevant unit or tolerance instructions   |
+| MATCH     | Prompts, shared choice bank, and visible assigned matches          |
+| ORDER     | Items and their current ordering                                   |
+| HOTSPOT   | Static visual asset and visible selection cues                     |
 
 Capture representative examples on a laptop and narrow phone, with portrait-tablet and square
 layout checks where the response arrangement changes. Inspect initial and entered-response states,
@@ -89,10 +91,9 @@ refresh, full responsive/touch/contrast matrix, new SQL/server claim, or broader
 Receipts: `/private/tmp/ple-native-connected-interaction-20260916.md` and
 `/private/tmp/ple-native-interaction-receipt-review-20260916.md`.
 
-The Instructor preview header remains a separate gap: connected preview delivery is still blocked
-by its opaque-frame resource-policy defect, so Student captures do not establish that preview
-surface. See the retained open Instructor inspection receipt in
-`hg_checklist_parts/04_instructor_ui.md`.
+The Instructor preview delivery defect is closed by the 2026-09-17 canonical HTTPS receipt under
+I15. Student captures still do not establish Instructor layout consistency, preview height, or the
+fresh official screenshot corpus.
 
 ### S01: accepted invitation retains pending-state actions
 
@@ -104,7 +105,7 @@ surface. See the retained open Instructor inspection receipt in
   Coursework the next primary action. Verify the transition in a live walkthrough.
 - Receipt (2026-09-16): bounded connected acceptance on canonical local runtime `8258` used the
   ordinary visible Student demo path to claim a Course. The joined page rendered `You joined this
-  course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter reached that
+course`, `Invitation accepted.`, and one `Open course` action; keyboard Enter reached that
   claimed Course. A held real claim response could not present the old Course's joined result after
   navigation to another pending invitation; that route joined only through its own real claim.
   This supersedes the isolated-only status for this bounded transition, not the full invitation
@@ -138,7 +139,7 @@ surface. See the retained open Instructor inspection receipt in
 - Receipt (2026-09-16): [student_assessment_landing.sql](../../../schemas/base_schema/student_assessment_landing.sql)
   and [student_course_landing_page.tsx](../../../src/pages/student_course_landing_page.tsx) now
   carry an answer-free saved-response count and render active Coursework as `N of M responses
-  saved`; completed Coursework retains its existing grading and disclosed-score branch. Accepted
+saved`; completed Coursework retains its existing grading and disclosed-score branch. Accepted
   source review, focused Cargo, strict TypeScript, and 1280/390 component-browser gates passed.
   A fresh canonical PostgreSQL 17 actual-role `ple_auth` -> `ple_app` proof observed no-Attempt
   zero, an ordinary Student save from `0` to `1`, replacement remaining `1`, a later empty Attempt
@@ -251,10 +252,25 @@ below reflects friction at those steps, rather than implementation effort.
 
 [current_capture_manifest.json](../../screenshots/current_capture_manifest.json) marks Assessment
 Templates as needing a fresh capture and the legacy multi-tab Assignment workspace as retired.
-It also marks several future Ribbon destinations as deferred. File presence and filenames alone
-establish neither current route behavior nor successful task completion. Reproduce findings on
-the admitted interface before making implementation changes. Preserve useful teaching behavior
+Some manifest entries still describe required Ribbon destinations as deferred; those descriptions
+are historical and do not override the current Ribbon contract below. File presence and filenames
+alone establish neither current route behavior nor successful task completion. Reproduce findings
+on the admitted interface before making implementation changes. Preserve useful teaching behavior
 while correcting its presentation.
+
+### Current Ribbon acceptance (C44)
+
+The two requirements are distinct and both apply before screenshot refresh:
+
+- every required Ribbon choice remains visible when its collection is empty, with an honest empty
+  state and an obvious first action where applicable; and
+- every required Instructor Ribbon choice remains visible when its target page is incomplete, but
+  the unfinished destination is visibly unavailable rather than presented as usable.
+
+Current source and the canonical HTTPS authorization/Ribbon scenario pass those behaviors for the
+Instructor Ribbon. This is connected interaction evidence, not a claim that the old PNG corpus is
+fresh. The next manifest replay must capture the same visible choices and replace stale
+deferred/future descriptions with their current disposition.
 
 ### I01: draft records concatenate distinct information
 
@@ -294,8 +310,9 @@ while correcting its presentation.
   that opens the same Roster tools disclosure and moves focus to its existing import field. A
   temporary canonical HTTPS walkthrough covered keyboard activation, 1280px and 320px layouts,
   and the transition from empty state to the ordinary populated Student table after one import.
-  Populated-row actions and bulk behavior did not change. No permanent test was retained because
-  the stable disclosure/import behavior already has broader roster acceptance ownership.
+  Full current-path roster authority and browser acceptance now pass after the repairs. The
+  protected invitation-export route and owner-private attended-mailer dry run also pass without
+  Mail delivery; no screenshot refresh follows.
 
 ### I03: successful roster import looks like an error
 
@@ -368,9 +385,23 @@ while correcting its presentation.
   release state, public reference, due time, and local edit/lifecycle actions; Course metadata and
   administration follow as secondary details. Temporary actual-component evidence passed empty,
   loading, error, populated, long-label, keyboard-first action, and overflow cases at 1280 by 800
-  and 320 pixels. Strict TypeScript, focused Node, formatting, and diff checks passed. This is not
-  canonical Live Demo acceptance, and Assessment editor breadcrumbs plus Question-row density
-  remain separate I06 work.
+  and 320 pixels. Strict TypeScript, focused Node, formatting, and diff checks passed.
+- Current C420 source receipt (2026-09-17): Course tools now includes Create Blueprint from Course
+  Instance. Its compact dialog has only new Blueprint short name, long name, and shared
+  classification; it preserves entered values on a safe failure, reports busy creation accessibly,
+  and returns focus on cancel. The user-facing explanation distinguishes copying reusable structure
+  from altering the source Course Instance and names its first-Adoption result. Focused client
+  transport/decoder, TypeScript, ESLint, and Prettier checks pass. Canonical HTTPS browser evidence
+  used exactly one child-route POST to create a distinct actor-owned Private Revision-1 Blueprint,
+  showed Adoption count 1, and left the source Course addressable and unchanged. No screenshot
+  refresh follows.
+- Current editor receipt (2026-09-17): the already-authorized Assessment workspace now supplies
+  its pathname-bound title to the persistent breadcrumb without another request. Question and
+  Properties editors show the same title, release status, and Edit Number. Ordered entries use
+  visible order, separate descriptions, aligned labeled facts, and named action groups at desktop
+  and narrow widths. Temporary 390-pixel inspection and the canonical HTTPS Assessment release
+  journey passed; the full production-browser suite also passed. Temporary images were removed,
+  and this receipt does not refresh or approve the historical screenshot corpus.
 
 ### I07: search results repeat the title and fragment actions
 
@@ -407,6 +438,17 @@ while correcting its presentation.
 - Acceptance: explain an empty classification state and provide usable discovery paths. Keep
   facets compact enough to expose relevant results. Establish whether missing Subject data or
   rendering causes the blank region before assigning a correction.
+- Accepted bounded correction (2026-09-17): a 33-line, three-file frontend change gives the
+  Subject region explicit loading, ready, empty, and error states. A settled zero-Subject result
+  explains that no Subject categories are available and directs discovery through Tags, Question
+  Types, and Search; ordinary facets, cascade behavior, keyboard use, and detail-return state are
+  unchanged.
+- The region is top-aligned, compact, and scrollable at `12rem`. A temporary actual-component
+  Chromium proof passed at 1280 and 390 pixels without horizontal overflow; its harness was
+  removed. Strict TypeScript, 51 focused Library/Ribbon Node tests, ESLint, scoped Prettier and
+  diff checks passed, and independent review approved the bounded correction.
+- Official screenshots and authenticated connected Library acceptance remain deferred. This does
+  not claim global density-row completion or an SQL lock.
 
 ### I09: picker and Pool review obscure the selection task
 
@@ -495,7 +537,7 @@ while correcting its presentation.
   retaining the time-window explanation. Verify wording for Courses with dates outside that window.
 - Receipt (2026-09-16): bounded connected acceptance on canonical local runtime `8258` rendered
   the honest empty state with its next-seven-days/Account-time-zone explanation and `Manage
-  Coursework`; keyboard Enter reached the admitted Instructor Course-management destination. A
+Coursework`; keyboard Enter reached the admitted Instructor Course-management destination. A
   real Course Assessment deadline more than seven days out remained outside the empty page's
   window. This supersedes isolated-only status for that empty-state path, not all dates, routes,
   errors, or mobile keyboard coverage. Receipts:
@@ -551,15 +593,24 @@ while correcting its presentation.
 - Acceptance: size previews for content and task, preserving correct Backend layout. Style
   PLE-owned controls consistently and verify focus and selected states. Distinguish Backend-owned
   controls from PLE controls when assigning changes.
+- Implementation receipt (2026-09-17): Question Details and Instructor Student View now share one
+  opaque WeBWorK preview frame. The frame begins at 160 px and accepts only a source-bound,
+  safe 160--1200 px resize from its opaque renderer; the bridge measures visible form/top-level
+  content plus the body's lower padding/border on load and with `ResizeObserver`, suppressing
+  repeated messages. The old fixed 28 rem blank region is removed. Star and Watch now expose
+  `aria-pressed`, selected styling, and a visible keyboard focus outline. This source receipt
+  preserves the opaque sandbox and does not
+  establish fresh connected screenshots or cross-question browser-height proof.
 - Current delivery receipt (2026-09-17): a rebuilt canonical HTTPS Instructor workflow rendered a
   representative generated WeBWorK prompt, form, and focusable control in the intentional opaque
   sandbox with zero page errors. PLE CSS/bridge, renderer scripts, and the reviewed font loaded; the
   font carried anonymous wildcard CORS and cross-origin CORP. Parent DOM/storage remained denied,
   unapproved assets returned empty 404 responses, and no Student Work or grade route was requested.
   The former `frameElement` error is closed by omitting only the renderer's parent-telemetry loader
-  from no-write previews; Student documents remain exact. This establishes delivery and isolation,
-  not yet a conclusion about the audit's cross-question height consistency or fresh screenshots.
-  Receipt: `/private/tmp/ple-connected-webwork-preview-receipt-20260916.md`.
+  from no-write previews; Student documents remain exact. Canonical HTTPS evidence measured the
+  exact opaque source/origin/resize shape at 444 px with reachable no-overflow content, no Student
+  Work or grade request, and keyboard Star/Watch `aria-pressed` toggle and restore. No screenshot
+  refresh follows. Receipt: `/private/tmp/ple-connected-webwork-preview-receipt-20260916.md`.
 
 ### I16: Profile emphasizes avatar descriptions over account settings
 
@@ -626,15 +677,15 @@ strengths, not proof of the corresponding runtime guarantees.
 Most lessons reinforce existing HG. Use them to sharpen implementation acceptance checks;
 the two suggested HG additions below remain proposals.
 
-| ADAPT lesson | Apply to this usability audit | HG treatment |
-| --- | --- | --- |
-| Aligned tables and compact row actions | Strengthen acceptance checks for drafts, Courses, Templates, and Library results. | Already covered by density and alignment guidance. |
-| Optional descriptions | Evaluate a description toggle or disclosure for long result lists. | Already covered by progressive disclosure. |
-| Scoped bulk editing | Check that users can identify affected records and proposed changes before applying them. | Proposed addition: Bulk actions should make their affected scope and intended changes clear before application. |
-| Sort indicators, pagination, page-size controls | Expand sorting checks to include visible order and preserved navigation state. | Sorting is already required. |
-| Folder counts and selected context | Check whether existing classification, Starred, and Watched paths communicate useful counts and current selection. | Evaluate these existing paths before proposing folders. |
-| Separate content and properties | Check that each editor keeps its task clear and teaching content prominent. | Already covered. |
-| Long, inconsistent classification menus | Check narrowing of large vocabularies and recognition of selected terms. | Proposed addition: Classification controls should help users narrow large vocabularies and keep the selected hierarchy clear. |
+| ADAPT lesson                                    | Apply to this usability audit                                                                                      | HG treatment                                                                                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Aligned tables and compact row actions          | Strengthen acceptance checks for drafts, Courses, Templates, and Library results.                                  | Already covered by density and alignment guidance.                                                                            |
+| Optional descriptions                           | Evaluate a description toggle or disclosure for long result lists.                                                 | Already covered by progressive disclosure.                                                                                    |
+| Scoped bulk editing                             | Check that users can identify affected records and proposed changes before applying them.                          | Proposed addition: Bulk actions should make their affected scope and intended changes clear before application.               |
+| Sort indicators, pagination, page-size controls | Expand sorting checks to include visible order and preserved navigation state.                                     | Sorting is already required.                                                                                                  |
+| Folder counts and selected context              | Check whether existing classification, Starred, and Watched paths communicate useful counts and current selection. | Evaluate these existing paths before proposing folders.                                                                       |
+| Separate content and properties                 | Check that each editor keeps its task clear and teaching content prominent.                                        | Already covered.                                                                                                              |
+| Long, inconsistent classification menus         | Check narrowing of large vocabularies and recognition of selected terms.                                           | Proposed addition: Classification controls should help users narrow large vocabularies and keep the selected hierarchy clear. |
 
 ADAPT's tall filter forms, nested scrolling, and paragraph-heavy rows provide comparison cautions.
 Evaluate their task cost rather than copying them as established solutions.

@@ -144,19 +144,19 @@ ON CONFLICT DO NOTHING;
 SET LOCAL ROLE ple_private_owner;
 INSERT INTO ple_private.student_assessment_accommodation (
     accommodation_id, student_record_id, assessment_id, available_at, due_at,
-    closes_at, assessment_attempt_time_limit_seconds, assessment_attempt_limit, created_at
+    closes_at, time_multiplier, assessment_attempt_limit, created_at
 ) VALUES (
     'e3000000-0000-0000-0000-000000000002',
     '00000000-0000-0000-0000-00000000eb02',
     '00000000-0000-0000-0000-00000000ed01',
     clock_timestamp() - interval '1 hour', clock_timestamp() + interval '1 hour',
-    clock_timestamp() + interval '2 hours', 60, 1, clock_timestamp()
+    clock_timestamp() + interval '2 hours', 1, 1, clock_timestamp()
 )
 ON CONFLICT (student_record_id, assessment_id) DO UPDATE
    SET available_at = EXCLUDED.available_at,
        due_at = EXCLUDED.due_at,
        closes_at = EXCLUDED.closes_at,
-       assessment_attempt_time_limit_seconds = EXCLUDED.assessment_attempt_time_limit_seconds,
+       time_multiplier = EXCLUDED.time_multiplier,
        assessment_attempt_limit = EXCLUDED.assessment_attempt_limit,
        accommodation_edit_number = ple_private.student_assessment_accommodation.accommodation_edit_number + 1;
 SET LOCAL ROLE ple_api_owner;

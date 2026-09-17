@@ -128,6 +128,35 @@ pub struct CreateBlueprintCourseInput {
     pub modules: Vec<CreateBlueprintModuleInput>,
 }
 
+/// Instructor-chosen metadata for creating a Blueprint from one Course Instance.
+///
+/// Reusable content is deliberately absent: the trusted Store derives it from
+/// the authorized Course snapshot.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreateBlueprintFromCourseInstanceInput {
+    /// Independently chosen classification for the new Blueprint Course.
+    pub classification: crate::CourseClassification,
+    /// Compact Blueprint Course name used in constrained navigation.
+    pub short_name: String,
+    /// Descriptive Blueprint Course name used in headings and listings.
+    pub long_name: String,
+}
+
+impl CreateBlueprintFromCourseInstanceInput {
+    /// Validates only caller-owned metadata; source content is Store-owned.
+    pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
+        self.classification
+            .validate()
+            .map_err(|_| BlueprintCourseValidationError::InvalidClassification)?;
+        validate_blueprint_course_title(&self.short_name)
+            .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintName)?;
+        validate_blueprint_course_title(&self.long_name)
+            .map_err(|_| BlueprintCourseValidationError::InvalidBlueprintName)?;
+        Ok(())
+    }
+}
+
 impl CreateBlueprintCourseInput {
     /// Validates lineage names and the complete ordered reusable structure.
     pub fn validate(&self) -> Result<(), BlueprintCourseValidationError> {
@@ -291,4 +320,56 @@ pub struct BlueprintModuleView {
     pub label: String,
     /// Blueprint Assessments in retained aggregate-owned order.
     pub assessments: Vec<BlueprintCourseAssessmentContentView>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        AssessmentActivityRules, AssessmentInstructions, AssessmentType,
+        BlueprintAssessmentDefaults, LateWorkRule, StudentFeedbackReleaseRule,
+    };
+
+    #[test]
+    fn ordinary_blueprint_creation_still_requires_authored_modules() {
+        let input = CreateBlueprintCourseInput {
+            classification: crate::CourseClassification {
+                discipline_uuid: Uuid::from_u128(1),
+                subject_uuid: None,
+                topic_uuid: None,
+                subtopic_uuid: None,
+                tags: Vec::new(),
+            },
+            short_name: "Short".to_string(),
+            long_name: "Long Blueprint Name".to_string(),
+            modules: Vec::new(),
+        };
+
+        assert_eq!(
+            input.validate(),
+            Err(BlueprintCourseValidationError::InvalidModuleCount)
+        );
+    }
+
+    #[test]
+    fn ordinary_blueprint_creation_still_requires_assessment_entries() {
+        let content = BlueprintAssessmentContentInput {
+            assessment_type: AssessmentType::RegularAssignment,
+            title: "Empty Assessment".to_string(),
+            instructions: AssessmentInstructions::default(),
+            entries: Vec::new(),
+            defaults: BlueprintAssessmentDefaults {
+                assessment_attempt_time_limit_seconds: None,
+                attempt_limit: None,
+                late_work_rule: LateWorkRule::Accept,
+                activity_rules: AssessmentActivityRules::default(),
+                student_feedback_release_rule: StudentFeedbackReleaseRule::default(),
+            },
+        };
+
+        assert_eq!(
+            content.validate(),
+            Err(BlueprintCourseValidationError::InvalidEntryCount)
+        );
+    }
 }

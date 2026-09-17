@@ -14,6 +14,7 @@ import type {
 } from "../../api/blueprint_course";
 import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content_editor";
 import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_controls";
+import { BlueprintCourseExport } from "./blueprint_exchange";
 import { BlueprintHistory } from "./blueprint_history";
 import { BlueprintForkSource, BlueprintKnownForks } from "../blueprint_forks/blueprint_fork_review";
 import { BlueprintForkCreate } from "../blueprint_forks/blueprint_fork_create";
@@ -803,6 +804,7 @@ export function BlueprintCourseDetailWorkspace(
                 </div>
               </section>
               <BlueprintHistory client={props.client} view={loaded().view} />
+              <BlueprintCourseExport client={props.client} reference={loaded().view.reference} />
               <BlueprintForkCreate client={props.client} source={loaded().view} />
               <Show when={props.proposalClient}>
                 {(client) => <ProposalTargetTools client={client()} target={loaded().view} />}

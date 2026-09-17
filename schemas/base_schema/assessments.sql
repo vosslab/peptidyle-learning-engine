@@ -853,6 +853,13 @@ CREATE POLICY assessment_question_pool_fork_private_owner_lookup ON ple_data.ass
 CREATE POLICY assessment_api_owner_read ON ple_data.assessment
     FOR SELECT TO ple_api_owner
     USING (ple_api.current_session_account_is_course_instructor(course_id));
+-- Course-to-Blueprint publication takes the same aggregate-root lock as an
+-- Assessment Save. PostgreSQL requires UPDATE on one selected column for
+-- SELECT FOR UPDATE; this policy grants no general Assessment mutation path.
+CREATE POLICY assessment_api_owner_blueprint_publication_root_lock
+    ON ple_data.assessment FOR UPDATE TO ple_api_owner
+    USING (ple_api.current_session_account_is_course_instructor(course_id))
+    WITH CHECK (ple_api.current_session_account_is_course_instructor(course_id));
 CREATE POLICY assessment_entry_api_owner_read ON ple_data.assessment_entry
     FOR SELECT TO ple_api_owner
     USING (EXISTS (
@@ -883,6 +890,7 @@ GRANT SELECT ON ple_data.assessment, ple_data.assessment_entry, ple_data.assessm
 GRANT UPDATE (assessment_id) ON TABLE ple_data.assessment TO ple_private_owner;
 GRANT SELECT ON ple_data.assessment, ple_data.assessment_entry, ple_data.assessment_question_pool_fork
     TO ple_api_owner;
+GRANT UPDATE (assessment_id) ON TABLE ple_data.assessment TO ple_api_owner;
 GRANT EXECUTE ON FUNCTION ple_data.save_assessment(bigint, bigint, bigint, jsonb, jsonb),
     ple_data.save_assessment_inline(bigint, bigint, bigint, text, timestamptz),
     ple_data.save_assessment_policies(bigint, bigint, bigint, jsonb),

@@ -72,33 +72,23 @@ persona_cookie() {
 }
 
 new_course_reference() {
-	local instructor_cookie="$1" listed
-	bash "$repository_root/tests/e2e/e2e_live_demo_course_instance.sh" --authority >/dev/null
+	local instructor_cookie="$1" authority_output reference listed
+	authority_output="$(bash "$repository_root/tests/e2e/e2e_live_demo_course_instance.sh" --authority)"
+	reference="$(printf '%s\n' "$authority_output" | sed -n 's/^Course Instance support fixture: //p' | tail -n 1)"
+	printf '%s\n' "$reference" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{6}$' || {
+		echo "Course Instance fixture lacks a canonical public reference" >&2
+		exit 1
+	}
 	listed="$(request '/api/course-instances' "$instructor_cookie")"
 	require_status "Instructor Course list" "$listed" 200
 	python3 -c '
-import json, re, sys
+import json, sys
 items=json.loads(sys.argv[1]).get("items", [])
-refs=[item.get("reference") for item in items if isinstance(item, dict)]
-if not refs or any(not isinstance(value, str) or re.fullmatch(r"C-[1-9][0-9]{0,9}", value) is None for value in refs):
-    raise SystemExit("Course list lacks canonical public references")
-print(max(refs, key=lambda value: int(value[2:])))
-' "$(response_body "$listed")"
-}
-
-source_choice_reference() {
-	python3 -c '
-import json, re, sys
-items=json.loads(sys.argv[1])
-if not isinstance(items, list) or not items: raise SystemExit("Course has no Blueprint Assignment source")
-source=items[0].get("source") if isinstance(items[0], dict) else None
-if not isinstance(source, dict) or set(source) != {"blueprint_revision", "blueprint_assignment_reference"}:
-    raise SystemExit("Assignment source choice is malformed")
-value=source["blueprint_assignment_reference"]
-if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}", value) is None:
-    raise SystemExit("Assignment source reference is malformed")
-print(value)
-' "$1"
+reference=sys.argv[2]
+if not any(isinstance(item,dict) and item.get("reference")==reference for item in items):
+    raise SystemExit("Course Instance fixture is absent from the Instructor list")
+' "$(response_body "$listed")" "$reference"
+	printf '%s\n' "$reference"
 }
 
 picker_reference() {
@@ -122,7 +112,7 @@ workspace_reference_and_edit() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1])
-if (not isinstance(value, dict) or not re.fullmatch(r"A-[1-9][0-9]{0,9}", value.get("reference", ""))
+if (not isinstance(value, dict) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{6}", value.get("reference", ""))
     or not isinstance(value.get("editNumber"), str) or not value["editNumber"].isdigit()):
     raise SystemExit("Assignment workspace lacks a reference and Edit Number")
 print(value["reference"], value["editNumber"])
@@ -134,11 +124,12 @@ save_payload() {
 	python3 -c '
 import json, sys, uuid
 workspace=json.loads(sys.argv[1]); reference=json.loads(sys.argv[2]); title=sys.argv[3]
-required={"title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assignmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule"}
+required={"title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule"}
 if not required.issubset(workspace): raise SystemExit("workspace is missing current editable state")
 payload={key: workspace[key] for key in required}
 payload["title"]=title
-payload["assignmentAttemptTimeLimitSeconds"]=300
+payload["dueAt"]="2026-12-01T23:59:00.000"
+payload["assessmentAttemptTimeLimitSeconds"]=300
 payload["entries"]=[{
   "kind":"fixedQuestion", "id":str(uuid.uuid4()), "reference":reference,
   "pointsPossible":"1", "availability":"available", "scoringRule":"normal",
@@ -153,7 +144,7 @@ retitle_payload() {
 	python3 -c '
 import json, sys
 workspace=json.loads(sys.argv[1]); title=sys.argv[2]
-required={"title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assignmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","entries"}
+required={"title","instructions","dueAt","availableAt","closesAt","lateWorkRule","assessmentAttemptTimeLimitSeconds","attemptLimit","activityRules","studentFeedbackReleaseRule","entries"}
 if not required.issubset(workspace): raise SystemExit("workspace is missing current editable state")
 payload={key: workspace[key] for key in required}
 payload["title"]=title
@@ -174,10 +165,10 @@ assert_started() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1]); expected_resumed=sys.argv[2] == "true"; title=sys.argv[3]; reference=json.loads(sys.argv[4])
-required={"assignmentAttempt","assignment","attemptNumber","resumed","title","instructions","questions"}
+required={"assessmentAttempt","assessment","attemptNumber","resumed","title","instructions","questions"}
 if set(value) != required or value["resumed"] is not expected_resumed or value["title"] != title:
     raise SystemExit("Assignment start did not preserve its retained evidence")
-if not re.fullmatch(r"R-[1-9][0-9]{0,9}", value["assignmentAttempt"]): raise SystemExit("Attempt identity is malformed")
+if not re.fullmatch(r"R-[1-9][0-9]{0,9}", value["assessmentAttempt"]): raise SystemExit("Attempt identity is malformed")
 if not isinstance(value["questions"], list) or len(value["questions"]) != 1: raise SystemExit("Attempt lacks one issued Question")
 question=value["questions"][0]
 if question.get("questionRevision") != reference: raise SystemExit("Issued Question lost its exact Question Revision pin")

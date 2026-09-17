@@ -152,4 +152,57 @@ $$;
 REVOKE ALL ON FUNCTION ple_api.select_ready_question_asset_renditions(text,integer) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.select_ready_question_asset_renditions(text,integer) TO ple_app;
 
+-- Narrow historical source read used only while forking one exact native
+-- HOTSPOT Revision. Availability is deliberately absent: the fork mutation
+-- rechecks it after its actor/key receipt lookup.
+SET LOCAL ROLE ple_private_owner;
+CREATE FUNCTION ple_private.load_question_fork_asset(
+    p_question_id text, p_revision_number integer
+) RETURNS TABLE(
+    asset_id uuid, object_id uuid, object_address jsonb, sha256 bytea,
+    size_bytes bigint, media_type text, created_at_millis bigint,
+    intrinsic_width integer, intrinsic_height integer
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
+    SELECT publication.asset_id, record.object_id, record.object_address,
+           record.sha256, record.size_bytes, record.media_type,
+           pg_catalog.round(extract(epoch FROM record.created_at) * 1000)::bigint,
+           publication.intrinsic_width, publication.intrinsic_height
+      FROM ple_private.question_asset_publication AS publication
+      JOIN ple_data.question_revision AS revision
+        ON revision.question_id = publication.question_id
+       AND revision.revision_number = publication.revision_number
+       AND revision.backend = 'ple' AND revision.question_type = 'hotspot'
+      JOIN ple_private.object_record AS record
+        ON record.object_id = publication.source_object_id
+       AND record.sha256 = publication.source_object_checksum
+       AND record.media_type = publication.verified_media_type
+     WHERE ple_api.current_session_account_is_instructor()
+       AND publication.question_id = p_question_id
+       AND publication.revision_number = p_revision_number
+       AND record.object_address = pg_catalog.jsonb_build_object(
+           'kind', 'restrictedQuestionAsset',
+           'questionRevision', pg_catalog.jsonb_build_object(
+               'questionId', p_question_id, 'revisionNumber', p_revision_number),
+           'asset', publication.asset_id, 'object', publication.source_object_id)
+       AND record.object_storage_area = 'private-content'
+       AND record.object_data_class = 'question-asset'
+$$;
+REVOKE ALL ON FUNCTION ple_private.load_question_fork_asset(text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.load_question_fork_asset(text, integer) TO ple_api_owner;
+
+SET LOCAL ROLE ple_api_owner;
+CREATE FUNCTION ple_api.load_question_fork_asset(
+    p_question_id text, p_revision_number integer
+) RETURNS TABLE(
+    asset_id uuid, object_id uuid, object_address jsonb, sha256 bytea,
+    size_bytes bigint, media_type text, created_at_millis bigint,
+    intrinsic_width integer, intrinsic_height integer
+) LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_private AS $$
+    SELECT * FROM ple_private.load_question_fork_asset(p_question_id, p_revision_number)
+$$;
+REVOKE ALL ON FUNCTION ple_api.load_question_fork_asset(text, integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.load_question_fork_asset(text, integer) TO ple_app;
+
 RESET ROLE;

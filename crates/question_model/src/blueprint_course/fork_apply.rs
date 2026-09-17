@@ -217,6 +217,14 @@ pub fn apply_blueprint_fork(
     new_modules: &BTreeMap<BlueprintModuleReference, BlueprintModuleReference>,
     new_assessments: &BTreeMap<BlueprintAssessmentReference, BlueprintAssessmentReference>,
 ) -> Result<BlueprintCourseContent, BlueprintForkApplyError> {
+    // An explicit fork layout remains an ordinary authored replacement tree.
+    // Trusted C419 persistence may represent an empty Course, but fork apply
+    // cannot use that widening to erase a destination Blueprint.
+    if selection.layout.as_ref().is_some_and(Vec::is_empty) {
+        return Err(BlueprintForkApplyError::InvalidContent(
+            BlueprintCourseValidationError::InvalidModuleCount,
+        ));
+    }
     let source_index = ContentIndex::new(source)?;
     let target_index = ContentIndex::new(target)?;
     let mut module_sources = BTreeSet::new();
@@ -419,4 +427,32 @@ pub fn apply_blueprint_fork(
         return Err(BlueprintForkApplyError::SelectionOutsideLayout);
     }
     BlueprintCourseContent::new(modules).map_err(BlueprintForkApplyError::InvalidContent)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_empty_layout_cannot_erase_fork_content() {
+        let content = BlueprintCourseContent::new(Vec::new()).expect("trusted empty content");
+        let error = apply_blueprint_fork(
+            &content,
+            &content,
+            &BlueprintForkApplySelection {
+                layout: Some(Vec::new()),
+                ..BlueprintForkApplySelection::default()
+            },
+            &BTreeMap::new(),
+            &BTreeMap::new(),
+        )
+        .expect_err("explicit fork layout remains nonempty");
+
+        assert_eq!(
+            error,
+            BlueprintForkApplyError::InvalidContent(
+                BlueprintCourseValidationError::InvalidModuleCount
+            )
+        );
+    }
 }

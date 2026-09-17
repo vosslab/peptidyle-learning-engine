@@ -2,7 +2,7 @@
 
 import { spawn } from "node:child_process";
 
-let lastCounter = -1;
+let lastCounter = Math.floor(Date.now() / 30_000);
 
 export async function localDemoAuthenticationCode(setupFile: string): Promise<string> {
   // ASVS 1.2.5, 14.2.4: no shell, argv/environment credentials, or child diagnostics.

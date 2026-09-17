@@ -18,13 +18,34 @@ import {
 
 const bridgeSource = readFileSync(new URL("../src/public/ple_bridge.js", import.meta.url), "utf8");
 
-function loadBridge(entries = []) {
+function loadBridge(
+  entries = [],
+  { opaque = false, formBottom = 0, bodyBorderBottom = 0, bodyPaddingBottom = 0 } = {},
+) {
   const documentListeners = new Map();
   const windowListeners = new Map();
   const sent = [];
+  const observers = [];
   const parent = { postMessage: (message, origin) => sent.push({ message, origin }) };
-  class HTMLFormElement {}
+  let currentFormBottom = formBottom;
+  class HTMLFormElement {
+    getBoundingClientRect() {
+      return { bottom: currentFormBottom };
+    }
+
+    getClientRects() {
+      return currentFormBottom > 0 ? [{}] : [];
+    }
+  }
   const form = new HTMLFormElement();
+  class ResizeObserver {
+    constructor(callback) {
+      this.callback = callback;
+      observers.push(this);
+    }
+
+    observe() {}
+  }
   const context = {
     Array,
     FormData: class {
@@ -35,22 +56,39 @@ function loadBridge(entries = []) {
     },
     HTMLFormElement,
     Object,
+    Number,
+    ResizeObserver,
     String,
     document: {
       addEventListener: (name, listener) => documentListeners.set(name, listener),
+      body: { children: [form] },
       querySelector: (selector) => {
         assert.equal(selector, "form");
         return form;
       },
+      readyState: "complete",
     },
     window: {
+      origin: opaque ? "null" : "https://ple.test",
+      getComputedStyle: () => ({
+        borderBottomWidth: `${bodyBorderBottom}px`,
+        paddingBottom: `${bodyPaddingBottom}px`,
+      }),
       location: { origin: "https://ple.test" },
       parent,
       addEventListener: (name, listener) => windowListeners.set(name, listener),
     },
   };
   vm.runInNewContext(bridgeSource, context, { filename: "ple_bridge.js" });
-  return { documentListeners, form, parent, sent, windowListeners };
+  return {
+    documentListeners,
+    form,
+    observers,
+    parent,
+    sent,
+    setFormBottom: (value) => (currentFormBottom = value),
+    windowListeners,
+  };
 }
 
 test("bridge captures an entire minimal form in order, including duplicate and hidden values", () => {
@@ -123,6 +161,41 @@ test("bridge accepts a strict string capture request only from its exact parent 
       pairs: [["answer", "saved"]],
       captureId: "0123456789abcdef",
     },
+    origin: "https://ple.test",
+  });
+});
+
+test("opaque preview reports only deduplicated, bounded renderer height", () => {
+  const bridge = loadBridge([], {
+    opaque: true,
+    formBottom: 240,
+    bodyBorderBottom: 2,
+    bodyPaddingBottom: 12,
+  });
+
+  assert.deepEqual(JSON.parse(JSON.stringify(bridge.sent)), [
+    {
+      message: { kind: "ple.webwork.preview.resize", version: 1, height: 254 },
+      origin: "https://ple.test",
+    },
+  ]);
+  assert.equal(bridge.documentListeners.size, 0);
+  assert.equal(bridge.windowListeners.has("message"), false);
+
+  bridge.observers[0].callback();
+  assert.equal(bridge.sent.length, 1, "an unchanged size is not reposted");
+
+  bridge.setFormBottom(1_500);
+  bridge.observers[0].callback();
+  assert.deepEqual(JSON.parse(JSON.stringify(bridge.sent.at(-1))), {
+    message: { kind: "ple.webwork.preview.resize", version: 1, height: 1200 },
+    origin: "https://ple.test",
+  });
+
+  bridge.setFormBottom(240);
+  bridge.observers[0].callback();
+  assert.deepEqual(JSON.parse(JSON.stringify(bridge.sent.at(-1))), {
+    message: { kind: "ple.webwork.preview.resize", version: 1, height: 254 },
     origin: "https://ple.test",
   });
 });

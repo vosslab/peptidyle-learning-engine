@@ -28,6 +28,7 @@ mod blueprint_lineage;
 mod blueprint_stewardship;
 mod content_classification;
 mod course_banner;
+mod course_blueprint_publication;
 mod course_instance;
 mod course_roster;
 mod course_theme;
@@ -172,6 +173,7 @@ pub use course_banner::{
     PrepareCourseBannerPromotion, PreparedCourseBannerPromotion, PreparedCourseBannerRemoval,
     StageCourseBannerUpload, StagedCourseBannerUpload,
 };
+pub use course_blueprint_publication::CourseBlueprintPublicationStore;
 pub use course_instance::{
     CourseClassificationUpdate, CourseCreationInstructor, CourseInstanceCreationSource,
     CourseInstancePoolIdIssuer, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
@@ -228,8 +230,8 @@ pub use question_bulk_metadata::{
     BulkPublishedQuestionMetadataStore,
 };
 pub use question_fork::{
-    ForkPublishedQuestionError, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
-    QuestionForkStore,
+    ForkPublishedQuestionAssetInput, ForkPublishedQuestionError, ForkPublishedQuestionInput,
+    ForkedPublishedQuestionDraft, PublishedQuestionForkAsset, QuestionForkStore,
 };
 pub use question_library::{
     PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
@@ -243,11 +245,12 @@ pub use question_pool_library::{
     QuestionPoolLibraryStore, QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
 };
 pub use question_source::{
-    DraftQuestionEditNumber, DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
-    DraftQuestionSourceBindingStore, DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
-    ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
-    NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
-    NewQuestionLineagePublicationStore, PreparedQuestionAssetPublication,
+    DraftQuestionEditNumber, DraftQuestionPublicationSource, DraftQuestionPublicationSourceStore,
+    DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore, DraftQuestionUuid,
+    ExistingQuestionRevisionPublicationError, ExistingQuestionRevisionPublicationInput,
+    ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationError,
+    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
+    PreparedQuestionAssetPublication,
 };
 pub use question_star::{QuestionStarProjection, QuestionStarStore, QuestionStarredInstructor};
 pub use question_watch::{QuestionWatchProjection, QuestionWatchStore};

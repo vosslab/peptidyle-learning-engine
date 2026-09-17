@@ -403,10 +403,11 @@ exclusively by Sysadmins. It is distinct from Stars, Watches, and lifecycle.
 **Course Instance** is delivered teaching with current Course settings,
 Students, equal co-Instructors, Course Instance Assessments, Attempts, and
 FERPA-protected records. It may adopt a Public Blueprint or start empty, must
-always have at least one assigned Instructor, and may be deliberately published
-as a new Blueprint Course. It represents one teaching period and remains Active
-for at most six months from creation. A new academic term uses a new Course
-Instance; rollover is not a separate product model.
+always have at least one assigned Instructor, and may supply the reusable
+structure for a new Blueprint Course. The originating Course Instance remains
+the same teaching instance. It represents one teaching period and remains
+Active for at most six months from creation. A new academic term uses a new
+Course Instance; rollover is not a separate product model.
 
 Each Blueprint Course and Course Instance has its own deliberately entered
 **Short Name** and **Long Name**. The short name should remain under about 16
@@ -631,8 +632,11 @@ Unrelease requires the typed title and explains Student Work deletion; Archive
 requires clear confirmation of shared-availability effects. Restore uses
 ordinary availability controls.
 
-Required backed destinations remain visible with honest empty states.
-Unimplemented future capabilities are not shown as usable controls.
+Required destinations remain visible when their collections are empty, with
+honest empty states and an obvious first action where applicable. Required
+Instructor destinations remain visible but unavailable while their target page
+is incomplete. Other unimplemented future capabilities are not shown as usable
+controls.
 The complete Student and Sysadmin Ribbon task layouts do not have locked-in
 designs yet.
 

@@ -236,7 +236,7 @@ where
             &command.initial_shared_tags,
         )
         .map_err(QuestionPublicationError::Store)?;
-        let source_record = self
+        let publication_source = self
             .publication_store
             .load_draft_question_publication_source(
                 session_token_hash,
@@ -246,6 +246,7 @@ where
             )
             .await
             .map_err(QuestionPublicationError::Store)?;
+        let source_record = publication_source.source_record;
         validate_workspace_question_source_object_record(command.workspace, &source_record)
             .map_err(QuestionPublicationError::Store)?;
         let source = self
@@ -267,11 +268,19 @@ where
         )
         .await?;
 
-        for _ in 0..PUBLICATION_IDENTITY_ATTEMPTS {
-            let question_id = self
-                .question_id_issuer
-                .issue_question_id()
-                .map_err(QuestionPublicationError::QuestionIdIssuance)?;
+        let identity_attempts = if publication_source.reserved_question_id.is_some() {
+            1
+        } else {
+            PUBLICATION_IDENTITY_ATTEMPTS
+        };
+        for _ in 0..identity_attempts {
+            let question_id = match &publication_source.reserved_question_id {
+                Some(question_id) => question_id.clone(),
+                None => self
+                    .question_id_issuer
+                    .issue_question_id()
+                    .map_err(QuestionPublicationError::QuestionIdIssuance)?,
+            };
             let revision = QuestionRevisionReference {
                 question_id: question_id.clone(),
                 revision_number: QuestionRevisionNumber::new(1)
@@ -330,11 +339,12 @@ where
                 .await
             {
                 Ok(reference) => return Ok(reference),
-                // The PostgreSQL adapter returns IdentityCollision here only
-                // for the published_question primary key. That conclusive
-                // rollback leaves this request's just-written target
-                // unregistered, so delete that exact target before retrying.
-                // Any other store outcome is ambiguous and retains its object.
+                // PostgreSQL returns IdentityCollision only after its locked
+                // allocation check (with the primary key retained as a legacy
+                // backstop). That conclusive rollback leaves this request's
+                // just-written target unregistered, so delete that exact
+                // target before retrying. Any other store outcome is ambiguous
+                // and retains its object.
                 Err(NewQuestionLineagePublicationError::IdentityCollision) => {
                     crate::question_publication_assets::cleanup_targets(
                         &self.object_store,
@@ -393,7 +403,7 @@ where
     ) -> Result<QuestionRevisionReference, QuestionPublicationError> {
         let successor_revision = successor_revision(&command.parent_question_revision)
             .map_err(QuestionPublicationError::Store)?;
-        let source_record = self
+        let publication_source = self
             .publication_store
             .load_draft_question_publication_source(
                 session_token_hash,
@@ -403,6 +413,12 @@ where
             )
             .await
             .map_err(QuestionPublicationError::Store)?;
+        if publication_source.reserved_question_id.is_some() {
+            return Err(QuestionPublicationError::Store(
+                StoreError::LifecycleConflict,
+            ));
+        }
+        let source_record = publication_source.source_record;
         validate_workspace_question_source_object_record(command.workspace, &source_record)
             .map_err(QuestionPublicationError::Store)?;
         let source = self

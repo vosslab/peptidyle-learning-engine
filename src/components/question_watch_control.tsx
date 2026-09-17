@@ -33,7 +33,14 @@ export function QuestionWatchControl(props: QuestionWatchControlProps): JSX.Elem
     <Show when={watch()}>
       {(projection) => (
         <section class="question-watch-control" aria-label="Question Watch">
-          <button type="button" disabled={saving()} onClick={() => void toggleWatch()}>
+          <button
+            type="button"
+            class="question-preference-control"
+            classList={{ selected: projection().watching }}
+            aria-pressed={projection().watching}
+            disabled={saving()}
+            onClick={() => void toggleWatch()}
+          >
             {projection().watching ? "Unwatch question" : "Watch question"}
           </button>
         </section>

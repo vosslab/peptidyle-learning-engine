@@ -58,7 +58,14 @@ export function QuestionStarControl(props: QuestionStarControlProps): JSX.Elemen
     <Show when={star()}>
       {(projection) => (
         <section class="question-star-control" aria-label="Question Star">
-          <button type="button" disabled={saving()} onClick={() => void toggleStar()}>
+          <button
+            type="button"
+            class="question-preference-control"
+            classList={{ selected: projection().viewerHasStarred }}
+            aria-pressed={projection().viewerHasStarred}
+            disabled={saving()}
+            onClick={() => void toggleStar()}
+          >
             {projection().viewerHasStarred ? "Unstar question" : "Star question"}
           </button>
           <p aria-live="polite">

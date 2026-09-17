@@ -116,7 +116,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  counter-reset: question;
 }
 
 .assessment-editor-row {
@@ -129,7 +128,6 @@
     calc(var(--ple-row-padding-inline, 0.62rem) - 0.12rem);
   border-radius: var(--ple-radius-control, 0.45rem);
   background: color-mix(in srgb, var(--ple-surface-soft) 52%, transparent);
-  counter-increment: question;
 }
 
 .assessment-editor-row h3 {
@@ -137,14 +135,7 @@
   font-size: 0.96rem;
 }
 
-.assessment-editor-list .assessment-editor-row h3::before {
-  margin-right: 0.45rem;
-  color: var(--ple-muted);
-  content: counter(question) ".";
-  font-variant-numeric: tabular-nums;
-}
-
-.assessment-editor-row p {
+.assessment-editor-row-description {
   grid-column: 1 / -1;
   margin: 0.2rem 0;
   color: var(--ple-muted);
@@ -152,9 +143,35 @@
   overflow-wrap: anywhere;
 }
 
+.assessment-editor-row-facts {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.35rem 0.7rem;
+  margin: 0;
+}
+
+.assessment-editor-row-facts > div {
+  min-width: 0;
+}
+
+.assessment-editor-row-facts dt {
+  color: var(--ple-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.assessment-editor-row-facts dd {
+  margin: 0.08rem 0 0;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
 .assessment-editor-row-actions {
   display: flex;
-  grid-row: 1 / span 2;
+  grid-row: 1;
   grid-column: 2;
   gap: var(--ple-assignment-row-action-gap);
 }

@@ -124,6 +124,13 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = 'PQR01',
             MESSAGE = 'Question Revision Publication Draft Question Edit Number is stale or not in its workspace';
     END IF;
+    IF EXISTS (
+        SELECT 1 FROM ple_private.draft_question_fork_source AS fork
+         WHERE fork.draft_question_uuid = p_draft_question_uuid
+    ) THEN
+        RAISE EXCEPTION USING ERRCODE = '55000',
+            MESSAGE = 'Question Fork Draft must publish through its reserved new lineage';
+    END IF;
     PERFORM 1 FROM ple_data.published_question WHERE question_id = p_question_id FOR UPDATE;
     IF NOT FOUND OR NOT EXISTS (
         SELECT 1 FROM ple_data.question_current_owner
@@ -309,7 +316,7 @@ CREATE FUNCTION ple_private.load_draft_question_publication_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid
 ) RETURNS TABLE (
     object_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
-    media_type text, created_at_millis bigint
+    media_type text, created_at_millis bigint, reserved_question_id text
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE current_edit bigint; row_count bigint;
@@ -332,9 +339,12 @@ BEGIN
     END IF;
     RETURN QUERY SELECT record.object_id, record.object_address, record.sha256,
         record.size_bytes, record.media_type,
-        round(extract(epoch FROM record.created_at) * 1000)::bigint
+        round(extract(epoch FROM record.created_at) * 1000)::bigint,
+        fork.forked_question_id
       FROM ple_private.draft_question_source_binding AS binding
       JOIN ple_private.object_record AS record ON record.object_id = binding.source_object_id
+      LEFT JOIN ple_private.draft_question_fork_source AS fork
+        ON fork.draft_question_uuid = binding.draft_question_uuid
      WHERE binding.draft_question_uuid = p_draft_question_uuid
        AND binding.source_object_checksum = encode(record.sha256, 'hex')
        AND record.object_storage_area = 'private-content'
@@ -365,7 +375,7 @@ DECLARE
     binding ple_private.draft_question_source_binding%ROWTYPE;
     source_record ple_private.object_record%ROWTYPE; expected_address jsonb;
     published_at timestamptz := clock_timestamp(); author_count integer; valid_count integer;
-    recorded_forked_question_id text;
+    recorded_forked_question_id text; recorded_source_question_id text;
 BEGIN
     IF p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
        OR p_question_id IS NULL OR p_question_id !~ '^[0-9A-HJKMNP-TV-Z]{8}$'
@@ -406,7 +416,8 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '40001',
             MESSAGE = 'Question Publication Draft Question Edit Number is stale or not in its workspace';
     END IF;
-    SELECT fork.forked_question_id INTO recorded_forked_question_id
+    SELECT fork.forked_question_id, fork.source_question_id
+      INTO recorded_forked_question_id, recorded_source_question_id
       FROM ple_private.draft_question_fork_source AS fork
      WHERE fork.draft_question_uuid = p_draft_question_uuid
      FOR UPDATE;
@@ -414,6 +425,29 @@ BEGIN
        AND recorded_forked_question_id <> p_question_id THEN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Question Fork Publication must use its server-allocated Question ID';
+    END IF;
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended('question-id:' || p_question_id, 0));
+    IF recorded_forked_question_id IS NOT NULL THEN
+        IF recorded_source_question_id = p_question_id
+           OR EXISTS (
+               SELECT 1 FROM ple_data.published_question AS published
+                WHERE published.question_id = p_question_id)
+           OR EXISTS (
+               SELECT 1 FROM ple_private.draft_question_fork_source AS reservation
+                WHERE reservation.forked_question_id = p_question_id
+                  AND reservation.draft_question_uuid <> p_draft_question_uuid) THEN
+            RAISE EXCEPTION USING ERRCODE = 'QP001',
+                MESSAGE = 'Question Fork reserved Question ID is no longer publishable';
+        END IF;
+    ELSIF EXISTS (
+        SELECT 1 FROM ple_data.published_question AS published
+         WHERE published.question_id = p_question_id)
+       OR EXISTS (
+        SELECT 1 FROM ple_private.draft_question_fork_source AS reservation
+         WHERE reservation.forked_question_id = p_question_id) THEN
+        RAISE EXCEPTION USING ERRCODE = 'QP001',
+            MESSAGE = 'Question Publication candidate Question ID is already allocated';
     END IF;
     SELECT * INTO STRICT metadata FROM ple_private.draft_question_metadata
      WHERE draft_question_uuid = p_draft_question_uuid FOR UPDATE;
@@ -496,7 +530,7 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.load_draft_question_publication_source(
     p_draft_question_uuid uuid, p_expected_edit_number bigint, p_workspace_id uuid
 ) RETURNS TABLE (object_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
-    media_type text, created_at_millis bigint)
+    media_type text, created_at_millis bigint, reserved_question_id text)
 LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.load_draft_question_publication_source(
         p_draft_question_uuid, p_expected_edit_number, p_workspace_id)

@@ -15,7 +15,10 @@ import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/asse
 import { AssessmentFixedQuestionPointsEditor } from "./assessment_fixed_question_points_editor";
 import { AssessmentStudentTimeAccommodations } from "./assessment_student_time_accommodations";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
-import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
+import {
+  AssessmentWorkspaceIdentity,
+  useAssessmentWorkspace,
+} from "./assessment_workspace_live_page";
 import {
   canonicalLocalDateAndTime,
   dueDateDraft,
@@ -428,6 +431,7 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
       <header class="assessment-workspace-header">
         <p class="eyebrow">Assessment workspace</p>
         <h1 id="assessment-policies-heading">Assessment Properties Editor</h1>
+        <AssessmentWorkspaceIdentity />
         <p class="page-lede">
           Times use your Instructor time zone: {workspace.assessment().workspace.displayTimeZone}.
         </p>

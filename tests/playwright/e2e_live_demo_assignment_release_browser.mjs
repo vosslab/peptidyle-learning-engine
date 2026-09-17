@@ -1,5 +1,5 @@
-// Visible Instructor proof: Blueprint Revision 1 -> Course -> current Assignment.
-// Selector contract: accessible labels/headings/actions in the Blueprint, Course, and Assignment
+// Visible Instructor proof: Blueprint Revision 1 -> Course -> current Assessment.
+// Selector contract: accessible labels/headings/actions in the Blueprint, Course, and Assessment
 // workspaces; assessment_workspace_policies_page.tsx renders the duration label with dynamic
 // calculated-default helper text, so its stable accessible-name prefix is selected here. The
 // Question picker discovers its seeded published Question through its visible result.
@@ -17,26 +17,16 @@ const runId = Date.now();
 const blueprintTitle = `Browser current Blueprint ${runId}`;
 const courseShortName = `Current-${runId}`;
 const courseLongName = `Browser current Course ${runId}`;
-const assignmentTitle = `Browser current Assignment ${runId}`;
+const assessmentTitle = `Browser current Assessment ${runId}`;
 const assessmentDurationOverrideLabel = /^Assessment duration override in seconds\b/u;
 const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
 const context = await browser.newContext();
 const page = await context.newPage();
 
-async function firstNonEmptyOptionValue(select) {
-  const option = select.locator('option:not([value=""])').first();
-  try {
-    await option.waitFor({ state: "attached", timeout: 10_000 });
-  } catch {
-    throw new Error("the current Course did not offer a Blueprint Assignment source");
-  }
-  return await option.evaluate((element) => element.value);
-}
-
 async function assertAnswerFreePreview(target) {
-  for (const name of [/response/i, /submit/i, /start assignment/i, /student attempt/i]) {
+  for (const name of [/response/i, /submit/i, /start assessment/i, /student attempt/i]) {
     if ((await target.getByRole("button", { name }).count()) !== 0) {
-      throw new Error("Assignment delivery check exposed a Student work control");
+      throw new Error("Assessment Student View exposed a Student Work control");
     }
   }
 }
@@ -50,12 +40,12 @@ async function assertRibbonTaskCurrent(tasks, control, destination) {
   }
 }
 
-async function assignmentEntryIds(page) {
+async function assessmentEntryIds(page) {
   return page
-    .getByRole("heading", { name: "Ordered Assignment Entries", exact: true })
+    .getByRole("heading", { name: "Ordered Assessment Entries", exact: true })
     .locator("..")
-    .locator("[data-assignment-entry]")
-    .evaluateAll((entries) => entries.map((entry) => entry.getAttribute("data-assignment-entry")));
+    .locator("[data-assessment-entry]")
+    .evaluateAll((entries) => entries.map((entry) => entry.getAttribute("data-assessment-entry")));
 }
 
 function hasExactEntryOrder(actual, expected) {
@@ -76,13 +66,15 @@ try {
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true })
     .click();
-  await page.waitForURL(`${origin}/`);
+  await page.waitForURL(`${origin}/instructor`);
   await page.getByRole("link", { name: "My Blueprint Courses", exact: true }).click();
   await page.waitForURL(`${origin}/blueprint-courses`);
   await page.getByRole("button", { name: "Create Blueprint Course", exact: true }).click();
   await page.getByRole("heading", { name: "Create a Blueprint Course" }).waitFor();
   await page.getByLabel("Blueprint Course short name").fill(`Current BP ${runId}`);
   await page.getByLabel("Blueprint Course long name").fill(blueprintTitle);
+  await page.getByLabel("Discipline (required)").selectOption({ index: 1 });
+  await page.getByLabel("First Assessment Type").selectOption("practice_question_assignment");
   await page.getByRole("button", { name: "Choose published Questions", exact: true }).click();
   const questionPicker = page.getByRole("dialog", {
     name: "Choose the first reusable Questions",
@@ -96,41 +88,55 @@ try {
     .getByRole("dialog", { name: "Create a Blueprint Course", exact: true })
     .getByRole("button", { name: "Create Blueprint Course", exact: true })
     .click();
-  await page.waitForURL(/\/blueprint-courses\/BP-[1-9][0-9]*$/u);
+  await page.waitForURL(/\/blueprint-courses\/BP[0-9A-HJKMNP-TV-Z]{6}$/u);
   await page.getByRole("heading", { name: blueprintTitle, exact: true }).waitFor();
-
+  await page.getByRole("button", { name: "Publish Blueprint Course", exact: true }).click();
   await page
-    .getByRole("navigation", { name: "Ribbon tabs", exact: true })
-    .getByRole("link", { name: "Courses", exact: true })
+    .getByText(
+      "Blueprint Course published. Instructors can now browse and adopt its current Revision.",
+      { exact: true },
+    )
+    .waitFor();
+  await page
+    .getByRole("link", { name: "Create Course Instance from this Blueprint", exact: true })
     .click();
-  await page.waitForURL(`${origin}/`);
+  await page.waitForURL(/\/instructor\?blueprint=BP[0-9A-HJKMNP-TV-Z]{6}#create-course-instance$/u);
   await page.getByRole("heading", { name: "Course Instances you teach", exact: true }).waitFor();
   await page
-    .getByLabel("Blueprint Course")
+    .getByRole("combobox", { name: /^Blueprint Course/u })
     .selectOption({ label: `${blueprintTitle} · Revision 1` });
   await page.getByLabel("Course short name").fill(courseShortName);
   await page.getByLabel("Course long name").fill(courseLongName);
+  await page.getByLabel("Discipline (required)").selectOption({ index: 1 });
+  await page.getByLabel("Subject (optional)").selectOption({ index: 1 });
   await page.getByLabel("Course Term start date").fill("2026-09-01");
   await page.getByLabel("Course Term end date").fill("2026-12-18");
-  await page.getByRole("button", { name: "Create Course Instance", exact: true }).click();
+  await page
+    .locator("#create-course-instance")
+    .getByRole("button", { name: "Create Course Instance", exact: true })
+    .click();
   const createdCourse = page.locator("article").filter({
     has: page.getByRole("heading", { name: courseLongName, exact: true }),
   });
   await createdCourse.getByRole("link", { name: "Open Course Instance", exact: true }).click();
-  await page.waitForURL(/\/courses\/C-[1-9][0-9]*$/u);
+  await page.waitForURL(/\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}$/u);
   await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
 
-  await page.getByRole("link", { name: "Create Assignment", exact: true }).click();
-  await page.waitForURL(/\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/new$/u);
-  await page.getByRole("heading", { name: "Create an Assignment", exact: true }).waitFor();
-  await page.getByLabel("Assignment title").fill(assignmentTitle);
-  const assignmentSource = page.getByLabel("Blueprint Assignment source");
-  await assignmentSource.selectOption(await firstNonEmptyOptionValue(assignmentSource));
-  await page.getByRole("button", { name: "Create Assignment", exact: true }).click();
+  await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
+  await page.waitForURL(/\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/assessments\/new$/u);
+  await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
+  await page.getByLabel("Assessment title").fill(assessmentTitle);
+  await page.getByLabel("Assessment Type").selectOption("practice_question_assignment");
+  await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
   await page.waitForURL(
-    /\/instructor\/courses\/C-[1-9][0-9]*\/assignments\/A-[1-9][0-9]*\/questions$/u,
+    /\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/assessments\/A[0-9A-HJKMNP-TV-Z]{6}\/questions$/u,
   );
-  await page.getByRole("heading", { name: "Questions", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
+  const assessmentBreadcrumb = page.getByRole("navigation", { name: "Breadcrumb", exact: true });
+  await assessmentBreadcrumb.getByRole("link", { name: assessmentTitle, exact: true }).waitFor();
+  const assessmentIdentity = page.locator('dl[aria-label="Current Assessment"]');
+  await assessmentIdentity.getByText(assessmentTitle, { exact: true }).waitFor();
+  await assessmentIdentity.getByText("Unreleased", { exact: true }).waitFor();
   const availableQuestions = page
     .getByRole("heading", { name: "Available published Questions", exact: true })
     .locator("..");
@@ -149,72 +155,77 @@ try {
     .first()
     .click();
   await page.getByText(/exact revision pin/u).waitFor();
-  const localEntryIds = await assignmentEntryIds(page);
+  const localEntryIds = await assessmentEntryIds(page);
   if (
     localEntryIds.length !== 2 ||
     localEntryIds.some((entryId) => entryId === null) ||
     new Set(localEntryIds).size !== localEntryIds.length
   ) {
     throw new Error(
-      "adding two available Questions did not create two distinct Assignment Entries",
+      "adding two available Questions did not create two distinct Assessment Entries",
     );
   }
+  await page.getByRole("heading", { name: /^Entry 1 · /u }).waitFor();
+  await page.getByRole("group", { name: "Entry 1 actions", exact: true }).waitFor();
   await page.getByRole("button", { name: "Save Questions and order", exact: true }).click();
   await page
-    .getByText("Questions and order saved. Review assignment policies when you are ready.", {
+    .getByText("Questions and order saved. Review Assessment Properties when you are ready.", {
       exact: true,
     })
     .waitFor();
   const ribbonTasks = page.getByRole("navigation", { name: "Ribbon tasks", exact: true });
-  await assertRibbonTaskCurrent(ribbonTasks, "assignmentQuestions", "Questions");
-  await ribbonTasks.locator('[data-ribbon-control="assignmentPolicies"]').click();
-  await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assignmentPolicies", "Policies");
+  await assertRibbonTaskCurrent(ribbonTasks, "assessmentQuestions", "Questions");
+  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
+  await assertRibbonTaskCurrent(ribbonTasks, "assessmentPolicies", "Properties");
+  await assessmentBreadcrumb.getByRole("link", { name: assessmentTitle, exact: true }).waitFor();
+  await assessmentIdentity.getByText(assessmentTitle, { exact: true }).waitFor();
+  await assessmentIdentity.getByText("Unreleased", { exact: true }).waitFor();
 
-  await ribbonTasks.locator('[data-ribbon-control="assignmentQuestions"]').click();
-  await page.getByRole("heading", { name: "Questions", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assignmentQuestions", "Questions");
-  const savedEntryIds = await assignmentEntryIds(page);
+  await ribbonTasks.locator('[data-ribbon-control="assessmentQuestions"]').click();
+  await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
+  await assertRibbonTaskCurrent(ribbonTasks, "assessmentQuestions", "Questions");
+  const savedEntryIds = await assessmentEntryIds(page);
   if (
     savedEntryIds.length !== 2 ||
     savedEntryIds.some((entryId) => entryId === null) ||
     new Set(savedEntryIds).size !== savedEntryIds.length
   ) {
-    throw new Error("the saved Assignment lacked two stable ordered Entries to reorder");
+    throw new Error("the saved Assessment lacked two stable ordered Entries to reorder");
   }
-  const moveDown = page.getByRole("button", { name: "Move down", exact: true }).first();
-  if (await moveDown.isDisabled()) {
-    throw new Error("the first saved Assignment Entry could not be moved down");
+  const moveLater = page.getByRole("button", { name: "Move later", exact: true }).first();
+  if (await moveLater.isDisabled()) {
+    throw new Error("the first saved Assessment Entry could not be moved later");
   }
-  await moveDown.click();
-  const reorderedEntryIds = await assignmentEntryIds(page);
+  await moveLater.click();
+  const reorderedEntryIds = await assessmentEntryIds(page);
   if (hasExactEntryOrder(reorderedEntryIds, savedEntryIds)) {
     throw new Error("the local structural Question reorder did not change the saved Entry order");
   }
-  await ribbonTasks.locator('[data-ribbon-control="assignmentPolicies"]').click();
+  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
   await page
-    .getByRole("heading", { name: "Save Assignment Question changes?", exact: true })
+    .getByRole("heading", { name: "Save Assessment Question changes?", exact: true })
     .waitFor();
   await page.getByRole("button", { name: "Stay and keep editing", exact: true }).click();
-  if (!hasExactEntryOrder(await assignmentEntryIds(page), reorderedEntryIds)) {
+  if (!hasExactEntryOrder(await assessmentEntryIds(page), reorderedEntryIds)) {
     throw new Error("Stay did not retain the exact local structural Question order");
   }
-  await ribbonTasks.locator('[data-ribbon-control="assignmentPolicies"]').click();
+  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
   await page.getByRole("button", { name: "Discard and continue", exact: true }).click();
-  await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assignmentPolicies", "Policies");
-  await ribbonTasks.locator('[data-ribbon-control="assignmentQuestions"]').click();
-  await page.getByRole("heading", { name: "Questions", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assignmentQuestions", "Questions");
+  await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
+  await assertRibbonTaskCurrent(ribbonTasks, "assessmentPolicies", "Properties");
+  await ribbonTasks.locator('[data-ribbon-control="assessmentQuestions"]').click();
+  await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
+  await assertRibbonTaskCurrent(ribbonTasks, "assessmentQuestions", "Questions");
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Questions", exact: true }).waitFor();
-  const reloadedEntryIds = await assignmentEntryIds(page);
+  await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
+  const reloadedEntryIds = await assessmentEntryIds(page);
   if (!hasExactEntryOrder(reloadedEntryIds, savedEntryIds)) {
-    throw new Error("Discard did not restore the exact saved Assignment Entry order");
+    throw new Error("Discard did not restore the exact saved Assessment Entry order");
   }
-  await ribbonTasks.locator('[data-ribbon-control="assignmentPolicies"]').click();
-  await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assignmentPolicies", "Policies");
+  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
+  await assertRibbonTaskCurrent(ribbonTasks, "assessmentPolicies", "Properties");
   await page
     .getByRole("group", { name: "Due date and time", exact: true })
     .getByLabel(/Due date/u)
@@ -254,7 +265,7 @@ try {
     await policyPutHeld;
     await page.getByText("Saving", { exact: true }).waitFor();
     if (
-      !(await page.getByRole("button", { name: "Release assignment", exact: true }).isDisabled())
+      !(await page.getByRole("button", { name: "Release assessment", exact: true }).isDisabled())
     ) {
       throw new Error("Release was available while the visible policy value was saving");
     }
@@ -273,12 +284,12 @@ try {
   }
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: "Policies", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
   const courseReference = new URL(page.url()).pathname.match(
-    /^\/instructor\/courses\/(C-[1-9][0-9]*)\/assignments\//u,
+    /^\/instructor\/courses\/(CI[0-9A-HJKMNP-TV-Z]{6})\/assessments\//u,
   )?.[1];
   if (courseReference === undefined)
-    throw new Error("the assignment workspace lacked a Course reference");
+    throw new Error("the Assessment workspace lacked a Course reference");
   if ((await page.getByLabel(assessmentDurationOverrideLabel).inputValue()) !== "1800") {
     throw new Error("the autosaved time limit did not persist after reload");
   }
@@ -287,7 +298,7 @@ try {
   }
   await page.getByLabel(assessmentDurationOverrideLabel).fill("0");
   await page.getByText("Invalid", { exact: true }).waitFor();
-  if (!(await page.getByRole("button", { name: "Release assignment", exact: true }).isDisabled())) {
+  if (!(await page.getByRole("button", { name: "Release assessment", exact: true }).isDisabled())) {
     throw new Error("Release was available while the visible policy value was invalid");
   }
   if (
@@ -298,40 +309,36 @@ try {
   await page.getByLabel(assessmentDurationOverrideLabel).fill("1800");
   await page.getByText("Saved", { exact: true }).waitFor();
 
-  const deliveryCheckPage = context.waitForEvent("page");
-  await page.getByRole("link", { name: "Check assignment delivery", exact: true }).click();
-  const deliveryCheck = await deliveryCheckPage;
-  await deliveryCheck
-    .getByRole("heading", { name: "Assignment delivery check", exact: true })
-    .waitFor();
-  await deliveryCheck
-    .getByText("Preview only - no Student work or grades are created.", { exact: true })
-    .waitFor();
-  await assertAnswerFreePreview(deliveryCheck);
-  await deliveryCheck.close();
+  await page.getByRole("link", { name: "Open Student View", exact: true }).click();
+  await page.getByText("Student View preview", { exact: true }).waitFor();
+  await assertAnswerFreePreview(page);
+  await page.getByRole("link", { name: "Return to assessment", exact: true }).click();
+  await ribbonTasks.locator('[data-ribbon-control="assessmentPolicies"]').click();
+  await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
 
   await page.getByRole("button", { name: "Check release readiness", exact: true }).click();
   await page.getByRole("heading", { name: "Ready to release", exact: true }).waitFor();
   await page
-    .getByText("Release readiness checked. This saved assignment is ready to release.", {
+    .getByText("Release readiness checked. This saved assessment is ready to release.", {
       exact: true,
     })
     .waitFor();
-  await page.getByRole("button", { name: "Release assignment", exact: true }).click();
-  await page.getByText(/^Assignment released\. Current edit number: [1-9][0-9]*\.$/u).waitFor();
+  await page.getByRole("button", { name: "Release assessment", exact: true }).click();
+  await page.getByText(/^Assessment released\. Current edit number: [1-9][0-9]*\.$/u).waitFor();
   await page
-    .getByRole("button", { name: "Release assignment", exact: true })
+    .getByRole("button", { name: "Release assessment", exact: true })
     .waitFor({ state: "hidden" });
+  await assessmentIdentity.getByText("Released", { exact: true }).waitFor();
   await page
-    .getByRole("heading", { name: "Danger Zone: Unrelease assignment", exact: true })
+    .getByRole("heading", { name: "Danger Zone: Unrelease assessment", exact: true })
     .waitFor();
-  await ribbonTasks.locator('[data-ribbon-control="assignmentOverview"]').click();
-  await page.getByRole("heading", { name: assignmentTitle, exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTasks, "assignmentOverview", "Overview");
+  await ribbonTasks.locator('[data-ribbon-control="assessmentOverview"]').click();
+  await page.getByRole("heading", { name: assessmentTitle, exact: true }).waitFor();
+  await assertRibbonTaskCurrent(ribbonTasks, "assessmentOverview", "Overview");
   const ribbonTabs = page.getByRole("navigation", { name: "Ribbon tabs", exact: true });
-  await ribbonTabs.locator('[data-ribbon-control="assignments"]').click();
+  await ribbonTabs.locator('[data-ribbon-control="assessments"]').click();
   await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
-  await assertRibbonTaskCurrent(ribbonTabs, "assignments", "Course Assignments");
+  await assertRibbonTaskCurrent(ribbonTabs, "assessments", "Course Assessments");
   for (const unsupportedPath of [
     `/instructor/courses/${courseReference}/grade-settings`,
     `/instructor/courses/${courseReference}/teaching-operations`,

@@ -5,6 +5,7 @@ import type { BlueprintCourseSummaryView } from "../../../generated/api/Blueprin
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 import { ApiRequestError, BlueprintCourseConflictError } from "../../api/http_client";
 import { BlueprintCourseCreateDialog } from "./blueprint_course_create_dialog";
+import { BlueprintCourseImport } from "./blueprint_exchange";
 import {
   appendBlueprintCoursePage,
   blueprintCourseContinuationPresentation,
@@ -175,6 +176,7 @@ export function BlueprintCoursesWorkspace(props: BlueprintCoursesWorkspaceProps)
             >
               Create Blueprint Course
             </button>
+            <BlueprintCourseImport client={props.client} />
           </div>
         </div>
         <Switch>

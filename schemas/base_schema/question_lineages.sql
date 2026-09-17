@@ -269,29 +269,6 @@ COMMENT ON TABLE ple_data.question_availability_event IS
 GRANT USAGE ON SCHEMA ple_data TO ple_api_owner;
 RESET ROLE;
 
--- This is deliberately the only Question-fork capability in the lineage
--- install phase.  A later authoring operation consumes the returned immutable
--- pin to create the private Draft and its attribution.  Keeping this reader
--- here prevents a client or early schema phase from creating authoring state.
-SET LOCAL ROLE ple_api_owner;
-CREATE FUNCTION ple_api.load_available_question_fork_source(
-    p_question_id text, p_revision_number integer
-) RETURNS TABLE(question_id text, revision_number integer)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT revision.question_id, revision.revision_number
-      FROM ple_data.published_question AS lineage
-      JOIN ple_data.question_revision AS revision
-        ON revision.question_id = lineage.question_id
-       AND revision.revision_number = p_revision_number
-     WHERE lineage.question_id = p_question_id
-       AND lineage.availability = 'available'
-       AND ple_api.current_session_account_is_instructor()
-$$;
-REVOKE ALL ON FUNCTION ple_api.load_available_question_fork_source(text, integer) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.load_available_question_fork_source(text, integer) TO ple_app;
-RESET ROLE;
-
 -- ASVS 1.2.4, 2.2-2.3, 8.2-8.3, and 15.4: this capability is the only
 -- transition path.  It locks the lineage, rechecks ownership, and records a
 -- redacted, actor-attributed event in the same transaction.

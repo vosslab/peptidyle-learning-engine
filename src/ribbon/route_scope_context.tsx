@@ -1,6 +1,6 @@
 // route_scope_context.tsx - stable presentation scope identity and cached route data.
 
-import { createContext, useContext, type Accessor, type JSX } from "solid-js";
+import { createContext, createSignal, useContext, type Accessor, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import type {
@@ -24,9 +24,18 @@ interface RouteScopeContextValue {
   readonly loadState: Accessor<RouteScopeLoadState>;
   readonly retry: () => void;
   readonly replaceCourseAppearance: ReplaceCourseAppearance;
+  /** Current Assessment title supplied by its already-loaded direct workspace resource. */
+  readonly assessmentTitle: Accessor<string | undefined>;
+  /** Ignores delayed workspace results that no longer describe the visible pathname. */
+  readonly setAssessmentTitleForPath: (pathname: string, title: string) => void;
 }
 
 const RouteScopeContext = createContext<RouteScopeContextValue>();
+
+interface AssessmentTitleForPath {
+  readonly pathname: string;
+  readonly title: string;
+}
 
 /**
  * Holds presentation caches across route transitions outside keyed content;
@@ -35,8 +44,27 @@ const RouteScopeContext = createContext<RouteScopeContextValue>();
 export function RouteScopeProvider(props: RouteScopeProviderProps): JSX.Element {
   const applicationApi = useApplicationApi();
   const controller = createRouteScopeController(props.pathname, applicationApi.queries);
+  const pathname = props.pathname;
+  const currentPathname = typeof pathname === "function" ? pathname : (): string => pathname;
+  const [publishedAssessmentTitle, setPublishedAssessmentTitle] =
+    createSignal<AssessmentTitleForPath>();
+  const assessmentTitle = (): string | undefined => {
+    const published = publishedAssessmentTitle();
+    return published?.pathname === currentPathname() ? published.title : undefined;
+  };
+
+  function setAssessmentTitleForPath(pathname: string, title: string): void {
+    // This presentation-only value comes from the existing workspace request.
+    // A delayed response cannot replace the current path's title.
+    if (currentPathname() === pathname) setPublishedAssessmentTitle({ pathname, title });
+  }
+
   return (
-    <RouteScopeContext.Provider value={controller}>{props.children}</RouteScopeContext.Provider>
+    <RouteScopeContext.Provider
+      value={{ ...controller, assessmentTitle, setAssessmentTitleForPath }}
+    >
+      {props.children}
+    </RouteScopeContext.Provider>
   );
 }
 
@@ -74,4 +102,14 @@ export function useRetryRouteScope(): () => void {
 /** Updates the in-memory saved appearance returned by an authorized mutation. */
 export function useReplaceCourseAppearance(): ReplaceCourseAppearance {
   return useRouteScopeContext().replaceCourseAppearance;
+}
+
+/** Reads the loaded Assessment title for the exact current workspace pathname. */
+export function useAssessmentTitle(): Accessor<string | undefined> {
+  return useRouteScopeContext().assessmentTitle;
+}
+
+/** Publishes an already-loaded Assessment title to the persistent shell. */
+export function useSetAssessmentTitleForPath(): (pathname: string, title: string) => void {
+  return useRouteScopeContext().setAssessmentTitleForPath;
 }

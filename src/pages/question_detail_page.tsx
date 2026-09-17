@@ -1,11 +1,19 @@
 // question_detail_page.tsx - safe current Question Details and Question Revision lineage View.
 
-import { A, createAsync, useLocation, useParams, useSearchParams } from "@solidjs/router";
-import { createResource, createSignal, Show, Suspense, type JSX } from "solid-js";
+import {
+  A,
+  createAsync,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "@solidjs/router";
+import { createResource, createSignal, onCleanup, Show, Suspense, type JSX } from "solid-js";
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionNumber } from "../../generated/api/QuestionRevisionNumber";
+import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import { useApplicationApi } from "../api/application_api";
 import type {
   LoadedQuestionLineage,
@@ -13,6 +21,7 @@ import type {
 } from "../api/question_availability";
 import { ApiRequestError } from "../api/http_client/error";
 import { CopyableQuestionId } from "../components/copyable_question_id";
+import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { QuestionWatchControl } from "../components/question_watch_control";
 import { QuestionStarControl } from "../components/question_star_control";
 import { QuestionPromptRenderer } from "../components/question_renderer";
@@ -41,6 +50,75 @@ type ArchiveNotice = {
 
 const QUESTION_REVISION_QUERY_PARAMETER = "revision";
 
+function QuestionForkControl(props: { readonly source: QuestionRevisionReference }): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const navigate = useNavigate();
+  const [forking, setForking] = createSignal(false);
+  const [error, setError] = createSignal("");
+  let action: { readonly source: QuestionRevisionReference; readonly key: string } | undefined;
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+  });
+
+  async function forkPublishedQuestion(): Promise<void> {
+    const source = props.source;
+    if (forking()) return;
+    setForking(true);
+    setError("");
+    try {
+      // ASVS 2.3.1: an uncertain retry keeps this exact source Revision and opaque request key.
+      if (
+        action === undefined ||
+        action.source.questionId !== source.questionId ||
+        action.source.revisionNumber !== source.revisionNumber
+      ) {
+        action = { source, key: crypto.randomUUID() };
+      }
+      const fork = await applicationApi.client.forkPublishedQuestion(source, action.key);
+      if (disposed) return;
+      // ASVS 1.2.2: only the strict, server-returned Draft reference selects this local route.
+      navigate(`/authoring/drafts/${encodeURIComponent(fork.draftQuestion)}`);
+    } catch {
+      // ASVS 16.5.1, 16.5.3: no response body or transport detail reaches the Instructor.
+      if (!disposed) {
+        setError(
+          "The private Draft could not be confirmed. Retry to confirm the same fork request.",
+        );
+      }
+    } finally {
+      if (!disposed) setForking(false);
+    }
+  }
+
+  return (
+    <section
+      class="question-fork-control"
+      aria-label="Fork this Published Question"
+      aria-busy={forking()}
+    >
+      <h2>Fork this Published Question</h2>
+      <p>
+        Fork Revision {props.source.revisionNumber} into your own private Draft Question. It must
+        pass publication validation before it can join the Question Library.
+      </p>
+      <button type="button" disabled={forking()} onClick={() => void forkPublishedQuestion()}>
+        {forking()
+          ? "Creating private Draft..."
+          : error()
+            ? "Retry fork creation"
+            : "Fork Question"}
+      </button>
+      <Show when={forking()}>
+        <p role="status">Creating your private Draft Question...</p>
+      </Show>
+      <Show when={error()}>
+        <p role="alert">{error()}</p>
+      </Show>
+    </section>
+  );
+}
+
 function questionRevisionFromSearch(search: string): QuestionRevisionNumber | undefined {
   const values = new URLSearchParams(search).getAll(QUESTION_REVISION_QUERY_PARAMETER);
   if (values.length === 0) return undefined;
@@ -68,6 +146,8 @@ function archiveFailureMessage(error: unknown): string {
 export interface QuestionArchiveControlProps {
   readonly client: Pick<QuestionAvailabilityClient, "getQuestionLineage" | "archiveQuestion">;
   readonly questionId: QuestionId;
+  /** Renders a related action only while the loaded Published Question remains available. */
+  readonly renderAvailableAction?: () => JSX.Element;
 }
 
 export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.Element {
@@ -93,6 +173,10 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
   const archiveLineage = (): LoadedQuestionLineage | undefined => {
     const current = readyLineage();
     return current?.viewerMayArchive === true ? current : undefined;
+  };
+  const availableLineage = (): LoadedQuestionLineage | undefined => {
+    const current = readyLineage();
+    return current?.summary.availability.availability === "available" ? current : undefined;
   };
 
   function cancelArchive(): void {
@@ -268,6 +352,7 @@ export function QuestionArchiveControl(props: QuestionArchiveControlProps): JSX.
           </p>
         )}
       </Show>
+      <Show when={availableLineage()}>{(_currentLineage) => props.renderAvailableAction?.()}</Show>
     </>
   );
 }
@@ -349,15 +434,12 @@ export function QuestionDetailPage(): JSX.Element {
                     />
                   }
                 >
-                  <iframe
+                  <OpaqueWebworkPreviewFrame
                     class="question-library-webwork-preview"
                     src={applicationApi.client.questionRevisionPreviewDocumentUrl(
                       record().summary.latestQuestionRevision,
                     )}
                     title={`Generated example for ${record().summary.metadata.questionTitle}, Revision ${record().summary.latestQuestionRevision.revisionNumber}`}
-                    sandbox="allow-scripts"
-                    referrerpolicy="no-referrer"
-                    allow=""
                   />
                 </Show>
               </section>
@@ -416,6 +498,9 @@ export function QuestionDetailPage(): JSX.Element {
               <QuestionArchiveControl
                 client={applicationApi.client}
                 questionId={record().summary.questionId}
+                renderAvailableAction={() => (
+                  <QuestionForkControl source={record().summary.latestQuestionRevision} />
+                )}
               />
             </article>
           )}

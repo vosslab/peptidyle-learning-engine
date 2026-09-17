@@ -12,6 +12,7 @@
 # Dependencies and installed package state.
 node_modules/
 package-lock.json
+assets/author-content-dependencies/
 
 # Build outputs and bundler artifacts.
 dist/

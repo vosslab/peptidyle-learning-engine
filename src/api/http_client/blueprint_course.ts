@@ -3,7 +3,10 @@
 import type { BlueprintCourseReference } from "../../../generated/api/BlueprintCourseReference";
 import type { BlueprintPoolMembersView } from "../../../generated/api/BlueprintPoolMembersView";
 import { decodeBlueprintPoolMembersView } from "../decoders/blueprint_pool_members";
-import { decodeBlueprintComparisonView } from "../decoders/blueprint_comparison";
+import {
+  decodeBlueprintComparisonView,
+  decodeCanonicalBlueprintCourse,
+} from "../decoders/blueprint_comparison";
 import { decodeBlueprintHistoryPageView } from "../decoders/blueprint_history";
 import { decodeUuid } from "../decoder";
 import { decodeCourseClassification } from "../decoders/course_classification";
@@ -17,6 +20,7 @@ import type { BlueprintHistoryPageView } from "../../../generated/api/BlueprintH
 import type { BlueprintComparisonView } from "../../../generated/api/BlueprintComparisonView";
 import type { BlueprintKnownForkView } from "../../../generated/api/BlueprintKnownForkView";
 import type { BlueprintForkApplyResponse } from "../../../generated/api/BlueprintForkApplyResponse";
+import type { CanonicalBlueprintCourse } from "../../../generated/api/CanonicalBlueprintCourse";
 import {
   decodeBlueprintForkApplyRequest,
   decodeBlueprintForkApplyResponse,
@@ -253,6 +257,41 @@ export function createBlueprintCourseClient(
   basePath: string,
 ): Pick<ApiClient, keyof BlueprintCourseClient> {
   return {
+    exportBlueprintCourse: async (reference): Promise<CanonicalBlueprintCourse> => {
+      const path = `${blueprintPath(reference)}/export`;
+      return (
+        await blueprintJson(fetchImplementation, basePath, path, decodeCanonicalBlueprintCourse, {
+          expectedStatus: 200,
+        })
+      ).body;
+    },
+    importBlueprintCourse: async (exchange, requestKey): Promise<LoadedBlueprintCourse> => {
+      const path = "/api/course-blueprints/import";
+      // Decode before dispatch as well as on receipt: imported JSON remains untrusted browser input.
+      const body = decodeCanonicalBlueprintCourse(exchange, "request");
+      const result = await blueprintJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeBlueprintCourseView,
+        {
+          method: "POST",
+          body,
+          idempotencyKey: requestKey,
+          expectedStatus: 201,
+        },
+      );
+      if (
+        result.body.availability !== "private" ||
+        result.body.read_access !== "blueprint_course_owner" ||
+        result.body.fork_source !== null ||
+        result.body.current_revision.revision !== "1"
+      )
+        throw new ApiProtocolError(
+          "Imported Blueprint Course must be an actor-owned Private root at Revision 1",
+        );
+      return loadedBlueprintCourse(result.body, result.response, path);
+    },
     listBlueprintHistory: async (
       reference,
       kind = "revisions",

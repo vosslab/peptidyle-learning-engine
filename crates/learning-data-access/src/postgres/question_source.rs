@@ -9,17 +9,18 @@ use sqlx::{Postgres, Row, Transaction, types::Json};
 use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::{
-    DraftQuestionPublicationSourceStore, DraftQuestionSourceBindingInput,
-    DraftQuestionSourceBindingStore, DraftQuestionUuid, ExistingQuestionRevisionPublicationError,
-    ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
-    NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
-    NewQuestionLineagePublicationStore, SessionTokenHash, StoreError,
+    DraftQuestionPublicationSource, DraftQuestionPublicationSourceStore,
+    DraftQuestionSourceBindingInput, DraftQuestionSourceBindingStore, DraftQuestionUuid,
+    ExistingQuestionRevisionPublicationError, ExistingQuestionRevisionPublicationInput,
+    ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationError,
+    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore, SessionTokenHash,
+    StoreError,
 };
 use question_model::WorkspaceId;
 
-// This is the only uniqueness boundary that means a freshly minted Question
-// ID collided.  Other unique constraints in the publication aggregate signal
-// a malformed or conflicting publication and must not drive identity retry.
+// This legacy uniqueness boundary also conclusively identifies a freshly
+// minted Question ID collision. New code serializes candidate allocation and
+// reports the same outcome with the dedicated QP001 SQLSTATE.
 const PUBLISHED_QUESTION_PRIMARY_KEY: &str = "published_question_pkey";
 
 /// PostgreSQL implementation of the session-authorized Draft Question Source Binding Store.
@@ -36,7 +37,7 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
         draft_question_uuid: DraftQuestionUuid,
         expected_draft_question_edit_number: crate::DraftQuestionEditNumber,
         workspace: WorkspaceId,
-    ) -> Result<ObjectRecord, StoreError> {
+    ) -> Result<DraftQuestionPublicationSource, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
@@ -69,7 +70,7 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
             )
         })?;
         let created_at_millis: i64 = row.try_get("created_at_millis").map_err(map_sqlx_error)?;
-        Ok(ObjectRecord {
+        let source_record = ObjectRecord {
             id: object_id,
             storage_area: ObjectStorageArea::PrivateContent,
             data_class: ObjectDataClass::AuthoringContent,
@@ -79,6 +80,21 @@ impl DraftQuestionPublicationSourceStore for PostgresDraftQuestionSourceBindingS
             media_type: row.try_get("media_type").map_err(map_sqlx_error)?,
             question_revision: None,
             created_at: Timestamp::from_unix_millis(created_at_millis),
+        };
+        let reserved_question_id = row
+            .try_get::<Option<String>, _>("reserved_question_id")
+            .map_err(map_sqlx_error)?
+            .map(|value| {
+                value.parse().map_err(|_| {
+                    StoreError::InvalidRecord(
+                        "Draft Question reserved publication ID is invalid".to_owned(),
+                    )
+                })
+            })
+            .transpose()?;
+        Ok(DraftQuestionPublicationSource {
+            source_record,
+            reserved_question_id,
         })
     }
 }
@@ -400,6 +416,11 @@ fn map_new_question_lineage_publication_error(
     error: sqlx::Error,
 ) -> NewQuestionLineagePublicationError {
     if let sqlx::Error::Database(database_error) = &error
+        && database_error.code().as_deref() == Some("QP001")
+    {
+        return NewQuestionLineagePublicationError::IdentityCollision;
+    }
+    if let sqlx::Error::Database(database_error) = &error
         && database_error.code().as_deref() == Some("23505")
     {
         return if is_published_question_identity_collision(
@@ -419,7 +440,8 @@ fn map_new_question_lineage_publication_error(
 }
 
 fn is_published_question_identity_collision(code: Option<&str>, constraint: Option<&str>) -> bool {
-    code == Some("23505") && constraint == Some(PUBLISHED_QUESTION_PRIMARY_KEY)
+    code == Some("QP001")
+        || (code == Some("23505") && constraint == Some(PUBLISHED_QUESTION_PRIMARY_KEY))
 }
 
 fn question_id_for_persistence(question_id: &question_model::QuestionId) -> &str {
@@ -441,10 +463,14 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn only_the_published_question_primary_key_is_an_identity_collision() {
+    fn only_explicit_question_id_outcomes_are_identity_collisions() {
         assert!(is_published_question_identity_collision(
             Some("23505"),
             Some(PUBLISHED_QUESTION_PRIMARY_KEY),
+        ));
+        assert!(is_published_question_identity_collision(
+            Some("QP001"),
+            None,
         ));
         assert!(!is_published_question_identity_collision(
             Some("23505"),

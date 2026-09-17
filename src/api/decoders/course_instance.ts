@@ -2,6 +2,7 @@
 
 import type { AccountReference } from "../../../generated/api/AccountReference";
 import type { CourseInstanceRouteSummary } from "../../../generated/api/CourseInstanceRouteSummary";
+import type { CreateBlueprintFromCourseInstanceInput } from "../../../generated/api/CreateBlueprintFromCourseInstanceInput";
 import { COURSE_THEME_VALUES } from "../../../generated/api/CourseTheme";
 import type {
   CourseCreationInstructor,
@@ -146,6 +147,24 @@ export function decodeCreateCourseInstanceInput(
       : { assignedInstructor: accountReference(assignedInstructor, `${path}.assignedInstructor`) }),
   } satisfies CreateCourseInstanceInput;
   return decoded;
+}
+
+/** Strictly validates the only Instructor-owned fields for Course-derived Blueprint creation. */
+export function decodeCreateBlueprintFromCourseInstanceInput(
+  value: unknown,
+  path = "request",
+): CreateBlueprintFromCourseInstanceInput {
+  const record = decodeRecord(value, path);
+  // ASVS 1.5.2 and 2.2.1: reusable content and Course delivery state never cross this boundary.
+  requireOnlyFields(record, path, ["classification", "shortName", "longName"]);
+  return {
+    classification: decodeCourseClassification(
+      field(record, "classification", path),
+      `${path}.classification`,
+    ),
+    shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
+    longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
+  };
 }
 
 export function decodeCourseInstanceList(

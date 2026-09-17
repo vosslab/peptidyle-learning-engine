@@ -326,7 +326,7 @@ DECLARE
 BEGIN
     IF NOT ple_data.blueprint_content_has_exact_keys(p_content, ARRAY['modules'])
        OR jsonb_typeof(p_content -> 'modules') <> 'array'
-       OR jsonb_array_length(p_content -> 'modules') NOT BETWEEN 1 AND 1024 THEN
+       OR jsonb_array_length(p_content -> 'modules') > 1024 THEN
         RETURN false;
     END IF;
     FOR module_value IN SELECT value FROM jsonb_array_elements(p_content -> 'modules') LOOP
@@ -354,7 +354,7 @@ BEGIN
             ) OR jsonb_typeof(content_value -> 'title') <> 'string'
               OR jsonb_typeof(content_value -> 'instructions') <> 'string'
               OR jsonb_typeof(content_value -> 'entries') <> 'array'
-              OR jsonb_array_length(content_value -> 'entries') NOT BETWEEN 1 AND 1024 THEN
+              OR jsonb_array_length(content_value -> 'entries') > 1024 THEN
                 RETURN false;
             END IF;
             defaults_value := content_value -> 'defaults';
@@ -449,7 +449,7 @@ BEGIN
     IF NOT ple_data.blueprint_content_is_closed(p_content)
        OR p_content ? 'title'
        OR jsonb_typeof(p_content -> 'modules') <> 'array'
-       OR jsonb_array_length(p_content -> 'modules') NOT BETWEEN 1 AND 1024
+       OR jsonb_array_length(p_content -> 'modules') > 1024
        OR EXISTS (
            SELECT 1
              FROM jsonb_array_elements(p_content -> 'modules') AS module_row(module)
@@ -473,7 +473,6 @@ BEGIN
                OR assessment_row.assessment ->> 'blueprint_assessment_reference' IS NULL
                OR jsonb_typeof(assessment_row.assessment -> 'content') <> 'object'
                OR jsonb_typeof(assessment_row.assessment -> 'content' -> 'entries') <> 'array'
-               OR jsonb_array_length(assessment_row.assessment -> 'content' -> 'entries') = 0
        )
        OR (SELECT count(*) FROM ple_data.blueprint_content_assessments(p_content))
           <> (SELECT count(DISTINCT blueprint_assessment_reference)
@@ -492,10 +491,6 @@ BEGIN
                    AND jsonb_typeof(entry_row.entry -> 'question_revision') <> 'object')
                OR (entry_row.entry ->> 'kind' = 'pool'
                    AND jsonb_typeof(entry_row.entry -> 'question_pool_revision') <> 'object')
-       )
-       OR (
-           NOT EXISTS (SELECT 1 FROM ple_data.blueprint_content_question_pins(p_content))
-           AND NOT EXISTS (SELECT 1 FROM ple_data.blueprint_content_pool_pins(p_content))
        ) THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Blueprint Course content is invalid';

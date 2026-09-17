@@ -299,6 +299,35 @@
   margin-bottom: 0.3rem;
 }
 
+.blueprint-course-exchange {
+  display: grid;
+  gap: var(--ple-layout-gap);
+  padding: var(--ple-panel-padding);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-inset);
+  background: var(--ple-card-surface);
+}
+
+.blueprint-course-exchange h2,
+.blueprint-course-exchange p {
+  margin-block: 0;
+}
+
+.blueprint-course-exchange__json {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+  font-weight: 680;
+}
+
+.blueprint-course-exchange__json textarea {
+  width: 100%;
+  min-height: 16rem;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 @media (max-width: 60rem) {
   .blueprint-course-detail-editor {
     grid-template-columns: minmax(0, 1fr);

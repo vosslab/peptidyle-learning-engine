@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use question_model::{
     AccountId, BlueprintAvailability, BlueprintCourseReadAccess, BlueprintCourseReference,
     BlueprintMetadataEtag, BlueprintMetadataState, BlueprintRevision, BlueprintRevisionReference,
-    CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId,
+    CanonicalBlueprintCourse, CreateBlueprintCourseInput, CreateBlueprintCourseReceipt, QuestionId,
     QuestionPoolRevisionNumber, QuestionPoolRevisionReference, QuestionRevisionNumber,
     QuestionRevisionReference, RenameBlueprintCourseInput, ReplaceBlueprintCourseContentInput,
     RequestChecksum, SaveBlueprintCourseReceipt, Timestamp,
@@ -317,6 +317,39 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         )?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(StoredBlueprintRevision { reference, content })
+    }
+
+    async fn export_blueprint_course(
+        &self,
+        session: SessionTokenHash,
+        reference: BlueprintCourseReference,
+    ) -> Result<CanonicalBlueprintCourse, StoreError> {
+        // ASVS 8.2.2 and 8.3.1: the existing current-lineage read applies
+        // object authorization before any reusable content is projected.
+        let record = self.load_blueprint_course(session, reference).await?;
+        let content = record.content.to_domain()?;
+        Ok(CanonicalBlueprintCourse::export(
+            record.short_name,
+            record.long_name,
+            record.classification,
+            &content,
+        ))
+    }
+
+    async fn import_blueprint_course(
+        &self,
+        session: SessionTokenHash,
+        request_checksum: RequestChecksum,
+        exchange: CanonicalBlueprintCourse,
+    ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
+        let input = exchange
+            .into_create_input()
+            .map_err(|_| invalid("canonical Blueprint exchange"))?;
+        // ASVS 2.3.3: reuse the one atomic create transaction. It owns the
+        // actor, Private lifecycle state, Revision 1, fresh local identities,
+        // exact pin validation, and Pool forking.
+        self.create_blueprint_course(session, request_checksum, input)
+            .await
     }
 
     async fn create_blueprint_course(

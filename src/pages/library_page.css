@@ -153,6 +153,7 @@
 }
 
 .library-page .question-library-browse-heading p,
+.library-page .question-library-facet-empty,
 .library-page .question-library-facet-truncated {
   color: var(--ple-muted);
 }
@@ -174,7 +175,12 @@
 .library-page .question-library-browse-groups {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  align-items: start;
   gap: var(--ple-layout-gap);
+}
+
+.library-page .question-library-browse-groups[hidden] {
+  display: none;
 }
 
 .library-page .question-library-browse-groups > section {
@@ -192,9 +198,15 @@
 .library-page .question-library-facet-choices {
   display: grid;
   gap: 0.35rem;
-  max-block-size: 18rem;
+  max-block-size: 12rem;
   overflow: auto;
   padding: 0.15rem;
+}
+
+.library-page .question-library-facet-empty {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
 }
 
 .library-page .question-library-facet-choices button {

@@ -50,6 +50,7 @@
 \ir assessment_pool_forks.sql
 \ir assessment_pool_selection.sql
 \ir course_blueprint_adoption.sql
+\ir course_blueprint_publication.sql
 \ir assessment_operations.sql
 \ir assessment_blueprint_updates.sql
 \ir assessment_student_view.sql

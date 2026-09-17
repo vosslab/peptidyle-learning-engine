@@ -404,7 +404,8 @@ prove_browser() {
 	local port
 	port="$(gateway_port)"
 	NODE_EXTRA_CA_CERTS="$repository_root/local_stack_state/live_demo_browser/workspace/gateway-root.crt" \
-		node tests/playwright/e2e_live_demo_instructor_accounts_browser.mjs "$port"
+	PLE_LOCAL_DEMO_TOTP_SETUP_FILE="${PLE_LOCAL_DEMO_TOTP_SETUP_FILE:-$repository_root/local_stack_state/live_demo_browser/workspace/morgan-totp-setup-uri}" \
+		node --import tsx tests/playwright/e2e_live_demo_instructor_accounts_browser.mjs "$port"
 	echo "Instructor Account browser: visible Sysadmin account lifecycle complete"
 }
 

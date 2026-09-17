@@ -32,7 +32,8 @@ pub use blueprint_children::{
     BlueprintAssessmentReplacementInput, BlueprintChildIdError,
     BlueprintCourseAssessmentContentView, BlueprintModuleEditChoice, BlueprintModuleReference,
     BlueprintModuleReplacementInput, BlueprintModuleView, CreateBlueprintCourseInput,
-    CreateBlueprintModuleInput, ReplaceBlueprintCourseContentInput,
+    CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
+    ReplaceBlueprintCourseContentInput,
 };
 pub use fork_apply::{
     BlueprintForkApplyAssessmentCopy, BlueprintForkApplyAssessmentDestination,

@@ -32,6 +32,7 @@ mod assessment_pool_fork;
 mod assessment_pool_selection_count;
 #[cfg(feature = "postgres")]
 mod assessment_release;
+#[cfg(feature = "postgres")]
 mod assessment_student_time_accommodation;
 #[cfg(feature = "postgres")]
 mod assessment_student_view;
@@ -76,6 +77,8 @@ mod course_banner;
 #[cfg(feature = "postgres")]
 mod course_blueprint_adoption;
 #[cfg(feature = "postgres")]
+mod course_blueprint_publication;
+#[cfg(feature = "postgres")]
 mod course_instance;
 #[cfg(feature = "postgres")]
 mod course_roster;
@@ -90,7 +93,9 @@ mod instructor_account;
 mod invitation_export;
 #[cfg(feature = "postgres")]
 mod live_gradebook;
+#[cfg(feature = "postgres")]
 mod live_student_course_landing;
+#[cfg(feature = "postgres")]
 pub use archived_student_work_recovery::PostgresArchivedStudentWorkRecoveryStore;
 #[cfg(feature = "postgres")]
 mod migrations;
@@ -152,6 +157,7 @@ pub use assessment_pool_fork::PostgresAssessmentPoolForkStore;
 pub use assessment_pool_selection_count::PostgresAssessmentPoolSelectionCountStore;
 #[cfg(feature = "postgres")]
 pub use assessment_release::PostgresLiveAssessmentStore;
+#[cfg(feature = "postgres")]
 pub use assessment_student_time_accommodation::PostgresAssessmentStudentTimeAccommodationStore;
 #[cfg(feature = "postgres")]
 pub use assessment_student_view::PostgresInstructorStudentViewStore;
@@ -173,6 +179,8 @@ pub use blueprint_stewardship::PostgresBlueprintStewardshipStore;
 pub use connection::{ProductionLoginProfile, lazy_pool, local_development_pool, production_pool};
 #[cfg(feature = "postgres")]
 pub use course_banner::PostgresCourseBannerStore;
+#[cfg(feature = "postgres")]
+pub use course_blueprint_publication::PostgresCourseBlueprintPublicationStore;
 #[cfg(feature = "postgres")]
 pub use course_instance::PostgresCourseInstanceStore;
 #[cfg(feature = "postgres")]

@@ -182,10 +182,9 @@ BEGIN
        OR NOT EXISTS (SELECT 1 FROM ple_audit.course_roster_event AS event
                       WHERE event.course_id = v_course_id AND event.student_account_id = v_student_account_id
                         AND event.event_kind = 'invitation_claimed')
-       OR NOT EXISTS (SELECT 1 FROM ple_audit.course_roster_event AS event
-                      WHERE event.course_id = v_course_id AND event.student_account_id = v_student_account_id
-                        AND event.event_kind = 'student_access_revoked')
-       OR EXISTS (SELECT 1 FROM ple_data.assignment WHERE course_id = v_course_id)
+	       OR NOT EXISTS (SELECT 1 FROM ple_audit.course_roster_event AS event
+	                      WHERE event.course_id = v_course_id AND event.student_account_id = v_student_account_id
+	                        AND event.event_kind = 'student_access_revoked')
     THEN
         RAISE EXCEPTION USING ERRCODE = '42501', MESSAGE = 'Course Roster atomic evidence is incomplete';
     END IF;

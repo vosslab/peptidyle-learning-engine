@@ -484,6 +484,29 @@ and inevitably drifts.
 Question Type from controls. A backend outage never becomes an incorrect
 response. See [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md).
 
+### Opaque WeBWorK previews report only size
+
+**Decision.** The shared public `ple_bridge.js` recognizes an opaque WeBWorK
+preview by its effective `null` origin. That mode reports only the versioned
+three-key resize record `ple.webwork.preview.resize` with a safe integer height
+from 160 through 1200. It measures visible renderer form and top-level content,
+then adds the body's computed lower padding and border without reading the
+iframe-sized body rectangle. It runs on load and through `ResizeObserver`, and
+suppresses repeated heights.
+
+**Why.** Instructor inspection needs content-sized previews without turning an
+opaque no-write renderer document into a response or control protocol.
+
+**Consequence.** The parent accepts a resize only when `event.origin` is `null`,
+`event.source` is the exact iframe `contentWindow`, and every message key and
+value is exact. The opaque document targets its canonical parent origin from
+its URL. Preview mode emits no ready, capture, form, or response message.
+Student document bytes and their same-origin bridge behavior remain unchanged.
+
+**Owner.** [opaque_webwork_preview_frame.tsx](../src/components/opaque_webwork_preview_frame.tsx),
+[ple_bridge.js](../src/public/ple_bridge.js), and the Backend preview document
+row in [API_CONTRACTS.md](API_CONTRACTS.md).
+
 ### Native PLE Question JSON stays deliberately small
 
 **Decision.** Native PLE Question JSON is private, unpublished, unversioned,

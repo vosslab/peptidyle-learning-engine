@@ -5,10 +5,10 @@ use std::{
 
 use async_trait::async_trait;
 use learning_data_access::{
-    DraftQuestionPublicationSourceStore, ExistingQuestionRevisionPublicationError,
-    ExistingQuestionRevisionPublicationInput, ExistingQuestionRevisionPublicationStore,
-    NewQuestionLineagePublicationError, NewQuestionLineagePublicationInput,
-    NewQuestionLineagePublicationStore,
+    DraftQuestionPublicationSource, DraftQuestionPublicationSourceStore,
+    ExistingQuestionRevisionPublicationError, ExistingQuestionRevisionPublicationInput,
+    ExistingQuestionRevisionPublicationStore, NewQuestionLineagePublicationError,
+    NewQuestionLineagePublicationInput, NewQuestionLineagePublicationStore,
 };
 use objects::{
     ObjectRecord, ObjectStore, ObjectStoreError, PutObject, Sha256Checksum, SignedUrl, StoredObject,
@@ -23,6 +23,7 @@ mod hotspot;
 #[derive(Clone)]
 struct RecordingPublicationStore {
     source_record: ObjectRecord,
+    reserved_question_id: Option<QuestionId>,
     publications: Arc<Mutex<Vec<NewQuestionLineagePublicationInput>>>,
 }
 
@@ -64,8 +65,11 @@ impl DraftQuestionPublicationSourceStore for RecordingPublicationStore {
         _draft_question_uuid: DraftQuestionUuid,
         _expected_draft_question_edit_number: DraftQuestionEditNumber,
         _workspace: WorkspaceId,
-    ) -> Result<ObjectRecord, StoreError> {
-        Ok(self.source_record.clone())
+    ) -> Result<DraftQuestionPublicationSource, StoreError> {
+        Ok(DraftQuestionPublicationSource {
+            source_record: self.source_record.clone(),
+            reserved_question_id: self.reserved_question_id.clone(),
+        })
     }
 }
 
@@ -93,8 +97,11 @@ impl DraftQuestionPublicationSourceStore for ScriptedPublicationStore {
         _draft_question_uuid: DraftQuestionUuid,
         _expected_draft_question_edit_number: DraftQuestionEditNumber,
         _workspace: WorkspaceId,
-    ) -> Result<ObjectRecord, StoreError> {
-        Ok(self.source_record.clone())
+    ) -> Result<DraftQuestionPublicationSource, StoreError> {
+        Ok(DraftQuestionPublicationSource {
+            source_record: self.source_record.clone(),
+            reserved_question_id: None,
+        })
     }
 }
 
@@ -131,8 +138,11 @@ impl DraftQuestionPublicationSourceStore for ExistingRevisionRecordingStore {
         _draft_question_uuid: DraftQuestionUuid,
         _expected_draft_question_edit_number: DraftQuestionEditNumber,
         _workspace: WorkspaceId,
-    ) -> Result<ObjectRecord, StoreError> {
-        Ok(self.source_record.clone())
+    ) -> Result<DraftQuestionPublicationSource, StoreError> {
+        Ok(DraftQuestionPublicationSource {
+            source_record: self.source_record.clone(),
+            reserved_question_id: None,
+        })
     }
 }
 
@@ -312,6 +322,7 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
     let publications = Arc::new(Mutex::new(Vec::new()));
     let publication_store = RecordingPublicationStore {
         source_record,
+        reserved_question_id: None,
         publications: Arc::clone(&publications),
     };
     let issuer = HmacQuestionIdIssuer::new(QuestionIdSecret::from_bytes([7; 32]));
@@ -342,6 +353,40 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
 }
 
 #[tokio::test]
+async fn fork_publication_consumes_its_reserved_question_id_without_issuing_another() {
+    let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
+    let object_store = MemoryObjectStore::default();
+    let source_record = source_fixture(&object_store, workspace).await;
+    let reserved_question_id = fixed_question_id("ABCDEFG");
+    let publications = Arc::new(Mutex::new(Vec::new()));
+    let publication_store = RecordingPublicationStore {
+        source_record,
+        reserved_question_id: Some(reserved_question_id.clone()),
+        publications: Arc::clone(&publications),
+    };
+    let publisher =
+        NewQuestionLineagePublisher::new(object_store, publication_store, fixed_issuer(&[]), None);
+
+    let published = publisher
+        .publish(
+            SessionTokenHash::compute(b"session"),
+            command(workspace),
+            Timestamp::from_unix_millis(2_000),
+        )
+        .await
+        .expect("reserved fork publication");
+    let input = publications
+        .lock()
+        .expect("publication capture lock")
+        .first()
+        .cloned()
+        .expect("captured publication");
+
+    assert_eq!(published.question_id, reserved_question_id);
+    assert_eq!(input.question_id, reserved_question_id);
+}
+
+#[tokio::test]
 async fn publication_refuses_database_and_object_store_source_disagreement() {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let object_store = MemoryObjectStore::default();
@@ -349,6 +394,7 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
     source_record.sha256 = Sha256Checksum::compute(b"different bytes");
     let publication_store = RecordingPublicationStore {
         source_record,
+        reserved_question_id: None,
         publications: Arc::new(Mutex::new(Vec::new())),
     };
     let publisher = NewQuestionLineagePublisher::new(

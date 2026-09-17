@@ -17,10 +17,13 @@
   - Evidence (source): `schemas/base_schema/course_membership.sql` `assert_assigned_instructor_membership` rejects a Course Instance without a current assigned Instructor membership.
 - [ ] Creating a Course Instance establishes its first Instructor membership but does not give that Instructor greater Course authority than later co-Instructors.
   - Mismatch: `CourseInstanceView.is_assigned_instructor` exposes a special authority distinction.
-- [ ] **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
-- [ ] An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
-  - Verification pending: Current Human Guidance requirement has no independently accepted implementation proof; audit the current Course specifications boundary.
+- [x] **Adoption** connects a Blueprint Course and a Course Instance when an **Instructor** creates a new Course Instance from a Blueprint Course or creates a new Blueprint Course from an existing Course Instance's reusable structure.
+  - Evidence (runtime): `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the source Course as a distinct first Adoption; the existing Blueprint-to-Course path records daughters separately. Fresh PostgreSQL 17 actual-role proof passed source preservation and Adoption-count checks.
+  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow: exactly one child-route POST created a distinct actor-owned Private Revision-1 Blueprint, showed Adoption count 1, and left the source Course addressable and unchanged.
+- [x] An Instructor may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source, and the Course Instance remains the same teaching instance.
+  - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` exposes a metadata-only Create Blueprint from Course Instance dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` validates the canonical Course reference, sends only generated names/classification with one retry-safe idempotency key, requires `201 no-store`, and accepts only a new owner-visible Private Revision-1 Blueprint receipt.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed authorization/no-write, stale rollback, replay, exact reusable content/Pool pins, immutable source provenance, unchanged source state, first-Adoption/student counts, and lifecycle rollback on PostgreSQL 17.
+  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow, including one child-route POST, a distinct actor-owned Private Revision-1 receipt, Adoption count 1, and unchanged addressable source Course.
 - [x] A Course Instance created from a Blueprint Course is a daughter Course Instance of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 
@@ -39,7 +42,7 @@
 - [ ] Course classification follows the shared Discipline -> Subject -> Topic -> Subtopic hierarchy.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course Discipline selection should provide a clear way to request a new Discipline when the needed
-  Discipline is unavailable.
+      Discipline is unavailable.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
   - Owner: Course interfaces (first occurrence).
 - [ ] **Sysadmins** exclusively create and manage Disciplines.
@@ -64,10 +67,13 @@
   - Verification pending: Reconcile the existing connected Blueprint lifecycle and actual HTTP receipts against the full vetted-Instructor visibility and reusability claim.
 - [ ] Blueprint Courses contain only **Published Questions** and published **Question Pools**.
   - Mismatch: Current pin validation covers Question revisions but not the required published Pool behavior.
-- [ ] An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
-  - Mismatch: No Course Instance-to-Blueprint publishing route or store operation was found.
-- [ ] Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
-  - Mismatch: No Course Instance-to-Blueprint publishing route or store operation was found.
+- [x] An **Instructor** may create a new Blueprint Course from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+  - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` supplies the Course tools dialog; `src/api/http_client/course_instance.ts` `createBlueprintFromCourseInstance` supplies its strict, idempotent create request; `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` owns the atomic source lock/copy/provenance boundary.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed immutable source provenance, unchanged Course state, replay, stale rollback, exact pins, and first-Adoption counts on PostgreSQL 17.
+  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow's distinct Private Revision-1 receipt and unchanged source Course.
+- [x] Creating a Blueprint Course from a Course Instance copies the ordered Course Instance Assessment list as ordered Blueprint Assessments, preserving order.
+  - Evidence (source): `crates/learning-data-access/src/postgres/course_blueprint_publication.rs` `load_course_blueprint_publication_source` uses the existing visible Course order and `PostgresCourseBlueprintPublicationStore` preserves that vector under one deterministic `Assessments` wrapper with fresh Blueprint Assessment identities.
+  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow; the created distinct Private Revision-1 Blueprint retained the ordered reusable structure while the source Course remained unchanged.
 
 #### Blueprint Course lifecycle specifications
 
@@ -254,12 +260,12 @@
 - [ ] PLE compares the proposed JSON with the target Blueprint Revision to determine the proposed changes.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] A Change Proposal should present those changes in a human-readable interface rather than requiring
-  the receiving **Instructor** to review raw JSON.
+      the receiving **Instructor** to review raw JSON.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] A Change Proposal may include any Blueprint Course content represented in its canonical JSON.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] Changes may include Course names and metadata, Assessment names and settings, Assessment additions
-  and removals, and Question membership changes.
+      and removals, and Question membership changes.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] Question content changes belong to the Published Question and are not Blueprint Course changes.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
@@ -276,10 +282,10 @@
 - [ ] The Change Proposal remains a record of what was proposed and what was accepted.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] If the target Blueprint Course changes after the proposal was created, PLE should show that the
-  proposal was based on an older target Revision.
+      proposal was based on an older target Revision.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] PLE should not silently apply a proposal against a newer target Revision when the changes no longer
-  apply cleanly.
+      apply cleanly.
   - Mismatch: `crates/server/src/blueprint_course/fork.rs` `fork_blueprint` and the existing current-pair comparison/Apply path do not implement a persisted Change Proposal with exact source/target comparison pins, reviewable canonical-JSON scope, selective acceptance, retained acceptance records, and stale-target handling. This current requirement is not established by fork/Apply evidence.
 - [ ] Change Proposals never directly change daughter Course Instances.
   - Mismatch: No Change Proposal implementation exists to verify this invariant.
@@ -317,14 +323,14 @@
 
 #### Blueprint Course JSON specifications
 
-- [ ] Blueprint Courses have a canonical JSON representation for comparison, import, export, and exchange.
-  - Mismatch: Current JSON is internal stored content; no canonical import/export exchange surface was found.
-- [ ] Canonical Blueprint JSON must contain enough information to fully recreate a Blueprint Course.
-  - Mismatch: No complete export/import round trip was found.
-- [ ] Importing exported Blueprint JSON should reproduce the same Blueprint Course content and structure.
-  - Mismatch: No Blueprint JSON import or export operation exists.
-- [ ] Blueprint JSON contains Blueprint metadata and an ordered list of Blueprint Assessments.
-  - Mismatch: Stored revision JSON does not demonstrate the required complete canonical exchange shape.
+- [x] Blueprint Courses have a canonical JSON representation for comparison, import, export, and exchange.
+  - Evidence (source): `crates/question_model/src/blueprint_course/canonical_exchange.rs` `CanonicalBlueprintCourse` defines the strict authority-free projection used by comparison and the authorized server export/import routes; the Instructor UI exposes download and validated import over those routes.
+- [x] Canonical Blueprint JSON must contain enough information to fully recreate a Blueprint Course.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` exported a seeded Blueprint, imported it as a distinct actor-owned Private root at Revision 1, and deeply compared the imported re-export with the original canonical object.
+- [x] Importing exported Blueprint JSON should reproduce the same Blueprint Course content and structure.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` preserved ordered modules, Assessments, entries, exact reusable references, and metadata while the source Blueprint remained unchanged.
+- [x] Blueprint JSON contains Blueprint metadata and an ordered list of Blueprint Assessments.
+  - Evidence (source): `crates/question_model/src/blueprint_course/canonical_exchange.rs` `CanonicalBlueprintCourse` contains strict metadata and ordered module/Assessment/entry arrays; focused domain and client contracts reject unknown or malformed shapes.
 - [x] Blueprint Assessments contain only reusable teaching settings.
   - Evidence (source): `schemas/base_schema/blueprints.sql` `ple_data.blueprint_content_is_closed` allowlists reusable Assessment content and defaults without Course delivery dates or release state.
 - [ ] Blueprint Assessments contain ordered **Published Questions** and published **Question Pools**.
@@ -337,8 +343,8 @@
   - Mismatch: No Change Proposal implementation exists.
 - N/A Canonical Blueprint JSON may support offline inspection or editing, even if it is not optimized for hand editing.
   - Reason: This explicitly optional future capability does not require implemented behavior.
-- [ ] Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.
-  - Mismatch: No canonical exchange format implementation exists.
+- [x] Canonical Blueprint JSON is the complete exchange format, not the primary persistence model.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` proves authorized export/import/re-export semantic equality with fresh Blueprint, module, Assessment, and Pool identities while relational persistence remains authoritative.
 
 ### Course Instance specifications
 
@@ -359,22 +365,28 @@
 - [ ] Active Courses are current teaching Course Instances.
   - Mismatch: No active/inactive Course Instance lifecycle model was found.
 - [ ] Inactive Courses are past Course Instances and retain Course metadata, including after
-  FERPA-sensitive Student data is removed.
+      FERPA-sensitive Student data is removed.
   - Mismatch: No inactive Course lifecycle and retention linkage was verified in A8 paths.
-- [ ] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
-  - Mismatch: No Course Instance-to-Blueprint publishing operation exists.
+- [x] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
+  - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` offers the compact metadata-only Course tools action; its strict client retains source-Course identity and no delivery fields; `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the immutable source without changing the Course.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed source preservation, first-Adoption counts, exact pins/Pool fork, replay, and stale rollback on PostgreSQL 17.
+  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow: one child-route POST created the distinct actor-owned Private Revision-1 Blueprint and left the source addressable and unchanged.
 - [x] A new academic term uses a new Course Instance. Rollover is not a separate product model.
   - Evidence (source): `crates/question_model/src/course_term.rs` `CourseTerm` is input to each `CreateCourseInstanceInput`; no rollover model was found.
 
 #### Blueprint adoption and daughter Course Instances
 
-- [ ] **Adoption** connects a Blueprint Course and a Course Instance through either Course creation workflow.
-  - Mismatch: Current evidence verifies the Blueprint-to-new-Course-Instance path only; no Course Instance-to-new-Blueprint operation or source relationship was found.
+- [x] **Adoption** connects a Blueprint Course and a Course Instance through either Course creation workflow.
+  - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` calls C419 and explains that the unchanged source becomes the first Adoption.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` observed the immutable source relationship and Adoption count without creating a daughter relationship.
+  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow, which displayed the source Course as the new Blueprint's first Adoption.
 - [x] Creating a new Course Instance from a Blueprint Course establishes an Adoption and increases that Blueprint Course's **Adoption count** by one.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance_creation_event` records the Blueprint reference and Revision at creation, and `schemas/base_schema/blueprint_operations.sql` `ple_api.list_blueprint_courses` computes `total_adoptions` from those Course Instances.
   - Evidence (test): `crates/learning-data-access/tests/blueprint_course_postgres.rs` `revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_safe` asserts the adopted Blueprint summary has `total_adoptions` equal to 1.
-- [ ] Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
-  - Mismatch: No Course Instance-to-new-Blueprint operation or originating-Course Adoption count was found.
+- [x] Creating a new Blueprint Course from an existing Course Instance's reusable structure establishes the originating Course Instance as that Blueprint Course's first Adoption, giving the new Blueprint Course an Adoption count of one.
+  - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` states the first-Adoption result and opens only the new Blueprint receipt after C419 accepts creation.
+  - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` observed the recorded source, `total_adoptions = 1`, distinct-student count, and denied Public-to-Private rollback.
+  - Evidence (runtime): `tests/test_course_instance_summary.mjs` `Course-derived Blueprint creation sends only metadata and requires a new private root` anchors the accepted canonical HTTPS C420 browser workflow, which displayed Adoption count 1 for the distinct actor-owned Private Revision-1 Blueprint.
 - [x] A Course Instance created from a Blueprint Course is a **daughter Course Instance** of that Blueprint Course.
   - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance` records Blueprint reference and Revision source columns.
 - [x] A daughter Course Instance records its parent Blueprint Course and the exact Blueprint Revision used to create it.

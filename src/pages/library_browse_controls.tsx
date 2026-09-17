@@ -5,6 +5,7 @@ import { For, Show, type Accessor, type JSX } from "solid-js";
 
 import type {
   QuestionLibraryBrowseQuery,
+  QuestionLibraryBrowseState,
   QuestionLibraryFacetTruncation,
 } from "./library_page_model";
 
@@ -14,7 +15,7 @@ export interface LibraryBrowseControlsProps {
   readonly query: Accessor<QuestionLibraryBrowseQuery>;
   readonly hasExactBrowseFilters: () => boolean;
   readonly searchWithinResultsPath: () => string;
-  readonly browsingGroupsLoading: () => boolean;
+  readonly browsingState: Accessor<QuestionLibraryBrowseState>;
   readonly browseFacets: (
     facet: BrowseFacet,
   ) => () => ReadonlyArray<{ readonly value: string; readonly count: number }>;
@@ -25,6 +26,12 @@ export interface LibraryBrowseControlsProps {
 }
 
 export function LibraryBrowseControls(props: LibraryBrowseControlsProps): JSX.Element {
+  function browsingGroupsState(): "loading" | "ready" | "empty" | "error" {
+    const current = props.browsingState();
+    if ("rows" in current && current.rows.length > 0) return "ready";
+    return current.kind === "initial" ? "loading" : current.kind;
+  }
+
   return (
     <section class="question-library-browse-controls" aria-label="Browse Question Library">
       <div class="question-library-browse-heading">
@@ -41,7 +48,7 @@ export function LibraryBrowseControls(props: LibraryBrowseControlsProps): JSX.El
           </A>
         </Show>
       </div>
-      <Show when={props.browsingGroupsLoading()}>
+      <Show when={browsingGroupsState() === "loading"}>
         <p class="loading-state" role="status">
           Loading Question Library groups...
         </p>
@@ -60,11 +67,19 @@ export function LibraryBrowseControls(props: LibraryBrowseControlsProps): JSX.El
           </button>
         </div>
       </Show>
-      <div class="question-library-browse-groups">
+      <div class="question-library-browse-groups" hidden={browsingGroupsState() !== "ready"}>
         <section aria-labelledby="question-library-subjects-heading">
           <h3 id="question-library-subjects-heading">Subjects</h3>
           <div class="question-library-facet-choices">
-            <For each={props.browseFacets("subject")()}>
+            <For
+              each={props.browseFacets("subject")()}
+              fallback={
+                <p class="question-library-facet-empty">
+                  No Subject groups are available in this view. Browse with Tags or Question Types,
+                  or use <A href={props.searchWithinResultsPath()}>Search Question Library</A>.
+                </p>
+              }
+            >
               {(facet) => (
                 <button
                   type="button"

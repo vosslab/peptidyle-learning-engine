@@ -148,10 +148,10 @@ pub use crate::blueprint_course::{
     BlueprintCourseTitleError, BlueprintCourseValidationError, BlueprintCourseView,
     BlueprintModuleEditChoice, BlueprintModuleReference, BlueprintModuleReplacementInput,
     BlueprintModuleView, BlueprintPoolInputChoice, BlueprintRevision, CreateBlueprintCourseInput,
-    CreateBlueprintModuleInput, MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS,
-    ReplaceBlueprintCourseContentInput, ReusableFixedQuestionInput, ReusablePoolInput,
-    ReusablePoolView, ReusableQuestionView, ReusableSelectionAvailability,
-    validate_blueprint_course_title,
+    CreateBlueprintFromCourseInstanceInput, CreateBlueprintModuleInput,
+    MAX_BLUEPRINT_COURSE_TITLE_UNICODE_SCALARS, ReplaceBlueprintCourseContentInput,
+    ReusableFixedQuestionInput, ReusablePoolInput, ReusablePoolView, ReusableQuestionView,
+    ReusableSelectionAvailability, validate_blueprint_course_title,
 };
 pub use crate::blueprint_operations::*;
 pub use crate::capability::{
