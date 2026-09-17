@@ -87,10 +87,14 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
             <h4>{fork().metadata.title}</h4>
             <p>{fork().metadata.description}</p>
             <CourseClassificationSummary value={fork().metadata} />
-            <p>
-              Bloom Cognitive Process: {fork().bloom.cognitiveProcess}; Bloom Knowledge Dimension:{" "}
-              {fork().bloom.knowledgeDimension}
-            </p>
+            <Show when={fork().bloom}>
+              {(bloom) => (
+                <p>
+                  Bloom Cognitive Process: {bloom().cognitiveProcess}; Bloom Knowledge Dimension:{" "}
+                  {bloom().knowledgeDimension}
+                </p>
+              )}
+            </Show>
             <p>
               This Assessment owns this imported Pool fork. It selects {props.entry.selectionCount}{" "}
               of {fork().members.length} exact pinned Questions.

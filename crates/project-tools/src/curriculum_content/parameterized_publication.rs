@@ -6,7 +6,6 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, bail, ensure};
@@ -106,7 +105,6 @@ async fn publish_validated_with_context(
     let classification_store =
         learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
     let library = PostgresQuestionLibraryStore::new(pool.clone());
-    let bloom = server_core::composition::bloom_publication_preparation(pool);
     let mut classifications = BTreeMap::new();
     let objects = server_core::composition::question_library_object_store_from_env()
         .await
@@ -196,13 +194,6 @@ async fn publish_validated_with_context(
                 })?,
         );
     }
-    if !classifications.is_empty() {
-        bloom
-            .preflight()
-            .await
-            .context("the selected Bloom Classification model is unavailable")?;
-    }
-
     let mut published = BTreeMap::new();
     for admitted_source in admitted {
         let PreparedSource {
@@ -229,7 +220,6 @@ async fn publish_validated_with_context(
                     &bindings,
                     &objects,
                     &issuer,
-                    &bloom,
                 )
                 .await?
             }
@@ -405,7 +395,6 @@ async fn publish_source(
     bindings: &PostgresDraftQuestionSourceBindingStore,
     objects: &objects::s3::S3ObjectStore,
     issuer: &RandomQuestionIdIssuer,
-    bloom: &Arc<server_core::bloom_classification::BloomPublicationPreparation>,
 ) -> Result<QuestionRevisionReference> {
     let draft = matching_or_new_draft(
         session,
@@ -448,7 +437,6 @@ async fn publish_source(
         objects.clone(),
         bindings.clone(),
         *issuer,
-        Arc::clone(bloom),
         None,
     )
     .publish(

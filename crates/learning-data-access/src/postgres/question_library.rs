@@ -184,7 +184,7 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
-        let bloom = decode_bloom(&row)?;
+        let bloom = decode_bloom(&row)?.ok_or_else(|| invalid("Bloom Classification"))?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(bloom)
     }
@@ -396,31 +396,39 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
     })
 }
 
-fn decode_bloom(row: &sqlx::postgres::PgRow) -> Result<BloomClassificationView, StoreError> {
+fn decode_bloom(row: &sqlx::postgres::PgRow) -> Result<Option<BloomClassificationView>, StoreError> {
     let cognitive_process = row
-        .try_get::<String, _>("bloom_cognitive_process")
-        .map_err(map_sqlx_error)?
-        .parse::<BloomCognitiveProcess>()
-        .map_err(|_| invalid("Bloom Cognitive Process"))?;
+        .try_get::<Option<String>, _>("bloom_cognitive_process")
+        .map_err(map_sqlx_error)?;
     let knowledge_dimension = row
-        .try_get::<String, _>("bloom_knowledge_dimension")
-        .map_err(map_sqlx_error)?
-        .parse::<BloomKnowledgeDimension>()
-        .map_err(|_| invalid("Bloom Knowledge Dimension"))?;
+        .try_get::<Option<String>, _>("bloom_knowledge_dimension")
+        .map_err(map_sqlx_error)?;
     let classification_edit_number = row
-        .try_get::<i64, _>("bloom_classification_edit_number")
-        .map_err(map_sqlx_error)
-        .and_then(|value| {
-            u64::try_from(value)
-                .ok()
-                .and_then(BloomClassificationEditNumber::new)
-                .ok_or_else(|| invalid("Bloom Classification Edit Number"))
-        })?;
-    Ok(BloomClassificationView {
+        .try_get::<Option<i64>, _>("bloom_classification_edit_number")
+        .map_err(map_sqlx_error)?;
+    let (cognitive_process, knowledge_dimension, classification_edit_number) = match (
         cognitive_process,
         knowledge_dimension,
         classification_edit_number,
-    })
+    ) {
+        (None, None, None) => return Ok(None),
+        (Some(cognitive_process), Some(knowledge_dimension), Some(classification_edit_number)) => {
+            (cognitive_process, knowledge_dimension, classification_edit_number)
+        }
+        _ => return Err(invalid("Bloom Classification")),
+    };
+    Ok(Some(BloomClassificationView {
+        cognitive_process: cognitive_process
+            .parse::<BloomCognitiveProcess>()
+            .map_err(|_| invalid("Bloom Cognitive Process"))?,
+        knowledge_dimension: knowledge_dimension
+            .parse::<BloomKnowledgeDimension>()
+            .map_err(|_| invalid("Bloom Knowledge Dimension"))?,
+        classification_edit_number: u64::try_from(classification_edit_number)
+            .ok()
+            .and_then(BloomClassificationEditNumber::new)
+            .ok_or_else(|| invalid("Bloom Classification Edit Number"))?,
+    }))
 }
 
 fn decode_shared_metadata(

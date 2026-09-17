@@ -1,7 +1,6 @@
 //! Ordinary Authoring Workspace publication for the fixed Pilot sources.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, bail, ensure};
@@ -70,7 +69,6 @@ pub(crate) fn publish_with_context(
         let classification =
             learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
         let library = PostgresQuestionLibraryStore::new(pool.clone());
-        let bloom = server_core::composition::bloom_publication_preparation(pool);
         let objects = server_core::composition::question_library_object_store_from_env()
             .await
             .context("configuring the ordinary Question source object store")?;
@@ -86,7 +84,6 @@ pub(crate) fn publish_with_context(
                 library: &library,
                 objects: &objects,
                 issuer: &issuer,
-                bloom: &bloom,
             },
         )
         .await
@@ -166,7 +163,6 @@ struct PilotPublicationServices<'a> {
     library: &'a PostgresQuestionLibraryStore,
     objects: &'a objects::s3::S3ObjectStore,
     issuer: &'a server_core::question_publication::RandomQuestionIdIssuer,
-    bloom: &'a Arc<server_core::bloom_classification::BloomPublicationPreparation>,
 }
 
 async fn publish_plan(
@@ -202,13 +198,6 @@ async fn publish_plan(
                     })?,
             );
         }
-    }
-    if !classifications.is_empty() {
-        services
-            .bloom
-            .preflight()
-            .await
-            .context("the selected Bloom Classification model is unavailable")?;
     }
     let mut published = BTreeMap::new();
     for question in plan.questions {
@@ -260,7 +249,6 @@ async fn publish_plan(
             services.objects.clone(),
             services.publication.clone(),
             *services.issuer,
-            Arc::clone(services.bloom),
             None,
         );
         let revision = publisher

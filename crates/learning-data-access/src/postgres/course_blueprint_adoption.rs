@@ -110,7 +110,7 @@ pub(super) fn reusable_assessment_projection(
 pub(super) fn materialize_assessment(
     assessment: &StoredBlueprintAssessment,
     pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
-    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
+    _bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<Value, StoreError> {
     let mut member = reusable_assessment_projection(assessment)?;
     let entries = member["entries"]
@@ -120,7 +120,6 @@ pub(super) fn materialize_assessment(
         entry["assessmentEntryId"] =
             json!(AssessmentEntryId::from_uuid(random_uuid()?).to_string());
         if entry["kind"] == "question_pool" {
-            entry["bloomPreparationReceiptId"] = json!(bloom_receipts.take_next()?.as_uuid());
             let issuer = pool_id_issuer.ok_or_else(|| {
                 StoreError::Unavailable(
                     "Question Pool fork identity issuer is unavailable".to_string(),

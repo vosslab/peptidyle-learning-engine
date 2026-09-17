@@ -220,8 +220,8 @@ pub struct AssessmentQuestionPickerEntry {
     pub reference: QuestionRevisionReference,
     /// Answer-free Question description supplied by the current Question Library metadata.
     pub description: String,
-    /// Exact Revision-owned Bloom Classification carried with the picker pin.
-    pub bloom: question_model::BloomClassificationView,
+    /// Exact Revision-owned Bloom Classification carried with the picker pin, when assigned.
+    pub bloom: Option<question_model::BloomClassificationView>,
 }
 
 /// Browser-safe current authored fixed-Question selection.
@@ -232,8 +232,8 @@ pub struct AuthoredAssessmentQuestion {
     pub reference: QuestionRevisionReference,
     /// Answer-free Question description for Instructor review and Assessment Preview.
     pub description: String,
-    /// Exact Revision-owned Bloom Classification carried with the retained pin.
-    pub bloom: question_model::BloomClassificationView,
+    /// Exact Revision-owned Bloom Classification carried with the retained pin, when assigned.
+    pub bloom: Option<question_model::BloomClassificationView>,
 }
 
 /// Browser-safe Assessment summary for one direct Course Instructor.

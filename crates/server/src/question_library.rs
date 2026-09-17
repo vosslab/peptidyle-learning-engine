@@ -846,15 +846,21 @@ fn matches_query(
     if !text_query.matches(entry) {
         return false;
     }
-    if query
-        .bloom_cognitive_process
-        .is_some_and(|value| value != summary.bloom.cognitive_process)
+    if query.bloom_cognitive_process.is_some_and(|value| {
+        summary
+            .bloom
+            .as_ref()
+            .is_none_or(|bloom| value != bloom.cognitive_process)
+    })
     {
         return false;
     }
-    if query
-        .bloom_knowledge_dimension
-        .is_some_and(|value| value != summary.bloom.knowledge_dimension)
+    if query.bloom_knowledge_dimension.is_some_and(|value| {
+        summary
+            .bloom
+            .as_ref()
+            .is_none_or(|bloom| value != bloom.knowledge_dimension)
+    })
     {
         return false;
     }

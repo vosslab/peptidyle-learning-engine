@@ -201,15 +201,19 @@ test("current adopted Assessment workspace retains exact origin and normalized f
   const missingBloom = createdWorkspace();
   delete missingBloom.questions[0].bloom;
   assert.throws(() => decodeLiveAssessmentWorkspace(missingBloom));
+  const blankBloom = createdWorkspace();
+  blankBloom.questions[0].bloom = null;
+  assert.equal(decodeLiveAssessmentWorkspace(blankBloom).questions[0]?.bloom, null);
 });
 
-test("Assessment picker requires the exact closed Bloom pair", () => {
+test("Assessment picker accepts blank Bloom and rejects malformed values", () => {
   const row = {
     reference: { questionId: "7K3M-79QP", revisionNumber: 1 },
     description: "A fixed question.",
     bloom,
   };
   assert.deepEqual(decodeAssessmentQuestionPicker([row]), [row]);
+  assert.equal(decodeAssessmentQuestionPicker([{ ...row, bloom: null }])[0]?.bloom, null);
   assert.throws(() => decodeAssessmentQuestionPicker([{ ...row, bloom: undefined }]));
   assert.throws(() =>
     decodeAssessmentQuestionPicker([{ ...row, bloom: { ...bloom, difficulty: "Hard" } }]),

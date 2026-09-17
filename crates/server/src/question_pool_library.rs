@@ -397,7 +397,7 @@ async fn revision_view(
     token: SessionTokenHash,
     question_pool_revision: question_model::QuestionPoolRevisionReference,
     metadata: question_model::QuestionPoolMetadata,
-    bloom: question_model::BloomClassificationView,
+    bloom: Option<question_model::BloomClassificationView>,
     members: Vec<question_model::QuestionRevisionReference>,
 ) -> Result<QuestionPoolRevisionView, Response> {
     let members = revision_members(state, token, members).await?;

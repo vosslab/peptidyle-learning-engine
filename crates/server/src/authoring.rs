@@ -40,7 +40,6 @@ use uuid::Uuid;
 use crate::{
     auth::{AuthError, resolve_session},
     authoring_source::{load_verified_source, put_workspace_source, validated_source},
-    bloom_classification::BloomPublicationPreparation,
     question_publication::{
         AuthoringAssetContext, ExistingQuestionRevisionPublicationCommand,
         ExistingQuestionRevisionPublisher, NewQuestionLineagePublicationCommand,
@@ -59,7 +58,6 @@ pub(crate) struct AuthoringRouteState {
     publication: PostgresDraftQuestionSourceBindingStore,
     pub(crate) objects: S3ObjectStore,
     question_id_issuer: RandomQuestionIdIssuer,
-    bloom_publication: Arc<BloomPublicationPreparation>,
 }
 
 /// Registers private Authoring Workspace routes and the initial publication operation.
@@ -70,7 +68,6 @@ pub fn authoring_router(
     publication: PostgresDraftQuestionSourceBindingStore,
     objects: S3ObjectStore,
     question_id_issuer: RandomQuestionIdIssuer,
-    bloom_publication: Arc<BloomPublicationPreparation>,
 ) -> Router {
     Router::new()
         .route("/api/authoring/drafts", get(list_drafts).post(create_draft))
@@ -111,7 +108,6 @@ pub fn authoring_router(
             publication,
             objects,
             question_id_issuer,
-            bloom_publication,
         })
 }
 
@@ -636,7 +632,6 @@ async fn publish_draft(
         state.objects.clone(),
         state.publication.clone(),
         state.question_id_issuer,
-        Arc::clone(&state.bloom_publication),
         Some(AuthoringAssetContext {
             store: state.assets.clone(),
             draft_question_uuid,
@@ -722,7 +717,6 @@ async fn publish_revision_draft(
     let publisher = ExistingQuestionRevisionPublisher::new(
         state.objects.clone(),
         state.publication.clone(),
-        Arc::clone(&state.bloom_publication),
         Some(AuthoringAssetContext {
             store: state.assets.clone(),
             draft_question_uuid,
@@ -929,7 +923,6 @@ fn publication_error(error: crate::question_publication::QuestionPublicationErro
             private_store_error(error)
         }
         crate::question_publication::QuestionPublicationError::IdentityCollisions
-        | crate::question_publication::QuestionPublicationError::BloomClassification(_)
         | crate::question_publication::QuestionPublicationError::ObjectStore(_)
         | crate::question_publication::QuestionPublicationError::SourceObjectRecordMismatch
         | crate::question_publication::QuestionPublicationError::QuestionIdIssuance(_) => {

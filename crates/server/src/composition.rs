@@ -42,10 +42,7 @@ use crate::auth::{
     session_router, sysadmin_totp_router,
 };
 
-mod bloom_classification;
 mod object_storage;
-
-pub use self::bloom_classification::bloom_publication_preparation;
 
 use self::object_storage::{ObjectStoragePrincipal, object_store_from_env};
 
@@ -139,7 +136,6 @@ pub async fn production_router_from_env() -> Result<Router> {
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let authoring_assets = PostgresAuthoringAssetsStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
-    let bloom_publication = bloom_publication_preparation(pool.clone());
     let question_library_objects = question_library_object_store_from_env().await?;
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
@@ -252,7 +248,6 @@ pub async fn production_router_from_env() -> Result<Router> {
             authoring_publication,
             question_library_objects.clone(),
             question_id_issuer,
-            bloom_publication,
         ))
         .merge(crate::blueprint_course::blueprint_course_router(
             Arc::clone(&sessions),

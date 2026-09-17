@@ -226,7 +226,7 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         // Published Question aggregate in one transaction.
         sqlx::query(
             "SELECT ple_api.publish_new_question_lineage(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22\
              )",
         )
         .bind(input.draft_question_uuid.as_uuid())
@@ -255,7 +255,6 @@ impl NewQuestionLineagePublicationStore for PostgresDraftQuestionSourceBindingSt
         .bind(input.question_publication_event_id)
         .bind(input.question_availability_event_id)
         .bind(encode_prepared_asset(input.hotspot_asset.as_ref()).map_err(NewQuestionLineagePublicationError::Store)?)
-        .bind(input.bloom_preparation_receipt_id.as_uuid())
         .execute(&mut *transaction)
         .await
         .map_err(map_new_question_lineage_publication_error)?;
@@ -303,7 +302,7 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
         // retryable conflict before it can register a stale successor.
         let row = sqlx::query(
             "SELECT ple_api.publish_question_revision(\
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14\
              ) AS revision_number",
         )
         .bind(input.draft_question_uuid.as_uuid())
@@ -335,7 +334,6 @@ impl ExistingQuestionRevisionPublicationStore for PostgresDraftQuestionSourceBin
             encode_prepared_asset(input.hotspot_asset.as_ref())
                 .map_err(ExistingQuestionRevisionPublicationError::Store)?,
         )
-        .bind(input.bloom_preparation_receipt_id.as_uuid())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_existing_question_revision_publication_error)?;

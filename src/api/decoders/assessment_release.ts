@@ -43,6 +43,7 @@ import {
   decodeArray,
   decodeBoolean,
   decodeFiniteNumber,
+  decodeNullable,
   decodeNonnegativeInteger,
   decodePositiveInteger,
   decodeRecord,
@@ -526,7 +527,11 @@ function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntr
       field(record, "description", path),
       `${path}.description`,
     ),
-    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
+    bloom: decodeNullable(
+      field(record, "bloom", path),
+      `${path}.bloom`,
+      decodeBloomClassificationView,
+    ),
   };
 }
 

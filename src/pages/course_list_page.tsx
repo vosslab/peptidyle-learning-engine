@@ -287,11 +287,12 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
     <section class="page" data-route-surface={isActiveMode() ? "courses" : "inactiveCourses"}>
       <p class="eyebrow">Teaching</p>
       <h1>{isActiveMode() ? "My Active Courses" : "My Inactive Courses"}</h1>
-      <p class="page-lede">
-        {isActiveMode()
-          ? "Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review dates and settings before releasing Assessments to students."
-          : "Past Course Instances stay available here without competing with the Courses you are currently teaching."}
-      </p>
+      <Show when={isActiveMode()}>
+        <p class="page-lede">
+          Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review
+          dates and settings before releasing Assessments to students.
+        </p>
+      </Show>
       <Show when={isInstructor() && isActiveMode()}>
         <button
           class="quiet-action course-create-disclosure"
@@ -485,26 +486,15 @@ function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.E
           </button>
         </section>
       </Show>
-      <Show
-        when={visibleCourses().length > 0}
-        fallback={
-          <Show when={!courses.loading && courses.error === undefined && isInstructor()}>
-            <p class="empty-state">
-              {isActiveMode() ? (
-                <>
-                  No Course Instances are teaching yet. Use Create Course Instance to start an empty
-                  Course or adopt a Blueprint Course.
-                </>
-              ) : (
-                <>
-                  No past Course Instances are available. Open{" "}
-                  <A href="/instructor">My Active Courses</A> to create a Course Instance.
-                </>
-              )}
-            </p>
-          </Show>
-        }
-      >
+      <Show when={isActiveMode() && visibleCourses().length === 0}>
+        <Show when={!courses.loading && courses.error === undefined && isInstructor()}>
+          <p class="empty-state">
+            No Course Instances are teaching yet. Use Create Course Instance to start an empty
+            Course or adopt a Blueprint Course.
+          </p>
+        </Show>
+      </Show>
+      <Show when={!isActiveMode() || visibleCourses().length > 0}>
         <div
           class="instructor-list"
           aria-label={isActiveMode() ? "Active Course Instances" : "Inactive Course Instances"}

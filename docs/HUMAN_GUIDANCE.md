@@ -28,7 +28,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - all automated AI/LLM backends are deferred until final server location
 - AI-backed Bloom classification is desired but deferred until a later release.
 - Initial Bloom Classification is deferred with the AI backend.
-- Bloom Classification does not block publication or Question Library entry until then.
+- Bloom Classification does not block publication or Question Library entry.
 - Any AI backend is desired but deferred and low priority for the current PLE.
 - No specific AI backend is selected.
 - iMathAS is a desired Question Backend deferred until a later release.
@@ -1117,14 +1117,14 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 
 #### Question Library Bloom classification metadata
 
-- Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
-  Knowledge Dimension.
+- Published Question Revisions and Question Pool Revisions can have a Bloom Cognitive Process and
+  Bloom Knowledge Dimension.
 - The two Bloom dimensions are independent and together determine the object's Bloom Classification.
 - Bloom Classification supports Question Library search and Assessment item sorting.
 - A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
 - Bloom Classification is left blank when a Published Question or Question Pool enters the Question
   Library, to be updated by AI later.
-- AI assigns the initial Bloom Classification as part of publication.
+- AI assigns the initial Bloom Classification using a daemon after publication.
 - An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
 - Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.

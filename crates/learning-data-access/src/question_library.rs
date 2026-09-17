@@ -30,8 +30,8 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_type: QuestionType,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
-    /// Exact Bloom Classification for `question_revision`.
-    pub bloom: BloomClassificationView,
+    /// Exact Bloom Classification for `question_revision`, when assigned.
+    pub bloom: Option<BloomClassificationView>,
     /// Current shared Published Question title.
     pub question_title: String,
     /// Current shared Published Question description.

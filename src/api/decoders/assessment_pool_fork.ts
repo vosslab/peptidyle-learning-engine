@@ -5,6 +5,7 @@ import type { AssessmentQuestionPoolSelectionCountReceipt } from "../../../gener
 import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import {
   DecodeError,
+  decodeNullable,
   decodePositiveInteger,
   decodeRecord,
   decodeString,
@@ -89,7 +90,11 @@ export function decodeAssessmentQuestionPoolForkView(
       field(record, "selectionCount", path),
       `${path}.selectionCount`,
     ),
-    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
+    bloom: decodeNullable(
+      field(record, "bloom", path),
+      `${path}.bloom`,
+      decodeBloomClassificationView,
+    ),
     members,
   };
 }

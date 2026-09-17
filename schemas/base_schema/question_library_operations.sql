@@ -69,7 +69,7 @@ BEGIN
            binding.webwork_pg_path
       FROM ple_data.question_revision AS revision
       JOIN ple_data.published_question AS lineage ON lineage.question_id = revision.question_id
-      JOIN ple_data.question_revision_bloom AS bloom
+      LEFT JOIN ple_data.question_revision_bloom AS bloom
         ON bloom.question_id = revision.question_id
        AND bloom.revision_number = revision.revision_number
       JOIN ple_data.published_question_metadata AS metadata ON metadata.question_id = revision.question_id

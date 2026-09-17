@@ -586,36 +586,49 @@ export function QuestionDetailPage(): JSX.Element {
                     <dt>Revision</dt>
                     <dd>{record().summary.latestQuestionRevision.revisionNumber}</dd>
                   </div>
-                  <div>
-                    <dt>Bloom Classification</dt>
-                    <dd>
-                      <BloomClassificationText bloom={correctedBloom() ?? record().summary.bloom} />
-                    </dd>
-                  </div>
+                  <Show when={correctedBloom() ?? record().summary.bloom}>
+                    {(bloom) => (
+                      <div>
+                        <dt>Bloom Classification</dt>
+                        <dd>
+                          <BloomClassificationText bloom={bloom()} />
+                        </dd>
+                      </div>
+                    )}
+                  </Show>
                 </dl>
-                <Show when={mayMutateLibrary()}>
-                  <BloomClassificationEditor
-                    targetName="Question"
-                    revisionNumber={record().summary.latestQuestionRevision.revisionNumber}
-                    bloom={correctedBloom() ?? record().summary.bloom}
-                    save={(request) =>
-                      applicationApi.client
-                        .correctQuestionBloom(record().summary.latestQuestionRevision, request)
-                        .then((receipt) => receipt.bloom)
-                    }
-                    loadCurrent={() =>
-                      applicationApi.client
-                        .getQuestionRevision(record().summary.latestQuestionRevision)
-                        .then((loaded) => loaded.summary.bloom)
-                    }
-                    onCurrent={setCorrectedBloom}
-                    onConflictCurrent={() =>
-                      refreshQuestionLibraryReturnState(libraryReturnToken())
-                    }
-                    onAccepted={(_bloom, changed) => {
-                      if (changed) refreshQuestionLibraryReturnState(libraryReturnToken());
-                    }}
-                  />
+                <Show when={correctedBloom() ?? record().summary.bloom}>
+                  {(bloom) => (
+                    <Show when={mayMutateLibrary()}>
+                      <BloomClassificationEditor
+                        targetName="Question"
+                        revisionNumber={record().summary.latestQuestionRevision.revisionNumber}
+                        bloom={bloom()}
+                        save={(request) =>
+                          applicationApi.client
+                            .correctQuestionBloom(record().summary.latestQuestionRevision, request)
+                            .then((receipt) => receipt.bloom)
+                        }
+                        loadCurrent={() =>
+                          applicationApi.client
+                            .getQuestionRevision(record().summary.latestQuestionRevision)
+                            .then((loaded) => {
+                              if (loaded.summary.bloom === null) {
+                                throw new Error("Bloom Classification is not assigned.");
+                              }
+                              return loaded.summary.bloom;
+                            })
+                        }
+                        onCurrent={setCorrectedBloom}
+                        onConflictCurrent={() =>
+                          refreshQuestionLibraryReturnState(libraryReturnToken())
+                        }
+                        onAccepted={(_bloom, changed) => {
+                          if (changed) refreshQuestionLibraryReturnState(libraryReturnToken());
+                        }}
+                      />
+                    </Show>
+                  )}
                 </Show>
                 <Show
                   when={

@@ -68,12 +68,11 @@ destination; generation and tests intentionally leave this prose alone.
 
 ### Courses
 
-Courses is the Active Instructor's Course Instance starting surface. M8 makes
-the visible creation path available from the Blueprint's exact Available current
-Revision and opens the new Course Instance's initial Teaching Team. A Sysadmin
-may assign an Active Instructor through the bounded service operation but gains
-no ambient Course access; roster, invitations, Assignments, Student work, and
-grading remain separate future work.
+Courses opens My Active Courses for the Instructor's current teaching Course
+Instances. My Inactive Courses is a separate routed list for past Course
+Instances and renders its ordinary zero-row list when there are none. A Sysadmin
+may assign an Active Instructor through the bounded service operation but gains no
+ambient Course access.
 
 ### Question Library
 
@@ -139,8 +138,9 @@ account state work. There is no route or client method to advertise today.
 ### All Questions
 
 All Questions is the Question Library view of Published Questions available to
-the current Instructor. It shares the M5 registered search route; My Questions,
-drafts, stars, and watches remain separate unavailable capabilities.
+the current Instructor. It shares the registered search route; My Questions and
+Starred remain unavailable, while My Draft Questions and Watched are separate
+routed Instructor destinations.
 
 ### My Questions
 
@@ -162,8 +162,9 @@ is retained for spatial design, but no route or handler is claimed today.
 
 ### Watched
 
-Watched will expose the current Account's Question Watch relationship. It is
-truthfully withheld because no complete destination currently exists.
+Watched opens the current Instructor's private Watch activity inbox. It shows
+new Revisions, public forks, improvement-thread activity, and impact notices
+for watched Published Questions and Question Pools.
 
 ### Overview
 

@@ -144,6 +144,9 @@ test("Bloom sort retains unavailable exact fixed and Pool Entries without changi
   assert.equal(sorted[3], laterFixed);
   assert.equal(sorted[3].reference, fixed.reference);
   assert.equal(sortAssessmentEntriesByBloom(sorted, bloomByEntryId), sorted);
+  const partiallyClassified = new Map(bloomByEntryId);
+  partiallyClassified.delete(tiedPool.id);
+  assert.equal(sortAssessmentEntriesByBloom(entries, partiallyClassified), undefined);
 });
 
 test("Questions removal changes only the chosen stable Entry", () => {

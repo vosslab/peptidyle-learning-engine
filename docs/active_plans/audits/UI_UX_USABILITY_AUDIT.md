@@ -259,11 +259,12 @@ below reflects friction at those steps, rather than implementation effort.
 
 [current_capture_manifest.json](../../screenshots/current_capture_manifest.json) marks Assessment
 Templates as needing a fresh capture and the historical multi-tab Assignment workspace as retired.
-Some manifest entries still describe required Ribbon destinations as deferred; those descriptions
-are historical and do not override the current Ribbon contract below. File presence and filenames
-alone establish neither current route behavior nor successful task completion. Reproduce findings
-on the admitted interface before making implementation changes. Preserve useful teaching behavior
-while correcting its presentation.
+Its next replay registers source-backed My Active Courses and My Inactive Courses, including the
+Inactive Courses zero-row list; Watched remains a route-backed private inbox awaiting its dedicated
+rendered checkpoint. These manifest declarations do not claim fresh PNG evidence. File presence
+and filenames alone establish neither current route behavior nor successful task completion.
+Reproduce findings on the admitted interface before making implementation changes. Preserve useful
+teaching behavior while correcting its presentation.
 
 ### Current Ribbon acceptance (C44)
 
@@ -397,6 +398,9 @@ deferred/future descriptions with their current disposition.
 - Current rendered disposition: source-corrected, with current post-cutover connected publication
   evidence pending the real Bloom-classifier configuration. The official corpus and broader
   responsive/theme matrices remain outside the historical receipt.
+- Screenshot boundary: the corpus retains the saved editor and publication-review checkpoints, but
+  does not require a publication-result checkpoint. I05's deferred AI-backed publication journey
+  is not a prerequisite for the next screenshot replay.
 
 ### I06: assessment identity and records are hard to scan
 

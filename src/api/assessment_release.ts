@@ -101,14 +101,14 @@ export interface AssessmentQuestionPickerEntry {
   /** Exact current Question Revision chosen by this picker row. */
   readonly reference: QuestionRevisionReference;
   readonly description: string;
-  readonly bloom: BloomClassificationView;
+  readonly bloom: BloomClassificationView | null;
 }
 
 /** Answer-free exact Question Revision pin shown in the Instructor workspace. */
 export interface AuthoredAssessmentQuestion {
   readonly reference: QuestionRevisionReference;
   readonly description: string;
-  readonly bloom: BloomClassificationView;
+  readonly bloom: BloomClassificationView | null;
 }
 
 export interface LiveAssessmentWorkspace {

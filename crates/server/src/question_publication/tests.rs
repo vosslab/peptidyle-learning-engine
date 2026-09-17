@@ -18,7 +18,6 @@ use question_model::{QuestionAuthor, QuestionAuthorDisplayName, QuestionRevision
 use super::*;
 use objects::memory::MemoryObjectStore;
 
-mod bloom_provider_evidence;
 mod hotspot;
 
 #[derive(Clone)]
@@ -326,7 +325,6 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
         object_store.clone(),
         publication_store,
         issuer,
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -367,7 +365,6 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
         object_store,
         publication_store,
         RandomQuestionIdIssuer::new(),
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -413,7 +410,6 @@ async fn conditional_object_already_exists_is_reported_without_retry_or_delete()
         },
         publication_store,
         fixed_issuer(&["0000000"]),
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -458,7 +454,6 @@ async fn noncollision_store_failure_retains_its_unregistered_publication_object(
         object_store.clone(),
         publication_store,
         fixed_issuer(&["0000000"]),
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -502,7 +497,6 @@ async fn failed_collision_cleanup_fails_closed_without_another_publication_attem
         },
         publication_store,
         fixed_issuer(&["0000000", "0000001"]),
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -545,7 +539,6 @@ async fn exhausted_question_id_collisions_leave_no_unregistered_publication_obje
         object_store.clone(),
         publication_store,
         fixed_issuer(&candidate_references),
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -586,7 +579,6 @@ async fn same_lineage_publication_copies_to_the_exact_successor_revision() {
             publications: Arc::clone(&publications),
             outcome: Ok(()),
         },
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -632,7 +624,6 @@ async fn stale_same_lineage_publication_removes_only_its_unregistered_target() {
             publications: Arc::clone(&publications),
             outcome: Err(ExistingQuestionRevisionPublicationError::Stale),
         },
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -673,7 +664,6 @@ async fn ambiguous_same_lineage_failure_retains_its_target_evidence() {
                 StoreError::RetryableTransaction,
             )),
         },
-        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 

@@ -81,7 +81,7 @@ impl QuestionPoolDiscoveryFilter {
 pub struct PublishedQuestionPoolRevision {
     pub metadata: QuestionPoolMetadata,
     pub question_pool_revision: QuestionPoolRevisionReference,
-    pub bloom: BloomClassificationView,
+    pub bloom: Option<BloomClassificationView>,
     pub members: Vec<QuestionRevisionReference>,
 }
 
@@ -93,7 +93,7 @@ pub struct AssessmentQuestionPoolForkRecord {
     pub question_pool_revision: QuestionPoolRevisionReference,
     pub pool_metadata_etag: Uuid,
     pub selection_count: std::num::NonZeroU32,
-    pub bloom: BloomClassificationView,
+    pub bloom: Option<BloomClassificationView>,
     pub members: Vec<QuestionRevisionReference>,
 }
 

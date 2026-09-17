@@ -44,7 +44,7 @@ export async function openInstructorCourse(
     .getByRole("navigation", { name: "Ribbon tabs", exact: true })
     .getByRole("link", { name: "Courses", exact: true });
   await courses.click();
-  await page.getByRole("heading", { name: "Course Instances you teach", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
   const card = courseCard(page, title);
   await card.getByRole("link", { name: "Open Course Instance", exact: true }).click();
   await page.getByRole("heading", { level: 1, name: title, exact: true }).waitFor();

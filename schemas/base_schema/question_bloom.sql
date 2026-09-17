@@ -294,57 +294,6 @@ GRANT EXECUTE ON FUNCTION ple_api.prepare_question_revision_bloom_classification
 RESET ROLE;
 
 SET LOCAL ROLE ple_private_owner;
-CREATE FUNCTION ple_private.require_question_revision_bloom()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_data.question_revision_bloom AS bloom
-         WHERE bloom.question_id = NEW.question_id
-           AND bloom.revision_number = NEW.revision_number
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Every Published Question Revision requires a Bloom classification';
-    END IF;
-    RETURN NULL;
-END
-$$;
-CREATE FUNCTION ple_private.require_question_pool_revision_bloom()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM ple_data.question_pool_revision_bloom AS bloom
-         WHERE bloom.question_pool_id = NEW.question_pool_id
-           AND bloom.revision_number = NEW.revision_number
-    ) THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Every Question Pool Revision requires a Bloom classification';
-    END IF;
-    RETURN NULL;
-END
-$$;
-GRANT EXECUTE ON FUNCTION ple_private.require_question_revision_bloom(),
-    ple_private.require_question_pool_revision_bloom() TO ple_data_owner;
-RESET ROLE;
-SET LOCAL ROLE ple_data_owner;
-CREATE CONSTRAINT TRIGGER question_revision_requires_bloom
-AFTER INSERT ON ple_data.question_revision
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
-EXECUTE FUNCTION ple_private.require_question_revision_bloom();
-CREATE CONSTRAINT TRIGGER question_pool_revision_requires_bloom
-AFTER INSERT ON ple_data.question_pool_revision
-DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
-EXECUTE FUNCTION ple_private.require_question_pool_revision_bloom();
-RESET ROLE;
-SET LOCAL ROLE ple_private_owner;
-REVOKE ALL ON FUNCTION ple_private.require_question_revision_bloom(),
-    ple_private.require_question_pool_revision_bloom() FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION ple_private.require_question_revision_bloom(),
-    ple_private.require_question_pool_revision_bloom() FROM ple_data_owner;
-RESET ROLE;
-
-SET LOCAL ROLE ple_private_owner;
 CREATE FUNCTION ple_private.correct_question_revision_bloom(
     p_question_id text, p_revision_number integer,
     p_expected_classification_edit_number bigint,

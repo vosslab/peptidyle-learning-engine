@@ -38,8 +38,8 @@ export interface QuestionLibraryBrowseRow {
   readonly questionRevision: QuestionRevisionReference;
   readonly questionTitle: string;
   readonly summary: string;
-  /** Exact Revision-owned Bloom pair and its independent correction precondition. */
-  readonly bloom: BloomClassificationView;
+  /** Exact Revision-owned Bloom pair and its independent correction precondition, when assigned. */
+  readonly bloom: BloomClassificationView | null;
   /** Current readable Discipline name for this Question's existing classification. */
   readonly disciplineName: string;
   /** Existing references may retain a retired Discipline. */
@@ -387,7 +387,10 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     questionRevision,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
-    bloom: decodeBloomClassificationView(value["bloom"], `${path}.bloom`),
+    bloom:
+      value["bloom"] === null
+        ? null
+        : decodeBloomClassificationView(value["bloom"], `${path}.bloom`),
     disciplineName: boundedText(value["disciplineName"], `${path}.disciplineName`, 120),
     disciplineIsRetired,
     questionFormat: decodeQuestionFormat(value["questionFormat"], `${path}.questionFormat`),

@@ -41,8 +41,8 @@ export interface SelectedAssessmentEntryIdentityProps {
   readonly bloom: BloomClassificationView | undefined;
 }
 
-function bloomFacts(bloom: BloomClassificationView | undefined): JSX.Element {
-  if (bloom === undefined) return <p>Bloom Classification unavailable</p>;
+function bloomFacts(bloom: BloomClassificationView | undefined): JSX.Element | undefined {
+  if (bloom === undefined) return undefined;
   return (
     <dl class="assessment-editor-row-facts">
       <div>

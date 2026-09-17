@@ -226,8 +226,7 @@ BEGIN
             SELECT * INTO forked FROM ple_data.fork_question_pool_revision_for_course_adoption(
                 (entry_json ->> 'forkQuestionPoolId')::uuid,
                 entry_json ->> 'forkPublicQuestionPoolId', source_pool_id,
-                (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint,
-                (entry_json ->> 'bloomPreparationReceiptId')::uuid);
+                (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint);
             -- Create the owned Entry and fork association without an intermediate
             -- Assessment edit. The one normal save below owns the complete edit.
             INSERT INTO ple_data.assessment_entry (

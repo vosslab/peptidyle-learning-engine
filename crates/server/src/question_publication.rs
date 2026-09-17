@@ -22,11 +22,6 @@ use question_model::{
 };
 use uuid::Uuid;
 
-use crate::bloom_classification::{
-    BloomClassificationCandidate, BloomClassificationError, BloomProtectedAssetEvidence,
-    BloomPublicationPreparation, BloomQuestionEvidence,
-};
-
 const PUBLICATION_IDENTITY_ATTEMPTS: usize = 8;
 
 /// Explicit current private Authoring boundary for native image publication.
@@ -139,8 +134,6 @@ pub enum QuestionPublicationError {
     IdentityCollisions,
     /// The operating system could not issue a Question ID candidate.
     QuestionIdIssuance(QuestionIdIssuanceError),
-    /// Private provider classification or candidate-bound receipt preparation failed.
-    BloomClassification(BloomClassificationError),
 }
 
 impl std::fmt::Display for QuestionPublicationError {
@@ -163,7 +156,6 @@ impl std::fmt::Display for QuestionPublicationError {
                 formatter.write_str("Question Publication identity allocation did not complete")
             }
             Self::QuestionIdIssuance(error) => error.fmt(formatter),
-            Self::BloomClassification(error) => error.fmt(formatter),
         }
     }
 }
@@ -176,7 +168,6 @@ pub struct NewQuestionLineagePublisher<O, S, I> {
     object_store: O,
     publication_store: S,
     question_id_issuer: I,
-    bloom_preparation: Arc<BloomPublicationPreparation>,
     authoring_assets: Option<AuthoringAssetContext>,
 }
 
@@ -191,14 +182,12 @@ where
         object_store: O,
         publication_store: S,
         question_id_issuer: I,
-        bloom_preparation: Arc<BloomPublicationPreparation>,
         authoring_assets: Option<AuthoringAssetContext>,
     ) -> Self {
         Self {
             object_store,
             publication_store,
             question_id_issuer,
-            bloom_preparation,
             authoring_assets,
         }
     }
@@ -245,13 +234,6 @@ where
             &source_record.media_type,
         )
         .await?;
-        let bloom_candidate = question_bloom_candidate(&source, &hotspot_asset)?;
-        let classified = self
-            .bloom_preparation
-            .classify(&bloom_candidate)
-            .await
-            .map_err(QuestionPublicationError::BloomClassification)?;
-
         for _ in 0..PUBLICATION_IDENTITY_ATTEMPTS {
             let question_id = self
                 .question_id_issuer
@@ -262,11 +244,6 @@ where
                 revision_number: QuestionRevisionNumber::new(1)
                     .expect("first Question Revision Number is positive"),
             };
-            let bloom_preparation_receipt_id = self
-                .bloom_preparation
-                .prepare_receipt(&classified)
-                .await
-                .map_err(QuestionPublicationError::BloomClassification)?;
             let target_address = ObjectAddress::QuestionSource {
                 question_revision: revision.clone(),
                 object: ObjectId::generate(),
@@ -313,7 +290,6 @@ where
                 question_ownership_event_id: Uuid::now_v7(),
                 question_publication_event_id: Uuid::now_v7(),
                 question_availability_event_id: Uuid::now_v7(),
-                bloom_preparation_receipt_id,
             };
             match self
                 .publication_store
@@ -352,7 +328,6 @@ where
 pub struct ExistingQuestionRevisionPublisher<O, S> {
     object_store: O,
     publication_store: S,
-    bloom_preparation: Arc<BloomPublicationPreparation>,
     authoring_assets: Option<AuthoringAssetContext>,
 }
 
@@ -365,13 +340,11 @@ where
     pub const fn new(
         object_store: O,
         publication_store: S,
-        bloom_preparation: Arc<BloomPublicationPreparation>,
         authoring_assets: Option<AuthoringAssetContext>,
     ) -> Self {
         Self {
             object_store,
             publication_store,
-            bloom_preparation,
             authoring_assets,
         }
     }
@@ -419,17 +392,6 @@ where
             &source_record.media_type,
         )
         .await?;
-        let bloom_candidate = question_bloom_candidate(&source, &hotspot_asset)?;
-        let classified = self
-            .bloom_preparation
-            .classify(&bloom_candidate)
-            .await
-            .map_err(QuestionPublicationError::BloomClassification)?;
-        let bloom_preparation_receipt_id = self
-            .bloom_preparation
-            .prepare_receipt(&classified)
-            .await
-            .map_err(QuestionPublicationError::BloomClassification)?;
         let target_address = ObjectAddress::QuestionSource {
             question_revision: successor_revision.clone(),
             object: ObjectId::generate(),
@@ -464,7 +426,6 @@ where
             hotspot_asset: prepared_asset,
             question_revision_reason: command.question_revision_reason,
             question_publication_event_id: Uuid::now_v7(),
-            bloom_preparation_receipt_id,
         };
         match self
             .publication_store
@@ -491,35 +452,6 @@ where
             }
         }
     }
-}
-
-fn question_bloom_candidate(
-    source: &objects::StoredObject,
-    hotspot_asset: &Option<(
-        learning_data_access::OwnedDraftQuestionAsset,
-        axum::body::Bytes,
-    )>,
-) -> Result<BloomClassificationCandidate, QuestionPublicationError> {
-    let protected_assets = hotspot_asset
-        .as_ref()
-        .map(|(asset, bytes)| {
-            BloomProtectedAssetEvidence::new(
-                bytes.to_vec(),
-                asset.source_record.sha256,
-                asset.source_record.media_type.clone(),
-            )
-        })
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(QuestionPublicationError::BloomClassification)?;
-    BloomQuestionEvidence::new(
-        source.bytes.clone(),
-        source.record.sha256,
-        source.record.media_type.clone(),
-        protected_assets,
-    )
-    .map(BloomClassificationCandidate::Question)
-    .map_err(QuestionPublicationError::BloomClassification)
 }
 
 fn successor_revision(

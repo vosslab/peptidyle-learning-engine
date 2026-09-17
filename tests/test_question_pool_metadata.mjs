@@ -105,13 +105,21 @@ test("Pool metadata rejects missing required fields, unknown fields and malforme
   }
 });
 
-test("Pool list requires the complete exact Bloom pair and precision-safe Edit Number", () => {
+test("Pool list permits a blank Bloom pair and rejects partial or malformed Bloom", () => {
   const item = {
     questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
     metadata,
     memberCount: 2,
     bloom,
   };
+  assert.deepEqual(
+    decodeQuestionPoolLibraryPage({
+      items: [{ ...item, bloom: null }],
+      nextCursor: null,
+      bloomFacets,
+    }).items[0]?.bloom,
+    null,
+  );
   for (const malformedBloom of [
     undefined,
     { ...bloom, cognitiveProcess: "Synthesize" },
@@ -157,7 +165,7 @@ test("Pool list requires complete ordered whole-result Bloom counts", () => {
   }
 });
 
-test("Pool exact detail keeps its own Bloom pair and rejects a missing pair", () => {
+test("Pool exact detail keeps its own assigned Bloom pair or a blank pair", () => {
   const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
   const detail = {
     questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
@@ -181,11 +189,12 @@ test("Pool exact detail keeps its own Bloom pair and rejects a missing pair", ()
     ],
   };
   assert.deepEqual(decodeQuestionPoolRevisionView(detail), detail);
+  assert.equal(decodeQuestionPoolRevisionView({ ...detail, bloom: null }).bloom, null);
   const { bloom: _bloom, ...withoutBloom } = detail;
   assert.throws(() => decodeQuestionPoolRevisionView(withoutBloom), DecodeError);
 });
 
-test("Assessment-owned Pool fork requires its own exact Bloom pair", () => {
+test("Assessment-owned Pool fork keeps its own assigned Bloom pair or a blank pair", () => {
   const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
   const fork = {
     assessmentEntryId: "00000000-0000-0000-0000-000000000011",
@@ -212,6 +221,7 @@ test("Assessment-owned Pool fork requires its own exact Bloom pair", () => {
     ],
   };
   assert.deepEqual(decodeAssessmentQuestionPoolForkView(fork), fork);
+  assert.equal(decodeAssessmentQuestionPoolForkView({ ...fork, bloom: null }).bloom, null);
   const { bloom: _bloom, ...withoutBloom } = fork;
   assert.throws(() => decodeAssessmentQuestionPoolForkView(withoutBloom), DecodeError);
 });

@@ -108,10 +108,14 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   });
   const fixedBlooms = createMemo(() => {
     const known = new Map<string, BloomClassificationView>();
-    for (const question of workspace.assessment().workspace.questions)
-      known.set(questionRevisionKey(question.reference), question.bloom);
-    for (const question of available())
-      known.set(questionRevisionKey(question.reference), question.bloom);
+    for (const question of workspace.assessment().workspace.questions) {
+      if (question.bloom !== null)
+        known.set(questionRevisionKey(question.reference), question.bloom);
+    }
+    for (const question of available()) {
+      if (question.bloom !== null)
+        known.set(questionRevisionKey(question.reference), question.bloom);
+    }
     return known;
   });
   const entryBlooms = createMemo(() => {
@@ -121,7 +125,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         entry.kind === "fixedQuestion"
           ? fixedBlooms().get(questionRevisionKey(entry.reference))
           : poolForks().get(entry.id)?.bloom;
-      if (bloom !== undefined) known.set(entry.id, bloom);
+      if (bloom !== undefined && bloom !== null) known.set(entry.id, bloom);
     }
     return known;
   });
@@ -866,10 +870,14 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                   <strong>{candidate.reference.questionId}</strong> * Revision{" "}
                   {candidate.reference.revisionNumber}: {candidate.description}{" "}
                   <A href={questionRevisionInspectionPath(candidate.reference)}>Inspect</A>{" "}
-                  <span>
-                    Bloom Cognitive Process: {candidate.bloom.cognitiveProcess}; Bloom Knowledge
-                    Dimension: {candidate.bloom.knowledgeDimension}
-                  </span>{" "}
+                  <Show when={candidate.bloom}>
+                    {(bloom) => (
+                      <span>
+                        Bloom Cognitive Process: {bloom().cognitiveProcess}; Bloom Knowledge
+                        Dimension: {bloom().knowledgeDimension}
+                      </span>
+                    )}
+                  </Show>{" "}
                   <button
                     type="button"
                     disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
@@ -900,8 +908,10 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                 {(pool) => (
                   <option value={pool.questionPoolRevision.questionPoolId}>
                     {pool.metadata.title} - {pool.questionPoolRevision.questionPoolId} Revision{" "}
-                    {pool.questionPoolRevision.revisionNumber} ({pool.memberCount} Questions) -{" "}
-                    {pool.bloom.cognitiveProcess} / {pool.bloom.knowledgeDimension}
+                    {pool.questionPoolRevision.revisionNumber} ({pool.memberCount} Questions)
+                    <Show when={pool.bloom}>
+                      {(bloom) => ` - ${bloom().cognitiveProcess} / ${bloom().knowledgeDimension}`}
+                    </Show>
                   </option>
                 )}
               </For>

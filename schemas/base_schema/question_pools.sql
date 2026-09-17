@@ -241,8 +241,7 @@ SET LOCAL ROLE ple_data_owner;
 CREATE FUNCTION ple_data.create_question_pool(
     p_question_pool_id uuid, p_public_question_pool_id text,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean, p_title text, p_description text,
-    p_bloom_preparation_receipt_id uuid
+    p_interchangeability_attested boolean, p_title text, p_description text
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -325,9 +324,6 @@ BEGIN
         question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
         interchangeability_attested_at, created_at
     ) VALUES (p_question_pool_id, 1, cardinality(p_member_question_ids), actor_id, created_at, created_at);
-    PERFORM ple_private.attach_question_pool_revision_bloom(
-        p_bloom_preparation_receipt_id, p_question_pool_id, 1,
-        p_title, p_description, p_member_question_ids, p_member_revision_numbers);
     INSERT INTO ple_data.question_pool_revision_member(
         question_pool_id, revision_number, member_position, question_id, question_revision_number
     )
@@ -343,7 +339,7 @@ $$;
 CREATE FUNCTION ple_data.append_question_pool_revision(
     p_question_pool_id uuid, p_expected_metadata_etag uuid,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean, p_bloom_preparation_receipt_id uuid
+    p_interchangeability_attested boolean
 ) RETURNS TABLE (revision_number bigint, metadata_etag uuid) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE pool_row ple_data.question_pool%ROWTYPE; actor_id uuid;
@@ -417,10 +413,6 @@ BEGIN
         question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
         interchangeability_attested_at, created_at
     ) VALUES (p_question_pool_id, next_revision_number, cardinality(p_member_question_ids), actor_id, created_at, created_at);
-    PERFORM ple_private.attach_question_pool_revision_bloom(
-        p_bloom_preparation_receipt_id, p_question_pool_id, next_revision_number,
-        pool_row.title, pool_row.description, p_member_question_ids,
-        p_member_revision_numbers);
     INSERT INTO ple_data.question_pool_revision_member(
         question_pool_id, revision_number, member_position, question_id, question_revision_number
     )
@@ -443,8 +435,7 @@ CREATE FUNCTION ple_data.construct_question_pool_revision_fork(
     p_question_pool_id uuid,
     p_public_question_pool_id text,
     p_source_question_pool_id uuid,
-    p_source_question_pool_revision_number bigint,
-    p_bloom_preparation_receipt_id uuid
+    p_source_question_pool_revision_number bigint
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -453,8 +444,6 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE created_at timestamptz := pg_catalog.clock_timestamp(); next_etag uuid;
 DECLARE source_revision ple_data.question_pool_revision%ROWTYPE;
 DECLARE source_metadata ple_data.question_pool%ROWTYPE;
-DECLARE source_member_question_ids text[];
-DECLARE source_member_revision_numbers integer[];
 BEGIN
     IF p_question_pool_id IS NULL OR p_public_question_pool_id IS NULL
        OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
@@ -490,12 +479,6 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool source Revision has an unavailable Question Backend';
     END IF;
-    SELECT array_agg(member.question_id ORDER BY member.member_position),
-           array_agg(member.question_revision_number ORDER BY member.member_position)
-      INTO source_member_question_ids, source_member_revision_numbers
-      FROM ple_data.question_pool_revision_member AS member
-     WHERE member.question_pool_id = p_source_question_pool_id
-       AND member.revision_number = p_source_question_pool_revision_number;
     next_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.question_pool(
         question_pool_id, public_question_pool_id, metadata_etag, current_revision_number,
@@ -516,10 +499,6 @@ BEGIN
         source_revision.interchangeability_attested_by_account_id,
         source_revision.interchangeability_attested_at, created_at
     );
-    PERFORM ple_private.attach_question_pool_revision_bloom(
-        p_bloom_preparation_receipt_id, p_question_pool_id, 1,
-        source_metadata.title, source_metadata.description,
-        source_member_question_ids, source_member_revision_numbers);
     INSERT INTO ple_data.question_pool_revision_member(
         question_pool_id, revision_number, member_position, question_id, question_revision_number
     )
@@ -541,8 +520,7 @@ CREATE FUNCTION ple_data.fork_question_pool_revision(
     p_question_pool_id uuid,
     p_public_question_pool_id text,
     p_source_question_pool_id uuid,
-    p_source_question_pool_revision_number bigint,
-    p_bloom_preparation_receipt_id uuid
+    p_source_question_pool_revision_number bigint
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -560,7 +538,7 @@ BEGIN
     END IF;
     RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
         p_question_pool_id, p_public_question_pool_id, p_source_question_pool_id,
-        p_source_question_pool_revision_number, p_bloom_preparation_receipt_id
+        p_source_question_pool_revision_number
     );
 END
 $$;
@@ -572,8 +550,7 @@ CREATE FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(
     p_question_pool_id uuid,
     p_public_question_pool_id text,
     p_source_question_pool_id uuid,
-    p_source_question_pool_revision_number bigint,
-    p_bloom_preparation_receipt_id uuid
+    p_source_question_pool_revision_number bigint
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -587,7 +564,7 @@ BEGIN
     END IF;
     RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
         p_question_pool_id, p_public_question_pool_id, p_source_question_pool_id,
-        p_source_question_pool_revision_number, p_bloom_preparation_receipt_id
+        p_source_question_pool_revision_number
     );
 END
 $$;
@@ -595,12 +572,12 @@ REVOKE ALL ON FUNCTION ple_data.reject_question_pool_immutable_change() FROM PUB
 REVOKE ALL ON FUNCTION ple_data.validate_question_pool_lineage_update(),
     ple_data.validate_question_pool_revision_members(),
     ple_data.validate_question_pool_revision_member_insert() FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.append_question_pool_revision(uuid, uuid, text[], integer[], boolean, uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.construct_question_pool_revision_fork(uuid, text, uuid, bigint, uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(uuid, text, uuid, bigint, uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(uuid, text, uuid, bigint, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.append_question_pool_revision(uuid, uuid, text[], integer[], boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.construct_question_pool_revision_fork(uuid, text, uuid, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(uuid, text, uuid, bigint) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(uuid, text, uuid, bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text) TO ple_api_owner;
 RESET ROLE;
 
 -- The application receives only this session-bound capability. The data-owner
@@ -610,19 +587,17 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.create_question_pool(
     p_question_pool_id uuid, p_public_question_pool_id text,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean, p_title text, p_description text,
-    p_bloom_preparation_receipt_id uuid
+    p_interchangeability_attested boolean, p_title text, p_description text
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.create_question_pool(
         p_question_pool_id, p_public_question_pool_id, p_member_question_ids,
-        p_member_revision_numbers, p_interchangeability_attested, p_title, p_description,
-        p_bloom_preparation_receipt_id)
+        p_member_revision_numbers, p_interchangeability_attested, p_title, p_description)
 $$;
-REVOKE ALL ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text) TO ple_app;
 
 RESET ROLE;
 
@@ -751,7 +726,7 @@ BEGIN
           JOIN ple_data.question_pool_revision AS revision
             ON revision.question_pool_id = pool.question_pool_id
            AND revision.revision_number = pool.current_revision_number
-          JOIN ple_data.question_pool_revision_bloom AS bloom
+          LEFT JOIN ple_data.question_pool_revision_bloom AS bloom
             ON bloom.question_pool_id = revision.question_pool_id
            AND bloom.revision_number = revision.revision_number
           -- ASVS 8.2.2/8.2.3: reuse authorized vocabulary projections. Every
@@ -866,7 +841,7 @@ BEGIN
            bloom.cognitive_process::text, bloom.knowledge_dimension::text,
            bloom.classification_edit_number
       FROM ple_data.question_pool AS pool
-      JOIN ple_data.question_pool_revision_bloom AS bloom
+      LEFT JOIN ple_data.question_pool_revision_bloom AS bloom
         ON bloom.question_pool_id = pool.question_pool_id
        AND bloom.revision_number = pool.current_revision_number
       JOIN ple_data.question_pool_revision_member AS member
@@ -917,7 +892,7 @@ BEGIN
       JOIN ple_data.question_pool_revision AS revision
         ON revision.question_pool_id = pool.question_pool_id
        AND revision.revision_number = p_revision_number
-      JOIN ple_data.question_pool_revision_bloom AS bloom
+      LEFT JOIN ple_data.question_pool_revision_bloom AS bloom
         ON bloom.question_pool_id = revision.question_pool_id
        AND bloom.revision_number = revision.revision_number
       JOIN ple_data.question_pool_revision_member AS member

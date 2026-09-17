@@ -17,8 +17,6 @@ use crate::{SessionTokenHash, StoreError};
 /// fresh child public ID before calling the Store.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImportAssessmentPoolForkInput {
-    /// Trusted classification receipt for the exact imported Pool candidate.
-    pub bloom_preparation_receipt_id: crate::BloomPreparationReceiptId,
     /// Opaque route references; the Store resolves their authorized internal
     /// Assessment identity in the same transaction as the fork import.
     pub course: CourseInstanceReference,
@@ -45,8 +43,6 @@ pub struct ImportedAssessmentPoolFork {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppendAssessmentPoolForkRevisionInput {
-    /// Trusted classification receipt for the exact replacement Pool candidate.
-    pub bloom_preparation_receipt_id: crate::BloomPreparationReceiptId,
     /// Opaque route references; no browser supplies an internal Assessment ID.
     pub course: CourseInstanceReference,
     pub assessment: AssessmentReference,

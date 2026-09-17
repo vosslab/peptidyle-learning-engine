@@ -149,7 +149,11 @@ function decodeQuestionPoolLibrarySummary(
       `${path}.questionPoolRevision`,
     ),
     memberCount: decodePositiveInteger(field(record, "memberCount", path), `${path}.memberCount`),
-    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
+    bloom: decodeNullable(
+      field(record, "bloom", path),
+      `${path}.bloom`,
+      decodeBloomClassificationView,
+    ),
   };
 }
 
@@ -322,7 +326,11 @@ export function decodeQuestionPoolRevisionView(
       field(record, "questionPoolRevision", path),
       `${path}.questionPoolRevision`,
     ),
-    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
+    bloom: decodeNullable(
+      field(record, "bloom", path),
+      `${path}.bloom`,
+      decodeBloomClassificationView,
+    ),
     members,
   };
 }

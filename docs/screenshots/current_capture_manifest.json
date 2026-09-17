@@ -67,6 +67,20 @@
       "gallery": { "order": 110, "caption": "Instructor Course Instances", "featured": true }
     },
     {
+      "id": "instructor_inactive_courses_list_laptop",
+      "path": "instructor/inactive_courses_list.png",
+      "role": "instructor",
+      "routeId": "instructorInactiveCourses",
+      "area": "courses",
+      "workflow": "past teaching courses",
+      "state": "zero past Course Instances",
+      "scenario": "instructor_seeded",
+      "checkpoint": "inactive_courses_list",
+      "viewport": "laptop",
+      "privacyProfile": "instructor_answer_free",
+      "gallery": { "order": 115, "caption": "Inactive Courses list" }
+    },
+    {
       "id": "instructor_course_assignment_workspace_laptop",
       "path": "instructor/course_assignment_workspace.png",
       "role": "instructor",
@@ -388,21 +402,6 @@
       "privacyProfile": "instructor_answer_free",
       "gallery": { "order": 330, "caption": "Question publication review" }
     },
-    {
-      "id": "instructor_published_question_result_laptop",
-      "path": "instructor/published_question_result.png",
-      "role": "instructor",
-      "routeId": "questionDraftEditor",
-      "area": "question authoring",
-      "workflow": "publication",
-      "state": "published",
-      "scenario": "instructor_authoring",
-      "checkpoint": "published_result",
-      "viewport": "laptop",
-      "privacyProfile": "instructor_answer_free",
-      "gallery": { "order": 340, "caption": "Published Question result" }
-    },
-
     {
       "id": "instructor_blueprint_courses_laptop",
       "path": "instructor/blueprint_courses.png",
@@ -1177,8 +1176,8 @@
       },
       {
         "routeId": "instructorInactiveCourses",
-        "status": "deferred",
-        "reason": "My Inactive Courses is available to Instructors and awaits a canonical Live Demo screenshot capture."
+        "status": "captured",
+        "captureIds": ["instructor_inactive_courses_list_laptop"]
       },
       {
         "routeId": "studentHome",
@@ -1272,8 +1271,7 @@
         "status": "captured",
         "captureIds": [
           "instructor_draft_editor_saved_laptop",
-          "instructor_publication_review_laptop",
-          "instructor_published_question_result_laptop"
+          "instructor_publication_review_laptop"
         ]
       },
       {
@@ -1490,13 +1488,13 @@
       },
       {
         "id": "task:myActiveCourses",
-        "status": "deferred",
-        "reason": "M19 Course activity is not yet backed."
+        "status": "captured",
+        "captureIds": ["instructor_course_list_laptop"]
       },
       {
         "id": "task:myInactiveCourses",
-        "status": "deferred",
-        "reason": "M19 Course activity is not yet backed."
+        "status": "captured",
+        "captureIds": ["instructor_inactive_courses_list_laptop"]
       },
       {
         "id": "task:searchPublicBlueprintCourses",
@@ -1521,7 +1519,7 @@
       {
         "id": "task:watched",
         "status": "deferred",
-        "reason": "The Watched destination now opens the private Watch inbox and requires the next canonical Live Demo screenshot refresh before rendered evidence is claimed."
+        "reason": "Watched is an Instructor route to the private Watch inbox; its rendered checkpoint awaits the next canonical Live Demo replay."
       },
       {
         "id": "task:searchQuestionLibrary",

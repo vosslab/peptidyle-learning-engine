@@ -17,8 +17,6 @@ use crate::{SessionTokenHash, StoreError};
 /// Complete server-owned create input for the first immutable Pool Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateQuestionPoolInput {
-    /// Trusted one-use classification for these exact Pool candidate facts.
-    pub bloom_preparation_receipt_id: crate::BloomPreparationReceiptId,
     /// Deliberate Pool-specific lineage Title and Description.
     pub title: String,
     pub description: String,

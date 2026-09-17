@@ -919,9 +919,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                       </Show>
                       <h2>{row.questionTitle}</h2>
                       <p class="question-library-row-summary">{row.summary}</p>
-                      <p class="question-library-row-bloom">
-                        <BloomClassificationText bloom={row.bloom} />
-                      </p>
+                      <Show when={row.bloom}>
+                        {(bloom) => (
+                          <p class="question-library-row-bloom">
+                            <BloomClassificationText bloom={bloom()} />
+                          </p>
+                        )}
+                      </Show>
                       <p class="question-library-row-authors" aria-label="Question Authors">
                         Authors: {row.authorNames.join(", ")}
                         <span>

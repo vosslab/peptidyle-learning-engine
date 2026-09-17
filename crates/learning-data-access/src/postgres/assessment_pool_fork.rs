@@ -93,7 +93,7 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
             .map_err(map_sqlx_error)?;
         let row = sqlx::query(
             "SELECT * FROM ple_api.import_assessment_question_pool_fork_for_reference(\
-             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
+             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)",
         )
         .bind(input.course.as_string())
         .bind(input.assessment.as_string())
@@ -108,7 +108,6 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         .bind(points_per_item)
         .bind(selected_question_order(input.selected_question_order))
         .bind(scoring_rule(input.scoring_rule))
-        .bind(input.bloom_preparation_receipt_id.as_uuid())
         .fetch_one(&mut *transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -180,10 +179,9 @@ impl AssessmentPoolForkStore for PostgresAssessmentPoolForkStore {
         let expected_edit = i64::try_from(input.expected_assessment_edit_number.value())
             .map_err(|_| invalid("Assessment Edit Number"))?;
         let mut transaction = self.begin(session_token_hash).await?;
-        let row = sqlx::query("SELECT * FROM ple_api.append_assessment_question_pool_fork_revision_for_reference($1,$2,$3,$4,$5,$6,$7,$8,$9)")
+        let row = sqlx::query("SELECT * FROM ple_api.append_assessment_question_pool_fork_revision_for_reference($1,$2,$3,$4,$5,$6,$7,$8)")
             .bind(input.course.as_string()).bind(input.assessment.as_string()).bind(input.assessment_entry.as_uuid()).bind(expected_edit)
             .bind(input.expected_pool_metadata_etag).bind(question_ids).bind(revision_numbers).bind(true)
-            .bind(input.bloom_preparation_receipt_id.as_uuid())
             .fetch_one(&mut *transaction).await.map_err(map_sqlx_error)?;
         let assessment_entry = question_model::AssessmentEntryId::from_uuid(
             row.try_get("assessment_entry_id").map_err(map_sqlx_error)?,

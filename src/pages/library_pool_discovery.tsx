@@ -419,9 +419,13 @@ export function LibraryPoolDiscovery(props: {
                   Discipline: {pool.metadata.disciplineName}
                   <Show when={pool.metadata.disciplineIsRetired}> (retired)</Show>
                 </p>
-                <p>
-                  <BloomClassificationText bloom={pool.bloom} />
-                </p>
+                <Show when={pool.bloom}>
+                  {(bloom) => (
+                    <p>
+                      <BloomClassificationText bloom={bloom()} />
+                    </p>
+                  )}
+                </Show>
                 <p>
                   Pool ID: {pool.questionPoolRevision.questionPoolId} | Revision:{" "}
                   {pool.questionPoolRevision.revisionNumber} | Members: {pool.memberCount}
@@ -474,36 +478,47 @@ export function LibraryPoolDiscovery(props: {
                     Discipline: {value().metadata.disciplineName}
                     <Show when={value().metadata.disciplineIsRetired}> (retired)</Show>
                   </p>
-                  <p>
-                    <BloomClassificationText bloom={value().bloom} />
-                  </p>
+                  <Show when={value().bloom}>
+                    {(bloom) => (
+                      <p>
+                        <BloomClassificationText bloom={bloom()} />
+                      </p>
+                    )}
+                  </Show>
                   <p>
                     Pool ID: {value().questionPoolRevision.questionPoolId} | Revision:{" "}
                     {value().questionPoolRevision.revisionNumber} | Members:{" "}
                     {value().members.length}
                   </p>
                   <p>Tags: {value().metadata.tags.join(", ") || "None"}</p>
-                  <Show when={props.mayCorrectBloom}>
-                    <BloomClassificationEditor
-                      targetName="Question Pool"
-                      revisionNumber={value().questionPoolRevision.revisionNumber}
-                      bloom={value().bloom}
-                      save={(request) =>
-                        props.client
-                          .correctQuestionPoolBloom(value().questionPoolRevision, request)
-                          .then((receipt) => receipt.bloom)
-                      }
-                      loadCurrent={() =>
-                        props.client
-                          .getQuestionPoolRevision(value().questionPoolRevision)
-                          .then((loaded) => loaded.bloom)
-                      }
-                      onCurrent={updateDetailBloom}
-                      onConflictCurrent={() => void readPage()}
-                      onAccepted={(_bloom, changed) => {
-                        if (changed) void readPage();
-                      }}
-                    />
+                  <Show when={props.mayCorrectBloom && value().bloom}>
+                    {(bloom) => (
+                      <BloomClassificationEditor
+                        targetName="Question Pool"
+                        revisionNumber={value().questionPoolRevision.revisionNumber}
+                        bloom={bloom()}
+                        save={(request) =>
+                          props.client
+                            .correctQuestionPoolBloom(value().questionPoolRevision, request)
+                            .then((receipt) => receipt.bloom)
+                        }
+                        loadCurrent={() =>
+                          props.client
+                            .getQuestionPoolRevision(value().questionPoolRevision)
+                            .then((loaded) => {
+                              if (loaded.bloom === null) {
+                                throw new Error("Bloom Classification is not assigned.");
+                              }
+                              return loaded.bloom;
+                            })
+                        }
+                        onCurrent={updateDetailBloom}
+                        onConflictCurrent={() => void readPage()}
+                        onAccepted={(_bloom, changed) => {
+                          if (changed) void readPage();
+                        }}
+                      />
+                    )}
                   </Show>
                   <Show when={props.mayWatchPools}>
                     <QuestionPoolWatchControl

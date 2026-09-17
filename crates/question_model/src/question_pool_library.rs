@@ -43,8 +43,8 @@ pub struct QuestionPoolLibrarySummary {
     pub question_pool_revision: QuestionPoolRevisionReference,
     /// Total members in that exact immutable Pool Revision.
     pub member_count: NonZeroU32,
-    /// Exact Pool-owned Bloom Classification; member classifications do not substitute for it.
-    pub bloom: BloomClassificationView,
+    /// Exact Pool-owned Bloom Classification when assigned; member classifications do not substitute.
+    pub bloom: Option<BloomClassificationView>,
 }
 
 /// Complete Bloom counts from the same filtered Pool discovery relation as one page.
@@ -89,8 +89,8 @@ pub struct QuestionPoolRevisionView {
     pub metadata: QuestionPoolMetadata,
     /// Exact immutable Pool Revision being read.
     pub question_pool_revision: QuestionPoolRevisionReference,
-    /// Exact Pool-owned Bloom Classification for `question_pool_revision`.
-    pub bloom: BloomClassificationView,
+    /// Exact Pool-owned Bloom Classification for `question_pool_revision`, when assigned.
+    pub bloom: Option<BloomClassificationView>,
     /// Members in their immutable Pool Revision order.
     pub members: Vec<QuestionPoolRevisionMemberView>,
 }
@@ -108,8 +108,8 @@ pub struct AssessmentQuestionPoolForkView {
     pub pool_metadata_etag: Uuid,
     /// Positive number of members selected for each future Assessment Attempt.
     pub selection_count: NonZeroU32,
-    /// Exact fork-owned Bloom Classification; source and member pairs do not substitute for it.
-    pub bloom: BloomClassificationView,
+    /// Exact fork-owned Bloom Classification when assigned; source and member pairs do not substitute.
+    pub bloom: Option<BloomClassificationView>,
     /// Ordered exact members in the fork Pool Revision.
     pub members: Vec<QuestionPoolRevisionMemberView>,
 }

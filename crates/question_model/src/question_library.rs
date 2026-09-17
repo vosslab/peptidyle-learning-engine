@@ -436,8 +436,8 @@ pub struct QuestionSummary {
     pub availability: QuestionAvailability,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
-    /// Exact Bloom Classification and its independent correction Edit Number.
-    pub bloom: crate::BloomClassificationView,
+    /// Exact Bloom Classification and its independent correction Edit Number, when assigned.
+    pub bloom: Option<crate::BloomClassificationView>,
 }
 
 /// Current Question lineage plus the session-derived Archive affordance.

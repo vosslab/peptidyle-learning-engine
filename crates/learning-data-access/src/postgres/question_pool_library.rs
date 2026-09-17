@@ -201,7 +201,7 @@ impl QuestionPoolLibraryStore for PostgresQuestionPoolLibraryStore {
         .await
         .map_err(map_sqlx_error)?
         .ok_or(StoreError::NotFound)?;
-        let bloom = decode_bloom(&row)?;
+        let bloom = decode_bloom(&row)?.ok_or_else(|| invalid("Bloom Classification"))?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(bloom)
     }
@@ -357,13 +357,11 @@ fn decode_member_rows(
     revision_number: QuestionPoolRevisionNumber,
 ) -> Result<Vec<QuestionRevisionReference>, StoreError> {
     let metadata = rows.first().map(decode_metadata).transpose()?;
-    let bloom = rows.first().map(decode_bloom).transpose()?;
+    let bloom = rows.first().map(decode_bloom).transpose()?.flatten();
     rows.iter()
         .enumerate()
         .map(|(index, row)| {
-            if metadata.as_ref() != Some(&decode_metadata(row)?)
-                || bloom.as_ref() != Some(&decode_bloom(row)?)
-            {
+            if metadata.as_ref() != Some(&decode_metadata(row)?) || bloom != decode_bloom(row)? {
                 return Err(invalid("Question Pool lineage metadata"));
             }
             if decode_question_id(row, "public_question_pool_id")? != *pool_id
@@ -393,31 +391,41 @@ fn decode_member_rows(
 
 pub(super) fn decode_bloom(
     row: &sqlx::postgres::PgRow,
-) -> Result<BloomClassificationView, StoreError> {
+) -> Result<Option<BloomClassificationView>, StoreError> {
     let cognitive_process = row
-        .try_get::<String, _>("bloom_cognitive_process")
-        .map_err(map_sqlx_error)?
-        .parse::<BloomCognitiveProcess>()
-        .map_err(|_| invalid("Bloom Cognitive Process"))?;
+        .try_get::<Option<String>, _>("bloom_cognitive_process")
+        .map_err(map_sqlx_error)?;
     let knowledge_dimension = row
-        .try_get::<String, _>("bloom_knowledge_dimension")
-        .map_err(map_sqlx_error)?
-        .parse::<BloomKnowledgeDimension>()
-        .map_err(|_| invalid("Bloom Knowledge Dimension"))?;
+        .try_get::<Option<String>, _>("bloom_knowledge_dimension")
+        .map_err(map_sqlx_error)?;
     let classification_edit_number = row
-        .try_get::<i64, _>("bloom_classification_edit_number")
-        .map_err(map_sqlx_error)
-        .and_then(|value| {
-            u64::try_from(value)
-                .ok()
-                .and_then(BloomClassificationEditNumber::new)
-                .ok_or_else(|| invalid("Bloom Classification Edit Number"))
-        })?;
-    Ok(BloomClassificationView {
+        .try_get::<Option<i64>, _>("bloom_classification_edit_number")
+        .map_err(map_sqlx_error)?;
+    let (cognitive_process, knowledge_dimension, classification_edit_number) = match (
         cognitive_process,
         knowledge_dimension,
         classification_edit_number,
-    })
+    ) {
+        (None, None, None) => return Ok(None),
+        (Some(cognitive_process), Some(knowledge_dimension), Some(classification_edit_number)) => (
+            cognitive_process,
+            knowledge_dimension,
+            classification_edit_number,
+        ),
+        _ => return Err(invalid("Bloom Classification")),
+    };
+    Ok(Some(BloomClassificationView {
+        cognitive_process: cognitive_process
+            .parse::<BloomCognitiveProcess>()
+            .map_err(|_| invalid("Bloom Cognitive Process"))?,
+        knowledge_dimension: knowledge_dimension
+            .parse::<BloomKnowledgeDimension>()
+            .map_err(|_| invalid("Bloom Knowledge Dimension"))?,
+        classification_edit_number: u64::try_from(classification_edit_number)
+            .ok()
+            .and_then(BloomClassificationEditNumber::new)
+            .ok_or_else(|| invalid("Bloom Classification Edit Number"))?,
+    }))
 }
 
 fn decode_metadata(row: &sqlx::postgres::PgRow) -> Result<QuestionPoolMetadata, StoreError> {

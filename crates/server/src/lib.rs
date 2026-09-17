@@ -33,7 +33,6 @@ pub mod authoring;
 mod authoring_assets;
 mod authoring_source;
 /// Server-owned Bloom classifier and candidate-bound publication preparation.
-pub mod bloom_classification;
 /// Instructor-owned reusable Blueprint Course routes.
 pub(crate) mod blueprint_course;
 /// Vetted-Instructor Blueprint Course Star and private Watch routes.

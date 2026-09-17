@@ -128,7 +128,6 @@ async fn hotspot_collision_retries_exact_bytes_and_cleans_both_rolled_back_targe
         objects.clone(),
         store,
         fixed_issuer(&["0000000", "0000001"]),
-        super::bloom_provider_evidence::bloom_preparation(),
         Some(context(asset)),
     )
     .publish(
@@ -218,7 +217,6 @@ async fn hotspot_successor_stale_removes_source_and_image_but_retains_private_dr
             publications: publications.clone(),
             outcome: Err(ExistingQuestionRevisionPublicationError::Stale),
         },
-        super::bloom_provider_evidence::bloom_preparation(),
         Some(context(asset)),
     );
     assert_eq!(
@@ -272,7 +270,6 @@ async fn native_hotspot_without_a_real_authoring_context_fails_before_any_public
         objects,
         store,
         fixed_issuer(&["0000000"]),
-        super::bloom_provider_evidence::bloom_preparation(),
         None,
     )
     .publish(

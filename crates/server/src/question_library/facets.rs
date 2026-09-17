@@ -55,12 +55,14 @@ pub(super) fn facets(entries: &[&ResolvedQuestionLibraryEntry]) -> QuestionSearc
         if let Some(license) = &summary.metadata.question_license {
             *licenses.entry(license.clone()).or_default() += 1;
         }
-        *bloom_cognitive_processes
-            .get_mut(&summary.bloom.cognitive_process)
-            .expect("all Bloom Cognitive Processes are initialized") += 1;
-        *bloom_knowledge_dimensions
-            .get_mut(&summary.bloom.knowledge_dimension)
-            .expect("all Bloom Knowledge Dimensions are initialized") += 1;
+        if let Some(bloom) = &summary.bloom {
+            *bloom_cognitive_processes
+                .get_mut(&bloom.cognitive_process)
+                .expect("all Bloom Cognitive Processes are initialized") += 1;
+            *bloom_knowledge_dimensions
+                .get_mut(&bloom.knowledge_dimension)
+                .expect("all Bloom Knowledge Dimensions are initialized") += 1;
+        }
     }
     QuestionSearchFacets {
         author_names_truncated: authors.len() > MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,

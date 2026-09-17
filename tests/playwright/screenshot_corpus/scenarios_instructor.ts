@@ -3,9 +3,10 @@
 // owned by src/pages/course_list_page.tsx:149, src/pages/library_page.tsx:163,
 // src/pages/question_drafts_page.tsx:102, assessment_workspace_create_page.tsx, and the focused
 // Assessment workspace pages.
-// Publication completion and its ordinary detail destination are owned by
-// src/features/ple_question_json_authoring/question_json_editor_page.tsx:908 and
-// src/pages/question_detail_page.tsx:306.
+// Saved Draft and publication-review states are owned by
+// src/features/ple_question_json_authoring/question_json_editor_page.tsx:908.
+// Publication completion is intentionally outside this corpus until the configured
+// Bloom-classification provider makes the ordinary publication journey available.
 
 import type { ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
@@ -41,10 +42,23 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await session.page
-      .getByRole("heading", { name: "Course Instances you teach", exact: true })
-      .waitFor();
+    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
     await captureCheckpoint(runtime, scenario, "course_list", session);
+    await session.page
+      .getByRole("navigation", { name: "Ribbon tasks", exact: true })
+      .getByRole("link", { name: "My Inactive Courses", exact: true })
+      .click();
+    await session.page.getByRole("heading", { name: "My Inactive Courses", exact: true }).waitFor();
+    const inactiveCourseList = session.page.getByLabel("Inactive Course Instances", {
+      exact: true,
+    });
+    await inactiveCourseList.waitFor();
+    if ((await inactiveCourseList.locator(".instructor-list__row--course").count()) !== 0) {
+      throw new Error("The inactive Course list must have zero Course rows for this scenario.");
+    }
+    await captureCheckpoint(runtime, scenario, "inactive_courses_list", session);
+    await session.page.getByRole("link", { name: "My Active Courses", exact: true }).click();
+    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
     const seededCourse = courseCard(session.page, COURSE_TITLE);
     await seededCourse.getByRole("link", { name: "Open Course Instance", exact: true }).click();
     await session.page.getByRole("heading", { name: COURSE_TITLE, exact: true }).waitFor();
@@ -72,9 +86,7 @@ async function seededInstructor(runtime: ScenarioRuntime): Promise<void> {
     await session.page.locator(".ple-app-ribbon__brand").click();
     await session.page.waitForURL((url) => url.pathname === "/instructor");
     await session.page.locator('[data-route-surface="courses"]').waitFor();
-    await session.page
-      .getByRole("heading", { name: "Course Instances you teach", exact: true })
-      .waitFor();
+    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
     await session.page
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Assessments", exact: true })
@@ -185,54 +197,6 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
       .click();
     await session.page.getByLabel("Question Authors").waitFor();
     await captureCheckpoint(runtime, scenario, "publication_review", session);
-    await session.page.getByLabel("Question Authors").fill("Live Demo Instructor");
-    await session.page
-      .getByRole("combobox", { name: "Discipline (required)", exact: true })
-      .selectOption({ label: "Biology" });
-    await session.page
-      .getByRole("combobox", { name: "Subject (required)", exact: true })
-      .selectOption({ label: "Biochemistry" });
-    await session.page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
-    await session.page.getByRole("heading", { name: "Published", exact: true }).waitFor();
-    const publication = session.page.getByRole("status").filter({
-      has: session.page.getByRole("heading", { name: "Published", exact: true }),
-    });
-    await publication.getByText(`Question: ${AUTHORING_TITLE}`, { exact: true }).waitFor();
-    const publishedId = (await publication.locator("code").innerText()).trim();
-    const publishedRevision = (
-      await publication
-        .locator("p")
-        .filter({ has: session.page.getByText("Published Revision:", { exact: true }) })
-        .innerText()
-    )
-      .replace("Published Revision:", "")
-      .trim();
-    if (publishedId === "" || !/^[1-9][0-9]*$/u.test(publishedRevision)) {
-      throw new Error("Publication completion did not expose its Question ID and Revision.");
-    }
-    const publishedQuestion = publication.getByRole("link", {
-      name: "Open published Question",
-      exact: true,
-    });
-    const detailPath = `/library/${encodeURIComponent(publishedId)}`;
-    if ((await publishedQuestion.getAttribute("href")) !== detailPath) {
-      throw new Error("Publication completion did not link to its exact published Question.");
-    }
-    await captureCheckpoint(runtime, scenario, "published_result", session);
-    await publishedQuestion.click();
-    await session.page.waitForURL((url) => url.pathname === detailPath && url.search === "");
-    const detail = session.page.locator('[data-route-surface="questionDetail"]');
-    await detail.getByRole("heading", { level: 1, name: AUTHORING_TITLE, exact: true }).waitFor();
-    await detail.getByText(publishedId, { exact: true }).waitFor();
-    const revision = detail.locator(".question-detail-metadata > div").filter({
-      has: session.page.getByText("Revision", { exact: true }),
-    });
-    await revision.locator("dd").waitFor();
-    if ((await revision.locator("dd").innerText()).trim() !== publishedRevision) {
-      throw new Error(
-        "Published Question details did not match the completed publication Revision.",
-      );
-    }
   } finally {
     await runtime.close(session);
   }
@@ -247,9 +211,7 @@ async function instructorBlueprint(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("navigation", { name: "Ribbon tabs", exact: true })
       .getByRole("link", { name: "Courses", exact: true })
       .click();
-    await session.page
-      .getByRole("heading", { name: "Course Instances you teach", exact: true })
-      .waitFor();
+    await session.page.getByRole("heading", { name: "My Active Courses", exact: true }).waitFor();
     await session.page.getByRole("link", { name: "My Blueprint Courses", exact: true }).click();
     await session.page
       .getByRole("heading", { name: "Build reusable course structure", exact: true })
@@ -389,6 +351,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
     id: "instructor_seeded",
     checkpoints: [
       "course_list",
+      "inactive_courses_list",
       "course_assignment_workspace",
       "course_roster_active",
       "course_roster_pending_invitation",
@@ -414,7 +377,7 @@ export const INSTRUCTOR_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
   },
   {
     id: "instructor_authoring",
-    checkpoints: ["draft_list", "saved_editor", "publication_review", "published_result"],
+    checkpoints: ["draft_list", "saved_editor", "publication_review"],
     run: instructorAuthoring,
   },
   {
