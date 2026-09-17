@@ -111,7 +111,7 @@ fn project_history(
     history
 }
 
-fn history_decision(
+pub(crate) fn history_decision(
     evidence: &StudentAssessmentAttemptHistoryEvidence,
 ) -> domain::student_feedback_release::StudentFeedbackReleaseDecision {
     let decision = evaluate_allowed_student_feedback_release(
@@ -165,6 +165,17 @@ async fn project_released_content(
             .cloned()
             .flatten();
         let question = &mut history.questions[question_index];
+        if decision.question_answer
+            && matches!(
+                presentation_source,
+                Some(
+                    learning_data_access::StudentAssessmentAttemptPresentationSource::Webwork { .. }
+                )
+            )
+        {
+            question.backend_answer_review =
+                Some(learning_data_access::BackendAnswerReviewAvailability::Available);
+        }
         // General feedback is exact PLE-authored Revision metadata. It is
         // shown when provided and has no separate delayed-release policy.
         question.feedback.general_feedback = general_feedback
@@ -283,13 +294,13 @@ mod tests {
                 assessment_attempt: AssessmentAttemptReference::new(12).expect("valid reference"),
                 attempt_number: 2,
                 course: StudentAssessmentAttemptHistoryCourse {
-                    reference: CourseInstanceReference::new("CI7K3M2Q").expect("valid reference"),
+                    reference: CourseInstanceReference::new("CIABCDEFGS").expect("valid reference"),
                     short_name: "Mol Bio".to_string(),
                     long_name: "Molecular biology".to_string(),
                     theme: CourseTheme::Forest,
                 },
                 assessment: StudentAssessmentAttemptHistoryAssessment {
-                    reference: AssessmentReference::new("A7K3M2Q").expect("valid reference"),
+                    reference: AssessmentReference::new("AABCDEFG8").expect("valid reference"),
                     title: "Protein folding practice".to_string(),
                 },
                 state: LiveAssessmentPreviousAttemptState::Submitted,
@@ -304,6 +315,7 @@ mod tests {
                     },
                     response_state: LiveAssessmentPreviousAttemptState::Submitted,
                     response: None,
+                    backend_answer_review: None,
                     feedback: StudentFeedback::empty(),
                 }],
             },
@@ -396,5 +408,11 @@ mod tests {
             wire["questions"][0]["questionRevision"]["revisionNumber"],
             expected.revision_number.get()
         );
+        assert!(wire["questions"][0].get("backendAnswerReview").is_none());
+        let mut history = project_history(&evidence);
+        history.questions[0].backend_answer_review =
+            Some(learning_data_access::BackendAnswerReviewAvailability::Available);
+        let wire = serde_json::to_value(history).unwrap();
+        assert_eq!(wire["questions"][0]["backendAnswerReview"], "available");
     }
 }

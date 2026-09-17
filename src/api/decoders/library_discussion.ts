@@ -35,13 +35,31 @@ function hasControlCharacter(value: string): boolean {
   });
 }
 
+function hasUnpairedSurrogate(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const nextCodeUnit = value.charCodeAt(index + 1);
+      if (!(nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff)) {
+        return true;
+      }
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function text(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
+  // ASVS 2.2.1: Accept only the bounded Unicode scalar-value text contract.
   if (
     decoded !== decoded.trim() ||
     decoded.length === 0 ||
     Array.from(decoded).length > 4_000 ||
-    hasControlCharacter(decoded)
+    hasControlCharacter(decoded) ||
+    hasUnpairedSurrogate(decoded)
   ) {
     throw new DecodeError(
       path,
@@ -104,17 +122,18 @@ function thread(value: unknown, path: string): LibraryImprovementThread {
     `${path}.resolvedAt`,
     timestamp,
   );
-  if (
-    (state === "open" && resolvedAt !== null) ||
-    (state === "resolved" && resolvedAt === null) ||
-    (resolvedAt !== null && resolvedAt < createdAt)
-  ) {
-    throw new DecodeError(
-      `${path}.resolvedAt`,
-      "an open thread without a resolved timestamp or a resolved thread timestamp no earlier than createdAt",
-    );
+  const posts = decodeArray(field(record, "posts", path), `${path}.posts`, post);
+  if (posts.length === 0) {
+    throw new DecodeError(`${path}.posts`, "a retained thread with its initial post");
   }
-  return {
+  const initialPost = posts[0];
+  if (initialPost === undefined || initialPost.createdAt !== createdAt) {
+    throw new DecodeError(`${path}.posts[0].createdAt`, "the thread creation timestamp");
+  }
+  if (posts.some((item) => item.createdAt < createdAt)) {
+    throw new DecodeError(`${path}.posts`, "posts created no earlier than the thread");
+  }
+  const common = {
     threadId: decodeUuid(field(record, "threadId", path), `${path}.threadId`),
     creationRevisionNumber: decodePositiveInteger(
       field(record, "creationRevisionNumber", path),
@@ -127,8 +146,23 @@ function thread(value: unknown, path: string): LibraryImprovementThread {
       field(record, "viewerMayResolve", path),
       `${path}.viewerMayResolve`,
     ),
-    posts: decodeArray(field(record, "posts", path), `${path}.posts`, post),
+    posts,
   };
+  switch (state) {
+    case "open":
+      if (resolvedAt !== null) {
+        throw new DecodeError(`${path}.resolvedAt`, "no resolved timestamp for an open thread");
+      }
+      return { ...common, state, resolvedAt };
+    case "resolved":
+      if (resolvedAt === null || resolvedAt < createdAt) {
+        throw new DecodeError(
+          `${path}.resolvedAt`,
+          "a resolved timestamp no earlier than the thread creation timestamp",
+        );
+      }
+      return { ...common, state, resolvedAt };
+  }
 }
 
 function impactNotice(value: unknown, path: string): LibraryImpactNotice {
@@ -152,18 +186,14 @@ function impactNotice(value: unknown, path: string): LibraryImpactNotice {
     `${path}.cancelledAt`,
     timestamp,
   );
-  if (
-    updatedAt < createdAt ||
-    (state === "active" && cancelledAt !== null) ||
-    (state === "cancelled" && cancelledAt === null) ||
-    (cancelledAt !== null && cancelledAt < createdAt)
-  ) {
-    throw new DecodeError(
-      `${path}.cancelledAt`,
-      "an active notice without a cancelled timestamp or a cancelled notice timestamp no earlier than createdAt",
-    );
+  if (updatedAt < createdAt) {
+    throw new DecodeError(`${path}.updatedAt`, "a timestamp no earlier than createdAt");
   }
-  return {
+  const viewerMayManage = decodeBoolean(
+    field(record, "viewerMayManage", path),
+    `${path}.viewerMayManage`,
+  );
+  const common = {
     impactNoticeId: decodeUuid(field(record, "impactNoticeId", path), `${path}.impactNoticeId`),
     affectedRevisionNumber: decodeNullable(
       field(record, "affectedRevisionNumber", path),
@@ -172,15 +202,29 @@ function impactNotice(value: unknown, path: string): LibraryImpactNotice {
     ),
     authorDisplayName: text(field(record, "authorDisplayName", path), `${path}.authorDisplayName`),
     body: text(field(record, "body", path), `${path}.body`),
-    state,
     createdAt,
     updatedAt,
-    cancelledAt,
-    viewerMayManage: decodeBoolean(
-      field(record, "viewerMayManage", path),
-      `${path}.viewerMayManage`,
-    ),
   };
+  switch (state) {
+    case "active":
+      if (cancelledAt !== null) {
+        throw new DecodeError(`${path}.cancelledAt`, "no cancelled timestamp for an active notice");
+      }
+      return { ...common, state, cancelledAt, viewerMayManage };
+    case "cancelled":
+      if (
+        cancelledAt === null ||
+        cancelledAt < createdAt ||
+        updatedAt !== cancelledAt ||
+        viewerMayManage
+      ) {
+        throw new DecodeError(
+          `${path}.cancelledAt`,
+          "a retained cancelled notice with its terminal timestamp and no management capability",
+        );
+      }
+      return { ...common, state, cancelledAt, viewerMayManage };
+  }
 }
 
 export function decodeLibraryDiscussionView(

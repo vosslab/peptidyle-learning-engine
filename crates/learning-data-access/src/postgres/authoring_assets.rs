@@ -2,7 +2,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
-use question_model::{DraftQuestionReference, ObjectId, QuestionAssetId, Timestamp};
+use question_model::{ObjectId, QuestionAssetId, Timestamp};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
@@ -65,7 +65,7 @@ impl AuthoringAssetsStore for PostgresAuthoringAssetsStore {
         sqlx::query(
             "SELECT ple_api.register_draft_question_asset($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
         )
-        .bind(i64::from(input.reference.number()))
+        .bind(input.draft_question_uuid.as_uuid())
         .bind(input.expected_edit_number.as_postgres_bigint())
         .bind(input.asset_id.as_uuid())
         .bind(input.source_record.id.as_uuid())
@@ -91,12 +91,12 @@ impl AuthoringAssetsStore for PostgresAuthoringAssetsStore {
     async fn load_draft_question_asset(
         &self,
         session_hash: SessionTokenHash,
-        reference: DraftQuestionReference,
+        draft_question_uuid: crate::DraftQuestionUuid,
         asset_id: QuestionAssetId,
     ) -> Result<OwnedDraftQuestionAsset, StoreError> {
         let mut tx = self.begin(session_hash).await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_draft_question_asset($1,$2)")
-            .bind(i64::from(reference.number()))
+            .bind(draft_question_uuid.as_uuid())
             .bind(asset_id.as_uuid())
             .fetch_optional(&mut *tx)
             .await

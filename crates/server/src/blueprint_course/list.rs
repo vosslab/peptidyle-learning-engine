@@ -229,7 +229,7 @@ mod tests {
             page_size: 50,
             after: (
                 "Blueprint".to_owned(),
-                "BP000001".parse().expect("reference"),
+                "BPABCDEFGJ".parse().expect("reference"),
             ),
             discipline_uuid: id(1),
             subject_uuid: id(2),
@@ -273,7 +273,7 @@ mod tests {
     fn continuation_cannot_change_the_applied_promotion_filter() {
         let after = (
             "Blueprint".to_owned(),
-            "BP000001".parse().expect("reference"),
+            "BPABCDEFGJ".parse().expect("reference"),
         );
         let token = URL_SAFE_NO_PAD.encode(
             serde_json::to_vec(&ListCursor {

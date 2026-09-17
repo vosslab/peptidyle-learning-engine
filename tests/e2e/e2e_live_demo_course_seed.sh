@@ -37,7 +37,7 @@ for item in value["items"]:
 if len(matches) != 1:
     raise SystemExit("Live Demo Course is absent or duplicated")
 reference=matches[0].get("reference")
-if not isinstance(reference, str) or re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}", reference) is None:
+if not isinstance(reference, str) or re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", reference) is None:
     raise SystemExit("Live Demo Course lacks a canonical public reference")
 print(reference)
 ' "$1" "$live_demo_course_long_name"
@@ -56,7 +56,7 @@ item=matches[0]
 if set(item) != {"reference","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
     raise SystemExit("Course Assessment list is not its current closed projection")
 reference=item["reference"]
-if not isinstance(reference, str) or re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}", reference) is None:
+if not isinstance(reference, str) or re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}", reference) is None:
     raise SystemExit("Live Demo Assessment lacks a canonical public reference")
 print(reference)
 ' "$1" "$live_demo_assessment_title"
@@ -73,7 +73,7 @@ if len(matches) != 1: raise SystemExit("Live Demo Assessment is absent or duplic
 item=matches[0]
 if set(item) != {"reference","assessmentType","title","dueAt","displayTimeZone","status","editNumber"}:
     raise SystemExit("Course Assessment list is not its current closed projection")
-if item["assessmentType"] != "regular_assignment":
+if item["assessmentType"] != "practice_question_assignment":
     raise SystemExit("Live Demo Assessment has the wrong Assessment Type")
 if item["status"] != "released" or not isinstance(item["editNumber"], str) or not item["editNumber"].isdigit():
     raise SystemExit("Live Demo Assessment is not a released current Assessment")

@@ -187,7 +187,7 @@ import json, re, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))
 course = value.get("course") if isinstance(value, dict) else None
 reference = course.get("reference") if isinstance(course, dict) else None
-if not isinstance(reference, str) or re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{6}", reference) is None:
+if not isinstance(reference, str) or re.fullmatch(r"CI[0-9A-HJKMNP-TV-Z]{8}", reference) is None:
 	raise SystemExit(1)
 print(reference)
 ' "$body_path")"; then

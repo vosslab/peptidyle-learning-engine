@@ -136,7 +136,7 @@ impl QuestionMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DraftQuestionSummary {
-    pub draft_question: crate::DraftQuestionReference,
+    pub draft_question: uuid::Uuid,
     pub workspace: WorkspaceId,
     pub authoring_workspace: crate::AuthoringWorkspaceReference,
     pub question_title: String,

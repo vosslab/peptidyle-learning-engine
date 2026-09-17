@@ -9,7 +9,7 @@ use crate::{
     CourseRetentionDueAction, CourseRetentionDueActionKind, CourseRetentionStore, StoreError,
 };
 
-/// Binds the attested retention-executor pool to its three exact procedures.
+/// Binds the attested retention-executor pool to its four exact procedures.
 #[derive(Clone)]
 pub struct PostgresCourseRetentionStore {
     pool: Pool,
@@ -57,6 +57,19 @@ impl CourseRetentionStore for PostgresCourseRetentionStore {
         rows.iter().map(decode_due_action).collect()
     }
 
+    async fn mark_course_instance_inactive(
+        &self,
+        course: CourseId,
+        evaluated_at: Timestamp,
+    ) -> Result<bool, StoreError> {
+        self.commit_transition(
+            "ple_api.mark_course_instance_inactive",
+            course,
+            evaluated_at,
+        )
+        .await
+    }
+
     async fn archive_course_student_records(
         &self,
         course: CourseId,
@@ -94,6 +107,10 @@ impl PostgresCourseRetentionStore {
         let mut transaction = self.begin().await?;
         // The procedure name is a closed internal selection, never caller input.
         let statement = match procedure {
+            "ple_api.mark_course_instance_inactive" => {
+                "SELECT ple_api.mark_course_instance_inactive(\
+                 $1, to_timestamp($2::double precision / 1000.0))"
+            }
             "ple_api.archive_course_student_records" => {
                 "SELECT ple_api.archive_course_student_records(\
                  $1, to_timestamp($2::double precision / 1000.0))"
@@ -104,6 +121,7 @@ impl PostgresCourseRetentionStore {
             }
             _ => unreachable!("closed retention transition selection"),
         };
+        // ASVS 1.2.4: Course identity and evaluated instant are bound values.
         let committed = sqlx::query_scalar(statement)
             .bind(course.as_uuid())
             .bind(evaluated_at.as_unix_millis())
@@ -121,6 +139,7 @@ fn decode_due_action(row: &sqlx::postgres::PgRow) -> Result<CourseRetentionDueAc
         .map_err(map_sqlx_error)?
         .as_str()
     {
+        "mark_inactive" => CourseRetentionDueActionKind::MarkInactive,
         "warn_inactive" => CourseRetentionDueActionKind::WarnInactive,
         "notify_archive" => CourseRetentionDueActionKind::NotifyArchive,
         "archive" => CourseRetentionDueActionKind::Archive,

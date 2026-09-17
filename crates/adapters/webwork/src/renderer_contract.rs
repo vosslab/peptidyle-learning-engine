@@ -116,6 +116,13 @@ pub trait WebworkRenderer: Send + Sync {
         request: ResumeRenderRequest<'_>,
     ) -> Result<RenderedWebworkQuestion, RendererFailure>;
 
+    /// Renders correct answers for a server-authorized completed Attempt.
+    /// No Student response, grading request, hints, or solutions are accepted.
+    async fn render_answer_review(
+        &self,
+        request: RenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure>;
+
     /// Grades a structurally valid student response without returning a key.
     async fn grade(
         &self,

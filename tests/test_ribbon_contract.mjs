@@ -8,6 +8,7 @@ import { buildRoutePath, deriveRibbonModel } from "../src/ribbon/ribbon_contract
 import { routeParams } from "../src/navigation/route_params.ts";
 import {
   productRoleMayAccessRoute,
+  productRoleHomePath,
   routeContractForPathname,
   ROUTE_CONTRACT,
 } from "../src/route_contract.ts";
@@ -24,7 +25,7 @@ const PARAMETER_VALUES = {
   assessmentAttemptRef: "R-1",
   membershipRef: "M-1",
   questionRef: "7K3M-79QP",
-  draftQuestionRef: "D-1",
+  draftQuestionId: "0198e000-0000-7000-8000-000000000001",
   blueprintCourseRef: "BP7K3M2QAF",
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 };
@@ -413,17 +414,17 @@ test("breadcrumb trails are canonical route projections with one current termina
     assessmentAttemptTitle: "Problem Set 7",
   };
   const cases = [
-    ["courses", []],
-    ["courseAssessments", ["Courses", "Biochemistry I"]],
-    ["courseAppearance", ["Courses", "Biochemistry I", "Appearance"]],
-    ["assessmentWorkspaceQuestions", ["Courses", "Biochemistry I", "Problem Set 7", "Questions"]],
-    ["assessmentWorkspacePolicies", ["Courses", "Biochemistry I", "Problem Set 7", "Properties"]],
-    ["questionDetail", ["Questions", "Question Library", "Question"]],
-    ["questionDraftEditor", ["Questions", "My Draft Questions", "Question authoring"]],
-    ["blueprintCourseDetail", ["Courses", "My Blueprint Courses", "Blueprint Course"]],
-    ["publicBlueprintSearch", ["Courses", "Search Public Blueprint Courses"]],
-    ["assessmentAttempt", ["Courses", "Biochemistry I", "Problem Set 7", "Attempt"]],
-    ["assessmentAttemptSummary", ["Courses", "Biochemistry I", "Problem Set 7", "Attempt history"]],
+    ["courses", ["Home"]],
+    ["courseAssessments", ["Home", "Biochemistry I"]],
+    ["courseAppearance", ["Home", "Biochemistry I", "Appearance"]],
+    ["assessmentWorkspaceQuestions", ["Home", "Biochemistry I", "Problem Set 7", "Questions"]],
+    ["assessmentWorkspacePolicies", ["Home", "Biochemistry I", "Problem Set 7", "Properties"]],
+    ["questionDetail", ["Home", "Question Library", "Question"]],
+    ["questionDraftEditor", ["Home", "My Draft Questions", "Question"]],
+    ["blueprintCourseDetail", ["Home", "My Blueprint Courses", "Blueprint Course"]],
+    ["publicBlueprintSearch", ["Home", "Search Public Blueprint Courses"]],
+    ["assessmentAttempt", ["Home", "Biochemistry I", "Problem Set 7", "Attempt"]],
+    ["assessmentAttemptSummary", ["Home", "Biochemistry I", "Problem Set 7", "Attempt history"]],
   ];
   for (const [routeId, expectedLabels] of cases) {
     const routeState = routeStateFor(routeId);
@@ -461,7 +462,11 @@ test("breadcrumb trails are canonical route projections with one current termina
     { productRole: "instructor" },
     labels,
   );
-  assert.deepEqual(invalid.breadcrumbs, [], "malformed scope fails closed without identifier copy");
+  assert.deepEqual(
+    invalid.breadcrumbs,
+    [{ label: "Home", href: "/instructor", current: false }],
+    "malformed scope retains only the known home without identifier copy",
+  );
   assert.equal(
     invalid.breadcrumbPreludeReserved,
     true,
@@ -483,6 +488,113 @@ test("Student Course Invitation acceptance stays outside Course breadcrumb conte
     { productRole: "student" },
     LABELS,
   );
-  assert.deepEqual(model.breadcrumbs, []);
-  assert.equal(model.breadcrumbPreludeReserved, false);
+  assert.deepEqual(
+    model.breadcrumbs.map(({ label }) => label),
+    ["Home", "Course Invitations", "Course Invitation"],
+  );
+  assert.equal(model.breadcrumbPreludeReserved, true);
+});
+
+test("deferred scope labels retain a linked human-readable current breadcrumb", () => {
+  const cases = [
+    ["courseAssessments", "instructor", ["Home", "Course"]],
+    ["assessmentWorkspaceOverview", "instructor", ["Home", "Course", "Assessment"]],
+    ["assessmentAttempt", "student", ["Home", "Attempt"]],
+  ];
+  for (const [routeId, productRole, expectedLabels] of cases) {
+    const state = routeStateFor(routeId);
+    const model = deriveRibbonModel(state, { productRole }, LABELS);
+    assert.deepEqual(
+      model.breadcrumbs.map(({ label }) => label),
+      expectedLabels,
+      routeId,
+    );
+    assert.deepEqual(
+      model.breadcrumbs.map(({ current }) => current),
+      expectedLabels.map((_, index) => index === expectedLabels.length - 1),
+      routeId,
+    );
+    assert.equal(model.breadcrumbs.at(-1).href, buildRoutePath(routeId, state.params), routeId);
+    assert.equal(
+      model.breadcrumbs.some(({ label }) => label.includes(PARAMETER_VALUES.assessmentAttemptRef)),
+      false,
+      routeId,
+    );
+  }
+});
+
+test("deferred assessment-attempt summary retains only its linked current breadcrumb", () => {
+  const state = routeStateFor("assessmentAttemptSummary");
+  assert.deepEqual(Object.keys(state.params), ["assessmentAttemptRef"]);
+  const model = deriveRibbonModel(state, { productRole: "student" }, LABELS);
+  assert.deepEqual(model.breadcrumbs, [
+    { label: "Home", href: "/student", current: false },
+    {
+      label: "Attempt history",
+      href: "/assessment-attempts/R-1/summary",
+      current: true,
+    },
+  ]);
+  assert.equal(
+    model.breadcrumbs.some(({ label }) => label.includes(PARAMETER_VALUES.assessmentAttemptRef)),
+    false,
+  );
+});
+
+test("course breadcrumbs omit their own leading public reference from resolved titles", () => {
+  const state = routeStateFor("courseAssessments");
+  for (const courseLongName of [
+    "Course CI7K3M2QAZ: Molecular Biology",
+    "CI7K3M2QAZ: Molecular Biology",
+  ]) {
+    const model = deriveRibbonModel(state, { productRole: "instructor" }, { courseLongName });
+    assert.deepEqual(
+      model.breadcrumbs.map(({ label }) => label),
+      ["Home", "Molecular Biology"],
+    );
+  }
+});
+
+test("every signed-in route reserves linked breadcrumbs rooted at its role home", () => {
+  for (const productRole of PRODUCT_ROLES) {
+    for (const route of ROUTE_CONTRACT) {
+      if (route.id === "signIn" || !productRoleMayAccessRoute(route.id, productRole)) continue;
+      const state = routeStateFor(route.id);
+      const model = deriveRibbonModel(
+        {
+          ...state,
+          params: {
+            ...state.params,
+            courseRef: PARAMETER_VALUES.courseRef,
+            assessmentRef: PARAMETER_VALUES.assessmentRef,
+          },
+        },
+        { productRole },
+        {
+          courseLongName: "Biochemistry I",
+          assessmentTitle: "Problem Set 7",
+          assessmentAttemptTitle: "Problem Set 7",
+        },
+      );
+      assert.equal(model.breadcrumbPreludeReserved, true, route.id);
+      assert.equal(model.breadcrumbs[0].href, productRoleHomePath(productRole), route.id);
+      assert.equal(model.breadcrumbs.filter(({ current }) => current).length, 1, route.id);
+      assert.equal(
+        model.breadcrumbs.at(-1).href,
+        route.id === "courses"
+          ? productRoleHomePath(productRole)
+          : buildRoutePath(route.id, paramsForRoute(route)),
+        route.id,
+      );
+      for (const breadcrumb of model.breadcrumbs) {
+        assert.ok(routeContractForPathname(breadcrumb.href), route.id);
+        assert.ok(breadcrumb.label.trim(), route.id);
+        assert.equal(
+          Object.values(PARAMETER_VALUES).some((value) => breadcrumb.label.includes(value)),
+          false,
+          route.id,
+        );
+      }
+    }
+  }
 });

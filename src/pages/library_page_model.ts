@@ -10,6 +10,13 @@ import type { QuestionFormat } from "../../generated/api/QuestionFormat";
 import type { QuestionSearchAuthorship } from "../../generated/api/QuestionSearchAuthorship";
 import type { QuestionSearchSort } from "../../generated/api/QuestionSearchSort";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
+import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
+import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
+import {
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
+} from "../api/decoders/bloom_classification";
 import { MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES } from "../../generated/api/MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES";
 import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS";
 import { MAX_QUESTION_SEARCH_TAG_FACETS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FACETS";
@@ -21,6 +28,7 @@ import {
   QUESTION_BACKENDS,
   decodeQuestionRevisionReference,
 } from "../api/decoders/shared";
+import { decodeBloomClassificationView } from "../api/decoders/bloom_classification";
 
 /** A browser-safe current Question Library record. */
 export interface QuestionLibraryBrowseRow {
@@ -30,6 +38,8 @@ export interface QuestionLibraryBrowseRow {
   readonly questionRevision: QuestionRevisionReference;
   readonly questionTitle: string;
   readonly summary: string;
+  /** Exact Revision-owned Bloom pair and its independent correction precondition. */
+  readonly bloom: BloomClassificationView;
   /** Current readable Discipline name for this Question's existing classification. */
   readonly disciplineName: string;
   /** Existing references may retain a retired Discipline. */
@@ -66,7 +76,9 @@ export interface QuestionLibraryBrowseFacetAggregate {
     | "questionType"
     | "capability"
     | "questionLicense"
-    | "usedInMyCourses";
+    | "usedInMyCourses"
+    | "bloomCognitiveProcess"
+    | "bloomKnowledgeDimension";
   readonly value: string;
   readonly count: number;
 }
@@ -78,6 +90,8 @@ export interface QuestionLibraryBrowseQuery extends LibraryClassificationFilter 
   readonly tag: string | null;
   readonly subjects: ReadonlyArray<string>;
   readonly topics: ReadonlyArray<string>;
+  readonly bloomCognitiveProcess: BloomCognitiveProcess | null;
+  readonly bloomKnowledgeDimension: BloomKnowledgeDimension | null;
   readonly questionType: string | null;
   readonly capability: string | null;
   readonly questionLicense: string | null;
@@ -169,6 +183,8 @@ export interface QuestionLibraryReturnState {
   readonly query: QuestionLibraryBrowseQuery;
   readonly browseState: Extract<QuestionLibraryBrowseState, { readonly kind: "ready" }>;
   readonly scrollTop: number;
+  /** A detail mutation requires the applied query and aggregates to reload before restoration. */
+  readonly refreshOnReturn: boolean;
 }
 
 let pendingQuestionLibraryReturnState: QuestionLibraryReturnState | null = null;
@@ -219,6 +235,16 @@ export function saveQuestionLibraryReturnState(
     query: normalizeQuestionLibraryBrowseQuery(query),
     browseState: retainedBrowseState,
     scrollTop: Number.isFinite(scrollTop) ? Math.max(0, scrollTop) : 0,
+    refreshOnReturn: false,
+  };
+}
+
+/** Keep the applied query and position, but never restore membership after a detail correction. */
+export function refreshQuestionLibraryReturnState(token: string | null): void {
+  if (token === null || pendingQuestionLibraryReturnState?.token !== token) return;
+  pendingQuestionLibraryReturnState = {
+    ...pendingQuestionLibraryReturnState,
+    refreshOnReturn: true,
   };
 }
 
@@ -329,6 +355,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
       "questionFormat",
       "questionRevision",
       "summary",
+      "bloom",
       "questionTitle",
       "disciplineName",
       "disciplineIsRetired",
@@ -360,6 +387,7 @@ function decodeRow(value: unknown, path: string): QuestionLibraryBrowseRow {
     questionRevision,
     questionTitle: boundedText(value["questionTitle"], `${path}.questionTitle`),
     summary: boundedText(value["summary"], `${path}.summary`, MAX_SUMMARY_LENGTH),
+    bloom: decodeBloomClassificationView(value["bloom"], `${path}.bloom`),
     disciplineName: boundedText(value["disciplineName"], `${path}.disciplineName`, 120),
     disciplineIsRetired,
     questionFormat: decodeQuestionFormat(value["questionFormat"], `${path}.questionFormat`),
@@ -395,7 +423,9 @@ function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFac
     facet !== "questionType" &&
     facet !== "capability" &&
     facet !== "questionLicense" &&
-    facet !== "usedInMyCourses"
+    facet !== "usedInMyCourses" &&
+    facet !== "bloomCognitiveProcess" &&
+    facet !== "bloomKnowledgeDimension"
   ) {
     throw new Error(`${path}.facet is not a Question Library facet`);
   }
@@ -408,7 +438,16 @@ function decodeAggregate(value: unknown, path: string): QuestionLibraryBrowseFac
   ) {
     throw new Error(`${path}.count must be a non-negative safe integer`);
   }
-  return { facet, value: boundedText(value["value"], `${path}.value`), count };
+  const aggregateValue = boundedText(value["value"], `${path}.value`);
+  if (
+    (facet === "bloomCognitiveProcess" &&
+      !BLOOM_COGNITIVE_PROCESSES.some((candidate) => candidate === aggregateValue)) ||
+    (facet === "bloomKnowledgeDimension" &&
+      !BLOOM_KNOWLEDGE_DIMENSIONS.some((candidate) => candidate === aggregateValue))
+  ) {
+    throw new Error(`${path}.value is not an exact Bloom classification value`);
+  }
+  return { facet, value: aggregateValue, count };
 }
 
 function decodeFacetTruncation(value: unknown): QuestionLibraryFacetTruncation {
@@ -448,6 +487,8 @@ function validateAggregateGroupCaps(
     capability: MAX_QUESTION_SEARCH_CAPABILITY_FACETS,
     questionLicense: MAX_QUESTION_SEARCH_QUESTION_LICENSE_FACETS,
     usedInMyCourses: 1,
+    bloomCognitiveProcess: BLOOM_COGNITIVE_PROCESSES.length,
+    bloomKnowledgeDimension: BLOOM_KNOWLEDGE_DIMENSIONS.length,
   };
   const counts = new Map<QuestionLibraryBrowseFacetAggregate["facet"], number>();
   for (const aggregate of aggregates) {
@@ -503,6 +544,8 @@ export const EMPTY_QUESTION_LIBRARY_BROWSE_QUERY: QuestionLibraryBrowseQuery = {
   tag: null,
   subjects: [],
   topics: [],
+  bloomCognitiveProcess: null,
+  bloomKnowledgeDimension: null,
   questionType: null,
   capability: null,
   questionLicense: null,
@@ -522,6 +565,8 @@ export function normalizeQuestionLibraryBrowseQuery(
     tag: query.tag,
     subjects: query.subjects.map((subject) => subject.trim().replace(/\s+/g, " ")),
     topics: query.topics.map((topic) => topic.trim().replace(/\s+/g, " ")),
+    bloomCognitiveProcess: query.bloomCognitiveProcess,
+    bloomKnowledgeDimension: query.bloomKnowledgeDimension,
     questionType: query.questionType,
     capability: query.capability,
     questionLicense: query.questionLicense,

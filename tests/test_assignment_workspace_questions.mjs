@@ -3,8 +3,10 @@ import test from "node:test";
 
 import {
   appendAvailableFixedQuestion,
+  deliveredAssessmentQuestionCount,
   moveAssessmentEntry,
   removeAssessmentEntry,
+  sortAssessmentEntriesByBloom,
 } from "../src/pages/assessment_workspace/assessment_workspace_questions_model.ts";
 import { assessmentPolicySaveInput } from "../src/pages/assessment_workspace/assessment_workspace_policy_model.ts";
 
@@ -57,7 +59,15 @@ test("Questions picker adds an Available exact revision without flattening retai
   const entries = [pool];
   const added = appendAvailableFixedQuestion(
     entries,
-    { reference: { questionId: "7K4M-69QP", revisionNumber: 4 }, description: "Exact revision" },
+    {
+      reference: { questionId: "7K4M-69QP", revisionNumber: 4 },
+      description: "Exact revision",
+      bloom: {
+        cognitiveProcess: "Apply",
+        knowledgeDimension: "Procedural Knowledge",
+        classificationEditNumber: "1",
+      },
+    },
     "00000000-0000-0000-0000-000000000004",
   );
 
@@ -75,6 +85,67 @@ test("Questions picker adds an Available exact revision without flattening retai
   assert.equal(JSON.stringify(added).includes("questionIds"), false);
 });
 
+test("Bloom sort retains unavailable exact fixed and Pool Entries without changing payloads", () => {
+  const laterFixed = {
+    ...fixed,
+    id: "00000000-0000-0000-0000-000000000010",
+    availability: "retired",
+  };
+  const tiedFixed = { ...fixed, id: "00000000-0000-0000-0000-000000000011" };
+  const tiedPool = {
+    ...pool,
+    id: "00000000-0000-0000-0000-000000000012",
+    availability: "retired",
+  };
+  const firstFixed = { ...fixed, id: "00000000-0000-0000-0000-000000000013" };
+  const entries = [laterFixed, tiedPool, firstFixed, tiedFixed];
+  const bloomByEntryId = new Map([
+    [
+      laterFixed.id,
+      {
+        cognitiveProcess: "Evaluate",
+        knowledgeDimension: "Factual Knowledge",
+        classificationEditNumber: "2",
+      },
+    ],
+    [
+      tiedPool.id,
+      {
+        cognitiveProcess: "Apply",
+        knowledgeDimension: "Conceptual Knowledge",
+        classificationEditNumber: "4",
+      },
+    ],
+    [
+      firstFixed.id,
+      {
+        cognitiveProcess: "Remember",
+        knowledgeDimension: "Metacognitive Knowledge",
+        classificationEditNumber: "1",
+      },
+    ],
+    [
+      tiedFixed.id,
+      {
+        cognitiveProcess: "Apply",
+        knowledgeDimension: "Conceptual Knowledge",
+        classificationEditNumber: "9",
+      },
+    ],
+  ]);
+
+  const sorted = sortAssessmentEntriesByBloom(entries, bloomByEntryId);
+  assert.deepEqual(
+    sorted.map((entry) => entry.id),
+    [firstFixed.id, tiedPool.id, tiedFixed.id, laterFixed.id],
+  );
+  assert.equal(sorted[1], tiedPool);
+  assert.equal(sorted[1].items[0], pool.items[0]);
+  assert.equal(sorted[3], laterFixed);
+  assert.equal(sorted[3].reference, fixed.reference);
+  assert.equal(sortAssessmentEntriesByBloom(sorted, bloomByEntryId), sorted);
+});
+
 test("Questions removal changes only the chosen stable Entry", () => {
   const entries = [fixed, pool];
   const remaining = removeAssessmentEntry(entries, 0);
@@ -83,6 +154,16 @@ test("Questions removal changes only the chosen stable Entry", () => {
     [pool.id],
   );
   assert.equal(remaining[0], pool);
+});
+
+test("Unavailable Entries do not consume delivery capacity and remain read-only evidence", () => {
+  const retiredFixed = { ...fixed, availability: "retired" };
+  const retiredPool = { ...pool, availability: "retired", selectionCount: 249 };
+  const entries = [retiredFixed, fixed, retiredPool, pool];
+
+  assert.equal(deliveredAssessmentQuestionCount(entries), 2);
+  assert.equal(removeAssessmentEntry(entries, 0), entries);
+  assert.equal(removeAssessmentEntry(entries, 2), entries);
 });
 
 test("Policy save retains normalized Entries and the current availability and close bounds", () => {

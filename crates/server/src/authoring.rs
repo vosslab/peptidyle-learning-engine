@@ -1,8 +1,8 @@
 //! Private Draft Question authoring and first-publication Server Routes.
 //!
-//! Only an authorized Draft Question Reference and its Edit Number cross the
-//! browser boundary. Workspace UUIDs, Draft Question UUIDs, source object
-//! addresses, and publication copy inputs remain server-only.
+//! An authorized private Draft UUID and its Edit Number cross the browser
+//! boundary. Workspace UUIDs, source object addresses, and publication copy
+//! inputs remain server-only.
 
 use std::{
     sync::Arc,
@@ -31,9 +31,8 @@ use learning_data_access::{
 };
 use objects::s3::S3ObjectStore;
 use question_model::{
-    DraftQuestionReference, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
-    QuestionFormat, QuestionId, QuestionRevisionNumber, QuestionRevisionReason,
-    QuestionRevisionReference, Timestamp,
+    QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionFormat, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionReason, QuestionRevisionReference, Timestamp,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
@@ -41,6 +40,7 @@ use uuid::Uuid;
 use crate::{
     auth::{AuthError, resolve_session},
     authoring_source::{load_verified_source, put_workspace_source, validated_source},
+    bloom_classification::BloomPublicationPreparation,
     question_publication::{
         AuthoringAssetContext, ExistingQuestionRevisionPublicationCommand,
         ExistingQuestionRevisionPublisher, NewQuestionLineagePublicationCommand,
@@ -59,6 +59,7 @@ pub(crate) struct AuthoringRouteState {
     publication: PostgresDraftQuestionSourceBindingStore,
     pub(crate) objects: S3ObjectStore,
     question_id_issuer: RandomQuestionIdIssuer,
+    bloom_publication: Arc<BloomPublicationPreparation>,
 }
 
 /// Registers private Authoring Workspace routes and the initial publication operation.
@@ -69,34 +70,38 @@ pub fn authoring_router(
     publication: PostgresDraftQuestionSourceBindingStore,
     objects: S3ObjectStore,
     question_id_issuer: RandomQuestionIdIssuer,
+    bloom_publication: Arc<BloomPublicationPreparation>,
 ) -> Router {
     Router::new()
         .route("/api/authoring/drafts", get(list_drafts).post(create_draft))
-        .route("/api/authoring/drafts/{reference}", delete(delete_draft))
         .route(
-            "/api/authoring/drafts/{reference}/assets",
+            "/api/authoring/drafts/{draft_question_id}",
+            delete(delete_draft),
+        )
+        .route(
+            "/api/authoring/drafts/{draft_question_id}/assets",
             post(crate::authoring_assets::upload).layer(DefaultBodyLimit::max(
                 objects::image_validation::MAX_STILL_IMAGE_BYTES,
             )),
         )
         .route(
-            "/api/authoring/drafts/{reference}/assets/{asset}",
+            "/api/authoring/drafts/{draft_question_id}/assets/{asset}",
             get(crate::authoring_assets::preview),
         )
         .route(
-            "/api/authoring/drafts/{reference}/source",
+            "/api/authoring/drafts/{draft_question_id}/source",
             get(load_source).put(save_source),
         )
         .route(
-            "/api/authoring/drafts/{reference}/metadata",
+            "/api/authoring/drafts/{draft_question_id}/metadata",
             get(load_general_feedback).put(save_general_feedback),
         )
         .route(
-            "/api/authoring/drafts/{reference}/publish",
+            "/api/authoring/drafts/{draft_question_id}/publish",
             post(publish_draft),
         )
         .route(
-            "/api/authoring/drafts/{reference}/publish-revision",
+            "/api/authoring/drafts/{draft_question_id}/publish-revision",
             post(publish_revision_draft),
         )
         .with_state(AuthoringRouteState {
@@ -106,13 +111,14 @@ pub fn authoring_router(
             publication,
             objects,
             question_id_issuer,
+            bloom_publication,
         })
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct DraftSummaryResponse {
-    draft_question: DraftQuestionReference,
+    draft_question: Uuid,
     edit_number: u64,
     question_title: String,
     question_description: String,
@@ -126,7 +132,7 @@ struct DraftListResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CreatedDraftResponse {
-    draft_question: DraftQuestionReference,
+    draft_question: Uuid,
     edit_number: u64,
 }
 
@@ -182,7 +188,7 @@ async fn list_drafts(State(state): State<AuthoringRouteState>, headers: HeaderMa
                 items: drafts
                     .into_iter()
                     .map(|draft| DraftSummaryResponse {
-                        draft_question: draft.reference,
+                        draft_question: draft.draft_question_uuid.as_uuid(),
                         edit_number: draft.edit_number.as_postgres_bigint() as u64,
                         question_title: draft.title,
                         question_description: draft.description,
@@ -260,7 +266,7 @@ async fn create_draft(
             (
                 StatusCode::CREATED,
                 Json(CreatedDraftResponse {
-                    draft_question: draft.reference,
+                    draft_question: draft.draft_question_uuid.as_uuid(),
                     edit_number: draft.edit_number.as_postgres_bigint() as u64,
                 }),
             )
@@ -273,10 +279,10 @@ async fn create_draft(
 async fn delete_draft(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
-        Ok(reference) => reference,
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
+        Ok(value) => value,
         Err(response) => return *response,
     };
     let expected_edit_number = match expected_edit_number(&headers) {
@@ -292,7 +298,7 @@ async fn delete_draft(
         .delete_authoring_draft(
             session_hash,
             DeleteAuthoringDraftInput {
-                reference,
+                draft_question_uuid,
                 expected_edit_number,
             },
         )
@@ -310,10 +316,10 @@ async fn delete_draft(
 async fn load_source(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
-        Ok(reference) => reference,
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
+        Ok(value) => value,
         Err(response) => return *response,
     };
     let session_hash = match instructor_session_hash(&state, &headers).await {
@@ -322,7 +328,7 @@ async fn load_source(
     };
     let draft = match state
         .drafts
-        .load_authoring_draft(session_hash, reference)
+        .load_authoring_draft(session_hash, draft_question_uuid)
         .await
     {
         Ok(draft) => draft,
@@ -357,7 +363,7 @@ async fn load_source(
 async fn save_source(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
     body: Bytes,
 ) -> Response {
     if !is_ple_question_json_request(&headers) {
@@ -366,8 +372,8 @@ async fn save_source(
             "Draft Question source media type is required",
         );
     }
-    let reference = match parse_reference(&reference) {
-        Ok(reference) => reference,
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
+        Ok(value) => value,
         Err(response) => return *response,
     };
     let expected_edit_number = match expected_edit_number(&headers) {
@@ -384,7 +390,7 @@ async fn save_source(
     };
     let current = match state
         .drafts
-        .load_authoring_draft(session_hash, reference)
+        .load_authoring_draft(session_hash, draft_question_uuid)
         .await
     {
         Ok(draft) => draft,
@@ -400,7 +406,7 @@ async fn save_source(
         && let Err(error) = crate::authoring_assets::require_surface(
             state.assets.as_ref(),
             session_hash,
-            reference,
+            draft_question_uuid,
             surface,
         )
         .await
@@ -422,7 +428,7 @@ async fn save_source(
         .save_authoring_draft(
             session_hash,
             SaveAuthoringDraftInput {
-                reference,
+                draft_question_uuid,
                 expected_edit_number,
                 source_record,
                 question_type: source.question_type,
@@ -449,10 +455,10 @@ async fn save_source(
 async fn load_general_feedback(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
-        Ok(reference) => reference,
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
+        Ok(value) => value,
         Err(response) => return *response,
     };
     let session_hash = match instructor_session_hash(&state, &headers).await {
@@ -461,7 +467,7 @@ async fn load_general_feedback(
     };
     match state
         .drafts
-        .load_authoring_draft(session_hash, reference)
+        .load_authoring_draft(session_hash, draft_question_uuid)
         .await
     {
         Ok(draft) => match etag(draft.edit_number) {
@@ -487,11 +493,11 @@ async fn load_general_feedback(
 async fn save_general_feedback(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
     Json(request): Json<DraftGeneralFeedbackRequest>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
-        Ok(reference) => reference,
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
+        Ok(value) => value,
         Err(response) => return *response,
     };
     let expected_edit_number = match expected_edit_number(&headers) {
@@ -507,7 +513,7 @@ async fn save_general_feedback(
         .save_authoring_draft_general_feedback(
             session_hash,
             SaveAuthoringDraftGeneralFeedbackInput {
-                reference,
+                draft_question_uuid,
                 expected_edit_number,
                 general_feedback: request.general_feedback,
             },
@@ -526,7 +532,7 @@ async fn save_general_feedback(
 async fn publish_draft(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
     Json(request): Json<PublishDraftRequest>,
 ) -> Response {
     // ASVS 2.2.1/2.2.2: canonical UUID input is checked at the trusted boundary.
@@ -551,8 +557,8 @@ async fn publish_draft(
             "Question classification is invalid",
         );
     };
-    let reference = match parse_reference(&reference) {
-        Ok(reference) => reference,
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
+        Ok(value) => value,
         Err(response) => return *response,
     };
     let expected_edit_number = match expected_edit_number(&headers) {
@@ -565,7 +571,7 @@ async fn publish_draft(
     };
     let draft = match state
         .drafts
-        .load_authoring_draft(session_hash, reference)
+        .load_authoring_draft(session_hash, draft_question_uuid)
         .await
     {
         Ok(draft) => draft,
@@ -629,10 +635,11 @@ async fn publish_draft(
     let publisher = NewQuestionLineagePublisher::new(
         state.objects.clone(),
         state.publication.clone(),
-        state.question_id_issuer.clone(),
+        state.question_id_issuer,
+        Arc::clone(&state.bloom_publication),
         Some(AuthoringAssetContext {
             store: state.assets.clone(),
-            reference,
+            draft_question_uuid,
         }),
     );
     match publisher.publish(session_hash, command, now()).await {
@@ -649,11 +656,11 @@ async fn publish_draft(
 async fn publish_revision_draft(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
     Json(request): Json<PublishRevisionDraftRequest>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
-        Ok(reference) => reference,
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
+        Ok(value) => value,
         Err(response) => return *response,
     };
     let expected_edit_number = match expected_edit_number(&headers) {
@@ -682,7 +689,7 @@ async fn publish_revision_draft(
     };
     let draft = match state
         .drafts
-        .load_authoring_draft(session_hash, reference)
+        .load_authoring_draft(session_hash, draft_question_uuid)
         .await
     {
         Ok(draft) => draft,
@@ -715,9 +722,10 @@ async fn publish_revision_draft(
     let publisher = ExistingQuestionRevisionPublisher::new(
         state.objects.clone(),
         state.publication.clone(),
+        Arc::clone(&state.bloom_publication),
         Some(AuthoringAssetContext {
             store: state.assets.clone(),
-            reference,
+            draft_question_uuid,
         }),
     );
     match publisher
@@ -764,8 +772,11 @@ fn question_authorship(authors: Vec<String>) -> Result<QuestionAuthorship, ()> {
     QuestionAuthorship::new(authors).map_err(|_| ())
 }
 
-pub(crate) fn parse_reference(value: &str) -> Result<DraftQuestionReference, Box<Response>> {
-    value.parse().map_err(|_| Box::new(concealed()))
+pub(crate) fn parse_draft_question_uuid(value: &str) -> Result<DraftQuestionUuid, Box<Response>> {
+    let parsed = Uuid::parse_str(value).map_err(|_| Box::new(concealed()))?;
+    (parsed.to_string() == value)
+        .then_some(DraftQuestionUuid::from_uuid(parsed))
+        .ok_or_else(|| Box::new(concealed()))
 }
 
 pub(crate) fn expected_edit_number(
@@ -918,6 +929,7 @@ fn publication_error(error: crate::question_publication::QuestionPublicationErro
             private_store_error(error)
         }
         crate::question_publication::QuestionPublicationError::IdentityCollisions
+        | crate::question_publication::QuestionPublicationError::BloomClassification(_)
         | crate::question_publication::QuestionPublicationError::ObjectStore(_)
         | crate::question_publication::QuestionPublicationError::SourceObjectRecordMismatch
         | crate::question_publication::QuestionPublicationError::QuestionIdIssuance(_) => {

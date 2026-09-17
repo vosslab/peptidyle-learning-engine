@@ -362,11 +362,17 @@ deferred/future descriptions with their current disposition.
   Native Star and Watch are keyboard-reachable without activation. The sandboxed WeBWorK preview
   retains its eight renderer-owned controls, without a protected-answer request or visible
   protected-answer text. The receipt reports no writes and no page errors. Root recorded frontend
-  build `fa08ad78` with exit 0. This is a bounded I04 improvement, not all UI closure: the native
-  capture displays its existing stem only and does not establish native response-control rendering
-  for every Question Type, a submission workflow, or broader interaction/accessibility coverage.
-- Current rendered disposition: partially corrected in bounded current-component rendering; the
-  finding remains open for broader Question-Type interaction coverage and fresh official capture.
+  build `fa08ad78` with exit 0.
+- Current source receipt (2026-09-17): native Question inspection now renders an answer-free,
+  disabled response preview for every supported native type: MC, MA, FIB, MULTI-FIB, NUM, MATCH,
+  ORDER, and HOTSPOT. The projection excludes answers, scoring, tolerances, matching keys,
+  feedback, hints, response state, and identifiers not needed to render the inert controls.
+  Independent review approved the boundary. Temporary 390px and 1280px inspections found no
+  document overflow and verified that preview controls remain inactive.
+- Current rendered disposition: corrected in bounded source and temporary component rendering for
+  both prompt-first inspection and all eight native preview types. Canonical connected replay and
+  the fresh official screenshot corpus remain pending; this receipt does not establish a
+  submission workflow or broader interaction/accessibility coverage.
 
 ### I05: publication success offers a generic destination
 
@@ -377,16 +383,20 @@ deferred/future descriptions with their current disposition.
   direct path to the newly Published Question.
 - Acceptance: identify the published object and offer a direct inspection action. Keep heading,
   breadcrumb, status, and next actions coherent with the resulting state. Verify the live transition.
-- Receipt (2026-09-16): independent review accepts the bounded connected desktop publication
-  transition. At `https://localhost:8067`, fake Elena published draft `D-56` as `GC4P-S7SG`,
-  Revision 1. The `Question published` heading receives DOM focus; neutral Question-authoring
-  navigation remains; Save draft is absent; and the exact title, public ID, and Revision are
-  visible. The direct `/library/GC4P-S7SG` link and keyboard Enter open that exact Question/title.
-  `/private/tmp/ple-publication-browser-proof-result.md` reports exit 0, and independent review
-  visually inspected both PNGs. This does not establish mobile, theme, broad accessibility,
-  failure, concurrency, or all-authoring behavior.
-- Current rendered disposition: corrected for the connected desktop publication transition; the
-  official corpus and broader responsive/theme matrices remain outside this receipt.
+- Historical pre-cutover receipt (2026-09-16): independent review accepted a bounded connected
+  desktop publication transition. It used retired Draft reference `D-56` before the universal
+  public-ID cutover, so it is not current post-cutover browser evidence. It showed publication as
+  `GC4P-S7SG`, Revision 1; DOM focus on `Question published`; absent Save draft; and a direct
+  Library link opened with Enter. `/private/tmp/ple-publication-browser-proof-result.md` reports
+  exit 0, and independent review inspected its two PNGs. It does not establish mobile, theme,
+  broad accessibility, failure, concurrency, all-authoring behavior, or current ID handling.
+- Current source receipt (2026-09-17): the editor's completion state now names the result
+  `Question published`, keeps the breadcrumb's current item as `Question`, and offers the direct
+  `Open published Question` link. The current post-cutover publication journey cannot yet produce
+  that state because publication requires the configured real Bloom classifier.
+- Current rendered disposition: source-corrected, with current post-cutover connected publication
+  evidence pending the real Bloom-classifier configuration. The official corpus and broader
+  responsive/theme matrices remain outside the historical receipt.
 
 ### I06: assessment identity and records are hard to scan
 
@@ -411,11 +421,12 @@ deferred/future descriptions with their current disposition.
   classification; it preserves entered values on a safe failure, reports busy creation accessibly,
   and returns focus on cancel. The user-facing explanation distinguishes copying reusable structure
   from altering the source Course Instance and names its first-Adoption result. Focused client
-  transport/decoder, TypeScript, ESLint, and Prettier checks pass. Canonical HTTPS browser evidence
-  used exactly one child-route POST to create actor-owned Private Revision-1 Blueprint `BPJD8H28`
-  from Course `CI0QR41X`, showed Adoption count 1, counted source Students only in the statistic,
-  copied no roster or delivery state, and left the source Course addressable and unchanged. No
-  screenshot refresh follows.
+  transport/decoder, TypeScript, ESLint, and Prettier checks pass.
+- Historical pre-cutover browser receipt: the canonical HTTPS run used `BPJD8H28` and `CI0QR41X`.
+  Those retired ID forms make it evidence of the interaction only, not current post-cutover browser
+  evidence. It showed one child-route POST created an actor-owned Private Revision 1 Blueprint,
+  Adoption count 1, source-Student-only statistics, no copied roster or delivery state, and an
+  unchanged source Course. No screenshot refresh follows.
 - Current editor receipt (2026-09-17): the already-authorized Assessment workspace now supplies
   its pathname-bound title to the persistent breadcrumb without another request. Question and
   Properties editors show the same title, release status, and Edit Number. Ordered entries use
@@ -607,9 +618,13 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
   generator, vendored WeBWorK/renderer, PLE demo, or official screenshot refresh changed. A future
   upstream regeneration can overwrite the artifact-only correction absent separately authorized
   producer repair. Receipt: `/private/tmp/ple-chromosome-spacing-receipts-20260916.md`.
-- Current rendered disposition: partially corrected in bounded renderer evidence; the canonical
-  PLE demo and official screenshot replay remain pending, and producer-level durability is not
-  claimed.
+- Receipt (2026-09-17): the completed shared producer repair preserves whitespace after a strict
+  colored span enclosed by `strong`. The normal matching and which-one generators regenerated the
+  two website artifacts and byte-identical PLE delivery copies. Local `pg_sha256` values identify
+  the generated bytes; immutable committed upstream URL/hash pins remain unchanged. A focused
+  source regression and visible-text/format checks passed.
+- Current rendered disposition: source artifacts and their producer are corrected. Canonical PLE
+  demo, renderer, and official screenshot replay remain pending.
 
 ### I15: preview height and control styling vary across surfaces
 
@@ -641,13 +656,14 @@ Coursework`; keyboard Enter reached the admitted Instructor Course-management de
   Work or grade request, and keyboard Star/Watch `aria-pressed` toggle and restore. No screenshot
   refresh follows. Receipt: `/private/tmp/ple-connected-webwork-preview-receipt-20260916.md`.
 
-C879 connected browser acceptance (2026-09-17) passed the visible Published-Question fork action,
-opened only the returned distinct private Draft for its active Instructor, and denied the second
-Instructor. Its connected PostgreSQL/server matrix also covered exact source attribution,
-retry/concurrency, distinct HMAC-issued identity, and prevalidation-publication denial. Separate
-3-by-3 PostgreSQL proof preserved each exact source Revision license across the three supported
-compatible CC licenses and rejected every mismatch through the approved minimal SQL. Temporary
-probes were removed; no screenshot refresh follows.
+Historical pre-cutover C879 browser receipt (2026-09-17) passed the visible Published-Question fork
+action, opened only the returned distinct private Draft for its active Instructor, and denied the
+second Instructor. Its connected PostgreSQL/server matrix recorded the retired HMAC-issued identity
+model, so it is not current post-cutover identity evidence. It remains bounded historical evidence
+for the fork interaction and source attribution. The separate 3-by-3 PostgreSQL proof preserved
+each exact source Revision license across the three supported compatible CC licenses and rejected
+every mismatch through the approved minimal SQL. Temporary probes were removed; no screenshot
+refresh follows.
 
 ### I16: Profile emphasizes avatar descriptions over account settings
 
@@ -686,14 +702,15 @@ probes were removed; no screenshot refresh follows.
 HG owns the approved hierarchy, editing authority, and name-validation requirements. Current source
 implements the settled Discipline lifecycle: Sysadmin-only stable UUID create, rename, retire, and
 restore; no delete; active-only new choices; visible/discoverable retired references; exact
-inheritance/copy; and concurrency locks. The compact Sysadmin page reports active/retired state.
-Final review and major-milestone actual-role SQL plus canonical browser acceptance remain open.
+inheritance/copy; and concurrency locks. Fresh PostgreSQL 17 actual-role proof closes the SQL row.
+The compact Sysadmin page reports active/retired state; canonical browser acceptance remains open.
 
-Current source also implements retained Question/Pool improvement threads and impact notices.
-Vetted Instructors participate in text-only threads; Question owners and Sysadmins administer
-Question activity, while Pool administration is Sysadmin-only. Sysadmins use read-only Library
-content controls outside those administration actions. Final review and major-milestone proof
-remain pending, and four-event Watch delivery is still in progress.
+Current source implements retained Question/Pool improvement threads and impact notices. Vetted
+Instructors participate in text-only threads; Question owners and Sysadmins administer Question
+activity, while Pool administration is Sysadmin-only. Sysadmins use read-only Library content
+controls outside those administration actions. Fresh PostgreSQL 17 actual-role proof closes private
+recipient delivery for Revision, fork, improvement-thread, and impact-notice events. Canonical
+browser notification presentation remains open.
 
 Remaining implementation questions and acceptance checks are:
 

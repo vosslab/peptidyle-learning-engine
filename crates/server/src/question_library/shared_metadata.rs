@@ -59,7 +59,7 @@ pub(super) async fn load_current_shared_metadata(
         Ok(request) => request,
         Err(_) => return invalid_response(StatusCode::UNPROCESSABLE_ENTITY),
     };
-    let Some(question_ids) = decode_question_ids(&state, request.question_ids) else {
+    let Some(question_ids) = decode_question_ids(request.question_ids) else {
         return invalid_response(StatusCode::UNPROCESSABLE_ENTITY);
     };
 
@@ -75,10 +75,7 @@ pub(super) async fn load_current_shared_metadata(
     }
 }
 
-fn decode_question_ids(
-    state: &QuestionLibraryRouteState,
-    values: Vec<String>,
-) -> Option<Vec<QuestionId>> {
+fn decode_question_ids(values: Vec<String>) -> Option<Vec<QuestionId>> {
     if values.is_empty() || values.len() > MAX_BULK_QUESTION_METADATA_ITEMS {
         return None;
     }
@@ -86,7 +83,7 @@ fn decode_question_ids(
     for value in values {
         // The shared exact checksum is parsed before the Store can perform any
         // existence, availability, or metadata lookup.
-        let question_id = verified_question_id(&state.question_id_issuer, &value)?;
+        let question_id = verified_question_id(&value)?;
         if !distinct.insert(question_id) {
             return None;
         }

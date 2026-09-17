@@ -50,23 +50,25 @@ pub(super) async fn promotion_boundary(
     transaction.commit().await.expect("fixture commit");
     admin.close().await;
     let initial = store
-        .load_blueprint_promotion(sysadmin, reference)
+        .load_blueprint_promotion(sysadmin, reference.clone())
         .await
         .expect("Sysadmin reads promotion");
     assert!(!initial.promoted, "new lineage defaults unpromoted");
     let head = store
-        .load_blueprint_course(token(), reference)
+        .load_blueprint_course(token(), reference.clone())
         .await
         .expect("owner head")
         .current_revision;
     for actor in [token(), student] {
         assert!(matches!(
-            store.load_blueprint_promotion(actor, reference).await,
+            store
+                .load_blueprint_promotion(actor, reference.clone())
+                .await,
             Err(StoreError::NotFound | StoreError::Forbidden)
         ));
         assert!(matches!(
             store
-                .set_blueprint_promotion(actor, reference, initial.metadata_etag, true)
+                .set_blueprint_promotion(actor, reference.clone(), initial.metadata_etag, true)
                 .await,
             Err(StoreError::Forbidden)
         ));
@@ -83,20 +85,20 @@ pub(super) async fn promotion_boundary(
             .all(|item| item.reference != reference)
     );
     let promoted = store
-        .set_blueprint_promotion(sysadmin, reference, initial.metadata_etag, true)
+        .set_blueprint_promotion(sysadmin, reference.clone(), initial.metadata_etag, true)
         .await
         .expect("Sysadmin promotes");
     assert!(promoted.promoted);
     assert_ne!(promoted.metadata_etag, initial.metadata_etag);
     assert!(matches!(
         store
-            .set_blueprint_promotion(sysadmin, reference, initial.metadata_etag, false)
+            .set_blueprint_promotion(sysadmin, reference.clone(), initial.metadata_etag, false)
             .await,
         Err(StoreError::RetryableTransaction | StoreError::Conflict)
     ));
     assert_eq!(
         store
-            .set_blueprint_promotion(sysadmin, reference, promoted.metadata_etag, true)
+            .set_blueprint_promotion(sysadmin, reference.clone(), promoted.metadata_etag, true)
             .await
             .expect("no-op promotion"),
         promoted
@@ -121,7 +123,7 @@ pub(super) async fn promotion_boundary(
     );
     assert_eq!(
         store
-            .load_blueprint_course(token(), reference)
+            .load_blueprint_course(token(), reference.clone())
             .await
             .expect("unchanged Revision")
             .current_revision,

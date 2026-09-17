@@ -181,7 +181,7 @@ async fn matching_blueprint(
         "ordinary Blueprint Course has a partial Genetics catalog name collision"
     );
     store
-        .load_blueprint_course(session, summary.reference)
+        .load_blueprint_course(session, summary.reference.clone())
         .await
         .context("loading same-name Genetics Blueprint before publication")
         .map(Some)
@@ -263,7 +263,7 @@ async fn create_blueprint(
 ) -> Result<(question_model::BlueprintCourseReference, BlueprintRevision)> {
     let checksum = request_checksum(input)?;
     let receipt = store
-        .create_blueprint_course(session, checksum, input.clone())
+        .create_blueprint_course(session, checksum, input.clone(), Default::default())
         .await
         .context("creating canonical Genetics Blueprint Course")?;
     ensure!(
@@ -271,7 +271,7 @@ async fn create_blueprint(
         "canonical Genetics Blueprint creation did not return Revision 1"
     );
     let loaded = store
-        .load_blueprint_course(session, receipt.blueprint_revision.reference)
+        .load_blueprint_course(session, receipt.blueprint_revision.reference.clone())
         .await
         .context("reloading canonical Genetics Blueprint Course")?;
     ensure!(

@@ -214,8 +214,7 @@ try {
       "myInactiveCourses",
       "searchPublicBlueprintCourses",
     ],
-    "the current Instructor Product route retains every required Courses choice even when " +
-      "its target page is unfinished",
+    "the current Instructor Product route retains every required Courses choice",
   );
   assert.deepEqual(
     await currentCase
@@ -238,15 +237,15 @@ try {
       },
       {
         id: "myActiveCourses",
-        availability: "unavailable",
-        ariaDisabled: "true",
-        href: null,
+        availability: null,
+        ariaDisabled: null,
+        href: "/instructor",
       },
       {
         id: "myInactiveCourses",
-        availability: "unavailable",
-        ariaDisabled: "true",
-        href: null,
+        availability: null,
+        ariaDisabled: null,
+        href: "/instructor/courses/inactive",
       },
       {
         id: "searchPublicBlueprintCourses",
@@ -255,7 +254,7 @@ try {
         href: "/blueprint-courses/search/public",
       },
     ],
-    "working Instructor choices remain links while unfinished choices stay visible and unusable",
+    "implemented Course choices remain links while future Instructor choices stay visible and unusable",
   );
   assert.deepEqual(
     await currentCase
@@ -300,8 +299,20 @@ try {
   );
   assert.equal(
     await deferredBreadcrumb.locator('nav[aria-label="Breadcrumb"]').count(),
-    0,
-    "a deferred course scope exposes no guessed breadcrumb landmark or identifier",
+    1,
+    "a deferred course scope retains the known role-home breadcrumb landmark",
+  );
+  assert.deepEqual(
+    await deferredBreadcrumb.locator('nav[aria-label="Breadcrumb"] li').allTextContents(),
+    ["Home", "Course"],
+    "a deferred course scope exposes a stable human-readable current label",
+  );
+  assert.equal(
+    await deferredBreadcrumb
+      .locator('nav[aria-label="Breadcrumb"] [aria-current="page"]')
+      .getAttribute("href"),
+    "/courses/CI7K3M2QAZ",
+    "the deferred current breadcrumb links to the canonical current Course URL",
   );
   const deferredBreadcrumbBox = await deferredBreadcrumb.boundingBox();
   const deferredRibbonBox = await currentCase.locator(".ple-app-ribbon").boundingBox();
@@ -357,8 +368,8 @@ try {
   );
   assert.deepEqual(
     await currentCase.locator('nav[aria-label="Breadcrumb"] li').allTextContents(),
-    ["Courses", "Course CI7K3M2QAZ: Molecular Biology"],
-    "the Course root has an ordered linked ancestor and current title",
+    ["Home", "Molecular Biology"],
+    "the resolved Course root omits its public ID from the human-readable current title",
   );
   assert.equal(
     await currentCase.locator('nav[aria-label="Breadcrumb"] [aria-current="page"]').count(),
@@ -367,8 +378,8 @@ try {
   );
   assert.equal(
     await currentCase.locator('nav[aria-label="Breadcrumb"] a').first().getAttribute("href"),
-    "/",
-    "the breadcrumb ancestor uses the canonical Courses path",
+    "/instructor",
+    "the breadcrumb ancestor uses the canonical role-home path",
   );
   await assertBreadcrumbPreludeStyle(deferredBreadcrumb, "desktop");
   await page.setViewportSize({ width: 320, height: 640 });
@@ -686,8 +697,8 @@ try {
     "unknown routes reserve no phantom Ribbon row",
   );
 
-  await page.evaluate(() => window.ribbonM10.currentNavigate("/courses"));
-  await waitForPath(page, "current-production", "/courses");
+  await page.evaluate(() => window.ribbonM10.currentNavigate("/instructor"));
+  await waitForPath(page, "current-production", "/instructor");
   await currentCase.getByRole("button", { name: "Profile" }).click();
   await currentCase.getByRole("menuitem", { name: "Sign out" }).click();
   await waitForPath(page, "current-production", "/sign-in");
@@ -871,7 +882,8 @@ try {
   );
   await page.waitForFunction(
     () =>
-      window.ribbonM10.fixturePathname() === "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF" &&
+      window.ribbonM10.fixturePathname() ===
+        "/instructor/courses/CI7K3M2QAZ/assessments/A9D2RX5AF" &&
       document.querySelector(
         '[data-m10-case="fixture-shell"] [data-ribbon-task-row="reserved"]',
       ) !== null,

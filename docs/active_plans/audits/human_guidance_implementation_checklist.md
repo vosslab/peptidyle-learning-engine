@@ -945,7 +945,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] The Student interface should focus on current Courses, Coursework, and work that needs attention.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` lists current courses; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` lists assigned work.
 - [ ] **Coursework** is the Student-facing collective term for Regular Assignments, Practice Question
-      Assignments, Bonus Assignments, Quizzes, and Exams.
+  Assignments, Bonus Assignments, Quizzes, and Exams.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` labels the collective section and its loading and empty states "Coursework," while each item receives one canonical Type from the typed projection.
   - Mismatch: the actual PostgreSQL landing Store proved the same closed Type column with Regular Assignment and the compiled SolidJS/mock-API browser evidence was accepted, but the connected Student HTTP workflow was not run; this broad Student-facing terminology row remains runtime-unverified.
 - [ ] Student-facing interfaces should use the specific Assessment Type when referring to an individual item rather than calling it an Assessment.
@@ -962,7 +962,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Student workflows should work well on laptops, portrait tablets, narrow phones, and square displays.
   - Mismatch: needs runtime evidence for the four required Student viewport classes; `tests/playwright/student_course_entry_m6_evidence.mjs` does not cover them.
 - [ ] Student layouts should adapt smoothly at intermediate widths, with readable long titles and
-      controls that wrap or rearrange in the task's reading order.
+  controls that wrap or rearrange in the task's reading order.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Every Student browser action should be usable with the keyboard alone.
   - Mismatch: needs keyboard-only journey evidence; `src/pages/assignment_attempt_page.tsx` has keyboard-operable controls but no complete Student journey test.
@@ -986,8 +986,11 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Students should be able to see their active Courses and Coursework from the main navigation.
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` provides the current-Course index; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` provides its work.
 - [ ] Course invitations should show the Course name and relevant Instructor and term information
-      before the Student accepts the invitation.
-  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+  before the Student accepts the invitation.
+  - Verification pending: source and independent review show Course, Instructor, and term before acceptance.
+  - Verification pending: the self-only projection omits identities; transient states conceal context.
+  - Verification pending: actual-role PostgreSQL covers self, foreign, expired, accepted, and enrolled invitations.
+  - Verification pending: browser confirms pre-accept context and transient concealment; keep unchecked until both gates pass.
 - [x] Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
   - Evidence (source): `src/pages/student_coursework_presentation.ts` `studentCourseworkDisplay` maps the server-owned start decision, completion, and resumability to upcoming, available, in-progress, completed, or missed learner states.
   - Evidence (test): `tests/test_student_coursework_presentation.mjs` `Coursework display distinguishes resumable, non-resumable unfinished, and completed work` exercises the pure state projection.
@@ -998,7 +1001,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Keep Coursework entries compact in height so Students can scan several items at once.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Keep essential Coursework information and the main action visible, with fuller access and timing
-      details available through progressive disclosure.
+  details available through progressive disclosure.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - N/A Coursework lists may provide filters for **Regular Assignments**, **Practice Question Assignments**,
   **Bonus Assignments**, **Quizzes**, and **Exams**.
@@ -1006,21 +1009,21 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Each Coursework item should clearly show its Assessment Type using its label and Type icon.
   - Evidence (source): `src/pages/student_course_landing_page.tsx` `AssessmentCard` always renders `typePresentation().label` beside the guaranteed bundled `typePresentation().icon`; semantic Type color is supplementary.
 - [x] Before starting Coursework, Students should see its title, Type, Question count, points possible,
-      time limit, and previous Attempts.
+  time limit, and previous Attempts.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` presents the title, specific Type, Question count, points possible, time limit, and previous Attempts before start.
   - Evidence (source): `src/components/student_assessment_presentation.tsx` `StudentAssessmentStartFacts` owns the compact Question, points, and time-limit facts.
   - Evidence (runtime): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` was exercised by accepted isolated actual-server/exact-main Student proof `/private/tmp/ple-course-empty-artifacts.JCFLm9` after a real roster import/claim. It opened a Released direct Practice Assessment before Start and showed title, Practice Type, one Question, one point, the exact one-hour limit, and an explicit zero-previous-Attempt state; an Unreleased sibling was omitted and an outsider received 404. A separate accepted native Student HTTP/browser run `/private/tmp/ple-course-empty-artifacts.ONrLSK` whole-submitted a real graded 1/1 Attempt, then reopened the overview before starting another. The same six facts included an actual "Previous attempts" Attempt 1 Submitted link; its clicked history showed recorded PKU response and 1/1 score. The overview's previous-Attempt score is optional under the current DTO, so this row does not require that optional value or claim every Student viewport.
 - [ ] Present the "Before you start" settings as a compact summary. Keep each label beside its value
-      in aligned rows, using a compact grid when width permits.
+  in aligned rows, using a compact grid when width permits.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Group Question count and points together, and group availability, deadlines, and Attempt rules
-      into clearly readable sections with concise spacing.
+  into clearly readable sections with concise spacing.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Express unset or unlimited settings in Student language, such as "No closing time" or
-      "Unlimited Attempts", and show the time zone once beside the timing group.
+  "Unlimited Attempts", and show the time zone once beside the timing group.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 - [ ] Keep the start action close to this summary so Students can review the rules and begin with
-      minimal scrolling.
+  minimal scrolling.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 #### Student Coursework interface
@@ -1028,7 +1031,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Students see one Question at a time while completing Coursework.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders one keyed current presentation in one `article.question-card`.
 - [x] While completing Coursework, navigation should provide access to every Question and its saved
-      status, with direct jumps between Questions.
+  status, with direct jumps between Questions.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` renders every position, saved-status label, and position button.
   - Evidence (test): `tests/test_student_assessment_attempt_navigation.mjs` `Student Question navigation renders ordered, answer-free states with one current Question`.
 - [x] Leaving a Question and returning should preserve its saved response.
@@ -1045,27 +1048,27 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Submission status should be obvious and use plain language.
   - Evidence (source): `src/pages/assessment_attempt_page.tsx` `AttemptExperience` renders "Submitting Assessment...", "Your answers were accepted", and plain-language save or submission errors from the submission state.
 - [x] Present Question navigation as a compact horizontal row of numbered controls, with distinct
-      current-Question and saved-status cues.
+  current-Question and saved-status cues.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [x] For long Question sets, use forum-style pagination with Previous and Next controls, the first
-      and last Question numbers, a range around the current Question, and ellipses for omitted ranges.
+  and last Question numbers, a range around the current Question, and ellipses for omitted ranges.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [x] Adapt the visible number range to the available width while keeping every Question reachable.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [x] Keep the Question prompt and response controls near the top of the working area. Give the
-      title, timing summary, and Question navigation only the space needed to orient Students.
+  title, timing summary, and Question navigation only the space needed to orient Students.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
 - [ ] Make the current Question, saved-response status, and keyboard-focused control visually distinct
-      so Students can recognize where they are, what work is saved, and which action they will activate.
+  so Students can recognize where they are, what work is saved, and which action they will activate.
   - Evidence (source): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation` provides numbered current/saved controls, width-adaptive first/last/range pagination, ellipses, and Previous/Next.
   - Evidence (runtime): `src/components/student_assessment_attempt_navigation.tsx` `StudentAssessmentAttemptNavigation`, supplied 2026-09-16 receipts `/private/tmp/ple-compact-student-navigation.md` and independent acceptance `/private/tmp/ple-compact-navigation-independent-review.md`: actual four-Question 1280/390px saved-response navigation and styled 250-Question harness keyboard traversal, first/last jumps, width adaptation, and reachable local scrolling at 200% enlargement. This is bounded Attempt-navigation evidence, not full Student/browser/theme acceptance.
   - Verification pending: accepted active-navigation current/saved/focus cues are partial proof; meaningful saved-response and keyboard-focus distinction across native response controls/actions and submitted-state presentation still need scoped rendered verification. The prior styling-only row is not acceptance of this changed whole wording.
 - [ ] Label response actions by their effect, such as "Save response" and "Clear response", so Students
-      can distinguish recording their work from changing it or submitting the whole Coursework.
+  can distinguish recording their work from changing it or submitting the whole Coursework.
   - Evidence (source): `src/components/question_response_controls/common.tsx` `Actions` labels its shared reset action `Restore initial response`, matching the mount-captured response restored by each native control; `src/components/question_response_controls/ordering.tsx` `OrderingResponse` retains its distinct `Reset order` label.
   - Evidence (runtime): temporary isolated native-control proof `/private/tmp/ple-response-restore-label.md` edits a nonempty mount baseline, activates `Restore initial response`, and observes the initial response again without an application backend. This bounded component proof does not establish a full Student workflow or persistence behavior.
   - Verification pending: this correction establishes the shared reset label's local effect, but rendered save/change/submission distinction across the whole Student Coursework workflow, including saved-status and submitted-state presentation, remains unverified.
@@ -1079,7 +1082,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Completed Coursework should remain easy to find and review.
   - Evidence (source): `src/pages/assessment_overview_page.tsx` `AssessmentOverviewPage` lists and links previous Attempts; `src/pages/assessment_attempt_summary_page.tsx` `AssessmentAttemptHistoryContent` presents the selected Attempt's score and recorded work.
 - [ ] Group each reviewed Question's number, result, points, recorded response, and permitted feedback
-      into a compact, clearly separated unit.
+  into a compact, clearly separated unit.
   - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
 
 ### Sysadmin interface
@@ -1123,7 +1126,6 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] The complete Sysadmin Ribbon task layout does not have a locked-in design yet.
   - Reason: HG: no locked-in design.
   - Mismatch: no complete Sysadmin Ribbon task layout can be verified until the design is locked.
-
 ## Data and history
 
 - [ ] Answers, keys, grading, and correctness decisions should stay on the server, out of reach of **Students**.
@@ -1139,37 +1141,103 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 
 ### Human-facing reference IDs
 
-- [ ] Human-facing reference IDs should be short, opaque, easy to communicate, and should not reveal creation order, counts, database keys, ownership, or other object metadata.
-  - Evidence (source): `crates/question_model/src/public_route.rs` defines opaque typed read/use formats and `src/navigation/public_route.ts` accepts only their typed forms at browser route boundaries.
-  - Mismatch: no connected creation/allocation proof establishes cryptographically random, nonsequential references across all required objects.
-- [ ] A public ID is one universal, canonical identifier, not a display representation of another identifier. Store and use the exact same ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
-  - Verification pending: current implementation inventory is required.
-- [ ] Preserve the canonical ID exactly across system boundaries. Parsing, serialization, API transport, persistence, and display do not add, remove, reformat, or translate characters.
-  - Verification pending: current implementation inventory is required.
-- [ ] `Z` in an ID format denotes the embedded checksum character. It is part of the ID, not literal `Z` or separate metadata.
-  - Verification pending: current implementation inventory is required.
-- [ ] Calculate the checksum from every other uppercase canonical-ID character, including prefixes and excluding only separators and the checksum position: `XXXX-ZXXX` -> `XXXXXXX`; `BPXXXXXXXZ` -> `BPXXXXXXX`; `CIXXXXXXXZ` -> `CIXXXXXXX`; `UXXXXXXXZ` -> `UXXXXXXX`; `AXXXXXXXZ` -> `AXXXXXXX`.
-  - Verification pending: current implementation inventory is required.
-- [ ] Use public unsalted SHA-256: map the high five bits of digest byte 0 through the Crockford alphabet.
-  - Verification pending: current implementation inventory is required.
-- [ ] Validate the embedded checksum whenever a public ID is entered. It detects typos; it does not authenticate or authorize.
-  - Verification pending: current implementation inventory is required.
-- [ ] Blueprint Course `BPXXXXXXXZ`, Course Instance `CIXXXXXXXZ`, Assessment `AXXXXXXXZ`, and Account `UXXXXXXXZ` references use seven cryptographically random Crockford Base32 characters plus final embedded checksum `Z`. `Z` is the calculated checksum placeholder, not a literal character. The random namespace is 32^7 = 34,359,738,368; the checksum adds no identity space.
-  - Verification pending: current implementation inventory is required.
-- [ ] ID generation enforces uniqueness and retries random collisions.
-  - Mismatch: no connected common human-reference allocator/retry collision proof exists.
-- [ ] Internal, non-user-facing objects use native UUID identifiers. Create a public reference ID only when a human-facing workflow needs to display, search, communicate, or support that object.
-  - Mismatch: Current private route-token inventory needs a workflow-by-workflow audit before a reference is exposed or retained as human-facing.
-- [ ] Account `U` references are Sysadmin support references and are not automatically exposed to Students or Instructors.
-  - Evidence (source): accepted source review found `U` parsing/use limited to authenticated Account-management paths; no Student or Instructor projection was identified in that review.
-  - Mismatch: full cross-route authorization and creation-boundary proof remains outstanding.
-- [ ] Published Questions and Question Pools retain their existing public `AAAA-ZBBB` IDs.
-  - Mismatch: Published Question IDs use `AAAA-ZBBB`, but published Question Pool identities are not complete.
+- [ ] Human-facing reference IDs should be short, opaque, and easy to communicate.
+  - Verification pending: current source defines compact opaque forms, but rendered display, entry, copy, and support workflows have not been audited for ease of communication.
+- [x] Human-facing reference IDs should not reveal creation order, counts, database keys, ownership, or other object metadata.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `crockford_reference_suffix` and `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` derive public identities from operating-system randomness.
+- [x] A public ID is the one universal, canonical human-facing identifier for a PLE object that needs one.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `public_id_reservation` records one canonical value per public object kind, while the owning tables store that value directly.
+- [ ] Store and use the exact same public ID in the database, Rust, JSON, URLs, object storage, hashes, logs, and browser UI.
+  - Verification pending: SQL, Rust, generated TypeScript, and route contracts use exact canonical values, but object-storage, hash, log, and every browser projection still need a complete inventory.
+- [ ] Preserve the canonical ID exactly across system boundaries.
+  - Verification pending: typed SQL, Rust, and browser validators are exact, but every transport, persistence, logging, object-storage, and display boundary has not been inventoried.
+- [ ] Parsing, serialization, API transport, persistence, and display do not reformat or translate the canonical ID.
+  - Verification pending: strict Rust and browser parsing plus canonical SQL storage are implemented; a complete serialization, API, persistence, and display inventory remains pending.
+- [x] In ID format notation, `X` denotes a cryptographically random Crockford Base32 character.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `crockford_reference_suffix` and `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` mint each `X` from operating-system randomness.
+- [x] In ID format notation, `Z` denotes the calculated checksum character.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` calculates `Z` from the canonical checksum input.
+- [x] Both `X` and `Z` represent characters stored as part of the canonical ID.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `is_canonical_prefixed_public_id` and `schemas/base_schema/question_lineages.sql` `published_question_id_is_crockford_shape` validate the complete stored values.
+- [x] `Z` is not a literal character or separate metadata.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `assign_human_reference` appends the calculated checksum directly to the stored canonical ID.
+- [x] Public IDs use the Crockford Base32 alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QUESTION_ID_ALPHABET` is the shared public-ID alphabet used by the Rust issuers and generated browser contract.
+- [x] Public IDs have one canonical uppercase ASCII form.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId::from_str` and `crates/question_model/src/public_route.rs` `impl_public_reference` reject every noncanonical form.
+- [x] Human-entered IDs may use lowercase Crockford characters.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicReference` uppercase only explicit human-entry values before validation.
+- [x] Human-entered IDs may use `O` or `o` for `0`.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicReference` map the Crockford `O` alias to `0` before validation.
+- [x] Human-entered IDs may use `I`, `i`, `L`, or `l` for `1`.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicReference` map the Crockford `I` and `L` aliases to `1` before validation.
+- [x] Normalize human-entered IDs to canonical form, then validate the canonical syntax and checksum at the human-input boundary.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` and `normalizeHumanEnteredPublicReference` normalize explicit human entry and then invoke the generated exact validators.
+- [ ] Store, transmit, display, copy, and generate only the canonical form.
+  - Verification pending: strict generators, model parsers, SQL constraints, and browser validators are implemented, but every storage, transport, display, and copy surface has not been inventoried.
+- [x] Calculate the checksum from the ASCII bytes of every other uppercase canonical-ID character.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` hashes caller-supplied canonical ASCII characters after typed constructors exclude separators and checksum positions.
+- [x] Include type prefixes in the checksum input.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `impl_public_reference` builds checksum input from the exact type prefix plus seven random characters.
+- [x] Exclude only separators and the checksum position from the checksum input.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId::from_str` excludes the hyphen and checksum position, while `crates/question_model/src/public_route.rs` `impl_public_reference` excludes only final `Z`.
+- [x] `XXXX-ZXXX` has checksum input `XXXXXXX`.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `impl std::str::FromStr for QuestionId` concatenates the four characters before the hyphen with the three characters after `Z`.
+- [x] For `BPXXXXXXXZ`, `CIXXXXXXXZ`, `UXXXXXXXZ`, and `AXXXXXXXZ`, calculate the checksum from every preceding character.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `impl_public_reference` hashes each literal prefix followed by its seven random Crockford characters.
+- [x] Use public unsalted SHA-256 for the checksum.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` applies SHA-256 directly to the canonical checksum input.
+- [x] Map the high five bits of SHA-256 digest byte 0 through the Crockford alphabet.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` shifts digest byte 0 by three bits and indexes `QUESTION_ID_ALPHABET`.
+- [ ] Validate the public-ID syntax and embedded checksum before database lookup or resolution.
+  - Verification pending: typed Rust and browser parsing plus canonical SQL predicates exist, but a complete lookup and resolution call-site inventory remains pending.
+- [x] The embedded checksum detects typos.
+  - Evidence (test): `crates/question_model/src/public_route.rs` `public_ids_are_exact_checksum_validated_values` accepts canonical vectors and rejects altered checksum characters for every current public-ID family.
+- [x] Blueprint Course IDs use `BPXXXXXXXZ`.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `BlueprintCourseReference` and `schemas/base_schema/blueprints.sql` `blueprint_course.public_reference` enforce the exact form.
+- [x] Course Instance IDs use `CIXXXXXXXZ`.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `CourseInstanceReference` and `schemas/base_schema/course_core.sql` `course_instance.public_reference` enforce the exact form.
+- [x] Assessment IDs use `AXXXXXXXZ`.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `AssessmentReference` and `schemas/base_schema/assessments.sql` `assessment.public_reference` enforce the exact form.
+- [x] Account IDs use `UXXXXXXXZ`.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `AccountReference` and `schemas/base_schema/accounts.sql` `account.public_reference` enforce the exact form.
+- [x] Each prefixed public ID uses seven cryptographically random Crockford Base32 characters and a final embedded checksum.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `assign_human_reference` generates seven random characters, calculates the checksum over prefix plus random identity, and stores the result.
+- [x] Each prefixed public-ID random namespace contains 32^7 = 34,359,738,368 values.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `PUBLIC_REFERENCE_RANDOM_LENGTH` fixes seven random positions over the 32-character `QUESTION_ID_ALPHABET`.
+- [x] The checksum adds no identity space.
+  - Evidence (source): `crates/question_model/src/public_route.rs` `impl_public_reference` derives the checksum deterministically from the prefix and seven-character random identity.
+- [x] ID generation enforces global uniqueness across all public IDs and retries random collisions.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `public_id_reservation` provides one global collision boundary, and `assign_human_reference` retries the shared `QP001` collision signal.
+- [x] Once issued, a public ID permanently identifies that object.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `public_id_reservation_is_permanent` rejects reservation update or deletion.
+- [x] Never reuse a public ID for another object, including after deletion or archival.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `public_id_reservation` is an append-only global registry retained independently of object lifecycle state.
+- [ ] Give an internal object a human-facing reference ID when a useful workflow needs it.
+  - Verification pending: the current public-ID families are explicit, but every internal identity and human-facing workflow has not been audited against the useful-workflow boundary.
+- [ ] Useful human-facing ID workflows include display, search, communication, and support.
+  - Verification pending: current display, search, communication, and support surfaces need a workflow-by-workflow identity inventory.
+- [ ] Other internal objects use native UUID identifiers.
+  - Verification pending: many internal records use UUIDs, but the complete internal-identity and route-token inventory remains pending.
+- [x] An object with a public ID may also retain an internal UUID primary key.
+  - Evidence (source): `schemas/base_schema/course_core.sql` `course_instance`, `schemas/base_schema/assessments.sql` `assessment`, and `schemas/base_schema/question_pools.sql` `question_pool` retain UUID keys alongside public IDs.
+- [ ] Internal UUIDs never substitute for or appear as public identities.
+  - Verification pending: owning tables separate UUID primary keys from public references, but every API, URL, export, log, and browser projection has not been inventoried.
+- [ ] Account `U` references are Sysadmin support references.
+  - Verification pending: `crates/question_model/src/public_route.rs` `AccountReference` exists, but the complete Sysadmin support workflow has not been verified as its sole human-facing use.
+- [ ] Account `U` references are not automatically exposed to Students or Instructors.
+  - Verification pending: prior source review found no ordinary Student or Instructor projection; full cross-route and browser-output verification remains pending.
+- [x] Published Questions and Question Pools use the public `XXXX-ZXXX` format.
+  - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_id_is_crockford_shape` and `schemas/base_schema/question_pools.sql` `question_pool.public_question_pool_id` enforce the same syntax and checksum.
+- [x] Published Questions and Question Pools share the same public-ID namespace.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `public_id_reservation` uses one primary key for both `published_question` and `question_pool` reservations.
+- [x] An `XXXX-ZXXX` value identifies either a Published Question or a Question Pool, never both.
+  - Evidence (source): `schemas/base_schema/public_references.sql` `reserve_public_id` rejects a second object-kind reservation for an already issued canonical value.
 
 ### Content classification
 
 - [ ] PLE uses one shared global content classification vocabulary for **Courses** and **Library
-      Objects**.
+  Objects**.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Every Course has exactly one **Discipline**.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
@@ -1180,14 +1248,14 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] **Topic** and **Subtopic** are optional for Library Objects.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Courses retain the hierarchy because their classification supports Course organization, search,
-      filtering, and discovery.
+  filtering, and discovery.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Content classification uses **Discipline** -> **Subject** -> **Topic** -> **Subtopic**.
   - Mismatch: Partial SQL foundation gives Subject-Discipline associations and one-parent Topic/Subtopic relationships, but no complete content classification behavior exists.
 - [ ] **Discipline** is the broad academic field, such as Biology, Chemistry, or Mathematics.
   - Mismatch: `content_discipline` exists as an owner-only SQL vocabulary table, but authenticated management and content use remain absent.
 - [ ] **Subject** identifies a global area associated with one or more Disciplines, such as Genetics,
-      Biochemistry, or Ecology.
+  Biochemistry, or Ecology.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Topic** identifies a major area within a Subject, such as Enzyme Inhibition or Chromosomal Inheritance.
   - Mismatch: `content_topic.subject_uuid` has a mandatory parent foreign key, but Topic management and content use remain absent.
@@ -1202,7 +1270,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] A Subtopic belongs to one Topic.
   - Mismatch: The SQL foreign key enforces one Subtopic parent, but authenticated management and complete product behavior remain open.
 - [ ] Course and Library Object selections follow the hierarchy: the Subject is associated with the
-      selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
+  selected Discipline, the Topic belongs to that Subject, and the Subtopic belongs to that Topic.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Courses and Library Objects select from the same shared global vocabulary.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
@@ -1215,10 +1283,10 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] **Instructors** may create new Subjects within a selected Discipline.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] When an Instructor attempts to create a Subject whose globally unique name already exists, PLE
-      offers the existing Subject.
+  offers the existing Subject.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] PLE requires explicit Instructor acceptance before associating the existing Subject with the
-      selected Discipline.
+  selected Discipline.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Creating or selecting vocabulary should fit naturally into the classification workflow.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
@@ -1229,12 +1297,12 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [ ] Classification selection, browsing, and filtering begin with Discipline.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Course and Library Object classification follow Discipline -> Subject -> Topic -> Subtopic,
-      progressively narrowing the available choices at each level.
+  progressively narrowing the available choices at each level.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] Selecting a Discipline limits Subject choices to Subjects associated with that Discipline.
   - Mismatch: `content_subject_discipline` stores associations, but no authenticated selector limits Subject choices.
 - [ ] After selecting a Subject, search interfaces may offer an explicit option to include content
-      associated with that Subject across its other Disciplines.
+  associated with that Subject across its other Disciplines.
   - Verification pending: Current Human Guidance requirement is new or changed; independent implementation audit and applicable proof remain pending.
 - [ ] **Tags** provide flexible labels outside the Discipline, Subject, Topic, and Subtopic hierarchy.
   - Mismatch: Tag storage and content use are not implemented by this vocabulary foundation.
@@ -1298,31 +1366,31 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 ### Course retention and lifecycle
 
 - [ ] Course retention should follow Course Instance dates and its six-month Active lifetime rather than
-      a fixed academic calendar.
+  a fixed academic calendar.
   - Mismatch: Course Instance storage has no six-month Active lifetime or retention deadline.
 - [ ] The latest Assessment deadline ends normal teaching and starts the Course Instance's FERPA
-      retention clock.
+  retention clock.
   - Mismatch: Assessment deadlines exist, but no Course FERPA retention clock is derived from them.
 - [x] Creating or extending a later Assessment deadline may move those dates, but not beyond the
-      six-month Active lifetime.
+  six-month Active lifetime.
   - Evidence (source): `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies` lock the Course first, reject a Due date after its immutable `active_until_at`, and invoke `ple_data.synchronize_course_assessment_deadline` after an accepted change.
   - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` stores the current maximum Assessment Due date and moves the active Course retention anchor to that date, or to `active_until_at` when no Due date remains.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessments.sql` `ple_data.save_assessment`, `ple_data.save_assessment_inline`, and `ple_data.save_assessment_policies`, covering release, a cleared last Due date, cap rollback, stale CAS, wrong-Instructor denial, deterministic concurrent saves to two Assessments, an archive race, and frozen archived/deleted retention anchors.
 - [ ] Starting the FERPA retention clock does not itself notify, archive, hide, or delete Student data.
   - Mismatch: The FERPA retention-clock transition is absent.
 - [ ] The configured FERPA retention policy determines the later notice, archive, recovery, and
-      permanent deletion transitions.
+  permanent deletion transitions.
   - Mismatch: No configured FERPA retention policy or its transitions exists.
 - [ ] PLE warns the **Instructors** before the Course Instance becomes Inactive six months after
-      creation.
+  creation.
   - Mismatch: No six-month inactivity transition or Instructor warning exists.
 - [x] The six-month Active limit prevents Course reuse or deadline extensions from indefinitely delaying
-      FERPA retention and deletion.
+  FERPA retention and deletion.
   - Evidence (source): `schemas/base_schema/course_core.sql` `ple_data.enforce_course_instance_retention_schedule` derives and preserves the immutable six-month `active_until_at`; `schemas/base_schema/assessments.sql` `ple_data.save_assessment` and its sibling save functions reject every saved Due date beyond that cutoff.
   - Evidence (source): `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline` bounds the active retention anchor by the accepted current maximum Due date or that immutable cutoff and does not move an archived or deleted anchor.
   - Evidence (runtime): accepted independent PostgreSQL 17 actual-API proofs exercised `schemas/base_schema/assessment_deadline_sync.sql` `ple_data.synchronize_course_assessment_deadline`, rejecting over-cap saves without partial state, keeping concurrent current deadlines synchronized, and preserving the retention anchor after archive while later Assessment facts changed.
 - [ ] Course inactivity and FERPA deletion are separate transitions; becoming Inactive does not itself
-      delete Student records.
+  delete Student records.
   - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` separates `ple_api.archive_course_student_records` from `ple_api.delete_course_student_records`; the latter requires the archived state and performs the deletion transaction.
   - Verification pending: the 2026-09-16 actual-role PostgreSQL 17 gate exercised archive then bounded deletion, but notification, configured intervals, worker scheduling, and connected interface behavior remain open.
 - [ ] Retention should work equally for semesters, quarters, summer Courses, and other academic calendars.
@@ -1370,7 +1438,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] An Edit Number is only a counter and does not identify a stored historical object.
   - Evidence (source): `schemas/base_schema/assessment_operations.sql` `assessment_edit_number` is a current-state concurrency field rather than a revision foreign key.
 - [ ] Question, Question Pool, and Blueprint Revision Numbers start at 1 and increase sequentially for
-      each object.
+  each object.
   - Mismatch: Question and Blueprint revisions have positive sequential numbers, but Question Pools have no Revision Number.
 - [ ] A Revision Number identifies a specific immutable Revision stored by PLE.
   - Mismatch: Question and Blueprint Revision Numbers identify immutable rows, but the absent Question Pool Revision leaves this general Revision Number behavior incomplete.
@@ -1395,8 +1463,12 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Immutable Question source and Question assets use SHA-256 checksums where needed to verify their stored contents.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `source_object_checksum` binds immutable Question-source contents to SHA-256 object records.
   - Evidence (source): `schemas/base_schema/question_assets.sql` `public_object_checksum` binds immutable Question-asset contents to SHA-256 object records.
-- [ ] A public-ID checksum is one embedded character derived from other ID characters; a stored-content checksum is a full SHA-256 value verifying exact bytes. They are not interchangeable, and neither authorizes access.
-  - Verification pending: current implementation inventory is required.
+- [x] A public-ID checksum is one embedded character derived from other ID characters.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `public_id_checksum_character` derives one Crockford character from the canonical ID characters.
+- [x] A stored-content checksum is a full SHA-256 value verifying exact bytes.
+  - Evidence (source): `crates/question_model/src/student_work/source_object_checksum.rs` `SourceObjectChecksum` accepts exactly one 64-character lowercase SHA-256 hexadecimal value.
+- [x] Public-ID checksums and stored-content checksums are not interchangeable.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` embeds one Crockford checksum character, while `crates/question_model/src/student_work/source_object_checksum.rs` `SourceObjectChecksum` is a separate full-digest type with incompatible validation.
 
 ### Dates and time zones
 
@@ -1418,7 +1490,6 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_student_assessment_access` returns stored deadlines and separately reads `display_time_zone`.
 - [x] Changing a display time zone changes how a deadline is shown, not the deadline itself.
   - Evidence (source): `schemas/base_schema/assessment_attempt_access.sql` `read_student_assessment_attempt_context` returns `display_time_zone` separately from `expires_at_millis`.
-
 ## Question specifications
 
 - [x] Questions are subject agnostic. Properly classified Published Questions from all subjects belong in
@@ -1657,17 +1728,22 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 
 #### Published Question identity specifications
 
-- [x] Published Questions receive a public `AAAA-ZBBB` Crockford Base32 ID.
-  - Evidence (source): `crates/question_model/src/question_library.rs` `QuestionId` defines and displays the canonical `AAAA-ZBBB` public Question ID; `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` issues it for a new Published Question lineage.
-  - Evidence (runtime): `crates/server/src/question_publication.rs` `NewQuestionLineagePublisher` passed accepted actual-server proof that published two native Questions, whose exact public IDs then formed a reusable Pool's members. Artifact: `/private/tmp/ple-course-empty-artifacts.JTjOJ3`.
-- [ ] A Question ID has the canonical form `XXXX-ZXXX`. The hyphen is part of the ID, making Question IDs immediately recognizable; an unhyphenated value is a different, invalid value.
-  - Mismatch: current Rust storage/parser paths retain and accept unhyphenated Question ID values.
+- [x] Published Questions receive a public `XXXX-ZXXX` Crockford Base32 ID.
+  - Evidence (source): `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` mints the exact public form, and `schemas/base_schema/question_lineages.sql` `published_question_id_is_crockford_shape` enforces it on stored lineages.
+- [x] Question IDs have the canonical form `XXXX-ZXXX`.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `impl std::str::FromStr for QuestionId` accepts only the exact nine-character hyphenated syntax with its embedded checksum.
+- [x] The hyphen is part of the canonical ID and makes Question IDs immediately recognizable.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `impl std::str::FromStr for QuestionId` requires the hyphen at `QUESTION_ID_HYPHEN_INDEX` in every canonical value.
+- [x] Human-entered Question IDs may omit the hyphen.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` accepts an eight-character explicit human-entry value and inserts the canonical hyphen before validation.
+- [x] Normalize accepted human input to the canonical hyphenated form before validation and lookup.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` normalizes explicit human entry, inserts the hyphen, and invokes `validateCanonicalQuestionIdSyntax`.
+- [ ] PLE always stores, transmits, displays, and copies the canonical hyphenated form.
+  - Verification pending: strict model, SQL, and browser validators are current, but every storage, transport, display, and copy surface has not been inventoried.
 - [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` derives the identifier from random bytes.
-- [ ] ID generation enforces database uniqueness and retries when a random collision occurs.
-  - Mismatch: database uniqueness exists, but collision retry behavior was not found in the issuer or publication store.
+  - Evidence (source): `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` draws seven characters from operating-system randomness before `QuestionId` appends the checksum.
 - [x] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
-  - Evidence (source): `crates/server/src/question_publication.rs` `question_id_from_random_bytes` uses random bytes and a secret only.
+  - Evidence (source): `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` derives the seven identity characters only from operating-system random bytes.
 
 #### Published Question metadata
 
@@ -1707,7 +1783,7 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Evidence (source): `schemas/base_schema/question_lineages.sql` `published_question_metadata` keys metadata to `question_id` only.
 - [x] Any **Instructor** may fork a Published Question to create a separate Question with a new Question ID.
   - Evidence (source): `src/pages/question_detail_page.tsx` `QuestionForkControl` invokes the exact-Revision server command, which mints the separate Question ID and opens only the returned private Draft.
-  - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected PostgreSQL/server/browser proof with two Instructors, exact source attribution, private cross-account denial, retry/concurrency, a distinct HMAC-issued identity, and prevalidation-publication denial; temporary probes were removed.
+  - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected PostgreSQL/server/browser proof with two Instructors, exact source attribution, private cross-account denial, retry/concurrency, a distinct server-issued identity, and prevalidation-publication denial; exact canonical-ID proof remains required.
 - [x] A fork starts as a private **Draft Question** with its own authorship and lineage.
   - Evidence (source): `schemas/base_schema/question_authoring_state.sql` `draft_question_fork_source` records a private draft fork source.
   - Evidence (runtime): `src/pages/question_detail_page.tsx` `QuestionForkControl` passed accepted C879 connected browser proof that opened only the returned private Draft for the invoking Instructor and denied the other Instructor.
@@ -1767,18 +1843,16 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Question Pools are available to all vetted **Instructors**.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
-- [x] A Question Pool has its own public `AAAA-ZBBB` Crockford Base32 ID and immutable Revisions.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` stores the unique compact public Pool ID, while `question_pool_revision` and `question_pool_revision_member` have immutable update/delete triggers and ordered exact member pins.
-  - Evidence (runtime): `src/components/question_pool_create_dialog.tsx` `QuestionPoolCreateDialog` passed accepted actual-main proof that returned canonical Pool ID `SBQR-N5RE`, Revision 1, then read the same identity and exact ordered Question Revision pins.
+- [x] A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID and immutable Revisions.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` stores its canonical public identity, `question_pool_revision` stores sequential immutable Revisions, and `question_pool_public_id_is_reserved` enters the ID in the shared registry.
 - [x] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
   - Evidence (source): `schemas/base_schema/assessment_pool_forks.sql` `import_assessment_question_pool_fork` atomically creates a fresh child Pool Revision and Assessment Entry from an exact reusable source Revision without accepting raw member pins.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that imported source Pool `P8H3-QYX9` into a direct Assessment and returned distinct fork `VFH9-CQKS`, Revision 1, at Assessment Edit 2.
 - [x] The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
   - Evidence (source): `schemas/base_schema/assessments.sql` `assessment_question_pool_fork` owns each child Pool through exactly one Assessment Entry, and `schemas/base_schema/question_pools.sql` retains exact source-Revision provenance.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `append_fork_revision` passed accepted actual-server proof that appended the fork's Revision 2 with the two exact member pins reversed, then reread the reusable source unchanged at Revision 1 with its original order. Artifact: `/private/tmp/ple-course-empty-artifacts.BbKFFd`.
-- [x] Forking a Question Pool preserves its Published Questions by their public `AAAA-ZBBB` IDs.
-  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool_revision_member` pins each ordered public Question identity and Revision, and `import_assessment_question_pool_fork` copies those exact immutable source members.
-  - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that returned both source Question IDs and Revision 1 pins unchanged and in order in the fresh fork; subsequent Student selection retained one exact member pin.
+- [x] Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `construct_question_pool_revision_fork` copies the source Revision's ordered exact member Question IDs and Revision Numbers into the new Pool lineage.
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
 - [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
@@ -1939,14 +2013,17 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 
 - [ ] Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
   Knowledge Dimension.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores non-null Cognitive Process and Knowledge Dimension pairs by exact immutable Question or Pool Revision, with an independent classification Edit Number.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved bounded Question and Pool storage/correction behavior, but publication-required attachment, AI initial assignment, typed API/UI projection, and search/reporting remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores non-null pairs by exact immutable Question or Pool Revision. `crates/question_model/src/bloom_classification.rs` defines the browser-safe pair and its independent Edit Number; Question and exact Pool reads project it through `src/pages/library_page_model.ts` and `src/pages/library_pool_discovery.tsx`.
+  - Verification pending: provider-backed publication, AI initial assignment, and connected actual-role/browser reads remain open.
 - [ ] The two Bloom dimensions are independent and together determine the object's Bloom Classification.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` validates the two independent closed-vocabulary fields and stores a complete pair rather than a derived matrix value.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved pair validation and bounded correction, but publication-required attachment, AI initial assignment, typed API/UI projection, and search/reporting remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` validates the two independent closed-vocabulary fields and stores a complete pair rather than a derived matrix value. `crates/learning-data-access/src/question_library.rs` and `crates/learning-data-access/src/question_pool_library.rs` return the pair with its exact-Revision Edit Number.
+  - Verification pending: provider-backed publication, AI initial assignment, and connected actual-role/browser reads remain open.
 - [ ] Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores the two guide-defined classification dimensions separately from Question source, scoring, and immutable content Revision data.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves bounded metadata storage only; AI semantic classification, publication admission, Instructor-facing interpretation, and search/reporting remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores the two guide-defined classification dimensions separately from Question source, scoring, and immutable content Revision data. `src/components/bloom_classification.tsx` presents the exact pair and links its correction help to `docs/BLOOM_TAXONOMY_GUIDE.md`.
+  - Verification pending: AI semantic classification, provider-backed publication admission, and connected Instructor interpretation remain open.
+- [ ] Bloom Classification supports Question Library search and Assessment item sorting.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` projects every fixed Entry, including retained Entries, from its exact pinned Question Revision pair and every Pool Entry from its exact Assessment-owned fork Pool Revision pair. `src/pages/assessment_workspace/assessment_workspace_questions_model.ts` orders Cognitive Process, Knowledge Dimension, then prior position; equal pairs remain stable. The existing whole-Assessment Save retains its Edit Number CAS.
+  - Verification pending: source implementation is present, but connected Instructor proof must sort mixed fixed and Pool Entries, save, reload, and show persisted order plus a concurrent-save conflict. Library discovery has source evidence but still needs connected proof, so this combined requirement remains open.
 - [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` stores a Pool Revision's own pair by `(question_pool_id, revision_number)`, rather than deriving it from member Questions.
   - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves bounded Pool pair storage/correction only; AI whole-Pool assignment, publication admission, typed API/UI projection, and search/reporting remain absent.
@@ -1957,10 +2034,11 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   - Mismatch: `schemas/base_schema/question_bloom.sql` has no protected AI preparation, model-origin evidence, source-bound stale-result handling, or atomic publication producer wiring. The 2026-09-16 actual-role gate used synthetic initial pairs, not AI output.
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` `ple_api.correct_question_revision_bloom` and `ple_api.correct_question_pool_revision_bloom` CAS-update only the paired metadata and classification Edit Number, not the immutable content Revision.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved Instructor allow/outsider denial, no-op/stale behavior, and immutable before/after snapshots; typed Store/server/API transport, read/token projection, and browser correction behavior remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` CAS-updates only paired metadata and its classification Edit Number. Typed Question and Pool Stores bind complete-pair commands to exact Revisions; `crates/server/src/question_library.rs` and `src/api/http_client/bloom_classification.ts` expose their routes. `src/components/bloom_classification.tsx` retains drafts, reloads stale state without retrying, and returns focus after completion; Question and Pool detail editors bind exact Revision targets.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 gate proved bounded authorization/no-op/stale behavior. Connected two-Instructor, denied-role, and browser correction/focus proof remains open.
 - [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
-  - Mismatch: `schemas/base_schema/question_bloom.sql` supplies storage and correction only; no typed search/reporting query, API projection, or Instructor interface consumes either Bloom dimension.
+  - Evidence (source): `crates/question_model/src/question_search.rs` retains two independent exact Bloom filters, unchanged sorts, and normalized-query-bound cursors. `crates/learning-data-access/src/postgres/question_library.rs` applies them to the whole Library relation and computes all six plus all four guide-order counts; `src/pages/library_search_parameters.ts`, `src/pages/library_page.tsx`, and `src/components/library_bloom_discovery.tsx` retain URL/saved-search values, zeros, and empty results.
+  - Verification pending: connected multi-page, role, and browser proof remains required. It stays open independently of the connected mixed-entry Assessment-sort/save/reload/concurrent-save proof required by the preceding row.
 - [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` accepts only the guide's six Cognitive Process and four Knowledge Dimension spellings.
   - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves those bounded storage values only; AI classification, publication-required attachment, Instructor-facing teaching interpretation, and search/reporting remain absent.
@@ -2352,10 +2430,12 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
 - [x] Course Instances are visible only to their co-**Instructors** and enrolled **Students**.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `resolve_course_navigation` permits only an active Course Member.
 - [ ] Active Courses are current teaching Course Instances.
-  - Mismatch: No active/inactive Course Instance lifecycle model was found.
+  - Evidence (source): `schemas/base_schema/course_core.sql` constrains the stored lifecycle to `active` or `inactive`; `schemas/base_schema/course_operations.sql` `ple_api.list_course_instances` projects it; strict API decoding, `course_list_page.tsx`, and `/instructor` project only Active Course Instances.
+  - Verification pending: A real restricted-role Active-to-Inactive transition and canonical browser proof remain required. Source-backed lists do not establish the connected teaching lifecycle.
 - [ ] Inactive Courses are past Course Instances and retain Course metadata, including after
       FERPA-sensitive Student data is removed.
-  - Mismatch: No inactive Course lifecycle and retention linkage was verified in A8 paths.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` records the one-way `mark_inactive` state transition, while `course_operations.sql` continues to project Course metadata; strict API decoding, `course_list_page.tsx`, and `/instructor/courses/inactive` project only Inactive Course Instances.
+  - Verification pending: A real restricted-role transition and canonical browser proof of retained metadata after independent Student-data deletion remain required. This row stays unchecked.
 - [x] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` offers the compact metadata-only Course tools action; its strict client retains source-Course identity and no delivery fields; `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the immutable source without changing the Course.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed source preservation, first-Adoption counts, exact pins/Pool fork, replay, and stale rollback on PostgreSQL 17.
@@ -2898,9 +2978,12 @@ and `Product vocabulary and glossary` remain authoritative, but are not checklis
   Schemes, or Course percentage calculations.
   - Mismatch: Absence of every prohibited model was not verified.
 - [ ] For the pilot, grade export uses CSV or TSV only and exports point-based Assessment scores.
-  - Mismatch: No grade export implementation matching this contract was found.
+  - Evidence (source): `crates/server/src/live_gradebook/export.rs` `COLUMNS` fixes the seven exported fields as `roster_id`, `roster_name`, `assessment_reference`, `assessment_title`, `status`, `points_earned`, and `points_possible`; `encode` produces quoted CSV or TSV from the authorized Gradebook projection only.
+  - Evidence (source): `crates/server/src/live_gradebook.rs` `download_gradebook` exposes the closed CSV/TSV download route, while `src/api/http_client/live_gradebook.ts` `downloadCourseGradebook` and `src/pages/gradebook_page.tsx` `GradebookCoursePage` consume its protected attachment contract.
+  - Verification pending: independent review accepted the bounded source implementation. An actual-role route proof and canonical-browser acceptance of both downloads, including exact bytes and header-only export, remain required before this bullet can be verified.
 - [ ] The Instructor handles Course-level weighting or percentage calculations in the home LMS.
-  - Mismatch: No product boundary or export guidance establishing this behavior was verified.
+  - Evidence (source): `src/pages/gradebook_page.tsx` `GradebookCoursePage` tells Instructors to handle Course weighting and percentages in the home LMS; the export encoder emits only point fields and no category, weight, percentage, or Course-total column.
+  - Verification pending: independent review accepted the source boundary. Actual-role route proof and canonical-browser acceptance remain open, so this product behavior is not yet verified.
 - [x] Changing Question point values recalculates affected Assessment scores.
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.prepare_assessment_attempt_finalization` reads an already-submitted Attempt by joining immutable credit to current Assessment entry points; `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` applies those current points at read time.
   - Evidence (runtime): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` is invoked by the accepted private PostgreSQL 17 production-SQL fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) changed both current entry values from `8` to `13` and advanced the expected-current edit number, then observed `0.5` rescored from `4 / 8` to `6.5 / 13` and the Assessment from `4 / 16` to `6.5 / 26` across three replays and the history, landing, and Gradebook projections. This does not establish HTTP or rendering.

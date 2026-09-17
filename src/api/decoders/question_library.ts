@@ -1,5 +1,7 @@
 // Question Library, course, and assessment browser-visible API DTOs.
 import { decodeCourseClassification } from "./course_classification";
+import { decodeBloomClassificationView } from "./bloom_classification";
+import { decodeQuestionResponsePreview } from "./question_response_preview";
 
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
 import type { FixedQuestionAssessmentEntrySummary as FixedQuestionAssessmentEntry } from "../../../generated/api/FixedQuestionAssessmentEntrySummary";
@@ -98,6 +100,7 @@ export function decodeQuestionSummary(
       "availability",
       "publishedAt",
       "authorship",
+      "bloom",
     ]);
   }
   const decoded = {
@@ -139,6 +142,7 @@ export function decodeQuestionSummary(
       strict,
     ),
     publishedAt: decodeTimestamp(field(record, "publishedAt", path), `${path}.publishedAt`),
+    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
   } satisfies QuestionSummary;
   if (decoded.latestQuestionRevision.questionId !== decoded.questionId) {
     throw new DecodeError(
@@ -342,22 +346,35 @@ export function decodeQuestionDetails(value: unknown, path = "response"): Questi
   requireOnlyFields(record, path, [
     "summary",
     "disciplineName",
+    "subjectName",
     "disciplineIsRetired",
     "prompt",
+    "responsePreview",
     "evidence",
     "usage",
   ]);
+  const summary = decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true);
+  const responsePreview = decodeNullable(
+    field(record, "responsePreview", path),
+    `${path}.responsePreview`,
+    decodeQuestionResponsePreview,
+  );
+  if ((summary.backend === "ple") !== (responsePreview !== null)) {
+    throw new DecodeError(`${path}.responsePreview`, "native controls only for a PLE Question");
+  }
   return {
-    summary: decodeQuestionSummary(field(record, "summary", path), `${path}.summary`, true),
+    summary,
     disciplineName: decodeNonemptyString(
       field(record, "disciplineName", path),
       `${path}.disciplineName`,
     ),
+    subjectName: decodeNonemptyString(field(record, "subjectName", path), `${path}.subjectName`),
     disciplineIsRetired: decodeBoolean(
       field(record, "disciplineIsRetired", path),
       `${path}.disciplineIsRetired`,
     ),
     prompt: decodeQuestionDetailsPromptView(field(record, "prompt", path), `${path}.prompt`),
+    responsePreview,
     evidence: decodeQuestionStatistics(field(record, "evidence", path), `${path}.evidence`),
     usage: decodeQuestionUseDetails(field(record, "usage", path), `${path}.usage`),
   };

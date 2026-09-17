@@ -1,6 +1,10 @@
 // Bounded Pool-owned search normalization; classification remains shared.
 
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
+import {
+  isBloomCognitiveProcess,
+  isBloomKnowledgeDimension,
+} from "./decoders/bloom_classification";
 import { libraryClassificationFilter } from "./library_classification_filter";
 import type { QuestionPoolLibraryFilter } from "./question_pool_library";
 
@@ -26,5 +30,19 @@ export function questionPoolLibraryFilter(
     }
     return normalized;
   });
-  return { ...classification, text: text || null, tags: [...new Set(tags)].sort() };
+  const bloomCognitiveProcess = value.bloom_cognitive_process ?? null;
+  const bloomKnowledgeDimension = value.bloom_knowledge_dimension ?? null;
+  if (
+    (bloomCognitiveProcess !== null && !isBloomCognitiveProcess(bloomCognitiveProcess)) ||
+    (bloomKnowledgeDimension !== null && !isBloomKnowledgeDimension(bloomKnowledgeDimension))
+  ) {
+    throw new Error("Pool Bloom filters must use exact classification values");
+  }
+  return {
+    ...classification,
+    text: text || null,
+    tags: [...new Set(tags)].sort(),
+    bloom_cognitive_process: bloomCognitiveProcess,
+    bloom_knowledge_dimension: bloomKnowledgeDimension,
+  };
 }

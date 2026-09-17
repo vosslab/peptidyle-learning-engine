@@ -14,7 +14,7 @@ function noStoreJson(value) {
   });
 }
 
-test("Library Watch inbox keeps exact target and applicable Revision or fork evidence private", async () => {
+test("Library Watch inbox returns every discriminated event shape privately", async () => {
   const requests = [];
   const client = createHttpApiClient({
     fetch: async (input, init) => {
@@ -24,11 +24,29 @@ test("Library Watch inbox keeps exact target and applicable Revision or fork evi
           {
             targetKind: "question",
             targetPublicId: questionId,
+            eventKind: "revision",
+            revisionNumber: 2,
+            forkedPublicId: null,
+            activityId: null,
+            occurredAt: 1_750_000_000_000,
+          },
+          {
+            targetKind: "question",
+            targetPublicId: questionId,
             eventKind: "fork",
             revisionNumber: 3,
             forkedPublicId: questionId,
             activityId: null,
-            occurredAt: 1_750_000_000_000,
+            occurredAt: 1_750_000_000_001,
+          },
+          {
+            targetKind: "questionPool",
+            targetPublicId: questionId,
+            eventKind: "improvementThread",
+            revisionNumber: 4,
+            forkedPublicId: null,
+            activityId: "00000000-0000-4000-8000-000000000001",
+            occurredAt: 1_750_000_000_002,
           },
           {
             targetKind: "questionPool",
@@ -36,8 +54,8 @@ test("Library Watch inbox keeps exact target and applicable Revision or fork evi
             eventKind: "impactNotice",
             revisionNumber: null,
             forkedPublicId: null,
-            activityId: "00000000-0000-4000-8000-000000000001",
-            occurredAt: 1_750_000_000_001,
+            activityId: "00000000-0000-4000-8000-000000000002",
+            occurredAt: 1_750_000_000_003,
           },
         ],
       });
@@ -50,11 +68,29 @@ test("Library Watch inbox keeps exact target and applicable Revision or fork evi
     {
       targetKind: "question",
       targetPublicId: questionId,
+      eventKind: "revision",
+      revisionNumber: 2,
+      forkedPublicId: null,
+      activityId: null,
+      occurredAt: 1_750_000_000_000,
+    },
+    {
+      targetKind: "question",
+      targetPublicId: questionId,
       eventKind: "fork",
       revisionNumber: 3,
       forkedPublicId: questionId,
       activityId: null,
-      occurredAt: 1_750_000_000_000,
+      occurredAt: 1_750_000_000_001,
+    },
+    {
+      targetKind: "questionPool",
+      targetPublicId: questionId,
+      eventKind: "improvementThread",
+      revisionNumber: 4,
+      forkedPublicId: null,
+      activityId: "00000000-0000-4000-8000-000000000001",
+      occurredAt: 1_750_000_000_002,
     },
     {
       targetKind: "questionPool",
@@ -62,48 +98,131 @@ test("Library Watch inbox keeps exact target and applicable Revision or fork evi
       eventKind: "impactNotice",
       revisionNumber: null,
       forkedPublicId: null,
-      activityId: "00000000-0000-4000-8000-000000000001",
-      occurredAt: 1_750_000_000_001,
+      activityId: "00000000-0000-4000-8000-000000000002",
+      occurredAt: 1_750_000_000_003,
     },
   ]);
   assert.equal(new URL(requests[0].url).pathname, "/api/library/watch-notifications");
   assert.equal(new URL(requests[0].url).searchParams.get("limit"), "25");
 });
 
-test("Library Watch inbox rejects missing fork evidence and recipient facts", () => {
+test("Library Watch inbox rejects cross-kind evidence and recipient facts", () => {
+  const invalidNotification = (patch) => {
+    const notification = {
+      targetKind: "question",
+      targetPublicId: questionId,
+      eventKind: "revision",
+      revisionNumber: 3,
+      forkedPublicId: null,
+      activityId: null,
+      occurredAt: 1_750_000_000_000,
+    };
+    patch(notification);
+    return { notifications: [notification] };
+  };
+
   assert.throws(
     () =>
-      decodeLibraryWatchNotifications({
-        notifications: [
-          {
-            targetKind: "questionPool",
-            targetPublicId: questionId,
-            eventKind: "fork",
-            revisionNumber: null,
-            forkedPublicId: null,
-            activityId: null,
-            occurredAt: 1_750_000_000_000,
-          },
-        ],
-      }),
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.revisionNumber = null;
+        }),
+      ),
     DecodeError,
   );
   assert.throws(
     () =>
-      decodeLibraryWatchNotifications({
-        notifications: [
-          {
-            targetKind: "question",
-            targetPublicId: questionId,
-            eventKind: "revision",
-            revisionNumber: 3,
-            forkedPublicId: null,
-            activityId: null,
-            occurredAt: 1_750_000_000_000,
-            recipientAccountId: "must-not-be-delivered",
-          },
-        ],
-      }),
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.forkedPublicId = questionId;
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.activityId = "00000000-0000-4000-8000-000000000003";
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.eventKind = "fork";
+          notification.forkedPublicId = null;
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.eventKind = "fork";
+          notification.forkedPublicId = questionId;
+          notification.activityId = "00000000-0000-4000-8000-000000000003";
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.eventKind = "improvementThread";
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.eventKind = "impactNotice";
+          notification.activityId = "00000000-0000-4000-8000-000000000004";
+          notification.forkedPublicId = questionId;
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.eventKind = "impactNotice";
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.recipientAccountId = "must-not-be-delivered";
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.targetKind = "unrecognized";
+        }),
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeLibraryWatchNotifications(
+        invalidNotification((notification) => {
+          notification.eventKind = "unrecognized";
+        }),
+      ),
     DecodeError,
   );
 });

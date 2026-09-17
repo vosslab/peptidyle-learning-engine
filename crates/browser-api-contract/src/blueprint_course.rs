@@ -162,7 +162,7 @@ mod tests {
     fn revision_view_keeps_the_exact_immutable_reference() {
         let view = BlueprintRevisionView {
             blueprint_revision: BlueprintRevisionReference {
-                reference: "BP234567"
+                reference: "BPABCDEFGJ"
                     .parse::<BlueprintCourseReference>()
                     .expect("reference"),
                 revision: BlueprintRevision::new(3).expect("revision"),

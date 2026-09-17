@@ -73,7 +73,7 @@ pub(super) async fn list_history(
         Ok(value) => value,
         Err(response) => return *response,
     };
-    let page = match page_request(reference, &query) {
+    let page = match page_request(&reference, &query) {
         Some(value) => value,
         None => return route_error(StatusCode::BAD_REQUEST, "Blueprint history page is invalid"),
     };
@@ -81,7 +81,7 @@ pub(super) async fn list_history(
     // ASVS 8.2.1/2/3, 8.3.1/2: each page reattests ordinary current visibility.
     match state
         .blueprints
-        .list_blueprint_history(session, reference, query.kind.store_kind(), page)
+        .list_blueprint_history(session, reference.clone(), query.kind.store_kind(), page)
         .await
     {
         Ok(page) => {
@@ -105,7 +105,7 @@ pub(super) async fn list_history(
     }
 }
 
-fn page_request(reference: BlueprintCourseReference, query: &HistoryQuery) -> Option<PageRequest> {
+fn page_request(reference: &BlueprintCourseReference, query: &HistoryQuery) -> Option<PageRequest> {
     // ASVS 2.2.1/2/3: bound cursor size and bind the sequence/course/page limit.
     let size = PageSize::new(query.page_size.unwrap_or(50)).ok()?;
     let after = match query.cursor.as_ref() {
@@ -116,7 +116,7 @@ fn page_request(reference: BlueprintCourseReference, query: &HistoryQuery) -> Op
             let bytes = URL_SAFE_NO_PAD.decode(token).ok()?;
             let cursor: HistoryCursor = serde_json::from_slice(&bytes).ok()?;
             if cursor.version != 1
-                || cursor.reference != reference
+                || cursor.reference != *reference
                 || cursor.kind != query.kind
                 || cursor.page_size != size.get()
                 || !valid_key(cursor.kind, &cursor.after)

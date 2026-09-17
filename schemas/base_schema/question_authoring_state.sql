@@ -32,13 +32,11 @@ CREATE TABLE ple_private.authoring_workspace_collaborator_event (
 
 CREATE TABLE ple_private.draft_question (
     draft_question_uuid uuid PRIMARY KEY,
-    reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
     workspace_id uuid NOT NULL REFERENCES ple_private.authoring_workspace(workspace_id),
     draft_question_edit_number bigint NOT NULL DEFAULT 1
         CHECK (draft_question_edit_number > 0),
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL,
-    CHECK (reference_number > 0 AND reference_number <= 2147483647),
     CHECK (updated_at >= created_at),
     UNIQUE (draft_question_uuid, workspace_id)
 );

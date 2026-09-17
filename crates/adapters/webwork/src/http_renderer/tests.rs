@@ -185,6 +185,81 @@ fn malformed_envelopes_and_scores_refuse() {
 }
 
 #[test]
+/// Refuses partial review and diagnostics, including renderer-private token reflection.
+fn answer_review_refuses_upstream_errors_and_private_state() {
+    for flag in [
+        json!(1),
+        json!(true),
+        json!("1"),
+        json!({"error": "private"}),
+    ] {
+        let mut value = envelope("<p>partial answer or diagnostics</p>", 0.0);
+        value["flags"]["error_flag"] = flag;
+        assert!(validate_answer_review_rpc(value).is_err());
+    }
+    assert!(validate_answer_review_rpc(envelope("<p>answer.token.value</p>", 0.0)).is_err());
+    assert_eq!(
+        validate_answer_review_rpc(envelope("<p>Correct answer</p>", 0.0)).unwrap(),
+        b"<p>Correct answer</p>"
+    );
+}
+
+#[tokio::test]
+/// Correct-answer disclosure is server-only and cannot carry response or submission fields.
+async fn answer_review_uses_the_closed_embed_form_without_student_response() {
+    let response = envelope("<p>Correct answer</p>", 0.0).to_string();
+    let (base, task) =
+        start_http_fixture(http_response("200 OK", "application/json", &response)).await;
+    let settings = HttpWebworkRendererConfig::new(
+        &base,
+        Duration::from_secs(1),
+        16_384,
+        renderer_version(),
+        "https://ple.example/",
+    )
+    .unwrap();
+    let ordinary = super::super::protocol::render_fields(
+        request(),
+        &settings.ple_origin,
+        &settings.ple_asset_base,
+    );
+    assert!(
+        !ordinary
+            .iter()
+            .any(|(name, _)| name == "showCorrectAnswers")
+    );
+    let rendered = HttpWebworkRenderer::new(settings)
+        .unwrap()
+        .render_answer_review(request())
+        .await
+        .unwrap();
+    assert_eq!(rendered.document, b"<p>Correct answer</p>");
+    let wire = task.await.unwrap();
+    assert!(wire.starts_with("POST /render-api HTTP/1.1\r\n"));
+    let body = wire.split_once("\r\n\r\n").unwrap().1;
+    let fields: Vec<(String, String)> = url::form_urlencoded::parse(body.as_bytes())
+        .into_owned()
+        .collect();
+    let mut expected = ordinary;
+    expected.extend([
+        ("showCorrectAnswers".into(), "1".into()),
+        ("showScoreSummary".into(), "0".into()),
+    ]);
+    assert_eq!(fields, expected);
+    for (name, value) in [
+        ("isInstructor", "0"),
+        ("outputFormat", "ple_embed"),
+        ("problemSeed", "7"),
+        ("showHints", "0"),
+        ("showSolutions", "0"),
+        ("showSummary", "0"),
+    ] {
+        assert!(fields.contains(&(name.into(), value.into())));
+    }
+    assert!(!fields.iter().any(|(name, _)| name == "submitAnswers"));
+}
+
+#[test]
 /// Prevents renderer outages from being mistaken for valid grading results.
 fn transport_statuses_refuse_by_backend_failure_class() {
     assert_eq!(

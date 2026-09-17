@@ -7,10 +7,7 @@ CREATE TABLE ple_private.account (
     account_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE,
     public_reference text NOT NULL UNIQUE CHECK (
-        public_reference ~ '^U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
-        AND right(public_reference, 1) = ple_private.crockford_checksum_character(
-            left(public_reference, char_length(public_reference) - 1)
-        )
+        ple_private.is_canonical_prefixed_public_id(public_reference, 'U')
     ),
     product_role text NOT NULL CHECK (product_role IN ('student', 'instructor', 'sysadmin')),
     created_at timestamp with time zone NOT NULL,

@@ -97,10 +97,15 @@ pub(super) fn matches(
 mod tests {
     use super::*;
     use learning_data_access::StoreError;
+    use question_model::QuestionId;
     use uuid::Uuid;
 
     struct Vocabulary {
         unavailable: bool,
+    }
+
+    fn test_question_id(identifier: &str) -> QuestionId {
+        QuestionId::from_random_identifier(identifier).expect("canonical question ID")
     }
 
     impl Vocabulary {
@@ -223,7 +228,7 @@ mod tests {
     #[test]
     fn cross_mode_relaxes_only_discipline_and_keeps_global_identity_restrictions() {
         let metadata = PublishedQuestionSharedMetadata {
-            question_id: "0000-X00N".parse().expect("Question ID"),
+            question_id: test_question_id("0000000"),
             metadata_edit_number: 1,
             tags: Vec::new(),
             discipline_uuid: Uuid::from_u128(1),

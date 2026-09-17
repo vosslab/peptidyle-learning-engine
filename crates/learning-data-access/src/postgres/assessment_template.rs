@@ -190,8 +190,8 @@ impl AssessmentTemplateStore for PostgresAssessmentTemplateStore {
         .await
         .map_err(map_sqlx_error)
         .and_then(assessment_reference)?;
-        let context = schedule_context(&mut transaction, course).await?;
-        let rows = workspace_rows(&mut transaction, course, reference).await?;
+        let context = schedule_context(&mut transaction, &course).await?;
+        let rows = workspace_rows(&mut transaction, &course, &reference).await?;
         let assessment = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(assessment)

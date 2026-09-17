@@ -2,6 +2,7 @@
 
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
+import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import { validateCanonicalQuestionIdSyntax } from "../../../generated/api/QuestionIdSyntaxContract";
 import {
   decodeQuestionPoolLibraryPage,
@@ -39,6 +40,14 @@ function canonicalQuestionPoolId(value: QuestionId): QuestionId {
   return canonical;
 }
 
+function exactQuestionPoolRevisionPath(reference: QuestionPoolRevisionReference): string {
+  const canonical = canonicalQuestionPoolId(reference.questionPoolId);
+  if (!Number.isSafeInteger(reference.revisionNumber) || reference.revisionNumber < 1) {
+    throw new ApiProtocolError("Question Pool Revision Number must be a positive safe integer");
+  }
+  return `/api/question-pools/${encodedId(canonical)}/revisions/${reference.revisionNumber}`;
+}
+
 function questionPoolPagePath(
   cursor: string | undefined,
   pageSize: number,
@@ -54,6 +63,12 @@ function questionPoolPagePath(
   appendLibraryClassificationParameters(query, filter);
   if (filter.text) query.set("text", filter.text);
   for (const tag of filter.tags ?? []) query.append("tags", tag);
+  if (filter.bloom_cognitive_process !== null && filter.bloom_cognitive_process !== undefined) {
+    query.set("bloom_cognitive_process", filter.bloom_cognitive_process);
+  }
+  if (filter.bloom_knowledge_dimension !== null && filter.bloom_knowledge_dimension !== undefined) {
+    query.set("bloom_knowledge_dimension", filter.bloom_knowledge_dimension);
+  }
   return `/api/question-pools?${query.toString()}`;
 }
 
@@ -103,6 +118,24 @@ export function createQuestionPoolLibraryClient(
       );
       if (detail.questionPoolRevision.questionPoolId !== canonical) {
         throw new ApiProtocolError("Question Pool detail does not match its requested Pool ID");
+      }
+      return detail;
+    },
+    getQuestionPoolRevision: async (reference): Promise<QuestionPoolRevisionView> => {
+      const path = exactQuestionPoolRevisionPath(reference);
+      const detail = await readJson(
+        fetchImplementation,
+        basePath,
+        path,
+        decodeQuestionPoolRevisionView,
+      );
+      if (
+        detail.questionPoolRevision.questionPoolId !== reference.questionPoolId ||
+        detail.questionPoolRevision.revisionNumber !== reference.revisionNumber
+      ) {
+        throw new ApiProtocolError(
+          "Question Pool detail does not match its requested exact Pool Revision",
+        );
       }
       return detail;
     },

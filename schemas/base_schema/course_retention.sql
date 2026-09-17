@@ -48,6 +48,15 @@ AS $$
          WHERE policy_key
     ), scheduled AS (
         SELECT course.course_id,
+               'mark_inactive'::text AS due_action,
+               course.active_until_at AS due_at,
+               course.student_data_archived_at AS archive_marked_at
+          FROM ple_data.course_instance AS course
+         WHERE course.course_lifecycle_state = 'active'
+
+        UNION ALL
+
+        SELECT course.course_id,
                'warn_inactive'::text AS due_action,
                course.active_until_at - policy.inactive_warning_lead_time AS due_at,
                course.student_data_archived_at AS archive_marked_at

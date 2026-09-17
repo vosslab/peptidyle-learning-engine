@@ -27,7 +27,12 @@
     "availability": {
       "availability": "available"
     },
-    "publishedAt": 1786000000000
+    "publishedAt": 1786000000000,
+    "bloom": {
+      "cognitiveProcess": "Understand",
+      "knowledgeDimension": "Conceptual Knowledge",
+      "classificationEditNumber": "1"
+    }
   },
   "assets": [
     {

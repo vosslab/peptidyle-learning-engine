@@ -4,6 +4,7 @@ import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId";
 import type { AssessmentPointValue } from "../../../generated/api/AssessmentPointValue";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type {
   AssessmentQuestionPickerEntry,
   LiveAssessmentWorkspace,
@@ -85,6 +86,14 @@ export function appendAvailableFixedQuestion(
   ];
 }
 
+/** Counts only Entries that can contribute Questions to a future Assessment Attempt. */
+export function deliveredAssessmentQuestionCount(entries: ReadonlyArray<AssessmentEntry>): number {
+  return entries.reduce((count, entry) => {
+    if (entry.availability !== "available") return count;
+    return count + (entry.kind === "fixedQuestion" ? 1 : entry.selectionCount);
+  }, 0);
+}
+
 /** Reorders Entry identities while retaining every Entry and Pool Item unchanged. */
 export function moveAssessmentEntry(
   entries: ReadonlyArray<AssessmentEntry>,
@@ -99,11 +108,72 @@ export function moveAssessmentEntry(
   return next;
 }
 
-/** Removes only the selected stable Entry; other Entry and Pool Item identities survive. */
+/** Removes only a selected Available Entry; retained unavailable Entries stay read-only. */
 export function removeAssessmentEntry(
   entries: ReadonlyArray<AssessmentEntry>,
   index: number,
 ): ReadonlyArray<AssessmentEntry> {
   if (index < 0 || index >= entries.length) return entries;
+  if (entries[index]?.availability !== "available") return entries;
   return entries.filter((_entry, currentIndex) => currentIndex !== index);
+}
+
+function cognitiveProcessOrdinal(value: BloomClassificationView["cognitiveProcess"]): number {
+  switch (value) {
+    case "Remember":
+      return 0;
+    case "Understand":
+      return 1;
+    case "Apply":
+      return 2;
+    case "Analyze":
+      return 3;
+    case "Evaluate":
+      return 4;
+    case "Create":
+      return 5;
+  }
+}
+
+function knowledgeDimensionOrdinal(value: BloomClassificationView["knowledgeDimension"]): number {
+  switch (value) {
+    case "Factual Knowledge":
+      return 0;
+    case "Conceptual Knowledge":
+      return 1;
+    case "Procedural Knowledge":
+      return 2;
+    case "Metacognitive Knowledge":
+      return 3;
+  }
+}
+
+/** Applies guide-order Bloom keys and the immediately prior position as the stable tie-break. */
+export function sortAssessmentEntriesByBloom(
+  entries: ReadonlyArray<AssessmentEntry>,
+  bloomByEntryId: ReadonlyMap<AssessmentEntryId, BloomClassificationView>,
+): ReadonlyArray<AssessmentEntry> | undefined {
+  const decorated: Array<{
+    readonly entry: AssessmentEntry;
+    readonly position: number;
+    readonly bloom: BloomClassificationView;
+  }> = [];
+  for (const [position, entry] of entries.entries()) {
+    const bloom = bloomByEntryId.get(entry.id);
+    if (bloom === undefined) return undefined;
+    decorated.push({ entry, position, bloom });
+  }
+  decorated.sort((left, right) => {
+    const cognitive =
+      cognitiveProcessOrdinal(left.bloom.cognitiveProcess) -
+      cognitiveProcessOrdinal(right.bloom.cognitiveProcess);
+    if (cognitive !== 0) return cognitive;
+    const knowledge =
+      knowledgeDimensionOrdinal(left.bloom.knowledgeDimension) -
+      knowledgeDimensionOrdinal(right.bloom.knowledgeDimension);
+    return knowledge === 0 ? left.position - right.position : knowledge;
+  });
+  const sorted = decorated.map((item) => item.entry);
+  const unchanged = sorted.every((entry, position) => entry === entries[position]);
+  return unchanged ? entries : sorted;
 }

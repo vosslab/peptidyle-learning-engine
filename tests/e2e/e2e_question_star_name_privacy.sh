@@ -181,18 +181,16 @@ active_account_id="$(podman exec "$postgres_name" psql -XAt -U postgres -d "$dat
 [[ "$active_account_id" =~ ^[0-9a-f-]{36}$ ]] || fail "C18 did not create one Instructor Account"
 active_cookie="$(new_session "$active_account_id")"
 
-# The only Question fixtures are source state. The HMAC-valid non-Published
+# The only Question fixtures are source state. The checksum-valid non-Published
 # identifier proves that route concealment occurs after identity validation.
 read -r published_question nonpublished_question < <(python3 - <<'PY'
 import hashlib
-import hmac
 
 alphabet = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ"
-secret = b"\0" * 32  # The unpadded base64url `A` fixture decodes to 32 zero bytes.
 def question(identifier):
-    check = alphabet[hmac.new(secret, identifier, hashlib.sha256).digest()[0] >> 3:][0:1]
-    compact = identifier[:4] + check + identifier[4:]
-    print(compact[:4].decode() + "-" + compact[4:].decode(), end=" ")
+    check = alphabet[hashlib.sha256(identifier).digest()[0] >> 3:][0:1]
+    canonical = identifier[:4] + b"-" + check + identifier[4:]
+    print(canonical.decode(), end=" ")
 question(b"C853ABC")
 question(b"C853ABD")
 print()
@@ -201,7 +199,7 @@ PY
 podman exec "$postgres_name" psql -X -v ON_ERROR_STOP=1 -U postgres -d "$database" -c "
     SET ROLE ple_data_owner;
     INSERT INTO ple_data.published_question(question_id, created_at)
-    VALUES ('${published_question/-/}', clock_timestamp());
+    VALUES ('$published_question', clock_timestamp());
 " >/dev/null
 
 # C370 action must travel over authenticated HTTP; no SQL shortcut creates a Star.
@@ -220,6 +218,6 @@ nonpublished="$(request GET "/api/questions/by-id/$nonpublished_question/steward
 assert_concealed "anonymous Star disclosure" "$anonymous"
 assert_concealed "Student Star disclosure" "$student"
 assert_concealed "inactive Instructor Star disclosure" "$inactive"
-assert_concealed "HMAC-valid non-Published Star disclosure" "$nonpublished"
+assert_concealed "checksum-valid non-Published Star disclosure" "$nonpublished"
 
 echo "Question Star name privacy E2E: PASS"

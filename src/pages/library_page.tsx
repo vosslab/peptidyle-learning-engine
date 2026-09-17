@@ -4,10 +4,13 @@ import { A, useLocation, useNavigate, useSearchParams } from "@solidjs/router";
 import { For, Show, createEffect, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import { CopyableQuestionId } from "../components/copyable_question_id";
+import { BloomClassificationText } from "../components/bloom_classification";
+import { LibraryBloomDiscovery } from "../components/library_bloom_discovery";
 import { QuestionBulkMetadataEditor } from "../components/question_bulk_metadata_editor";
 import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
 import type { LibraryDiscussionClient } from "../api/library_discussion";
+import type { BloomClassificationCorrectionClient } from "../api/bloom_classification";
 import { LibraryPoolDiscovery } from "./library_pool_discovery";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
@@ -18,12 +21,20 @@ import type {
   QuestionBulkMetadataUpdateResult,
 } from "../api/question_bulk_metadata";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
-import { decodeQuestionId } from "../api/decoders/shared";
 import { questionLibraryBulkSelectionRequest } from "../api/question_library_repository";
 import { useSessionBootstrap } from "../auth/session_context";
 import { buildRoutePath } from "../ribbon/ribbon_contract";
 import "./library_page.css";
 import { LibraryBrowseControls } from "./library_browse_controls";
+import {
+  backendLabel,
+  hasCanonicalPoolDeepLink,
+  questionLink,
+  questionTypeLabel,
+  RetainedSelectOption,
+  selectedQuestionLibrarySort,
+  webworkFormatLabel,
+} from "./library_page_helpers";
 import { LibraryClassificationSearch } from "../components/library_classification_search";
 import {
   searchHandoffQuery,
@@ -44,6 +55,7 @@ import {
   takeQuestionLibraryReturnState,
   QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
   type QuestionLibraryBrowseRepository,
+  type QuestionLibraryBrowseFacetAggregate,
   type QuestionLibraryBrowseQuery,
   type QuestionLibraryBrowseRow,
   type QuestionLibraryBrowseState,
@@ -55,72 +67,6 @@ import {
 const FALLBACK_ROW_HEIGHT_PX = 112;
 const OVERSCAN_ROWS = 5;
 const DRAFT_QUESTIONS_PATH = buildRoutePath("questionDrafts", {});
-function questionLink(row: QuestionLibraryBrowseRow, returnToken: string): string {
-  return `/library/${encodeURIComponent(row.displayId)}?${new URLSearchParams({
-    [QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER]: returnToken,
-  }).toString()}`;
-}
-
-function questionTypeLabel(value: string): string {
-  const labels: Readonly<Record<string, string>> = {
-    multipleChoice: "Multiple choice",
-    multipleAnswer: "Multiple answer",
-    fillInBlank: "Fill in the blank",
-    multipleFillInBlank: "Multiple fill in the blank",
-    numeric: "Numeric",
-    matching: "Matching",
-    ordering: "Ordering",
-    hotspot: "Hotspot",
-  };
-  return labels[value] ?? value;
-}
-
-function backendLabel(value: string): string {
-  const labels: Readonly<Record<string, string>> = {
-    ple: "PLE",
-    webwork: "WeBWorK",
-    imathas: "IMathAS",
-  };
-  return labels[value] ?? value;
-}
-
-function selectedQuestionLibrarySort(value: string): QuestionLibraryBrowseQuery["sort"] {
-  // ASVS 2.2.1: retain only the closed server-supported sort values at the UI boundary.
-  if (value === "titleAscending" || value === "publishedNewest") return value;
-  throw new Error("Question Library sort selection is invalid");
-}
-
-function hasCanonicalPoolDeepLink(search: string): boolean {
-  const values = new URLSearchParams(search).getAll("pool");
-  if (values.length !== 1) return false;
-  try {
-    decodeQuestionId(values[0], "pool");
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function RetainedSelectOption(props: {
-  readonly value: string | null | undefined;
-  readonly label: (value: string) => string;
-}): JSX.Element {
-  return (
-    <Show when={props.value}>
-      {(value) => (
-        <option value={value()} selected>
-          {props.label(value())}
-        </option>
-      )}
-    </Show>
-  );
-}
-
-function webworkFormatLabel(value: QuestionLibraryBrowseRow["questionFormat"]): string | null {
-  if (value === "webworkPg") return "PG";
-  if (value === "webworkPgml") return "PGML";
-  return null;
-}
 
 export interface LibraryPageProps {
   readonly mode: "search" | "browse";
@@ -128,7 +74,9 @@ export interface LibraryPageProps {
   readonly metadataClient: QuestionBulkMetadataClient;
   readonly classificationClient: import("../api/content_classification").ContentClassificationClient;
   readonly questionPoolClient: QuestionPoolCreationClient;
-  readonly poolLibraryClient?: QuestionPoolLibraryClient & LibraryDiscussionClient;
+  readonly poolLibraryClient?: QuestionPoolLibraryClient &
+    LibraryDiscussionClient &
+    BloomClassificationCorrectionClient;
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
 }
 
@@ -165,13 +113,15 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     returnState?.query ?? initialHandoffQuery ?? EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   );
   const [state, setState] = createSignal<QuestionLibraryBrowseState>(
-    returnState?.browseState ?? {
-      kind: "initial",
-      rows: [],
-      aggregates: [],
-      nextCursor: null,
-      facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
-    },
+    returnState !== null && !returnState.refreshOnReturn
+      ? returnState.browseState
+      : {
+          kind: "initial",
+          rows: [],
+          aggregates: [],
+          nextCursor: null,
+          facetTruncation: NO_QUESTION_LIBRARY_FACET_TRUNCATION,
+        },
   );
   const [scrollTop, setScrollTop] = createSignal(returnState?.scrollTop ?? 0);
   const [viewportHeight, setViewportHeight] = createSignal(560);
@@ -209,11 +159,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     const current = state();
     return current.kind === "ready" ? current : undefined;
   };
-  const aggregates = (): ReadonlyArray<{
-    readonly facet: string;
-    readonly value: string;
-    readonly count: number;
-  }> => {
+  const aggregates = (): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> => {
     const current = state();
     return current.aggregates;
   };
@@ -227,7 +173,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
       | "questionType"
       | "capability"
       | "questionLicense"
-      | "usedInMyCourses",
+      | "usedInMyCourses"
+      | "bloomCognitiveProcess"
+      | "bloomKnowledgeDimension",
   ): (() => ReadonlyArray<{ readonly value: string; readonly count: number }>) => {
     return () => aggregates().filter((aggregate) => aggregate.facet === facet);
   };
@@ -423,8 +371,10 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
     const observer = new ResizeObserver(refreshRowHeight);
     observer.observe(document.documentElement);
     onCleanup(() => observer.disconnect());
-    if (returnState !== null) {
+    if (returnState !== null && !returnState.refreshOnReturn) {
       session.restore(returnState.query, returnState.browseState);
+    } else if (returnState !== null) {
+      void session.reset(returnState.query);
     } else if (props.mode === "browse" && !invalidLinkOptions()) {
       void session.reset(query());
     }
@@ -472,6 +422,7 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                   client={client()}
                   classificationClient={props.classificationClient}
                   mayWatchPools={mayMutateLibrary}
+                  mayCorrectBloom={mayMutateLibrary}
                 />
               </Show>
             </details>
@@ -794,6 +745,13 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
           />
         </Show>
         <Show when={props.mode === "browse" || state().kind !== "initial"}>
+          <LibraryBloomDiscovery
+            query={query}
+            aggregates={aggregates}
+            reportAvailable={state().kind === "ready" || state().kind === "empty"}
+            disabled={editorBusy()}
+            onChange={changeQuery}
+          />
           <div class="question-library-controls" role="group" aria-label="Result order">
             <label>
               Order results
@@ -961,6 +919,9 @@ export function LibraryPage(props: LibraryPageProps): JSX.Element {
                       </Show>
                       <h2>{row.questionTitle}</h2>
                       <p class="question-library-row-summary">{row.summary}</p>
+                      <p class="question-library-row-bloom">
+                        <BloomClassificationText bloom={row.bloom} />
+                      </p>
                       <p class="question-library-row-authors" aria-label="Question Authors">
                         Authors: {row.authorNames.join(", ")}
                         <span>

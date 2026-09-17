@@ -1,7 +1,7 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { PleQuestionJsonPublicationRequest } from "./question_json_repository";
 import { decodeUuid } from "../../api/decoder";
-import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
+import type { DraftQuestionRouteId } from "../../navigation/public_route";
 import { decodeQuestionLineageView, isAvailablePleQuestionSummary } from "../../api/decoders";
 import { isQuestionAuthorship } from "../../api/question_authorship";
 import { validateCanonicalQuestionIdSyntax } from "../../question_id";
@@ -61,20 +61,20 @@ export type PleQuestionJsonSave = {
 
 export interface PleQuestionJsonClient {
   uploadAsset(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     image: Blob,
     revision: string,
     signal?: AbortSignal,
   ): Promise<PleQuestionJsonAssetDescriptor>;
-  assetPreviewPath(draftQuestion: DraftQuestionReference, asset: string): string;
-  load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
+  assetPreviewPath(draftQuestion: DraftQuestionRouteId, asset: string): string;
+  load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead>;
   save(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
     revision?: string,
   ): Promise<PleQuestionJsonSave>;
   publish(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
     revision: string,
   ): Promise<QuestionSummary>;
@@ -169,11 +169,11 @@ function encodedId(value: string): string {
   return encodeURIComponent(value);
 }
 
-function sourcePath(draftQuestion: DraftQuestionReference): string {
+function sourcePath(draftQuestion: DraftQuestionRouteId): string {
   return `/api/authoring/drafts/${encodedId(draftQuestion)}/source`;
 }
 
-function publishPath(draftQuestion: DraftQuestionReference): string {
+function publishPath(draftQuestion: DraftQuestionRouteId): string {
   return `/api/authoring/drafts/${encodedId(draftQuestion)}/publish`;
 }
 
@@ -258,7 +258,7 @@ export function createPleQuestionJsonClient(
   const fetchImplementation = config.fetch ?? browserFetch;
   const basePath = normalizeBasePath(config.basePath);
 
-  function assetPreviewPath(draftQuestion: DraftQuestionReference, asset: string): string {
+  function assetPreviewPath(draftQuestion: DraftQuestionRouteId, asset: string): string {
     const canonicalAsset = publicationUuid(asset, "asset.questionAsset");
     return sameOriginPath(
       basePath,
@@ -267,7 +267,7 @@ export function createPleQuestionJsonClient(
   }
 
   async function uploadAsset(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     image: Blob,
     revision: string,
     signal?: AbortSignal,
@@ -303,7 +303,7 @@ export function createPleQuestionJsonClient(
     );
   }
 
-  async function load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead> {
+  async function load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead> {
     const path = sourcePath(draftQuestion);
     const requestPath = sameOriginPath(basePath, path);
     const response = await fetchImplementation(
@@ -325,7 +325,7 @@ export function createPleQuestionJsonClient(
   }
 
   async function save(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
     revision?: string,
   ): Promise<PleQuestionJsonSave> {
@@ -352,7 +352,7 @@ export function createPleQuestionJsonClient(
   }
 
   async function publish(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
     revision: string,
   ): Promise<QuestionSummary> {

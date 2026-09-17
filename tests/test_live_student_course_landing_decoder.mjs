@@ -5,6 +5,7 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeLiveStudentAssessmentLandings,
   decodeLiveStudentCourseLandings,
+  decodeLiveStudentCourseInvitations,
 } from "../src/api/decoders/live_student_course_landing.ts";
 
 test("Student Course landing carries both Course Instance names", () => {
@@ -12,6 +13,64 @@ test("Student Course landing carries both Course Instance names", () => {
     courses: [{ reference: "CI6F2R8TA0", shortName: "Mol Bio", longName: "Molecular Biology" }],
   };
   assert.deepEqual(decodeLiveStudentCourseLandings(value), value.courses);
+});
+
+test("pending invitations require complete verified Instructor and inclusive term context", () => {
+  const invitation = {
+    reference: "CI6F2R8TA0",
+    shortName: "Mol Bio",
+    longName: "Molecular Biology",
+    instructorDisplayName: "Elena Voss",
+    term: { startDate: "2026-08-24", endDate: "2026-12-12" },
+  };
+  assert.deepEqual(decodeLiveStudentCourseInvitations({ invitations: [invitation] }), [invitation]);
+  for (const override of [
+    { instructorDisplayName: undefined },
+    { instructorDisplayName: null },
+    { instructorDisplayName: "" },
+    { instructorDisplayName: " Elena Voss" },
+    { instructorDisplayName: "Elena\nVoss" },
+    { instructorDisplayName: "a".repeat(201) },
+    { term: undefined },
+    { term: { startDate: "2026-08-24" } },
+    { term: { startDate: "2026-08-24", endDate: "2026-08-23" } },
+    { term: { startDate: "2026-02-30", endDate: "2026-12-12" } },
+    { term: { ...invitation.term, timeZone: "UTC" } },
+  ]) {
+    assert.throws(
+      () =>
+        decodeLiveStudentCourseInvitations({
+          invitations: [{ ...invitation, ...override }],
+        }),
+      DecodeError,
+    );
+  }
+});
+
+test("pending invitations reject private identities and roster fields", () => {
+  const invitation = {
+    reference: "CI6F2R8TA0",
+    shortName: "Mol Bio",
+    longName: "Molecular Biology",
+    instructorDisplayName: "Elena Voss",
+    term: { startDate: "2026-08-24", endDate: "2026-12-12" },
+  };
+  for (const field of [
+    "email",
+    "accountId",
+    "courseId",
+    "invitationId",
+    "membershipId",
+    "roster",
+  ]) {
+    assert.throws(
+      () =>
+        decodeLiveStudentCourseInvitations({
+          invitations: [{ ...invitation, [field]: "private" }],
+        }),
+      DecodeError,
+    );
+  }
 });
 
 function assessment(overrides = {}) {

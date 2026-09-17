@@ -36,7 +36,7 @@ use crate::auth::{AuthError, resolve_session};
 
 mod context;
 pub(crate) mod direct_finalization;
-mod history;
+pub(crate) mod history;
 mod history_response;
 mod ple_shell;
 mod presentation_assets;
@@ -98,6 +98,10 @@ pub fn assessment_delivery_router(
         .route(
             "/api/assessment-attempts/{assessment_attempt}/questions/{position}/document",
             get(crate::webwork_document_route::document),
+        )
+        .route(
+            "/api/assessment-attempts/{assessment_attempt}/questions/{position}/answer-review-document",
+            get(crate::webwork_document_route::answer_review),
         )
         .route(
             "/api/assessment-attempts/{assessment_attempt}/questions/{position}/author-content-document",

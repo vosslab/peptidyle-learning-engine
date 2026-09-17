@@ -6,12 +6,12 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
-use question_model::{DraftQuestionReference, QuestionAssetId, QuestionRevisionReference, WorkspaceId};
+use question_model::{QuestionAssetId, QuestionRevisionReference, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{SessionTokenHash, StoreError};
 
-/// Inputs the trusted server has resolved or minted for one fork attempt.
+/// Inputs the trusted server has resolved for one fork attempt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkPublishedQuestionInput {
     /// Existing available immutable source Revision, resolved from the path.
@@ -88,19 +88,12 @@ impl ForkPublishedQuestionInput {
 /// Browser-safe result for an authorized private fork.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ForkedPublishedQuestionDraft {
-    /// Private Draft navigation reference for the authenticated Instructor only.
-    pub draft_question: DraftQuestionReference,
+    /// Private Draft UUID for authenticated route transport only.
+    pub draft_question_uuid: crate::DraftQuestionUuid,
     /// Server-only workspace that owns the Draft.
     pub workspace: WorkspaceId,
     /// Whether this invocation committed the aggregate rather than replaying its receipt.
     pub created_new: bool,
-}
-
-/// Fork persistence failures are not safe for the coordinator to retry.
-#[derive(Debug, Clone, PartialEq)]
-pub enum ForkPublishedQuestionError {
-    /// No public ID exists until later publication.
-    Store(StoreError),
 }
 
 /// Session-authorized source resolution and atomic Draft fork capability.
@@ -121,5 +114,5 @@ pub trait QuestionForkStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: ForkPublishedQuestionInput,
-    ) -> Result<ForkedPublishedQuestionDraft, ForkPublishedQuestionError>;
+    ) -> Result<ForkedPublishedQuestionDraft, StoreError>;
 }

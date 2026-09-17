@@ -261,14 +261,30 @@ host-only replay manifest is retained.
 Browser scenarios remain separate from the permanent fast lane and should be
 rerun when a material change affects their declared boundary.
 
+### Bloom Classification provider boundary
+
+`server_core::bloom_classification` owns protected candidate construction, the
+provider trait, the native Ollama adapter, and coupling provider output to the exact
+receipt candidate. Provider inference finishes before the short PostgreSQL receipt
+transaction starts. A new-lineage identity collision may prepare another receipt
+from that same sealed result; it must not call the model again.
+
+The adapter uses only the fixed `/api/chat` and `/api/tags` paths at the validated
+operator origin. It disables redirects and ambient proxies, admits one concurrent
+call without an unbounded wait queue, and enforces fixed connect, total, evidence,
+and response limits. Source, prompt, and raw provider output are prohibited from
+logs and consumer-facing errors. Keep browser APIs, Pool publication orchestration,
+provider queues, provider tables, model downloads, and rules-based fallback outside
+this boundary unless a later approved plan owns them.
+
 ## Run local services
 
 Use the fixed owner when a work package needs the supported PostgreSQL, MinIO,
 API, gateway, private standalone WeBWorK PG renderer, and one internal worker
 Service Identity. The generic expiry worker shares the ordinary Attempt evaluator
 and runs a 60-second sweep. It reads immutable source only through object storage and the
-private WeBWorK renderer boundary; iMathAS keeps its separate session and result-verification
-boundary. This exposes no grading lifecycle:
+private WeBWorK renderer boundary. iMathAS is a desired deferred backend; its future session
+and result-verification boundary is not part of this runtime. This exposes no grading lifecycle:
 
 ```bash
 source source_me.sh && python3 local_stack.py start --headless

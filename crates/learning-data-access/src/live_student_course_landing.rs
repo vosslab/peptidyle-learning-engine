@@ -8,6 +8,7 @@ use async_trait::async_trait;
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use question_model::{
     AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
+    CourseTerm,
 };
 use serde::Serialize;
 
@@ -46,6 +47,10 @@ pub struct LiveStudentCourseInvitationSummary {
     pub short_name: String,
     /// Descriptive Course Instance name for headings and lists.
     pub long_name: String,
+    /// Server-verified display name of the Course's assigned Instructor.
+    pub instructor_display_name: String,
+    /// Inclusive Course calendar dates, available before accepting the invitation.
+    pub term: CourseTerm,
 }
 
 /// One released Assessment available from an authorized Student Course.

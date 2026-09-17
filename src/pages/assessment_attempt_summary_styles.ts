@@ -49,6 +49,11 @@ export const ASSESSMENT_ATTEMPT_SUMMARY_STYLES = `
     block-size: auto;
   }
   .attempt-history .student-feedback-panel__math { font-family: var(--ple-font-mono); }
+  .attempt-history .attempt-history__answer-review {
+    display: block;
+    inline-size: 100%;
+    border: 0;
+  }
   .attempt-history .student-feedback-panel__code {
     white-space: pre-wrap;
     overflow-wrap: anywhere;

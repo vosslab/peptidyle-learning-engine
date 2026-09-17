@@ -49,7 +49,9 @@ REVOKE ALL ON TABLE ple_data.library_watch_event FROM PUBLIC;
 GRANT REFERENCES ON ple_data.library_watch_event TO ple_private_owner;
 
 -- Recipient snapshots preserve who was actively subscribed when the source
--- activity committed. A later Watch/unwatch cannot rewrite that event.
+-- event INSERT statement ran in its transaction. That transaction commits or
+-- rolls back the event and frozen snapshot together; a later Watch/unwatch
+-- cannot rewrite that event.
 CREATE TABLE ple_data.library_watch_event_recipient (
     event_id uuid NOT NULL REFERENCES ple_data.library_watch_event(event_id),
     recipient_account_id uuid NOT NULL REFERENCES ple_private.account(account_id),
@@ -142,14 +144,6 @@ BEGIN
           FROM candidate
           JOIN ple_data.library_watch_event_recipient AS snapshot
             ON snapshot.event_id = candidate.event_id
-          JOIN ple_private.account AS account
-            ON account.account_id = snapshot.recipient_account_id
-           AND account.product_role = 'instructor'
-          JOIN LATERAL (
-              SELECT state FROM ple_private.account_state_event
-               WHERE account_id = account.account_id
-               ORDER BY occurred_at DESC, event_id DESC LIMIT 1
-          ) AS state_event ON state_event.state = 'active'
     ), inserted AS (
         INSERT INTO ple_private.library_watch_notification(
             recipient_account_id, event_id, target_kind, target_public_id, event_kind,
@@ -196,7 +190,8 @@ BEGIN
           SELECT state FROM ple_private.account_state_event
            WHERE account_id = account.account_id
            ORDER BY occurred_at DESC, event_id DESC LIMIT 1
-      ) AS state_event ON state_event.state = 'active';
+      ) AS state_event ON state_event.state = 'active'
+     WHERE ple_private.verified_instructor_display_name(account.account_id) IS NOT NULL;
     RETURN NEW;
 END
 $$;
@@ -277,8 +272,8 @@ CREATE TRIGGER question_pool_fork_enqueues_watch_notification
 AFTER INSERT ON ple_data.question_pool
 FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_question_pool_watch_fork_event();
 
--- Thread creation, replies, and state transitions are one activity class. The
--- creating post is already represented by the new thread, so it is suppressed.
+-- A Watch event records the birth of the retained thread. Replies, post edits,
+-- and thread lifecycle changes remain visible in the activity view.
 CREATE FUNCTION ple_data.enqueue_library_watch_thread_event()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
@@ -296,63 +291,21 @@ CREATE TRIGGER library_improvement_thread_enqueues_watch_notification
 AFTER INSERT ON ple_data.library_improvement_thread
 FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_library_watch_thread_event();
 
-CREATE FUNCTION ple_data.enqueue_library_watch_thread_post_event()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-DECLARE thread_row ple_data.library_improvement_thread%ROWTYPE;
-BEGIN
-    SELECT * INTO thread_row FROM ple_data.library_improvement_thread
-     WHERE thread_id = NEW.thread_id;
-    IF (SELECT count(*) FROM ple_data.library_improvement_post
-         WHERE thread_id = NEW.thread_id) = 1 THEN RETURN NEW; END IF;
-    INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number, activity_id, occurred_at
-    ) VALUES (
-        thread_row.object_kind, thread_row.public_object_id, 'improvement_thread',
-        thread_row.creation_revision_number, NEW.post_id, NEW.created_at
-    );
-    RETURN NEW;
-END
-$$;
-CREATE TRIGGER library_improvement_post_enqueues_watch_notification
-AFTER INSERT ON ple_data.library_improvement_post
-FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_library_watch_thread_post_event();
-
-CREATE FUNCTION ple_data.enqueue_library_watch_thread_change_event()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = pg_catalog, ple_data AS $$
-BEGIN
-    IF NEW.state IS NOT DISTINCT FROM OLD.state THEN RETURN NEW; END IF;
-    INSERT INTO ple_data.library_watch_event(
-        target_kind, target_public_id, event_kind, revision_number, activity_id, occurred_at
-    ) VALUES (
-        NEW.object_kind, NEW.public_object_id, 'improvement_thread',
-        NEW.creation_revision_number, NEW.thread_id, pg_catalog.clock_timestamp()
-    );
-    RETURN NEW;
-END
-$$;
-CREATE TRIGGER library_improvement_thread_change_enqueues_watch_notification
-AFTER UPDATE OF state ON ple_data.library_improvement_thread
-FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_library_watch_thread_change_event();
-
 CREATE FUNCTION ple_data.enqueue_library_watch_impact_event()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_data AS $$
 BEGIN
-    IF TG_OP = 'UPDATE' AND NEW IS NOT DISTINCT FROM OLD THEN RETURN NEW; END IF;
     INSERT INTO ple_data.library_watch_event(
         target_kind, target_public_id, event_kind, revision_number, activity_id, occurred_at
     ) VALUES (
         NEW.object_kind, NEW.public_object_id, 'impact_notice',
-        NEW.affected_revision_number, NEW.impact_notice_id,
-        CASE WHEN TG_OP = 'INSERT' THEN NEW.created_at ELSE NEW.updated_at END
+        NEW.affected_revision_number, NEW.impact_notice_id, NEW.created_at
     );
     RETURN NEW;
 END
 $$;
 CREATE TRIGGER library_impact_notice_enqueues_watch_notification
-AFTER INSERT OR UPDATE ON ple_data.library_impact_notice
+AFTER INSERT ON ple_data.library_impact_notice
 FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_library_watch_impact_event();
 
 -- ASVS 8.2.1/8.3.1: this self-only Inbox derives the Account solely from the
@@ -389,8 +342,6 @@ REVOKE ALL ON FUNCTION ple_api.materialize_library_watch_notifications(integer),
     ple_data.enqueue_question_pool_watch_revision_event(),
     ple_data.enqueue_question_pool_watch_fork_event(),
     ple_data.enqueue_library_watch_thread_event(),
-    ple_data.enqueue_library_watch_thread_post_event(),
-    ple_data.enqueue_library_watch_thread_change_event(),
     ple_data.enqueue_library_watch_impact_event(),
     ple_data.snapshot_library_watch_event_recipients(),
     ple_data.read_current_library_watch_notifications(integer) FROM PUBLIC;

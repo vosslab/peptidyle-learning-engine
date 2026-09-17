@@ -46,6 +46,17 @@ Course Membership for the exact Course Instance. Course creation establishes
 the initial Instructor Membership, and every current Instructor member has the
 same teaching authority; no creator-owned authority is retained.
 
+An active Sysadmin may read the answer-free Question and Pool Library support
+projections, including exact Revision Bloom Classification metadata. That
+read-only support access does not confer Instructor authoring or Library
+mutation authority.
+
+An active vetted Instructor with current exact Library read access may correct
+the complete Bloom pair on that exact Question or Pool Revision. This is Library
+authority, not author, founder, or Pool-owner authority. A Sysadmin has no
+Bloom-correction authority; the read projection does not widen into either
+correction route.
+
 A Student may act only through that Student's current Course Membership and
 Student Record for the exact Course. Student-facing Assessment delivery,
 attempt, response, submission, history, and presentation operations recheck

@@ -106,7 +106,7 @@ async fn recover(
         Input::Select { cursor } => {
             let after = match cursor
                 .as_deref()
-                .map(|c| decode_cursor(c, course))
+                .map(|c| decode_cursor(c, &course))
                 .transpose()
             {
                 Ok(a) => a,
@@ -114,7 +114,7 @@ async fn recover(
             };
             state
                 .recovery
-                .select_retained_work(session.session_hash, course, after)
+                .select_retained_work(session.session_hash, course.clone(), after)
                 .await
                 .map(|mut attempts| {
                     let next_cursor = if attempts.len() > 100 {
@@ -151,7 +151,7 @@ async fn recover(
 
 fn decode_cursor(
     cursor: &str,
-    course: CourseInstanceReference,
+    course: &CourseInstanceReference,
 ) -> Result<AssessmentAttemptReference, ()> {
     if cursor.len() > 80 {
         return Err(());

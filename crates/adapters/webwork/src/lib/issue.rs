@@ -138,6 +138,33 @@ impl<R: WebworkRenderer> WebworkAdapter<R> {
         Ok(self.render(question_seed, source).await?.document)
     }
 
+    /// Produces transient backend-owned correct answers after the caller authorizes disclosure.
+    pub async fn answer_review_document(
+        &self,
+        question_seed: QuestionSeed,
+        source: &ResolvedWebworkQuestionSource,
+    ) -> Result<Vec<u8>, WebworkAdapterError> {
+        crate::source_object_reference::verify_source(source)?;
+        let rendered = self
+            .renderer
+            .render_answer_review(RenderRequest {
+                pg_source: source.pg_source(),
+                pg_path: source.pg_path(),
+                question_revision: source.question_revision(),
+                seed: question_seed.value(),
+            })
+            .await
+            .map_err(WebworkAdapterError::Renderer)?;
+        if rendered.lifecycle_state.as_deref().is_some() {
+            return Err(WebworkAdapterError::Renderer(
+                RendererFailure::InvalidOutput(
+                    "WeBWorK answer review returned unexpected lifecycle state".into(),
+                ),
+            ));
+        }
+        Ok(rendered.document)
+    }
+
     async fn render(
         &self,
         question_seed: QuestionSeed,

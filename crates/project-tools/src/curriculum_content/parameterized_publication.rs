@@ -6,6 +6,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result, bail, ensure};
@@ -104,7 +105,9 @@ async fn publish_validated_with_context(
     let bindings = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
     let classification_store =
         learning_data_access::postgres::PostgresContentClassificationStore::new(pool.clone());
-    let library = PostgresQuestionLibraryStore::new(pool);
+    let library = PostgresQuestionLibraryStore::new(pool.clone());
+    let bloom = server_core::composition::bloom_publication_preparation_from_env(pool)
+        .context("configuring the Bloom Classification provider")?;
     let mut classifications = BTreeMap::new();
     let objects = server_core::composition::question_library_object_store_from_env()
         .await
@@ -194,6 +197,12 @@ async fn publish_validated_with_context(
                 })?,
         );
     }
+    if !classifications.is_empty() {
+        bloom
+            .preflight()
+            .await
+            .context("the selected Bloom Classification model is unavailable")?;
+    }
 
     let mut published = BTreeMap::new();
     for admitted_source in admitted {
@@ -221,6 +230,7 @@ async fn publish_validated_with_context(
                     &bindings,
                     &objects,
                     &issuer,
+                    &bloom,
                 )
                 .await?
             }
@@ -287,7 +297,7 @@ async fn preflight_drafts(
         let key = (summary.title, summary.description);
         if keys.contains(&key) {
             let draft = drafts
-                .load_authoring_draft(session, summary.reference)
+                .load_authoring_draft(session, summary.draft_question_uuid)
                 .await
                 .context("loading ordinary Authoring Draft for batch admission")?;
             candidates.entry(key).or_default().push(draft);
@@ -396,6 +406,7 @@ async fn publish_source(
     bindings: &PostgresDraftQuestionSourceBindingStore,
     objects: &objects::s3::S3ObjectStore,
     issuer: &RandomQuestionIdIssuer,
+    bloom: &Arc<server_core::bloom_classification::BloomPublicationPreparation>,
 ) -> Result<QuestionRevisionReference> {
     let draft = matching_or_new_draft(
         session,
@@ -434,29 +445,35 @@ async fn publish_source(
         )
         .await
         .context("binding ordinary parameterized curriculum Draft source evidence")?;
-    NewQuestionLineagePublisher::new(objects.clone(), bindings.clone(), issuer.clone(), None)
-        .publish(
-            session,
-            NewQuestionLineagePublicationCommand {
-                draft_question_uuid: draft.draft_question_uuid,
-                expected_draft_question_edit_number: bound_edit_number,
-                workspace,
-                question_authorship: authorship.clone(),
-                discipline_uuid: classification.discipline_uuid,
-                subject_uuid: classification.subject_uuid,
-                topic_uuid: classification.topic_uuid,
-                subtopic_uuid: classification.subtopic_uuid,
-                initial_shared_tags: Vec::new(),
-                question_license: license.clone(),
-                question_revision_reason: QuestionRevisionReason::new(
-                    INITIAL_PUBLICATION_REASON.to_owned(),
-                )
-                .expect("fixed parameterized publication reason is valid"),
-            },
-            now(),
-        )
-        .await
-        .context("publishing ordinary parameterized curriculum Question lineage")
+    NewQuestionLineagePublisher::new(
+        objects.clone(),
+        bindings.clone(),
+        *issuer,
+        Arc::clone(bloom),
+        None,
+    )
+    .publish(
+        session,
+        NewQuestionLineagePublicationCommand {
+            draft_question_uuid: draft.draft_question_uuid,
+            expected_draft_question_edit_number: bound_edit_number,
+            workspace,
+            question_authorship: authorship.clone(),
+            discipline_uuid: classification.discipline_uuid,
+            subject_uuid: classification.subject_uuid,
+            topic_uuid: classification.topic_uuid,
+            subtopic_uuid: classification.subtopic_uuid,
+            initial_shared_tags: Vec::new(),
+            question_license: license.clone(),
+            question_revision_reason: QuestionRevisionReason::new(
+                INITIAL_PUBLICATION_REASON.to_owned(),
+            )
+            .expect("fixed parameterized publication reason is valid"),
+        },
+        now(),
+    )
+    .await
+    .context("publishing ordinary parameterized curriculum Question lineage")
 }
 
 #[allow(clippy::too_many_arguments)]

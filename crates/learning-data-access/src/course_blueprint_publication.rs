@@ -17,5 +17,6 @@ pub trait CourseBlueprintPublicationStore: Send + Sync {
         source_course: CourseInstanceReference,
         request_checksum: RequestChecksum,
         input: CreateBlueprintFromCourseInstanceInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError>;
 }

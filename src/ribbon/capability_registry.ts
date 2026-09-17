@@ -318,14 +318,30 @@ const CAPABILITY_DECLARATIONS = {
     ],
   },
   myActiveCourses: {
-    kind: "unbacked",
-    reason: "My Active Courses remains unavailable until the Course activity capability lands.",
-    evidence: ["src/ribbon/ribbon_catalog.ts::myActiveCourses"],
+    kind: "backed",
+    clientMethod: "CourseInstanceClient.listCourseInstances",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/course_instance.rs::course_instance_router",
+    },
+    evidence: [
+      "crates/server/src/course_instance.rs::course_instance_router",
+      "src/api/http_client/course_instance.ts::createCourseInstanceClient",
+      "src/pages/course_list_page.tsx::CourseListPage",
+    ],
   },
   myInactiveCourses: {
-    kind: "unbacked",
-    reason: "My Inactive Courses remains unavailable until retention derives inactive Courses.",
-    evidence: ["src/ribbon/ribbon_catalog.ts::myInactiveCourses"],
+    kind: "backed",
+    clientMethod: "CourseInstanceClient.listCourseInstances",
+    serverEvidence: {
+      kind: "registeredHandler",
+      handler: "crates/server/src/course_instance.rs::course_instance_router",
+    },
+    evidence: [
+      "crates/server/src/course_instance.rs::course_instance_router",
+      "src/api/http_client/course_instance.ts::createCourseInstanceClient",
+      "src/pages/course_list_page.tsx::InactiveCourseListPage",
+    ],
   },
   searchPublicBlueprintCourses: {
     kind: "backed",

@@ -84,5 +84,6 @@ pub trait BlueprintLineageStore: Send + Sync {
         session: SessionTokenHash,
         source: BlueprintForkSource,
         request_checksum: RequestChecksum,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<ForkBlueprintCourseReceipt, StoreError>;
 }

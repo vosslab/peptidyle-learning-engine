@@ -336,6 +336,26 @@ BEGIN
 	) THEN
 		RAISE EXCEPTION 'Course-retention executor is not an ordinary no-login capability';
 	END IF;
+	-- Inactivity is executor-only even though it preserves all Student data.
+	IF NOT EXISTS (
+		SELECT 1 FROM pg_catalog.pg_proc AS routine
+		WHERE routine.oid = to_regprocedure(
+			'ple_api.mark_course_instance_inactive(uuid,timestamp with time zone)'
+		)
+		AND routine.proowner = to_regrole('ple_course_retention_executor')
+		AND routine.prosecdef
+		AND routine.proconfig = ARRAY['search_path=pg_catalog, ple_api, ple_data']
+	) OR EXISTS (
+		SELECT 1 FROM pg_catalog.pg_roles AS role
+		WHERE role.rolname IN ('ple_app', 'ple_auth', 'ple_course_retention_notifier')
+		AND has_function_privilege(
+			role.oid,
+			'ple_api.mark_course_instance_inactive(uuid,timestamp with time zone)',
+			'EXECUTE'
+		)
+	) THEN
+		RAISE EXCEPTION 'Course inactivity transition is not executor-only';
+	END IF;
 	BEGIN
 		EXECUTE 'SET LOCAL ROLE ple_course_retention_executor';
 		RESET ROLE;

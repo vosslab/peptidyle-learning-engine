@@ -104,6 +104,7 @@ export function decodeStudentAssessmentAttemptHistory(
           "questionRevision",
           "responseState",
           "response",
+          "backendAnswerReview",
           "correctness",
           "pointsEarned",
           "pointsPossible",
@@ -138,6 +139,12 @@ export function decodeStudentAssessmentAttemptHistory(
           questionPath,
         );
         const response = item.response;
+        const backendAnswerReview =
+          item.backendAnswerReview === undefined
+            ? undefined
+            : decodeStringEnum(item.backendAnswerReview, `${questionPath}.backendAnswerReview`, [
+                "available",
+              ] as const);
         return {
           position: decodePositiveInteger(
             field(item, "position", questionPath),
@@ -153,6 +160,7 @@ export function decodeStudentAssessmentAttemptHistory(
             `${questionPath}.responseState`,
           ),
           ...feedback,
+          ...(backendAnswerReview === undefined ? {} : { backendAnswerReview }),
           ...(response === undefined
             ? {}
             : {

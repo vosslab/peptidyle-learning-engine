@@ -6,6 +6,10 @@ import type { BlueprintRevisionView } from "../../../generated/api/BlueprintRevi
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
 import type { BlueprintCourseClient } from "../../api/blueprint_course";
 import { ApiRequestError } from "../../api/http_client";
+import {
+  assessmentDurationDefaultDescription,
+  assessmentDurationDisplay,
+} from "../../assessment_duration";
 import { CourseClassificationSummary } from "../../components/course_classification_summary";
 
 interface HistoryProps {
@@ -32,6 +36,20 @@ function recordedTime(timestamp: number): string {
 function policyLabel(name: string): string {
   const words = name.replace(/([a-z])([A-Z])/gu, "$1 $2").replace(/_/gu, " ");
   return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function historicalAssessmentQuestionCount(content: BlueprintAssessmentContentView): number {
+  return content.entries.reduce(
+    (count, entry) => count + (entry.kind === "fixed" ? 1 : entry.selection_count),
+    0,
+  );
+}
+
+function historicalAssessmentDefaultDuration(content: BlueprintAssessmentContentView): string {
+  const seconds = content.defaults.assessment_attempt_time_limit_seconds;
+  if (seconds === null)
+    return assessmentDurationDefaultDescription(historicalAssessmentQuestionCount(content));
+  return assessmentDurationDisplay(seconds);
 }
 
 /** Opening history never grants editing or changes the ordinary latest-Revision workspace. */
@@ -335,7 +353,7 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
                     - scoring {entry.scoring_rule}; Question Attempt limit{" "}
                     {entry.question_attempt_limit.maxAttempts ?? "unlimited"}; time limit{" "}
                     {entry.question_attempt_time_limit.kind === "limited"
-                      ? `${entry.question_attempt_time_limit.seconds} seconds (${entry.question_attempt_time_limit.graceSeconds} grace seconds)`
+                      ? `${assessmentDurationDisplay(entry.question_attempt_time_limit.seconds)} (${entry.question_attempt_time_limit.graceSeconds === 0 ? "no grace" : `${assessmentDurationDisplay(entry.question_attempt_time_limit.graceSeconds)} grace`})`
                       : "unlimited"}
                     <Show when={entry.kind === "pool" ? entry : undefined}>
                       {(pool) => (
@@ -353,11 +371,8 @@ function RevisionContent(props: { readonly revision: BlueprintRevisionView }): J
             </Show>
             <h5>Assessment defaults</h5>
             <dl>
-              <dt>Assessment Attempt time limit (seconds)</dt>
-              <dd>
-                {content().defaults.assessment_attempt_time_limit_seconds ??
-                  "Calculated default: 1.5 minutes per Question, rounded up to a whole minute"}
-              </dd>
+              <dt>Assessment Attempt time limit</dt>
+              <dd>{historicalAssessmentDefaultDuration(content())}</dd>
               <dt>Assessment Attempt limit</dt>
               <dd>{content().defaults.assessment_attempt_limit ?? "Unlimited"}</dd>
               <dt>Late work rule</dt>

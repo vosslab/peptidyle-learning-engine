@@ -31,9 +31,19 @@ references to the SQL manifest; the manifest validates that mapping before it
 creates dependent records. `--without-live-demo` leaves the fictional Live Demo
 graph unprovisioned while retaining the shipped Genetics content.
 
-Question identifiers are ordinary opaque identifiers. Their canonical stored
-form is the compact eight-character Crockford Base32 value; APIs display the
-same value as `AAAA-ZBBB`. Pilot source slugs and source checksums select the
+Fresh Pilot and shipped Genetics publication requires the installation-owned native
+Ollama Bloom provider described in
+[INSTALL.md](INSTALL.md#configure-question-publication-classification).
+The publisher sends exact protected source only to that private fixed origin, requires
+a complete two-dimensional classification, and prepares the existing one-use
+PostgreSQL receipt before atomic publication. Existing matching immutable Question
+provenance remains reusable without another model call. The installer never pulls a
+model; absent, partial, or unavailable provider selection stops new publication before
+creating Draft or source objects.
+
+Question identifiers are ordinary opaque public IDs. Published Questions and
+Question Pools use the canonical `XXXX-ZXXX` form unchanged in storage, APIs,
+URLs, and the browser. Pilot source slugs and source checksums select the
 reviewed content internally, but are neither public Question IDs nor a special
 Question namespace.
 

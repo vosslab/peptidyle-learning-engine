@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use axum::http::{HeaderValue, Uri};
-use question_model::QuestionSearchSort;
+use question_model::{BloomCognitiveProcess, BloomKnowledgeDimension, QuestionSearchSort};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
@@ -69,15 +69,27 @@ impl QuestionLibraryStore for LookupCountingStore {
             "not used by this contract".to_string(),
         ))
     }
+
+    async fn correct_question_revision_bloom(
+        &self,
+        _: SessionTokenHash,
+        _: &QuestionRevisionReference,
+        _: question_model::BloomClassificationEditNumber,
+        _: BloomCognitiveProcess,
+        _: BloomKnowledgeDimension,
+    ) -> Result<question_model::BloomClassificationView, StoreError> {
+        Err(StoreError::Unavailable(
+            "not used by this contract".to_string(),
+        ))
+    }
 }
 
 #[tokio::test]
 async fn exact_question_routes_reject_a_wrong_checksum_character_before_lookup() {
-    let issuer = RandomQuestionIdIssuer::new();
     let store = LookupCountingStore(AtomicUsize::new(0));
 
     assert_eq!(
-        verified_question_id(&issuer, "0000-4000")
+        verified_question_id("0000-4000")
             .expect("documented checksum vector")
             .to_string(),
         "0000-4000"
@@ -85,7 +97,6 @@ async fn exact_question_routes_reject_a_wrong_checksum_character_before_lookup()
     assert_eq!(
         load_verified_question_library_entry(
             &store,
-            &issuer,
             SessionTokenHash::compute(b"instructor session"),
             "0000-N00N",
         )
@@ -120,7 +131,9 @@ fn question_search_query_accepts_repeated_filter_values() {
         "&tags=protein&tags=structure",
         "&question_types=multipleChoice&question_types=fillInBlank",
         "&capabilities=hints&capabilities=serverGrading",
-        "&question_licenses=CC-BY-4.0&question_licenses=CC0-1.0"
+        "&question_licenses=CC-BY-4.0&question_licenses=CC0-1.0",
+        "&bloom_cognitive_process=Analyze",
+        "&bloom_knowledge_dimension=Conceptual%20Knowledge"
     )
     .parse()
     .expect("test URI parses");
@@ -136,6 +149,14 @@ fn question_search_query_accepts_repeated_filter_values() {
     );
     assert_eq!(request.author_names, vec!["ada", "grace"]);
     assert_eq!(request.tags, vec!["protein", "structure"]);
+    assert_eq!(
+        request.bloom_cognitive_process,
+        Some(BloomCognitiveProcess::Analyze)
+    );
+    assert_eq!(
+        request.bloom_knowledge_dimension,
+        Some(BloomKnowledgeDimension::ConceptualKnowledge)
+    );
     assert_eq!(request.page_size, Some(DEFAULT_PAGE_SIZE));
 }
 
@@ -183,14 +204,22 @@ fn question_search_query_rejects_scalar_parameter_pollution_and_invalid_fields()
         "cross_discipline=false&cross_discipline=true",
         "sort=unknown",
         "sort=titleAscending&sort=publishedNewest",
+        "bloom_cognitive_process=analyze",
+        "bloom_cognitive_process=",
+        "bloom_cognitive_process=Analyze&bloom_cognitive_process=Create",
+        "bloom_knowledge_dimension=Conceptual",
+        "bloom_knowledge_dimension=",
+        "bloom_knowledge_dimension=Factual%20Knowledge&bloom_knowledge_dimension=Procedural%20Knowledge",
+        "bloomCognitiveProcess=Analyze",
     ] {
         let uri: Uri = format!("/api/questions/search?{query}")
             .parse()
             .expect("test URI parses");
-        assert!(
-            Query::<QuestionSearchQuery>::try_from_uri(&uri).is_err(),
-            "query must reject: {query}"
-        );
+        let rejected = match Query::<QuestionSearchQuery>::try_from_uri(&uri) {
+            Err(_) => true,
+            Ok(Query(transport)) => QuestionSearchRequest::try_from(transport).is_err(),
+        };
+        assert!(rejected, "query must reject: {query}");
     }
 }
 

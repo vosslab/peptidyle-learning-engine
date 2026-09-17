@@ -18,7 +18,8 @@ pub use crate::question_search::{
     MAX_QUESTION_SEARCH_BACKEND_FACETS, MAX_QUESTION_SEARCH_CURSOR_ENCODED_BYTES,
     MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS, MAX_QUESTION_SEARCH_QUESTION_TYPE_FILTERS,
     MAX_QUESTION_SEARCH_TAG_FACETS, MAX_QUESTION_SEARCH_TAG_FILTERS, QuestionSearchAuthorFacet,
-    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchCapabilityFacet,
+    QuestionSearchAuthorship, QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
     QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
     QuestionSearchFilter, QuestionSearchQuestionLicenseFacet, QuestionSearchRequest,
     QuestionSearchRequestError, QuestionSearchSort, QuestionSearchSubjectFacet,
@@ -412,8 +413,8 @@ impl QuestionBackendInterface {
 pub struct QuestionSummary {
     /// Sole human-facing identity of this stable Published Question lineage.
     pub question_id: QuestionId,
-    /// Exact accepted Question Revision with the greatest revision number in
-    /// this Question lineage. This is independent of selection availability.
+    /// Current accepted Revision for ordinary routes, or the exact resolved
+    /// Revision for an exact-detail route. Independent of selection availability.
     pub latest_question_revision: QuestionRevisionReference,
     /// Question Backend, without private backend fields or Question Source data.
     pub backend: QuestionBackend,
@@ -435,6 +436,8 @@ pub struct QuestionSummary {
     pub availability: QuestionAvailability,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
+    /// Exact Bloom Classification and its independent correction Edit Number.
+    pub bloom: crate::BloomClassificationView,
 }
 
 /// Current Question lineage plus the session-derived Archive affordance.
@@ -586,12 +589,16 @@ pub struct QuestionDetails {
     pub summary: QuestionSummary,
     /// Current readable Discipline name for this Question's existing classification reference.
     pub discipline_name: String,
+    /// Current readable Subject name for this Question's existing classification reference.
+    pub subject_name: String,
     /// Whether `discipline_name` is retired. Retired classifications remain readable on existing
     /// references and are not new-selection choices.
     pub discipline_is_retired: bool,
     /// Static content or one server-generated example; source, response,
     /// Question Variation Rule, grading, keys, and Question Pool Preview Nonce are excluded.
     pub prompt: QuestionDetailsPromptView,
+    /// Answer-free native response controls; backend-owned previews supply their own controls.
+    pub response_preview: Option<crate::QuestionResponsePreview>,
     /// Explainable anonymous evidence for this exact publication.
     pub evidence: QuestionStatistics,
     /// Bounded current-Account usage evidence for this exact publication.
@@ -697,10 +704,17 @@ mod tests {
                 .expect("valid Question Authorship"),
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
+                bloom: crate::BloomClassificationView {
+                    cognitive_process: crate::BloomCognitiveProcess::Understand,
+                    knowledge_dimension: crate::BloomKnowledgeDimension::ConceptualKnowledge,
+                    classification_edit_number: crate::BloomClassificationEditNumber::INITIAL,
+                },
             },
             discipline_name: "Biology".to_string(),
+            subject_name: "Genetics".to_string(),
             discipline_is_retired: false,
             prompt: QuestionDetailsPromptView::Static { blocks: Vec::new() },
+            response_preview: Some(crate::QuestionResponsePreview::ShortText {}),
             evidence: QuestionStatistics::Unavailable,
             usage: QuestionUseDetails {
                 summary: QuestionUseSummary {
@@ -714,6 +728,10 @@ mod tests {
             },
         };
         let wire = serde_json::to_value(detail).expect("detail serializes");
+        assert_eq!(
+            wire.get("subjectName"),
+            Some(&serde_json::json!("Genetics"))
+        );
         assert!(wire.get("source").is_none());
         assert!(wire.get("response").is_none());
         assert!(wire.get("questionVariationRule").is_none());

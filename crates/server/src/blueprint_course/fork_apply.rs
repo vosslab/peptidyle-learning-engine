@@ -56,6 +56,7 @@ pub(super) async fn apply_fork_update(
                 source_long_name: request.source_long_name,
                 selection: request.selection,
             },
+            Default::default(),
         )
         .await
     {

@@ -30,8 +30,11 @@ pub(super) async fn fork_blueprint(
         Ok(value) => value,
         Err(_) => return concealed(),
     };
-    let checksum = match request_checksum("fork-blueprint-course", &headers, &(reference, revision))
-    {
+    let checksum = match request_checksum(
+        "fork-blueprint-course",
+        &headers,
+        &(reference.clone(), revision),
+    ) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -50,6 +53,7 @@ pub(super) async fn fork_blueprint(
                 },
             },
             checksum,
+            Default::default(),
         )
         .await
     {

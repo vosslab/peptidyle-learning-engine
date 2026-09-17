@@ -411,7 +411,7 @@ fn every_published_question_address_uses_canonical_question_id_json() {
         assert!(encoded.contains("\"questionId\":\"ABCD-XEFG\""));
         assert_eq!(
             serde_json::from_str::<ObjectAddress>(&encoded)
-                .expect("compact Object Address should deserialize"),
+                .expect("canonical Object Address should deserialize"),
             address
         );
     }

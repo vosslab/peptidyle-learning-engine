@@ -166,6 +166,7 @@ pub trait BlueprintChangeProposalStore: Send + Sync {
         &self,
         session: SessionTokenHash,
         input: AcceptBlueprintChangeProposalInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<AcceptedBlueprintChangeProposal, StoreError>;
 
     async fn read_accepted_blueprint_change_proposal(

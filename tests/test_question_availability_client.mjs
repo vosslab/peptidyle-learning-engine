@@ -26,8 +26,10 @@ function details(revisionNumber, disciplineIsRetired = false) {
       latestQuestionRevision: { questionId: question.questionId, revisionNumber },
     },
     disciplineName: "Biology",
+    subjectName: "Genetics",
     disciplineIsRetired,
     prompt: { kind: "static", blocks: [] },
+    responsePreview: { kind: "shortText" },
     evidence: { state: "unavailable" },
     usage: {
       summary: {
@@ -78,6 +80,7 @@ test("Question availability client keeps current lineage transitions and exact r
   assert.equal(resolved.questionId, question.questionId);
   assert.equal(exact.summary.latestQuestionRevision.revisionNumber, 2);
   assert.equal(exact.disciplineName, "Biology");
+  assert.equal(exact.subjectName, "Genetics");
   assert.equal(exact.disciplineIsRetired, true);
   assert.equal(archived.availability, "archived");
   assert.equal(restored.availability, "available");

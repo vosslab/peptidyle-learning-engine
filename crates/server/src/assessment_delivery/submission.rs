@@ -266,7 +266,8 @@ mod tests {
         let presentation = QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_reproduction(
                 QuestionRevisionReference {
-                    question_id: "1234-X567".parse().expect("question id"),
+                    question_id: question_model::QuestionId::from_random_identifier("1234567")
+                        .expect("question id"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision"),
                 },
                 QuestionReproduction::Static,
@@ -294,7 +295,8 @@ mod tests {
         let presentation = QuestionVariationPresentation {
             variation: QuestionVariation::from_question_revision_and_reproduction(
                 QuestionRevisionReference {
-                    question_id: "1234-X567".parse().expect("question id"),
+                    question_id: question_model::QuestionId::from_random_identifier("1234567")
+                        .expect("question id"),
                     revision_number: QuestionRevisionNumber::new(1).expect("revision"),
                 },
                 QuestionReproduction::Static,

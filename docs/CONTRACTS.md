@@ -299,7 +299,11 @@ or saved work.
 Score reads calculate each Attempt from current Assessment Question point
 values and use the highest submitted Assessment Attempt score. PLE has no
 separate Question weights, Grade Categories, Course Grade Scheme, or Course
-percentage calculation. Pilot grade export is CSV or TSV point data.
+percentage calculation. Pilot grade export is CSV or TSV point data. The current Course
+co-Instructor downloads the same authorized Gradebook projection through the fixed seven-column
+attachment contract in [API_CONTRACTS.md](API_CONTRACTS.md#gradebook-point-export). Exports preserve
+missing versus zero scores, protect spreadsheet text cells, and leave Course weighting to the home
+LMS.
 
 | Boundary                                             | Owner and evidence                                                                                                                                                                                                                                                                |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

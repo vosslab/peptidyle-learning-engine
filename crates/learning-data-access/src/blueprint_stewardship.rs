@@ -10,15 +10,6 @@ use question_model::{BlueprintCourseReference, Timestamp};
 
 use crate::{SessionTokenHash, StoreError};
 
-/// Self-only stewardship state for one Public or Archived Blueprint Course.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BlueprintStewardshipState {
-    /// Whether the authenticated Instructor Stars this Blueprint lineage.
-    pub starred: bool,
-    /// Whether the authenticated Instructor privately Watches this lineage.
-    pub watching: bool,
-}
-
 /// Browser-safe Star facts for one Blueprint Course lineage.
 ///
 /// This deliberately has no endorser identity. C856 adds the separately
@@ -113,30 +104,4 @@ pub trait BlueprintStewardshipStore: Send + Sync {
         blueprint_course_reference: BlueprintCourseReference,
         limit: u16,
     ) -> Result<Vec<BlueprintCourseWatchEvent>, StoreError>;
-
-    /// Reads only the caller's state for a Public or Archived Blueprint Course.
-    ///
-    /// The database rejects anonymous, inactive, and non-Instructor sessions,
-    /// and no returned field permits discovery of another Instructor's Watch.
-    async fn blueprint_stewardship_state(
-        &self,
-        session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
-    ) -> Result<BlueprintStewardshipState, StoreError>;
-
-    /// Sets only the authenticated Instructor's Star state, idempotently.
-    async fn set_current_blueprint_course_star(
-        &self,
-        session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
-        starred: bool,
-    ) -> Result<BlueprintStewardshipState, StoreError>;
-
-    /// Sets only the authenticated Instructor's private Watch state, idempotently.
-    async fn set_current_blueprint_course_watch(
-        &self,
-        session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
-        watching: bool,
-    ) -> Result<BlueprintStewardshipState, StoreError>;
 }

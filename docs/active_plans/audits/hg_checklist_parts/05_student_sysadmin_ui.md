@@ -47,7 +47,10 @@
   - Evidence (source): `src/pages/student_courses_page.tsx` `StudentCoursesPage` provides the current-Course index; `src/pages/student_course_landing_page.tsx` `StudentCourseLandingPage` provides its work.
 - [ ] Course invitations should show the Course name and relevant Instructor and term information
   before the Student accepts the invitation.
-  - Verification pending: expanded requirement needs scoped source and rendered workflow proof against its full current wording. Bounded Course/theme/MATCH/Attempt-navigation receipts do not establish this broader interface contract.
+  - Verification pending: source and independent review show Course, Instructor, and term before acceptance.
+  - Verification pending: the self-only projection omits identities; transient states conceal context.
+  - Verification pending: actual-role PostgreSQL covers self, foreign, expired, accepted, and enrolled invitations.
+  - Verification pending: browser confirms pre-accept context and transient concealment; keep unchecked until both gates pass.
 - [x] Course pages should make upcoming, available, completed, and missed Coursework easy to distinguish.
   - Evidence (source): `src/pages/student_coursework_presentation.ts` `studentCourseworkDisplay` maps the server-owned start decision, completion, and resumability to upcoming, available, in-progress, completed, or missed learner states.
   - Evidence (test): `tests/test_student_coursework_presentation.mjs` `Coursework display distinguishes resumable, non-resumable unfinished, and completed work` exercises the pure state projection.

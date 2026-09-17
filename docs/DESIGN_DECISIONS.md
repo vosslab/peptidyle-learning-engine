@@ -552,6 +552,29 @@ Student document bytes and their same-origin bridge behavior remain unchanged.
 [ple_bridge.js](../src/public/ple_bridge.js), and the Backend preview document
 row in [API_CONTRACTS.md](API_CONTRACTS.md).
 
+### WeBWorK correct answers stay backend-owned
+
+**Decision.** Correct-answer review is one private renderer operation over the
+exact retained Question Revision and Attempt seed. It accepts no Student
+response and returns transient backend-owned HTML through completed-history
+authorization. The same answer decision, including current-Course completion
+for Quizzes and Exams, runs before and after rendering.
+
+**Why.** PLE owns disclosure and WeBWorK owns answer presentation. Correct answers
+must not pull independently controlled responses, explanations, Hints, Worked
+Solutions, or new scores into the disclosure.
+
+**Consequence.** History exposes only the literal availability marker. Each frame
+fetch independently authorizes the fixed route and uses the existing opaque
+script-only preview sandbox. Generated review assets stay inline in that
+protected document. No public review asset, answer parser, persisted review,
+grading write, or disclosure latch is introduced. Failure is local to review;
+the issued document and immutable Student Work remain intact.
+
+**Owner.** [QUESTION_BACKEND_CONTRACTS.md](QUESTION_BACKEND_CONTRACTS.md),
+[WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md), and
+[webwork_document_route.rs](../crates/server/src/webwork_document_route.rs).
+
 ### Native PLE Question JSON stays deliberately small
 
 **Decision.** Native PLE Question JSON is private, unpublished, unversioned,

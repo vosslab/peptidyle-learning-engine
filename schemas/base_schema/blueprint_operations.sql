@@ -1,3 +1,7 @@
+SET LOCAL ROLE ple_private_owner;
+GRANT CREATE ON SCHEMA ple_private TO ple_api_owner;
+RESET ROLE;
+
 SET LOCAL ROLE ple_api_owner;
 
 -- This private primitive has one narrowly trusted exception for copying a
@@ -119,6 +123,12 @@ GRANT EXECUTE ON FUNCTION ple_private.create_blueprint_course(
     uuid, bytea, text, text, jsonb, bytea, uuid, uuid, uuid, uuid, text[], uuid
 ) TO ple_api_owner;
 
+RESET ROLE;
+SET LOCAL ROLE ple_private_owner;
+REVOKE CREATE ON SCHEMA ple_private FROM ple_api_owner;
+RESET ROLE;
+SET LOCAL ROLE ple_api_owner;
+
 CREATE FUNCTION ple_api.create_blueprint_course(
     p_blueprint_id uuid, p_request_checksum bytea, p_short_name text, p_long_name text,
     p_content jsonb, p_content_checksum bytea,
@@ -156,7 +166,7 @@ DECLARE
     v_now timestamp with time zone;
     v_reference_number bigint;
 BEGIN
-    IF p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        OR p_expected_blueprint_revision_number <= 0
        OR octet_length(p_request_checksum) <> 32
        OR octet_length(p_content_checksum) <> 32
@@ -264,7 +274,7 @@ DECLARE
     v_next uuid;
     v_reference_number bigint;
 BEGIN
-    IF p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        OR p_expected_metadata_etag IS NULL
        OR p_short_name IS NULL OR p_short_name <> btrim(p_short_name)
        OR char_length(p_short_name) NOT BETWEEN 1 AND 500
@@ -335,7 +345,7 @@ DECLARE
     v_next uuid;
     v_reference_number bigint;
 BEGIN
-    IF p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        OR p_expected_metadata_etag IS NULL
        OR p_availability NOT IN ('private', 'public', 'archived')
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -603,7 +613,7 @@ AS $$
         ON source.reference_number = ancestry.source_blueprint_course_reference_number
        AND (source.availability IN ('public', 'archived')
             OR source.owner_account_id = ple_api.current_session_account_id())
-     WHERE p_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+     WHERE ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        AND course.public_reference = p_reference
        AND ple_api.current_session_account_is_instructor()
        AND (
@@ -626,7 +636,7 @@ AS $$
       FROM ple_data.blueprint_course_revision AS revision
       JOIN ple_data.blueprint_course AS course
         ON course.reference_number = revision.blueprint_course_reference_number
-     WHERE p_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+     WHERE ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        AND p_blueprint_revision_number > 0
        AND course.public_reference = p_reference
        AND revision.blueprint_revision_number = p_blueprint_revision_number
@@ -678,7 +688,7 @@ BEGIN
     IF NOT ple_api.current_session_account_is_sysadmin() THEN
         RAISE EXCEPTION 'Blueprint promotion forbidden' USING ERRCODE = '42501';
     END IF;
-    IF p_reference IS NULL OR p_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        OR p_expected_metadata_etag IS NULL OR p_promoted IS NULL THEN
         RAISE EXCEPTION 'invalid Blueprint promotion' USING ERRCODE = '22023';
     END IF;

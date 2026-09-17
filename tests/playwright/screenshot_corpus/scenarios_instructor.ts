@@ -353,8 +353,10 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .fill("2026-12-01");
     await page.getByLabel("Due time").fill("12:00");
     await page
-      .getByLabel(/^Assessment duration override in seconds \(optional, maximum 12 hours\)/u)
-      .fill("1800");
+      .getByLabel(
+        /^Assessment duration override in minutes \(optional, maximum 720 minutes \/ 12 hours\)/u,
+      )
+      .fill("30");
     await page.getByRole("combobox", { name: /^Late-work rule/u }).selectOption("mark_late");
     await page.getByText("Saved", { exact: true }).waitFor();
     await page.getByRole("link", { name: "Open Student View", exact: true }).click();

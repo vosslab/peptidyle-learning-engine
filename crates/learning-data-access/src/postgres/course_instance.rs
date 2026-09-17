@@ -13,9 +13,9 @@ use super::Pool;
 use super::connection::map_sqlx_error;
 use crate::course_instance::CourseInstanceBlueprintOrigin;
 use crate::{
-    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstancePoolIdIssuer,
-    CourseInstanceStore, CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput,
-    CreatedCourseInstance, SessionTokenHash, StoreError,
+    CourseCreationInstructor, CourseInstanceCreationSource, CourseInstanceLifecycleState,
+    CourseInstancePoolIdIssuer, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
+    CreateCourseInstanceInput, CreatedCourseInstance, SessionTokenHash, StoreError,
 };
 
 const ADOPTION_POOL_IDENTITY_ATTEMPTS: usize = 8;
@@ -177,7 +177,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let rows = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
+             term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.list_course_instances()",
         )
         .fetch_all(&mut *transaction)
@@ -195,9 +195,12 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         &self,
         session_token_hash: SessionTokenHash,
         input: CreateCourseInstanceInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreatedCourseInstance, StoreError> {
         input.validate()?;
         for attempt in 0..ADOPTION_POOL_IDENTITY_ATTEMPTS {
+            // A rolled-back identity collision leaves SQL receipts unconsumed.
+            let mut attempt_bloom_receipts = bloom_receipts.clone();
             let mut transaction = self
                 .begin_authenticated_application_transaction(session_token_hash)
                 .await?;
@@ -205,6 +208,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
                 &mut transaction,
                 &input,
                 self.pool_id_issuer.as_deref(),
+                &mut attempt_bloom_receipts,
             )
             .await?;
             let (source_kind, blueprint_reference, blueprint_revision) = match &input.source {
@@ -223,7 +227,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             };
             let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
+             term_ends_on::text AS term_ends_on, course_lifecycle_state, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags \
              FROM ple_api.create_course_instance(\
              $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11::date, $12, $13, $14,$15,$16,$17,$18)",
         )
@@ -241,6 +245,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
         .bind(
             input
                 .assigned_instructor
+                .as_ref()
                 .map(|reference| reference.as_string()),
         )
         .bind(assessments)
@@ -266,6 +271,10 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             let record = CreatedCourseInstance {
                 course: CourseInstanceSummary {
                     classification: super::blueprint_course::decode_classification(&row)?,
+                    lifecycle_state: lifecycle_state(
+                        row.try_get("course_lifecycle_state")
+                            .map_err(map_sqlx_error)?,
+                    )?,
                     metadata_etag: question_model::CourseMetadataEtag::from_uuid(
                         row.try_get("metadata_etag").map_err(map_sqlx_error)?,
                     ),
@@ -322,7 +331,7 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
             .await?;
         let row = sqlx::query(
             "SELECT public_reference, short_name, long_name, term_starts_on::text AS term_starts_on, \
-             term_ends_on::text AS term_ends_on, course_theme, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags, \
+             term_ends_on::text AS term_ends_on, course_theme, course_lifecycle_state, metadata_etag, discipline_uuid, subject_uuid, topic_uuid, subtopic_uuid, tags, \
              active_instructor_count, blueprint_reference, adopted_blueprint_revision, \
              current_blueprint_revision FROM ple_api.load_course_instance($1)",
         )
@@ -368,6 +377,10 @@ impl CourseInstanceStore for PostgresCourseInstanceStore {
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<CourseInstanceSummary, StoreError> {
     Ok(CourseInstanceSummary {
         classification: super::blueprint_course::decode_classification(row)?,
+        lifecycle_state: lifecycle_state(
+            row.try_get("course_lifecycle_state")
+                .map_err(map_sqlx_error)?,
+        )?,
         metadata_etag: question_model::CourseMetadataEtag::from_uuid(
             row.try_get("metadata_etag").map_err(map_sqlx_error)?,
         ),
@@ -449,6 +462,14 @@ fn account_reference(value: String) -> Result<AccountReference, StoreError> {
 
 fn term(start_date: String, end_date: String) -> Result<CourseTerm, StoreError> {
     CourseTerm::from_parts(&start_date, &end_date).map_err(|_| invalid("Course Term"))
+}
+
+fn lifecycle_state(value: String) -> Result<CourseInstanceLifecycleState, StoreError> {
+    match value.as_str() {
+        "active" => Ok(CourseInstanceLifecycleState::Active),
+        "inactive" => Ok(CourseInstanceLifecycleState::Inactive),
+        _ => Err(invalid("Course Instance lifecycle state")),
+    }
 }
 
 fn membership_role(value: &str) -> Result<CourseMembershipRole, StoreError> {

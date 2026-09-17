@@ -5,7 +5,7 @@
 ## DBsubject('Genetics')
 ## DBchapter('')
 ## DBsection('')
-## Date('2026-08-19')
+## Date('2026-09-17')
 ## Author('Neil R. Voss')
 ## Institution('Roosevelt University')
 
@@ -27,11 +27,11 @@ our @ALPHABET = ('A' .. 'Z');
 # ================================
 %match_data = (
   'Acentric' => [
-    'an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span> that lacks a <span style="color: #b74300; font-weight:700;">centromere</span>',
+    'an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span> that lacks a <span style="color: #b74300; font-weight:700;">centromere</span> ',
     'spindle fibers cannot attach and the <span style="color: #a719db; font-weight:700;">chromosome</span> is lost when the cell divides',
     'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> lacking spindle fiber attachment',
-    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> with no <span style="color: #b74300; font-weight:700;">centromere</span>',
-    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> lacking a <span style="color: #b74300; font-weight:700;">centromere</span>',
+    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> with no <span style="color: #b74300; font-weight:700;">centromere</span> ',
+    'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> lacking a <span style="color: #b74300; font-weight:700;">centromere</span> ',
   ],
   'Acrocentric' => [
     'the short arm of the <span style="color: #a719db; font-weight:700;">chromosome</span> is so short that it is hard to observe',
@@ -46,7 +46,7 @@ our @ALPHABET = ('A' .. 'Z');
     'an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span> that has two <span style="color: #b74300; font-weight:700;">centromeres</span> that often appear in cancer cells',
     'an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span> with two <span style="color: #b74300; font-weight:700;">centromeres</span> that often appear in cancer cells',
     'an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> due to unpredictable spindle fiber attachment',
-    'a <span style="color: #a719db; font-weight:700;">chromosome</span> with formed through the fusion of two <span style="color: #a719db; font-weight:700;">chromosome</span> segments, each with a <span style="color: #b74300; font-weight:700;">centromere</span>',
+    'a <span style="color: #a719db; font-weight:700;">chromosome</span> with formed through the fusion of two <span style="color: #a719db; font-weight:700;">chromosome</span> segments, each with a <span style="color: #b74300; font-weight:700;">centromere</span> ',
     'genomic rearrangements placing two <span style="color: #b74300; font-weight:700;">centromeres</span> on the same <span style="color: #a719db; font-weight:700;">chromosome</span>',
   ],
   'Metacentric' => [

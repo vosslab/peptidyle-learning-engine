@@ -24,6 +24,7 @@ impl PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         input: ApplyBlueprintForkInput,
+        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<ApplyBlueprintForkResult, StoreError> {
         let encoded_request = serde_json::to_vec(&input)
             .map_err(|_| StoreError::InvalidRecord("Blueprint fork selection".into()))?;
@@ -171,6 +172,7 @@ impl PostgresBlueprintCourseStore {
                             &mut transaction,
                             &mut copied,
                             self.pool_id_issuer.as_deref(),
+                            &mut bloom_receipts,
                         )
                         .await?;
                         *assessment = copied.modules.remove(0).assessments.remove(0);
@@ -188,13 +190,14 @@ impl PostgresBlueprintCourseStore {
         let save = self
             .save_trusted_content(
                 &mut transaction,
-                input.expected_fork.reference,
+                input.expected_fork.reference.clone(),
                 input.expected_fork.revision,
                 checksum,
                 actor,
                 fork,
                 &content,
                 daughters,
+                &mut bloom_receipts,
             )
             .await?;
         let row = &rows[if input.source_short_name { 0 } else { 1 }];
@@ -204,7 +207,7 @@ impl PostgresBlueprintCourseStore {
         let metadata = self
             .rename_in_transaction(
                 &mut transaction,
-                input.expected_fork.reference,
+                input.expected_fork.reference.clone(),
                 input.expected_fork_metadata_etag,
                 RenameBlueprintCourseInput {
                     short_name,

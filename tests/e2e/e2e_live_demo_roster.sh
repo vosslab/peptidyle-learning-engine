@@ -118,7 +118,7 @@ def references(response):
     items=json.loads(response).get("items")
     if not isinstance(items,list): raise SystemExit("Course Instance list was malformed")
     values=[item.get("reference") for item in items if isinstance(item,dict)]
-    if any(not isinstance(value,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",value) for value in values):
+    if any(not isinstance(value,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",value) for value in values):
         raise SystemExit("Course Instance list lacks canonical public identities")
     return set(values)
 

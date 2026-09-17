@@ -364,10 +364,12 @@
 - [x] Course Instances are visible only to their co-**Instructors** and enrolled **Students**.
   - Evidence (source): `crates/learning-data-access/src/course_instance.rs` `resolve_course_navigation` permits only an active Course Member.
 - [ ] Active Courses are current teaching Course Instances.
-  - Mismatch: No active/inactive Course Instance lifecycle model was found.
+  - Evidence (source): `schemas/base_schema/course_core.sql` constrains the stored lifecycle to `active` or `inactive`; `schemas/base_schema/course_operations.sql` `ple_api.list_course_instances` projects it; strict API decoding, `course_list_page.tsx`, and `/instructor` project only Active Course Instances.
+  - Verification pending: A real restricted-role Active-to-Inactive transition and canonical browser proof remain required. Source-backed lists do not establish the connected teaching lifecycle.
 - [ ] Inactive Courses are past Course Instances and retain Course metadata, including after
       FERPA-sensitive Student data is removed.
-  - Mismatch: No inactive Course lifecycle and retention linkage was verified in A8 paths.
+  - Evidence (source): `schemas/base_schema/course_retention_transitions.sql` records the one-way `mark_inactive` state transition, while `course_operations.sql` continues to project Course metadata; strict API decoding, `course_list_page.tsx`, and `/instructor/courses/inactive` project only Inactive Course Instances.
+  - Verification pending: A real restricted-role transition and canonical browser proof of retained metadata after independent Student-data deletion remain required. This row stays unchecked.
 - [x] An **Instructor** may create a new **Blueprint Course** from an existing Course Instance's reusable structure. The new Blueprint Course records that Course Instance as its source.
   - Evidence (source): `src/pages/course_instance_page.tsx` `CourseInstancePage` offers the compact metadata-only Course tools action; its strict client retains source-Course identity and no delivery fields; `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` records the immutable source without changing the Course.
   - Evidence (runtime): `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed source preservation, first-Adoption counts, exact pins/Pool fork, replay, and stale rollback on PostgreSQL 17.

@@ -242,12 +242,12 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
 
     let store = PostgresCourseInstanceStore::new(lazy_pool(&application_url).expect("app pool"));
     let created = store
-        .create_course_instance(token(0xc1), empty_course_input())
+        .create_course_instance(token(0xc1), empty_course_input(), Default::default())
         .await
         .expect("Empty Course creation");
     let course = created.course.reference;
     let workspace = store
-        .load_course_instance(token(0xc1), course)
+        .load_course_instance(token(0xc1), course.clone())
         .await
         .expect("assigned Instructor Course workspace");
     assert_eq!(workspace.active_instructor_count, 1);
@@ -308,21 +308,21 @@ async fn empty_course_has_no_initial_content_and_current_instructors_are_peers()
     assert_eq!(error_code(&malformed).as_deref(), Some("22023"));
 
     store
-        .add_course_instructor(token(0xc1), course, co_instructor)
+        .add_course_instructor(token(0xc1), course.clone(), co_instructor)
         .await
         .expect("assigned Instructor adds a co-Instructor");
     let peer_workspace = store
-        .load_course_instance(token(0xc2), course)
+        .load_course_instance(token(0xc2), course.clone())
         .await
         .expect("co-Instructor Course workspace");
     assert_eq!(peer_workspace.active_instructor_count, 2);
     store
-        .add_course_instructor(token(0xc2), course, target_instructor)
+        .add_course_instructor(token(0xc2), course.clone(), target_instructor.clone())
         .await
         .expect("current co-Instructor has equal teaching-team authority");
     assert_eq!(
         store
-            .add_course_instructor(token(0xc3), course, target_instructor)
+            .add_course_instructor(token(0xc3), course.clone(), target_instructor)
             .await,
         Err(StoreError::Forbidden),
         "an Instructor without an active Course membership cannot add peers"

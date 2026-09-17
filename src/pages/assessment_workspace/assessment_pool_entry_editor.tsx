@@ -88,12 +88,17 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
             <p>{fork().metadata.description}</p>
             <CourseClassificationSummary value={fork().metadata} />
             <p>
+              Bloom Cognitive Process: {fork().bloom.cognitiveProcess}; Bloom Knowledge Dimension:{" "}
+              {fork().bloom.knowledgeDimension}
+            </p>
+            <p>
               This Assessment owns this imported Pool fork. It selects {props.entry.selectionCount}{" "}
               of {fork().members.length} exact pinned Questions.
             </p>
             <label>
               <input
                 type="checkbox"
+                disabled={!props.mutationsEnabled || props.busy}
                 checked={attested()}
                 onChange={(event) => setAttested(event.currentTarget.checked)}
               />
@@ -207,7 +212,9 @@ export function AssessmentPoolEntryEditor(props: AssessmentPoolEntryEditorProps)
       </Show>
       <Show when={!props.mutationsEnabled}>
         <p class="assessment-editor-note">
-          Save or reload the pending Assessment changes before changing this Pool.
+          {props.entry.availability === "available"
+            ? "Save or reload the pending Assessment changes before changing this Pool."
+            : "This retained unavailable Pool Entry is read-only."}
         </p>
       </Show>
     </section>

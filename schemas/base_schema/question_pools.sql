@@ -241,7 +241,8 @@ SET LOCAL ROLE ple_data_owner;
 CREATE FUNCTION ple_data.create_question_pool(
     p_question_pool_id uuid, p_public_question_pool_id text,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean, p_title text, p_description text
+    p_interchangeability_attested boolean, p_title text, p_description text,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -272,17 +273,24 @@ BEGIN
             MESSAGE = 'Active Instructor authority is required for Question Pool creation';
     END IF;
     actor_id := ple_api.current_session_account_id();
-    -- ASVS 2.2.2/15.4.2/15.4.3: admission and classification checks share
-    -- one transaction; canonical-order FOR SHARE also blocks non-key edits.
-    PERFORM metadata.question_id FROM ple_data.published_question_metadata AS metadata
+    -- ASVS 2.2.2/2.3.3/2.3.4/15.4.2/15.4.3: canonical-order
+    -- FOR SHARE locks every matching lineage and live metadata row regardless
+    -- of availability, ordering post-lock admission with lifecycle and metadata edits.
+    PERFORM metadata.question_id
+      FROM ple_data.published_question_metadata AS metadata
+     JOIN ple_data.published_question AS lineage USING (question_id)
      WHERE metadata.question_id = ANY(p_member_question_ids)
-     ORDER BY metadata.question_id FOR SHARE;
+     ORDER BY metadata.question_id
+     FOR SHARE OF metadata, lineage;
     SELECT metadata.* INTO first_metadata FROM ple_data.published_question_metadata AS metadata
      WHERE metadata.question_id = p_member_question_ids[array_lower(p_member_question_ids, 1)];
     IF NOT FOUND OR EXISTS (
         SELECT 1 FROM unnest(p_member_question_ids) AS member(question_id)
+        LEFT JOIN ple_data.published_question AS lineage USING (question_id)
         LEFT JOIN ple_data.published_question_metadata AS metadata USING (question_id)
-        WHERE metadata.question_id IS NULL
+        WHERE lineage.question_id IS NULL
+           OR lineage.availability <> 'available'
+           OR metadata.question_id IS NULL
     ) THEN
         RAISE EXCEPTION USING ERRCODE = '23503', MESSAGE = 'Question Pool member is unavailable';
     END IF;
@@ -317,6 +325,9 @@ BEGIN
         question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
         interchangeability_attested_at, created_at
     ) VALUES (p_question_pool_id, 1, cardinality(p_member_question_ids), actor_id, created_at, created_at);
+    PERFORM ple_private.attach_question_pool_revision_bloom(
+        p_bloom_preparation_receipt_id, p_question_pool_id, 1,
+        p_title, p_description, p_member_question_ids, p_member_revision_numbers);
     INSERT INTO ple_data.question_pool_revision_member(
         question_pool_id, revision_number, member_position, question_id, question_revision_number
     )
@@ -332,7 +343,7 @@ $$;
 CREATE FUNCTION ple_data.append_question_pool_revision(
     p_question_pool_id uuid, p_expected_metadata_etag uuid,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean
+    p_interchangeability_attested boolean, p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (revision_number bigint, metadata_etag uuid) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE pool_row ple_data.question_pool%ROWTYPE; actor_id uuid;
@@ -406,6 +417,10 @@ BEGIN
         question_pool_id, revision_number, member_count, interchangeability_attested_by_account_id,
         interchangeability_attested_at, created_at
     ) VALUES (p_question_pool_id, next_revision_number, cardinality(p_member_question_ids), actor_id, created_at, created_at);
+    PERFORM ple_private.attach_question_pool_revision_bloom(
+        p_bloom_preparation_receipt_id, p_question_pool_id, next_revision_number,
+        pool_row.title, pool_row.description, p_member_question_ids,
+        p_member_revision_numbers);
     INSERT INTO ple_data.question_pool_revision_member(
         question_pool_id, revision_number, member_position, question_id, question_revision_number
     )
@@ -428,7 +443,8 @@ CREATE FUNCTION ple_data.construct_question_pool_revision_fork(
     p_question_pool_id uuid,
     p_public_question_pool_id text,
     p_source_question_pool_id uuid,
-    p_source_question_pool_revision_number bigint
+    p_source_question_pool_revision_number bigint,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -437,6 +453,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE created_at timestamptz := pg_catalog.clock_timestamp(); next_etag uuid;
 DECLARE source_revision ple_data.question_pool_revision%ROWTYPE;
 DECLARE source_metadata ple_data.question_pool%ROWTYPE;
+DECLARE source_member_question_ids text[];
+DECLARE source_member_revision_numbers integer[];
 BEGIN
     IF p_question_pool_id IS NULL OR p_public_question_pool_id IS NULL
        OR p_public_question_pool_id !~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
@@ -472,6 +490,12 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Question Pool source Revision has an unavailable Question Backend';
     END IF;
+    SELECT array_agg(member.question_id ORDER BY member.member_position),
+           array_agg(member.question_revision_number ORDER BY member.member_position)
+      INTO source_member_question_ids, source_member_revision_numbers
+      FROM ple_data.question_pool_revision_member AS member
+     WHERE member.question_pool_id = p_source_question_pool_id
+       AND member.revision_number = p_source_question_pool_revision_number;
     next_etag := pg_catalog.gen_random_uuid();
     INSERT INTO ple_data.question_pool(
         question_pool_id, public_question_pool_id, metadata_etag, current_revision_number,
@@ -492,6 +516,10 @@ BEGIN
         source_revision.interchangeability_attested_by_account_id,
         source_revision.interchangeability_attested_at, created_at
     );
+    PERFORM ple_private.attach_question_pool_revision_bloom(
+        p_bloom_preparation_receipt_id, p_question_pool_id, 1,
+        source_metadata.title, source_metadata.description,
+        source_member_question_ids, source_member_revision_numbers);
     INSERT INTO ple_data.question_pool_revision_member(
         question_pool_id, revision_number, member_position, question_id, question_revision_number
     )
@@ -513,7 +541,8 @@ CREATE FUNCTION ple_data.fork_question_pool_revision(
     p_question_pool_id uuid,
     p_public_question_pool_id text,
     p_source_question_pool_id uuid,
-    p_source_question_pool_revision_number bigint
+    p_source_question_pool_revision_number bigint,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -531,7 +560,7 @@ BEGIN
     END IF;
     RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
         p_question_pool_id, p_public_question_pool_id, p_source_question_pool_id,
-        p_source_question_pool_revision_number
+        p_source_question_pool_revision_number, p_bloom_preparation_receipt_id
     );
 END
 $$;
@@ -543,7 +572,8 @@ CREATE FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(
     p_question_pool_id uuid,
     p_public_question_pool_id text,
     p_source_question_pool_id uuid,
-    p_source_question_pool_revision_number bigint
+    p_source_question_pool_revision_number bigint,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 )
@@ -557,7 +587,7 @@ BEGIN
     END IF;
     RETURN QUERY SELECT * FROM ple_data.construct_question_pool_revision_fork(
         p_question_pool_id, p_public_question_pool_id, p_source_question_pool_id,
-        p_source_question_pool_revision_number
+        p_source_question_pool_revision_number, p_bloom_preparation_receipt_id
     );
 END
 $$;
@@ -565,12 +595,12 @@ REVOKE ALL ON FUNCTION ple_data.reject_question_pool_immutable_change() FROM PUB
 REVOKE ALL ON FUNCTION ple_data.validate_question_pool_lineage_update(),
     ple_data.validate_question_pool_revision_members(),
     ple_data.validate_question_pool_revision_member_insert() FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.append_question_pool_revision(uuid, uuid, text[], integer[], boolean) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.construct_question_pool_revision_fork(uuid, text, uuid, bigint) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(uuid, text, uuid, bigint) FROM PUBLIC;
-REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(uuid, text, uuid, bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.append_question_pool_revision(uuid, uuid, text[], integer[], boolean, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.construct_question_pool_revision_fork(uuid, text, uuid, bigint, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision_for_course_adoption(uuid, text, uuid, bigint, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION ple_data.fork_question_pool_revision(uuid, text, uuid, bigint, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_data.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) TO ple_api_owner;
 RESET ROLE;
 
 -- The application receives only this session-bound capability. The data-owner
@@ -580,17 +610,19 @@ SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.create_question_pool(
     p_question_pool_id uuid, p_public_question_pool_id text,
     p_member_question_ids text[], p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean, p_title text, p_description text
+    p_interchangeability_attested boolean, p_title text, p_description text,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     question_pool_id uuid, public_question_pool_id text, revision_number bigint, metadata_etag uuid
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.create_question_pool(
         p_question_pool_id, p_public_question_pool_id, p_member_question_ids,
-        p_member_revision_numbers, p_interchangeability_attested, p_title, p_description)
+        p_member_revision_numbers, p_interchangeability_attested, p_title, p_description,
+        p_bloom_preparation_receipt_id)
 $$;
-REVOKE ALL ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.create_question_pool(uuid, text, text[], integer[], boolean, text, text, uuid) TO ple_app;
 
 RESET ROLE;
 
@@ -669,7 +701,8 @@ CREATE FUNCTION ple_api.list_published_question_pools(
     p_after text, p_page_size integer,
     p_discipline_uuid uuid, p_subject_uuid uuid, p_topic_uuid uuid,
     p_subtopic_uuid uuid, p_cross_discipline boolean,
-    p_terms jsonb, p_tags text[]
+    p_terms jsonb, p_tags text[],
+    p_bloom_cognitive_process text, p_bloom_knowledge_dimension text
 )
 RETURNS TABLE (
     public_question_pool_id text,
@@ -677,7 +710,10 @@ RETURNS TABLE (
     member_count integer,
     title text, description text, discipline_uuid uuid, discipline_name text,
     discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[]
+    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    bloom_cognitive_process text, bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint,
+    bloom_cognitive_process_counts bigint[], bloom_knowledge_dimension_counts bigint[]
 ) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 BEGIN
@@ -687,70 +723,120 @@ BEGIN
             OR ple_api.current_session_account_has_platform_administration()) THEN
         RETURN;
     END IF;
+    IF p_page_size NOT BETWEEN 1 AND 100
+       OR (p_subject_uuid IS NOT NULL AND p_discipline_uuid IS NULL)
+       OR (p_topic_uuid IS NOT NULL AND p_subject_uuid IS NULL)
+       OR (p_subtopic_uuid IS NOT NULL AND p_topic_uuid IS NULL)
+       OR (p_cross_discipline AND (p_discipline_uuid IS NULL OR p_subject_uuid IS NULL))
+       OR (p_bloom_cognitive_process IS NOT NULL AND p_bloom_cognitive_process NOT IN (
+           'Remember', 'Understand', 'Apply', 'Analyze', 'Evaluate', 'Create'
+       ))
+       OR (p_bloom_knowledge_dimension IS NOT NULL AND p_bloom_knowledge_dimension NOT IN (
+           'Factual Knowledge', 'Conceptual Knowledge', 'Procedural Knowledge',
+           'Metacognitive Knowledge'
+       )) THEN
+        RETURN;
+    END IF;
     RETURN QUERY
-    SELECT pool.public_question_pool_id,
-           pool.current_revision_number, revision.member_count,
-           pool.title, pool.description, pool.discipline_uuid, discipline.name,
-           discipline.is_retired, pool.subject_uuid,
-           pool.topic_uuid, pool.subtopic_uuid, pool.tags
-      FROM ple_data.question_pool AS pool
-      JOIN ple_data.question_pool_revision AS revision
-        ON revision.question_pool_id = pool.question_pool_id
-       AND revision.revision_number = pool.current_revision_number
-      -- ASVS 8.2.2/8.2.3: reuse the authorized UUID/name projections instead
-      -- of widening API-owner or runtime-role privileges on vocabulary tables.
-      -- Parent arguments come from the Pool, not the selected search filters,
-      -- so cross-Discipline discovery still searches each Pool's own labels.
-      LEFT JOIN ple_api.list_content_disciplines_including_retired() AS discipline
-        ON discipline.discipline_uuid = pool.discipline_uuid
-      LEFT JOIN LATERAL ple_api.list_content_subjects(pool.discipline_uuid) AS subject
-        ON subject.subject_uuid = pool.subject_uuid
-      LEFT JOIN LATERAL ple_api.list_content_topics(pool.subject_uuid) AS topic
-        ON topic.topic_uuid = pool.topic_uuid
-      LEFT JOIN LATERAL ple_api.list_content_subtopics(pool.topic_uuid) AS subtopic
-        ON subtopic.subtopic_uuid = pool.subtopic_uuid
-     WHERE (ple_api.current_session_account_is_instructor()
-            OR ple_api.current_session_account_has_platform_administration())
-       AND p_page_size BETWEEN 1 AND 100
-       AND (p_subject_uuid IS NULL OR p_discipline_uuid IS NOT NULL)
-       AND (p_topic_uuid IS NULL OR p_subject_uuid IS NOT NULL)
-       AND (p_subtopic_uuid IS NULL OR p_topic_uuid IS NOT NULL)
-       AND (NOT p_cross_discipline OR (p_discipline_uuid IS NOT NULL AND p_subject_uuid IS NOT NULL))
-       AND (p_discipline_uuid IS NULL OR p_cross_discipline OR pool.discipline_uuid = p_discipline_uuid)
-       AND (p_subject_uuid IS NULL OR pool.subject_uuid = p_subject_uuid)
-       AND (p_topic_uuid IS NULL OR pool.topic_uuid = p_topic_uuid)
-       AND (p_subtopic_uuid IS NULL OR pool.subtopic_uuid = p_subtopic_uuid)
-       -- ASVS 1.2.4: static bound predicates; %, _ and SQL syntax are literal data.
-       AND (cardinality(p_tags) = 0 OR EXISTS (
-           SELECT 1 FROM unnest(pool.tags) AS tag(value)
-            WHERE lower(btrim(regexp_replace(tag.value, '[[:space:]]+', ' ', 'g'))) = ANY(p_tags)
-       ))
-       AND NOT EXISTS (
-           SELECT 1 FROM jsonb_to_recordset(p_terms) AS term(field text, value text, excluded boolean)
-            WHERE term.value = '' OR term.field NOT IN ('any', 'discipline', 'subject', 'topic', 'subtopic', 'tags')
-               OR term.excluded IS NULL OR term.value IS NULL OR term.field IS NULL
-               OR (EXISTS (
-                   SELECT 1 FROM (
-                       SELECT pool.title AS value WHERE term.field = 'any'
-                       UNION ALL SELECT pool.description WHERE term.field = 'any'
-                       UNION ALL SELECT discipline.name WHERE term.field IN ('any', 'discipline')
-                       UNION ALL SELECT subject.name WHERE term.field IN ('any', 'subject')
-                       UNION ALL SELECT topic.name WHERE term.field IN ('any', 'topic')
-                       UNION ALL SELECT subtopic.name WHERE term.field IN ('any', 'subtopic')
-                       UNION ALL SELECT tag.value FROM unnest(pool.tags) AS tag(value) WHERE term.field IN ('any', 'tags')
-                   ) AS candidate
-                   WHERE strpos(lower(candidate.value), term.value) > 0
-               ) = term.excluded)
-       )
-       AND (p_after IS NULL OR pool.public_question_pool_id > p_after)
-       AND (p_after IS NULL OR (
-           p_after ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
-           AND substr(p_after, 6, 1) = ple_private.crockford_checksum_character(
-               substr(p_after, 1, 4) || substr(p_after, 7, 3)
+    WITH filtered AS MATERIALIZED (
+        SELECT pool.public_question_pool_id,
+               pool.current_revision_number AS revision_number, revision.member_count,
+               pool.title, pool.description, pool.discipline_uuid, discipline.name AS discipline_name,
+               discipline.is_retired AS discipline_is_retired, pool.subject_uuid,
+               pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+               bloom.cognitive_process::text AS bloom_cognitive_process,
+               bloom.knowledge_dimension::text AS bloom_knowledge_dimension,
+               bloom.classification_edit_number
+          FROM ple_data.question_pool AS pool
+          JOIN ple_data.question_pool_revision AS revision
+            ON revision.question_pool_id = pool.question_pool_id
+           AND revision.revision_number = pool.current_revision_number
+          JOIN ple_data.question_pool_revision_bloom AS bloom
+            ON bloom.question_pool_id = revision.question_pool_id
+           AND bloom.revision_number = revision.revision_number
+          -- ASVS 8.2.2/8.2.3: reuse authorized vocabulary projections. Every
+          -- predicate below describes this Pool and its own pair, never a member.
+          LEFT JOIN ple_api.list_content_disciplines_including_retired() AS discipline
+            ON discipline.discipline_uuid = pool.discipline_uuid
+          LEFT JOIN LATERAL ple_api.list_content_subjects(pool.discipline_uuid) AS subject
+            ON subject.subject_uuid = pool.subject_uuid
+          LEFT JOIN LATERAL ple_api.list_content_topics(pool.subject_uuid) AS topic
+            ON topic.topic_uuid = pool.topic_uuid
+          LEFT JOIN LATERAL ple_api.list_content_subtopics(pool.topic_uuid) AS subtopic
+            ON subtopic.subtopic_uuid = pool.subtopic_uuid
+         WHERE (ple_api.current_session_account_is_instructor()
+                OR ple_api.current_session_account_has_platform_administration())
+           AND (p_discipline_uuid IS NULL OR p_cross_discipline
+                OR pool.discipline_uuid = p_discipline_uuid)
+           AND (p_subject_uuid IS NULL OR pool.subject_uuid = p_subject_uuid)
+           AND (p_topic_uuid IS NULL OR pool.topic_uuid = p_topic_uuid)
+           AND (p_subtopic_uuid IS NULL OR pool.subtopic_uuid = p_subtopic_uuid)
+           AND (p_bloom_cognitive_process IS NULL
+                OR bloom.cognitive_process::text = p_bloom_cognitive_process)
+           AND (p_bloom_knowledge_dimension IS NULL
+                OR bloom.knowledge_dimension::text = p_bloom_knowledge_dimension)
+           -- ASVS 1.2.4: static bound predicates; %, _ and SQL syntax are literal data.
+           AND (cardinality(p_tags) = 0 OR EXISTS (
+               SELECT 1 FROM unnest(pool.tags) AS tag(value)
+                WHERE lower(btrim(regexp_replace(tag.value, '[[:space:]]+', ' ', 'g'))) = ANY(p_tags)
+           ))
+           AND NOT EXISTS (
+               SELECT 1 FROM jsonb_to_recordset(p_terms)
+                    AS term(field text, value text, excluded boolean)
+                WHERE term.value = ''
+                   OR term.field NOT IN ('any', 'discipline', 'subject', 'topic', 'subtopic', 'tags')
+                   OR term.excluded IS NULL OR term.value IS NULL OR term.field IS NULL
+                   OR (EXISTS (
+                       SELECT 1 FROM (
+                           SELECT pool.title AS value WHERE term.field = 'any'
+                           UNION ALL SELECT pool.description WHERE term.field = 'any'
+                           UNION ALL SELECT discipline.name WHERE term.field IN ('any', 'discipline')
+                           UNION ALL SELECT subject.name WHERE term.field IN ('any', 'subject')
+                           UNION ALL SELECT topic.name WHERE term.field IN ('any', 'topic')
+                           UNION ALL SELECT subtopic.name WHERE term.field IN ('any', 'subtopic')
+                           UNION ALL SELECT tag.value FROM unnest(pool.tags) AS tag(value)
+                                WHERE term.field IN ('any', 'tags')
+                       ) AS candidate
+                       WHERE strpos(lower(candidate.value), term.value) > 0
+                   ) = term.excluded)
            )
-       ))
-     ORDER BY pool.public_question_pool_id
-     LIMIT p_page_size + 1;
+    ), page AS (
+        SELECT matched.* FROM filtered AS matched
+         WHERE (p_after IS NULL OR matched.public_question_pool_id > p_after)
+           AND (p_after IS NULL OR (
+               p_after ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$'
+               AND substr(p_after, 6, 1) = ple_private.crockford_checksum_character(
+                   substr(p_after, 1, 4) || substr(p_after, 7, 3)
+               )
+           ))
+         ORDER BY matched.public_question_pool_id
+         LIMIT p_page_size + 1
+    ), aggregates AS (
+        SELECT ARRAY[
+                   count(*) FILTER (WHERE matched.bloom_cognitive_process = 'Remember'),
+                   count(*) FILTER (WHERE matched.bloom_cognitive_process = 'Understand'),
+                   count(*) FILTER (WHERE matched.bloom_cognitive_process = 'Apply'),
+                   count(*) FILTER (WHERE matched.bloom_cognitive_process = 'Analyze'),
+                   count(*) FILTER (WHERE matched.bloom_cognitive_process = 'Evaluate'),
+                   count(*) FILTER (WHERE matched.bloom_cognitive_process = 'Create')
+               ]::bigint[] AS cognitive_counts,
+               ARRAY[
+                   count(*) FILTER (WHERE matched.bloom_knowledge_dimension = 'Factual Knowledge'),
+                   count(*) FILTER (WHERE matched.bloom_knowledge_dimension = 'Conceptual Knowledge'),
+                   count(*) FILTER (WHERE matched.bloom_knowledge_dimension = 'Procedural Knowledge'),
+                   count(*) FILTER (WHERE matched.bloom_knowledge_dimension = 'Metacognitive Knowledge')
+               ]::bigint[] AS knowledge_counts
+          FROM filtered AS matched
+    )
+    SELECT page.public_question_pool_id, page.revision_number, page.member_count,
+           page.title, page.description, page.discipline_uuid, page.discipline_name,
+           page.discipline_is_retired, page.subject_uuid, page.topic_uuid,
+           page.subtopic_uuid, page.tags, page.bloom_cognitive_process,
+           page.bloom_knowledge_dimension, page.classification_edit_number,
+           aggregates.cognitive_counts, aggregates.knowledge_counts
+      FROM aggregates
+      LEFT JOIN page ON true
+     ORDER BY page.public_question_pool_id NULLS LAST;
 END
 $$;
 
@@ -763,17 +849,26 @@ RETURNS TABLE (
     question_revision_number integer,
     title text, description text, discipline_uuid uuid, discipline_name text,
     discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[]
-) LANGUAGE sql STABLE SECURITY DEFINER
+    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    bloom_cognitive_process text, bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    RETURN QUERY
     SELECT pool.public_question_pool_id,
            pool.current_revision_number, member.member_position,
            member.question_id,
            member.question_revision_number,
            pool.title, pool.description, pool.discipline_uuid, discipline.name,
            discipline.is_retired, pool.subject_uuid,
-           pool.topic_uuid, pool.subtopic_uuid, pool.tags
+           pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+           bloom.cognitive_process::text, bloom.knowledge_dimension::text,
+           bloom.classification_edit_number
       FROM ple_data.question_pool AS pool
+      JOIN ple_data.question_pool_revision_bloom AS bloom
+        ON bloom.question_pool_id = pool.question_pool_id
+       AND bloom.revision_number = pool.current_revision_number
       JOIN ple_data.question_pool_revision_member AS member
         ON member.question_pool_id = pool.question_pool_id
        AND member.revision_number = pool.current_revision_number
@@ -782,7 +877,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
      WHERE (ple_api.current_session_account_is_instructor()
             OR ple_api.current_session_account_has_platform_administration())
        AND pool.public_question_pool_id = p_public_question_pool_id
-     ORDER BY member.member_position
+     ORDER BY member.member_position;
+END
 $$;
 
 -- An exact Revision remains readable to active Instructors or Sysadmins after a
@@ -801,20 +897,29 @@ RETURNS TABLE (
     question_revision_number integer,
     title text, description text, discipline_uuid uuid, discipline_name text,
     discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[]
-) LANGUAGE sql STABLE SECURITY DEFINER
+    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    bloom_cognitive_process text, bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    RETURN QUERY
     SELECT pool.public_question_pool_id,
            revision.revision_number, member.member_position,
            member.question_id,
            member.question_revision_number,
            pool.title, pool.description, pool.discipline_uuid, discipline.name,
            discipline.is_retired, pool.subject_uuid,
-           pool.topic_uuid, pool.subtopic_uuid, pool.tags
+           pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+           bloom.cognitive_process::text, bloom.knowledge_dimension::text,
+           bloom.classification_edit_number
       FROM ple_data.question_pool AS pool
       JOIN ple_data.question_pool_revision AS revision
         ON revision.question_pool_id = pool.question_pool_id
        AND revision.revision_number = p_revision_number
+      JOIN ple_data.question_pool_revision_bloom AS bloom
+        ON bloom.question_pool_id = revision.question_pool_id
+       AND bloom.revision_number = revision.revision_number
       JOIN ple_data.question_pool_revision_member AS member
         ON member.question_pool_id = revision.question_pool_id
        AND member.revision_number = revision.revision_number
@@ -824,12 +929,13 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
             OR ple_api.current_session_account_has_platform_administration())
        AND p_revision_number > 0
        AND pool.public_question_pool_id = p_public_question_pool_id
-     ORDER BY member.member_position
+     ORDER BY member.member_position;
+END
 $$;
-REVOKE ALL ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean, jsonb, text[]),
+REVOKE ALL ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean, jsonb, text[], text, text),
     ple_api.read_current_published_question_pool(text),
     ple_api.read_published_question_pool_revision(text, bigint) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean, jsonb, text[]),
+GRANT EXECUTE ON FUNCTION ple_api.list_published_question_pools(text, integer, uuid, uuid, uuid, uuid, boolean, jsonb, text[], text, text),
     ple_api.read_current_published_question_pool(text),
     ple_api.read_published_question_pool_revision(text, bigint) TO ple_app;
 RESET ROLE;

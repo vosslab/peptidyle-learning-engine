@@ -51,6 +51,8 @@ mod authoring;
 #[cfg(feature = "postgres")]
 mod authoring_assets;
 #[cfg(feature = "postgres")]
+mod bloom_preparation;
+#[cfg(feature = "postgres")]
 mod blueprint_change_proposal;
 #[cfg(feature = "postgres")]
 mod blueprint_course;
@@ -171,6 +173,8 @@ pub use attempt_expiry::PostgresAssessmentAttemptExpirySweepStore;
 pub use authoring::PostgresAuthoringDraftStore;
 #[cfg(feature = "postgres")]
 pub use authoring_assets::PostgresAuthoringAssetsStore;
+#[cfg(feature = "postgres")]
+pub use bloom_preparation::PostgresBloomClassificationPreparationStore;
 #[cfg(feature = "postgres")]
 pub use blueprint_course::PostgresBlueprintCourseStore;
 #[cfg(feature = "postgres")]

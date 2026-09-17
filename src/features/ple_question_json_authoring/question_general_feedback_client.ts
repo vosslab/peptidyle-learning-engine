@@ -1,4 +1,4 @@
-import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
+import type { DraftQuestionRouteId } from "../../navigation/public_route";
 
 const MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
 const SAFE_ORIGIN = "https://ple-question-general-feedback.invalid";
@@ -45,9 +45,9 @@ export class PleQuestionGeneralFeedbackConflictError extends PleQuestionGeneralF
 export class PleQuestionGeneralFeedbackProtocolError extends Error {}
 
 export interface PleQuestionGeneralFeedbackClient {
-  load(draftQuestion: DraftQuestionReference): Promise<PleQuestionGeneralFeedbackRead>;
+  load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionGeneralFeedbackRead>;
   save(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     generalFeedback: string | null,
     revision: string,
   ): Promise<PleQuestionGeneralFeedbackSave>;
@@ -90,7 +90,7 @@ function normalizeBasePath(value: string | undefined): string {
   return normalized;
 }
 
-function metadataPath(draftQuestion: DraftQuestionReference): string {
+function metadataPath(draftQuestion: DraftQuestionRouteId): string {
   return `/api/authoring/drafts/${encodeURIComponent(draftQuestion)}/metadata`;
 }
 
@@ -187,7 +187,7 @@ export function createPleQuestionGeneralFeedbackClient(
   const basePath = normalizeBasePath(config.basePath);
 
   async function load(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
   ): Promise<PleQuestionGeneralFeedbackRead> {
     const path = metadataPath(draftQuestion);
     const response = await fetchImplementation(
@@ -206,7 +206,7 @@ export function createPleQuestionGeneralFeedbackClient(
   }
 
   async function save(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     generalFeedback: string | null,
     revision: string,
   ): Promise<PleQuestionGeneralFeedbackSave> {

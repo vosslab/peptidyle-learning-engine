@@ -123,10 +123,8 @@ DECLARE assessment_id_value uuid;
 BEGIN
     -- ASVS 1.2.4 and 2.2.1: values remain typed parameters, and the public
     -- references use the same closed canonical shapes as their stored rows.
-    IF p_course_reference IS NULL
-       OR p_course_reference !~ '^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
-       OR p_assessment_reference IS NULL
-       OR p_assessment_reference !~ '^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$' THEN
+    IF NOT ple_private.is_canonical_prefixed_public_id(p_course_reference, 'CI')
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_assessment_reference, 'A') THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Assessment Question Pool selection count change is invalid';
     END IF;

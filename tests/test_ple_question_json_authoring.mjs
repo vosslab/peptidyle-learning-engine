@@ -24,7 +24,7 @@ import {
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../src/features/ple_question_json_authoring/question_json_source.ts";
 import { setPleQuestionJsonHotspotAsset } from "../src/features/ple_question_json_authoring/question_json_hotspot_model.ts";
 
-const draftQuestion = "D-1";
+const draftQuestion = "0198e000-0000-7000-8000-000000000001";
 const uploadedImage = {
   questionAsset: "01234567-89ab-4cde-8f01-23456789abcd",
   checksum: "a".repeat(64),
@@ -48,7 +48,7 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
   let result = uploadedImage;
   const client = createPleQuestionJsonClient({
     fetch: async (path, init) => {
-      assert.equal(path, "/api/authoring/drafts/D-1/assets");
+      assert.equal(path, "/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/assets");
       assert.equal(init.method, "POST");
       assert.equal(init.body, image);
       assert.equal(init.credentials, "same-origin");
@@ -61,7 +61,7 @@ test("image upload sends raw raster bytes and a source precondition, accepting o
   assert.deepEqual(await client.uploadAsset(draftQuestion, image, '"3"'), uploadedImage);
   assert.equal(
     client.assetPreviewPath(draftQuestion, uploadedImage.questionAsset),
-    `/api/authoring/drafts/D-1/assets/${uploadedImage.questionAsset}`,
+    `/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/assets/${uploadedImage.questionAsset}`,
   );
   for (const malformed of [
     { ...uploadedImage, url: "https://external.invalid/image.png" },
@@ -852,7 +852,10 @@ test("conflicts do not echo a response body and repository preserves the caller 
       return { source: source(), revision: '"1"' };
     },
     async save() {
-      throw new PleQuestionJsonConflictError(409, "/api/authoring/drafts/D-1/source");
+      throw new PleQuestionJsonConflictError(
+        409,
+        "/api/authoring/drafts/0198e000-0000-7000-8000-000000000001/source",
+      );
     },
     async publish() {
       throw new Error("not used");

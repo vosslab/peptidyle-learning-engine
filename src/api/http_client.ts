@@ -42,11 +42,13 @@ import {
 import { createCourseStudentWorkRecoveryClient } from "./http_client/course_student_work_recovery";
 import { createLibraryDiscussionClient } from "./http_client/library_discussion";
 import { createLibraryWatchNotificationClient } from "./http_client/library_watch_notification";
+import { createBloomClassificationCorrectionClient } from "./http_client/bloom_classification";
 
 export {
   ApiProtocolError,
   ApiRequestError,
   AssessmentConflictError,
+  BloomClassificationConflictError,
   BlueprintCourseConflictError,
 } from "./http_client/error";
 export type { ApiFetch, HttpApiClientConfig } from "./http_client/request";
@@ -93,6 +95,7 @@ export function createHttpApiClient(config: HttpApiClientConfig = {}): OrdinaryB
     createCourseStudentWorkRecoveryClient(fetchImplementation, basePath),
     createLibraryDiscussionClient(fetchImplementation, basePath),
     createLibraryWatchNotificationClient(fetchImplementation, basePath),
+    createBloomClassificationCorrectionClient(fetchImplementation, basePath),
     responses,
     requests,
   );

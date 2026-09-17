@@ -213,6 +213,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
         session: SessionTokenHash,
         source: BlueprintForkSource,
         request_checksum: RequestChecksum,
+        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<ForkBlueprintCourseReceipt, StoreError> {
         let mut transaction = self.begin(session).await?;
         let actor = current_actor(&mut transaction).await?;
@@ -250,6 +251,7 @@ impl BlueprintLineageStore for PostgresBlueprintLineageStore {
                 &mut transaction,
                 &mut content,
                 self.pool_id_issuer.as_deref(),
+                &mut bloom_receipts,
             )
             .await?;
             let checksum = content.checksum()?.as_bytes().to_vec();

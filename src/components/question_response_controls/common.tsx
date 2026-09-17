@@ -17,7 +17,7 @@ import type {
 import type { ResponseFormatValidator } from "../../wasm/index";
 import type { AssetUrlResolver } from "../question_renderer";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
-import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
+import type { DraftQuestionRouteId } from "../../navigation/public_route";
 
 export type ResponseFormat = QuestionResponseFormat | QuestionPresentationResponseFormat;
 /**
@@ -79,7 +79,7 @@ export interface QuestionResponseControlBaseProps {
   readonly assetUrl?: AssetUrlResolver;
   /** Authorized private Draft route; local author preview only. */
   readonly hotspotDraftAsset?: {
-    readonly draftQuestion: DraftQuestionReference;
+    readonly draftQuestion: DraftQuestionRouteId;
     readonly assetUrl: AssetUrlResolver;
   };
   /** Format-only controls have no Student Response save capability. */

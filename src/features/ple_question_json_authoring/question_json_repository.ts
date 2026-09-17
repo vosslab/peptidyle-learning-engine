@@ -1,6 +1,6 @@
 import type { QuestionSummary } from "../../../generated/api/QuestionSummary";
 import type { QuestionAuthorship } from "../../../generated/api/QuestionAuthorship";
-import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
+import type { DraftQuestionRouteId } from "../../navigation/public_route";
 import {
   PleQuestionJsonConflictError,
   type PleQuestionJsonRead,
@@ -17,32 +17,32 @@ export type PleQuestionJsonPublicationRequest = {
 };
 
 export interface PleQuestionJsonAuthoringClient {
-  load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
+  load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead>;
   save(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
     revision?: string,
   ): Promise<PleQuestionJsonSave>;
   publish(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
     revision: string,
   ): Promise<QuestionSummary>;
 }
 
 export interface PleQuestionJsonRepository {
-  load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
+  load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead>;
   save(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
   ): Promise<PleQuestionJsonSave>;
-  reload(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead>;
+  reload(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead>;
   publish(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary>;
   /** A separately saved Draft metadata field advances the same server edit number. */
-  synchronizeRevision(draftQuestion: DraftQuestionReference, revision: string): void;
+  synchronizeRevision(draftQuestion: DraftQuestionRouteId, revision: string): void;
 }
 
 /** A stale save keeps the caller's private source available for a deliberate merge or reload. */
@@ -59,17 +59,17 @@ export class PleQuestionJsonStaleConflictError extends PleQuestionJsonConflictEr
 export function createPleQuestionJsonRepository(
   client: PleQuestionJsonAuthoringClient,
 ): PleQuestionJsonRepository {
-  const revisions = new Map<DraftQuestionReference, string>();
-  const operationGenerations = new Map<DraftQuestionReference, number>();
+  const revisions = new Map<DraftQuestionRouteId, string>();
+  const operationGenerations = new Map<DraftQuestionRouteId, number>();
 
-  function startOperation(draftQuestion: DraftQuestionReference): number {
+  function startOperation(draftQuestion: DraftQuestionRouteId): number {
     const generation = (operationGenerations.get(draftQuestion) ?? 0) + 1;
     operationGenerations.set(draftQuestion, generation);
     return generation;
   }
 
   function setRevisionIfCurrent(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     generation: number,
     revision: string,
   ): void {
@@ -77,7 +77,7 @@ export function createPleQuestionJsonRepository(
       revisions.set(draftQuestion, revision);
   }
 
-  async function load(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead> {
+  async function load(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead> {
     const generation = startOperation(draftQuestion);
     const result = await client.load(draftQuestion);
     setRevisionIfCurrent(draftQuestion, generation, result.revision);
@@ -85,7 +85,7 @@ export function createPleQuestionJsonRepository(
   }
 
   async function save(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     source: PleQuestionJsonDocument,
   ): Promise<PleQuestionJsonSave> {
     const generation = startOperation(draftQuestion);
@@ -102,12 +102,12 @@ export function createPleQuestionJsonRepository(
     }
   }
 
-  async function reload(draftQuestion: DraftQuestionReference): Promise<PleQuestionJsonRead> {
+  async function reload(draftQuestion: DraftQuestionRouteId): Promise<PleQuestionJsonRead> {
     return await load(draftQuestion);
   }
 
   async function publish(
-    draftQuestion: DraftQuestionReference,
+    draftQuestion: DraftQuestionRouteId,
     request: PleQuestionJsonPublicationRequest,
   ): Promise<QuestionSummary> {
     const revision = revisions.get(draftQuestion);
@@ -117,7 +117,7 @@ export function createPleQuestionJsonRepository(
     return await client.publish(draftQuestion, request, revision);
   }
 
-  function synchronizeRevision(draftQuestion: DraftQuestionReference, revision: string): void {
+  function synchronizeRevision(draftQuestion: DraftQuestionRouteId, revision: string): void {
     revisions.set(draftQuestion, revision);
   }
 

@@ -145,6 +145,12 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
         return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Question Pool is invalid");
     }
 
+    // Trusted AI preparation must supply this candidate's receipt before publication.
+    let bloom_preparation_receipt_id =
+        match learning_data_access::PoolBloomPreparationReceipts::default().take_next() {
+            Ok(receipt) => receipt,
+            Err(error) => return store_error_response(error),
+        };
     for _ in 0..QUESTION_POOL_IDENTITY_ATTEMPTS {
         let public_question_pool_id = match state.question_id_issuer.issue_question_pool_id() {
             Ok(value) => value,
@@ -156,6 +162,7 @@ async fn create_question_pool(State(state): State<RouteState>, request: Request)
             }
         };
         let input = CreateQuestionPoolInput {
+            bloom_preparation_receipt_id,
             title: request.title.clone(),
             description: request.description.clone(),
             question_pool_id: Uuid::now_v7(),

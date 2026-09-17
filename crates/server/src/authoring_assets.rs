@@ -18,12 +18,12 @@ use objects::{
     ObjectAddress, ObjectStore, PutObject, Sha256Checksum,
     image_validation::{MAX_STILL_IMAGE_BYTES, verify_still_image},
 };
-use question_model::{DraftQuestionReference, ObjectId, QuestionAssetId, QuestionAssetReference};
+use question_model::{ObjectId, QuestionAssetId, QuestionAssetReference};
 use serde::Serialize;
 
 use crate::authoring::{
     AuthoringRouteState, concealed, expected_edit_number, instructor_session_hash, now,
-    parse_reference, private_error, private_store_error,
+    parse_draft_question_uuid, private_error, private_store_error,
 };
 
 #[derive(Serialize)]
@@ -38,11 +38,11 @@ struct UploadedAsset {
 
 pub(crate) async fn upload(
     State(state): State<AuthoringRouteState>,
-    Path(reference): Path<String>,
+    Path(draft_question_id): Path<String>,
     request: Request,
 ) -> Response {
     let headers = request.headers();
-    let reference = match parse_reference(&reference) {
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -57,7 +57,7 @@ pub(crate) async fn upload(
     // ASVS 8.2.1/8.2.2/8.3.1: authorize the real existing Draft before any put.
     let draft = match state
         .drafts
-        .load_authoring_draft(session_hash, reference)
+        .load_authoring_draft(session_hash, draft_question_uuid)
         .await
     {
         Ok(value) => value,
@@ -129,7 +129,7 @@ pub(crate) async fn upload(
         .register_draft_question_asset(
             session_hash,
             RegisterDraftQuestionAssetInput {
-                reference,
+                draft_question_uuid,
                 expected_edit_number,
                 asset_id,
                 source_record: record,
@@ -169,11 +169,11 @@ fn raster_media_type(headers: &HeaderMap) -> Option<&str> {
 pub(crate) async fn require_surface<S: AuthoringAssetsStore + ?Sized>(
     store: &S,
     session_hash: SessionTokenHash,
-    reference: DraftQuestionReference,
+    draft_question_uuid: learning_data_access::DraftQuestionUuid,
     surface: &QuestionAssetReference,
 ) -> Result<OwnedDraftQuestionAsset, StoreError> {
     let asset = store
-        .load_draft_question_asset(session_hash, reference, surface.question_asset)
+        .load_draft_question_asset(session_hash, draft_question_uuid, surface.question_asset)
         .await?;
     if asset.source_record.sha256.to_string() != surface.checksum {
         return Err(StoreError::InvalidRecord(
@@ -207,9 +207,9 @@ pub(crate) async fn verified_asset_bytes<O: ObjectStore>(
 pub(crate) async fn preview(
     State(state): State<AuthoringRouteState>,
     headers: HeaderMap,
-    Path((reference, asset)): Path<(String, String)>,
+    Path((draft_question_id, asset)): Path<(String, String)>,
 ) -> Response {
-    let reference = match parse_reference(&reference) {
+    let draft_question_uuid = match parse_draft_question_uuid(&draft_question_id) {
         Ok(value) => value,
         Err(response) => return *response,
     };
@@ -223,7 +223,7 @@ pub(crate) async fn preview(
     };
     let asset = match state
         .assets
-        .load_draft_question_asset(session_hash, reference, asset_id)
+        .load_draft_question_asset(session_hash, draft_question_uuid, asset_id)
         .await
     {
         Ok(value) => value,

@@ -190,6 +190,7 @@ fn decode_question(
         },
         response_state: question.response_state,
         response: None,
+        backend_answer_review: None,
         feedback: StudentFeedback::empty(),
     })
 }
@@ -244,11 +245,17 @@ fn decode_results(
 mod tests {
     use super::*;
 
+    fn question_id() -> String {
+        QuestionId::from_random_identifier("ABCDEFG")
+            .expect("test Question random identity is canonical")
+            .to_string()
+    }
+
     #[test]
     fn history_question_uses_the_exact_retained_issued_revision() {
         let question = decode_question(StoredQuestion {
             position: 1,
-            question_id: "ABCDXEF1".to_string(),
+            question_id: question_id(),
             revision_number: 3,
             response_state: LiveAssessmentPreviousAttemptState::Submitted,
         })
@@ -256,7 +263,7 @@ mod tests {
 
         assert_eq!(
             question.question_revision.question_id.to_string(),
-            "ABCD-XEF1"
+            question_id()
         );
         assert_eq!(question.question_revision.revision_number.get(), 3);
     }
@@ -265,7 +272,7 @@ mod tests {
     fn history_question_rejects_invalid_issued_revision_evidence() {
         let error = decode_question(StoredQuestion {
             position: 1,
-            question_id: "ABCDXEF1".to_string(),
+            question_id: question_id(),
             revision_number: 0,
             response_state: LiveAssessmentPreviousAttemptState::Closed,
         })
@@ -278,7 +285,7 @@ mod tests {
     fn history_rejects_zero_based_public_issued_positions() {
         let question = decode_question(StoredQuestion {
             position: 0,
-            question_id: "ABCDXEF1".to_string(),
+            question_id: question_id(),
             revision_number: 1,
             response_state: LiveAssessmentPreviousAttemptState::Submitted,
         });
@@ -286,7 +293,7 @@ mod tests {
 
         let retained_question = decode_question(StoredQuestion {
             position: 1,
-            question_id: "ABCDXEF1".to_string(),
+            question_id: question_id(),
             revision_number: 1,
             response_state: LiveAssessmentPreviousAttemptState::Submitted,
         })

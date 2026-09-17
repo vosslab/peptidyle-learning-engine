@@ -16,6 +16,7 @@ import { BlueprintAssessmentContentEditor } from "./blueprint_assessment_content
 import { BlueprintCourseLifecycleControls } from "./blueprint_course_lifecycle_controls";
 import { BlueprintCourseExport } from "./blueprint_exchange";
 import { BlueprintHistory } from "./blueprint_history";
+import { BlueprintStewardship } from "./blueprint_stewardship";
 import { BlueprintForkSource, BlueprintKnownForks } from "../blueprint_forks/blueprint_fork_review";
 import { BlueprintForkCreate } from "../blueprint_forks/blueprint_fork_create";
 import { ProposalTargetTools } from "../blueprint_change_proposal/proposal_workspace";
@@ -548,6 +549,14 @@ export function BlueprintCourseDetailWorkspace(
                   settings. Current Revision {loaded().view.current_revision.revision}.
                 </p>
               </header>
+              <Show
+                when={
+                  loaded().view.availability === "public" ||
+                  loaded().view.availability === "archived"
+                }
+              >
+                <BlueprintStewardship client={props.client} reference={loaded().view.reference} />
+              </Show>
               <CourseClassificationEditor
                 value={loaded().view.classification}
                 metadataEtag={loaded().metadataEtag}
@@ -659,15 +668,20 @@ export function BlueprintCourseDetailWorkspace(
                     <aside class="blueprint-course-inspection">
                       <h3>Blueprint Course names</h3>
                       <p>Names control discovery and do not create a Blueprint Revision.</p>
-                      <label>
+                      <label for="blueprint-course-detail-short-name">
                         Blueprint Course short name
                         <input
+                          id="blueprint-course-detail-short-name"
                           value={shortName()}
                           maxlength="200"
+                          aria-describedby="blueprint-course-detail-short-name-help"
                           disabled={metadataSaving()}
                           onInput={(event) => setShortName(event.currentTarget.value)}
                         />
                       </label>
+                      <small id="blueprint-course-detail-short-name-help">
+                        For compact navigation; about 16 characters when practical.
+                      </small>
                       <label>
                         Blueprint Course long name
                         <input

@@ -29,7 +29,8 @@ mod tests {
 
     #[test]
     fn selected_presentation_keeps_the_exact_revision_for_asset_urls() {
-        let question_id: QuestionId = "0000-X00N".parse().expect("question ID");
+        let question_id =
+            QuestionId::from_random_identifier("ABCDEFG").expect("canonical Question ID");
         let presentation = StudentQuestionPresentation {
             question_revision: QuestionRevisionReference {
                 question_id: question_id.clone(),

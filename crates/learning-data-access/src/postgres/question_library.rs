@@ -2,11 +2,12 @@
 
 use async_trait::async_trait;
 use question_model::{
-    MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId, PublishedQuestionSharedMetadata, QuestionAuthor,
-    QuestionAuthorDisplayName, QuestionAuthorship, QuestionAvailability,
-    QuestionAvailabilityEditNumber, QuestionBackend, QuestionId, QuestionRevisionNumber,
-    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference, Tag,
-    Timestamp,
+    BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
+    BloomKnowledgeDimension, MAX_BULK_QUESTION_METADATA_ITEMS, ObjectId,
+    PublishedQuestionSharedMetadata, QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship,
+    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionId,
+    QuestionRevisionNumber, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
+    SourceObjectReference, Tag, Timestamp,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -150,6 +151,42 @@ impl QuestionLibraryStore for PostgresQuestionLibraryStore {
         }
         transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(entry)
+    }
+
+    async fn correct_question_revision_bloom(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_revision: &QuestionRevisionReference,
+        expected_edit_number: BloomClassificationEditNumber,
+        cognitive_process: BloomCognitiveProcess,
+        knowledge_dimension: BloomKnowledgeDimension,
+    ) -> Result<BloomClassificationView, StoreError> {
+        let mut transaction = self
+            .begin_authenticated_application_transaction(session_token_hash)
+            .await?;
+        // ASVS 1.2.4/15.4.2: bind the entire typed command to the database-owned
+        // row-locking CAS function; stale commands are returned and never retried.
+        let row = sqlx::query(
+            "SELECT cognitive_process AS bloom_cognitive_process, \
+                    knowledge_dimension AS bloom_knowledge_dimension, \
+                    classification_edit_number AS bloom_classification_edit_number \
+             FROM ple_api.correct_question_revision_bloom($1, $2, $3, $4, $5)",
+        )
+        .bind(question_revision.question_id.as_str())
+        .bind(
+            i32::try_from(question_revision.revision_number.get())
+                .map_err(|_| invalid("Question Revision Number"))?,
+        )
+        .bind(expected_edit_number.value() as i64)
+        .bind(cognitive_process.as_str())
+        .bind(knowledge_dimension.as_str())
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(map_sqlx_error)?
+        .ok_or(StoreError::NotFound)?;
+        let bloom = decode_bloom(&row)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
+        Ok(bloom)
     }
 
     async fn load_current_published_question_shared_metadata(
@@ -326,6 +363,7 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         question_format,
         question_type,
         published_at: Timestamp::from_unix_millis(published_at_millis),
+        bloom: decode_bloom(row)?,
         question_title: row.try_get("question_title").map_err(map_sqlx_error)?,
         question_description: row
             .try_get("question_description")
@@ -355,6 +393,33 @@ fn decode_entry(row: &sqlx::postgres::PgRow) -> Result<PublishedQuestionLibraryE
         source_object_checksum,
         source_media_type: row.try_get("source_media_type").map_err(map_sqlx_error)?,
         webwork_pg_path: row.try_get("webwork_pg_path").map_err(map_sqlx_error)?,
+    })
+}
+
+fn decode_bloom(row: &sqlx::postgres::PgRow) -> Result<BloomClassificationView, StoreError> {
+    let cognitive_process = row
+        .try_get::<String, _>("bloom_cognitive_process")
+        .map_err(map_sqlx_error)?
+        .parse::<BloomCognitiveProcess>()
+        .map_err(|_| invalid("Bloom Cognitive Process"))?;
+    let knowledge_dimension = row
+        .try_get::<String, _>("bloom_knowledge_dimension")
+        .map_err(map_sqlx_error)?
+        .parse::<BloomKnowledgeDimension>()
+        .map_err(|_| invalid("Bloom Knowledge Dimension"))?;
+    let classification_edit_number = row
+        .try_get::<i64, _>("bloom_classification_edit_number")
+        .map_err(map_sqlx_error)
+        .and_then(|value| {
+            u64::try_from(value)
+                .ok()
+                .and_then(BloomClassificationEditNumber::new)
+                .ok_or_else(|| invalid("Bloom Classification Edit Number"))
+        })?;
+    Ok(BloomClassificationView {
+        cognitive_process,
+        knowledge_dimension,
+        classification_edit_number,
     })
 }
 

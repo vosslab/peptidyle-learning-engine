@@ -3,10 +3,10 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::Capability;
 use crate::question_library::{QuestionBackend, QuestionId};
 use crate::question_license::QuestionLicense;
 use crate::response::QuestionType;
+use crate::{BloomCognitiveProcess, BloomKnowledgeDimension, Capability};
 
 /// Maximum Question Author name selections accepted in one Question Search query.
 pub const MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS: usize = 16;
@@ -139,6 +139,26 @@ pub struct QuestionSearchCourseUseFacet {
     pub used: u64,
 }
 
+/// Server-computed count for one closed Bloom Cognitive Process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionSearchBloomCognitiveProcessFacet {
+    /// Exact teaching-guide value in guide order.
+    pub cognitive_process: BloomCognitiveProcess,
+    /// Number of matching discoverable publications in the query snapshot.
+    pub count: u64,
+}
+
+/// Server-computed count for one closed Bloom Knowledge Dimension.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct QuestionSearchBloomKnowledgeDimensionFacet {
+    /// Exact teaching-guide value in guide order.
+    pub knowledge_dimension: BloomKnowledgeDimension,
+    /// Number of matching discoverable publications in the query snapshot.
+    pub count: u64,
+}
+
 /// Strict, bounded Question Search request carried across the browser boundary.
 ///
 /// The server normalizes this value before paging and aggregation. The cursor
@@ -176,6 +196,12 @@ pub struct QuestionSearchRequest {
     /// Requires Discipline and Subject. Text and name filters remain additional predicates.
     #[serde(default)]
     pub cross_discipline: bool,
+    /// Optional exact Bloom Cognitive Process; unrestricted when absent.
+    #[serde(default)]
+    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    /// Optional exact Bloom Knowledge Dimension; unrestricted when absent.
+    #[serde(default)]
+    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
     /// Immutable Question Types; any supplied type may match.
     pub question_types: Vec<QuestionType>,
     /// Required adapter capabilities; every supplied capability must be present.
@@ -222,6 +248,10 @@ pub struct QuestionSearchFilter {
     pub subtopic_uuid: Option<Uuid>,
     #[serde(default)]
     pub cross_discipline: bool,
+    #[serde(default)]
+    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    #[serde(default)]
+    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
     pub question_types: Vec<QuestionType>,
     pub capabilities: Vec<Capability>,
     pub question_licenses: Vec<QuestionLicense>,
@@ -252,6 +282,8 @@ impl QuestionSearchFilter {
             topic_uuid: query.topic_uuid,
             subtopic_uuid: query.subtopic_uuid,
             cross_discipline: query.cross_discipline,
+            bloom_cognitive_process: query.bloom_cognitive_process,
+            bloom_knowledge_dimension: query.bloom_knowledge_dimension,
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,
@@ -281,6 +313,8 @@ impl From<QuestionSearchFilter> for QuestionSearchRequest {
             topic_uuid: filter.topic_uuid,
             subtopic_uuid: filter.subtopic_uuid,
             cross_discipline: filter.cross_discipline,
+            bloom_cognitive_process: filter.bloom_cognitive_process,
+            bloom_knowledge_dimension: filter.bloom_knowledge_dimension,
             question_types: filter.question_types,
             capabilities: filter.capabilities,
             question_licenses: filter.question_licenses,
@@ -307,6 +341,8 @@ impl Default for QuestionSearchRequest {
             topic_uuid: None,
             subtopic_uuid: None,
             cross_discipline: false,
+            bloom_cognitive_process: None,
+            bloom_knowledge_dimension: None,
             question_types: Vec::new(),
             capabilities: Vec::new(),
             question_licenses: Vec::new(),
@@ -509,6 +545,10 @@ pub struct QuestionSearchFacets {
     pub question_licenses: Vec<QuestionSearchQuestionLicenseFacet>,
     /// Account-specific current-course-use count.
     pub used_in_my_courses: QuestionSearchCourseUseFacet,
+    /// Complete closed Bloom Cognitive Process counts in teaching-guide order.
+    pub bloom_cognitive_processes: Vec<QuestionSearchBloomCognitiveProcessFacet>,
+    /// Complete closed Bloom Knowledge Dimension counts in teaching-guide order.
+    pub bloom_knowledge_dimensions: Vec<QuestionSearchBloomKnowledgeDimensionFacet>,
 }
 
 #[cfg(test)]
@@ -546,6 +586,8 @@ mod tests {
         let query = QuestionSearchRequest {
             authorship: QuestionSearchAuthorship::AuthoredByCurrentAccount,
             sort: QuestionSearchSort::PublishedNewest,
+            bloom_cognitive_process: Some(BloomCognitiveProcess::Analyze),
+            bloom_knowledge_dimension: Some(BloomKnowledgeDimension::ProceduralKnowledge),
             ..QuestionSearchRequest::default()
         };
         assert_eq!(
@@ -566,6 +608,14 @@ mod tests {
         assert_eq!(
             filter.fresh_query().sort,
             QuestionSearchSort::PublishedNewest
+        );
+        assert_eq!(
+            filter.fresh_query().bloom_cognitive_process,
+            Some(BloomCognitiveProcess::Analyze)
+        );
+        assert_eq!(
+            filter.fresh_query().bloom_knowledge_dimension,
+            Some(BloomKnowledgeDimension::ProceduralKnowledge)
         );
     }
 
@@ -691,6 +741,8 @@ mod tests {
             "topic_uuid",
             "subtopic_uuid",
             "cross_discipline",
+            "bloom_cognitive_process",
+            "bloom_knowledge_dimension",
         ] {
             empty_selection_query
                 .as_object_mut()
@@ -716,6 +768,11 @@ mod tests {
             ("discipline_uuid", serde_json::json!("not-a-uuid")),
             ("cross_discipline", serde_json::json!("true")),
             ("subjectUuid", serde_json::json!(Uuid::from_u128(2))),
+            ("bloom_cognitive_process", serde_json::json!("analyze")),
+            (
+                "bloomKnowledgeDimension",
+                serde_json::json!("Factual Knowledge"),
+            ),
         ] {
             let mut rejected_query = query_json.clone();
             rejected_query[field] = value.clone();

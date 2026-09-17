@@ -169,6 +169,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         input: AcceptBlueprintChangeProposalInput,
+        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<AcceptedBlueprintChangeProposal, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session)
@@ -298,6 +299,7 @@ impl BlueprintChangeProposalStore for PostgresBlueprintCourseStore {
                             &mut transaction,
                             &mut copied,
                             self.pool_id_issuer.as_deref(),
+                            &mut bloom_receipts,
                         )
                         .await?;
                         *assessment = copied.modules.remove(0).assessments.remove(0);
@@ -546,11 +548,11 @@ async fn read_sources_in_transaction(
     };
     let revisions = [
         StoredBlueprintRevision {
-            reference: proposal.source,
+            reference: proposal.source.clone(),
             content: source_content,
         },
         StoredBlueprintRevision {
-            reference: proposal.target,
+            reference: proposal.target.clone(),
             content: target_content,
         },
     ];
@@ -614,7 +616,7 @@ fn proposal_summary(
         (Some(at), Some(revision), Some(etag)) => Some(BlueprintChangeProposalAcceptedSummary {
             accepted_at: Timestamp::from_unix_millis(at),
             target: BlueprintRevisionReference {
-                reference: target.reference,
+                reference: target.reference.clone(),
                 revision: BlueprintRevision::new(u64::try_from(revision).map_err(|_| invalid())?)
                     .ok_or_else(invalid)?,
             },

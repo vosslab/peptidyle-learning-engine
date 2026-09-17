@@ -15,7 +15,11 @@ import type { CourseThemeUpdate } from "../../generated/api/CourseThemeUpdate";
 import type { CourseBannerReference } from "../../generated/api/CourseBannerReference";
 import type { CourseBannerUpdate } from "../../generated/api/CourseBannerUpdate";
 import type { CourseBannerUploadReceipt } from "../../generated/api/CourseBannerUploadReceipt";
-import type { ProfileAvatarView, SelectProvidedProfileAvatarInput } from "./profile_avatar";
+import type {
+  ProfileAvatarView,
+  ProfileImageCropInput,
+  SelectProvidedProfileAvatarInput,
+} from "./profile_avatar";
 import type { ProfileSettings, UpdateAccountSettingsInput } from "./profile_settings";
 import type { StudentRecordId } from "../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../generated/api/QuestionId";
@@ -76,6 +80,7 @@ import type {
 import type { CourseStudentWorkRecoveryClient } from "./course_student_work_recovery";
 import type { LibraryDiscussionClient } from "./library_discussion";
 import type { LibraryWatchNotificationClient } from "./library_watch_notification";
+import type { BloomClassificationCorrectionClient } from "./bloom_classification";
 /** Browser-safe client contract implemented by the current same-origin HTTP transport. */
 export interface ApiClient
   extends
@@ -100,6 +105,7 @@ export interface ApiClient
     QuestionPoolLibraryClient,
     QuestionPoolCreationClient,
     QuestionPoolStewardshipClient,
+    BloomClassificationCorrectionClient,
     LibraryDiscussionClient,
     LibraryWatchNotificationClient,
     AssessmentStudentViewClient,
@@ -119,7 +125,10 @@ export interface ApiClient
   /** Selects one validated PLE-provided avatar for the authenticated Account. */
   readonly selectProvidedProfileAvatar: (input: SelectProvidedProfileAvatarInput) => Promise<void>;
   /** Replaces the authenticated Instructor or Sysadmin Account's profile image. */
-  readonly replaceProfileAvatarImage: (image: Blob) => Promise<ProfileAvatarView>;
+  readonly replaceProfileAvatarImage: (
+    image: Blob,
+    crop: ProfileImageCropInput,
+  ) => Promise<ProfileAvatarView>;
   /** Fetches the authenticated Account's current protected profile-image rendition. */
   readonly fetchProfileAvatarImage: (reference: string) => Promise<Blob>;
   readonly listPendingCourseInvitations: (

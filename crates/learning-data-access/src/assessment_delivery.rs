@@ -114,10 +114,20 @@ pub struct StudentAssessmentAttemptHistoryQuestion {
     /// and feedback fields. Omitted when withheld or exact reproduction fails.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response: Option<Vec<question_model::QuestionContentBlock>>,
+    /// Current permission to fetch a separately authorized backend answer document.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backend_answer_review: Option<BackendAnswerReviewAvailability>,
     /// Independently disclosed current grade and teaching feedback. The
     /// server applies each release gate before this browser-safe projection.
     #[serde(flatten)]
     pub feedback: StudentFeedback,
+}
+
+/// Closed availability marker; it conveys no answer data or renderer location.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum BackendAnswerReviewAvailability {
+    Available,
 }
 
 /// Private, already-authorized evidence used to build one selected history
@@ -161,8 +171,8 @@ pub struct StudentAssessmentAttemptHistoryResponseSource {
     /// responses are interpreted from this retained evidence, independently of
     /// the source object or renderer remaining available.
     pub presentation_evidence: StudentAssessmentAttemptPresentationEvidence,
-    /// Exact native PLE source retained only for released teaching-content
-    /// projection. Student response interpretation uses `presentation_evidence`.
+    /// Exact PLE or WeBWorK source retained for released teaching content.
+    /// Student response interpretation uses `presentation_evidence`.
     pub presentation_source: Option<StudentAssessmentAttemptPresentationSource>,
 }
 

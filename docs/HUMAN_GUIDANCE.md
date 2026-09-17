@@ -1114,6 +1114,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
   Knowledge Dimension.
 - The two Bloom dimensions are independent and together determine the object's Bloom Classification.
 - Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
+- Bloom Classification supports Question Library search and Assessment item sorting.
 - A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
 - Bloom Classification is required before a Published Question or Question Pool enters the Question
   Library.

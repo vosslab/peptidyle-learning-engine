@@ -17,13 +17,24 @@ pub enum LibraryWatchTargetKind {
     QuestionPool,
 }
 
-/// The only event kinds that reach a Watch inbox.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LibraryWatchEventKind {
-    Revision,
-    Fork,
-    ImprovementThread,
-    ImpactNotice,
+/// Complete evidence for one of the four events that reaches a Watch inbox.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LibraryWatchActivity {
+    Revision {
+        revision_number: u64,
+    },
+    Fork {
+        source_revision_number: u64,
+        forked_public_id: QuestionId,
+    },
+    ImprovementThread {
+        creation_revision_number: u64,
+        thread_id: Uuid,
+    },
+    ImpactNotice {
+        affected_revision_number: Option<u64>,
+        impact_notice_id: Uuid,
+    },
 }
 
 /// One self-only, immutable in-app notification.
@@ -31,13 +42,7 @@ pub enum LibraryWatchEventKind {
 pub struct LibraryWatchNotification {
     pub target_kind: LibraryWatchTargetKind,
     pub target_public_id: QuestionId,
-    pub event_kind: LibraryWatchEventKind,
-    /// The exact source Revision when that event class has one.
-    pub revision_number: Option<u64>,
-    /// The new public lineage for a fork event only.
-    pub forked_public_id: Option<QuestionId>,
-    /// Exact thread, post, or impact-notice activity for activity events only.
-    pub activity_id: Option<Uuid>,
+    pub activity: LibraryWatchActivity,
     pub occurred_at: Timestamp,
 }
 

@@ -50,10 +50,10 @@ where
 /// Performs one stored-action pass for a single server-observed instant.
 ///
 /// Notices are claimed in the notifier's stored due-time order before any
-/// archive/delete transition. A recorded pre-acceptance delivery failure has
+/// inactivity/archive/delete transition. A recorded pre-acceptance delivery failure has
 /// a database-owned retry time, so this pass continues with the next receipt.
 /// Only a typed notifier-boundary error whose receipt state is unknown stops
-/// the drain; neither outcome blocks the later archive/delete stage.
+/// the drain; neither outcome blocks the later transition stage.
 pub async fn run_iteration<R, N, D>(retention: &R, notifications: &N, delivery: &D) -> Result<()>
 where
     R: CourseRetentionStore,
@@ -76,7 +76,7 @@ where
         .await;
         match notification {
             Err(error) => {
-                // A notifier/database failure cannot delay a stored archive/delete
+                // A notifier/database failure cannot delay a stored lifecycle
                 // transition. The receipt remains the sole retry authority.
                 tracing::warn!(event = "course_retention_notification_attempt_failed", error = %error);
                 break;
@@ -88,6 +88,11 @@ where
 
     for action in actions {
         let result = match action.action {
+            CourseRetentionDueActionKind::MarkInactive => {
+                retention
+                    .mark_course_instance_inactive(action.course, evaluated_at)
+                    .await
+            }
             CourseRetentionDueActionKind::Archive => {
                 retention
                     .archive_course_student_records(action.course, evaluated_at)

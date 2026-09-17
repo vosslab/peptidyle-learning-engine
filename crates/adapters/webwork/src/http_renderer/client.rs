@@ -217,6 +217,25 @@ impl WebworkRenderer for HttpWebworkRenderer {
         ))
     }
 
+    async fn render_answer_review(
+        &self,
+        request: RenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        validate_render_request(request)?;
+        let value = self
+            .rpc(super::protocol::answer_review_fields(
+                request,
+                &self.settings.ple_origin,
+                &self.settings.ple_asset_base,
+            ))
+            .await?;
+        let document = validate_answer_review_rpc(value)?;
+        Ok(RenderedWebworkQuestion::from_document(
+            document,
+            self.settings.expected_renderer.clone(),
+        ))
+    }
+
     async fn grade(
         &self,
         request: GradeRequest<'_>,
@@ -286,6 +305,18 @@ fn validate_render_rpc(value: Value) -> Result<Vec<u8>, RendererFailure> {
     }
     reject_reflected_private_jwts(html, &private_jwts)?;
     Ok(html.as_bytes().to_vec())
+}
+
+fn validate_answer_review_rpc(value: Value) -> Result<Vec<u8>, RendererFailure> {
+    // ASVS 16.5.1-16.5.3: PG diagnostics must never become protected review HTML.
+    if let Some(flag) = value.get("flags").and_then(|flags| flags.get("error_flag"))
+        && !matches!(flag, Value::Bool(false) | Value::Null)
+        && flag.as_i64() != Some(0)
+        && flag.as_str() != Some("0")
+    {
+        return Err(bad("renderer could not produce answer review"));
+    }
+    validate_render_rpc(value)
 }
 
 fn validate_grade_rpc(value: Value) -> Result<f64, RendererFailure> {
@@ -467,6 +498,7 @@ fn reserved_field(name: &str) -> bool {
             "displaymode",
             "isinstructor",
             "showsummary",
+            "showscoresummary",
             "showhints",
             "showsolutions",
             "hidepreviewbutton",

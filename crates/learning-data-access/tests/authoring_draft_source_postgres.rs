@@ -243,7 +243,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         .expect("replayed Pilot binding remains a no-op");
     assert_eq!(replay_edit, first_edit);
     let confirmed = drafts
-        .load_authoring_draft(session, draft.reference)
+        .load_authoring_draft(session, draft.draft_question_uuid)
         .await
         .expect("confirmed Draft Question");
     assert_eq!(confirmed.edit_number, draft.edit_number);
@@ -252,7 +252,7 @@ async fn webwork_draft_creation_keeps_the_initial_source_binding_on_confirmation
         .save_authoring_draft_general_feedback(
             session,
             SaveAuthoringDraftGeneralFeedbackInput {
-                reference: draft.reference,
+                draft_question_uuid: draft.draft_question_uuid,
                 expected_edit_number: first_edit,
                 general_feedback: Some("Reviewed general feedback.".to_owned()),
             },

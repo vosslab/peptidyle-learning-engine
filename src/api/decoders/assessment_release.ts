@@ -37,6 +37,7 @@ import type {
   SaveLiveAssessmentInput,
   UnreleasedLiveAssessment,
 } from "../assessment_release";
+import { decodeBloomClassificationView } from "./bloom_classification";
 import {
   DecodeError,
   decodeArray,
@@ -514,7 +515,7 @@ function entries(value: unknown, path: string): ReadonlyArray<AssessmentEntry> {
 
 function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntry {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "description"]);
+  requireOnlyFields(record, path, ["reference", "description", "bloom"]);
   return {
     reference: decodeQuestionRevisionReference(
       field(record, "reference", path),
@@ -525,6 +526,7 @@ function pickerEntry(value: unknown, path: string): AssessmentQuestionPickerEntr
       field(record, "description", path),
       `${path}.description`,
     ),
+    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
   };
 }
 

@@ -270,6 +270,12 @@ struct PleQuestionJsonHotspotRegion {
 }
 
 impl PleQuestionJsonDocumentBody {
+    pub(super) fn has_external_image_resource(&self) -> bool {
+        self.external_resources
+            .iter()
+            .any(|resource| resource.kind == PleQuestionJsonExternalResourceKind::Image)
+    }
+
     pub(super) fn with_hotspot_surface_asset(
         &self,
         question_asset: QuestionAssetReference,

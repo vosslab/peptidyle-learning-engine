@@ -22,10 +22,11 @@ const classification = {
   tags: [],
 };
 
-function courseSummary(theme = "forest") {
+function courseSummary(lifecycleState = "active", theme = "forest") {
   return {
     reference: "CI6F2R8TA0",
     classification,
+    lifecycleState,
     metadataEtag: "018f5e7d-01b6-7c14-8a0b-4bfef6390d6e",
     shortName: "Mol Bio",
     longName: "Molecular Biology",
@@ -37,18 +38,38 @@ function courseSummary(theme = "forest") {
   };
 }
 
-test("the Instructor Course list accepts one closed row-theme identity", () => {
+test("the Instructor Course list accepts both closed activity states and one closed row-theme identity", () => {
   const [course] = decodeCourseInstanceList({ items: [courseSummary()], nextCursor: null });
 
+  assert.equal(course.lifecycleState, "active");
   assert.equal(course.theme, "forest");
   assert.equal(courseThemeTokens(course.theme).name, "Forest");
+  const [inactiveCourse] = decodeCourseInstanceList({
+    items: [courseSummary("inactive")],
+    nextCursor: null,
+  });
+  assert.equal(inactiveCourse.lifecycleState, "inactive");
 });
 
-test("the Course-list decoder rejects missing, surplus, and unknown theme data", () => {
+test("the Course-list decoder rejects missing, surplus, and unknown closed data", () => {
+  const missingLifecycleState = courseSummary();
+  delete missingLifecycleState.lifecycleState;
+  assert.throws(
+    () => decodeCourseInstanceList({ items: [missingLifecycleState], nextCursor: null }),
+    DecodeError,
+  );
   const missingTheme = courseSummary();
   delete missingTheme.theme;
   assert.throws(
     () => decodeCourseInstanceList({ items: [missingTheme], nextCursor: null }),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeCourseInstanceList({
+        items: [{ ...courseSummary(), lifecycleState: "archived" }],
+        nextCursor: null,
+      }),
     DecodeError,
   );
   assert.throws(

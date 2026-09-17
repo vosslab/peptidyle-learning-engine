@@ -75,7 +75,7 @@ new_course_reference() {
 	local instructor_cookie="$1" authority_output reference listed
 	authority_output="$(bash "$repository_root/tests/e2e/e2e_live_demo_course_instance.sh" --authority)"
 	reference="$(printf '%s\n' "$authority_output" | sed -n 's/^Course Instance support fixture: //p' | tail -n 1)"
-	printf '%s\n' "$reference" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{6}$' || {
+	printf '%s\n' "$reference" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{8}$' || {
 		echo "Course Instance fixture lacks a canonical public reference" >&2
 		exit 1
 	}
@@ -112,7 +112,7 @@ workspace_reference_and_edit() {
 	python3 -c '
 import json, re, sys
 value=json.loads(sys.argv[1])
-if (not isinstance(value, dict) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{6}", value.get("reference", ""))
+if (not isinstance(value, dict) or not re.fullmatch(r"A[0-9A-HJKMNP-TV-Z]{8}", value.get("reference", ""))
     or not isinstance(value.get("editNumber"), str) or not value["editNumber"].isdigit()):
     raise SystemExit("Assignment workspace lacks a reference and Edit Number")
 print(value["reference"], value["editNumber"])

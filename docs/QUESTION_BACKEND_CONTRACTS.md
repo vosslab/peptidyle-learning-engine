@@ -123,6 +123,26 @@ opaque presentation/response evidence PLE must retain. There is no PLE replay
 mapping or control-specific compatibility layer. See
 [WEBWORK_PG_RENDERER_API_USAGE.md](WEBWORK_PG_RENDERER_API_USAGE.md).
 
+Correct-answer review uses the separate server-only `render_answer_review`
+operation with the retained immutable source and Attempt seed. It accepts no
+Student response and produces only transient backend-owned answer HTML. PLE
+does not extract answer evaluators or reconstruct backend feedback. Hints,
+Worked Solutions, explanation, score, and recorded response remain independent.
+
+The completed-history answer decision authorizes each document fetch, including
+the current-Course completion gate for Quiz and Exam answers. PLE repeats that
+authorization immediately after rendering and discards output if access or
+disclosure has changed. The browser receives only an optional
+`backendAnswerReview: "available"` marker and derives a fixed authorized route.
+The document uses the existing opaque script-only preview sandbox. Review-only
+generated assets remain inside the authorized document as inline SVG or data
+images; they never become public proxy assets. A renderer failure leaves
+recorded history and grades intact and offers a document retry without grading.
+
+This review is a current transient rendering of retained source and seed. It
+does not change issued-document evidence, submitted responses, stored credit,
+or grading receipts and is not an archived historical feedback artifact.
+
 ## Other backends
 
 iMathAS is a possible secondary Question Backend and, if delivered, uses this

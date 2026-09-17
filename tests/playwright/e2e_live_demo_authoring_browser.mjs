@@ -53,7 +53,9 @@ try {
   await page.getByRole("link", { name: "My Draft Questions" }).click();
   await page.waitForURL(`${origin}/authoring/drafts`);
   await page.getByRole("button", { name: "New Draft Question" }).click();
-  await page.waitForURL(/\/authoring\/drafts\/D-[1-9][0-9]*$/u);
+  await page.waitForURL(
+    /\/authoring\/drafts\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u,
+  );
   await page.getByLabel("Question Title").fill(questionTitle);
   await page.getByLabel("Question License").selectOption("CC-BY-4.0");
   await page.getByRole("button", { name: "Save private draft" }).click();

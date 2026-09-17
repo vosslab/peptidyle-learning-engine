@@ -18,6 +18,7 @@ import {
   decodePositiveInteger,
   decodeRecord,
   decodeStringEnum,
+  decodeString,
 } from "../decoder";
 import {
   decodeAssessmentReference,
@@ -28,6 +29,7 @@ import {
   requireOnlyFields,
 } from "./shared";
 import { decodeStudentAssessmentDecision } from "./student_assessment_decision";
+import { decodeCourseTerm } from "./course_term";
 
 const ASSIGNMENT_ATTEMPT_COMPLETIONS = [
   "inProgress",
@@ -46,11 +48,32 @@ function decodeCourseSummary(value: unknown, path: string): LiveStudentCourseLan
 
 function decodeInvitationSummary(value: unknown, path: string): LiveStudentCourseInvitationSummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["reference", "shortName", "longName"]);
+  // ASVS 1.5.2/8.2.3: this closed projection contains no private identity fields.
+  requireOnlyFields(record, path, [
+    "reference",
+    "shortName",
+    "longName",
+    "instructorDisplayName",
+    "term",
+  ]);
+  const instructorDisplayName = decodeString(
+    field(record, "instructorDisplayName", path),
+    `${path}.instructorDisplayName`,
+  );
+  if (
+    instructorDisplayName !== instructorDisplayName.trim() ||
+    Array.from(instructorDisplayName).length === 0 ||
+    Array.from(instructorDisplayName).length > 200 ||
+    /[\p{Cc}]/u.test(instructorDisplayName)
+  ) {
+    throw new DecodeError(`${path}.instructorDisplayName`, "one verified Instructor display name");
+  }
   return {
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),
     shortName: decodeCourseName(field(record, "shortName", path), `${path}.shortName`),
     longName: decodeCourseName(field(record, "longName", path), `${path}.longName`),
+    instructorDisplayName,
+    term: decodeCourseTerm(field(record, "term", path), `${path}.term`),
   };
 }
 

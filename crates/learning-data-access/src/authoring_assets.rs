@@ -3,14 +3,14 @@
 use async_trait::async_trait;
 use objects::image_validation::MAX_STILL_IMAGE_BYTES;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea};
-use question_model::{DraftQuestionReference, QuestionAssetId};
+use question_model::QuestionAssetId;
 
 use crate::{DraftQuestionEditNumber, SessionTokenHash, StoreError};
 
 /// Bytes-first registration under the Draft's ordinary source CAS.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RegisterDraftQuestionAssetInput {
-    pub reference: DraftQuestionReference,
+    pub draft_question_uuid: crate::DraftQuestionUuid,
     pub expected_edit_number: DraftQuestionEditNumber,
     pub asset_id: QuestionAssetId,
     pub source_record: ObjectRecord,
@@ -86,7 +86,7 @@ pub trait AuthoringAssetsStore: Send + Sync {
     async fn load_draft_question_asset(
         &self,
         session_hash: SessionTokenHash,
-        reference: DraftQuestionReference,
+        draft_question_uuid: crate::DraftQuestionUuid,
         asset_id: QuestionAssetId,
     ) -> Result<OwnedDraftQuestionAsset, StoreError>;
 }
@@ -102,7 +102,7 @@ mod tests {
         let asset = QuestionAssetId::from_uuid(Uuid::from_u128(4));
         let object = ObjectId::from_uuid(Uuid::from_u128(5));
         RegisterDraftQuestionAssetInput {
-            reference: DraftQuestionReference::new(1).expect("real reference"),
+            draft_question_uuid: crate::DraftQuestionUuid::from_uuid(Uuid::from_u128(1)),
             expected_edit_number: DraftQuestionEditNumber::new(1).expect("positive CAS"),
             asset_id: asset,
             source_record: ObjectRecord {

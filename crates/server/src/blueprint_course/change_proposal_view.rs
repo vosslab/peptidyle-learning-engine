@@ -68,17 +68,17 @@ pub(super) fn detail(
         proposal: BlueprintChangeProposalSummaryView {
             proposal_id: proposal.proposal_id.to_string(),
             created_at: proposal.created_at,
-            source: proposal.source,
+            source: proposal.source.clone(),
             source_metadata_etag: proposal.source_metadata_etag,
             source_names: source_names.clone(),
-            target: proposal.target,
+            target: proposal.target.clone(),
             target_metadata_etag: proposal.target_metadata_etag,
             target_names: target_names.clone(),
             target_is_stale: proposal.target_is_stale,
             accepted: review.accepted.as_ref().map(|row| {
                 BlueprintChangeProposalAcceptedSummaryView {
                     accepted_at: row.accepted_at,
-                    target: row.target,
+                    target: row.target.clone(),
                     target_metadata_etag: row.target_metadata_etag,
                 }
             }),
@@ -87,14 +87,14 @@ pub(super) fn detail(
         comparison: BlueprintChangeProposalComparisonView {
             source: side(
                 comparison.left,
-                proposal.source,
+                proposal.source.clone(),
                 proposal.source_metadata_etag,
                 source_names,
                 source_metadata.classification().clone(),
             ),
             target: side(
                 comparison.right,
-                proposal.target,
+                proposal.target.clone(),
                 proposal.target_metadata_etag,
                 target_names,
                 target_metadata.classification().clone(),
@@ -125,7 +125,7 @@ fn side(
 ) -> BlueprintChangeProposalSideView {
     let projected = super::fork_review::comparison_side(
         inventory,
-        revision,
+        revision.clone(),
         names.short_name,
         names.long_name,
         metadata_etag,

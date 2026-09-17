@@ -28,3 +28,17 @@ test("catalog future destinations remain identities rather than fabricated route
     assert.equal("routeId" in control.destination, false, control.id);
   }
 });
+
+test("Course list choices use the declared active and inactive Instructor routes", () => {
+  const destinations = new Map(
+    RIBBON_TASK_CATALOG.map((control) => [control.id, control.destination]),
+  );
+  assert.deepEqual(destinations.get("myActiveCourses"), {
+    kind: "route",
+    routeId: "instructorHome",
+  });
+  assert.deepEqual(destinations.get("myInactiveCourses"), {
+    kind: "route",
+    routeId: "instructorInactiveCourses",
+  });
+});

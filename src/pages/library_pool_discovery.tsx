@@ -2,13 +2,23 @@
 
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 import type { QuestionPoolLibrarySummary } from "../../generated/api/QuestionPoolLibrarySummary";
+import type { QuestionPoolBloomFacets } from "../../generated/api/QuestionPoolBloomFacets";
 import type { QuestionPoolRevisionView } from "../../generated/api/QuestionPoolRevisionView";
 import type { ContentClassificationClient } from "../api/content_classification";
 import type { QuestionPoolLibraryClient } from "../api/question_pool_library";
 import type { LibraryDiscussionClient } from "../api/library_discussion";
+import type { BloomClassificationCorrectionClient } from "../api/bloom_classification";
+import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
+import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
 import type { QuestionPoolLibraryFilter } from "../api/question_pool_library";
 import { decodeQuestionId } from "../api/decoders/shared";
 import { questionPoolLibraryFilter } from "../api/question_pool_library_filter";
+import {
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
+  isBloomCognitiveProcess,
+  isBloomKnowledgeDimension,
+} from "../api/decoders/bloom_classification";
 import { ApiRequestError } from "../api/http_client/error";
 import {
   EMPTY_LIBRARY_CLASSIFICATION_FILTER,
@@ -18,9 +28,14 @@ import {
 import { LibraryClassificationSearch } from "../components/library_classification_search";
 import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionPoolWatchControl } from "../components/question_pool_watch_control";
+import {
+  BloomClassificationEditor,
+  BloomClassificationText,
+} from "../components/bloom_classification";
 
 type PoolInspectionTarget = {
   readonly publicId: QuestionPoolLibrarySummary["questionPoolRevision"]["questionPoolId"];
+  readonly reference?: QuestionPoolLibrarySummary["questionPoolRevision"];
   readonly title: string;
 };
 
@@ -34,17 +49,34 @@ function linkedPoolId(): PoolInspectionTarget["publicId"] | null {
   }
 }
 
+function selectedCognitiveProcess(value: string): BloomCognitiveProcess | null {
+  if (value === "") return null;
+  if (isBloomCognitiveProcess(value)) return value;
+  throw new Error("Bloom Cognitive Process selection is invalid");
+}
+
+function selectedKnowledgeDimension(value: string): BloomKnowledgeDimension | null {
+  if (value === "") return null;
+  if (isBloomKnowledgeDimension(value)) return value;
+  throw new Error("Bloom Knowledge Dimension selection is invalid");
+}
+
 export function LibraryPoolDiscovery(props: {
-  readonly client: QuestionPoolLibraryClient & LibraryDiscussionClient;
+  readonly client: QuestionPoolLibraryClient &
+    LibraryDiscussionClient &
+    BloomClassificationCorrectionClient;
   readonly classificationClient: ContentClassificationClient;
   /** Sysadmins inspect Pools read-only and never load private Watch state. */
   readonly mayWatchPools: boolean;
+  /** Every active vetted Instructor may correct; Sysadmin inspection remains read-only. */
+  readonly mayCorrectBloom: boolean;
 }): JSX.Element {
   const [filter, setFilter] = createSignal<LibraryClassificationFilter>(
     EMPTY_LIBRARY_CLASSIFICATION_FILTER,
   );
   const [items, setItems] = createSignal<ReadonlyArray<QuestionPoolLibrarySummary>>([]);
   const [cursor, setCursor] = createSignal<string | null>(null);
+  const [bloomFacets, setBloomFacets] = createSignal<QuestionPoolBloomFacets | null>(null);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal(false);
   const [invalidQuery, setInvalidQuery] = createSignal(false);
@@ -75,12 +107,14 @@ export function LibraryPoolDiscovery(props: {
     if (after === undefined) {
       setItems([]);
       setCursor(null);
+      setBloomFacets(null);
     }
     try {
       const page = await props.client.listQuestionPools(after, 50, submittedFilter);
       if (generation !== listGeneration) return;
       setItems((previous) => (after === undefined ? page.items : [...previous, ...page.items]));
       setCursor(page.nextCursor);
+      setBloomFacets(page.bloomFacets);
     } catch (cause) {
       if (generation !== listGeneration) return;
       setError(true);
@@ -117,6 +151,17 @@ export function LibraryPoolDiscovery(props: {
     }
   }
 
+  function changeBloomFilter(
+    change: Pick<
+      QuestionPoolLibraryFilter,
+      "bloom_cognitive_process" | "bloom_knowledge_dimension"
+    >,
+  ): void {
+    const next = questionPoolLibraryFilter({ ...submitted(), ...change });
+    setSubmitted(next);
+    void readPage();
+  }
+
   function clearSearch(): void {
     setFilter(EMPTY_LIBRARY_CLASSIFICATION_FILTER);
     setText("");
@@ -126,12 +171,15 @@ export function LibraryPoolDiscovery(props: {
     void readPage();
   }
 
-  async function readDetail(publicId: PoolInspectionTarget["publicId"]): Promise<void> {
+  async function readDetail(target: PoolInspectionTarget): Promise<void> {
     const generation = ++detailGeneration;
     setDetail(null);
     setDetailError(false);
     try {
-      const value = await props.client.getQuestionPool(publicId);
+      const value =
+        target.reference === undefined
+          ? await props.client.getQuestionPool(target.publicId)
+          : await props.client.getQuestionPoolRevision(target.reference);
       if (generation === detailGeneration) setDetail(value);
     } catch {
       if (generation === detailGeneration) setDetailError(true);
@@ -141,12 +189,14 @@ export function LibraryPoolDiscovery(props: {
   function inspect(pool: QuestionPoolLibrarySummary, button: HTMLButtonElement): void {
     returnButton = button;
     returnScroll = window.scrollY;
-    setInspecting({
+    const target = {
       publicId: pool.questionPoolRevision.questionPoolId,
+      reference: pool.questionPoolRevision,
       title: pool.metadata.title,
-    });
+    };
+    setInspecting(target);
     queueMicrotask(() => detailHeading?.focus());
-    void readDetail(pool.questionPoolRevision.questionPoolId);
+    void readDetail(target);
   }
 
   function returnToResults(): void {
@@ -161,15 +211,20 @@ export function LibraryPoolDiscovery(props: {
     });
   }
 
+  function updateDetailBloom(bloom: QuestionPoolRevisionView["bloom"]): void {
+    setDetail((current) => (current === null ? null : { ...current, bloom }));
+  }
+
   onMount(() => {
     const publicId = linkedPoolId();
     if (publicId === null) {
       void readPage();
       return;
     }
-    setInspecting({ publicId, title: "Question Pool" });
+    const target = { publicId, title: "Question Pool" };
+    setInspecting(target);
     queueMicrotask(() => detailHeading?.focus());
-    void readDetail(publicId);
+    void readDetail(target);
   });
   onCleanup(() => {
     ++listGeneration;
@@ -239,6 +294,47 @@ export function LibraryPoolDiscovery(props: {
             client={props.classificationClient}
             onChange={changeFilter}
           />
+          <fieldset class="question-library-bloom-filters">
+            <legend>Bloom Classification</legend>
+            <label>
+              Bloom Cognitive Process
+              <select
+                value={submitted().bloom_cognitive_process ?? ""}
+                onChange={(event) =>
+                  changeBloomFilter({
+                    bloom_cognitive_process: selectedCognitiveProcess(event.currentTarget.value),
+                    bloom_knowledge_dimension: submitted().bloom_knowledge_dimension ?? null,
+                  })
+                }
+                disabled={loading()}
+              >
+                <option value="">Any</option>
+                <For each={BLOOM_COGNITIVE_PROCESSES}>
+                  {(value) => <option value={value}>{value}</option>}
+                </For>
+              </select>
+            </label>
+            <label>
+              Bloom Knowledge Dimension
+              <select
+                value={submitted().bloom_knowledge_dimension ?? ""}
+                onChange={(event) =>
+                  changeBloomFilter({
+                    bloom_cognitive_process: submitted().bloom_cognitive_process ?? null,
+                    bloom_knowledge_dimension: selectedKnowledgeDimension(
+                      event.currentTarget.value,
+                    ),
+                  })
+                }
+                disabled={loading()}
+              >
+                <option value="">Any</option>
+                <For each={BLOOM_KNOWLEDGE_DIMENSIONS}>
+                  {(value) => <option value={value}>{value}</option>}
+                </For>
+              </select>
+            </label>
+          </fieldset>
           <button type="submit" disabled={loading()}>
             Search Pools
           </button>
@@ -251,8 +347,48 @@ export function LibraryPoolDiscovery(props: {
         </Show>
         <p>
           Applied Pool search: {submitted().text || "All words"} | Tags:{" "}
-          {(submitted().tags ?? []).join(", ") || "Any"}
+          {(submitted().tags ?? []).join(", ") || "Any"} | Bloom Cognitive Process:{" "}
+          {submitted().bloom_cognitive_process ?? "Any"} | Bloom Knowledge Dimension:{" "}
+          {submitted().bloom_knowledge_dimension ?? "Any"}
         </p>
+        <Show when={bloomFacets()}>
+          {(facets) => (
+            <section class="question-library-bloom-report" aria-label="Pool Bloom report">
+              <p>
+                Counts describe every Question Pool matching all applied Pool filters, including
+                both Bloom selections.
+              </p>
+              <div>
+                <section aria-labelledby="pool-bloom-cognitive-counts">
+                  <h3 id="pool-bloom-cognitive-counts">Cognitive Process</h3>
+                  <dl>
+                    <For each={facets().cognitiveProcesses}>
+                      {(facet) => (
+                        <div>
+                          <dt>{facet.cognitiveProcess}</dt>
+                          <dd>{facet.count}</dd>
+                        </div>
+                      )}
+                    </For>
+                  </dl>
+                </section>
+                <section aria-labelledby="pool-bloom-knowledge-counts">
+                  <h3 id="pool-bloom-knowledge-counts">Knowledge Dimension</h3>
+                  <dl>
+                    <For each={facets().knowledgeDimensions}>
+                      {(facet) => (
+                        <div>
+                          <dt>{facet.knowledgeDimension}</dt>
+                          <dd>{facet.count}</dd>
+                        </div>
+                      )}
+                    </For>
+                  </dl>
+                </section>
+              </div>
+            </section>
+          )}
+        </Show>
         <Show when={loading()}>
           <p role="status">Loading published Pools...</p>
         </Show>
@@ -281,6 +417,9 @@ export function LibraryPoolDiscovery(props: {
                 <p>
                   Discipline: {pool.metadata.disciplineName}
                   <Show when={pool.metadata.disciplineIsRetired}> (retired)</Show>
+                </p>
+                <p>
+                  <BloomClassificationText bloom={pool.bloom} />
                 </p>
                 <p>
                   Pool ID: {pool.questionPoolRevision.questionPoolId} | Revision:{" "}
@@ -322,7 +461,7 @@ export function LibraryPoolDiscovery(props: {
             </Show>
             <Show when={detailError()}>
               <p role="alert">Could not load this Pool. Retry or return to your results.</p>
-              <button type="button" onClick={() => void readDetail(pool().publicId)}>
+              <button type="button" onClick={() => void readDetail(pool())}>
                 Retry Pool detail
               </button>
             </Show>
@@ -335,11 +474,36 @@ export function LibraryPoolDiscovery(props: {
                     <Show when={value().metadata.disciplineIsRetired}> (retired)</Show>
                   </p>
                   <p>
+                    <BloomClassificationText bloom={value().bloom} />
+                  </p>
+                  <p>
                     Pool ID: {value().questionPoolRevision.questionPoolId} | Revision:{" "}
                     {value().questionPoolRevision.revisionNumber} | Members:{" "}
                     {value().members.length}
                   </p>
                   <p>Tags: {value().metadata.tags.join(", ") || "None"}</p>
+                  <Show when={props.mayCorrectBloom}>
+                    <BloomClassificationEditor
+                      targetName="Question Pool"
+                      revisionNumber={value().questionPoolRevision.revisionNumber}
+                      bloom={value().bloom}
+                      save={(request) =>
+                        props.client
+                          .correctQuestionPoolBloom(value().questionPoolRevision, request)
+                          .then((receipt) => receipt.bloom)
+                      }
+                      loadCurrent={() =>
+                        props.client
+                          .getQuestionPoolRevision(value().questionPoolRevision)
+                          .then((loaded) => loaded.bloom)
+                      }
+                      onCurrent={updateDetailBloom}
+                      onConflictCurrent={() => void readPage()}
+                      onAccepted={(_bloom, changed) => {
+                        if (changed) void readPage();
+                      }}
+                    />
+                  </Show>
                   <Show when={props.mayWatchPools}>
                     <QuestionPoolWatchControl
                       poolId={value().questionPoolRevision.questionPoolId}

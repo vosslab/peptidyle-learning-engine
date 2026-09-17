@@ -52,7 +52,6 @@ CREATE FUNCTION ple_private.fork_published_question_to_draft(
 ) RETURNS TABLE (
     draft_question_uuid uuid,
     workspace_id uuid,
-    reference_number bigint,
     created_new boolean
 ) LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
@@ -118,8 +117,7 @@ BEGIN
                 MESSAGE = 'Question Fork idempotency key belongs to a different source Revision';
         END IF;
         RETURN QUERY
-        SELECT question.draft_question_uuid, question.workspace_id,
-               question.reference_number, false
+        SELECT question.draft_question_uuid, question.workspace_id, false
           FROM ple_private.draft_question_fork_source AS fork
           JOIN ple_private.draft_question AS question
             ON question.draft_question_uuid = fork.draft_question_uuid
@@ -265,7 +263,7 @@ BEGIN
         draft_question_uuid, workspace_id, created_at, updated_at
     ) VALUES (
         p_draft_question_uuid, p_workspace_id, created_at, created_at
-    ) RETURNING draft_question.reference_number INTO reference_number;
+    );
     INSERT INTO ple_private.draft_question_metadata(
         draft_question_uuid, question_title, question_description,
         general_feedback, language, created_at, updated_at
@@ -345,29 +343,29 @@ $$;
 
 CREATE FUNCTION ple_private.list_authoring_drafts()
 RETURNS TABLE (
-    reference_number bigint, draft_question_edit_number bigint,
+    draft_question_uuid uuid, draft_question_edit_number bigint,
     question_title text, question_description text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT question.reference_number, question.draft_question_edit_number,
+    SELECT question.draft_question_uuid, question.draft_question_edit_number,
            metadata.question_title, metadata.question_description
       FROM ple_private.draft_question AS question
       JOIN ple_private.draft_question_metadata AS metadata
         ON metadata.draft_question_uuid = question.draft_question_uuid
      WHERE ple_api.current_session_account_is_instructor()
        AND ple_api.current_session_account_can_access_authoring_workspace(question.workspace_id)
-     ORDER BY question.updated_at DESC, question.reference_number DESC
+     ORDER BY question.updated_at DESC, question.draft_question_uuid DESC
 $$;
 
-CREATE FUNCTION ple_private.load_authoring_draft(p_reference_number bigint)
+CREATE FUNCTION ple_private.load_authoring_draft(p_draft_question_uuid uuid)
 RETURNS TABLE (
-    draft_question_uuid uuid, workspace_id uuid, reference_number bigint,
+    draft_question_uuid uuid, workspace_id uuid,
     draft_question_edit_number bigint, question_title text, question_description text,
     general_feedback text, language text, question_type text, object_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT question.draft_question_uuid, question.workspace_id, question.reference_number,
+    SELECT question.draft_question_uuid, question.workspace_id,
            question.draft_question_edit_number, metadata.question_title,
            metadata.question_description, metadata.general_feedback, metadata.language,
            binding.question_type, record.object_id,
@@ -381,10 +379,10 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
       JOIN ple_private.object_record AS record
         ON record.object_id = binding.source_object_id
        AND binding.source_object_checksum = pg_catalog.encode(record.sha256, 'hex')
-     WHERE p_reference_number BETWEEN 1 AND 2147483647
+     WHERE p_draft_question_uuid IS NOT NULL
        AND ple_api.current_session_account_is_instructor()
        AND ple_api.current_session_account_can_access_authoring_workspace(question.workspace_id)
-       AND question.reference_number = p_reference_number
+       AND question.draft_question_uuid = p_draft_question_uuid
        AND record.object_storage_area = 'private-content'
        AND record.object_data_class = 'authoring-content'
        AND record.object_address = pg_catalog.jsonb_build_object(
@@ -397,10 +395,9 @@ CREATE FUNCTION ple_private.create_authoring_draft(
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
     p_language text, p_webwork_pg_path text, p_question_type text, p_question_format text
-) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
+) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE
-    reference_number bigint;
     created_at timestamptz;
     expected_address jsonb;
 BEGIN
@@ -449,7 +446,7 @@ BEGIN
         draft_question_uuid, workspace_id, created_at, updated_at
     ) VALUES (
         p_draft_question_uuid, p_workspace_id, pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp()
-    ) RETURNING draft_question.reference_number INTO reference_number;
+    );
     INSERT INTO ple_private.draft_question_metadata(
         draft_question_uuid, question_title, question_description, language, created_at, updated_at
     ) VALUES (
@@ -470,12 +467,12 @@ BEGIN
         p_question_format,
         p_question_type, p_webwork_pg_path, p_object_id,
         pg_catalog.encode(p_sha256, 'hex'), pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp());
-    RETURN reference_number;
+    RETURN p_draft_question_uuid;
 END
 $$;
 
 CREATE FUNCTION ple_private.save_authoring_draft(
-    p_reference_number bigint, p_expected_edit_number bigint, p_object_id uuid,
+    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
     p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
@@ -488,7 +485,7 @@ DECLARE
     v_binding ple_private.draft_question_source_binding%ROWTYPE;
     expected_address jsonb;
 BEGIN
-    IF p_reference_number IS NULL OR p_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_draft_question_uuid IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
        OR p_object_id IS NULL OR p_sha256 IS NULL OR pg_catalog.octet_length(p_sha256) <> 32
        OR p_size_bytes IS NULL OR p_size_bytes < 0
@@ -508,7 +505,7 @@ BEGIN
     SELECT question.draft_question_uuid, question.workspace_id, question.draft_question_edit_number
       INTO v_draft_question_uuid, v_workspace_id, v_current_edit_number
       FROM ple_private.draft_question AS question
-     WHERE question.reference_number = p_reference_number
+     WHERE question.draft_question_uuid = p_draft_question_uuid
        AND ple_api.current_session_account_can_access_authoring_workspace(question.workspace_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -584,7 +581,7 @@ $$;
 -- dynamic backend feedback.  A Draft edit advances the ordinary Draft CAS;
 -- publication then records the exact text on a new immutable Revision.
 CREATE FUNCTION ple_private.save_authoring_draft_general_feedback(
-    p_reference_number bigint, p_expected_edit_number bigint, p_general_feedback text
+    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_general_feedback text
 ) RETURNS TABLE (draft_question_edit_number bigint, general_feedback text)
 LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -592,7 +589,7 @@ DECLARE
     v_draft_question_uuid uuid;
     v_current_edit_number bigint;
 BEGIN
-    IF p_reference_number IS NULL OR p_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_draft_question_uuid IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
        OR (p_general_feedback IS NOT NULL AND (
            p_general_feedback <> btrim(p_general_feedback)
@@ -609,7 +606,7 @@ BEGIN
     SELECT question.draft_question_uuid, question.draft_question_edit_number
       INTO v_draft_question_uuid, v_current_edit_number
       FROM ple_private.draft_question AS question
-     WHERE question.reference_number = p_reference_number
+     WHERE question.draft_question_uuid = p_draft_question_uuid
        AND ple_api.current_session_account_can_access_authoring_workspace(question.workspace_id)
      FOR UPDATE;
     IF NOT FOUND THEN
@@ -633,12 +630,12 @@ BEGIN
 END
 $$;
 
--- ASVS 1.2.4, 2.2.1-2.2.2, and 2.3.1-2.3.4: resolve the bounded public
--- reference under current owner authority, lock the Draft, enforce its exact
+-- ASVS 1.2.4, 2.2.1-2.2.2, and 2.3.1-2.3.4: resolve the private Draft UUID
+-- under current owner authority, lock the Draft, enforce its exact
 -- Edit Number, and delete the private aggregate atomically.  Published
 -- Question lineages are separate ple_data state and are never considered.
 CREATE FUNCTION ple_private.delete_draft_question(
-    p_reference_number bigint,
+    p_draft_question_uuid uuid,
     p_expected_edit_number bigint
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -646,7 +643,7 @@ DECLARE
     v_draft_question_uuid uuid;
     v_current_edit_number bigint;
 BEGIN
-    IF p_reference_number IS NULL OR p_reference_number NOT BETWEEN 1 AND 2147483647
+    IF p_draft_question_uuid IS NULL
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0 THEN
         RAISE EXCEPTION USING ERRCODE = '22023',
             MESSAGE = 'Draft Question deletion arguments are invalid';
@@ -658,7 +655,7 @@ BEGIN
     SELECT question.draft_question_uuid, question.draft_question_edit_number
       INTO v_draft_question_uuid, v_current_edit_number
       FROM ple_private.draft_question AS question
-     WHERE question.reference_number = p_reference_number
+     WHERE question.draft_question_uuid = p_draft_question_uuid
        AND ple_private.current_session_account_owns_draft_question(
                question.draft_question_uuid)
      FOR UPDATE OF question;
@@ -685,21 +682,21 @@ REVOKE ALL ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_private.current_session_account_owns_draft_question(uuid),
-    ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
+    ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(uuid),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
-    ple_private.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_private.delete_draft_question(bigint, bigint)
+    ple_private.save_authoring_draft(uuid, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
+    ple_private.save_authoring_draft_general_feedback(uuid, bigint, text),
+    ple_private.delete_draft_question(uuid, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_private.ensure_own_authoring_workspace(uuid),
     ple_private.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_private.current_session_account_owns_draft_question(uuid),
-    ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(bigint),
+    ple_private.list_authoring_drafts(), ple_private.load_authoring_draft(uuid),
     ple_private.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_private.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
-    ple_private.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_private.delete_draft_question(bigint, bigint)
+    ple_private.save_authoring_draft(uuid, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
+    ple_private.save_authoring_draft_general_feedback(uuid, bigint, text),
+    ple_private.delete_draft_question(uuid, bigint)
     TO ple_api_owner;
 RESET ROLE;
 
@@ -725,7 +722,6 @@ CREATE FUNCTION ple_api.fork_published_question_to_draft(
 ) RETURNS TABLE (
     draft_question_uuid uuid,
     workspace_id uuid,
-    reference_number bigint,
     created_new boolean
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -744,28 +740,28 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
 $$;
 CREATE FUNCTION ple_api.list_authoring_drafts()
 RETURNS TABLE (
-    reference_number bigint, draft_question_edit_number bigint,
+    draft_question_uuid uuid, draft_question_edit_number bigint,
     question_title text, question_description text
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.list_authoring_drafts()
 $$;
-CREATE FUNCTION ple_api.load_authoring_draft(p_reference_number bigint)
+CREATE FUNCTION ple_api.load_authoring_draft(p_draft_question_uuid uuid)
 RETURNS TABLE (
-    draft_question_uuid uuid, workspace_id uuid, reference_number bigint,
+    draft_question_uuid uuid, workspace_id uuid,
     draft_question_edit_number bigint, question_title text, question_description text,
     general_feedback text, language text, question_type text, object_id uuid, object_address jsonb, sha256 bytea,
     size_bytes bigint, media_type text, created_at_millis bigint
 ) LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT * FROM ple_private.load_authoring_draft(p_reference_number)
+    SELECT * FROM ple_private.load_authoring_draft(p_draft_question_uuid)
 $$;
 CREATE FUNCTION ple_api.create_authoring_draft(
     p_workspace_id uuid, p_draft_question_uuid uuid, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
     p_language text, p_webwork_pg_path text, p_question_type text, p_question_format text
-) RETURNS bigint LANGUAGE sql SECURITY DEFINER
+) RETURNS uuid LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.create_authoring_draft(
         p_workspace_id, p_draft_question_uuid, p_object_id, p_object_address, p_sha256,
@@ -773,50 +769,50 @@ SET search_path = pg_catalog, ple_api, ple_private AS $$
         p_question_description, p_language, p_webwork_pg_path, p_question_type, p_question_format)
 $$;
 CREATE FUNCTION ple_api.save_authoring_draft(
-    p_reference_number bigint, p_expected_edit_number bigint, p_object_id uuid,
+    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_object_id uuid,
     p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint, p_media_type text,
     p_created_at_millis bigint, p_question_title text, p_question_description text,
     p_language text, p_question_type text, p_hotspot_asset_id uuid, p_hotspot_checksum text
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT ple_private.save_authoring_draft(
-        p_reference_number, p_expected_edit_number, p_object_id, p_object_address, p_sha256,
+        p_draft_question_uuid, p_expected_edit_number, p_object_id, p_object_address, p_sha256,
         p_size_bytes, p_media_type, p_created_at_millis, p_question_title,
         p_question_description, p_language, p_question_type, p_hotspot_asset_id, p_hotspot_checksum)
 $$;
 CREATE FUNCTION ple_api.save_authoring_draft_general_feedback(
-    p_reference_number bigint, p_expected_edit_number bigint, p_general_feedback text
+    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_general_feedback text
 ) RETURNS TABLE (draft_question_edit_number bigint, general_feedback text)
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
     SELECT * FROM ple_private.save_authoring_draft_general_feedback(
-        p_reference_number, p_expected_edit_number, p_general_feedback)
+        p_draft_question_uuid, p_expected_edit_number, p_general_feedback)
 $$;
 CREATE FUNCTION ple_api.delete_draft_question(
-    p_reference_number bigint,
+    p_draft_question_uuid uuid,
     p_expected_edit_number bigint
 ) RETURNS void LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
-    SELECT ple_private.delete_draft_question(p_reference_number, p_expected_edit_number)
+    SELECT ple_private.delete_draft_question(p_draft_question_uuid, p_expected_edit_number)
 $$;
 REVOKE ALL ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_api.current_session_account_owns_draft_question(uuid),
-    ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
+    ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(uuid),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
-    ple_api.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_api.delete_draft_question(bigint, bigint)
+    ple_api.save_authoring_draft(uuid, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
+    ple_api.save_authoring_draft_general_feedback(uuid, bigint, text),
+    ple_api.delete_draft_question(uuid, bigint)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.ensure_own_authoring_workspace(uuid),
     ple_api.fork_published_question_to_draft(uuid, uuid, text, integer, uuid,
         uuid, jsonb, bytea, bigint, text, bigint, jsonb),
     ple_api.current_session_account_owns_draft_question(uuid),
-    ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(bigint),
+    ple_api.list_authoring_drafts(), ple_api.load_authoring_draft(uuid),
     ple_api.create_authoring_draft(uuid, uuid, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, text, text),
-    ple_api.save_authoring_draft(bigint, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
-    ple_api.save_authoring_draft_general_feedback(bigint, bigint, text),
-    ple_api.delete_draft_question(bigint, bigint)
+    ple_api.save_authoring_draft(uuid, bigint, uuid, jsonb, bytea, bigint, text, bigint, text, text, text, text, uuid, text),
+    ple_api.save_authoring_draft_general_feedback(uuid, bigint, text),
+    ple_api.delete_draft_question(uuid, bigint)
     TO ple_app;
 RESET ROLE;

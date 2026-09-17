@@ -67,14 +67,20 @@ RETURNS TABLE (
     question_id text,
     question_revision_number integer,
     question_title text,
-    question_description text
+    question_description text,
+    bloom_cognitive_process text,
+    bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT lineage.question_id,
            accepted.revision_number,
            metadata.question_title,
-           metadata.question_description
+           metadata.question_description,
+           bloom.bloom_cognitive_process,
+           bloom.bloom_knowledge_dimension,
+           bloom.bloom_classification_edit_number
       FROM ple_data.course_instance AS course
       CROSS JOIN ple_data.published_question AS lineage
       JOIN LATERAL (
@@ -89,6 +95,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND revision.revision_number = accepted.revision_number
       JOIN ple_data.published_question_metadata AS metadata
         ON metadata.question_id = lineage.question_id
+      JOIN LATERAL ple_private.question_library_entries(
+          lineage.question_id, accepted.revision_number, true
+      ) AS bloom ON true
      WHERE course.public_reference = p_course_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_id)
        AND lineage.availability = 'available'
@@ -147,7 +156,10 @@ RETURNS TABLE (
     question_id text,
     question_revision_number integer,
     question_title text,
-    question_description text
+    question_description text,
+    bloom_cognitive_process text,
+    bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint
 )
 LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
@@ -197,20 +209,29 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            COALESCE(item.question_id, entry.question_id),
            COALESCE(item.question_revision_number, entry.question_revision_number),
            metadata.question_title,
-           metadata.question_description
+           metadata.question_description,
+           question_bloom.bloom_cognitive_process,
+           question_bloom.bloom_knowledge_dimension,
+           question_bloom.bloom_classification_edit_number
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
       LEFT JOIN ple_data.blueprint_course AS blueprint
         ON blueprint.reference_number = assessment.source_blueprint_course_reference_number
+      -- ASVS 8.2.2 and 8.3.1: this Course-Instructor projection retains
+      -- every exact Entry; availability remains a separate delivery gate.
       LEFT JOIN ple_data.assessment_entry AS entry
         ON entry.assessment_id = assessment.assessment_id
-       AND entry.availability = 'available'
       LEFT JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
       LEFT JOIN ple_data.question_pool_revision_member AS item
         ON item.question_pool_id = entry.question_pool_id
        AND item.revision_number = entry.question_pool_revision_number
       LEFT JOIN ple_data.published_question_metadata AS metadata
         ON metadata.question_id = COALESCE(item.question_id, entry.question_id)
+      LEFT JOIN LATERAL ple_private.question_library_entries(
+          COALESCE(item.question_id, entry.question_id, ''),
+          COALESCE(item.question_revision_number, entry.question_revision_number, 0),
+          false
+      ) AS question_bloom ON true
      WHERE course.public_reference = p_course_reference_number
        AND assessment.public_reference = p_assessment_reference_number
        AND ple_api.current_session_account_is_course_instructor(course.course_id)

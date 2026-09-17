@@ -5,6 +5,18 @@ use reqwest::Url;
 
 use crate::renderer_contract::RenderRequest;
 
+/// Correct-answer disclosure is an explicit server-only operation.
+pub(super) fn answer_review_fields(
+    request: RenderRequest<'_>,
+    ple_origin: &Url,
+    ple_asset_base: &str,
+) -> Vec<(String, String)> {
+    let mut fields = render_fields(request, ple_origin, ple_asset_base);
+    fields.push(("showCorrectAnswers".into(), "1".into()));
+    fields.push(("showScoreSummary".into(), "0".into()));
+    fields
+}
+
 /// Constructs the fixed, server-owned upstream render form.
 pub(super) fn render_fields(
     request: RenderRequest<'_>,

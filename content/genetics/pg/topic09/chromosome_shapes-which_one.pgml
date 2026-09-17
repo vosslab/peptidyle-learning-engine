@@ -5,7 +5,7 @@
 ## DBsubject('Genetics')
 ## DBchapter('')
 ## DBsection('')
-## Date('2026-08-19')
+## Date('2026-09-17')
 ## Author('Neil R. Voss')
 ## Institution('Roosevelt University')
 
@@ -29,7 +29,7 @@ $showPartialCorrectAnswers = 0;
 # All questions data
 @questions_data = (
   {
-    'item_name' => '<strong>an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span> that lacks a <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'item_name' => '<strong>an abnormal <span style="color: #a719db; font-weight:700;">chromosome</span> that lacks a <span style="color: #b74300; font-weight:700;">centromere</span> </strong>',
     'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span> shape',
     'singular_item' => 'shape description',
     'choices' => [
@@ -68,7 +68,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
   },
   {
-    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> with no <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> with no <span style="color: #b74300; font-weight:700;">centromere</span> </strong>',
     'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span> shape',
     'singular_item' => 'shape description',
     'choices' => [
@@ -81,7 +81,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #d40000; font-weight:700;">Acentric</span>',
   },
   {
-    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> lacking a <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'item_name' => '<strong>an unstable <span style="color: #a719db; font-weight:700;">chromosome</span> lacking a <span style="color: #b74300; font-weight:700;">centromere</span> </strong>',
     'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span> shape',
     'singular_item' => 'shape description',
     'choices' => [
@@ -224,7 +224,7 @@ $showPartialCorrectAnswers = 0;
     'correct' => '<span style="color: #076dad; font-weight:700;">Dicentric</span>',
   },
   {
-    'item_name' => '<strong>a <span style="color: #a719db; font-weight:700;">chromosome</span> with formed through the fusion of two <span style="color: #a719db; font-weight:700;">chromosome</span> segments, each with a <span style="color: #b74300; font-weight:700;">centromere</span></strong>',
+    'item_name' => '<strong>a <span style="color: #a719db; font-weight:700;">chromosome</span> with formed through the fusion of two <span style="color: #a719db; font-weight:700;">chromosome</span> segments, each with a <span style="color: #b74300; font-weight:700;">centromere</span> </strong>',
     'plural_choice' => 'categories of <span style="color: #a719db; font-weight:700;">chromosome</span> shape',
     'singular_item' => 'shape description',
     'choices' => [

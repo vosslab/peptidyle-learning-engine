@@ -13,6 +13,7 @@ pub(super) async fn materialize_imported_pools(
     transaction: &mut Transaction<'_, Postgres>,
     content: &mut StoredBlueprintCourseContent,
     issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<(), StoreError> {
     for module in &mut content.modules {
         for assessment in &mut module.assessments {
@@ -22,8 +23,13 @@ pub(super) async fn materialize_imported_pools(
                     ..
                 } = entry
                 {
-                    *question_pool_revision =
-                        import(transaction, question_pool_revision, issuer).await?;
+                    *question_pool_revision = import(
+                        transaction,
+                        question_pool_revision,
+                        issuer,
+                        bloom_receipts.take_next()?,
+                    )
+                    .await?;
                 }
             }
         }
@@ -35,6 +41,7 @@ async fn import(
     transaction: &mut Transaction<'_, Postgres>,
     source: &QuestionPoolRevisionReference,
     issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+    bloom_receipt: crate::BloomPreparationReceiptId,
 ) -> Result<QuestionPoolRevisionReference, StoreError> {
     let child = issuer
         .ok_or_else(|| {
@@ -42,11 +49,12 @@ async fn import(
         })?
         .issue_question_pool_id()?;
     // ASVS 1.2.4 / 2.3.3: exact source pins and fresh children share the Blueprint transaction.
-    sqlx::query("SELECT ple_api.fork_blueprint_question_pool($1,$2,$3,$4)")
+    sqlx::query("SELECT ple_api.fork_blueprint_question_pool($1,$2,$3,$4,$5)")
         .bind(source.question_pool_id.as_str())
         .bind(source.revision_number.get() as i64)
         .bind(super::blueprint_course::random_uuid()?)
         .bind(child.as_str())
+        .bind(bloom_receipt.as_uuid())
         .execute(&mut **transaction)
         .await
         .map_err(map_sqlx_error)?;
@@ -64,6 +72,7 @@ pub(super) async fn materialize_authoring_pools(
     context: Option<(BlueprintCourseReference, BlueprintRevision)>,
     prior: Option<&StoredBlueprintCourseContent>,
     issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<(), StoreError> {
     // ASVS 2.2.2 / 8.2.2: validate every retained choice before any Pool writes.
     let mut seen = std::collections::BTreeSet::new();
@@ -86,13 +95,13 @@ pub(super) async fn materialize_authoring_pools(
                     if !old.content.entries.iter().any(|entry| matches!(entry,
                         StoredBlueprintAssessmentEntry::Pool { question_pool_revision: pin, .. } if pin == question_pool_revision))
                         || !seen.insert(question_pool_revision.question_pool_id.clone()) { return Err(StoreError::Forbidden); }
-                    let (reference, revision) = context.ok_or(StoreError::Forbidden)?;
+                    let (reference, revision) = context.as_ref().ok_or(StoreError::Forbidden)?;
                     members(
                         transaction,
                         reference,
                         assessment.blueprint_assessment_reference,
                         question_pool_revision,
-                        Some(revision),
+                        Some(*revision),
                     )
                     .await?;
                 }
@@ -113,20 +122,29 @@ pub(super) async fn materialize_authoring_pools(
                 match choices.next().ok_or(StoreError::Forbidden)? {
                     BlueprintPoolInputChoice::Import {
                         question_pool_revision,
-                    } => *pin = import(transaction, &question_pool_revision, issuer).await?,
+                    } => {
+                        *pin = import(
+                            transaction,
+                            &question_pool_revision,
+                            issuer,
+                            bloom_receipts.take_next()?,
+                        )
+                        .await?
+                    }
                     BlueprintPoolInputChoice::Retained {
                         question_pool_revision,
                         members: replacement,
                         interchangeability_attested,
                     } => {
                         if let Some(replacement) = replacement {
-                            let (reference, revision) = context.ok_or(StoreError::Forbidden)?;
+                            let (reference, revision) =
+                                context.as_ref().ok_or(StoreError::Forbidden)?;
                             let old = members(
                                 transaction,
                                 reference,
                                 assessment.blueprint_assessment_reference,
                                 &question_pool_revision,
-                                Some(revision),
+                                Some(*revision),
                             )
                             .await?;
                             if replacement != old {
@@ -138,10 +156,12 @@ pub(super) async fn materialize_authoring_pools(
                                     .iter()
                                     .map(|q| q.revision_number.get() as i32)
                                     .collect();
-                                let row = sqlx::query("SELECT ple_api.append_blueprint_pool_revision($1,$2,$3,$4,$5,$6,$7,$8) AS revision")
+                                let bloom_receipt = bloom_receipts.take_next()?;
+                                let row = sqlx::query("SELECT ple_api.append_blueprint_pool_revision($1,$2,$3,$4,$5,$6,$7,$8,$9) AS revision")
                                     .bind(reference.as_string()).bind(assessment.blueprint_assessment_reference.as_uuid())
                                     .bind(revision.value() as i64).bind(pin.question_pool_id.as_str())
                                     .bind(pin.revision_number.get() as i64).bind(ids).bind(revisions).bind(interchangeability_attested)
+                                    .bind(bloom_receipt.as_uuid())
                                     .fetch_one(&mut **transaction).await.map_err(map_sqlx_error)?;
                                 pin.revision_number = QuestionPoolRevisionNumber::new(
                                     row.try_get::<i64, _>("revision").map_err(map_sqlx_error)?
@@ -162,7 +182,7 @@ pub(super) async fn materialize_authoring_pools(
 
 pub(super) async fn members(
     transaction: &mut Transaction<'_, Postgres>,
-    reference: BlueprintCourseReference,
+    reference: &BlueprintCourseReference,
     assessment: BlueprintAssessmentReference,
     pin: &QuestionPoolRevisionReference,
     write: Option<BlueprintRevision>,

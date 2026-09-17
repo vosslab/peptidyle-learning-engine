@@ -1,5 +1,11 @@
 import { A } from "@solidjs/router";
-import { assessmentDurationDefaultDescription } from "../../assessment_duration";
+import {
+  ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES,
+  assessmentDurationDefaultDescription,
+  assessmentDurationOverrideMinutesDraft,
+  assessmentDurationOverrideMinutesError,
+  assessmentDurationOverrideSecondsFromMinutesDraft,
+} from "../../assessment_duration";
 import { For, Show, createSignal, onCleanup, onMount, type JSX } from "solid-js";
 
 import type { LateWorkRule } from "../../../generated/api/LateWorkRule";
@@ -111,7 +117,13 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
   const [closesDate, setClosesDate] = createSignal(optionalScheduleDateDraft(initial.closesAt));
   const [closesTime, setClosesTime] = createSignal(optionalScheduleTimeDraft(initial.closesAt));
   const [timeLimit, setTimeLimit] = createSignal(
-    initial.assessmentAttemptTimeLimitSeconds?.toString() ?? "",
+    assessmentDurationOverrideMinutesDraft(initial.assessmentAttemptTimeLimitSeconds),
+  );
+  const [legacyTimeLimitSeconds, setLegacyTimeLimitSeconds] = createSignal<number | null>(
+    initial.assessmentAttemptTimeLimitSeconds !== null &&
+      initial.assessmentAttemptTimeLimitSeconds % 60 !== 0
+      ? initial.assessmentAttemptTimeLimitSeconds
+      : null,
   );
   const oneAttemptOnly = initial.assessmentType === "quiz" || initial.assessmentType === "exam";
   const [attemptLimit, setAttemptLimit] = createSignal(
@@ -142,14 +154,14 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     const parsedDueAt = canonicalLocalDateAndTime(localDueDateAndTime(dueDate(), dueTime()));
     const parsedAvailableAt = optionalLocalDateAndTime(availableDate(), availableTime());
     const parsedClosesAt = optionalLocalDateAndTime(closesDate(), closesTime());
-    const parsedTimeLimit = integer(timeLimit());
+    const parsedTimeLimit = assessmentDurationOverrideSecondsFromMinutesDraft(timeLimit());
     const parsedAttemptLimit = integer(oneAttemptOnly ? "1" : attemptLimit());
     if (
       (dueDate() !== "" && parsedDueAt === null) ||
       parsedAvailableAt === undefined ||
       parsedClosesAt === undefined ||
+      legacyTimeLimitSeconds() !== null ||
       parsedTimeLimit === undefined ||
-      (parsedTimeLimit !== null && parsedTimeLimit > 43_200) ||
       parsedAttemptLimit === undefined
     )
       return null;
@@ -240,7 +252,8 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     if (input === null) {
       setPolicyState((state) => baseAssessmentPolicyDraftChanged(state, state.draft, false));
       setMessage(
-        "Enter complete local dates and times and positive whole-number limits, or leave them blank.",
+        assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) ??
+          "Enter complete local dates and times and positive whole-number limits, or leave them blank.",
       );
       return;
     }
@@ -276,7 +289,13 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
     setAvailableTime(optionalScheduleTimeDraft(current.availableAt));
     setClosesDate(optionalScheduleDateDraft(current.closesAt));
     setClosesTime(optionalScheduleTimeDraft(current.closesAt));
-    setTimeLimit(current.assessmentAttemptTimeLimitSeconds?.toString() ?? "");
+    setTimeLimit(assessmentDurationOverrideMinutesDraft(current.assessmentAttemptTimeLimitSeconds));
+    setLegacyTimeLimitSeconds(
+      current.assessmentAttemptTimeLimitSeconds !== null &&
+        current.assessmentAttemptTimeLimitSeconds % 60 !== 0
+        ? current.assessmentAttemptTimeLimitSeconds
+        : null,
+    );
     setAttemptLimit(oneAttemptOnly ? "1" : (current.attemptLimit?.toString() ?? ""));
     setLateWorkRule(current.lateWorkRule);
     setActivityRules(current.activityRules);
@@ -606,15 +625,27 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
             </Show>
           </div>
           <label class="assessment-editor-field">
-            Assessment duration override in seconds (optional, maximum 12 hours)
+            Assessment duration override in minutes (optional, maximum 720 minutes / 12 hours)
             <input
               type="number"
               min="1"
-              max="43200"
+              max={ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES}
               step="1"
+              inputmode="numeric"
               value={timeLimit()}
+              aria-invalid={
+                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) !==
+                undefined
+              }
+              aria-describedby={
+                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) ===
+                undefined
+                  ? undefined
+                  : "assessment-duration-override-error"
+              }
               onInput={(event) => {
                 setTimeLimit(event.currentTarget.value);
+                setLegacyTimeLimitSeconds(null);
                 recordDraft();
               }}
             />
@@ -630,8 +661,19 @@ export function AssessmentWorkspacePoliciesPage(): JSX.Element {
                     0,
                   ),
               )}{" "}
-              Leave the override blank to use this default.
+              Leave the override blank to use this calculated default. Enter a whole number of
+              minutes from 1 to {ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES} for a specific
+              override.
             </small>
+            <Show
+              when={assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds())}
+            >
+              {(error) => (
+                <small id="assessment-duration-override-error" role="alert">
+                  {error()}
+                </small>
+              )}
+            </Show>
           </label>
           <label class="assessment-editor-field">
             Attempt limit

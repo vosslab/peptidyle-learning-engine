@@ -393,6 +393,11 @@ mod tests {
                 .expect("valid Question Authorship"),
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
+                bloom: crate::BloomClassificationView {
+                    cognitive_process: crate::BloomCognitiveProcess::Understand,
+                    knowledge_dimension: crate::BloomKnowledgeDimension::ConceptualKnowledge,
+                    classification_edit_number: crate::BloomClassificationEditNumber::INITIAL,
+                },
             },
             discipline_name: "Biology".to_string(),
             discipline_is_retired: false,

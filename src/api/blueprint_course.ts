@@ -20,6 +20,7 @@ import type { ReplaceBlueprintCourseContentInput } from "../../generated/api/Rep
 import type { CursorPage } from "./contracts";
 import type { CourseClassification } from "../../generated/api/CourseClassification";
 import type { CanonicalBlueprintCourse } from "../../generated/api/CanonicalBlueprintCourse";
+import type { BlueprintStewardshipClient } from "./blueprint_stewardship";
 
 export type BlueprintRevisionEtag = string;
 export type BlueprintMetadataEtag = string;
@@ -47,7 +48,7 @@ export interface BlueprintMetadataTransition {
 }
 
 /** Browser capability for Instructor-owned reusable Blueprint Course lifecycle operations. */
-export interface BlueprintCourseClient {
+export interface BlueprintCourseClient extends BlueprintStewardshipClient {
   /** Exports the current reusable structure without ownership or delivery state. */
   readonly exportBlueprintCourse: (
     reference: BlueprintCourseReference,

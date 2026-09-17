@@ -14,6 +14,9 @@ use image::codecs::webp::WebPEncoder;
 use image::metadata::Orientation;
 use image::{DynamicImage, ExtendedColorType, ImageDecoder, ImageFormat, ImageReader, Limits};
 
+mod profile_image;
+pub use profile_image::{ProfileImageCrop, normalized_profile_image_webp};
+
 /// Maximum accepted original still-image byte length at every ingest path.
 pub const MAX_STILL_IMAGE_BYTES: usize = 8 * 1024 * 1024;
 /// Maximum decoded pixels at every ingest path.
@@ -22,6 +25,8 @@ pub const MAX_STILL_IMAGE_DECODED_PIXELS: u64 = 20_000_000;
 pub const MAX_COURSE_BANNER_RENDITION_BYTES: usize = 2 * 1024 * 1024;
 /// Maximum encoded byte length for one normalized still-image rendition.
 pub const MAX_NORMALIZED_STILL_IMAGE_BYTES: usize = MAX_COURSE_BANNER_RENDITION_BYTES;
+/// Minimum post-orientation width and height accepted for a Profile image.
+pub const MIN_PROFILE_IMAGE_SIDE_PIXELS: u32 = 128;
 
 /// Exact media type established from the decoded bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,6 +68,8 @@ pub enum StillImageError {
     /// other ratio would require a crop or padding to make its fixed delivery
     /// rendition.
     WrongCourseBannerAspectRatio,
+    /// Both visual dimensions of a Profile image must meet the minimum.
+    ProfileImageTooSmall,
     /// A valid container was followed by unowned bytes, so it could be a
     /// polyglot or an ambiguity between parsers.
     Polyglot,
@@ -80,6 +87,18 @@ pub fn verify_course_banner_still_image(
     let verified = verify_still_image(bytes)?;
     if u64::from(verified.width) != 5 * u64::from(verified.height) {
         return Err(StillImageError::WrongCourseBannerAspectRatio);
+    }
+    Ok(verified)
+}
+
+/// Verifies a Profile image of any aspect ratio before storage or normalization.
+// ASVS 2.2.2: enforce the input contract after trusted full decode and orientation.
+pub fn verify_profile_still_image(bytes: &[u8]) -> Result<VerifiedStillImage, StillImageError> {
+    let verified = verify_still_image(bytes)?;
+    if verified.width < MIN_PROFILE_IMAGE_SIDE_PIXELS
+        || verified.height < MIN_PROFILE_IMAGE_SIDE_PIXELS
+    {
+        return Err(StillImageError::ProfileImageTooSmall);
     }
     Ok(verified)
 }
@@ -172,6 +191,7 @@ impl StillImageError {
             Self::WrongCourseBannerAspectRatio => {
                 "upload an image with an exact 5:1 width-to-height ratio"
             }
+            Self::ProfileImageTooSmall => "upload an image at least 128 pixels wide and tall",
             Self::Polyglot | Self::Malformed => "upload a complete, readable image file",
         }
     }
@@ -187,6 +207,9 @@ impl StillImageError {
             Self::DecodedPixelLimit => "image exceeds the 20 million decoded-pixel limit",
             Self::WrongCourseBannerAspectRatio => {
                 "Course Banner dimensions must have an exact 5:1 width-to-height ratio"
+            }
+            Self::ProfileImageTooSmall => {
+                "Profile image dimensions must each be at least 128 pixels"
             }
             Self::Polyglot => "image has bytes after its declared container",
             Self::Malformed => "image is incomplete or malformed",
@@ -531,6 +554,81 @@ mod tests {
             verify_course_banner_still_image(&png()),
             Err(StillImageError::WrongCourseBannerAspectRatio)
         );
+    }
+
+    #[test]
+    fn profile_image_accepts_any_ratio_but_requires_both_minimum_dimensions() {
+        for (width, height) in [(128, 128), (512, 128), (128, 512), (127, 512), (512, 127)] {
+            let image = RgbImage::from_pixel(width, height, Rgb([12, 34, 56]));
+            let mut bytes = Vec::new();
+            PngEncoder::new(&mut bytes)
+                .write_image(image.as_raw(), width, height, ExtendedColorType::Rgb8)
+                .expect("Profile PNG fixture encodes");
+            let result = verify_profile_still_image(&bytes);
+            if width < 128 || height < 128 {
+                assert_eq!(result, Err(StillImageError::ProfileImageTooSmall));
+            } else {
+                let verified = result.expect("sufficiently large Profile image");
+                assert_eq!((verified.width, verified.height), (width, height));
+            }
+        }
+        // Profile-specific validation must retain the shared hostile-input boundary.
+        assert_eq!(
+            verify_profile_still_image(&apng()),
+            Err(StillImageError::Animated)
+        );
+        let mut trailing_data = png();
+        trailing_data.extend_from_slice(b"<script>");
+        assert_eq!(
+            verify_profile_still_image(&trailing_data),
+            Err(StillImageError::Polyglot)
+        );
+    }
+
+    #[test]
+    fn profile_image_reports_dimensions_after_exif_orientation() {
+        let image = RgbImage::from_pixel(128, 256, Rgb([12, 34, 56]));
+        let mut bytes = Vec::new();
+        JpegEncoder::new_with_quality(&mut bytes, 90)
+            .write_image(image.as_raw(), 128, 256, ExtendedColorType::Rgb8)
+            .expect("Profile JPEG fixture encodes");
+        // APP1: Exif, little-endian TIFF, one SHORT orientation entry (6 = rotate 90).
+        let exif = [
+            0xff, 0xe1, 0, 34, b'E', b'x', b'i', b'f', 0, 0, b'I', b'I', 42, 0, 8, 0, 0, 0, 1, 0,
+            0x12, 0x01, 3, 0, 1, 0, 0, 0, 6, 0, 0, 0, 0, 0, 0, 0,
+        ];
+        bytes.splice(2..2, exif);
+        let verified = verify_profile_still_image(&bytes).expect("oriented Profile image");
+        assert_eq!((verified.width, verified.height), (256, 128));
+    }
+
+    #[test]
+    fn profile_normalization_rejects_hostile_originals_before_crop_or_upscale() {
+        let crop = ProfileImageCrop {
+            source_width: 128,
+            source_height: 128,
+            horizontal: 50,
+            vertical: 50,
+            zoom_percent: 100,
+        };
+        let mut polyglot = png();
+        polyglot.extend_from_slice(b"<script>");
+        for (bytes, expected) in [
+            (png(), StillImageError::ProfileImageTooSmall),
+            (b"GIF89a".to_vec(), StillImageError::UnsupportedMediaType),
+            (apng(), StillImageError::Animated),
+            (polyglot, StillImageError::Polyglot),
+            (
+                png_with_dimensions(5_000, 5_000),
+                StillImageError::DecodedPixelLimit,
+            ),
+            (
+                vec![0; MAX_STILL_IMAGE_BYTES + 1],
+                StillImageError::ByteLimit,
+            ),
+        ] {
+            assert_eq!(normalized_profile_image_webp(&bytes, crop), Err(expected));
+        }
     }
 
     fn webp() -> Vec<u8> {

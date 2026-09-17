@@ -254,6 +254,7 @@ function reusableQuestionLibraryRow(item: {
       readonly questionDescription: string;
       readonly questionLicense: "CC0-1.0" | "CC-BY-4.0" | "CC-BY-SA-4.0" | null;
     };
+    readonly bloom: QuestionLibraryBrowseRow["bloom"];
     readonly authorship: { readonly authors: ReadonlyArray<{ readonly displayName: string }> };
     readonly capabilities: ReadonlyArray<string>;
   };
@@ -268,6 +269,7 @@ function reusableQuestionLibraryRow(item: {
     questionRevision: summary.latestQuestionRevision,
     questionTitle: summary.metadata.questionTitle,
     summary: summary.metadata.questionDescription,
+    bloom: summary.bloom,
     disciplineName: item.disciplineName,
     disciplineIsRetired: item.disciplineIsRetired,
     questionFormat: summary.questionFormat,

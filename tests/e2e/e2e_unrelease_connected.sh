@@ -38,8 +38,8 @@ race_assessment_reference="$(psql_admin -qAt -c "SELECT public_reference FROM pl
 race_course_reference="$(psql_admin -qAt -c "SELECT public_reference FROM ple_data.course_instance WHERE course_id = '30000000-0000-0000-0000-000000000001'")"
 # ASVS 1.2.4, 2.2.1: the exact canonical alphabet excludes SQL metacharacters
 # before the fixture references enter the lock, transition, and wait queries.
-if [[ ! "$race_assessment_reference" =~ ^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$ ]] \
-	|| [[ ! "$race_course_reference" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$ ]]; then
+if [[ ! "$race_assessment_reference" =~ ^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]] \
+	|| [[ ! "$race_course_reference" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]]; then
 	echo "Unrelease connected acceptance: race public reference is invalid" >&2
 	exit 1
 fi

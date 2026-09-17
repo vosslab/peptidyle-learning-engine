@@ -106,10 +106,12 @@ or resolution. Correctly minted full IDs already uniquely determine their
 seven-character identity, so the schema does not need a second identity-only
 uniqueness constraint.
 
-The publisher retries only a PostgreSQL `23505` violation of that primary key.
-It deletes the just-written target object before that conclusive retry; another
-database or object-store outcome is reported without treating it as an ID
-collision or deleting potentially committed evidence.
+The publisher retries the shared public-ID registry's PostgreSQL `QP001`
+collision signal. That signal covers a conflicting Question or Question Pool
+reservation in the shared public-ID namespace. It deletes the just-written
+target object before that conclusive retry; another database or object-store
+outcome is reported without treating it as an ID collision or deleting
+potentially committed evidence.
 
 ## Lineage and versions
 

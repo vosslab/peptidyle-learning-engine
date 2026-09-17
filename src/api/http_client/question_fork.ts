@@ -8,7 +8,7 @@ import type {
   QuestionForkClient,
   QuestionForkIdempotencyKey,
 } from "../question_fork";
-import { parseDraftQuestionReference } from "../../navigation/public_route";
+import { parseDraftQuestionId } from "../../navigation/public_route";
 import { ApiProtocolError, ApiRequestError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
@@ -33,11 +33,11 @@ function decodeForkedPublishedQuestion(value: unknown, path = "response"): Forke
   requireOnlyFields(record, path, ["draftQuestion"]);
   const draftQuestion = field(record, "draftQuestion", path);
   if (typeof draftQuestion !== "string") {
-    throw new DecodeError(`${path}.draftQuestion`, "a Draft Question reference");
+    throw new DecodeError(`${path}.draftQuestion`, "a canonical private Draft UUID");
   }
-  const parsed = parseDraftQuestionReference(draftQuestion);
+  const parsed = parseDraftQuestionId(draftQuestion);
   if (parsed === null) {
-    throw new DecodeError(`${path}.draftQuestion`, "a Draft Question reference");
+    throw new DecodeError(`${path}.draftQuestion`, "a canonical private Draft UUID");
   }
   return { draftQuestion: parsed };
 }

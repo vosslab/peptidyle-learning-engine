@@ -13,7 +13,7 @@ use adapter_webwork::{
 };
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, State, rejection::JsonRejection},
     http::{
         HeaderMap, HeaderValue, StatusCode,
         header::{COOKIE, ETAG, IF_MATCH},
@@ -28,12 +28,12 @@ use learning_data_access::{
 };
 use objects::{ResolvedQuestionSource, s3::S3ObjectStore};
 use question_model::{
-    Capability, QuestionBackend, QuestionBackendCapabilities, QuestionDetails,
-    QuestionDetailsPromptView, QuestionId, QuestionLineageView, QuestionRevisionReference,
-    QuestionSearchAuthorship, QuestionSearchCourseUse, QuestionSearchPage, QuestionSearchRequest,
-    QuestionSearchResult, QuestionStatistics, QuestionSummary, QuestionUseDetails,
-    QuestionUseSummary, ReusableQuestionView, ReusableSelectionAvailability,
-    normalized_question_search_group_value,
+    BloomClassificationCorrectionRequest, Capability, QuestionBackend, QuestionBackendCapabilities,
+    QuestionBloomCorrectionReceipt, QuestionDetails, QuestionDetailsPromptView, QuestionId,
+    QuestionLineageView, QuestionRevisionReference, QuestionSearchAuthorship,
+    QuestionSearchCourseUse, QuestionSearchPage, QuestionSearchRequest, QuestionSearchResult,
+    QuestionStatistics, QuestionSummary, QuestionUseDetails, QuestionUseSummary,
+    ReusableQuestionView, ReusableSelectionAvailability, normalized_question_search_group_value,
 };
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -79,6 +79,10 @@ pub fn question_library_router(
         .route(
             "/api/questions/by-id/{question_id}/revisions/{revision_number}",
             get(question_revision_details),
+        )
+        .route(
+            "/api/questions/by-id/{question_id}/revisions/{revision_number}/bloom",
+            post(correct_question_revision_bloom),
         )
         .route(
             "/api/questions/by-id/{question_id}/revisions/{revision_number}/preview-document",
@@ -159,6 +163,9 @@ async fn search_questions(
         .iter()
         .filter(|entry| matches_query(entry, &query, &text_query))
         .collect::<Vec<_>>();
+    // Facets describe the complete authorized predicate intersection. Cursor
+    // position and page size select returned rows only and never narrow counts.
+    let facets = facets::facets(&matching);
     let (items, next_cursor) = match paging::page(&mut matching, &query) {
         Ok(page) => page,
         Err(()) => {
@@ -179,7 +186,7 @@ async fn search_questions(
             })
             .collect(),
         next_cursor,
-        facets: facets::facets(&matching),
+        facets,
     };
     crate::auth::no_store(Json(page).into_response())
 }
@@ -279,6 +286,61 @@ async fn question_revision_details(
     };
     let detail = details_from_resolved(resolved);
     question_response(Json(detail).into_response(), edit_number)
+}
+
+async fn correct_question_revision_bloom(
+    State(state): State<QuestionLibraryRouteState>,
+    headers: HeaderMap,
+    Path((question_id, revision_number)): Path<(String, String)>,
+    payload: Result<Json<BloomClassificationCorrectionRequest>, JsonRejection>,
+) -> Response {
+    let reference = match verified_question_revision(&question_id, &revision_number) {
+        Some(reference) => reference,
+        None => return concealed(),
+    };
+    // ASVS 8.2.1/8.3.1: only an active vetted Instructor reaches correction;
+    // a Sysadmin retains the read-only Library surface and receives concealment.
+    let session_hash = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 1.5.2/2.2.1: serde rejects missing, unknown, or open-string fields.
+    let Json(request) = match payload {
+        Ok(value) => value,
+        Err(_) => {
+            return route_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Bloom correction is invalid",
+            );
+        }
+    };
+    let bloom = match state
+        .store
+        .correct_question_revision_bloom(
+            session_hash,
+            &reference,
+            request.expected_classification_edit_number,
+            request.cognitive_process,
+            request.knowledge_dimension,
+        )
+        .await
+    {
+        Ok(value) => value,
+        Err(StoreError::InvalidRecord(_)) => {
+            return route_error(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Bloom correction is invalid",
+            );
+        }
+        Err(error) => return store_error_response(error),
+    };
+    crate::auth::no_store(
+        Json(QuestionBloomCorrectionReceipt {
+            question_revision: reference,
+            bloom,
+        })
+        .into_response(),
+    )
 }
 
 /// Renders one ephemeral, answer-free WeBWorK example for the exact Revision.
@@ -449,10 +511,12 @@ fn details_from_resolved(resolved: ResolvedQuestionLibraryEntry) -> QuestionDeta
     QuestionDetails {
         summary: resolved.summary,
         discipline_name: resolved.discipline.unwrap_or_default(),
+        subject_name: resolved.subject.unwrap_or_default(),
         discipline_is_retired: resolved.discipline_is_retired,
         prompt: QuestionDetailsPromptView::Static {
             blocks: resolved.prompt,
         },
+        response_preview: resolved.response_preview,
         evidence: QuestionStatistics::Unavailable,
         usage: QuestionUseDetails {
             summary: QuestionUseSummary {
@@ -562,6 +626,7 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
 struct ResolvedQuestionLibraryEntry {
     summary: QuestionSummary,
     prompt: Vec<question_model::QuestionContentBlock>,
+    response_preview: Option<question_model::QuestionResponsePreview>,
     authored_by_current_account: bool,
     used_in_current_account_courses: bool,
     subject: Option<String>,
@@ -684,8 +749,10 @@ fn webwork_question_library_entry(
             authorship: entry.authorship,
             availability: entry.availability,
             published_at: entry.published_at,
+            bloom: entry.bloom,
         },
         prompt: Vec::new(),
+        response_preview: None,
         authored_by_current_account: entry.authored_by_current_account,
         used_in_current_account_courses,
         subject,
@@ -749,8 +816,13 @@ async fn resolved_ple_question(
             authorship: entry.authorship,
             availability: entry.availability,
             published_at: entry.published_at,
+            bloom: entry.bloom,
         },
         prompt: presentation.prompt().to_vec(),
+        response_preview: Some(
+            question_model::QuestionResponsePreview::from_native_response(presentation.response())
+                .ok_or(())?,
+        ),
         authored_by_current_account: entry.authored_by_current_account,
         used_in_current_account_courses,
         subject,
@@ -772,6 +844,18 @@ fn matches_query(
         return false;
     }
     if !text_query.matches(entry) {
+        return false;
+    }
+    if query
+        .bloom_cognitive_process
+        .is_some_and(|value| value != summary.bloom.cognitive_process)
+    {
+        return false;
+    }
+    if query
+        .bloom_knowledge_dimension
+        .is_some_and(|value| value != summary.bloom.knowledge_dimension)
+    {
         return false;
     }
     if !query.author_names.is_empty()

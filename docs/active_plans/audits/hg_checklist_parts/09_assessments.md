@@ -467,9 +467,12 @@
   Schemes, or Course percentage calculations.
   - Mismatch: Absence of every prohibited model was not verified.
 - [ ] For the pilot, grade export uses CSV or TSV only and exports point-based Assessment scores.
-  - Mismatch: No grade export implementation matching this contract was found.
+  - Evidence (source): `crates/server/src/live_gradebook/export.rs` `COLUMNS` fixes the seven exported fields as `roster_id`, `roster_name`, `assessment_reference`, `assessment_title`, `status`, `points_earned`, and `points_possible`; `encode` produces quoted CSV or TSV from the authorized Gradebook projection only.
+  - Evidence (source): `crates/server/src/live_gradebook.rs` `download_gradebook` exposes the closed CSV/TSV download route, while `src/api/http_client/live_gradebook.ts` `downloadCourseGradebook` and `src/pages/gradebook_page.tsx` `GradebookCoursePage` consume its protected attachment contract.
+  - Verification pending: independent review accepted the bounded source implementation. An actual-role route proof and canonical-browser acceptance of both downloads, including exact bytes and header-only export, remain required before this bullet can be verified.
 - [ ] The Instructor handles Course-level weighting or percentage calculations in the home LMS.
-  - Mismatch: No product boundary or export guidance establishing this behavior was verified.
+  - Evidence (source): `src/pages/gradebook_page.tsx` `GradebookCoursePage` tells Instructors to handle Course weighting and percentages in the home LMS; the export encoder emits only point fields and no category, weight, percentage, or Course-total column.
+  - Verification pending: independent review accepted the source boundary. Actual-role route proof and canonical-browser acceptance remain open, so this product behavior is not yet verified.
 - [x] Changing Question point values recalculates affected Assessment scores.
   - Evidence (source): `schemas/base_schema/assessment_attempt_finalization.sql` `ple_private.prepare_assessment_attempt_finalization` reads an already-submitted Attempt by joining immutable credit to current Assessment entry points; `schemas/base_schema/grading.sql` `ple_private.score_recorded_credit` applies those current points at read time.
   - Evidence (runtime): `schemas/base_schema/assessment_operations.sql` `ple_api.save_assessment` is invoked by the accepted private PostgreSQL 17 production-SQL fixture at `/private/tmp/ple-current-rescore-proof/proof.sql`; its artifact `/private/tmp/ple-current-rescore-artifacts.xDwFxD/proof.log` (exit 0) changed both current entry values from `8` to `13` and advanced the expected-current edit number, then observed `0.5` rescored from `4 / 8` to `6.5 / 13` and the Assessment from `4 / 16` to `6.5 / 26` across three replays and the history, landing, and Gradebook projections. This does not establish HTTP or rendering.

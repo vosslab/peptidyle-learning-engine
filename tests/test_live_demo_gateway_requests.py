@@ -39,7 +39,7 @@ def test_demo_request_argv_reads_the_jar_without_exposing_a_cookie(tmp_path: pat
 
 	argv = local_stack_control.live_demo_gateway.demo_request_argv(
 		"https://localhost:8443/",
-		"/api/course-instances/CI7K3M2Q/assessments/A8H4N6P",
+		"/api/course-instances/CI7K3M2QAZ/assessments/A8H4N6PA6",
 		jar_path,
 		"PUT",
 		{"title": "Peptide Structure Practice"},

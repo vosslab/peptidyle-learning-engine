@@ -53,14 +53,13 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
   const breadcrumbs = (): ReadonlyArray<RibbonBreadcrumbModel> => props.model?.breadcrumbs ?? [];
   const reserved = (): boolean => props.model?.breadcrumbPreludeReserved === true;
   const [trail, setTrail] = createSignal<HTMLElement>();
-  const student = createMemo(() => props.model?.context.productLabel === "Student");
   const location = createMemo(() =>
     JSON.stringify(breadcrumbs().map(({ label, href, current }) => [label, href, current])),
   );
   let focusRevision = 0;
   createEffect(() => {
     const element = trail();
-    if (!student() || element === undefined) return;
+    if (element === undefined) return;
     let followingTail = element.scrollLeft + element.clientWidth >= element.scrollWidth - 1;
     const updatePosition = (): void => {
       followingTail = element.scrollLeft + element.clientWidth >= element.scrollWidth - 1;
@@ -80,7 +79,7 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
   createEffect(() => {
     const element = trail();
     const currentLocation = location();
-    if (!student() || element === undefined || currentLocation === "[]") return;
+    if (element === undefined || currentLocation === "[]") return;
     const focusVersion = focusRevision;
     let cancelled = false;
     onCleanup(() => {
@@ -108,7 +107,7 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
             aria-label="Breadcrumb"
             ref={setTrail}
             onFocusIn={(event) => {
-              if (!student() || !(event.target instanceof HTMLAnchorElement)) return;
+              if (!(event.target instanceof HTMLAnchorElement)) return;
               focusRevision += 1;
               const viewport = event.currentTarget.getBoundingClientRect();
               const link = event.target.getBoundingClientRect();
@@ -125,16 +124,13 @@ function BreadcrumbPrelude(props: { readonly model: RibbonModel | undefined }): 
               <For each={breadcrumbs()}>
                 {(breadcrumb) => (
                   <li>
-                    <Show
-                      when={breadcrumb.href}
-                      fallback={
-                        <span aria-current={breadcrumb.current ? "page" : undefined}>
-                          {breadcrumb.label}
-                        </span>
-                      }
+                    <A
+                      href={breadcrumb.href}
+                      end
+                      aria-current={breadcrumb.current ? "page" : undefined}
                     >
-                      {(href) => <A href={href()}>{breadcrumb.label}</A>}
-                    </Show>
+                      {breadcrumb.label}
+                    </A>
                   </li>
                 )}
               </For>

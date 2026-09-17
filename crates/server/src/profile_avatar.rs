@@ -20,7 +20,7 @@ use learning_data_access::{
 };
 use objects::{
     ObjectAddress, ObjectStore, PutObject, Sha256Checksum,
-    image_validation::{MAX_STILL_IMAGE_BYTES, normalized_still_image_webp, verify_still_image},
+    image_validation::{MAX_STILL_IMAGE_BYTES, ProfileImageCrop, normalized_profile_image_webp},
     s3::S3ObjectStore,
 };
 use question_model::{ObjectId, ProductRole, ProfileImageReference, Timestamp};
@@ -29,7 +29,7 @@ use uuid::Uuid;
 use crate::auth::{AuthError, resolve_session};
 
 const MAX_PROFILE_IMAGE_BYTES: usize = 2 * 1024 * 1024;
-const PROFILE_IMAGE_SIDE_PIXELS: u32 = 256;
+const PROFILE_IMAGE_CROP_HEADER: &str = "x-ple-profile-crop";
 
 #[derive(Clone)]
 struct RouteState {
@@ -184,19 +184,17 @@ async fn replace_profile_image(State(state): State<RouteState>, request: Request
             "Profile image is invalid",
         );
     }
+    let crop = match profile_image_crop(request.headers()) {
+        Some(crop) => crop,
+        None => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Profile crop is invalid"),
+    };
     let bytes = match to_bytes(request.into_body(), MAX_STILL_IMAGE_BYTES).await {
         Ok(bytes) => bytes.to_vec(),
         Err(_) => return route_error(StatusCode::PAYLOAD_TOO_LARGE, "Profile image is too large"),
     };
-    if verify_still_image(&bytes).is_err() {
-        return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Profile image is invalid");
-    }
-    let image = match normalized_still_image_webp(
-        &bytes,
-        PROFILE_IMAGE_SIDE_PIXELS,
-        PROFILE_IMAGE_SIDE_PIXELS,
-    ) {
+    let image = match normalized_profile_image_webp(&bytes, crop) {
         Ok(image) if !image.is_empty() && image.len() <= MAX_PROFILE_IMAGE_BYTES => image,
+        Err(error) => return route_error(StatusCode::UNPROCESSABLE_ENTITY, error.user_message()),
         _ => return route_error(StatusCode::UNPROCESSABLE_ENTITY, "Profile image is invalid"),
     };
     let reference = ProfileImageReference::generate();
@@ -462,6 +460,16 @@ fn has_content_type(headers: &HeaderMap, expected: &str) -> bool {
         })
 }
 
+fn profile_image_crop(headers: &HeaderMap) -> Option<ProfileImageCrop> {
+    // ASVS 1.5.2, 4.2.5: one bounded, closed JSON object; no ambiguous duplicates.
+    let mut values = headers.get_all(PROFILE_IMAGE_CROP_HEADER).iter();
+    let value = values.next()?;
+    if values.next().is_some() || value.as_bytes().len() > 128 {
+        return None;
+    }
+    serde_json::from_slice(value.as_bytes()).ok()
+}
+
 fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
     let values = headers
         .get_all(COOKIE)
@@ -500,4 +508,34 @@ fn concealed() -> Response {
 }
 fn route_error(status: StatusCode, message: &'static str) -> Response {
     crate::auth::no_store((status, message).into_response())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_crop_header_requires_one_bounded_closed_integer_object() {
+        let valid = r#"{"sourceWidth":256,"sourceHeight":128,"horizontal":100,"vertical":0,"zoomPercent":100}"#;
+        let mut headers = HeaderMap::new();
+        assert!(profile_image_crop(&headers).is_none());
+        headers.insert(PROFILE_IMAGE_CROP_HEADER, valid.parse().unwrap());
+        assert!(profile_image_crop(&headers).is_some());
+        headers.append(PROFILE_IMAGE_CROP_HEADER, valid.parse().unwrap());
+        assert!(profile_image_crop(&headers).is_none());
+        for value in [
+            "{}".to_owned(),
+            valid.replace("100", "NaN"),
+            valid.replace("100", "1e999"),
+            valid.replace("100", "1.5"),
+            valid.replace("100", "-1"),
+            valid.replace("100", "4294967296"),
+            valid.replace('}', ",\"extra\":0}"),
+            valid.replace('}', ",\"horizontal\":50}"),
+            format!("{}{}", valid, " ".repeat(129)),
+        ] {
+            headers.insert(PROFILE_IMAGE_CROP_HEADER, value.parse().unwrap());
+            assert!(profile_image_crop(&headers).is_none(), "accepted {value}");
+        }
+    }
 }

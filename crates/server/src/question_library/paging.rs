@@ -177,8 +177,12 @@ mod tests {
         Timestamp, validate_question_title,
     };
 
-    fn entry(title: &str, question_id: &str) -> ResolvedQuestionLibraryEntry {
-        let question_id: QuestionId = question_id.parse().expect("canonical question ID");
+    fn test_question_id(identifier: &str) -> QuestionId {
+        QuestionId::from_random_identifier(identifier).expect("canonical question ID")
+    }
+
+    fn entry(title: &str, identifier: &str) -> ResolvedQuestionLibraryEntry {
+        let question_id = test_question_id(identifier);
         ResolvedQuestionLibraryEntry {
             summary: QuestionSummary {
                 question_id: question_id.clone(),
@@ -205,8 +209,16 @@ mod tests {
                 .expect("valid authorship"),
                 availability: QuestionAvailability::Available,
                 published_at: Timestamp::from_unix_millis(0),
+                bloom: question_model::BloomClassificationView {
+                    cognitive_process: question_model::BloomCognitiveProcess::Understand,
+                    knowledge_dimension:
+                        question_model::BloomKnowledgeDimension::ConceptualKnowledge,
+                    classification_edit_number:
+                        question_model::BloomClassificationEditNumber::INITIAL,
+                },
             },
             prompt: Vec::new(),
+            response_preview: None,
             authored_by_current_account: false,
             used_in_current_account_courses: false,
             subject: None,
@@ -215,7 +227,7 @@ mod tests {
             discipline_is_retired: false,
             subtopic: None,
             classification: question_model::PublishedQuestionSharedMetadata {
-                question_id: "0000-X00N".parse().expect("Question ID"),
+                question_id: test_question_id("0000085"),
                 metadata_edit_number: 1,
                 tags: Vec::new(),
                 discipline_uuid: uuid::Uuid::from_u128(1),
@@ -239,9 +251,9 @@ mod tests {
     #[test]
     fn continuation_returns_the_remaining_title_and_id_ordered_results() {
         let entries = [
-            entry("Beta", "0000-X00N"),
-            entry("Alpha", "0000-X01P"),
-            entry("Beta", "0000-X02R"),
+            entry("Beta", "0000085"),
+            entry("Alpha", "0000002"),
+            entry("Beta", "0000024"),
         ];
         let first_query = QuestionSearchRequest {
             page_size: Some(2),
@@ -265,7 +277,7 @@ mod tests {
         let (second, next_cursor) =
             page(&mut entries.iter().collect(), &second_query).expect("continuation succeeds");
         assert_eq!(second.len(), 1);
-        assert_eq!(second[0].summary.question_id.to_string(), "0000-X02R");
+        assert_eq!(second[0].summary.question_id, test_question_id("0000085"));
         assert!(next_cursor.is_none());
     }
 
@@ -273,10 +285,7 @@ mod tests {
     fn continuation_accepts_a_maximum_unicode_question_title() {
         let maximum_title = "\u{1F9EC}".repeat(512);
         validate_question_title(&maximum_title).expect("maximum title is valid");
-        let entries = [
-            entry(&maximum_title, "0000-X00N"),
-            entry("Zeta", "0000-X01P"),
-        ];
+        let entries = [entry(&maximum_title, "0000085"), entry("Zeta", "0000002")];
         let first_query = QuestionSearchRequest {
             page_size: Some(1),
             ..QuestionSearchRequest::default()
@@ -285,7 +294,7 @@ mod tests {
         .expect("query normalizes");
         let (first, cursor) =
             page(&mut entries.iter().collect(), &first_query).expect("first page succeeds");
-        assert_eq!(first[0].summary.question_id.to_string(), "0000-X01P");
+        assert_eq!(first[0].summary.question_id, test_question_id("0000002"));
         assert!(
             cursor
                 .as_ref()
@@ -315,17 +324,100 @@ mod tests {
         }
         .normalized()
         .expect("query normalizes");
-        let value = encode_cursor(&entry("Gene question", "0000-X00N"), &original);
+        let value = encode_cursor(&entry("Gene question", "0000085"), &original);
 
         assert!(decode_cursor(&value, &changed).is_err());
     }
 
     #[test]
+    fn cursor_binds_both_bloom_filters_independently() {
+        let original = QuestionSearchRequest {
+            bloom_cognitive_process: Some(question_model::BloomCognitiveProcess::Analyze),
+            bloom_knowledge_dimension: Some(
+                question_model::BloomKnowledgeDimension::ConceptualKnowledge,
+            ),
+            ..QuestionSearchRequest::default()
+        };
+        let value = encode_cursor(&entry("Gene question", "0000085"), &original);
+        for changed in [
+            QuestionSearchRequest {
+                bloom_cognitive_process: Some(question_model::BloomCognitiveProcess::Evaluate),
+                ..original.clone()
+            },
+            QuestionSearchRequest {
+                bloom_knowledge_dimension: Some(
+                    question_model::BloomKnowledgeDimension::ProceduralKnowledge,
+                ),
+                ..original.clone()
+            },
+        ] {
+            assert!(decode_cursor(&value, &changed).is_err());
+        }
+    }
+
+    #[test]
+    fn bloom_query_facets_count_the_whole_match_beyond_the_first_page() {
+        let mut first = entry("Alpha", "0000085");
+        first.summary.bloom.cognitive_process = question_model::BloomCognitiveProcess::Analyze;
+        let mut second = entry("Beta", "0000002");
+        second.summary.bloom.cognitive_process = question_model::BloomCognitiveProcess::Analyze;
+        let mut other_process = entry("Gamma", "0000024");
+        other_process.summary.bloom.cognitive_process =
+            question_model::BloomCognitiveProcess::Evaluate;
+        let mut other_knowledge = entry("Delta", "0000042");
+        other_knowledge.summary.bloom.cognitive_process =
+            question_model::BloomCognitiveProcess::Analyze;
+        other_knowledge.summary.bloom.knowledge_dimension =
+            question_model::BloomKnowledgeDimension::ProceduralKnowledge;
+        let entries = [first, second, other_process, other_knowledge];
+        let query = QuestionSearchRequest {
+            bloom_cognitive_process: Some(question_model::BloomCognitiveProcess::Analyze),
+            bloom_knowledge_dimension: Some(
+                question_model::BloomKnowledgeDimension::ConceptualKnowledge,
+            ),
+            page_size: Some(1),
+            ..QuestionSearchRequest::default()
+        };
+        let text_query = super::super::search_query::QuestionTextQuery::parse(None);
+        let mut matching = entries
+            .iter()
+            .filter(|entry| super::super::matches_query(entry, &query, &text_query))
+            .collect::<Vec<_>>();
+        let facets = super::super::facets::facets(&matching);
+        let (items, next_cursor) = page(&mut matching, &query).expect("first page succeeds");
+
+        assert_eq!(matching.len(), 2);
+        assert_eq!(items.len(), 1);
+        assert!(next_cursor.is_some());
+        assert_eq!(
+            facets
+                .bloom_cognitive_processes
+                .iter()
+                .find(|facet| {
+                    facet.cognitive_process == question_model::BloomCognitiveProcess::Analyze
+                })
+                .map(|facet| facet.count),
+            Some(2)
+        );
+        assert_eq!(
+            facets
+                .bloom_knowledge_dimensions
+                .iter()
+                .find(|facet| {
+                    facet.knowledge_dimension
+                        == question_model::BloomKnowledgeDimension::ConceptualKnowledge
+                })
+                .map(|facet| facet.count),
+            Some(2)
+        );
+    }
+
+    #[test]
     fn newest_publication_order_pages_equal_timestamps_by_question_id() {
         let entries = [
-            published_entry("Old", "0000-X00N", 100),
-            published_entry("Same timestamp B", "0000-X02R", 200),
-            published_entry("Same timestamp A", "0000-X01P", 200),
+            published_entry("Old", "0000085", 100),
+            published_entry("Same timestamp B", "0000024", 200),
+            published_entry("Same timestamp A", "0000002", 200),
         ];
         let first_query = QuestionSearchRequest {
             sort: QuestionSearchSort::PublishedNewest,
@@ -341,7 +433,10 @@ mod tests {
                 .iter()
                 .map(|entry| entry.summary.question_id.to_string())
                 .collect::<Vec<_>>(),
-            vec!["0000-X01P", "0000-X02R"]
+            vec![
+                test_question_id("0000002").to_string(),
+                test_question_id("0000024").to_string(),
+            ]
         );
 
         let second_query = QuestionSearchRequest {
@@ -350,7 +445,7 @@ mod tests {
         };
         let (second, next_cursor) =
             page(&mut entries.iter().collect(), &second_query).expect("continuation succeeds");
-        assert_eq!(second[0].summary.question_id.to_string(), "0000-X00N");
+        assert_eq!(second[0].summary.question_id, test_question_id("0000085"));
         assert!(next_cursor.is_none());
     }
 
@@ -359,7 +454,7 @@ mod tests {
         let original = QuestionSearchRequest::default()
             .normalized()
             .expect("default query normalizes");
-        let value = encode_cursor(&entry("Gene", "0000-X00N"), &original);
+        let value = encode_cursor(&entry("Gene", "0000085"), &original);
         let changed = QuestionSearchRequest {
             sort: QuestionSearchSort::PublishedNewest,
             ..original
@@ -379,7 +474,7 @@ mod tests {
         }
         .normalized()
         .expect("valid full hierarchy");
-        let value = encode_cursor(&entry("Gene", "0000-X00N"), &original);
+        let value = encode_cursor(&entry("Gene", "0000085"), &original);
         assert!(decode_cursor(&value, &original).is_ok());
         for field in 0..5 {
             let mut changed = original.clone();
@@ -397,9 +492,11 @@ mod tests {
     #[test]
     fn classification_fields_keep_phrases_exclusions_exact_id_and_cross_intersection() {
         use crate::question_library::{matches_query, search_query::QuestionTextQuery};
-        let mut row = entry("Gene", "0000-X00N");
+        let mut row = entry("Gene", "0000085");
         row.discipline = Some("Biology".into());
         row.subtopic = Some("X-linked recessive crosses".into());
+        let first_question_id = test_question_id("0000085").to_string();
+        let second_question_id = test_question_id("0000002").to_string();
         let query = QuestionSearchRequest {
             discipline_uuid: Some(uuid::Uuid::from_u128(10)),
             subject_uuid: Some(row.classification.subject_uuid),
@@ -414,8 +511,8 @@ mod tests {
             ("discipline:chemistry", false),
             ("-subtopic:\"x-linked recessive crosses\"", false),
             ("subtopic:\"recessive x-linked\"", false),
-            ("0000-X00N", true),
-            ("0000-X01P", false),
+            (&first_question_id, true),
+            (&second_question_id, false),
         ] {
             assert_eq!(
                 matches_query(&&row, &query, &QuestionTextQuery::parse(Some(text))),

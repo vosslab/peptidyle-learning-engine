@@ -1,11 +1,21 @@
 //! Current-Course Instructor Gradebook evidence route.
 
+mod export;
+
+#[cfg(test)]
+#[path = "live_gradebook/export_http_tests.rs"]
+mod export_http_tests;
+
 use std::{str::FromStr, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
-    http::{HeaderMap, StatusCode, header::COOKIE},
+    extract::{Path, Query, State, rejection::QueryRejection},
+    http::{
+        HeaderMap, StatusCode,
+        header::{CONTENT_DISPOSITION, CONTENT_TYPE, COOKIE, X_CONTENT_TYPE_OPTIONS},
+    },
+    middleware,
     response::{IntoResponse, Response},
     routing::get,
 };
@@ -14,6 +24,7 @@ use learning_data_access::{
     postgres::{PostgresCourseGradebookStore, PostgresSessionStore},
 };
 use question_model::{CourseInstanceReference, ProductRole};
+use serde::Deserialize;
 
 use crate::auth::{AuthError, resolve_session};
 
@@ -32,10 +43,79 @@ pub fn live_gradebook_router(
             "/api/course-instances/{reference}/gradebook",
             get(read_gradebook),
         )
+        .route(
+            "/api/course-instances/{reference}/gradebook/export",
+            get(download_gradebook),
+        )
+        // ASVS 14.3.2: include extractor and method rejections in no-store handling.
+        .layer(middleware::map_response(async |response: Response| {
+            crate::auth::no_store(response)
+        }))
         .with_state(RouteState {
             sessions,
             gradebook,
         })
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ExportQuery {
+    format: export::Format,
+}
+
+async fn download_gradebook(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path(reference): Path<String>,
+    query: Result<Query<ExportQuery>, QueryRejection>,
+) -> Response {
+    // ASVS 2.2.1: a required closed query rejects duplicate and unknown fields.
+    let format = match query {
+        Ok(Query(query)) => query.format,
+        Err(_) => return route_error(StatusCode::BAD_REQUEST, "Invalid Gradebook export format"),
+    };
+    let course = match CourseInstanceReference::from_str(&reference) {
+        Ok(value) => value,
+        Err(_) => return concealed(),
+    };
+    let token = match instructor_session_hash(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    // ASVS 8.2.1-8.2.3/8.3.1: repeat ordinary exact-Course authorization on every read.
+    let gradebook = match state
+        .gradebook
+        .course_gradebook(token, course.clone())
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => return store_error_response(error),
+    };
+    let bytes = match export::encode(&gradebook, format) {
+        Ok(value) => value,
+        Err(_) => {
+            return route_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Gradebook export unavailable",
+            );
+        }
+    };
+    // ASVS 3.2.1/3.4.4/5.4.1-5.4.2: fixed media types and canonical-only filenames.
+    (
+        [
+            (CONTENT_TYPE, format.media_type().to_owned()),
+            (
+                CONTENT_DISPOSITION,
+                format!(
+                    "attachment; filename=\"ple_{course}_grades.{}\"",
+                    format.extension()
+                ),
+            ),
+            (X_CONTENT_TYPE_OPTIONS, "nosniff".to_owned()),
+        ],
+        bytes,
+    )
+        .into_response()
 }
 
 async fn read_gradebook(

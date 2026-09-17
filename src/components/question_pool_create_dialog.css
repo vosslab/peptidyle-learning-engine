@@ -1,0 +1,109 @@
+/* Shared review view for generic and source-bound Question Pool creation. */
+
+.question-pool-create-review {
+  display: grid;
+  gap: 1rem;
+  max-inline-size: 72rem;
+}
+
+.question-pool-create-review > :is(h1, p) {
+  margin: 0;
+}
+
+.question-pool-create-introduction {
+  color: var(--ple-muted);
+}
+
+.question-pool-create-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ple-layout-gap);
+  align-items: start;
+}
+
+.question-pool-create-review-grid > section,
+.question-pool-create-review-grid fieldset {
+  display: grid;
+  gap: 0.7rem;
+  min-inline-size: 0;
+  margin: 0;
+  padding: calc(var(--ple-panel-padding) - 0.2rem);
+  border: 1px solid var(--ple-border);
+  border-radius: var(--ple-radius-surface);
+  background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
+}
+
+.question-pool-create-review-grid fieldset .assessment-editor-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.question-pool-create-review-grid fieldset .assessment-editor-field :is(input, textarea) {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.question-pool-create-review-grid h3,
+.question-pool-create-review-grid p {
+  margin: 0;
+}
+
+.question-pool-create-title-context {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(12rem, auto);
+  gap: var(--ple-space-3);
+  align-items: end;
+}
+
+.question-pool-starting-classification {
+  display: grid;
+  gap: var(--ple-space-1);
+  margin: 0;
+}
+
+.question-pool-starting-classification > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ple-space-2);
+}
+
+.question-pool-starting-classification dt {
+  color: var(--ple-muted);
+}
+
+.question-pool-starting-classification dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.question-pool-member-list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-inline-start: 1.4rem;
+}
+
+.question-pool-member-list li {
+  overflow-wrap: anywhere;
+}
+
+.question-pool-attestation {
+  max-inline-size: 68rem;
+}
+
+.question-pool-create-actions {
+  margin: 0;
+}
+
+@media (max-width: 40rem) {
+  .question-pool-create-review-grid,
+  .question-pool-create-title-context {
+    grid-template-columns: 1fr;
+  }
+}

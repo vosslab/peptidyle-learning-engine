@@ -16,7 +16,7 @@ import {
 } from "../decoders/assessment_attempt_navigation";
 import { decodeStudentResponse } from "../decoders/question_delivery";
 import { ApiProtocolError, ApiRequestError } from "./error";
-import { requestSameOrigin, type ApiFetch } from "./request";
+import { requestPath, requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
 
 function attemptPath(value: AssessmentAttemptReference): string {
@@ -50,6 +50,11 @@ export function createStudentAssessmentAttemptNavigationClient(
   basePath: string,
 ): Pick<ApiClient, keyof StudentAssessmentAttemptNavigationClient> {
   return {
+    studentAuthorContentDocumentUrl: (attempt, position): string => {
+      // ASVS 1.2.2, 2.2.1: only an exact Attempt and issued position select this document.
+      const path = `${attemptPath(attempt)}/questions/${positionPathSegment(position)}/author-content-document`;
+      return requestPath(basePath, path);
+    },
     getStudentAssessmentAttemptContext: (attempt): Promise<StudentAssessmentAttemptContext> =>
       read(
         fetcher,

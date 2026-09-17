@@ -121,6 +121,7 @@ pub(super) async fn accept(
                 expected_target_metadata_etag: input.expected_target_metadata_etag,
                 decision: change_proposal_view::store_decision(input.decision),
             },
+            Default::default(),
         )
         .await
     {
@@ -213,7 +214,7 @@ async fn list(
     scope: BlueprintChangeProposalListScope,
     query: TargetQuery,
 ) -> Response {
-    let page = match page_request(scope, &query) {
+    let page = match page_request(&scope, &query) {
         Some(value) => value,
         None => return invalid_request(),
     };
@@ -224,7 +225,7 @@ async fn list(
     };
     match state
         .blueprints
-        .list_blueprint_change_proposals(session, scope, page)
+        .list_blueprint_change_proposals(session, scope.clone(), page)
         .await
     {
         Ok(page) => {
@@ -253,16 +254,16 @@ async fn list(
 }
 
 fn scope_fields(
-    scope: BlueprintChangeProposalListScope,
+    scope: &BlueprintChangeProposalListScope,
 ) -> (Option<question_model::BlueprintCourseReference>, bool) {
     match scope {
         BlueprintChangeProposalListScope::Mine => (None, true),
-        BlueprintChangeProposalListScope::Target(reference) => (Some(reference), false),
+        BlueprintChangeProposalListScope::Target(reference) => (Some(reference.clone()), false),
     }
 }
 
 fn page_request(
-    scope: BlueprintChangeProposalListScope,
+    scope: &BlueprintChangeProposalListScope,
     query: &TargetQuery,
 ) -> Option<PageRequest> {
     // ASVS 2.2.1/2/3: bound cursor bytes and bind continuation to scope and page size.
@@ -297,7 +298,7 @@ fn encode_cursor(
     page_size: u16,
     after: Cursor,
 ) -> Option<String> {
-    let (target, mine) = scope_fields(scope);
+    let (target, mine) = scope_fields(&scope);
     serde_json::to_vec(&ProposalCursor {
         version: 1,
         target,

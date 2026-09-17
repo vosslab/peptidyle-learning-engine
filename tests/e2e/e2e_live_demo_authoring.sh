@@ -173,12 +173,12 @@ import json, re, sys
 value = json.loads(sys.argv[1])
 reference = value.get("draftQuestion")
 edit = value.get("editNumber")
-if not isinstance(reference, str) or not re.fullmatch(r"D-[1-9][0-9]{0,9}", reference):
-    raise SystemExit("Draft Question creation did not return an opaque Draft Question Reference")
+if not isinstance(reference, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", reference):
+    raise SystemExit("Draft Question creation did not return a canonical private Draft UUID")
 if not isinstance(edit, int) or edit <= 0:
     raise SystemExit("Draft Question creation did not return a positive Edit Number")
-if any(key in value for key in ("draftQuestionUuid", "workspaceId", "objectAddress", "sourceObject")):
-    raise SystemExit("Draft Question creation exposed a server-only identity")
+if any(key in value for key in ("workspaceId", "objectAddress", "sourceObject")):
+    raise SystemExit("Draft Question creation exposed a server-only source fact")
 print(reference, edit)
 ' "$body")
 	source="$(request "/api/authoring/drafts/$draft_reference/source" "$instructor_cookie")"
@@ -216,7 +216,7 @@ payload = json.loads(sys.argv[1])
 rendered = json.dumps(payload, sort_keys=True)
 if not isinstance(payload.get("items"), list):
     raise SystemExit("My Question Drafts did not return a list")
-for forbidden in ("draftQuestionUuid", "workspaceId", "objectAddress", "sourceObject", "sourceChecksum"):
+for forbidden in ("workspaceId", "objectAddress", "sourceObject", "sourceChecksum"):
     if forbidden in rendered:
         raise SystemExit("My Question Drafts exposed a server-only source fact")
 ' "$(response_body "$list")"
@@ -286,14 +286,14 @@ import json, re, sys
 value = json.loads(sys.argv[1])
 reference = value.get("draftQuestion")
 edit = value.get("editNumber")
-if not isinstance(reference, str) or not re.fullmatch(r"D-[1-9][0-9]{0,9}", reference):
-    raise SystemExit("Successor Draft Question creation did not return its opaque reference")
+if not isinstance(reference, str) or not re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", reference):
+    raise SystemExit("Successor Draft Question creation did not return its private UUID")
 if not isinstance(edit, int) or edit <= 0:
     raise SystemExit("Successor Draft Question creation did not return a positive Edit Number")
 print(reference, edit)
 ' "$body")
 	if [ "$successor_reference" = "$draft_reference" ]; then
-		echo "Successor Draft Question creation reused the original Draft Question Reference" >&2
+		echo "Successor Draft Question creation reused the original private Draft UUID" >&2
 		exit 1
 	fi
 	request_body="$(python3 -c '

@@ -18,7 +18,8 @@ CREATE FUNCTION ple_data.import_assessment_question_pool_fork(
     p_selection_count integer,
     p_points_per_item numeric,
     p_selected_question_order text,
-    p_scoring_rule text
+    p_scoring_rule text,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid,
     question_pool_id uuid,
@@ -50,7 +51,8 @@ BEGIN
     END IF;
     SELECT * INTO forked FROM ple_data.fork_question_pool_revision(
         p_fork_question_pool_id, p_fork_public_question_pool_id,
-        p_source_question_pool_id, p_source_question_pool_revision_number
+        p_source_question_pool_id, p_source_question_pool_revision_number,
+        p_bloom_preparation_receipt_id
     );
     IF p_selection_count > (
         SELECT pool_revision.member_count FROM ple_data.question_pool_revision AS pool_revision
@@ -99,7 +101,8 @@ CREATE FUNCTION ple_data.append_assessment_question_pool_fork_revision(
     p_expected_question_pool_metadata_etag uuid,
     p_member_question_ids text[],
     p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean
+    p_interchangeability_attested boolean,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid,
     question_pool_id uuid,
@@ -157,7 +160,8 @@ BEGIN
     END IF;
     SELECT * INTO append_result FROM ple_data.append_question_pool_revision(
         entry_row.question_pool_id, p_expected_question_pool_metadata_etag,
-        p_member_question_ids, p_member_revision_numbers, p_interchangeability_attested
+        p_member_question_ids, p_member_revision_numbers, p_interchangeability_attested,
+        p_bloom_preparation_receipt_id
     );
     IF entry_row.selection_count > (
         SELECT pool_revision.member_count FROM ple_data.question_pool_revision AS pool_revision
@@ -190,17 +194,17 @@ END
 $$;
 
 REVOKE ALL ON FUNCTION
-    ple_data.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text),
-    ple_data.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean)
+    ple_data.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text, uuid),
+    ple_data.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean, uuid)
     FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
-    ple_data.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text),
-    ple_data.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean)
+    ple_data.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text, uuid),
+    ple_data.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean, uuid)
     TO ple_api_owner;
 
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.import_assessment_question_pool_fork(
-    uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text
+    uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text, uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid,
     question_pool_id uuid,
@@ -210,11 +214,11 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork(
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.import_assessment_question_pool_fork(
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
     )
 $$;
-REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork(uuid, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text, uuid) TO ple_app;
 
 -- Public-route wrapper: the application resolves an authorized Course and
 -- Assessment by their opaque references inside this definer boundary.  It
@@ -232,7 +236,8 @@ CREATE FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(
     p_selection_count integer,
     p_points_per_item numeric,
     p_selected_question_order text,
-    p_scoring_rule text
+    p_scoring_rule text,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid,
     question_pool_id uuid,
@@ -258,11 +263,12 @@ BEGIN
         p_fork_public_question_pool_id, p_source_question_pool_id,
         p_source_question_pool_revision_number, p_authored_position,
         p_selection_count, p_points_per_item, p_selected_question_order, p_scoring_rule
+        , p_bloom_preparation_receipt_id
     );
 END
 $$;
-REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.import_assessment_question_pool_fork_for_reference(text, text, uuid, bigint, uuid, text, uuid, bigint, integer, integer, numeric, text, text, uuid) TO ple_app;
 
 -- ASVS V1.2/V2.2/V8.3: this typed read derives the exact Pool Revision from
 -- the Course-owned Assessment Entry under the installed Instructor session.
@@ -282,7 +288,9 @@ CREATE FUNCTION ple_api.read_assessment_question_pool_fork(
     question_revision_number integer,
     title text, description text, discipline_uuid uuid, discipline_name text,
     discipline_is_retired boolean, subject_uuid uuid,
-    topic_uuid uuid, subtopic_uuid uuid, tags text[]
+    topic_uuid uuid, subtopic_uuid uuid, tags text[],
+    bloom_cognitive_process text, bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint
 ) LANGUAGE sql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT entry.assessment_entry_id,
@@ -295,7 +303,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
            member.question_revision_number,
            pool.title, pool.description, pool.discipline_uuid, discipline.name,
            discipline.is_retired, pool.subject_uuid,
-           pool.topic_uuid, pool.subtopic_uuid, pool.tags
+           pool.topic_uuid, pool.subtopic_uuid, pool.tags,
+           bloom.cognitive_process::text, bloom.knowledge_dimension::text,
+           bloom.classification_edit_number
       FROM ple_data.course_instance AS course
       JOIN ple_data.assessment AS assessment ON assessment.course_id = course.course_id
       JOIN ple_data.assessment_entry AS entry ON entry.assessment_id = assessment.assessment_id
@@ -304,6 +314,9 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND owned.assessment_id = assessment.assessment_id
        AND owned.question_pool_id = entry.question_pool_id
       JOIN ple_data.question_pool AS pool ON pool.question_pool_id = entry.question_pool_id
+      JOIN ple_data.question_pool_revision_bloom AS bloom
+        ON bloom.question_pool_id = entry.question_pool_id
+       AND bloom.revision_number = entry.question_pool_revision_number
       JOIN LATERAL ple_api.list_content_disciplines_including_retired() AS discipline
         ON discipline.discipline_uuid = pool.discipline_uuid
       JOIN ple_data.question_pool_revision_member AS member
@@ -320,7 +333,7 @@ REVOKE ALL ON FUNCTION ple_api.read_assessment_question_pool_fork(text, text, uu
 GRANT EXECUTE ON FUNCTION ple_api.read_assessment_question_pool_fork(text, text, uuid) TO ple_app;
 
 CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision(
-    uuid, uuid, bigint, uuid, text[], integer[], boolean
+    uuid, uuid, bigint, uuid, text[], integer[], boolean, uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid, question_pool_id uuid, question_pool_revision_number bigint,
     question_pool_metadata_etag uuid, assessment_edit_number bigint
@@ -328,11 +341,11 @@ CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision(
 LANGUAGE sql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT * FROM ple_data.append_assessment_question_pool_fork_revision(
-        $1, $2, $3, $4, $5, $6, $7
+        $1, $2, $3, $4, $5, $6, $7, $8
     )
 $$;
-REVOKE ALL ON FUNCTION ple_api.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.append_assessment_question_pool_fork_revision(uuid, uuid, bigint, uuid, text[], integer[], boolean, uuid) TO ple_app;
 
 CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_reference(
     p_course_public_reference text,
@@ -342,7 +355,8 @@ CREATE FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_refere
     p_expected_question_pool_metadata_etag uuid,
     p_member_question_ids text[],
     p_member_revision_numbers integer[],
-    p_interchangeability_attested boolean
+    p_interchangeability_attested boolean,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS TABLE (
     assessment_entry_id uuid, question_pool_id uuid, question_pool_revision_number bigint,
     question_pool_metadata_etag uuid, assessment_edit_number bigint
@@ -363,11 +377,12 @@ BEGIN
     RETURN QUERY SELECT * FROM ple_data.append_assessment_question_pool_fork_revision(
         assessment_id_value, p_assessment_entry_id, p_expected_assessment_edit_number,
         p_expected_question_pool_metadata_etag, p_member_question_ids,
-        p_member_revision_numbers, p_interchangeability_attested
+        p_member_revision_numbers, p_interchangeability_attested,
+        p_bloom_preparation_receipt_id
     );
 END
 $$;
-REVOKE ALL ON FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_reference(text, text, uuid, bigint, uuid, text[], integer[], boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_reference(text, text, uuid, bigint, uuid, text[], integer[], boolean) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_reference(text, text, uuid, bigint, uuid, text[], integer[], boolean, uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.append_assessment_question_pool_fork_revision_for_reference(text, text, uuid, bigint, uuid, text[], integer[], boolean, uuid) TO ple_app;
 
 RESET ROLE;

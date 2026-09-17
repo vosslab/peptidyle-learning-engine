@@ -30,13 +30,14 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             token(),
             question_model::RequestChecksum::from_bytes([0x61; 32]),
             content_input("Revision one Assessment"),
+            Default::default(),
         )
         .await
         .expect("owner creates append fixture Blueprint through the application Store");
     let blueprint = created.blueprint_revision.reference;
-    let blueprint_number = blueprint_reference_number(blueprint).await;
+    let blueprint_number = blueprint_reference_number(&blueprint).await;
     let private = store
-        .load_blueprint_course(token(), blueprint)
+        .load_blueprint_course(token(), blueprint.clone())
         .await
         .expect("owner loads Private Blueprint metadata");
     let initial = private.content.clone();
@@ -68,7 +69,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                         CourseInstanceCreationSource::Empty
                     } else {
                         CourseInstanceCreationSource::Adopted {
-                            blueprint_course: blueprint,
+                            blueprint_course: blueprint.clone(),
                             blueprint_revision: BlueprintRevision::INITIAL,
                         }
                     },
@@ -77,6 +78,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
                     term: term.clone(),
                     assigned_instructor: None,
                 },
+                Default::default(),
             )
             .await
             .expect("create append fixture Course");
@@ -188,10 +190,11 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     let receipt = store
         .save_blueprint_course(
             token(),
-            blueprint,
+            blueprint.clone(),
             BlueprintRevision::INITIAL,
             checksum,
             input.clone(),
+            Default::default(),
         )
         .await
         .expect("normal Store Save appends new Assessment");
@@ -222,10 +225,11 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
     let replay = store
         .save_blueprint_course(
             token(),
-            blueprint,
+            blueprint.clone(),
             BlueprintRevision::INITIAL,
             checksum,
             input.clone(),
+            Default::default(),
         )
         .await
         .expect("changed Save replay");
@@ -234,17 +238,18 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
         store
             .save_blueprint_course(
                 token(),
-                blueprint,
+                blueprint.clone(),
                 BlueprintRevision::INITIAL,
                 question_model::RequestChecksum::from_bytes([0x63; 32]),
-                input
+                input,
+                Default::default(),
             )
             .await
             .is_err(),
         "stale Save rejected"
     );
     let head = store
-        .load_blueprint_revision(token(), receipt.blueprint_revision)
+        .load_blueprint_revision(token(), receipt.blueprint_revision.clone())
         .await
         .expect("sealed new Revision");
     let no_op_input = ReplaceBlueprintCourseContentInput {
@@ -280,6 +285,7 @@ pub(super) async fn assert_new_assessment_save_preserves_daughter_work() {
             receipt.blueprint_revision.revision,
             question_model::RequestChecksum::from_bytes([0x64; 32]),
             no_op_input,
+            Default::default(),
         )
         .await
         .expect("no-op Save");

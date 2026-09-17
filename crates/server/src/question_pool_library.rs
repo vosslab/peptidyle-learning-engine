@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, State, rejection::JsonRejection},
     http::{HeaderMap, StatusCode, header::COOKIE},
     response::{IntoResponse, Response},
-    routing::get,
+    routing::{get, post},
 };
 use axum_extra::extract::Query;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -24,8 +24,10 @@ use learning_data_access::{
 use objects::s3::S3ObjectStore;
 use question_model::{
     AssessmentEntryId, AssessmentQuestionPoolForkView, AssessmentReference,
-    CourseInstanceReference, ProductRole, QuestionId, QuestionPoolLibrarySummary,
-    QuestionPoolRevisionMemberView, QuestionPoolRevisionView,
+    BloomClassificationCorrectionRequest, BloomCognitiveProcess, BloomKnowledgeDimension,
+    CourseInstanceReference, ProductRole, QuestionId, QuestionPoolBloomCorrectionReceipt,
+    QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolRevisionMemberView,
+    QuestionPoolRevisionReference, QuestionPoolRevisionView,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -57,6 +59,14 @@ pub fn question_pool_library_router(
     Router::new()
         .route("/api/question-pools", get(list_pools))
         .route("/api/question-pools/{question_pool_id}", get(current_pool))
+        .route(
+            "/api/question-pools/{question_pool_id}/revisions/{revision_number}",
+            get(exact_pool_revision),
+        )
+        .route(
+            "/api/question-pools/{question_pool_id}/revisions/{revision_number}/bloom",
+            post(correct_pool_revision_bloom),
+        )
         .route(
             "/api/course-instances/{course}/assessments/{assessment}/question-pool-forks/{entry}",
             get(assessment_fork),
@@ -91,13 +101,10 @@ struct ListQuery {
     subtopic_uuid: Option<uuid::Uuid>,
     #[serde(default)]
     cross_discipline: bool,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ListResponse {
-    items: Vec<QuestionPoolLibrarySummary>,
-    next_cursor: Option<String>,
+    #[serde(default)]
+    bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    #[serde(default)]
+    bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -128,6 +135,8 @@ async fn list_pools(
         topic_uuid: query.topic_uuid,
         subtopic_uuid: query.subtopic_uuid,
         cross_discipline: query.cross_discipline,
+        bloom_cognitive_process: query.bloom_cognitive_process,
+        bloom_knowledge_dimension: query.bloom_knowledge_dimension,
     };
     // ASVS 2.2.2, 2.2.3: validate the hierarchy at the trusted service boundary.
     if !filter.has_valid_structure() {
@@ -173,9 +182,13 @@ async fn list_pools(
         None => None,
     };
     crate::auth::no_store(
-        Json(ListResponse {
+        Json(QuestionPoolLibraryPage {
             items: page.items,
             next_cursor,
+            bloom_facets: QuestionPoolBloomFacets {
+                cognitive_processes: page.cognitive_processes,
+                knowledge_dimensions: page.knowledge_dimensions,
+            },
         })
         .into_response(),
     )
@@ -207,6 +220,7 @@ async fn current_pool(
         token,
         revision.question_pool_revision,
         revision.metadata,
+        revision.bloom,
         revision.members,
     )
     .await
@@ -214,6 +228,117 @@ async fn current_pool(
         Ok(value) => crate::auth::no_store(Json(value).into_response()),
         Err(response) => response,
     }
+}
+
+async fn exact_pool_revision(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path((question_pool_id, revision_number)): Path<(String, String)>,
+) -> Response {
+    let pool_id = match verified_id(&question_pool_id) {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    let revision_number = match revision_number
+        .parse::<u64>()
+        .ok()
+        .filter(|value| *value <= i64::MAX as u64)
+        .and_then(|value| question_model::QuestionPoolRevisionNumber::new(value).ok())
+    {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    let token = match library_reader(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let revision = match state
+        .pools
+        .load_published_question_pool_revision(
+            token,
+            &question_model::QuestionPoolRevisionReference {
+                question_pool_id: pool_id,
+                revision_number,
+            },
+        )
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => return store_error(error),
+    };
+    match revision_view(
+        &state,
+        token,
+        revision.question_pool_revision,
+        revision.metadata,
+        revision.bloom,
+        revision.members,
+    )
+    .await
+    {
+        Ok(value) => crate::auth::no_store(Json(value).into_response()),
+        Err(response) => response,
+    }
+}
+
+async fn correct_pool_revision_bloom(
+    State(state): State<RouteState>,
+    headers: HeaderMap,
+    Path((question_pool_id, revision_number)): Path<(String, String)>,
+    payload: Result<Json<BloomClassificationCorrectionRequest>, JsonRejection>,
+) -> Response {
+    let reference = match verified_pool_revision(&question_pool_id, &revision_number) {
+        Some(value) => value,
+        None => return concealed(),
+    };
+    // ASVS 8.2.1/8.3.1: correction is available to every active vetted
+    // Instructor and never to the read-only Sysadmin Pool surface.
+    let token = match instructor(&state, &headers).await {
+        Ok(value) => value,
+        Err(response) => return *response,
+    };
+    let Json(request) = match payload {
+        Ok(value) => value,
+        Err(_) => {
+            return response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Bloom correction is invalid",
+            );
+        }
+    };
+    let bloom = match state
+        .pools
+        .correct_question_pool_revision_bloom(
+            token,
+            &reference,
+            request.expected_classification_edit_number,
+            request.cognitive_process,
+            request.knowledge_dimension,
+        )
+        .await
+    {
+        Ok(value) => value,
+        Err(StoreError::RetryableTransaction | StoreError::Conflict) => {
+            return response(
+                StatusCode::PRECONDITION_FAILED,
+                "Question Pool classification changed",
+            );
+        }
+        Err(StoreError::InvalidRecord(_)) => {
+            return response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "Bloom correction is invalid",
+            );
+        }
+        Err(error) => return store_error(error),
+    };
+    crate::auth::no_store(
+        Json(QuestionPoolBloomCorrectionReceipt {
+            question_pool_revision: reference,
+            bloom,
+        })
+        .into_response(),
+    )
 }
 
 async fn assessment_fork(
@@ -245,26 +370,19 @@ async fn assessment_fork(
         Ok(value) => value,
         Err(error) => return store_error(error),
     };
-    let revision = match revision_view(
-        &state,
-        token,
-        record.question_pool_revision.clone(),
-        record.metadata,
-        record.members,
-    )
-    .await
-    {
+    let members = match revision_members(&state, token, record.members).await {
         Ok(value) => value,
         Err(response) => return response,
     };
     crate::auth::no_store(
         Json(AssessmentQuestionPoolForkView {
-            metadata: revision.metadata,
+            metadata: record.metadata,
             assessment_entry_id: record.assessment_entry_id,
             question_pool_revision: record.question_pool_revision,
             pool_metadata_etag: record.pool_metadata_etag,
             selection_count: record.selection_count,
-            members: revision.members,
+            bloom: record.bloom,
+            members,
         })
         .into_response(),
     )
@@ -279,8 +397,24 @@ async fn revision_view(
     token: SessionTokenHash,
     question_pool_revision: question_model::QuestionPoolRevisionReference,
     metadata: question_model::QuestionPoolMetadata,
+    bloom: question_model::BloomClassificationView,
     members: Vec<question_model::QuestionRevisionReference>,
 ) -> Result<QuestionPoolRevisionView, Response> {
+    let members = revision_members(state, token, members).await?;
+    Ok(QuestionPoolRevisionView {
+        metadata,
+        question_pool_revision,
+        bloom,
+        members,
+    })
+}
+
+#[allow(clippy::result_large_err)]
+async fn revision_members(
+    state: &RouteState,
+    token: SessionTokenHash,
+    members: Vec<question_model::QuestionRevisionReference>,
+) -> Result<Vec<QuestionPoolRevisionMemberView>, Response> {
     let mut views = Vec::with_capacity(members.len());
     for (position, member) in members.into_iter().enumerate() {
         let entry = state
@@ -297,11 +431,7 @@ async fn revision_view(
             question,
         });
     }
-    Ok(QuestionPoolRevisionView {
-        metadata,
-        question_pool_revision,
-        members: views,
-    })
+    Ok(views)
 }
 
 async fn valid_classification(
@@ -357,6 +487,22 @@ fn verified_id(value: &str) -> Option<QuestionId> {
     value.parse().ok()
 }
 
+fn verified_pool_revision(
+    question_pool_id: &str,
+    revision_number: &str,
+) -> Option<QuestionPoolRevisionReference> {
+    let question_pool_id = verified_id(question_pool_id)?;
+    let revision_number = revision_number
+        .parse::<u64>()
+        .ok()
+        .filter(|value| *value <= i64::MAX as u64)
+        .and_then(|value| question_model::QuestionPoolRevisionNumber::new(value).ok())?;
+    Some(QuestionPoolRevisionReference {
+        question_pool_id,
+        revision_number,
+    })
+}
+
 fn encode_cursor(
     after: &str,
     page_size: u16,
@@ -364,7 +510,7 @@ fn encode_cursor(
     text: &QuestionPoolTextFilter,
 ) -> Option<String> {
     serde_json::to_vec(&PoolCursor {
-        version: 3,
+        version: 4,
         after: after.to_owned(),
         page_size,
         filter_hash: filter_hash(filter, text)?,
@@ -385,7 +531,7 @@ fn decode_cursor(
     }
     let decoded = URL_SAFE_NO_PAD.decode(value).ok()?;
     let cursor: PoolCursor = serde_json::from_slice(&decoded).ok()?;
-    if cursor.version != 3
+    if cursor.version != 4
         || cursor.page_size != page_size
         || cursor.filter_hash != filter_hash(filter, text)?
     {
@@ -621,6 +767,8 @@ mod tests {
             topic_uuid: Some(uuid::Uuid::from_u128(3)),
             subtopic_uuid: Some(uuid::Uuid::from_u128(4)),
             cross_discipline: true,
+            bloom_cognitive_process: Some(BloomCognitiveProcess::Analyze),
+            bloom_knowledge_dimension: Some(BloomKnowledgeDimension::ConceptualKnowledge),
         };
         let encoded = encode_cursor(
             &id.to_string(),
@@ -649,6 +797,14 @@ mod tests {
             },
             QuestionPoolDiscoveryFilter {
                 cross_discipline: false,
+                ..filter
+            },
+            QuestionPoolDiscoveryFilter {
+                bloom_cognitive_process: Some(BloomCognitiveProcess::Apply),
+                ..filter
+            },
+            QuestionPoolDiscoveryFilter {
+                bloom_knowledge_dimension: Some(BloomKnowledgeDimension::ProceduralKnowledge),
                 ..filter
             },
         ] {

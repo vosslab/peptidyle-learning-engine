@@ -134,51 +134,12 @@ BEGIN
 END
 $$;
 
--- This intentionally returns only the caller's two booleans. C409 adds the
--- separately reviewed, active-Instructor-only Star count and identity view;
--- no future caller may infer Watch facts from this closed row.
-CREATE FUNCTION ple_data.read_current_blueprint_course_stewardship(
-    p_reference_number bigint
-) RETURNS TABLE (starred boolean, watching boolean)
-LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-DECLARE
-    actor_id uuid;
-BEGIN
-    actor_id := ple_api.current_session_account_id();
-    IF p_reference_number NOT BETWEEN 1 AND 2147483647
-       OR actor_id IS NULL
-       OR NOT ple_api.current_session_account_is_instructor() THEN
-        RAISE EXCEPTION USING ERRCODE = '42501',
-            MESSAGE = 'Blueprint Course stewardship requires an active Instructor Account';
-    END IF;
-    PERFORM 1 FROM ple_data.blueprint_course
-     WHERE reference_number = p_reference_number
-       AND availability IN ('public', 'archived');
-    IF NOT FOUND THEN
-        RAISE EXCEPTION USING ERRCODE = '23514',
-            MESSAGE = 'Blueprint Course stewardship requires a Public or Archived Blueprint Course';
-    END IF;
-    RETURN QUERY SELECT EXISTS (
-        SELECT 1 FROM ple_data.blueprint_course_star
-         WHERE blueprint_course_reference_number = p_reference_number
-           AND instructor_account_id = actor_id
-    ), EXISTS (
-        SELECT 1 FROM ple_data.blueprint_course_watch
-         WHERE blueprint_course_reference_number = p_reference_number
-           AND instructor_account_id = actor_id
-    );
-END
-$$;
-
 REVOKE ALL ON TABLE ple_data.blueprint_course_star,
     ple_data.blueprint_course_watch FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_data.set_current_blueprint_course_star(bigint, boolean),
-    ple_data.set_current_blueprint_course_watch(bigint, boolean),
-    ple_data.read_current_blueprint_course_stewardship(bigint) FROM PUBLIC;
+    ple_data.set_current_blueprint_course_watch(bigint, boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_data.set_current_blueprint_course_star(bigint, boolean),
-    ple_data.set_current_blueprint_course_watch(bigint, boolean),
-    ple_data.read_current_blueprint_course_stewardship(bigint) TO ple_api_owner;
+    ple_data.set_current_blueprint_course_watch(bigint, boolean) TO ple_api_owner;
 RESET ROLE;
 
 -- C409's recipient rows are the only Watch-event projection.  They are made
@@ -305,11 +266,14 @@ CREATE TRIGGER blueprint_lifecycle_enqueues_watch_notifications
 AFTER INSERT ON ple_data.blueprint_metadata_event
 FOR EACH ROW EXECUTE FUNCTION ple_data.enqueue_blueprint_course_watch_lifecycle_change();
 
+-- ASVS 1.2.4: this fixed query accepts only a typed Blueprint reference and
+-- derives both the viewer and the current active-Instructor endorser set from
+-- trusted database state; it constructs no dynamic SQL.
 CREATE FUNCTION ple_data.read_current_blueprint_course_star(
     p_reference_number bigint
 ) RETURNS TABLE (viewer_has_starred boolean, star_count bigint)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
+SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
 DECLARE actor_id uuid;
 BEGIN
     actor_id := ple_api.current_session_account_id();
@@ -327,12 +291,28 @@ BEGIN
         RAISE EXCEPTION USING ERRCODE = '23514',
             MESSAGE = 'Blueprint Course Star requires a Public or Archived Blueprint Course';
     END IF;
-    RETURN QUERY SELECT EXISTS (
-        SELECT 1 FROM ple_data.blueprint_course_star
-         WHERE blueprint_course_reference_number = p_reference_number
-           AND instructor_account_id = actor_id
-    ), (SELECT count(*) FROM ple_data.blueprint_course_star
-         WHERE blueprint_course_reference_number = p_reference_number);
+    RETURN QUERY
+    WITH active_endorsers AS (
+        SELECT star.instructor_account_id
+          FROM ple_data.blueprint_course_star AS star
+          JOIN ple_private.account AS account
+            ON account.account_id = star.instructor_account_id
+           AND account.product_role = 'instructor'
+          JOIN LATERAL (
+              SELECT event.state
+                FROM ple_private.account_state_event AS event
+               WHERE event.account_id = account.account_id
+               ORDER BY event.occurred_at DESC, event.event_id DESC
+               LIMIT 1
+          ) AS state_event ON state_event.state = 'active'
+         WHERE star.blueprint_course_reference_number = p_reference_number
+    )
+    SELECT EXISTS (
+               SELECT 1 FROM active_endorsers
+                WHERE instructor_account_id = actor_id
+           ),
+           count(*)::bigint
+      FROM active_endorsers;
 END
 $$;
 
@@ -552,19 +532,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
         (SELECT reference_number FROM ple_data.blueprint_course WHERE public_reference = $1), $2
     )
 $$;
-CREATE FUNCTION ple_api.read_current_blueprint_course_stewardship(
-    p_reference text
-) RETURNS TABLE (starred boolean, watching boolean)
-LANGUAGE sql STABLE SECURITY DEFINER
-SET search_path = pg_catalog, ple_api, ple_data AS $$
-    SELECT * FROM ple_data.read_current_blueprint_course_stewardship(
-        (SELECT reference_number FROM ple_data.blueprint_course WHERE public_reference = $1)
-    )
-$$;
 REVOKE ALL ON FUNCTION ple_api.set_current_blueprint_course_star(text, boolean),
-    ple_api.set_current_blueprint_course_watch(text, boolean),
-    ple_api.read_current_blueprint_course_stewardship(text) FROM PUBLIC;
+    ple_api.set_current_blueprint_course_watch(text, boolean) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ple_api.set_current_blueprint_course_star(text, boolean),
-    ple_api.set_current_blueprint_course_watch(text, boolean),
-    ple_api.read_current_blueprint_course_stewardship(text) TO ple_app;
+    ple_api.set_current_blueprint_course_watch(text, boolean) TO ple_app;
 RESET ROLE;

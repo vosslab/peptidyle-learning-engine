@@ -47,7 +47,7 @@ pub(super) async fn authenticate_application_transaction(
 
 /// Numeric references are relational inspection facts, never application input.
 pub(super) async fn blueprint_reference_number(
-    public_reference: question_model::BlueprintCourseReference,
+    public_reference: &question_model::BlueprintCourseReference,
 ) -> i64 {
     let mut inspection = adoption_inspection_connection().await;
     let reference = sqlx::query_scalar(
@@ -134,7 +134,7 @@ pub(super) async fn assert_revision_checksum_mismatch(
         .load_blueprint_revision(
             token(),
             question_model::BlueprintRevisionReference {
-                reference: blueprint_reference,
+                reference: blueprint_reference.clone(),
                 revision: exact_revision,
             },
         )

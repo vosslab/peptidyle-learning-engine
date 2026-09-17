@@ -32,10 +32,54 @@ function revision(value: string): number | null {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-function ImpactNoticeEditor(props: {
+function ImpactNoticeView(props: {
   readonly kind: LibraryObjectDiscussionKind;
   readonly publicId: QuestionId;
   readonly notice: LibraryImpactNotice;
+  readonly refresh: () => unknown;
+}): JSX.Element {
+  const notice = props.notice;
+  switch (notice.state) {
+    case "active":
+      return (
+        <ActiveImpactNotice
+          kind={props.kind}
+          publicId={props.publicId}
+          notice={notice}
+          refresh={props.refresh}
+        />
+      );
+    case "cancelled":
+      return <CancelledImpactNotice notice={notice} />;
+  }
+}
+
+function CancelledImpactNotice(props: {
+  readonly notice: Extract<LibraryImpactNotice, { readonly state: "cancelled" }>;
+}): JSX.Element {
+  return (
+    <section
+      id={activityAnchor(props.notice.impactNoticeId)}
+      class="library-impact-notice"
+      data-state={props.notice.state}
+    >
+      <p>
+        <strong>Impact notice</strong> by {props.notice.authorDisplayName} ·{" "}
+        {timestamp(props.notice.createdAt)}
+        <Show when={props.notice.affectedRevisionNumber !== null}>
+          {` · Revision ${props.notice.affectedRevisionNumber}`}
+        </Show>
+        {` · Cancelled ${timestamp(props.notice.cancelledAt)}`}
+      </p>
+      <p>{props.notice.body}</p>
+    </section>
+  );
+}
+
+function ActiveImpactNotice(props: {
+  readonly kind: LibraryObjectDiscussionKind;
+  readonly publicId: QuestionId;
+  readonly notice: Extract<LibraryImpactNotice, { readonly state: "active" }>;
   readonly refresh: () => unknown;
 }): JSX.Element {
   const api = useApplicationApi();
@@ -93,14 +137,10 @@ function ImpactNoticeEditor(props: {
         <strong>Impact notice</strong> by {props.notice.authorDisplayName} ·{" "}
         {timestamp(props.notice.createdAt)}
         <Show when={props.notice.affectedRevisionNumber !== null}>
-          <> · Revision {props.notice.affectedRevisionNumber}</>
+          {` · Revision ${props.notice.affectedRevisionNumber}`}
         </Show>
-        <Show when={props.notice.state === "cancelled"}> · Cancelled</Show>
       </p>
-      <Show
-        when={props.notice.viewerMayManage && props.notice.state === "active"}
-        fallback={<p>{props.notice.body}</p>}
-      >
+      <Show when={props.notice.viewerMayManage} fallback={<p>{props.notice.body}</p>}>
         <label>
           Notice text
           <textarea value={body()} onInput={(event) => setBody(event.currentTarget.value)} />
@@ -258,7 +298,7 @@ export function LibraryDiscussionPanel(props: LibraryDiscussionPanelProps): JSX.
               <Show when={view().impactNotices.length > 0} fallback={<p>No impact notices.</p>}>
                 <For each={view().impactNotices}>
                   {(notice) => (
-                    <ImpactNoticeEditor
+                    <ImpactNoticeView
                       kind={props.kind}
                       publicId={props.publicId}
                       notice={notice}
@@ -316,6 +356,33 @@ function ThreadView(props: {
     }
   }
 
+  function threadStateLabel(): string {
+    switch (props.thread.state) {
+      case "open":
+        return "Open thread";
+      case "resolved":
+        return `Resolved ${timestamp(props.thread.resolvedAt)}`;
+    }
+  }
+
+  function managementAction(): boolean {
+    switch (props.thread.state) {
+      case "open":
+        return true;
+      case "resolved":
+        return false;
+    }
+  }
+
+  function managementLabel(): string {
+    switch (props.thread.state) {
+      case "open":
+        return "Resolve thread";
+      case "resolved":
+        return "Reopen thread";
+    }
+  }
+
   return (
     <article
       id={activityAnchor(props.thread.threadId)}
@@ -323,12 +390,8 @@ function ThreadView(props: {
       data-state={props.thread.state}
     >
       <p>
-        <strong>{props.thread.state === "resolved" ? "Resolved" : "Open"} thread</strong> · Created
-        for Revision {props.thread.creationRevisionNumber}
-        <Show when={props.thread.resolvedAt !== null}>
-          {" "}
-          · Resolved {timestamp(props.thread.resolvedAt ?? 0)}
-        </Show>
+        <strong>{threadStateLabel()}</strong> · Created for Revision{" "}
+        {props.thread.creationRevisionNumber}
       </p>
       <For each={props.thread.posts}>
         {(post) => (
@@ -375,12 +438,12 @@ function ThreadView(props: {
                   props.kind,
                   props.publicId,
                   props.thread.threadId,
-                  props.thread.state !== "resolved",
+                  managementAction(),
                 ),
               )
             }
           >
-            {props.thread.state === "resolved" ? "Reopen thread" : "Resolve thread"}
+            {managementLabel()}
           </button>
         </Show>
       </div>

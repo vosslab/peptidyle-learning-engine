@@ -72,3 +72,11 @@ test("Checking remains withheld and Available never exceeds the route role ceili
     }
   }
 });
+
+test("Instructor Course list choices remain available independent of collection contents", () => {
+  for (const id of ["myActiveCourses", "myInactiveCourses"]) {
+    const entry = CAPABILITY_REGISTRY[id];
+    assert.equal(entry.capability.kind, "backed", id);
+    assert.equal(ribbonAvailability(entry, "instructor", RESOLVED_ALLOW), "Available", id);
+  }
+});

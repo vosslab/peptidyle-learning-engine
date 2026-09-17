@@ -7,12 +7,12 @@ repository_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 readonly repository_root
 readonly project_name="ple-live-demo-browser"
 readonly runtime_environment_path="local_stack_state/live_demo_browser/workspace/env.local"
-readonly course_short_name="BIOL 301"
-readonly course_long_name="Molecular Biology 301: Gene Expression"
-readonly second_course_short_name="BIOL 302"
-readonly second_course_long_name="Molecular Biology 302: Revision One Pin"
-readonly current_course_short_name="BIOL 303"
-readonly current_course_long_name="Molecular Biology 303: Revision Two Pin"
+readonly course_short_name="BIOL 351/451-20"
+readonly course_long_name="Genetics"
+readonly second_course_short_name="BIOL 480"
+readonly second_course_long_name="Biotechnology"
+readonly current_course_short_name="BIOL 318/418-20"
+readonly current_course_long_name="Biostatistics"
 
 usage() {
 	echo "Usage: bash tests/e2e/e2e_live_demo_course_instance.sh [--authority|--browser]" >&2

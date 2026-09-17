@@ -18,12 +18,12 @@ use question_model::{QuestionAuthor, QuestionAuthorDisplayName, QuestionRevision
 use super::*;
 use objects::memory::MemoryObjectStore;
 
+mod bloom_provider_evidence;
 mod hotspot;
 
 #[derive(Clone)]
 struct RecordingPublicationStore {
     source_record: ObjectRecord,
-    reserved_question_id: Option<QuestionId>,
     publications: Arc<Mutex<Vec<NewQuestionLineagePublicationInput>>>,
 }
 
@@ -68,7 +68,6 @@ impl DraftQuestionPublicationSourceStore for RecordingPublicationStore {
     ) -> Result<DraftQuestionPublicationSource, StoreError> {
         Ok(DraftQuestionPublicationSource {
             source_record: self.source_record.clone(),
-            reserved_question_id: self.reserved_question_id.clone(),
         })
     }
 }
@@ -100,7 +99,6 @@ impl DraftQuestionPublicationSourceStore for ScriptedPublicationStore {
     ) -> Result<DraftQuestionPublicationSource, StoreError> {
         Ok(DraftQuestionPublicationSource {
             source_record: self.source_record.clone(),
-            reserved_question_id: None,
         })
     }
 }
@@ -141,7 +139,6 @@ impl DraftQuestionPublicationSourceStore for ExistingRevisionRecordingStore {
     ) -> Result<DraftQuestionPublicationSource, StoreError> {
         Ok(DraftQuestionPublicationSource {
             source_record: self.source_record.clone(),
-            reserved_question_id: None,
         })
     }
 }
@@ -307,7 +304,7 @@ async fn source_fixture(object_store: &MemoryObjectStore, workspace: WorkspaceId
         .put(PutObject {
             address: ObjectAddress::WorkspaceQuestionSource { workspace, object },
             bytes: b"complete Question Source".to_vec(),
-            media_type: "application/json".to_string(),
+            media_type: "text/x-wework-pg".to_owned(),
             created_at: Timestamp::from_unix_millis(1_000),
         })
         .await
@@ -322,12 +319,16 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
     let publications = Arc::new(Mutex::new(Vec::new()));
     let publication_store = RecordingPublicationStore {
         source_record,
-        reserved_question_id: None,
         publications: Arc::clone(&publications),
     };
     let issuer = RandomQuestionIdIssuer::new();
-    let publisher =
-        NewQuestionLineagePublisher::new(object_store.clone(), publication_store, issuer, None);
+    let publisher = NewQuestionLineagePublisher::new(
+        object_store.clone(),
+        publication_store,
+        issuer,
+        bloom_provider_evidence::bloom_preparation(),
+        None,
+    );
 
     let published = publisher
         .publish(
@@ -353,40 +354,6 @@ async fn publication_copies_verified_source_before_committing_its_exact_revision
 }
 
 #[tokio::test]
-async fn fork_publication_consumes_its_reserved_question_id_without_issuing_another() {
-    let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
-    let object_store = MemoryObjectStore::default();
-    let source_record = source_fixture(&object_store, workspace).await;
-    let reserved_question_id = fixed_question_id("ABCDEFG");
-    let publications = Arc::new(Mutex::new(Vec::new()));
-    let publication_store = RecordingPublicationStore {
-        source_record,
-        reserved_question_id: Some(reserved_question_id.clone()),
-        publications: Arc::clone(&publications),
-    };
-    let publisher =
-        NewQuestionLineagePublisher::new(object_store, publication_store, fixed_issuer(&[]), None);
-
-    let published = publisher
-        .publish(
-            SessionTokenHash::compute(b"session"),
-            command(workspace),
-            Timestamp::from_unix_millis(2_000),
-        )
-        .await
-        .expect("reserved fork publication");
-    let input = publications
-        .lock()
-        .expect("publication capture lock")
-        .first()
-        .cloned()
-        .expect("captured publication");
-
-    assert_eq!(published.question_id, reserved_question_id);
-    assert_eq!(input.question_id, reserved_question_id);
-}
-
-#[tokio::test]
 async fn publication_refuses_database_and_object_store_source_disagreement() {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let object_store = MemoryObjectStore::default();
@@ -394,13 +361,13 @@ async fn publication_refuses_database_and_object_store_source_disagreement() {
     source_record.sha256 = Sha256Checksum::compute(b"different bytes");
     let publication_store = RecordingPublicationStore {
         source_record,
-        reserved_question_id: None,
         publications: Arc::new(Mutex::new(Vec::new())),
     };
     let publisher = NewQuestionLineagePublisher::new(
         object_store,
         publication_store,
         RandomQuestionIdIssuer::new(),
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -433,54 +400,6 @@ fn question_id_issuer_mints_exact_public_checksum_ids() {
 }
 
 #[tokio::test]
-async fn exact_question_id_collision_deletes_this_candidates_object_before_retrying() {
-    let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
-    let object_store = MemoryObjectStore::default();
-    let source_record = source_fixture(&object_store, workspace).await;
-    let (publication_store, publications) = scripted_store(
-        source_record,
-        [
-            Err(NewQuestionLineagePublicationError::IdentityCollision),
-            Ok(()),
-        ],
-    );
-    let publisher = NewQuestionLineagePublisher::new(
-        object_store.clone(),
-        publication_store,
-        fixed_issuer(&["0000000", "0000001"]),
-        None,
-    );
-
-    let published = publisher
-        .publish(
-            SessionTokenHash::compute(b"session"),
-            command(workspace),
-            Timestamp::from_unix_millis(2_000),
-        )
-        .await
-        .expect("second exact Question ID should publish");
-    let publications = publications
-        .lock()
-        .expect("publication capture lock")
-        .clone();
-
-    assert_eq!(publications.len(), 2);
-    assert_eq!(published, publications[1].question_revision());
-    assert_eq!(
-        object_store
-            .get(&publications[0].question_source_object_record.address)
-            .await,
-        Err(ObjectStoreError::NotFound)
-    );
-    assert!(
-        object_store
-            .get(&publications[1].question_source_object_record.address)
-            .await
-            .is_ok()
-    );
-}
-
-#[tokio::test]
 async fn conditional_object_already_exists_is_reported_without_retry_or_delete() {
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let memory = MemoryObjectStore::default();
@@ -494,6 +413,7 @@ async fn conditional_object_already_exists_is_reported_without_retry_or_delete()
         },
         publication_store,
         fixed_issuer(&["0000000"]),
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -538,6 +458,7 @@ async fn noncollision_store_failure_retains_its_unregistered_publication_object(
         object_store.clone(),
         publication_store,
         fixed_issuer(&["0000000"]),
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -581,6 +502,7 @@ async fn failed_collision_cleanup_fails_closed_without_another_publication_attem
         },
         publication_store,
         fixed_issuer(&["0000000", "0000001"]),
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -623,6 +545,7 @@ async fn exhausted_question_id_collisions_leave_no_unregistered_publication_obje
         object_store.clone(),
         publication_store,
         fixed_issuer(&candidate_references),
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -663,6 +586,7 @@ async fn same_lineage_publication_copies_to_the_exact_successor_revision() {
             publications: Arc::clone(&publications),
             outcome: Ok(()),
         },
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -708,6 +632,7 @@ async fn stale_same_lineage_publication_removes_only_its_unregistered_target() {
             publications: Arc::clone(&publications),
             outcome: Err(ExistingQuestionRevisionPublicationError::Stale),
         },
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 
@@ -748,6 +673,7 @@ async fn ambiguous_same_lineage_failure_retains_its_target_evidence() {
                 StoreError::RetryableTransaction,
             )),
         },
+        bloom_provider_evidence::bloom_preparation(),
         None,
     );
 

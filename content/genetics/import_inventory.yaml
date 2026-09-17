@@ -100,21 +100,6 @@ canonical_source_mappings:
   canonical_author_source_sha256: 30fbb73a3425c67955941b3b8a975efc0d6436927359ba485d01d9282085d772
   content_license: CC-BY-4.0
   source_code_license: LGPL-3.0-or-later
-- source_id: topic02-rna-v-dna-biol-301
-  topic_slug: topic02
-  replaces_static_bank_slug: tfms-rna-v-dna-biol-301
-  question_title: True/False Statements About RNA and DNA Differences (BIOL 301)
-  question_description: Students answer questions about DNA composition, base pairing rules, nucleotide
-    components, and double-helix complementarity.
-  question_type: multipleChoice
-  source_format: pgml
-  pg_source: pg/topic02/rna_v_dna-biol_301.pgml
-  pg_sha256: aeaf398d6e4e1b04ad63181dee9e6966e4b476c057f6020a535721a7b1a2d7a4
-  webwork_pg_path: genetics/topic02/rna_v_dna-biol_301.pgml
-  canonical_author_source_url: https://github.com/vosslab/biology-problems-website/blob/75d962a102ab63f9e772218119d982bb4095e21a/site_docs/genetics/topic02/downloads/rna_v_dna-biol_301.pg
-  canonical_author_source_sha256: c92db433939556abd70b1e9cda49ad8e8ef56bfe4b1640fb86303af8f6aa5061
-  content_license: CC-BY-4.0
-  source_code_license: LGPL-3.0-or-later
 - source_id: topic02-rna-v-dna
   topic_slug: topic02
   replaces_static_bank_slug: tfms-rna-v-dna
@@ -146463,6 +146448,8 @@ legacy_topics:
 unaccepted_canonical_sources:
 - source_id: topic02-chargaff-dna-percent-5-choices
   reason: Not accepted for the active fresh Genetics catalog.
+- source_id: topic02-rna-v-dna-biol-301
+  reason: BIOL 301 variants are excluded from the Fall 2026 Genetics pilot.
 already_replaced_families:
 - source_id: topic01-genetic-disorders-matching
   topic_slug: topic01
@@ -146495,10 +146482,6 @@ already_replaced_families:
 - source_id: topic02-nucleotide-components
   topic_slug: topic02
   legacy_bank_slug: tfms-nucleotide-components
-  legacy_row_count: 199
-- source_id: topic02-rna-v-dna-biol-301
-  topic_slug: topic02
-  legacy_bank_slug: tfms-rna-v-dna-biol-301
   legacy_row_count: 199
 - source_id: topic02-rna-v-dna
   topic_slug: topic02

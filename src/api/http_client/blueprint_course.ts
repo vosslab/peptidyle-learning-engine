@@ -51,6 +51,7 @@ import type {
 import { ApiProtocolError, ApiRequestError, BlueprintCourseConflictError } from "./error";
 import { requestSameOrigin, type ApiFetch } from "./request";
 import { boundedResponseJson, requireNoStore } from "./response";
+import { createBlueprintStewardshipClient } from "./blueprint_stewardship";
 
 const MAX_PAGE_SIZE = 100;
 const MAX_IDEMPOTENCY_KEY_BYTES = 128;
@@ -257,6 +258,7 @@ export function createBlueprintCourseClient(
   basePath: string,
 ): Pick<ApiClient, keyof BlueprintCourseClient> {
   return {
+    ...createBlueprintStewardshipClient(fetchImplementation, basePath),
     exportBlueprintCourse: async (reference): Promise<CanonicalBlueprintCourse> => {
       const path = `${blueprintPath(reference)}/export`;
       return (

@@ -62,7 +62,17 @@ try {
   await page.waitForURL(`${origin}/blueprint-courses`);
   await page.getByRole("button", { name: "Create Blueprint Course" }).click();
   await page.getByRole("heading", { name: "Create a Blueprint Course" }).waitFor();
-  await page.getByLabel("Blueprint Course short name").fill(courseShortName);
+  const createShortName = page.getByRole("textbox", {
+    name: "Blueprint Course short name",
+    exact: true,
+  });
+  if (
+    (await createShortName.getAttribute("aria-describedby")) !==
+    "blueprint-course-create-short-name-help"
+  ) {
+    throw new Error("Blueprint creation short-name helper is not associated with the input");
+  }
+  await createShortName.fill(courseShortName);
   await page.getByLabel("Blueprint Course long name").fill(courseLongName);
   const unsavedCreationHeading = page.getByRole("heading", {
     name: "Keep creating this Blueprint Course?",
@@ -259,7 +269,17 @@ try {
   await page.getByText("Course names and availability", { exact: true }).click();
   const renamedShortName = `Renamed BP ${runId}`;
   const renamedLongName = `Renamed Blueprint Course ${runId}`;
-  await page.getByLabel("Blueprint Course short name", { exact: true }).fill(renamedShortName);
+  const editShortName = page.getByRole("textbox", {
+    name: "Blueprint Course short name",
+    exact: true,
+  });
+  if (
+    (await editShortName.getAttribute("aria-describedby")) !==
+    "blueprint-course-detail-short-name-help"
+  ) {
+    throw new Error("Blueprint editing short-name helper is not associated with the input");
+  }
+  await editShortName.fill(renamedShortName);
   await page.getByLabel("Blueprint Course long name", { exact: true }).fill(renamedLongName);
   const renamed = page.waitForResponse(
     (response) =>

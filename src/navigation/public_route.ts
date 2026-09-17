@@ -6,7 +6,6 @@ import type { CourseMembershipReference } from "../../generated/api/CourseMember
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { AssessmentAttemptReference } from "../../generated/api/AssessmentAttemptReference";
 import type { AuthoringWorkspaceReference } from "../../generated/api/AuthoringWorkspaceReference";
-import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
 import type { BlueprintCourseReference } from "../../generated/api/BlueprintCourseReference";
 import {
   validateCanonicalPublicReference,
@@ -25,8 +24,8 @@ export type AssessmentAttemptRouteReference = AssessmentAttemptReference &
   BrandedRouteReference<"assessmentAttempt">;
 export type AuthoringWorkspaceRouteReference = AuthoringWorkspaceReference &
   BrandedRouteReference<"authoringWorkspace">;
-export type DraftQuestionRouteReference = DraftQuestionReference &
-  BrandedRouteReference<"draftQuestion">;
+/** Private Draft UUID accepted only in the authorized authoring route. */
+export type DraftQuestionRouteId = BrandedRouteReference<"draftQuestion">;
 export type BlueprintCourseRouteReference = BlueprintCourseReference &
   BrandedRouteReference<"blueprintCourse">;
 export type QuestionRouteReference = BrandedRouteReference<"question">;
@@ -35,7 +34,6 @@ export type PublicRouteReference =
   | CourseInstanceRouteReference
   | AssessmentRouteReference
   | AuthoringWorkspaceRouteReference
-  | DraftQuestionRouteReference
   | BlueprintCourseRouteReference;
 
 function parseNumeric<Kind extends string>(
@@ -69,8 +67,10 @@ export function parseAuthoringWorkspaceReference(
 ): AuthoringWorkspaceRouteReference | null {
   return parseNumeric<"authoringWorkspace">(value, "W");
 }
-export function parseDraftQuestionReference(value: string): DraftQuestionRouteReference | null {
-  return parseNumeric<"draftQuestion">(value, "D");
+export function parseDraftQuestionId(value: string): DraftQuestionRouteId | null {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(value)
+    ? (value as DraftQuestionRouteId)
+    : null;
 }
 export function parseBlueprintCourseReference(value: string): BlueprintCourseRouteReference | null {
   return parseCanonicalPublicReference<"blueprintCourse">(value, "blueprintCourse");
@@ -124,11 +124,9 @@ export function authoringWorkspaceRouteReference(
   if (result === null) throw new Error("invalid Authoring Workspace Reference");
   return result;
 }
-export function draftQuestionRouteReference(
-  value: DraftQuestionReference,
-): DraftQuestionRouteReference {
-  const result = parseDraftQuestionReference(value);
-  if (result === null) throw new Error("invalid Draft Question Reference");
+export function draftQuestionRouteId(value: string): DraftQuestionRouteId {
+  const result = parseDraftQuestionId(value);
+  if (result === null) throw new Error("invalid private Draft UUID");
   return result;
 }
 export function parsePublicRouteReference(value: string): PublicRouteReference | null {
@@ -137,7 +135,6 @@ export function parsePublicRouteReference(value: string): PublicRouteReference |
     parseAssessmentReference(value) ??
     parseAssessmentAttemptReference(value) ??
     parseAuthoringWorkspaceReference(value) ??
-    parseDraftQuestionReference(value) ??
     parseBlueprintCourseReference(value)
   );
 }

@@ -27,10 +27,10 @@ persona_cookie() { local gateway port headers cookie; gateway="$(service_id gate
 status() { printf '%s' "${1##*$'\n'}"; }; body() { printf '%s' "${1%$'\n'*}"; }
 concealed() { [ "$(status "$1")" = 404 ] || { echo "Support capability authority was not concealed (${2:-unnamed scope}, HTTP $(status "$1"))" >&2; exit 1; }; }
 course_reference() { python3 -c 'import json,re,sys; values=[x.get("reference") for x in json.loads(sys.argv[1]).get("items",[]) if isinstance(x,dict)]; reference=sys.argv[2]
-if not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",reference) or values.count(reference)!=1: raise SystemExit("Owned Course Instance identity is invalid or absent")
+if not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",reference) or values.count(reference)!=1: raise SystemExit("Owned Course Instance identity is invalid or absent")
 print(reference)' "$1" "$2"; }
 sysadmin_reference() { local postgres; postgres="$(service_id postgres)"; podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT public_reference FROM ple_private.account WHERE product_role = '\''sysadmin'\'' ORDER BY reference_number LIMIT 1"' | python3 -c 'import re,sys; value=sys.stdin.read().strip();
-if not re.fullmatch(r"U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",value): raise SystemExit("Sysadmin identity is invalid")
+if not re.fullmatch(r"U[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",value): raise SystemExit("Sysadmin identity is invalid")
 print(value)'; }
 prove_issue() {
 instructor_cookie="$(persona_cookie elenaInstructor)"; student_cookie="$(persona_cookie maryStudent)"
@@ -120,7 +120,7 @@ COMMIT;
 SELECT public_reference FROM ple_data.course_instance WHERE course_id=:'authority_course_id';
 SQL
 )"
-[[ "$authority_course" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$ ]] || { echo "Support authority fixture Course identity invalid" >&2; exit 1; }
+[[ "$authority_course" =~ ^CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$ ]] || { echo "Support authority fixture Course identity invalid" >&2; exit 1; }
 authority_scope="course-instance/$authority_course/roster/m17-support"
 concealed "$(request "$repair_path" "$instructor_cookie" POST "{\"sysadminReference\":\"$sysadmin\",\"resourceClass\":\"student\",\"resourceReference\":\"$authority_scope\",\"purpose\":\"Unrelated global Instructor denial\"}")"
 support_sql -v capability="$student_repair" -v course="$authority_course" <<'SQL'

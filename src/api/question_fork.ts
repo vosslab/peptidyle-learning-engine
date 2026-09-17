@@ -1,6 +1,6 @@
 // Closed browser command for creating one private Draft from an exact Published Question Revision.
 
-import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
+import type { DraftQuestionRouteId } from "../navigation/public_route";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 
 /** Opaque browser retry token bound by the server to one active Instructor and source Revision. */
@@ -8,7 +8,7 @@ export type QuestionForkIdempotencyKey = string;
 
 /** Answer-free navigation receipt for one server-created private Draft Question. */
 export interface ForkedPublishedQuestion {
-  readonly draftQuestion: DraftQuestionReference;
+  readonly draftQuestion: DraftQuestionRouteId;
 }
 
 /** The one browser command for forking an exact Published Question Revision. */

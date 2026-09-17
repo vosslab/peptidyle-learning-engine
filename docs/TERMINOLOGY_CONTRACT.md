@@ -265,6 +265,18 @@ describes the cognitive work needed for full credit, rather than **Question
 Difficulty**. A Pool's classification describes its intended cognitive work as
 a whole. Bloom Classification is required for Library entry; AI assigns it
 initially and an Instructor may correct either dimension without a new Revision.
+Each exact Revision's pair has its own positive **Bloom Classification Edit
+Number** for correction concurrency. It is not a third classification dimension
+or content-Revision history. Read projections carry the pair and that Edit
+Number together; a Pool never derives its pair from member Questions.
+
+A **Bloom correction** is one complete-pair, exact-Revision compare-and-swap
+command. The active vetted Instructor supplies both dimensions and the expected
+Bloom Classification Edit Number; a stale number is refused before no-op
+handling. A current no-op retains the number and a changed pair advances it.
+The correction does not create content history. It is available to any active
+vetted Instructor with current exact Library read access, not only the author
+or owner; Sysadmins retain read-only Library access.
 Teaching interpretation belongs in [BLOOM_TAXONOMY_GUIDE.md](BLOOM_TAXONOMY_GUIDE.md).
 
 **Hints**, **Question Feedback**, and **Worked Solutions** are optional

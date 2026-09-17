@@ -48,7 +48,7 @@ try {
   await page.getByText("Instructor Account created.").waitFor();
   const created = page.locator('section[aria-label="Instructor Accounts"] > .auth-panel').first();
   const reference = (await created.locator("h2").textContent())?.trim();
-  if (!/^U[0-9A-HJKMNP-TV-Z]{6}$/u.test(reference ?? "")) {
+  if (!/^U[0-9A-HJKMNP-TV-Z]{8}$/u.test(reference ?? "")) {
     throw new Error("created Instructor Account did not have a canonical public reference");
   }
   await created.locator(`#deactivate-reason-${reference}`).fill("Live demo access review");

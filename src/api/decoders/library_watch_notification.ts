@@ -69,18 +69,7 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
     `${path}.activityId`,
     decodeUuid,
   );
-  if (
-    (eventKind === "revision" &&
-      (revisionNumber === null || forkedPublicId !== null || activityId !== null)) ||
-    (eventKind === "fork" &&
-      (revisionNumber === null || forkedPublicId === null || activityId !== null)) ||
-    (eventKind !== "revision" &&
-      eventKind !== "fork" &&
-      (forkedPublicId !== null || activityId === null))
-  ) {
-    throw new DecodeError(path, "a Watch event with its applicable Revision and fork evidence");
-  }
-  return {
+  const common = {
     targetKind: decodeStringEnum(
       field(record, "targetKind", path),
       `${path}.targetKind`,
@@ -90,12 +79,36 @@ function notification(value: unknown, path: string): LibraryWatchNotification {
       field(record, "targetPublicId", path),
       `${path}.targetPublicId`,
     ),
-    eventKind,
-    revisionNumber,
-    forkedPublicId,
-    activityId,
     occurredAt: timestamp(field(record, "occurredAt", path), `${path}.occurredAt`),
   };
+  switch (eventKind) {
+    case "revision":
+      if (revisionNumber === null || forkedPublicId !== null || activityId !== null) {
+        throw new DecodeError(path, "a Revision event with Revision evidence only");
+      }
+      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+    case "fork":
+      if (revisionNumber === null || forkedPublicId === null || activityId !== null) {
+        throw new DecodeError(path, "a fork event with source Revision and fork evidence only");
+      }
+      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+    case "improvementThread":
+      if (revisionNumber === null || forkedPublicId !== null || activityId === null) {
+        throw new DecodeError(
+          path,
+          "an improvement-thread event with creation Revision and thread ID",
+        );
+      }
+      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+    case "impactNotice":
+      if (forkedPublicId !== null || activityId === null) {
+        throw new DecodeError(
+          path,
+          "an impact-notice event with its notice ID and no fork evidence",
+        );
+      }
+      return { ...common, eventKind, revisionNumber, forkedPublicId, activityId };
+  }
 }
 
 export function decodeLibraryWatchNotifications(

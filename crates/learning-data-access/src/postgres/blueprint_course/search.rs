@@ -60,7 +60,7 @@ impl PostgresBlueprintCourseStore {
             .collect::<Result<Vec<_>, _>>()?;
         let next_cursor = if rows.len() > limit {
             let last = records.last().ok_or_else(|| invalid("Blueprint page"))?;
-            let key = serde_json::to_string(&(&last.long_name, last.reference))
+            let key = serde_json::to_string(&(&last.long_name, &last.reference))
                 .map_err(|_| invalid("Blueprint page cursor"))?;
             Some(crate::Cursor::parse(key).map_err(|_| invalid("Blueprint page cursor"))?)
         } else {

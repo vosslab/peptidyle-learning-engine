@@ -11,12 +11,13 @@ use axum::{
 };
 use browser_api_contract::student_assessment_decision::StudentAssessmentDecisionSummary;
 use learning_data_access::{
-    LiveStudentCourseLandingStore, SessionTokenHash, StoreError,
+    LiveStudentCourseInvitationSummary, LiveStudentCourseLandingStore, SessionTokenHash,
+    StoreError,
     postgres::{PostgresLiveStudentCourseLandingStore, PostgresSessionStore},
 };
 use question_model::{
     AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
-    ProductRole,
+    CourseTerm, ProductRole,
 };
 use serde::Serialize;
 
@@ -70,6 +71,20 @@ struct CourseInvitationSummary {
     reference: CourseInstanceReference,
     short_name: String,
     long_name: String,
+    instructor_display_name: String,
+    term: CourseTerm,
+}
+
+impl From<LiveStudentCourseInvitationSummary> for CourseInvitationSummary {
+    fn from(invitation: LiveStudentCourseInvitationSummary) -> Self {
+        Self {
+            reference: invitation.course,
+            short_name: invitation.short_name,
+            long_name: invitation.long_name,
+            instructor_display_name: invitation.instructor_display_name,
+            term: invitation.term,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -123,7 +138,8 @@ async fn list_pending_invitations(State(state): State<RouteState>, headers: Head
         Err(response) => return *response,
     };
     // ASVS 2.2.2: the trusted persistence boundary derives the current Student
-    // and returns only the public Course reference and learner-facing title.
+    // and returns only the public Course reference, names, verified Instructor
+    // display name, and Course term.
     match state
         .landing
         .list_pending_live_student_course_invitations(session_hash)
@@ -134,11 +150,7 @@ async fn list_pending_invitations(State(state): State<RouteState>, headers: Head
             Json(CourseInvitationListResponse {
                 invitations: invitations
                     .into_iter()
-                    .map(|invitation| CourseInvitationSummary {
-                        reference: invitation.course,
-                        short_name: invitation.short_name,
-                        long_name: invitation.long_name,
-                    })
+                    .map(CourseInvitationSummary::from)
                     .collect(),
             })
             .into_response(),
@@ -265,9 +277,54 @@ fn route_error(status: StatusCode, message: &'static str) -> Response {
 
 #[cfg(test)]
 mod tests {
-    use question_model::ProductRole;
+    use learning_data_access::{LiveStudentCourseInvitationSummary, StoreError};
+    use question_model::{CourseInstanceReference, CourseTerm, ProductRole};
+    use serde_json::json;
 
-    use super::student_profile_role_is_allowed;
+    use super::{CourseInvitationSummary, store_error_response, student_profile_role_is_allowed};
+
+    #[test]
+    fn pending_invitation_projects_only_pre_acceptance_course_context() {
+        let invitation = LiveStudentCourseInvitationSummary {
+            course: CourseInstanceReference::new("CI6F2R8TA0").expect("canonical Course reference"),
+            short_name: "Mol Bio".into(),
+            long_name: "Molecular Biology".into(),
+            instructor_display_name: "Elena Voss".into(),
+            term: CourseTerm::from_parts("2026-08-24", "2026-12-12").expect("Course term"),
+        };
+        let projection = serde_json::to_value(CourseInvitationSummary::from(invitation))
+            .expect("invitation projection serializes");
+        assert_eq!(
+            projection,
+            json!({
+                "reference": "CI6F2R8TA0",
+                "shortName": "Mol Bio",
+                "longName": "Molecular Biology",
+                "instructorDisplayName": "Elena Voss",
+                "term": { "startDate": "2026-08-24", "endDate": "2026-12-12" }
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn unavailable_student_context_conceals_identity_and_disables_caching() {
+        for error in [
+            StoreError::NotFound,
+            StoreError::Forbidden,
+            StoreError::OwnershipMismatch,
+        ] {
+            let response = store_error_response(error);
+            assert_eq!(response.status(), axum::http::StatusCode::NOT_FOUND);
+            assert_eq!(
+                response.headers()[axum::http::header::CACHE_CONTROL],
+                "no-store"
+            );
+            let body = axum::body::to_bytes(response.into_body(), 1024)
+                .await
+                .expect("bounded error body");
+            assert_eq!(body.as_ref(), b"Student Course landing not found");
+        }
+    }
 
     #[test]
     fn student_course_landing_admits_only_the_student_product_role() {

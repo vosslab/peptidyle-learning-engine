@@ -1,9 +1,10 @@
 // assessment_template_settings_editor.tsx - complete reusable Assessment settings controls.
 
-import { For, type JSX } from "solid-js";
+import { For, Show, type JSX } from "solid-js";
 
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
 import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFeedbackReleaseTiming";
+import { assessmentDurationOverrideMinutesError } from "../assessment_duration";
 import type {
   AssessmentTemplateDraft,
   AssessmentTemplateDraftPatch,
@@ -63,23 +64,52 @@ export function AssessmentTemplateSettingsEditor(
           Assessment duration override in minutes (optional, maximum 720 minutes / 12 hours)
           <input
             type="number"
-            min={1 / 60}
+            min="1"
             max="720"
-            step="any"
-            inputmode="decimal"
+            step="1"
+            inputmode="numeric"
             value={props.draft.timeLimit}
+            aria-invalid={
+              assessmentDurationOverrideMinutesError(
+                props.draft.timeLimit,
+                props.draft.legacyTimeLimitSeconds,
+              ) !== undefined
+            }
+            aria-describedby={
+              assessmentDurationOverrideMinutesError(
+                props.draft.timeLimit,
+                props.draft.legacyTimeLimitSeconds,
+              ) === undefined
+                ? undefined
+                : "assessment-template-duration-override-error"
+            }
             onInput={(event) => {
               const timeLimit = event.currentTarget.value;
-              // Preserve the native number control's intermediate decimal while typing.
-              if (timeLimit !== props.draft.timeLimit) props.onPatch({ timeLimit });
+              if (
+                timeLimit !== props.draft.timeLimit ||
+                props.draft.legacyTimeLimitSeconds !== null
+              )
+                props.onPatch({ timeLimit, legacyTimeLimitSeconds: null });
             }}
           />
           <small>
             Default: 1.5 minutes per Question, rounded up to a whole minute. Templates have no
             Questions; the default is calculated after Questions are added to the Assessment. Leave
-            the override blank to copy this default intent. Fractional minutes are allowed, rounded
-            to the nearest second (minimum 1 second).
+            the override blank to copy this default intent. Enter a whole number of minutes from 1
+            to 720 for a specific override.
           </small>
+          <Show
+            when={assessmentDurationOverrideMinutesError(
+              props.draft.timeLimit,
+              props.draft.legacyTimeLimitSeconds,
+            )}
+          >
+            {(error) => (
+              <small id="assessment-template-duration-override-error" role="alert">
+                {error()}
+              </small>
+            )}
+          </Show>
         </label>
         <label class="assessment-template-field">
           Attempt limit (optional)

@@ -587,10 +587,8 @@ mod tests {
                     snapshot: b"{}",
                     deployment_reference: "self-hosted-imathas",
                     question_revision: question_model::QuestionRevisionReference {
-                        question_id: question_model::QuestionId::from_canonical_parts(
-                            "ABCDEF", 'G'
-                        )
-                        .expect("Question ID"),
+                        question_id: question_model::QuestionId::from_random_identifier("ABCDEFG")
+                            .expect("Question ID"),
                         revision_number: question_model::QuestionRevisionNumber::new(1)
                             .expect("positive version"),
                     },
@@ -614,7 +612,7 @@ mod tests {
         let binding = learning_data_access::ImathasGradingContext::new(
             question_model::QuestionAttemptId::from_uuid(uuid::Uuid::from_u128(2)),
             question_model::QuestionRevisionReference {
-                question_id: question_model::QuestionId::from_canonical_parts("BCDEFGH", 'H')
+                question_id: question_model::QuestionId::from_random_identifier("BCDEFGH")
                     .expect("Question ID"),
                 revision_number: question_model::QuestionRevisionNumber::new(4)
                     .expect("positive version"),

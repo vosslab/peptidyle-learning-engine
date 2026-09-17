@@ -18,7 +18,7 @@ const blueprintTitle = `Browser current Blueprint ${runId}`;
 const courseShortName = `Current-${runId}`;
 const courseLongName = `Browser current Course ${runId}`;
 const assessmentTitle = `Browser current Assessment ${runId}`;
-const assessmentDurationOverrideLabel = /^Assessment duration override in seconds\b/u;
+const assessmentDurationOverrideLabel = /^Assessment duration override in minutes\b/u;
 const browser = await chromium.launch({ headless: true, args: liveDemoChromiumArgs(origin) });
 const context = await browser.newContext();
 const page = await context.newPage();
@@ -88,7 +88,7 @@ try {
     .getByRole("dialog", { name: "Create a Blueprint Course", exact: true })
     .getByRole("button", { name: "Create Blueprint Course", exact: true })
     .click();
-  await page.waitForURL(/\/blueprint-courses\/BP[0-9A-HJKMNP-TV-Z]{6}$/u);
+  await page.waitForURL(/\/blueprint-courses\/BP[0-9A-HJKMNP-TV-Z]{8}$/u);
   await page.getByRole("heading", { name: blueprintTitle, exact: true }).waitFor();
   await page.getByRole("button", { name: "Publish Blueprint Course", exact: true }).click();
   await page
@@ -100,7 +100,7 @@ try {
   await page
     .getByRole("link", { name: "Create Course Instance from this Blueprint", exact: true })
     .click();
-  await page.waitForURL(/\/instructor\?blueprint=BP[0-9A-HJKMNP-TV-Z]{6}#create-course-instance$/u);
+  await page.waitForURL(/\/instructor\?blueprint=BP[0-9A-HJKMNP-TV-Z]{8}#create-course-instance$/u);
   await page.getByRole("heading", { name: "Course Instances you teach", exact: true }).waitFor();
   await page
     .getByRole("combobox", { name: /^Blueprint Course/u })
@@ -119,17 +119,17 @@ try {
     has: page.getByRole("heading", { name: courseLongName, exact: true }),
   });
   await createdCourse.getByRole("link", { name: "Open Course Instance", exact: true }).click();
-  await page.waitForURL(/\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}$/u);
+  await page.waitForURL(/\/courses\/CI[0-9A-HJKMNP-TV-Z]{8}$/u);
   await page.getByRole("heading", { name: courseLongName, exact: true }).waitFor();
 
   await page.getByRole("link", { name: "Create Assessment", exact: true }).click();
-  await page.waitForURL(/\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/assessments\/new$/u);
+  await page.waitForURL(/\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{8}\/assessments\/new$/u);
   await page.getByRole("heading", { name: "Create an Assessment", exact: true }).waitFor();
   await page.getByLabel("Assessment title").fill(assessmentTitle);
   await page.getByLabel("Assessment Type").selectOption("practice_question_assignment");
   await page.getByRole("button", { name: "Create Assessment", exact: true }).click();
   await page.waitForURL(
-    /\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/assessments\/A[0-9A-HJKMNP-TV-Z]{6}\/questions$/u,
+    /\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{8}\/assessments\/A[0-9A-HJKMNP-TV-Z]{8}\/questions$/u,
   );
   await page.getByRole("heading", { name: "Assessment Question Editor", exact: true }).waitFor();
   const assessmentBreadcrumb = page.getByRole("navigation", { name: "Breadcrumb", exact: true });
@@ -231,7 +231,7 @@ try {
     .getByLabel(/Due date/u)
     .fill("2026-12-01");
   await page.getByLabel("Due time", { exact: true }).fill("12:00");
-  await page.getByLabel(assessmentDurationOverrideLabel).fill("1800");
+  await page.getByLabel(assessmentDurationOverrideLabel).fill("30");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
   await page.getByText("Saved", { exact: true }).waitFor();
 
@@ -286,11 +286,11 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Assessment Properties Editor", exact: true }).waitFor();
   const courseReference = new URL(page.url()).pathname.match(
-    /^\/instructor\/courses\/(CI[0-9A-HJKMNP-TV-Z]{6})\/assessments\//u,
+    /^\/instructor\/courses\/(CI[0-9A-HJKMNP-TV-Z]{8})\/assessments\//u,
   )?.[1];
   if (courseReference === undefined)
     throw new Error("the Assessment workspace lacked a Course reference");
-  if ((await page.getByLabel(assessmentDurationOverrideLabel).inputValue()) !== "1800") {
+  if ((await page.getByLabel(assessmentDurationOverrideLabel).inputValue()) !== "30") {
     throw new Error("the autosaved time limit did not persist after reload");
   }
   if ((await page.getByLabel("Late-work rule").inputValue()) !== "accept") {
@@ -306,7 +306,7 @@ try {
   ) {
     throw new Error("Release readiness was available while the visible policy value was invalid");
   }
-  await page.getByLabel(assessmentDurationOverrideLabel).fill("1800");
+  await page.getByLabel(assessmentDurationOverrideLabel).fill("30");
   await page.getByText("Saved", { exact: true }).waitFor();
 
   await page.getByRole("link", { name: "Open Student View", exact: true }).click();

@@ -24,7 +24,7 @@ pub(super) async fn create(
     let checksum = match request_checksum(
         "create-blueprint-from-course-instance",
         &headers,
-        &(course, &input),
+        &(course.clone(), &input),
     ) {
         Ok(value) => value,
         Err(response) => return *response,
@@ -35,7 +35,7 @@ pub(super) async fn create(
     };
     let receipt = match state
         .course_publication
-        .create_blueprint_from_course_instance(session, course, checksum, input)
+        .create_blueprint_from_course_instance(session, course, checksum, input, Default::default())
         .await
     {
         Ok(value) => value,

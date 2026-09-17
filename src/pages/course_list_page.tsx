@@ -4,7 +4,11 @@ import { A, useSearchParams } from "@solidjs/router";
 import { createMemo, createResource, createSignal, For, Show, type JSX } from "solid-js";
 
 import type { BlueprintCourseSummaryView } from "../../generated/api/BlueprintCourseSummaryView";
-import type { CourseInstanceCreationSource, CourseInstanceSummary } from "../api/course_instance";
+import type {
+  CourseInstanceCreationSource,
+  CourseInstanceLifecycleState,
+  CourseInstanceSummary,
+} from "../api/course_instance";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import { courseThemeTokens } from "../features/course_appearance/course_theme_registry";
@@ -66,6 +70,21 @@ function CourseInstanceRow(props: { readonly course: CourseInstanceSummary }): J
   );
 }
 
+type CourseListMode = CourseInstanceLifecycleState;
+
+function coursesForMode(
+  createdCourses: ReadonlyArray<CourseInstanceSummary>,
+  listedCourses: ReadonlyArray<CourseInstanceSummary> | undefined,
+  mode: CourseListMode,
+): ReadonlyArray<CourseInstanceSummary> {
+  const listedReferences = new Set(listedCourses?.map((course) => course.reference) ?? []);
+  const localOnlyCourses = createdCourses.filter(
+    (course) => !listedReferences.has(course.reference),
+  );
+  const combinedCourses = [...localOnlyCourses, ...(listedCourses ?? [])];
+  return combinedCourses.filter((course) => course.lifecycleState === mode);
+}
+
 function BlueprintSourceSelect(props: {
   readonly blueprints: ReadonlyArray<AdoptableBlueprintCourse>;
   readonly value: string;
@@ -94,8 +113,8 @@ function BlueprintSourceSelect(props: {
   );
 }
 
-/** Course Instance list and Instructor creation task. */
-function TeachingCourseListPage(): JSX.Element {
+/** Course Instance list and, for active Courses, Instructor creation task. */
+function TeachingCourseListPage(props: { readonly mode: CourseListMode }): JSX.Element {
   const applicationApi = useApplicationApi();
   const [searchParams] = useSearchParams();
   const session = useSessionBootstrap();
@@ -158,19 +177,21 @@ function TeachingCourseListPage(): JSX.Element {
     creationSource() === "adopted" ? true : undefined,
   );
 
-  const visibleCourses = createMemo(() => {
-    const seen = new Set<string>();
-    const loadedCourses = courses.error === undefined ? (courses() ?? []) : [];
-    return [...createdCourses(), ...loadedCourses].filter((course) => {
-      if (seen.has(course.reference)) return false;
-      seen.add(course.reference);
-      return true;
-    });
-  });
+  const visibleCourses = createMemo(() =>
+    coursesForMode(
+      createdCourses(),
+      courses.error === undefined ? courses() : undefined,
+      props.mode,
+    ),
+  );
+  const isActiveMode = (): boolean => props.mode === "active";
   const isCreationExpanded = createMemo(
     () =>
       creationDisclosure() ??
-      (!courses.loading && courses.error === undefined && visibleCourses().length === 0),
+      (isActiveMode() &&
+        !courses.loading &&
+        courses.error === undefined &&
+        visibleCourses().length === 0),
   );
   const adoptableBlueprints = createMemo(() => {
     const linked = linkedBlueprint.error === undefined ? linkedBlueprint() : undefined;
@@ -236,6 +257,9 @@ function TeachingCourseListPage(): JSX.Element {
         longName: longName(),
         term: { startDate: startDate(), endDate: endDate() },
       });
+      if (created.course.lifecycleState !== "active") {
+        throw new Error("A newly created Course Instance must be Active.");
+      }
       setCreatedCourses((current) => [created.course, ...current]);
       setCreationDisclosure(false);
       setCreationSource("empty");
@@ -260,14 +284,15 @@ function TeachingCourseListPage(): JSX.Element {
   }
 
   return (
-    <section class="page" data-route-surface="courses">
+    <section class="page" data-route-surface={isActiveMode() ? "courses" : "inactiveCourses"}>
       <p class="eyebrow">Teaching</p>
-      <h1>{isInstructor() ? "Course Instances you teach" : "Your Course Instances"}</h1>
+      <h1>{isActiveMode() ? "My Active Courses" : "My Inactive Courses"}</h1>
       <p class="page-lede">
-        Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review
-        dates and settings before releasing Assessments to students.
+        {isActiveMode()
+          ? "Start an empty Course Instance or adopt a Blueprint Course with its Assessments. Review dates and settings before releasing Assessments to students."
+          : "Past Course Instances stay available here without competing with the Courses you are currently teaching."}
       </p>
-      <Show when={isInstructor()}>
+      <Show when={isInstructor() && isActiveMode()}>
         <button
           class="quiet-action course-create-disclosure"
           type="button"
@@ -465,13 +490,25 @@ function TeachingCourseListPage(): JSX.Element {
         fallback={
           <Show when={!courses.loading && courses.error === undefined && isInstructor()}>
             <p class="empty-state">
-              No Course Instances are teaching yet. Use Create Course Instance to start an empty
-              Course or adopt a Blueprint Course.
+              {isActiveMode() ? (
+                <>
+                  No Course Instances are teaching yet. Use Create Course Instance to start an empty
+                  Course or adopt a Blueprint Course.
+                </>
+              ) : (
+                <>
+                  No past Course Instances are available. Open{" "}
+                  <A href="/instructor">My Active Courses</A> to create a Course Instance.
+                </>
+              )}
             </p>
           </Show>
         }
       >
-        <div class="instructor-list" aria-label="Course Instances">
+        <div
+          class="instructor-list"
+          aria-label={isActiveMode() ? "Active Course Instances" : "Inactive Course Instances"}
+        >
           <For each={visibleCourses()}>{(course) => <CourseInstanceRow course={course} />}</For>
         </div>
       </Show>
@@ -487,8 +524,13 @@ export function CourseListPage(): JSX.Element {
     return state.kind === "authenticated" && state.session.account.productRole === "student";
   };
   return (
-    <Show when={isStudent()} fallback={<TeachingCourseListPage />}>
+    <Show when={isStudent()} fallback={<TeachingCourseListPage mode="active" />}>
       <StudentCoursesPage />
     </Show>
   );
+}
+
+/** Instructor-only past Course Instance list. */
+export function InactiveCourseListPage(): JSX.Element {
+  return <TeachingCourseListPage mode="inactive" />;
 }

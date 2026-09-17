@@ -162,7 +162,7 @@ WITH source_assessment AS (
     SELECT count(*) = count(*) FILTER (WHERE entry.entry_kind = 'fixed_question')
        AND bool_and(
            entry.availability = 'available'
-           AND entry.question_id = replace(source.entry #>> '{question_revision,questionId}', '-', '')
+           AND entry.question_id = source.entry #>> '{question_revision,questionId}'
            AND entry.question_revision_number = (source.entry #>> '{question_revision,revisionNumber}')::integer
            AND entry.points_possible::text = source.entry ->> 'points_possible'
            AND entry.scoring_rule = CASE source.entry ->> 'scoring_rule'

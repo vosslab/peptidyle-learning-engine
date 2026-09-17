@@ -35,7 +35,7 @@ async function openAppearanceFromCourseActions(page: Page): Promise<void> {
     .getByRole("navigation", { name: "Course actions", exact: true })
     .getByRole("link", { name: "Appearance", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{6}\/appearance$/u);
+  await expect(page).toHaveURL(/\/instructor\/courses\/CI[0-9A-HJKMNP-TV-Z]{8}\/appearance$/u);
   await expect(page.locator("#main-content")).toBeFocused();
   await expect(page.locator('[data-route-surface="courseAppearance"]')).toBeVisible();
   await expect(

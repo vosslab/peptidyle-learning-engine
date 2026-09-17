@@ -484,7 +484,7 @@ async fn access_reader_projects_one_authoritative_decision_and_effective_policy(
     );
     let store = PostgresLiveAssessmentDeliveryStore::new(application.clone());
     let access = store
-        .live_assessment_access(token(0xe1), course, assessment)
+        .live_assessment_access(token(0xe1), course.clone(), assessment)
         .await
         .expect("authorized Student Assessment Access");
     assert_eq!(

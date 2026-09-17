@@ -44,10 +44,7 @@
   );
 }
 
-.ple-app-ribbon[data-ribbon-task-row="absent"],
-.ple-ribbon-shell-grid[data-ribbon-task-row="absent"] {
-  --ple-ribbon-reserved-task-size: 0px;
-}
+/* Empty task rows keep their footprint so breadcrumbs retain their location. */
 
 /* The shell frame owns the viewport floor. This variant only replaces its
  * first content track with the Ribbon block declared by this component. */
@@ -812,7 +809,7 @@
 .ple-shell__breadcrumb-prelude {
   display: flex;
   align-items: center;
-  min-block-size: var(--ple-control-min-height);
+  block-size: var(--ple-control-min-height);
   min-inline-size: 0;
   padding-inline: var(--ple-ribbon-space-inline);
   border-block-end: 1px solid var(--ple-border);
@@ -892,8 +889,8 @@
   }
 }
 
-/* Full labels stay reachable instead of sharing a shrinking ellipsis budget. */
-.ple-shell__breadcrumb-prelude[data-product-role="student"] nav {
+/* Full labels stay reachable for every role without changing the row height. */
+.ple-shell__breadcrumb-prelude nav {
   flex: 1 1 0;
   inline-size: 100%;
   overflow-x: auto;
@@ -901,19 +898,19 @@
   scrollbar-width: thin;
 }
 
-.ple-shell__breadcrumb-prelude[data-product-role="student"] ol {
+.ple-shell__breadcrumb-prelude ol {
   inline-size: max-content;
 }
 
-.ple-shell__breadcrumb-prelude[data-product-role="student"] li,
-.ple-shell__breadcrumb-prelude[data-product-role="student"] li:first-child,
-.ple-shell__breadcrumb-prelude[data-product-role="student"] li:last-child {
+.ple-shell__breadcrumb-prelude li,
+.ple-shell__breadcrumb-prelude li:first-child,
+.ple-shell__breadcrumb-prelude li:last-child {
   flex: 0 0 auto;
   overflow: visible;
 }
 
-.ple-shell__breadcrumb-prelude[data-product-role="student"] a,
-.ple-shell__breadcrumb-prelude[data-product-role="student"] span {
+.ple-shell__breadcrumb-prelude a,
+.ple-shell__breadcrumb-prelude span {
   overflow: visible;
 }
 

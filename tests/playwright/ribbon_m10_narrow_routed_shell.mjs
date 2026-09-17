@@ -97,7 +97,7 @@ export async function assertNarrowRoutedShell(currentCase) {
   );
   assert.deepEqual(
     breadcrumbItems.map((item) => item.text),
-    ["Courses", "Course CI7K3M2QAZ: Molecular Biology"],
-    "the narrow breadcrumb preserves the root and current labels",
+    ["Home", "Molecular Biology"],
+    "the narrow breadcrumb preserves the root and its human-readable current label",
   );
 }

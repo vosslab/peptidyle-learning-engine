@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use question_model::{
     AssessmentAttemptCompletion, AssessmentReference, AssessmentType, CourseInstanceReference,
+    CourseTerm,
 };
 use sqlx::{Postgres, Row, Transaction};
 
@@ -81,7 +82,9 @@ impl LiveStudentCourseLandingStore for PostgresLiveStudentCourseLandingStore {
     ) -> Result<Vec<LiveStudentCourseInvitationSummary>, StoreError> {
         let mut transaction = self.begin(session_token_hash).await?;
         let rows = sqlx::query(
-            "SELECT course_public_reference, course_short_name, course_long_name \
+            "SELECT course_public_reference, course_short_name, course_long_name, \
+             instructor_display_name, term_starts_on::text AS term_starts_on, \
+             term_ends_on::text AS term_ends_on \
              FROM ple_api.list_pending_student_course_invitations()",
         )
         .fetch_all(&mut *transaction)
@@ -223,6 +226,18 @@ fn decode_assessment(
 fn decode_invitation(
     row: &sqlx::postgres::PgRow,
 ) -> Result<LiveStudentCourseInvitationSummary, StoreError> {
+    let instructor_display_name = name(
+        row.try_get("instructor_display_name")
+            .map_err(map_sqlx_error)?,
+        "Instructor display name",
+    )?;
+    if instructor_display_name.chars().any(char::is_control) {
+        return Err(invalid("Instructor display name"));
+    }
+    let start_date: String = row.try_get("term_starts_on").map_err(map_sqlx_error)?;
+    let end_date: String = row.try_get("term_ends_on").map_err(map_sqlx_error)?;
+    let term =
+        CourseTerm::from_parts(&start_date, &end_date).map_err(|_| invalid("Course term"))?;
     Ok(LiveStudentCourseInvitationSummary {
         course: course_reference(
             row.try_get("course_public_reference")
@@ -236,6 +251,8 @@ fn decode_invitation(
             row.try_get("course_long_name").map_err(map_sqlx_error)?,
             "Course long name",
         )?,
+        instructor_display_name,
+        term,
     })
 }
 

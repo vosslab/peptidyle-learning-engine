@@ -13,9 +13,8 @@ use crate::{AssessmentAttemptId, AssessmentId, CourseId, StudentRecordId, Worksp
 pub const MAX_PUBLIC_ROUTE_NUMBER: u32 = i32::MAX as u32;
 
 /// Prefixes reserved by the route grammar.
-pub const RESERVED_REFERENCE_PREFIXES: &[&str] = &[
-    "R", "W", "D", "G", "U", "M", "I", "QC", "QS", "BP", "CI", "A",
-];
+pub const RESERVED_REFERENCE_PREFIXES: &[&str] =
+    &["R", "W", "G", "U", "M", "I", "QC", "QS", "BP", "CI", "A"];
 
 /// Every public ID includes seven server-random Crockford characters and one
 /// public SHA-256 checksum character.
@@ -194,10 +193,6 @@ pub struct AssessmentAttemptReference(NonZeroU32);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AuthoringWorkspaceReference(NonZeroU32);
-/// An authorized Draft Question Reference for one private Draft Question lineage.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
-pub struct DraftQuestionReference(NonZeroU32);
 /// An authorized Account Reference for an existing platform account. It carries neither email nor authority.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
@@ -239,7 +234,6 @@ impl_numeric_reference!(
     "W",
     "Authoring Workspace reference"
 );
-impl_numeric_reference!(DraftQuestionReference, "D", "Draft Question reference");
 impl_numeric_reference!(
     CourseMembershipReference,
     "M",
@@ -284,6 +278,8 @@ mod tests {
 
     #[test]
     fn public_ids_are_exact_checksum_validated_values() {
+        type PublicIdParser = fn(&str) -> bool;
+
         fn question(value: &str) -> bool {
             value.parse::<QuestionId>().is_ok()
         }
@@ -300,7 +296,7 @@ mod tests {
             value.parse::<AccountReference>().is_ok()
         }
 
-        let cases: [(&str, fn(&str) -> bool); 5] = [
+        let cases: [(&str, PublicIdParser); 5] = [
             ("ABCD-XEFG", question),
             ("BPABCDEFGJ", blueprint),
             ("CIABCDEFGS", course),

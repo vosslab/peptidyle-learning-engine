@@ -30,6 +30,8 @@ pub mod assessment_workspace;
 pub mod auth;
 /// Generated closed registry for PLE-provided profile avatars.
 pub mod avatar_catalog_generated;
+/// Server-held Bloom Classification values for exact immutable Revisions.
+mod bloom_classification;
 /// Browser-safe reusable BlueprintCourse contracts.
 pub mod blueprint_course;
 /// Exact Blueprint operations, immutable evidence, and target-term schedule resolution.
@@ -72,6 +74,8 @@ pub mod question_citation;
 pub mod question_content;
 /// Shared Question Library metadata, visibility, lineage, and browse projections.
 pub mod question_library;
+mod question_library_preview;
+pub use question_library_preview::{QuestionPreviewRegion, QuestionResponsePreview};
 pub mod question_license;
 /// Browser-safe reusable published Question Pool library read models.
 pub mod question_pool_library;
@@ -138,6 +142,12 @@ pub use crate::assessment_workspace::{
     ReplaceAssessmentContentRequest, ReplaceAssessmentPoliciesRequest,
 };
 pub use crate::auth::{AccountId, ProductRole};
+pub use crate::bloom_classification::{
+    BloomClassification, BloomClassificationCorrectionRequest, BloomClassificationEditNumber,
+    BloomClassificationEditNumberError, BloomClassificationView, BloomCognitiveProcess,
+    BloomCognitiveProcessParseError, BloomKnowledgeDimension, BloomKnowledgeDimensionParseError,
+    QuestionBloomCorrectionReceipt, QuestionPoolBloomCorrectionReceipt,
+};
 pub use crate::blueprint_course::canonical_exchange::{
     CanonicalBlueprintAssessment, CanonicalBlueprintAssessmentEntry, CanonicalBlueprintCourse,
     CanonicalBlueprintMetadata, CanonicalBlueprintModule,
@@ -216,8 +226,7 @@ pub use crate::profile_image::ProfileImageReference;
 pub use crate::public_route::{
     AccountReference, AssessmentAttemptReference, AssessmentReference, AuthoringWorkspaceReference,
     BlueprintCourseReference, CourseInstanceReference, CourseInvitationReference,
-    CourseMembershipReference, DraftQuestionReference, NavigationResolution,
-    RESERVED_REFERENCE_PREFIXES,
+    CourseMembershipReference, NavigationResolution, RESERVED_REFERENCE_PREFIXES,
 };
 pub use crate::question_authorship::{
     QuestionAuthor, QuestionAuthorDisplayName, QuestionAuthorship, QuestionAuthorshipError,
@@ -246,18 +255,20 @@ pub use crate::question_library::{
     QuestionAvailabilityEditNumberError, QuestionAvailabilityEvent, QuestionBackend,
     QuestionDetails, QuestionDetailsPromptView, QuestionId, QuestionLineageView,
     QuestionRevisionReference, QuestionSearchAuthorFacet, QuestionSearchAuthorship,
-    QuestionSearchBackendFacet, QuestionSearchCapabilityFacet, QuestionSearchCourseUse,
-    QuestionSearchCourseUseFacet, QuestionSearchFacets, QuestionSearchFilter, QuestionSearchPage,
-    QuestionSearchQuestionLicenseFacet, QuestionSearchRequest, QuestionSearchRequestError,
-    QuestionSearchResult, QuestionSearchSort, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
-    QuestionSearchTopicFacet, QuestionStatistics, QuestionSummary, QuestionTypeFacet,
-    QuestionUseDetails, QuestionUseSummary, normalized_question_search_group_value,
+    QuestionSearchBackendFacet, QuestionSearchBloomCognitiveProcessFacet,
+    QuestionSearchBloomKnowledgeDimensionFacet, QuestionSearchCapabilityFacet,
+    QuestionSearchCourseUse, QuestionSearchCourseUseFacet, QuestionSearchFacets,
+    QuestionSearchFilter, QuestionSearchPage, QuestionSearchQuestionLicenseFacet,
+    QuestionSearchRequest, QuestionSearchRequestError, QuestionSearchResult, QuestionSearchSort,
+    QuestionSearchSubjectFacet, QuestionSearchTagFacet, QuestionSearchTopicFacet,
+    QuestionStatistics, QuestionSummary, QuestionTypeFacet, QuestionUseDetails, QuestionUseSummary,
+    normalized_question_search_group_value,
 };
 pub use crate::question_license::QuestionLicense;
 pub use crate::question_pool_library::{
     AssessmentQuestionPoolForkView, AssessmentQuestionPoolSelectionCountReceipt,
-    QuestionPoolLibrarySummary, QuestionPoolMetadata, QuestionPoolRevisionMemberView,
-    QuestionPoolRevisionView,
+    QuestionPoolBloomFacets, QuestionPoolLibraryPage, QuestionPoolLibrarySummary,
+    QuestionPoolMetadata, QuestionPoolRevisionMemberView, QuestionPoolRevisionView,
 };
 pub use crate::question_revision::{
     MAX_QUESTION_REVISION_REASON_UNICODE_SCALARS, QuestionRevisionReason,

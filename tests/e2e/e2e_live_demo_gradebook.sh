@@ -76,7 +76,7 @@ course_reference() {
     python3 -c 'import json,re,sys
 items=json.loads(sys.argv[1]).get("items",[])
 values=[x.get("reference") for x in items if isinstance(x,dict)]
-valid=[x for x in values if isinstance(x,str) and re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",x)]
+valid=[x for x in values if isinstance(x,str) and re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",x)]
 if not valid: raise SystemExit("Gradebook prerequisite lacks a Course Instance")
 print(valid[0])' "$1"
 }
@@ -96,7 +96,7 @@ path="/api/course-instances/$course/gradebook"
 concealed "$(request "$path")"
 concealed "$(request "$path" "$student_cookie")"
 concealed "$(request "$path" "$sysadmin_cookie")"
-concealed "$(request '/api/course-instances/CI8H4N6P/gradebook' "$instructor_cookie")"
+concealed "$(request '/api/course-instances/CI8H4N6PAW/gradebook' "$instructor_cookie")"
 
 received="$(request "$path" "$instructor_cookie")"
 [ "$(status "$received")" = 200 ] || { echo "Current Course Instructor could not read Gradebook" >&2; exit 1; }
@@ -112,7 +112,7 @@ for row in rows:
         raise SystemExit("Gradebook projection exposed an unapproved field")
     if not isinstance(row["rosterId"],str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,64}",row["rosterId"]):
         raise SystemExit("Gradebook roster projection is invalid")
-    if not isinstance(row["assessmentReference"],str) or not re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",row["assessmentReference"]):
+    if not isinstance(row["assessmentReference"],str) or not re.fullmatch(r"A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",row["assessmentReference"]):
         raise SystemExit("Gradebook Assessment projection is invalid")
     if not isinstance(row["assessmentTitle"],str) or not row["assessmentTitle"].strip() or len(row["assessmentTitle"])>200:
         raise SystemExit("Gradebook Coursework title projection is invalid")

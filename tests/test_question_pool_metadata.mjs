@@ -5,7 +5,10 @@ import { DecodeError } from "../src/api/decoder.ts";
 import {
   decodeQuestionPoolLibraryPage,
   decodeQuestionPoolMetadata,
+  decodeQuestionPoolRevisionView,
 } from "../src/api/decoders/question_pool_library.ts";
+import { decodeAssessmentQuestionPoolForkView } from "../src/api/decoders/assessment_pool_fork.ts";
+import { publishedQuestionFixture } from "./fixtures/published_question.ts";
 
 const metadata = {
   title: "Inheritance reasoning",
@@ -19,6 +22,24 @@ const metadata = {
   tags: ["pedigrees"],
 };
 
+const bloom = {
+  cognitiveProcess: "Analyze",
+  knowledgeDimension: "Conceptual Knowledge",
+  classificationEditNumber: "7",
+};
+
+const bloomFacets = {
+  cognitiveProcesses: ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"].map(
+    (cognitiveProcess, count) => ({ cognitiveProcess, count }),
+  ),
+  knowledgeDimensions: [
+    "Factual Knowledge",
+    "Conceptual Knowledge",
+    "Procedural Knowledge",
+    "Metacognitive Knowledge",
+  ].map((knowledgeDimension, count) => ({ knowledgeDimension, count })),
+};
+
 test("Pool list retains independent metadata and exact Revision identity", () => {
   const page = {
     items: [
@@ -26,9 +47,11 @@ test("Pool list retains independent metadata and exact Revision identity", () =>
         questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
         metadata,
         memberCount: 2,
+        bloom,
       },
     ],
     nextCursor: null,
+    bloomFacets,
   };
   assert.deepEqual(decodeQuestionPoolLibraryPage(page), page);
   const retiredPage = {
@@ -80,4 +103,115 @@ test("Pool metadata rejects missing required fields, unknown fields and malforme
       DecodeError,
     );
   }
+});
+
+test("Pool list requires the complete exact Bloom pair and precision-safe Edit Number", () => {
+  const item = {
+    questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
+    metadata,
+    memberCount: 2,
+    bloom,
+  };
+  for (const malformedBloom of [
+    undefined,
+    { ...bloom, cognitiveProcess: "Synthesize" },
+    { ...bloom, knowledgeDimension: "Strategic Knowledge" },
+    { ...bloom, classificationEditNumber: 7 },
+    { ...bloom, classificationEditNumber: "0" },
+    { ...bloom, classificationEditNumber: "9223372036854775808" },
+    { ...bloom, difficulty: "Hard" },
+  ]) {
+    assert.throws(
+      () =>
+        decodeQuestionPoolLibraryPage({
+          items: [{ ...item, bloom: malformedBloom }],
+          nextCursor: null,
+          bloomFacets,
+        }),
+      DecodeError,
+    );
+  }
+});
+
+test("Pool list requires complete ordered whole-result Bloom counts", () => {
+  const page = { items: [], nextCursor: null, bloomFacets };
+  assert.deepEqual(decodeQuestionPoolLibraryPage(page), page);
+  for (const malformed of [
+    { ...bloomFacets, cognitiveProcesses: bloomFacets.cognitiveProcesses.slice(1) },
+    {
+      ...bloomFacets,
+      cognitiveProcesses: bloomFacets.cognitiveProcesses.toReversed(),
+    },
+    {
+      ...bloomFacets,
+      knowledgeDimensions: bloomFacets.knowledgeDimensions.map((facet, index) =>
+        index === 0 ? { ...facet, count: -1 } : facet,
+      ),
+    },
+    { ...bloomFacets, memberCounts: [] },
+  ]) {
+    assert.throws(
+      () => decodeQuestionPoolLibraryPage({ ...page, bloomFacets: malformed }),
+      DecodeError,
+    );
+  }
+});
+
+test("Pool exact detail keeps its own Bloom pair and rejects a missing pair", () => {
+  const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
+  const detail = {
+    questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
+    metadata,
+    bloom,
+    members: [
+      {
+        memberPosition: 0,
+        questionRevision,
+        question: {
+          reference: questionRevision,
+          question_library: {
+            summary: publishedQuestionFixture.publishedQuestion,
+            disciplineName: "Biology",
+            disciplineIsRetired: false,
+            evidence: { state: "unavailable" },
+          },
+          selection_availability: "available",
+        },
+      },
+    ],
+  };
+  assert.deepEqual(decodeQuestionPoolRevisionView(detail), detail);
+  const { bloom: _bloom, ...withoutBloom } = detail;
+  assert.throws(() => decodeQuestionPoolRevisionView(withoutBloom), DecodeError);
+});
+
+test("Assessment-owned Pool fork requires its own exact Bloom pair", () => {
+  const questionRevision = publishedQuestionFixture.publishedQuestion.latestQuestionRevision;
+  const fork = {
+    assessmentEntryId: "00000000-0000-0000-0000-000000000011",
+    questionPoolRevision: { questionPoolId: "3S8B-24DZ", revisionNumber: 4 },
+    poolMetadataEtag: "00000000-0000-0000-0000-000000000012",
+    selectionCount: 1,
+    metadata,
+    bloom,
+    members: [
+      {
+        memberPosition: 0,
+        questionRevision,
+        question: {
+          reference: questionRevision,
+          question_library: {
+            summary: publishedQuestionFixture.publishedQuestion,
+            disciplineName: "Biology",
+            disciplineIsRetired: false,
+            evidence: { state: "unavailable" },
+          },
+          selection_availability: "available",
+        },
+      },
+    ],
+  };
+  assert.deepEqual(decodeAssessmentQuestionPoolForkView(fork), fork);
+  const { bloom: _bloom, ...withoutBloom } = fork;
+  assert.throws(() => decodeAssessmentQuestionPoolForkView(withoutBloom), DecodeError);
 });

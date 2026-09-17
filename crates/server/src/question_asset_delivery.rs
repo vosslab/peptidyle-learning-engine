@@ -206,7 +206,7 @@ mod tests {
     fn rendition() -> ReadyQuestionAssetDelivery {
         ReadyQuestionAssetDelivery {
             question_revision: QuestionRevisionReference {
-                question_id: "ABCD-XEF1".parse::<QuestionId>().expect("Question ID"),
+                question_id: QuestionId::from_random_identifier("ABCDEFG").expect("Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("revision"),
             },
             asset_id: QuestionAssetId::from_uuid(Uuid::from_u128(2)),
@@ -223,7 +223,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::FOUND);
         assert_eq!(
             response.headers()["location"],
-            "https://assets.example.test/public-assets/questions/ABCDXEF1/versions/1/assets/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
+            "https://assets.example.test/public-assets/questions/ABCD-XEFG/versions/1/assets/00000000-0000-0000-0000-000000000002/00000000-0000-0000-0000-000000000003"
         );
         assert_eq!(
             response.headers()["cache-control"],

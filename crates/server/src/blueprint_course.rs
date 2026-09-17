@@ -254,7 +254,7 @@ async fn create_blueprint(
     };
     let receipt = match state
         .blueprints
-        .create_blueprint_course(session, checksum, input)
+        .create_blueprint_course(session, checksum, input, Default::default())
         .await
     {
         Ok(value) => value,
@@ -287,7 +287,7 @@ async fn save_blueprint(
     let checksum = match request_checksum(
         "save-blueprint-course",
         &headers,
-        &(reference, expected, &input),
+        &(reference.clone(), expected, &input),
     ) {
         Ok(value) => value,
         Err(response) => return *response,
@@ -298,7 +298,14 @@ async fn save_blueprint(
     };
     match state
         .blueprints
-        .save_blueprint_course(session, reference, expected, checksum, input)
+        .save_blueprint_course(
+            session,
+            reference.clone(),
+            expected,
+            checksum,
+            input,
+            Default::default(),
+        )
         .await
     {
         Ok(receipt) => match load_view(&state, session, reference).await {
@@ -361,7 +368,7 @@ async fn load_revision(
     };
     let record = match state
         .blueprints
-        .load_blueprint_revision(session, blueprint_revision)
+        .load_blueprint_revision(session, blueprint_revision.clone())
         .await
     {
         Ok(value) => value,
@@ -526,7 +533,7 @@ async fn view_from_record(
 ) -> Result<BlueprintCourseView, RouteLoadError> {
     Ok(BlueprintCourseView {
         classification: record.classification,
-        reference: record.reference,
+        reference: record.reference.clone(),
         short_name: record.short_name,
         long_name: record.long_name,
         availability: record.availability,
@@ -547,7 +554,7 @@ fn summary_view(
         classification: record.classification,
         total_adoptions: record.total_adoptions,
         total_students_ever_enrolled: record.total_students_ever_enrolled,
-        reference: record.reference,
+        reference: record.reference.clone(),
         short_name: record.short_name,
         long_name: record.long_name,
         availability: record.availability,
@@ -858,7 +865,7 @@ fn joined_cookie_header(headers: &HeaderMap) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::question_publication::QuestionIdIssuer;
+    use crate::question_publication::{QuestionIdIssuer, RandomQuestionIdIssuer};
     use axum::http::{HeaderValue, StatusCode};
     use learning_data_access::StoreError;
     #[test]
@@ -874,7 +881,7 @@ mod tests {
 
     #[test]
     fn retained_older_question_pin_uses_its_exact_revision_and_is_not_selectable() {
-        let question_id: QuestionId = "0000-X000".parse().expect("Question ID");
+        let question_id = QuestionId::from_random_identifier("0000000").expect("Question ID");
         let older = QuestionRevisionReference {
             question_id: question_id.clone(),
             revision_number: question_model::QuestionRevisionNumber::new(1).expect("revision one"),

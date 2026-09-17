@@ -22,6 +22,7 @@ pub(super) async fn creation_assessments(
     transaction: &mut Transaction<'_, Postgres>,
     input: &CreateCourseInstanceInput,
     pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<Value, StoreError> {
     let (blueprint_course, blueprint_revision) = match &input.source {
         CourseInstanceCreationSource::Empty => return Ok(Value::Array(Vec::new())),
@@ -43,17 +44,22 @@ pub(super) async fn creation_assessments(
     if content.checksum()?.as_bytes() != checksum.as_slice() {
         return Err(invalid("Blueprint Content Checksum"));
     }
-    materialize(&content, pool_id_issuer)
+    materialize(&content, pool_id_issuer, bloom_receipts)
 }
 
 pub(super) fn materialize(
     content: &StoredBlueprintCourseContent,
     pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<Value, StoreError> {
     let mut assessments = Vec::new();
     for module in &content.modules {
         for assessment in &module.assessments {
-            assessments.push(materialize_assessment(assessment, pool_id_issuer)?);
+            assessments.push(materialize_assessment(
+                assessment,
+                pool_id_issuer,
+                bloom_receipts,
+            )?);
         }
     }
     Ok(Value::Array(assessments))
@@ -104,6 +110,7 @@ pub(super) fn reusable_assessment_projection(
 pub(super) fn materialize_assessment(
     assessment: &StoredBlueprintAssessment,
     pool_id_issuer: Option<&dyn CourseInstancePoolIdIssuer>,
+    bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
 ) -> Result<Value, StoreError> {
     let mut member = reusable_assessment_projection(assessment)?;
     let entries = member["entries"]
@@ -113,6 +120,7 @@ pub(super) fn materialize_assessment(
         entry["assessmentEntryId"] =
             json!(AssessmentEntryId::from_uuid(random_uuid()?).to_string());
         if entry["kind"] == "question_pool" {
+            entry["bloomPreparationReceiptId"] = json!(bloom_receipts.take_next()?.as_uuid());
             let issuer = pool_id_issuer.ok_or_else(|| {
                 StoreError::Unavailable(
                     "Question Pool fork identity issuer is unavailable".to_string(),

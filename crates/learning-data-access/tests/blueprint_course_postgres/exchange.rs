@@ -11,7 +11,7 @@ pub(super) async fn assert_actual_role_round_trip(
     // creates a distinct owner-owned Private lineage at Revision 1; it does
     // not transfer source lineage identity, visibility, or child identities.
     let exported = store
-        .export_blueprint_course(token(), blueprint_reference)
+        .export_blueprint_course(token(), blueprint_reference.clone())
         .await
         .expect("owner exports reusable Blueprint content");
     let imported = store
@@ -19,6 +19,7 @@ pub(super) async fn assert_actual_role_round_trip(
             token(),
             RequestChecksum::from_bytes([0x29; 32]),
             exported.clone(),
+            Default::default(),
         )
         .await
         .expect("owner imports canonical reusable Blueprint content");
@@ -32,12 +33,12 @@ pub(super) async fn assert_actual_role_round_trip(
         "canonical import starts the new lineage at Revision 1"
     );
     let imported_private = store
-        .load_blueprint_course(token(), imported.blueprint_revision.reference)
+        .load_blueprint_course(token(), imported.blueprint_revision.reference.clone())
         .await
         .expect("owner reads imported Private Blueprint");
     assert_eq!(
         store
-            .load_blueprint_course(token(), blueprint_reference)
+            .load_blueprint_course(token(), blueprint_reference.clone())
             .await
             .expect("owner reloads unchanged source Blueprint"),
         *owner_private,
@@ -54,7 +55,7 @@ pub(super) async fn assert_actual_role_round_trip(
         owner_private.classification
     );
     let reexported = store
-        .export_blueprint_course(token(), imported.blueprint_revision.reference)
+        .export_blueprint_course(token(), imported.blueprint_revision.reference.clone())
         .await
         .expect("owner exports imported reusable Blueprint content");
     assert_eq!(reexported.metadata(), exported.metadata());

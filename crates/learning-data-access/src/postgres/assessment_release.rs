@@ -55,8 +55,17 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course: CourseInstanceReference,
         assessment: AssessmentReference,
         input: crate::ApplyAssessmentBlueprintUpdateInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
-        super::assessment_blueprint_update::apply(self, token, course, assessment, input).await
+        super::assessment_blueprint_update::apply(
+            self,
+            token,
+            course,
+            assessment,
+            input,
+            bloom_receipts,
+        )
+        .await
     }
     async fn list_assessments_due_soon(
         &self,
@@ -124,7 +133,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course: CourseInstanceReference,
     ) -> Result<Vec<CourseAssessmentSummary>, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, course).await?;
+        let context = schedule_context(&mut tx, &course).await?;
         // ASVS 1.2.3 and 8.2.2: bind the public Course Reference and let the
         // session-authorized database function enforce the exact Course owner.
         let rows = sqlx::query(
@@ -179,7 +188,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         course: CourseInstanceReference,
     ) -> Result<Vec<AssessmentQuestionPickerEntry>, StoreError> {
         let mut tx = self.begin(token).await?;
-        let rows = sqlx::query("SELECT question_id, question_revision_number, question_description FROM ple_api.list_assessment_question_picker($1)")
+        let rows = sqlx::query("SELECT question_id, question_revision_number, question_description, bloom_cognitive_process, bloom_knowledge_dimension, bloom_classification_edit_number FROM ple_api.list_assessment_question_picker($1)")
             .bind(course.as_string()).fetch_all(&mut *tx).await.map_err(map_sqlx_error)?;
         let records = rows
             .iter()
@@ -193,6 +202,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
                     description: row
                         .try_get("question_description")
                         .map_err(map_sqlx_error)?,
+                    bloom: super::question_pool_library::decode_bloom(row)?,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
@@ -220,8 +230,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             row.try_get("assessment_reference_number")
                 .map_err(map_sqlx_error)?,
         )?;
-        let context = schedule_context(&mut tx, course).await?;
-        let rows = workspace_rows(&mut tx, course, assessment).await?;
+        let context = schedule_context(&mut tx, &course).await?;
+        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -234,8 +244,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         assessment: AssessmentReference,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, course).await?;
-        let rows = workspace_rows(&mut tx, course, assessment).await?;
+        let context = schedule_context(&mut tx, &course).await?;
+        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -250,7 +260,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         input.validate()?;
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, course).await?;
+        let context = schedule_context(&mut tx, &course).await?;
         let due_at_millis = input
             .due_at
             .as_ref()
@@ -299,7 +309,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         .fetch_one(&mut *tx)
         .await
         .map_err(map_sqlx_error)?;
-        let rows = workspace_rows(&mut tx, course, assessment).await?;
+        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -314,7 +324,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         input: SaveLiveAssessmentInlineInput,
     ) -> Result<CourseAssessmentSummary, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, course).await?;
+        let context = schedule_context(&mut tx, &course).await?;
         let due_at_millis = input
             .due_at
             .as_ref()
@@ -384,7 +394,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
         input: SaveBaseAssessmentPolicyInput,
     ) -> Result<LiveAssessmentWorkspace, StoreError> {
         let mut tx = self.begin(token).await?;
-        let context = schedule_context(&mut tx, course).await?;
+        let context = schedule_context(&mut tx, &course).await?;
         let resolve = |value: Option<&LocalDateAndTime>, field| {
             resolve_local_timestamp(value, &context, field)
         };
@@ -403,7 +413,7 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .bind(i64::try_from(input.expected_edit_number.value()).map_err(|_| invalid("Assessment Edit Number"))?)
             .bind(values).bind(available_at_millis).bind(due_at_millis).bind(closes_at_millis)
             .fetch_one(&mut *tx).await.map_err(map_sqlx_error)?;
-        let rows = workspace_rows(&mut tx, course, assessment).await?;
+        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let result = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(result)
@@ -472,8 +482,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .fetch_one(&mut *tx)
             .await
             .map_err(map_sqlx_error)?;
-        let context = schedule_context(&mut tx, course).await?;
-        let rows = workspace_rows(&mut tx, course, assessment).await?;
+        let context = schedule_context(&mut tx, &course).await?;
+        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let workspace = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(workspace)
@@ -519,8 +529,8 @@ impl LiveAssessmentStore for PostgresLiveAssessmentStore {
             .await
             .map_err(map_unrelease_sqlx_error)?;
         let deleted = decode_unrelease_impact(&row)?;
-        let context = schedule_context(&mut tx, course).await?;
-        let rows = workspace_rows(&mut tx, course, assessment).await?;
+        let context = schedule_context(&mut tx, &course).await?;
+        let rows = workspace_rows(&mut tx, &course, &assessment).await?;
         let assessment = decode_workspace(&rows, &context)?.ok_or(StoreError::NotFound)?;
         if assessment.status != AssessmentStatus::Unreleased {
             return Err(invalid("Unreleased Assessment status"));
@@ -569,8 +579,8 @@ fn map_unrelease_sqlx_error(error: sqlx::Error) -> StoreError {
 
 pub(super) async fn workspace_rows(
     tx: &mut Transaction<'_, Postgres>,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: &CourseInstanceReference,
+    assessment: &AssessmentReference,
 ) -> Result<Vec<sqlx::postgres::PgRow>, StoreError> {
     sqlx::query("SELECT * FROM ple_api.load_assessment_workspace_rows($1, $2)")
         .bind(course.as_string())
@@ -587,7 +597,7 @@ pub(super) struct AssessmentScheduleContext {
 
 pub(super) async fn schedule_context(
     tx: &mut Transaction<'_, Postgres>,
-    course: CourseInstanceReference,
+    course: &CourseInstanceReference,
 ) -> Result<AssessmentScheduleContext, StoreError> {
     let row = sqlx::query(
         "SELECT term_starts_on::text AS term_starts_on, term_ends_on::text AS term_ends_on \
@@ -638,6 +648,7 @@ pub(super) fn decode_workspace(
                         description: row
                             .try_get("question_description")
                             .map_err(map_sqlx_error)?,
+                        bloom: super::question_pool_library::decode_bloom(row)?,
                     })
                 })
         })

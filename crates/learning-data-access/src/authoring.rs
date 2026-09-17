@@ -1,14 +1,11 @@
 //! Private Authoring Workspace persistence contracts.
 //!
-//! Browser routes carry only a Draft Question Reference and an Edit Number.
-//! This module deliberately keeps workspace and draft UUIDs on the trusted
-//! server side while the Store rechecks the active session relationship.
+//! Browser routes carry a private Draft UUID and an Edit Number.
+//! The Store rechecks the active session relationship for every UUID.
 
 use async_trait::async_trait;
 use objects::ObjectRecord;
-use question_model::{
-    DraftQuestionReference, QuestionAssetReference, QuestionFormat, QuestionType, WorkspaceId,
-};
+use question_model::{QuestionAssetReference, QuestionFormat, QuestionType, WorkspaceId};
 use uuid::Uuid;
 
 use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreError};
@@ -16,12 +13,10 @@ use crate::{DraftQuestionEditNumber, DraftQuestionUuid, SessionTokenHash, StoreE
 /// Server-only resolved state for one private Draft Question.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthoringDraft {
-    /// Trusted persistence identity; never serialize this to a browser.
+    /// Private transport and persistence identity; never display this as a public reference.
     pub draft_question_uuid: DraftQuestionUuid,
     /// Trusted private workspace identity; never serialize this to a browser.
     pub workspace: WorkspaceId,
-    /// Authorized browser navigation locator.
-    pub reference: DraftQuestionReference,
     /// Positive save concurrency token.
     pub edit_number: DraftQuestionEditNumber,
     /// Private Instructor-facing discovery title.
@@ -40,7 +35,7 @@ pub struct AuthoringDraft {
 /// Answer-free list entry for the current Instructor's My Question Drafts View.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthoringDraftSummary {
-    pub reference: DraftQuestionReference,
+    pub draft_question_uuid: DraftQuestionUuid,
     pub edit_number: DraftQuestionEditNumber,
     pub title: String,
     pub description: String,
@@ -74,8 +69,8 @@ pub struct CreateAuthoringDraftInput {
 pub struct SaveAuthoringDraftInput {
     /// Exact native HOTSPOT surface derived from validated source, not browser metadata.
     pub hotspot_surface: Option<QuestionAssetReference>,
-    /// Draft Question selected from the authorized opaque reference.
-    pub reference: DraftQuestionReference,
+    /// Draft Question selected from the authorized private UUID.
+    pub draft_question_uuid: DraftQuestionUuid,
     /// Current browser concurrency token.
     pub expected_edit_number: DraftQuestionEditNumber,
     /// Exact source Object Record written before persistence registration.
@@ -94,7 +89,7 @@ pub struct SaveAuthoringDraftInput {
 /// source saving so no backend source is parsed, reconstructed, or rewritten.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SaveAuthoringDraftGeneralFeedbackInput {
-    pub reference: DraftQuestionReference,
+    pub draft_question_uuid: DraftQuestionUuid,
     pub expected_edit_number: DraftQuestionEditNumber,
     pub general_feedback: Option<String>,
 }
@@ -102,7 +97,7 @@ pub struct SaveAuthoringDraftGeneralFeedbackInput {
 /// Exact owner-only Draft Question deletion precondition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DeleteAuthoringDraftInput {
-    pub reference: DraftQuestionReference,
+    pub draft_question_uuid: DraftQuestionUuid,
     pub expected_edit_number: DraftQuestionEditNumber,
 }
 
@@ -171,7 +166,7 @@ pub trait AuthoringDraftStore: Send + Sync {
     async fn load_authoring_draft(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: DraftQuestionReference,
+        draft_question_uuid: DraftQuestionUuid,
     ) -> Result<AuthoringDraft, StoreError>;
 
     /// Replaces one mutable Draft Question Source using its exact Edit Number.

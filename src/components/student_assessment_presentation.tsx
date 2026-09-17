@@ -10,6 +10,7 @@ import type { StudentFeedbackReleaseTiming } from "../../generated/api/StudentFe
 import type { StudentLateWorkStatus } from "../../generated/api/StudentLateWorkStatus";
 import type { AssessmentQuestionVariationRule } from "../../generated/api/AssessmentQuestionVariationRule";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
+import { calculatedAssessmentDurationSeconds } from "../assessment_duration";
 import { studentProgressSummary, studentScoreValue } from "../student_progress";
 
 export interface StudentAssessmentPresentationDelivery {
@@ -76,7 +77,7 @@ export function StudentAssessmentStartFacts(props: {
         <Show when={props.decision === undefined}>
           <div>
             <dt>Time limit</dt>
-            <dd>{formatAssessmentAttemptTimeLimit(props.timeLimitSeconds)}</dd>
+            <dd>{formatAssessmentAttemptTimeLimit(props.timeLimitSeconds, props.questionCount)}</dd>
           </div>
         </Show>
       </dl>
@@ -215,17 +216,27 @@ export function formatAssessmentLimit(
   return `${value} ${value === 1 ? singular : plural}`;
 }
 
-export function formatAssessmentAttemptTimeLimit(seconds: number | null): string {
-  if (seconds === null) return "Assessment duration not yet calculated";
-  if (seconds % 3_600 === 0) {
-    const hours = seconds / 3_600;
+/**
+ * Formats a base duration. A Question count supplies only a missing base default;
+ * server-resolved Student decisions omit it because their effective value includes accommodations.
+ */
+export function formatAssessmentAttemptTimeLimit(
+  seconds: number | null,
+  questionCount?: number,
+): string {
+  const baseSeconds =
+    seconds ??
+    (questionCount === undefined ? null : calculatedAssessmentDurationSeconds(questionCount));
+  if (baseSeconds === null) return "Time limit unavailable";
+  if (baseSeconds % 3_600 === 0) {
+    const hours = baseSeconds / 3_600;
     return `${hours} ${hours === 1 ? "hour" : "hours"} per attempt`;
   }
-  if (seconds % 60 === 0) {
-    const minutes = seconds / 60;
+  if (baseSeconds % 60 === 0) {
+    const minutes = baseSeconds / 60;
     return `${minutes} ${minutes === 1 ? "minute" : "minutes"} per attempt`;
   }
-  return `${seconds} ${seconds === 1 ? "second" : "seconds"} per attempt`;
+  return `${baseSeconds} ${baseSeconds === 1 ? "second" : "seconds"} per attempt`;
 }
 
 export function formatLateWorkRule(value: "accept" | "mark_late" | "reject"): string {

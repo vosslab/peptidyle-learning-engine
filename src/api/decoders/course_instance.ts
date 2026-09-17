@@ -49,12 +49,18 @@ function summary(value: unknown, path: string): CourseInstanceSummary {
     "term",
     "theme",
     "classification",
+    "lifecycleState",
     "metadataEtag",
   ]);
   return {
     classification: decodeCourseClassification(
       field(record, "classification", path),
       `${path}.classification`,
+    ),
+    lifecycleState: decodeStringEnum(
+      field(record, "lifecycleState", path),
+      `${path}.lifecycleState`,
+      ["active", "inactive"] as const,
     ),
     metadataEtag: decodeUuid(field(record, "metadataEtag", path), `${path}.metadataEtag`),
     reference: decodeCourseInstanceReference(field(record, "reference", path), `${path}.reference`),

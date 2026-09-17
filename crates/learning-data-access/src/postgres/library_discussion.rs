@@ -8,8 +8,8 @@ use uuid::Uuid;
 use super::{Pool, connection::map_sqlx_error as map_shared_sqlx_error};
 use crate::{
     LibraryDiscussionStore, LibraryDiscussionTarget, LibraryDiscussionView, LibraryImpactNotice,
-    LibraryImpactNoticeState, LibraryImprovementPost, LibraryImprovementThread,
-    LibraryImprovementThreadState, SessionTokenHash, StoreError,
+    LibraryImpactNoticeLifecycle, LibraryImprovementPost, LibraryImprovementThread,
+    LibraryImprovementThreadLifecycle, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store whose procedures derive every actor, owner, and role.
@@ -58,18 +58,34 @@ fn kind_value(kind: LibraryObjectKind) -> &'static str {
 }
 
 const DISCUSSION_NOT_FOUND_SQLSTATE: &str = "P1D01";
+const FOREIGN_KEY_VIOLATION_SQLSTATE: &str = "23503";
 
 fn map_sqlx_error(error: sqlx::Error) -> StoreError {
     if let sqlx::Error::Database(database_error) = &error
-        && database_error.code().as_deref() == Some(DISCUSSION_NOT_FOUND_SQLSTATE)
+        && let Some(mapped) = map_discussion_database_code(database_error.code().as_deref())
     {
-        return StoreError::NotFound;
+        return mapped;
     }
     map_shared_sqlx_error(error)
 }
 
+// ASVS 8.2.2/16.5.1: target-related absence is concealed locally without
+// exposing diagnostics or weakening error semantics for unrelated adapters.
+fn map_discussion_database_code(code: Option<&str>) -> Option<StoreError> {
+    match code {
+        Some(DISCUSSION_NOT_FOUND_SQLSTATE | FOREIGN_KEY_VIOLATION_SQLSTATE) => {
+            Some(StoreError::NotFound)
+        }
+        _ => None,
+    }
+}
+
 fn positive_u64(value: i64, name: &str) -> Result<u64, StoreError> {
-    u64::try_from(value).map_err(|_| StoreError::InvalidRecord(name.to_owned()))
+    let value = u64::try_from(value).map_err(|_| StoreError::InvalidRecord(name.to_owned()))?;
+    if value == 0 {
+        return Err(StoreError::InvalidRecord(name.to_owned()));
+    }
+    Ok(value)
 }
 
 fn timestamp(value: i64, name: &str) -> Result<Timestamp, StoreError> {
@@ -94,21 +110,66 @@ fn text(value: String, name: &str) -> Result<String, StoreError> {
     Ok(value)
 }
 
-fn thread_state(value: String) -> Result<LibraryImprovementThreadState, StoreError> {
-    match value.as_str() {
-        "open" => Ok(LibraryImprovementThreadState::Open),
-        "resolved" => Ok(LibraryImprovementThreadState::Resolved),
+// ASVS 2.2.1/2.2.3: collapse related SQL columns into one allowlisted
+// lifecycle so contradictory database records cannot cross the adapter.
+fn thread_lifecycle(
+    value: String,
+    created_at: Timestamp,
+    resolved_at: Option<Timestamp>,
+) -> Result<LibraryImprovementThreadLifecycle, StoreError> {
+    match (value.as_str(), resolved_at) {
+        ("open", None) => Ok(LibraryImprovementThreadLifecycle::Open),
+        ("resolved", Some(resolved_at)) if resolved_at >= created_at => {
+            Ok(LibraryImprovementThreadLifecycle::Resolved { resolved_at })
+        }
         _ => Err(StoreError::InvalidRecord(
-            "Improvement thread state".to_owned(),
+            "Improvement thread lifecycle".to_owned(),
         )),
     }
 }
 
-fn notice_state(value: String) -> Result<LibraryImpactNoticeState, StoreError> {
-    match value.as_str() {
-        "active" => Ok(LibraryImpactNoticeState::Active),
-        "cancelled" => Ok(LibraryImpactNoticeState::Cancelled),
-        _ => Err(StoreError::InvalidRecord("Impact notice state".to_owned())),
+fn validate_thread_posts(
+    thread_created_at: Timestamp,
+    posts: &[LibraryImprovementPost],
+) -> Result<(), StoreError> {
+    if posts.is_empty()
+        || posts[0].created_at != thread_created_at
+        || posts.iter().any(|post| {
+            post.created_at < thread_created_at
+                || post
+                    .updated_at
+                    .is_some_and(|updated_at| updated_at < post.created_at)
+        })
+    {
+        return Err(StoreError::InvalidRecord(
+            "Improvement thread post chronology".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn notice_lifecycle(
+    value: String,
+    created_at: Timestamp,
+    updated_at: Timestamp,
+    cancelled_at: Option<Timestamp>,
+    viewer_may_manage: bool,
+) -> Result<LibraryImpactNoticeLifecycle, StoreError> {
+    if updated_at < created_at {
+        return Err(StoreError::InvalidRecord(
+            "Impact notice chronology".to_owned(),
+        ));
+    }
+    match (value.as_str(), cancelled_at) {
+        ("active", None) => Ok(LibraryImpactNoticeLifecycle::Active),
+        ("cancelled", Some(cancelled_at))
+            if cancelled_at >= created_at && updated_at == cancelled_at && !viewer_may_manage =>
+        {
+            Ok(LibraryImpactNoticeLifecycle::Cancelled { cancelled_at })
+        }
+        _ => Err(StoreError::InvalidRecord(
+            "Impact notice lifecycle".to_owned(),
+        )),
     }
 }
 
@@ -163,6 +224,20 @@ impl LibraryDiscussionStore for PostgresLibraryDiscussionStore {
                     })
                 })
                 .collect::<Result<Vec<_>, StoreError>>()?;
+            let created_at = timestamp(
+                row.try_get("created_at_millis").map_err(map_sqlx_error)?,
+                "Improvement thread created time",
+            )?;
+            let resolved_at = optional_timestamp(
+                row.try_get("resolved_at_millis").map_err(map_sqlx_error)?,
+                "Improvement thread resolved time",
+            )?;
+            let lifecycle = thread_lifecycle(
+                row.try_get("state").map_err(map_sqlx_error)?,
+                created_at,
+                resolved_at,
+            )?;
+            validate_thread_posts(created_at, &posts)?;
             threads.push(LibraryImprovementThread {
                 thread_id,
                 creation_revision_number: positive_u64(
@@ -170,15 +245,8 @@ impl LibraryDiscussionStore for PostgresLibraryDiscussionStore {
                         .map_err(map_sqlx_error)?,
                     "Improvement thread creation Revision",
                 )?,
-                state: thread_state(row.try_get("state").map_err(map_sqlx_error)?)?,
-                created_at: timestamp(
-                    row.try_get("created_at_millis").map_err(map_sqlx_error)?,
-                    "Improvement thread created time",
-                )?,
-                resolved_at: optional_timestamp(
-                    row.try_get("resolved_at_millis").map_err(map_sqlx_error)?,
-                    "Improvement thread resolved time",
-                )?,
+                lifecycle,
+                created_at,
                 viewer_may_resolve: row.try_get("viewer_may_resolve").map_err(map_sqlx_error)?,
                 posts,
             });
@@ -191,6 +259,19 @@ impl LibraryDiscussionStore for PostgresLibraryDiscussionStore {
             .map_err(map_sqlx_error)?
             .iter()
             .map(|row| {
+                let created_at = timestamp(
+                    row.try_get("created_at_millis").map_err(map_sqlx_error)?,
+                    "Impact notice created time",
+                )?;
+                let updated_at = timestamp(
+                    row.try_get("updated_at_millis").map_err(map_sqlx_error)?,
+                    "Impact notice updated time",
+                )?;
+                let cancelled_at = optional_timestamp(
+                    row.try_get("cancelled_at_millis").map_err(map_sqlx_error)?,
+                    "Impact notice cancelled time",
+                )?;
+                let viewer_may_manage = row.try_get("viewer_may_manage").map_err(map_sqlx_error)?;
                 Ok(LibraryImpactNotice {
                     impact_notice_id: row.try_get("impact_notice_id").map_err(map_sqlx_error)?,
                     affected_revision_number: row
@@ -206,20 +287,16 @@ impl LibraryDiscussionStore for PostgresLibraryDiscussionStore {
                         row.try_get("body").map_err(map_sqlx_error)?,
                         "Impact notice body",
                     )?,
-                    state: notice_state(row.try_get("state").map_err(map_sqlx_error)?)?,
-                    created_at: timestamp(
-                        row.try_get("created_at_millis").map_err(map_sqlx_error)?,
-                        "Impact notice created time",
+                    lifecycle: notice_lifecycle(
+                        row.try_get("state").map_err(map_sqlx_error)?,
+                        created_at,
+                        updated_at,
+                        cancelled_at,
+                        viewer_may_manage,
                     )?,
-                    updated_at: timestamp(
-                        row.try_get("updated_at_millis").map_err(map_sqlx_error)?,
-                        "Impact notice updated time",
-                    )?,
-                    cancelled_at: optional_timestamp(
-                        row.try_get("cancelled_at_millis").map_err(map_sqlx_error)?,
-                        "Impact notice cancelled time",
-                    )?,
-                    viewer_may_manage: row.try_get("viewer_may_manage").map_err(map_sqlx_error)?,
+                    created_at,
+                    updated_at,
+                    viewer_may_manage,
                 })
             })
             .collect::<Result<Vec<_>, StoreError>>()?;
@@ -386,5 +463,123 @@ impl LibraryDiscussionStore for PostgresLibraryDiscussionStore {
             .await
             .map_err(map_sqlx_error)?;
         tx.commit().await.map_err(map_sqlx_error)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn post(created_at: i64, updated_at: Option<i64>) -> LibraryImprovementPost {
+        LibraryImprovementPost {
+            post_id: Uuid::nil(),
+            author_display_name: "Instructor".to_owned(),
+            body: "Useful correction".to_owned(),
+            created_at: Timestamp::from_unix_millis(created_at),
+            updated_at: updated_at.map(Timestamp::from_unix_millis),
+            viewer_may_edit: false,
+        }
+    }
+
+    #[test]
+    fn discussion_absence_mapping_is_local_and_concealed() {
+        assert_eq!(
+            map_discussion_database_code(Some(DISCUSSION_NOT_FOUND_SQLSTATE)),
+            Some(StoreError::NotFound)
+        );
+        assert_eq!(
+            map_discussion_database_code(Some(FOREIGN_KEY_VIOLATION_SQLSTATE)),
+            Some(StoreError::NotFound)
+        );
+        assert_eq!(map_discussion_database_code(Some("23514")), None);
+    }
+
+    #[test]
+    fn thread_lifecycle_rejects_contradictory_state_and_time() {
+        let created_at = Timestamp::from_unix_millis(10);
+        assert_eq!(
+            thread_lifecycle("open".to_owned(), created_at, None),
+            Ok(LibraryImprovementThreadLifecycle::Open)
+        );
+        assert_eq!(
+            thread_lifecycle(
+                "resolved".to_owned(),
+                created_at,
+                Some(Timestamp::from_unix_millis(11)),
+            ),
+            Ok(LibraryImprovementThreadLifecycle::Resolved {
+                resolved_at: Timestamp::from_unix_millis(11),
+            })
+        );
+        assert!(thread_lifecycle("open".to_owned(), created_at, Some(created_at)).is_err());
+        assert!(thread_lifecycle("resolved".to_owned(), created_at, None).is_err());
+        assert!(
+            thread_lifecycle(
+                "resolved".to_owned(),
+                created_at,
+                Some(Timestamp::from_unix_millis(9)),
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn thread_post_chronology_requires_one_matching_initial_post() {
+        let created_at = Timestamp::from_unix_millis(10);
+        assert!(validate_thread_posts(created_at, &[post(10, None), post(11, Some(12))]).is_ok());
+        assert!(validate_thread_posts(created_at, &[]).is_err());
+        assert!(validate_thread_posts(created_at, &[post(11, None)]).is_err());
+        assert!(validate_thread_posts(created_at, &[post(10, None), post(9, None)]).is_err());
+        assert!(validate_thread_posts(created_at, &[post(10, Some(9))]).is_err());
+    }
+
+    #[test]
+    fn impact_notice_lifecycle_rejects_terminal_contradictions() {
+        let created_at = Timestamp::from_unix_millis(10);
+        let cancelled_at = Timestamp::from_unix_millis(12);
+        assert_eq!(
+            notice_lifecycle("active".to_owned(), created_at, created_at, None, true),
+            Ok(LibraryImpactNoticeLifecycle::Active)
+        );
+        assert_eq!(
+            notice_lifecycle(
+                "cancelled".to_owned(),
+                created_at,
+                cancelled_at,
+                Some(cancelled_at),
+                false,
+            ),
+            Ok(LibraryImpactNoticeLifecycle::Cancelled { cancelled_at })
+        );
+        assert!(
+            notice_lifecycle(
+                "cancelled".to_owned(),
+                created_at,
+                cancelled_at,
+                Some(cancelled_at),
+                true,
+            )
+            .is_err()
+        );
+        assert!(
+            notice_lifecycle(
+                "cancelled".to_owned(),
+                created_at,
+                Timestamp::from_unix_millis(11),
+                Some(cancelled_at),
+                false,
+            )
+            .is_err()
+        );
+        assert!(
+            notice_lifecycle(
+                "active".to_owned(),
+                created_at,
+                created_at,
+                Some(created_at),
+                false,
+            )
+            .is_err()
+        );
     }
 }

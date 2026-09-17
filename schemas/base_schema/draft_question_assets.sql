@@ -43,14 +43,14 @@ REVOKE ALL ON ple_private.draft_question_asset FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_private.validate_draft_question_asset() FROM PUBLIC;
 
 CREATE FUNCTION ple_private.register_draft_question_asset(
-    p_reference_number bigint, p_expected_edit_number bigint, p_asset_id uuid,
+    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_asset_id uuid,
     p_object_id uuid, p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint,
     p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer
 ) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_private AS $$
 DECLARE draft ple_private.draft_question%ROWTYPE; expected_address jsonb;
 BEGIN
-    IF p_asset_id IS NULL OR p_object_id IS NULL OR p_sha256 IS NULL OR octet_length(p_sha256) <> 32
+    IF p_draft_question_uuid IS NULL OR p_asset_id IS NULL OR p_object_id IS NULL OR p_sha256 IS NULL OR octet_length(p_sha256) <> 32
        OR p_expected_edit_number IS NULL OR p_expected_edit_number <= 0
        OR p_size_bytes IS NULL OR p_size_bytes NOT BETWEEN 1 AND 8388608
        OR p_media_type IS NULL OR p_media_type NOT IN ('image/png', 'image/jpeg', 'image/webp')
@@ -60,7 +60,7 @@ BEGIN
     END IF;
     -- ASVS 8.2.1-8.2.2, 8.3.1, 15.4.2: current owner and ordinary CAS under the same row lock.
     SELECT * INTO draft FROM ple_private.draft_question AS question
-     WHERE question.reference_number = p_reference_number
+     WHERE question.draft_question_uuid = p_draft_question_uuid
        AND ple_api.current_session_account_is_instructor()
        AND ple_private.current_session_is_authoring_workspace_owner(question.workspace_id)
      FOR UPDATE;
@@ -83,7 +83,7 @@ BEGIN
         (draft.draft_question_uuid, draft.workspace_id, p_asset_id, p_object_id, p_width, p_height);
 END $$;
 
-CREATE FUNCTION ple_private.load_draft_question_asset(p_reference_number bigint, p_asset_id uuid)
+CREATE FUNCTION ple_private.load_draft_question_asset(p_draft_question_uuid uuid, p_asset_id uuid)
 RETURNS TABLE(object_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
     media_type text, created_at_millis bigint, intrinsic_width integer, intrinsic_height integer)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -92,31 +92,31 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
       FROM ple_private.draft_question AS draft
       JOIN ple_private.draft_question_asset AS asset USING (draft_question_uuid, workspace_id)
       JOIN ple_private.object_record AS record ON record.object_id = asset.source_object_id
-     WHERE draft.reference_number = p_reference_number AND asset.asset_id = p_asset_id
+     WHERE draft.draft_question_uuid = p_draft_question_uuid AND asset.asset_id = p_asset_id
        AND ple_api.current_session_account_is_instructor()
        AND ple_private.current_session_is_authoring_workspace_owner(draft.workspace_id)
 $$;
-REVOKE ALL ON FUNCTION ple_private.register_draft_question_asset(bigint,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
-    ple_private.load_draft_question_asset(bigint,uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_asset(bigint,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
-    ple_private.load_draft_question_asset(bigint,uuid) TO ple_api_owner;
+REVOKE ALL ON FUNCTION ple_private.register_draft_question_asset(uuid,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
+    ple_private.load_draft_question_asset(uuid,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_private.register_draft_question_asset(uuid,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
+    ple_private.load_draft_question_asset(uuid,uuid) TO ple_api_owner;
 SET LOCAL ROLE ple_api_owner;
 CREATE FUNCTION ple_api.register_draft_question_asset(
-    p_reference_number bigint, p_expected_edit_number bigint, p_asset_id uuid,
+    p_draft_question_uuid uuid, p_expected_edit_number bigint, p_asset_id uuid,
     p_object_id uuid, p_object_address jsonb, p_sha256 bytea, p_size_bytes bigint,
     p_media_type text, p_created_at_millis bigint, p_width integer, p_height integer
 ) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_private AS $$
-    SELECT ple_private.register_draft_question_asset(p_reference_number,p_expected_edit_number,p_asset_id,
+    SELECT ple_private.register_draft_question_asset(p_draft_question_uuid,p_expected_edit_number,p_asset_id,
         p_object_id,p_object_address,p_sha256,p_size_bytes,p_media_type,p_created_at_millis,p_width,p_height)
 $$;
-CREATE FUNCTION ple_api.load_draft_question_asset(p_reference_number bigint, p_asset_id uuid)
+CREATE FUNCTION ple_api.load_draft_question_asset(p_draft_question_uuid uuid, p_asset_id uuid)
 RETURNS TABLE(object_id uuid, object_address jsonb, sha256 bytea, size_bytes bigint,
     media_type text, created_at_millis bigint, intrinsic_width integer, intrinsic_height integer)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_private AS $$
-    SELECT * FROM ple_private.load_draft_question_asset(p_reference_number,p_asset_id)
+    SELECT * FROM ple_private.load_draft_question_asset(p_draft_question_uuid,p_asset_id)
 $$;
-REVOKE ALL ON FUNCTION ple_api.register_draft_question_asset(bigint,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
-    ple_api.load_draft_question_asset(bigint,uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_asset(bigint,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
-    ple_api.load_draft_question_asset(bigint,uuid) TO ple_app;
+REVOKE ALL ON FUNCTION ple_api.register_draft_question_asset(uuid,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
+    ple_api.load_draft_question_asset(uuid,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.register_draft_question_asset(uuid,bigint,uuid,uuid,jsonb,bytea,bigint,text,bigint,integer,integer),
+    ple_api.load_draft_question_asset(uuid,uuid) TO ple_app;
 RESET ROLE;

@@ -105,6 +105,29 @@ Assessment deadlines are absolute UTC instants. Instructor input is interpreted
 in the Instructor's IANA time zone, and each Student sees dates in the Student's
 own IANA time zone. Changing a display zone never shifts a stored deadline.
 
+## Order Assessment entries by Bloom
+
+An Instructor may order the current Assessment Entries by their Bloom
+Classification. A fixed Question Entry uses its exact pinned Question
+Revision's pair. A Question Pool Entry uses its Assessment-owned fork's exact
+Pool Revision pair; it does not use the reusable source Pool's current pair or
+derive a pair from Pool members.
+
+The order is Cognitive Process first (Remember, Understand, Apply, Analyze,
+Evaluate, Create), Knowledge Dimension second (Factual, Conceptual,
+Procedural, Metacognitive), then the Entry's immediately prior position. The
+last key makes equal classifications stable. Sorting changes only the pending
+Entry sequence. It neither changes an Entry's identity, pin, Pool membership,
+selection count, points, or other settings nor creates a new Question or Pool
+Revision.
+
+The sort control remains unavailable when the complete exact pair for any
+Entry cannot be read. It explains whether the missing pair is fixed or
+Assessment-owned Pool content and leaves the existing order unchanged. A
+successful sort remains an unsaved current-Assessment edit: the ordinary whole
+Assessment Save, with its existing Edit Number CAS, is the only persistence
+boundary.
+
 ## Start or resume an Attempt
 
 The server starts or resumes an Assessment Attempt only for an active Student

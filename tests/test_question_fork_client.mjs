@@ -21,11 +21,13 @@ test("Question fork client sends only an exact source path and retry key, then a
     fetch: async (input, init) => {
       const request = new Request(new URL(input.toString(), "https://ple.example"), init);
       requests.push(request.clone());
-      return createdDraftResponse({ draftQuestion: "D-27" });
+      return createdDraftResponse({ draftQuestion: "0198e000-0000-7000-8000-000000000001" });
     },
   });
 
-  assert.deepEqual(await client.forkPublishedQuestion(source, retryKey), { draftQuestion: "D-27" });
+  assert.deepEqual(await client.forkPublishedQuestion(source, retryKey), {
+    draftQuestion: "0198e000-0000-7000-8000-000000000001",
+  });
   const request = requests[0];
   assert.ok(request);
   assert.equal(
@@ -40,13 +42,14 @@ test("Question fork client sends only an exact source path and retry key, then a
 
 test("Question fork client requires a no-store 201 closed Draft receipt", async () => {
   const nonCreatedClient = createHttpApiClient({
-    fetch: async () => createdDraftResponse({ draftQuestion: "D-27" }, 200),
+    fetch: async () =>
+      createdDraftResponse({ draftQuestion: "0198e000-0000-7000-8000-000000000001" }, 200),
   });
   await assert.rejects(nonCreatedClient.forkPublishedQuestion(source, retryKey), ApiProtocolError);
 
   const cachedReceiptClient = createHttpApiClient({
     fetch: async () =>
-      new Response(JSON.stringify({ draftQuestion: "D-27" }), {
+      new Response(JSON.stringify({ draftQuestion: "0198e000-0000-7000-8000-000000000001" }), {
         status: 201,
         headers: { "content-type": "application/json" },
       }),
@@ -58,7 +61,10 @@ test("Question fork client requires a no-store 201 closed Draft receipt", async 
 
   const malformedReceiptClient = createHttpApiClient({
     fetch: async () =>
-      createdDraftResponse({ draftQuestion: "D-27", sourceQuestionId: source.questionId }),
+      createdDraftResponse({
+        draftQuestion: "0198e000-0000-7000-8000-000000000001",
+        sourceQuestionId: source.questionId,
+      }),
   });
   await assert.rejects(malformedReceiptClient.forkPublishedQuestion(source, retryKey), DecodeError);
 
@@ -66,7 +72,7 @@ test("Question fork client requires a no-store 201 closed Draft receipt", async 
   const invalidKeyClient = createHttpApiClient({
     fetch: async () => {
       requests += 1;
-      return createdDraftResponse({ draftQuestion: "D-27" });
+      return createdDraftResponse({ draftQuestion: "0198e000-0000-7000-8000-000000000001" });
     },
   });
   await assert.rejects(invalidKeyClient.forkPublishedQuestion(source, "not-a-uuid"), DecodeError);

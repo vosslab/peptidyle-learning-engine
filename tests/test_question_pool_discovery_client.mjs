@@ -9,14 +9,32 @@ const filter = {
   topic_uuid: "00000000-0000-0000-0000-000000000003",
   subtopic_uuid: "00000000-0000-0000-0000-000000000004",
   cross_discipline: true,
+  bloom_cognitive_process: "Analyze",
+  bloom_knowledge_dimension: "Conceptual Knowledge",
 };
+
+const emptyBloomFacets = {
+  cognitiveProcesses: ["Remember", "Understand", "Apply", "Analyze", "Evaluate", "Create"].map(
+    (cognitiveProcess) => ({ cognitiveProcess, count: 0 }),
+  ),
+  knowledgeDimensions: [
+    "Factual Knowledge",
+    "Conceptual Knowledge",
+    "Procedural Knowledge",
+    "Metacognitive Knowledge",
+  ].map((knowledgeDimension) => ({ knowledgeDimension, count: 0 })),
+};
+
+function emptyPage() {
+  return { items: [], nextCursor: null, bloomFacets: emptyBloomFacets };
+}
 
 test("Pool discovery encodes the selected identity tuple on first and continuation reads", async () => {
   const requests = [];
   const client = createQuestionPoolLibraryClient({
     fetch: async (input, init) => {
       requests.push({ url: new URL(String(input), "https://example.test"), init });
-      return new Response(JSON.stringify({ items: [], nextCursor: null }), {
+      return new Response(JSON.stringify(emptyPage()), {
         headers: { "content-type": "application/json", "cache-control": "no-store" },
       });
     },
@@ -62,7 +80,7 @@ test("Pool text and Tags keep their normalized query on continuation", async () 
   const client = createQuestionPoolLibraryClient({
     fetch: async (input) => {
       urls.push(new URL(String(input), "https://example.test"));
-      return new Response(JSON.stringify({ items: [], nextCursor: null }), {
+      return new Response(JSON.stringify(emptyPage()), {
         headers: { "content-type": "application/json", "cache-control": "no-store" },
       });
     },
@@ -94,8 +112,34 @@ test("Pool search bounds reject invalid text and Tags before dispatch", async ()
     { tags: [" "] },
     { tags: ["x".repeat(257)] },
     { tags: Array(65).fill("review") },
+    { bloom_cognitive_process: "analyze" },
+    { bloom_cognitive_process: "" },
+    { bloom_knowledge_dimension: "Strategic Knowledge" },
+    { bloom_knowledge_dimension: "" },
   ]) {
     await assert.rejects(client.listQuestionPools(undefined, 20, { ...filter, ...extra }));
   }
   assert.equal(dispatched, false);
+});
+
+test("Pool exact detail uses the requested canonical Revision route", async () => {
+  const requests = [];
+  const client = createQuestionPoolLibraryClient({
+    fetch: async (input) => {
+      requests.push(new URL(String(input), "https://example.test"));
+      return new Response(JSON.stringify({ error: "Question Pool unavailable" }), {
+        status: 404,
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+      });
+    },
+  });
+  await assert.rejects(
+    client.getQuestionPoolRevision({ questionPoolId: "3S8B-24DZ", revisionNumber: 4 }),
+  );
+  assert.equal(requests[0]?.pathname, "/api/question-pools/3S8B-24DZ/revisions/4");
+
+  await assert.rejects(
+    client.getQuestionPoolRevision({ questionPoolId: "3S8B-24DZ", revisionNumber: 0 }),
+  );
+  assert.equal(requests.length, 1);
 });

@@ -21,7 +21,7 @@ let rosterImportRequests = 0;
 page.on("request", (request) => {
   if (
     request.method() === "POST" &&
-    /^\/api\/course-instances\/CI[0-9A-HJKMNP-TV-Z]{6}\/roster$/u.test(
+    /^\/api\/course-instances\/CI[0-9A-HJKMNP-TV-Z]{8}\/roster$/u.test(
       new URL(request.url()).pathname,
     )
   ) {
@@ -62,7 +62,7 @@ try {
   await page.getByRole("button", { name: "Use selected Questions" }).click();
   await page.getByText("1 fixed Question selected in order.").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "Create Blueprint Course" }).click();
-  await page.waitForURL(/\/blueprint-courses\/BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u);
+  await page.waitForURL(/\/blueprint-courses\/BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/u);
   await page.getByRole("button", { name: "Publish Blueprint Course", exact: true }).click();
   await page.getByRole("button", { name: "Return to Private", exact: true }).waitFor();
   await page
@@ -85,9 +85,9 @@ try {
     .click();
   await page.getByRole("heading", { name: courseLongName }).waitFor();
   await page.getByRole("link", { name: "Open Course Instance" }).first().click();
-  await page.waitForURL(/\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$/u);
+  await page.waitForURL(/\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$/u);
   await page.getByRole("link", { name: "Open Students" }).click();
-  await page.waitForURL(/\/instructor\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}\/students$/u);
+  await page.waitForURL(/\/instructor\/courses\/CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}\/students$/u);
   await page.getByRole("heading", { name: "Students" }).waitFor();
   await page.getByRole("button", { name: "Import Students", exact: true }).click();
 

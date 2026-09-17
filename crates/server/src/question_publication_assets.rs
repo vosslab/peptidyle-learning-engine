@@ -38,7 +38,7 @@ pub(crate) async fn load_hotspot_asset<O: ObjectStore>(
     let asset = require_surface(
         context.store.as_ref(),
         session_hash,
-        context.reference,
+        context.draft_question_uuid,
         surface,
     )
     .await

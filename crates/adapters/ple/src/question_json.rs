@@ -179,6 +179,12 @@ impl PleQuestionJsonDocument {
         self.0.compile()
     }
 
+    /// Reports whether the source declares a remote image whose bytes are not
+    /// part of this document.
+    pub fn has_external_image_resource(&self) -> bool {
+        self.0.has_external_image_resource()
+    }
+
     /// Returns a publication-only HOTSPOT source with the exact Question Asset
     /// Reference substituted for the private workspace image reference.
     ///

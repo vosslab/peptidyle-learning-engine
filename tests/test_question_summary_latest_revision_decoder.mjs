@@ -38,3 +38,33 @@ test("Question Summary rejects an absent, extraneous, or cross-lineage Latest Qu
     DecodeError,
   );
 });
+
+test("Question Summary requires the complete exact Bloom pair and precision-safe Edit Number", () => {
+  const summary = currentQuestionSummary();
+  const { bloom: _bloom, ...withoutBloom } = summary;
+  assert.throws(() => decodeQuestionSummary(withoutBloom, "summary", true), DecodeError);
+  assert.throws(
+    () =>
+      decodeQuestionSummary(
+        {
+          ...summary,
+          bloom: { ...summary.bloom, cognitiveProcess: "Synthesize" },
+        },
+        "summary",
+        true,
+      ),
+    DecodeError,
+  );
+  assert.throws(
+    () =>
+      decodeQuestionSummary(
+        {
+          ...summary,
+          bloom: { ...summary.bloom, classificationEditNumber: 9_007_199_254_740_992 },
+        },
+        "summary",
+        true,
+      ),
+    DecodeError,
+  );
+});

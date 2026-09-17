@@ -22,7 +22,7 @@ rerelease_latest_unreleased_current_assignment() {
 	local instructor="$1" postgres output course assignment workspace edit released
 	postgres="$(service_id postgres)"
 	output="$(podman exec "$postgres" sh -lc 'psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -At -c "SELECT course.public_reference || '\'' '\'' || assessment.public_reference FROM ple_data.course_instance AS course JOIN ple_data.assessment AS assessment ON assessment.course_id=course.course_id WHERE assessment.assessment_status='\''unreleased'\'' AND assessment.assessment_title='\''Current Assignment'\'' ORDER BY assessment.reference_number DESC LIMIT 1"')"
-	printf '%s\n' "$output" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{6} A[0-9A-HJKMNP-TV-Z]{6}$' || { echo "current unreleased Assessment prerequisite is unavailable" >&2; exit 1; }
+	printf '%s\n' "$output" | rg -q '^CI[0-9A-HJKMNP-TV-Z]{8} A[0-9A-HJKMNP-TV-Z]{8}$' || { echo "current unreleased Assessment prerequisite is unavailable" >&2; exit 1; }
 	read -r course assignment <<<"$output"
 	workspace="$(request "/api/course-instances/$course/assessments/$assignment" "$instructor")"
 	require_status "Instructor current unreleased Assessment read" "$workspace" 200

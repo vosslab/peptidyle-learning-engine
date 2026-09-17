@@ -67,8 +67,17 @@ short-reference concepts are implementation drift pending audit or removal, not 
   in progress, so notification rows remain open.
 - Part 07 / PLE support: accepted C910 general-feedback receipts remain partial context; independent
   Hints/Worked Solutions, disclosure, Pool attachment, coexistence, and Revision behavior remain open.
-- Part 07 / Library object statistics and Bloom metadata: Pool statistics and the two independent
-  Bloom dimensions, AI publication assignment, metadata correction and search/reporting remain open.
+- Part 07 / Library object statistics and Bloom metadata: Pool statistics and provider-backed
+  publication remain open. Exact Question and Pool Revision reads now project each pair with its
+  independent Edit Number. Typed complete-pair correction Stores and routes, exact-target editors,
+  stale reload without automatic retry, draft retention, and completion focus are source-backed;
+  connected two-Instructor, denied-role, and browser proof remains open. Library discovery has two
+  independent exact filters that combine with existing predicates, retain both values and unchanged
+  sort through saved searches, URL handoff, and normalized-query-bound cursors, and reports whole-
+  matching-set six-plus-four guide-order counts including zeros and empty results. Connected multi-
+  page, role, and browser proof remains open. Assessment source projects exact fixed, retained, and
+  Assessment-owned Pool-fork pairs and stably orders them by cognitive process, knowledge dimension,
+  then prior position; connected mixed-entry sort/save/reload and concurrent-save proof remains open.
 - Part 08 / Blueprint forks: accepted exact-member-pin HTTP evidence is retained. Expanded
   Change Proposal persistence, canonical content scope, selective acceptance records, stale targets,
   comparison of changed Questions/Pools, and selected daughter incorporation need current proof.
@@ -890,45 +899,56 @@ source, dependencies, closure owner, and verification rather than inheriting tho
 #### A4-03.1
 
 - HG bullet: "The **Courses** ribbon must include: My Blueprint Courses, My Active Courses, My Inactive Courses, Search Public Blueprint Courses."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
+- Current evidence and concrete mismatch: Source-backed `myActiveCourses` and `myInactiveCourses`
+  Ribbon targets now route to separate strict lifecycle projections and list pages. The real
+  restricted-role transition and canonical browser journey remain unproved; Public Blueprint search
+  and upcoming Assessment activity remain separate gaps.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
-- Dependencies: pending A8 Course state; C47, C55.
+- Dependencies: C206/C208/C215/C851/C209 transition receipt; C47, C55.
 - Closure owner: C46.
 - Verification: route/list tests with zero, active, inactive fixtures; Playwright checks all four choices and separated lists.
 
 #### A4-03.2
 
 - HG bullet: "My Active Courses and My Inactive Courses should both be available from the Courses area."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
+- Current evidence and concrete mismatch: Source-backed Ribbon targets and separate Active/Inactive
+  routes now exist. The real restricted-role transition and canonical browser journey remain
+  unproved.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
-- Dependencies: pending A8 Course state; C47, C55.
+- Dependencies: C206/C208/C215/C851/C209 transition receipt; C47, C55.
 - Closure owner: C46.
 - Verification: route/list tests with zero, active, inactive fixtures; Playwright checks all four choices and separated lists.
 
 #### A4-03.3
 
 - HG bullet: "**My Active Courses** should emphasize Course Instances the Instructor is currently teaching."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
+- Current evidence and concrete mismatch: The strict lifecycle projection and `/instructor` Active
+  list are source-backed. The real restricted-role transition and canonical browser journey remain
+  unproved.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
-- Dependencies: pending A8 Course state; C47, C55.
+- Dependencies: C206/C208/C215/C851/C209 transition receipt; C47, C55.
 - Closure owner: C46.
 - Verification: route/list tests with zero, active, inactive fixtures; Playwright checks all four choices and separated lists.
 
 #### A4-03.4
 
 - HG bullet: "Active Course Instances should make upcoming Assessments and important course activity easy to find."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
+- Current evidence and concrete mismatch: The Active list is source-backed, but it has no upcoming
+  Assessment or important-activity surface. The real restricted-role transition and canonical
+  browser journey remain unproved.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
-- Dependencies: pending A8 Course state; C47, C55.
+- Dependencies: C206/C208/C215/C851/C209 transition receipt; C47, C55.
 - Closure owner: C46.
 - Verification: route/list tests with zero, active, inactive fixtures; Playwright checks all four choices and separated lists.
 
 #### A4-03.5
 
 - HG bullet: "**My Inactive Courses** should keep past Course Instances available without competing with active Course Instances."
-- Current evidence and concrete mismatch: `src/ribbon/ribbon_catalog.ts` has `future` active/inactive/public-search routes; no active-only course view or upcoming Assessment activity surface exists.
+- Current evidence and concrete mismatch: The strict lifecycle projection and
+  `/instructor/courses/inactive` list are source-backed. The real restricted-role transition and
+  canonical browser journey remain unproved.
 - Owning source area: Course destinations frontend: src/ribbon/ribbon_catalog.ts, src/pages/course_list_page.tsx, src/pages/course_instance_page.tsx.
-- Dependencies: pending A8 Course state; C47, C55.
+- Dependencies: C206/C208/C215/C851/C209 transition receipt; C47, C55.
 - Closure owner: C46.
 - Verification: route/list tests with zero, active, inactive fixtures; Playwright checks all four choices and separated lists.
 
@@ -1595,8 +1615,8 @@ actions; C67 owns the two Unrelease-specific bullets only.
 
 ## A5: Student and Sysadmin interface
 
-The A5 audit has 26 raw accounted entries: 25 `[ ]` entries and one N/A. Of the `[ ]` entries,
-23 are owning product-behavior findings and exactly two are HG-unlocked complete Ribbon-layout
+The A5 audit has 27 raw accounted entries: 26 `[ ]` entries and one N/A. Of the `[ ]` entries,
+24 are owning product-behavior findings and exactly two are HG-unlocked complete Ribbon-layout
 details. A5-S04 is the sole N/A: a permission (`may provide filters`), not a required current
 behavior. A5-Y10 is the sole owning product question. C75, C80, C81, C83, C85, and C88
 contribute prerequisites but flip no A5 bullet.
@@ -1690,6 +1710,21 @@ contribute prerequisites but flip no A5 bullet.
 - HG bullet: "The complete Student Ribbon task layout does not have a locked-in design yet."
 - Classification: HG-unlocked detail, not an implementation gap. Reason: `HG: no locked-in design`.
 - Verification: retain `[ ]` with that exact reason; C79 must not select or claim a complete layout.
+
+### A5-S14
+
+- HG bullet: "Course invitations should show the Course name and relevant Instructor and term information before the Student accepts the invitation."
+- Current source and independent review: `StudentCourseInvitationsPage` and
+  `StudentCourseInvitationPage` show Course name, verified assigned Instructor display name, and
+  inclusive term before `Accept invitation`. `LiveStudentCourseInvitationSummary` is a closed,
+  self-only projection. Loading, unavailable, missing, foreign, expired, and already-accepted
+  states conceal invitation context. The independent review accepted the scoped source and
+  actual-component browser evidence.
+- Owning source area: Student invitation projection and presentation. Dependencies: actual-role
+  connected PostgreSQL proof and authenticated canonical-browser acceptance. Closure owner: C91.
+- Verification: actual-role PostgreSQL covers self versus foreign, expired, accepted, and
+  already-enrolled invitations; canonical browser shows index/detail context before acceptance and
+  no context in transient states. Keep the checklist row `[ ]` until both pass.
 
 ### A5-Y01
 
@@ -1794,6 +1829,7 @@ contribute prerequisites but flip no A5 bullet.
 | A5-S10, S11           | C77                                                                |
 | A5-S12                | C78                                                                |
 | A5-S13                | HG-unlocked, retain `[ ]` with exact reason                        |
+| A5-S14                | C91                                                                |
 | A5-Y01                | C90                                                                |
 | A5-Y02, Y03           | C86                                                                |
 | A5-Y04, Y06, Y11, Y12 | C87                                                                |
@@ -1802,9 +1838,9 @@ contribute prerequisites but flip no A5 bullet.
 | A5-Y10                | Product question, no closure until decision                        |
 | A5-Y13                | HG-unlocked, retain `[ ]` with exact reason                        |
 
-Accounting: 26 raw entries = 25 `[ ]` plus one N/A. The 25 `[ ]` entries split into 23 owning
-product-behavior records and two HG-unlocked Ribbon details (A5-S13, A5-Y13). Of the 23 owning
-records, 22 have an implementation closure owner and A5-Y10 is the sole product question. A5-S04
+Accounting: 27 raw entries = 26 `[ ]` plus one N/A. The 26 `[ ]` entries split into 24 owning
+product-behavior records and two HG-unlocked Ribbon details (A5-S13, A5-Y13). Of the 24 owning
+records, 23 have an implementation closure owner and A5-Y10 is the sole product question. A5-S04
 is the sole N/A permission classification.
 
 ## A6 Data and history - canonicalized 2026-09-14
@@ -2231,7 +2267,7 @@ Every A8 temporary path below is ignored, run directly, and removed at that row'
 | C415 | 157,159,169                                                                                                                                                                                                                                                                                                                                                                                                                                              | Closed SQL: canonical export/import uses the strict authority-free representation. Import makes a distinct actor-owned Private root at Revision 1, reproduces ordered content/structure, preserves no source identity/owner/Star/Watch, and never overwrites the source.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | C414, accepted C425 canonical HTTPS browser round trip, and retained PostgreSQL 17 actual-role semantic round trip.                                                                                                                                                                                              | `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed authorized export/import/re-export deep equality; fresh Blueprint/module/Assessment/Pool identities; exact fixed and ordered Pool-member pins; unchanged source; and unauthorized denial. |
 | C416 | 140,142,144,146,148,171                                                                                                                                                                                                                                                                                                                                                                                                                                  | A8 sole writer: new schemas/base_schema/blueprint_change_proposals.sql and ChangeProposalStore/API. Receiver accepts subset; current Revision plus ETag checks stale/conflict in one transaction; acceptance creates one receiver Revision then calls C410.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | C401,C410,C415. It cannot close until C421 browser success.                                                                                                                                                                                                                                                      | tests/_temp/hg_a8_c416_proposal_service_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c416_proposal_service_probe.py; source source_me.sh && cargo test -p learning-data-access --test blueprint_course_postgres; remove after C421.                                                                                                                  |
 | C417 | 182,184,186                                                                                                                                                                                                                                                                                                                                                                                                                                              | Lines 182/184's Public Blueprint adoption and Empty Instructor creation are verified by accepted private actual HTTP/exact-main browser proof. Adopted Course read showed one Unreleased Practice Assessment, exact origin Revision, finite Attempt limit, fixed Question Revision/points, and dates unset. A follow-up actual-main Empty Course created a direct-origin Practice Assessment, added/saved one available fixed Question pin, set Due/time limit, passed readiness, and released it. Real Student roster import/claim showed Released visibility/pre-start facts, and a separate native fixed-Question HTTP proof saved/submitted a graded 1/1 Attempt then issued another unlimited Practice Attempt. Line 186's complete Student/delivery settings and Pool behavior remain under review. | C7 sole Course root/state writer; C503 tagged origin and one direct native fixed-Question path are observed, but remaining Pool/full Student browser delivery is required; C49/C72 require Public-only adoption; C52 supplies adoption projection. Two creation subbullets closed, not C417 completion.          | Focused strict Rust/Node wire tests and accepted private Empty/Adopted/direct-author/release, member-visibility, and native Attempt HTTP/browser artifacts; future Pool/full Student delivery/grading proof before remaining closure.                                                                                                                              |
-| C418 | 192,194                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Contract only: warning before six months, Active to Inactive exactly at six months, deadline cap at active_until, latest due date starts separate FERPA clock.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | C206/C207/C208 sole retention writers; C53 term-cap writer; C46 UI recipient. No flip until their gates.                                                                                                                                                                                                         | tests/_temp/hg_a8_c418_retention_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c418_retention_contract_probe.py; source source_me.sh && python3 tests/_temp/hg_a6_c206_schedule_probe.py; source source_me.sh && python3 tests/_temp/hg_a6_c207_deadline_probe.py; remove after C208/C53.                                                    |
+| C418 | 192,194                                                                                                                                                                                                                                                                                                                                                                                                                                                  | MarkInactive source/worker path exists. Restricted-role, concurrency, retained-data, and canonical browser acceptance remain open.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | C206/C207/C208 remain the retention writers; C53 owns the term cap; C46 owns Instructor presentation. The source/worker path does not close the open acceptance.                                                                                                                                                    | `crates/learning-data-access/src/retention.rs`, `crates/learning-data-access/src/postgres/retention.rs`, `schemas/base_schema/course_retention.sql`, `schemas/base_schema/course_retention_transitions.sql`, and `crates/server/src/course_retention_worker.rs`. |
 | C419 | 197                                                                                                                                                                                                                                                                                                                                                                                                                                                      | SQL PASS; backend contributor: `schemas/base_schema/course_blueprint_publication.sql` `ple_api.create_blueprint_from_course_instance` and `CourseBlueprintPublicationStore` create a distinct actor-owned Private Revision 1 from the locked reusable Course structure, exclude Student/delivery state, fork Pools with exact ordered pins, and record immutable source provenance without mutating the Course. Empty Courses and empty Assessments retain their minimal exact shapes.                                                                                                                                                                                                                                                                                                    | C6 Blueprint boundary, C7 Instance read contract, C406 published predicate, C417 create/delivery. PostgreSQL 17 actual-role proof covers denial/no-write, stale rollback, replay, source preservation, first-Adoption/student counts, and lifecycle rollback. C420 browser UI is accepted. | `crates/learning-data-access/tests/blueprint_course_postgres/exchange.rs` `assert_actual_role_round_trip` passed; focused Rust lower-bound and empty-shape tests also passed.                                                                                                                                                                                                                                                           |
 | C420 | 34; complete                                                                                                                                                                                                                                                                                                                                                                                                                                             | `src/pages/course_instance_page.tsx` Course tools opens a compact metadata-only dialog, preserves an uncertain-retry idempotency key, and opens the strict new Private Revision-1 receipt without retyping or mutating the source Course.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | C48/C55 own editor shells. Accepted canonical HTTPS proof used one child-route POST to create `BPJD8H28` from `CI0QR41X`; it showed Private Revision 1 and one Adoption, counted source Students only in the statistic, copied no roster/delivery state, and left the source unchanged. | The authenticated temporary browser probe was removed after acceptance. Focused Node transport/decoder, TypeScript, ESLint, and Prettier passed.                                                                                                                                                                                                                                                                          |
 | C421 | contributor only                                                                                                                                                                                                                                                                                                                                                                                                                                         | UI only, new src/features/blueprint_change_proposals/; C416 submit/accept/read API.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | C48 owns editor shell. C416's 6 bullet closure waits for this leased browser success.                                                                                                                                                                                                                            | tests/_temp/hg_a8_c421_proposal_ui_probe.py; source source_me.sh && python3 tests/_temp/hg_a8_c421_proposal_ui_probe.py; lease: npx playwright test tests/_temp/hg_a8_c421_proposal_ui.spec.ts; remove after C416 close.                                                                                                                                           |
@@ -2372,8 +2408,9 @@ shared boundary is involved; no separate DAG artifact is required.
 
 C500-C536 cover the A9 implementation work. C502 is the C216 contributor. `G24`/C525 is open
 implementation work at the existing `assessment_submission` and current Student cohort boundaries.
-`G35`/C536 (CSV/TSV identity and permitted FERPA metadata) remains a terminal product question
-and remains `[ ]`.
+`G35`/C536 has a fixed, seven-column point-only CSV/TSV contract. Its source implementation and
+independent review are complete. It remains `[ ]` only for actual-role and canonical-browser
+acceptance.
 
 | ID        | A9 owner lines / single boundary                                                                                                                                                                                                                                                                                                              | ignored proof                                                                                                                                                                                                |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

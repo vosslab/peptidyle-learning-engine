@@ -13,8 +13,8 @@ const COURSE_REFERENCE = "CI7K3M2QAZ";
 function courseSummary() {
   return {
     reference: COURSE_REFERENCE,
-    shortName: "BIOL 301",
-    longName: "Molecular Biology 301: Gene Expression",
+    shortName: "BIOL 351/451-20",
+    longName: "Genetics",
     term: { startDate: "2026-01-01", endDate: "2026-05-01" },
     role: "student",
     classification: {

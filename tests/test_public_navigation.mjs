@@ -12,11 +12,11 @@ import {
   parsePublicRouteReference,
   parseAssessmentAttemptReference,
   parseAuthoringWorkspaceReference,
-  parseDraftQuestionReference,
+  parseDraftQuestionId,
   questionRouteReference,
   assessmentAttemptRouteReference,
   authoringWorkspaceRouteReference,
-  draftQuestionRouteReference,
+  draftQuestionRouteId,
 } from "../src/navigation/public_route.ts";
 import {
   resolveAssessmentRoute,
@@ -31,10 +31,13 @@ test("human route references are canonical, typed, and bounded", () => {
   assert.equal(assessmentRouteReference("AABCDEFG8"), "AABCDEFG8");
   assert.equal(assessmentAttemptRouteReference("R-30"), "R-30");
   assert.equal(authoringWorkspaceRouteReference("W-40"), "W-40");
-  assert.equal(draftQuestionRouteReference("D-50"), "D-50");
+  assert.equal(
+    draftQuestionRouteId("0198e000-0000-7000-8000-000000000001"),
+    "0198e000-0000-7000-8000-000000000001",
+  );
   assert.equal(questionRouteReference("7K3M-79QP"), "7K3M-79QP");
 
-  for (const reference of ["CIABCDEFGS", "AABCDEFG8", "R-30", "W-40", "D-50"]) {
+  for (const reference of ["CIABCDEFGS", "AABCDEFG8", "R-30", "W-40"]) {
     assert.equal(parsePublicRouteReference(reference), reference);
   }
   for (const [parser, valid, rejected] of [
@@ -42,7 +45,6 @@ test("human route references are canonical, typed, and bounded", () => {
     [parseAssessmentReference, "AABCDEFG8", ["A-1", "AABCDEFG", "AABCDEFG9"]],
     [parseAssessmentAttemptReference, "R"],
     [parseAuthoringWorkspaceReference, "W"],
-    [parseDraftQuestionReference, "D"],
   ]) {
     if (Array.isArray(rejected)) {
       assert.equal(parser(valid), valid);
@@ -60,6 +62,12 @@ test("human route references are canonical, typed, and bounded", () => {
       }
     }
   }
+  assert.equal(
+    parseDraftQuestionId("0198e000-0000-7000-8000-000000000001"),
+    "0198e000-0000-7000-8000-000000000001",
+  );
+  assert.equal(parseDraftQuestionId("0198E000-0000-7000-8000-000000000001"), null);
+  assert.equal(parseDraftQuestionId("D-50"), null);
   assert.equal(parseQuestionRouteReference("7K3M-79QP"), "7K3M-79QP");
   assert.equal(parseQuestionRouteReference("7k3m79qp"), null);
   assert.equal(parseQuestionRouteReference("7K3M79QP"), null);

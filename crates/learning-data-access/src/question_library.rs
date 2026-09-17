@@ -7,10 +7,11 @@
 
 use async_trait::async_trait;
 use question_model::{
-    PublishedQuestionSharedMetadata, QuestionAuthorship, QuestionAvailability,
-    QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat, QuestionId, QuestionLicense,
-    QuestionRevisionReference, QuestionType, SourceObjectChecksum, SourceObjectReference,
-    Timestamp,
+    BloomClassificationEditNumber, BloomClassificationView, BloomCognitiveProcess,
+    BloomKnowledgeDimension, PublishedQuestionSharedMetadata, QuestionAuthorship,
+    QuestionAvailability, QuestionAvailabilityEditNumber, QuestionBackend, QuestionFormat,
+    QuestionId, QuestionLicense, QuestionRevisionReference, QuestionType, SourceObjectChecksum,
+    SourceObjectReference, Timestamp,
 };
 
 use crate::{SessionTokenHash, StoreError};
@@ -29,6 +30,8 @@ pub struct PublishedQuestionLibraryEntry {
     pub question_type: QuestionType,
     /// Database-authoritative publication time.
     pub published_at: Timestamp,
+    /// Exact Bloom Classification for `question_revision`.
+    pub bloom: BloomClassificationView,
     /// Current shared Published Question title.
     pub question_title: String,
     /// Current shared Published Question description.
@@ -116,6 +119,18 @@ pub trait QuestionLibraryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         question_revision: &QuestionRevisionReference,
     ) -> Result<PublishedQuestionLibraryEntry, StoreError>;
+
+    /// Corrects both Bloom dimensions for one exact Revision through the
+    /// classification-owned compare-and-swap number. PostgreSQL authorizes the
+    /// active vetted Instructor and checks stale state before accepting a no-op.
+    async fn correct_question_revision_bloom(
+        &self,
+        session_token_hash: SessionTokenHash,
+        question_revision: &QuestionRevisionReference,
+        expected_edit_number: BloomClassificationEditNumber,
+        cognitive_process: BloomCognitiveProcess,
+        knowledge_dimension: BloomKnowledgeDimension,
+    ) -> Result<BloomClassificationView, StoreError>;
 
     /// Loads one bounded, all-or-none current shared-metadata snapshot.
     ///

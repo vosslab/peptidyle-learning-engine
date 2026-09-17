@@ -18,3 +18,12 @@ export interface ProfileAvatarView {
 export interface SelectProvidedProfileAvatarInput {
   readonly providedAvatarId: string;
 }
+
+/** Crop over the oriented original: integer positions 0..100, zoom 100..400 percent. */
+export interface ProfileImageCropInput {
+  readonly sourceWidth: number;
+  readonly sourceHeight: number;
+  readonly horizontal: number;
+  readonly vertical: number;
+  readonly zoomPercent: number;
+}

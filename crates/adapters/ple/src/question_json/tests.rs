@@ -155,6 +155,46 @@ fn source_checksum_refuses_a_substituted_presentation() {
 }
 
 #[test]
+fn external_image_resource_is_distinguishable_from_nonvisual_resources() {
+    let image_source = br#"{
+        "format": "pleQuestionJson",
+        "questionTitle": "Interpret the figure",
+        "questionDescription": "A native visual question.",
+        "prompt": "Use the referenced figure.",
+        "response": {
+            "kind": "singleChoice",
+            "choices": [{"id": "a", "text": "A"}, {"id": "b", "text": "B"}],
+            "correctChoice": "a"
+        },
+        "externalResources": [{"url": "https://example.edu/figure", "kind": "image"}],
+        "language": "en"
+    }"#;
+    let link_source = image_source
+        .windows(b"\"image\"".len())
+        .position(|window| window == b"\"image\"")
+        .map(|index| {
+            let mut source = image_source.to_vec();
+            source.splice(
+                index..index + b"\"image\"".len(),
+                b"\"link\"".iter().copied(),
+            );
+            source
+        })
+        .expect("image kind marker");
+
+    assert!(
+        PleQuestionJsonDocument::parse(image_source)
+            .expect("native image source parses")
+            .has_external_image_resource()
+    );
+    assert!(
+        !PleQuestionJsonDocument::parse(&link_source)
+            .expect("native link source parses")
+            .has_external_image_resource()
+    );
+}
+
+#[test]
 fn hotspot_publication_retargets_the_complete_question_asset_reference() {
     let source = br#"{
         "format": "pleQuestionJson",

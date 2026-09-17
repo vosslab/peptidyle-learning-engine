@@ -8,12 +8,21 @@ import {
   useParams,
   useSearchParams,
 } from "@solidjs/router";
-import { createResource, createSignal, onCleanup, Show, Suspense, type JSX } from "solid-js";
+import {
+  createEffect,
+  createResource,
+  createSignal,
+  onCleanup,
+  Show,
+  Suspense,
+  type JSX,
+} from "solid-js";
 
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
 import type { QuestionRevisionNumber } from "../../generated/api/QuestionRevisionNumber";
 import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
+import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 import { useApplicationApi } from "../api/application_api";
 import { useSessionBootstrap } from "../auth/session_context";
 import type {
@@ -21,16 +30,24 @@ import type {
   QuestionAvailabilityClient,
 } from "../api/question_availability";
 import { ApiRequestError } from "../api/http_client/error";
+import { createQuestionLibraryRepository } from "../api/question_library_repository";
 import { CopyableQuestionId } from "../components/copyable_question_id";
+import {
+  BloomClassificationEditor,
+  BloomClassificationText,
+} from "../components/bloom_classification";
 import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
+import { QuestionPoolCreateDialog } from "../components/question_pool_create_dialog";
 import { QuestionWatchControl } from "../components/question_watch_control";
 import { LibraryDiscussionPanel } from "../components/library_discussion_panel";
 import { QuestionStarControl } from "../components/question_star_control";
 import { QuestionPromptRenderer } from "../components/question_renderer";
+import { QuestionResponsePreviewControl } from "../components/question_response_preview";
 import { parseQuestionRouteReference } from "../navigation/public_route";
 import {
   parseQuestionLibraryReturnToken,
   questionLibraryReturnPath,
+  refreshQuestionLibraryReturnState,
   QUESTION_LIBRARY_RETURN_TOKEN_PARAMETER,
 } from "./library_page_model";
 import { QuestionStatisticsPanel, QuestionUsePanel } from "./question_statistics_panel";
@@ -79,7 +96,7 @@ function QuestionForkControl(props: { readonly source: QuestionRevisionReference
       }
       const fork = await applicationApi.client.forkPublishedQuestion(source, action.key);
       if (disposed) return;
-      // ASVS 1.2.2: only the strict, server-returned Draft reference selects this local route.
+      // ASVS 1.2.2: only the exact server-returned private Draft UUID selects this local route.
       navigate(`/authoring/drafts/${encodeURIComponent(fork.draftQuestion)}`);
     } catch {
       // ASVS 16.5.1, 16.5.3: no response body or transport detail reaches the Instructor.
@@ -118,6 +135,57 @@ function QuestionForkControl(props: { readonly source: QuestionRevisionReference
         <p role="alert">{error()}</p>
       </Show>
     </section>
+  );
+}
+
+function QuestionPoolFromQuestionControl(props: { readonly detail: QuestionDetails }): JSX.Element {
+  const applicationApi = useApplicationApi();
+  const questionLibrary = createQuestionLibraryRepository(applicationApi.client);
+  const [createOpen, setCreateOpen] = createSignal(false);
+  let trigger: HTMLButtonElement | undefined;
+
+  function closeCreation(): void {
+    setCreateOpen(false);
+    queueMicrotask(() => trigger?.focus());
+  }
+
+  return (
+    <Show
+      when={createOpen()}
+      fallback={
+        <section
+          class="question-pool-from-question-control"
+          aria-label="Create Pool from this Published Question"
+        >
+          <h2>Create Pool from Question</h2>
+          <p>
+            Start a reusable Question Pool with this exact Revision first and its current Discipline
+            and Subject.
+          </p>
+          <button
+            ref={(element) => (trigger = element)}
+            type="button"
+            onClick={() => setCreateOpen(true)}
+          >
+            Create Pool from Question
+          </button>
+        </section>
+      }
+    >
+      <QuestionPoolCreateDialog
+        questionPoolClient={applicationApi.client}
+        questionLibrary={questionLibrary}
+        getQuestionDetails={applicationApi.client.getQuestionDetails}
+        startingQuestion={{
+          questionRevision: props.detail.summary.latestQuestionRevision,
+          questionTitle: props.detail.summary.metadata.questionTitle,
+          disciplineName: props.detail.disciplineName,
+          subjectName: props.detail.subjectName,
+        }}
+        onTaskPhaseChange={() => undefined}
+        onClose={closeCreation}
+      />
+    </Show>
   );
 }
 
@@ -375,6 +443,8 @@ export function QuestionDetailPage(): JSX.Element {
     const state = session.state();
     return state.kind === "authenticated" && state.session.account.productRole === "instructor";
   };
+  const [correctedBloom, setCorrectedBloom] = createSignal<BloomClassificationView>();
+  let correctionTarget = "";
   const detail = createAsync((): Promise<QuestionDetails> => {
     const questionReference = params["questionRef"];
     if (
@@ -392,6 +462,14 @@ export function QuestionDetailPage(): JSX.Element {
     return applicationApi.client
       .resolveQuestion(questionReference)
       .then((summary) => applicationApi.queries.questionDetails(summary.questionId));
+  });
+  createEffect(() => {
+    const reference = detail()?.summary.latestQuestionRevision;
+    if (reference === undefined) return;
+    const key = `${reference.questionId}:${reference.revisionNumber}`;
+    if (key === correctionTarget) return;
+    correctionTarget = key;
+    setCorrectedBloom(undefined);
   });
   return (
     <section class="page" data-route-surface="questionDetail">
@@ -450,6 +528,23 @@ export function QuestionDetailPage(): JSX.Element {
                   />
                 </Show>
               </section>
+              <Show when={record().responsePreview}>
+                {(preview) => (
+                  <QuestionResponsePreviewControl
+                    preview={preview()}
+                    questionRevision={record().summary.latestQuestionRevision}
+                    assetUrl={(asset) =>
+                      new URL(
+                        applicationApi.client.assetUrl(
+                          record().summary.latestQuestionRevision,
+                          asset.questionAsset,
+                        ),
+                        window.location.origin,
+                      )
+                    }
+                  />
+                )}
+              </Show>
               <section class="question-detail-support" aria-label="Question details and actions">
                 <CopyableQuestionId
                   questionTitle={record().summary.metadata.questionTitle}
@@ -475,6 +570,10 @@ export function QuestionDetailPage(): JSX.Element {
                       <Show when={record().disciplineIsRetired}> (retired)</Show>
                     </dd>
                   </div>
+                  <div>
+                    <dt>Subject</dt>
+                    <dd>{record().subjectName}</dd>
+                  </div>
                   <Show when={webworkFormatLabel(record().summary.questionFormat)}>
                     {(format) => (
                       <div>
@@ -487,7 +586,37 @@ export function QuestionDetailPage(): JSX.Element {
                     <dt>Revision</dt>
                     <dd>{record().summary.latestQuestionRevision.revisionNumber}</dd>
                   </div>
+                  <div>
+                    <dt>Bloom Classification</dt>
+                    <dd>
+                      <BloomClassificationText bloom={correctedBloom() ?? record().summary.bloom} />
+                    </dd>
+                  </div>
                 </dl>
+                <Show when={mayMutateLibrary()}>
+                  <BloomClassificationEditor
+                    targetName="Question"
+                    revisionNumber={record().summary.latestQuestionRevision.revisionNumber}
+                    bloom={correctedBloom() ?? record().summary.bloom}
+                    save={(request) =>
+                      applicationApi.client
+                        .correctQuestionBloom(record().summary.latestQuestionRevision, request)
+                        .then((receipt) => receipt.bloom)
+                    }
+                    loadCurrent={() =>
+                      applicationApi.client
+                        .getQuestionRevision(record().summary.latestQuestionRevision)
+                        .then((loaded) => loaded.summary.bloom)
+                    }
+                    onCurrent={setCorrectedBloom}
+                    onConflictCurrent={() =>
+                      refreshQuestionLibraryReturnState(libraryReturnToken())
+                    }
+                    onAccepted={(_bloom, changed) => {
+                      if (changed) refreshQuestionLibraryReturnState(libraryReturnToken());
+                    }}
+                  />
+                </Show>
                 <Show
                   when={
                     record().summary.backend === "webwork" ||
@@ -517,7 +646,10 @@ export function QuestionDetailPage(): JSX.Element {
                   client={applicationApi.client}
                   questionId={record().summary.questionId}
                   renderAvailableAction={() => (
-                    <QuestionForkControl source={record().summary.latestQuestionRevision} />
+                    <>
+                      <QuestionPoolFromQuestionControl detail={record()} />
+                      <QuestionForkControl source={record().summary.latestQuestionRevision} />
+                    </>
                   )}
                 />
               </Show>

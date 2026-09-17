@@ -2,9 +2,7 @@
 
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
-use question_model::{
-    DraftQuestionReference, ObjectId, QuestionFormat, QuestionType, Timestamp, WorkspaceId,
-};
+use question_model::{ObjectId, QuestionFormat, QuestionType, Timestamp, WorkspaceId};
 use sqlx::{Postgres, Row, Transaction, types::Json};
 use uuid::Uuid;
 
@@ -114,7 +112,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
-        let reference_number: i64 = sqlx::query_scalar(
+        let draft_question_uuid: Uuid = sqlx::query_scalar(
             "SELECT ple_api.create_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
         )
         .bind(workspace.as_uuid())
@@ -135,20 +133,23 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         .await
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        self.load_authoring_draft(session_token_hash, reference(reference_number)?)
-            .await
+        self.load_authoring_draft(
+            session_token_hash,
+            DraftQuestionUuid::from_uuid(draft_question_uuid),
+        )
+        .await
     }
 
     async fn load_authoring_draft(
         &self,
         session_token_hash: SessionTokenHash,
-        reference: DraftQuestionReference,
+        draft_question_uuid: DraftQuestionUuid,
     ) -> Result<AuthoringDraft, StoreError> {
         let mut transaction = self
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         let row = sqlx::query("SELECT * FROM ple_api.load_authoring_draft($1)")
-            .bind(i64::from(reference.number()))
+            .bind(draft_question_uuid.as_uuid())
             .fetch_optional(&mut *transaction)
             .await
             .map_err(map_sqlx_error)?;
@@ -167,7 +168,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         input: SaveAuthoringDraftInput,
     ) -> Result<AuthoringDraft, StoreError> {
         let current = self
-            .load_authoring_draft(session_token_hash, input.reference)
+            .load_authoring_draft(session_token_hash, input.draft_question_uuid)
             .await?;
         validate_workspace_question_source_object_record(current.workspace, &input.source_record)?;
         let address = encode_address(&input.source_record)?;
@@ -178,7 +179,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         sqlx::query(
             "SELECT ple_api.save_authoring_draft($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)",
         )
-        .bind(i64::from(input.reference.number()))
+        .bind(input.draft_question_uuid.as_uuid())
         .bind(input.expected_edit_number.as_postgres_bigint())
         .bind(input.source_record.id.as_uuid())
         .bind(address)
@@ -196,7 +197,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
         .await
         .map_err(map_sqlx_error)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        self.load_authoring_draft(session_token_hash, input.reference)
+        self.load_authoring_draft(session_token_hash, input.draft_question_uuid)
             .await
     }
 
@@ -209,7 +210,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         sqlx::query("SELECT * FROM ple_api.save_authoring_draft_general_feedback($1, $2, $3)")
-            .bind(i64::from(input.reference.number()))
+            .bind(input.draft_question_uuid.as_uuid())
             .bind(input.expected_edit_number.as_postgres_bigint())
             .bind(&input.general_feedback)
             .fetch_optional(&mut *transaction)
@@ -217,7 +218,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
             .map_err(map_sqlx_error)?
             .ok_or(StoreError::NotFound)?;
         transaction.commit().await.map_err(map_sqlx_error)?;
-        self.load_authoring_draft(session_token_hash, input.reference)
+        self.load_authoring_draft(session_token_hash, input.draft_question_uuid)
             .await
     }
 
@@ -230,7 +231,7 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
             .begin_authenticated_application_transaction(session_token_hash)
             .await?;
         sqlx::query("SELECT ple_api.delete_draft_question($1, $2)")
-            .bind(i64::from(input.reference.number()))
+            .bind(input.draft_question_uuid.as_uuid())
             .bind(input.expected_edit_number.as_postgres_bigint())
             .execute(&mut *transaction)
             .await
@@ -242,7 +243,9 @@ impl AuthoringDraftStore for PostgresAuthoringDraftStore {
 
 fn decode_summary(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraftSummary, StoreError> {
     Ok(AuthoringDraftSummary {
-        reference: reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
+        draft_question_uuid: DraftQuestionUuid::from_uuid(
+            row.try_get("draft_question_uuid").map_err(map_sqlx_error)?,
+        ),
         edit_number: edit_number(
             row.try_get("draft_question_edit_number")
                 .map_err(map_sqlx_error)?,
@@ -263,7 +266,6 @@ fn decode_draft(row: &sqlx::postgres::PgRow) -> Result<AuthoringDraft, StoreErro
             row.try_get("draft_question_uuid").map_err(map_sqlx_error)?,
         ),
         workspace,
-        reference: reference(row.try_get("reference_number").map_err(map_sqlx_error)?)?,
         edit_number: edit_number(
             row.try_get("draft_question_edit_number")
                 .map_err(map_sqlx_error)?,
@@ -332,13 +334,6 @@ fn encode_address(record: &ObjectRecord) -> Result<serde_json::Value, StoreError
 
 fn postgres_size(value: u64) -> Result<i64, StoreError> {
     i64::try_from(value).map_err(|_| invalid("source size"))
-}
-
-fn reference(value: i64) -> Result<DraftQuestionReference, StoreError> {
-    u64::try_from(value)
-        .ok()
-        .and_then(DraftQuestionReference::new)
-        .ok_or_else(|| invalid("Draft Question Reference"))
 }
 
 fn edit_number(value: i64) -> Result<DraftQuestionEditNumber, StoreError> {

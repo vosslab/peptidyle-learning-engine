@@ -92,8 +92,8 @@ BEGIN
     -- ASVS 8.2.1/2, 8.3.1/2: authorization is enforced at the SQL boundary.
     IF NOT ple_api.current_session_account_is_instructor()
        OR v_actor IS NULL OR p_source_reference IS NULL OR p_target_reference IS NULL
-       OR p_source_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
-       OR p_target_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_source_reference, 'BP')
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_target_reference, 'BP')
        OR p_source_reference = p_target_reference THEN
         RAISE EXCEPTION 'Blueprint Proposal is unavailable' USING ERRCODE = '42501';
     END IF;
@@ -222,7 +222,7 @@ BEGIN
     IF p_mine IS NULL OR p_limit IS NULL OR p_limit NOT BETWEEN 1 AND 101
        OR (p_mine AND p_target_reference IS NOT NULL)
        OR (NOT p_mine AND (p_target_reference IS NULL
-           OR p_target_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'))
+           OR NOT ple_private.is_canonical_prefixed_public_id(p_target_reference, 'BP')))
        OR (p_after_created_at IS NULL) <> (p_after_proposal_id IS NULL) THEN
         RAISE EXCEPTION 'Blueprint Proposal list request is invalid' USING ERRCODE = '22023';
     END IF;

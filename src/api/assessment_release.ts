@@ -17,6 +17,7 @@ import type { BlueprintCourseReference } from "../../generated/api/BlueprintCour
 import type { BlueprintAssessmentDefaults } from "../../generated/api/BlueprintAssessmentDefaults";
 import type { FixedQuestionAssessmentEntry } from "../../generated/api/FixedQuestionAssessmentEntry";
 import type { QuestionPoolAssessmentEntry } from "../../generated/api/QuestionPoolAssessmentEntry";
+import type { BloomClassificationView } from "../../generated/api/BloomClassificationView";
 
 export type AssessmentBlueprintUpdateEntry =
   | ({ readonly kind: "fixedQuestion" } & Omit<FixedQuestionAssessmentEntry, "id" | "availability">)
@@ -100,12 +101,14 @@ export interface AssessmentQuestionPickerEntry {
   /** Exact current Question Revision chosen by this picker row. */
   readonly reference: QuestionRevisionReference;
   readonly description: string;
+  readonly bloom: BloomClassificationView;
 }
 
 /** Answer-free exact Question Revision pin shown in the Instructor workspace. */
 export interface AuthoredAssessmentQuestion {
   readonly reference: QuestionRevisionReference;
   readonly description: string;
+  readonly bloom: BloomClassificationView;
 }
 
 export interface LiveAssessmentWorkspace {

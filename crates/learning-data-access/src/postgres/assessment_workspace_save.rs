@@ -70,12 +70,17 @@ fn selected_question_order(v: question_model::QuestionPoolSelectedQuestionOrder)
 #[cfg(test)]
 mod tests {
     use super::assessment_entries_json;
-    use question_model::AssessmentEntry;
+    use question_model::{AssessmentEntry, QuestionId};
+
     #[test]
     fn mixed_exact_pins_and_pool_policies_encode_without_loss() {
+        let question_id = QuestionId::from_random_identifier("ABCDEFG")
+            .expect("test Question random identity is canonical");
+        let question_pool_id = QuestionId::from_random_identifier("1234567")
+            .expect("test Question Pool random identity is canonical");
         let entries: Vec<AssessmentEntry> = serde_json::from_value(serde_json::json!([
-            {"kind":"fixedQuestion","id":"00000000-0000-0000-0000-000000000001","reference":{"questionId":"7K3M-X9QP","revisionNumber":2},"pointsPossible":"3.5","availability":"available","scoringRule":"normal","questionAttemptLimit":{"maxAttempts":2},"questionAttemptTimeLimit":{"kind":"limited","seconds":90,"graceSeconds":5}},
-            {"kind":"questionPool","id":"00000000-0000-0000-0000-000000000002","questionPoolRevision":{"questionPoolId":"7K3M-X9QP","revisionNumber":1},"availability":"retired","scoringRule":"extraCredit","selectionCount":1,"pointsPerItem":"2","selectionRule":{"selectedQuestionOrder":"randomOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}
+            {"kind":"fixedQuestion","id":"00000000-0000-0000-0000-000000000001","reference":{"questionId":question_id,"revisionNumber":2},"pointsPossible":"3.5","availability":"available","scoringRule":"normal","questionAttemptLimit":{"maxAttempts":2},"questionAttemptTimeLimit":{"kind":"limited","seconds":90,"graceSeconds":5}},
+            {"kind":"questionPool","id":"00000000-0000-0000-0000-000000000002","questionPoolRevision":{"questionPoolId":question_pool_id,"revisionNumber":1},"availability":"retired","scoringRule":"extraCredit","selectionCount":1,"pointsPerItem":"2","selectionRule":{"selectedQuestionOrder":"randomOrder"},"questionAttemptLimit":{"maxAttempts":null},"questionAttemptTimeLimit":{"kind":"unlimited"}}
         ])).expect("mixed exact-pinned entries deserialize");
         let value = assessment_entries_json(&entries).expect("entries encode for PostgreSQL");
         assert_eq!(
@@ -83,10 +88,10 @@ mod tests {
             "00000000-0000-0000-0000-000000000001"
         );
         assert_eq!(value[0]["revisionNumber"], 2);
-        assert_eq!(value[0]["questionId"], "7K3MX9QP");
+        assert_eq!(value[0]["questionId"], question_id.as_str());
         assert_eq!(value[0]["questionAttemptGraceSeconds"], 5);
         assert_eq!(value[1]["selectedQuestionOrder"], "random_order");
-        assert_eq!(value[1]["questionPoolId"], "7K3MX9QP");
+        assert_eq!(value[1]["questionPoolId"], question_pool_id.as_str());
         assert_eq!(value[1]["questionPoolRevisionNumber"], 1);
     }
 }

@@ -93,6 +93,7 @@ impl PostgresBlueprintCourseStore {
         prior: &StoredBlueprintCourseContent,
         content: &StoredBlueprintCourseContent,
         daughters: Vec<sqlx::postgres::PgRow>,
+        bloom_receipts: &mut crate::PoolBloomPreparationReceipts,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError> {
         let prior_sources: BTreeSet<_> = prior
             .modules
@@ -112,7 +113,7 @@ impl PostgresBlueprintCourseStore {
             materialized_daughters.push(json!({
                 "course_id": course_id,
                 "assessments": super::course_blueprint_adoption::materialize(
-                    &additions, self.pool_id_issuer.as_deref()
+                    &additions, self.pool_id_issuer.as_deref(), bloom_receipts
                 )?,
             }));
         }
@@ -261,8 +262,10 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         &self,
         session: SessionTokenHash,
         input: crate::ApplyBlueprintForkInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<crate::ApplyBlueprintForkResult, StoreError> {
-        self.apply_fork_in_transaction(session, input).await
+        self.apply_fork_in_transaction(session, input, bloom_receipts)
+            .await
     }
     async fn list_blueprint_courses(
         &self,
@@ -341,6 +344,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         exchange: CanonicalBlueprintCourse,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
         let input = exchange
             .into_create_input()
@@ -348,7 +352,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         // ASVS 2.3.3: reuse the one atomic create transaction. It owns the
         // actor, Private lifecycle state, Revision 1, fresh local identities,
         // exact pin validation, and Pool forking.
-        self.create_blueprint_course(session, request_checksum, input)
+        self.create_blueprint_course(session, request_checksum, input, bloom_receipts)
             .await
     }
 
@@ -357,6 +361,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         input: CreateBlueprintCourseInput,
+        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
         input.validate().map_err(invalid_input)?;
         let short_name = input.short_name.clone();
@@ -419,6 +424,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             None,
             None,
             self.pool_id_issuer.as_deref(),
+            &mut bloom_receipts,
         )
         .await?;
         let encoded = encode_content(&content)?;
@@ -466,6 +472,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
         expected_revision: BlueprintRevision,
         request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
+        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError> {
         input.validate().map_err(invalid_input)?;
         let pool_choices = input
@@ -524,7 +531,8 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
                 .await
                 .map_err(map_sqlx_error)?;
         let prior =
-            load_revision_content(&mut transaction, reference_value, expected_revision).await?;
+            load_revision_content(&mut transaction, reference_value.clone(), expected_revision)
+                .await?;
         let requested =
             StoredBlueprintCourseContent::requested_question_revisions_from_replace(&input);
         validate_question_references(&mut transaction, requested, Some(&prior)).await?;
@@ -534,9 +542,10 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
             &mut transaction,
             &mut content,
             pool_choices,
-            Some((reference_value, expected_revision)),
+            Some((reference_value.clone(), expected_revision)),
             Some(&prior),
             self.pool_id_issuer.as_deref(),
+            &mut bloom_receipts,
         )
         .await?;
         let receipt = self
@@ -549,6 +558,7 @@ impl BlueprintCourseStore for PostgresBlueprintCourseStore {
                 &prior,
                 &content,
                 daughters,
+                &mut bloom_receipts,
             )
             .await?;
         transaction.commit().await.map_err(map_sqlx_error)?;

@@ -75,7 +75,7 @@ CREATE FUNCTION ple_api.create_course_instance(
 )
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid,
-              subtopic_uuid uuid, tags text[], metadata_etag uuid)
+              subtopic_uuid uuid, tags text[], metadata_etag uuid, course_lifecycle_state text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private, ple_audit AS $$
 DECLARE
     actor uuid;
@@ -207,7 +207,8 @@ BEGIN
     );
     RETURN QUERY SELECT course.public_reference, course.course_short_name, course.course_long_name,
         course.term_starts_on, course.term_ends_on, course.discipline_uuid, course.subject_uuid,
-        course.topic_uuid, course.subtopic_uuid, course.tags, course.metadata_etag
+        course.topic_uuid, course.subtopic_uuid, course.tags, course.metadata_etag,
+        course.course_lifecycle_state
         FROM ple_data.course_instance AS course WHERE course.course_id = p_course_id;
 END
 $$;
@@ -260,12 +261,13 @@ $$;
 CREATE FUNCTION ple_api.list_course_instances()
 RETURNS TABLE(public_reference text, short_name text, long_name text, term_starts_on date,
               term_ends_on date, course_theme text, discipline_uuid uuid, subject_uuid uuid,
-              topic_uuid uuid, subtopic_uuid uuid, tags text[], metadata_etag uuid)
+              topic_uuid uuid, subtopic_uuid uuid, tags text[], metadata_etag uuid,
+              course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.public_reference, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, course.course_theme,
            course.discipline_uuid, course.subject_uuid, course.topic_uuid,
-           course.subtopic_uuid, course.tags, course.metadata_etag
+           course.subtopic_uuid, course.tags, course.metadata_etag, course.course_lifecycle_state
       FROM ple_data.course_instance AS course
       JOIN ple_data.course_membership AS membership
         ON membership.course_id = course.course_id
@@ -282,7 +284,7 @@ RETURNS TABLE(public_reference text, short_name text, long_name text, term_start
               active_instructor_count bigint, blueprint_reference text,
               adopted_blueprint_revision bigint, current_blueprint_revision bigint,
               discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid,
-              tags text[], metadata_etag uuid)
+              tags text[], metadata_etag uuid, course_lifecycle_state text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data AS $$
     SELECT course.public_reference, course.course_short_name, course.course_long_name,
            course.term_starts_on, course.term_ends_on, course.course_theme,
@@ -294,7 +296,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
                 THEN course.blueprint_revision_number END,
            readable_blueprint.current_blueprint_revision_number,
            course.discipline_uuid, course.subject_uuid, course.topic_uuid,
-           course.subtopic_uuid, course.tags, course.metadata_etag
+           course.subtopic_uuid, course.tags, course.metadata_etag, course.course_lifecycle_state
       FROM ple_data.course_instance AS course
       LEFT JOIN ple_data.blueprint_course AS parent_blueprint
         ON parent_blueprint.reference_number = course.blueprint_course_reference_number
@@ -512,9 +514,14 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_
 $$;
 
 CREATE FUNCTION ple_api.list_pending_student_course_invitations()
-RETURNS TABLE(course_public_reference text, course_short_name text, course_long_name text)
+RETURNS TABLE(course_public_reference text, course_short_name text, course_long_name text,
+              instructor_display_name text, term_starts_on date, term_ends_on date)
 LANGUAGE sql VOLATILE SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_data, ple_private AS $$
-    SELECT course.public_reference, course.course_short_name, course.course_long_name
+    -- ASVS 8.2.2/8.2.3/14.2.6: self-only invitations reveal the assigned
+    -- Instructor's verified display name and Course term, never roster identities.
+    SELECT course.public_reference, course.course_short_name, course.course_long_name,
+           ple_private.verified_instructor_display_name(course.assigned_instructor_account_id),
+           course.term_starts_on, course.term_ends_on
       FROM ple_private.account AS account
       JOIN LATERAL (
           SELECT event.state

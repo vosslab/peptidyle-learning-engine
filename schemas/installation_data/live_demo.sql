@@ -248,6 +248,7 @@ BEGIN
                 WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
                   AND course_id = '00000000-0000-0000-0000-000000000220'
                   AND assessment_status = 'released'
+                  AND assessment_type = 'practice_question_assignment'
                   AND assessment_title = 'Chapter 1 Pilot Practice'
            )
            OR (SELECT count(*) FROM ple_data.assessment_entry
@@ -309,7 +310,7 @@ BEGIN
         'adopted',
         (SELECT blueprint_course_reference_number FROM ple_data.course_instance WHERE course_id = '00000000-0000-0000-0000-000000000220'),
         1, expected_blueprint_assessment_reference, clock_timestamp(), clock_timestamp(),
-        'regular_assignment',
+        'practice_question_assignment',
         'Chapter 1 Pilot Practice', 'Complete the four reviewed Chapter 1 practice questions.',
         (SELECT active_until_at FROM ple_data.course_instance
           WHERE course_id = '00000000-0000-0000-0000-000000000220'),

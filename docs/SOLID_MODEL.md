@@ -64,8 +64,8 @@ the scope is below the persistent shell and therefore cannot leak a prior
 course's CSS variables onto a global route.
 
 The workspace editor is an implemented bounded Instructor authoring capability. Its route guard
-and server boundary resolve the route-selected opaque Draft Question Reference under Authoring
-Workspace access before returning any draft; the current routes are listed in
+and server boundary resolve the route-selected private Draft UUID under
+Authoring Workspace access before returning any draft; the current routes are listed in
 [API_CONTRACTS.md](API_CONTRACTS.md). The answer-free preview remains separate, and private author
 source does not enter Student components, URLs, browser storage, or diagnostics.
 

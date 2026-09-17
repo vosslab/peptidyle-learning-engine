@@ -42,7 +42,10 @@ use crate::auth::{
     session_router, sysadmin_totp_router,
 };
 
+mod bloom_classification;
 mod object_storage;
+
+pub use self::bloom_classification::bloom_publication_preparation_from_env;
 
 use self::object_storage::{ObjectStoragePrincipal, object_store_from_env};
 
@@ -136,20 +139,21 @@ pub async fn production_router_from_env() -> Result<Router> {
     let authoring_drafts = PostgresAuthoringDraftStore::new(pool.clone());
     let authoring_assets = PostgresAuthoringAssetsStore::new(pool.clone());
     let authoring_publication = PostgresDraftQuestionSourceBindingStore::new(pool.clone());
+    let bloom_publication = bloom_publication_preparation_from_env(pool.clone())?;
     let question_library_objects = question_library_object_store_from_env().await?;
     let webwork_adapter = webwork_adapter_from_env()?;
     let webwork_asset_proxy = webwork_asset_proxy_from_env()?;
     let question_id_issuer = question_id_issuer();
     let blueprint_lineage = PostgresBlueprintLineageStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
     let assessments = PostgresLiveAssessmentStore::new(pool.clone())
-        .with_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+        .with_pool_id_issuer(Arc::new(question_id_issuer));
     let blueprint_courses = PostgresBlueprintCourseStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
     let course_blueprint_publication = PostgresCourseBlueprintPublicationStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
     let course_instances = PostgresCourseInstanceStore::new(pool.clone())
-        .with_question_pool_id_issuer(Arc::new(question_id_issuer.clone()));
+        .with_question_pool_id_issuer(Arc::new(question_id_issuer));
     let browser_boundary = production_browser_boundary_from_env()?;
     let session_config = production_session_config();
     let readiness_router = Router::new()
@@ -213,7 +217,7 @@ pub async fn production_router_from_env() -> Result<Router> {
             crate::question_pool_creation::question_pool_creation_router(
                 Arc::clone(&sessions),
                 question_pool_creation,
-                question_id_issuer.clone(),
+                question_id_issuer,
             ),
         )
         .merge(crate::question_fork::question_fork_router(
@@ -247,7 +251,8 @@ pub async fn production_router_from_env() -> Result<Router> {
             authoring_assets,
             authoring_publication,
             question_library_objects.clone(),
-            question_id_issuer.clone(),
+            question_id_issuer,
+            bloom_publication,
         ))
         .merge(crate::blueprint_course::blueprint_course_router(
             Arc::clone(&sessions),
@@ -329,7 +334,7 @@ pub async fn production_router_from_env() -> Result<Router> {
         .merge(crate::assessment_pool_fork::assessment_pool_fork_router(
             Arc::clone(&sessions),
             assessment_pool_forks,
-            question_id_issuer.clone(),
+            question_id_issuer,
         ))
         .merge(
             crate::assessment_pool_selection_count::assessment_pool_selection_count_router(

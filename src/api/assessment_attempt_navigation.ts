@@ -70,6 +70,10 @@ export interface StudentAssessmentAttemptNavigationClient {
     assessmentAttempt: AssessmentAttemptReference,
     position: number,
   ) => Promise<StudentAssessmentAttemptPresentation>;
+  readonly studentAuthorContentDocumentUrl: (
+    assessmentAttempt: AssessmentAttemptReference,
+    position: number,
+  ) => string;
   readonly saveStudentAssessmentAttemptResponse: (
     assessmentAttempt: AssessmentAttemptReference,
     position: number,

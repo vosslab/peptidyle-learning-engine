@@ -27,7 +27,8 @@ CREATE TABLE ple_data.library_improvement_thread (
     resolved_by_account_id uuid REFERENCES ple_private.account(account_id),
     resolved_at timestamptz,
     CHECK ((state = 'open' AND resolved_by_account_id IS NULL AND resolved_at IS NULL)
-        OR (state = 'resolved' AND resolved_by_account_id IS NOT NULL AND resolved_at IS NOT NULL))
+        OR (state = 'resolved' AND resolved_by_account_id IS NOT NULL
+            AND resolved_at IS NOT NULL AND resolved_at >= created_at))
 );
 CREATE INDEX library_improvement_thread_object_idx
     ON ple_data.library_improvement_thread(object_kind, public_object_id, created_at, thread_id);
@@ -76,7 +77,9 @@ CREATE TABLE ple_data.library_impact_notice (
     cancelled_by_account_id uuid REFERENCES ple_private.account(account_id),
     cancelled_at timestamptz,
     CHECK ((state = 'active' AND cancelled_by_account_id IS NULL AND cancelled_at IS NULL)
-        OR (state = 'cancelled' AND cancelled_by_account_id IS NOT NULL AND cancelled_at IS NOT NULL))
+        OR (state = 'cancelled' AND cancelled_by_account_id IS NOT NULL
+            AND cancelled_at IS NOT NULL AND cancelled_at >= created_at
+            AND updated_at = cancelled_at))
 );
 CREATE INDEX library_impact_notice_object_idx
     ON ple_data.library_impact_notice(object_kind, public_object_id, created_at DESC, impact_notice_id);
@@ -106,6 +109,6 @@ COMMENT ON TABLE ple_data.library_improvement_thread IS
 COMMENT ON TABLE ple_data.library_improvement_post IS
     'Retained text-only vetted-Instructor thread post with a visible creation-time verified display name.';
 COMMENT ON TABLE ple_data.library_impact_notice IS
-    'Owner- or Sysadmin-maintained retained impact notice for a stable Library Object lineage; cancelled notices remain historical.';
+    'Question-owner- or Sysadmin-maintained retained impact notice; Pool administration is Sysadmin-only and cancelled notices remain historical.';
 
 RESET ROLE;

@@ -90,13 +90,44 @@ Assessment references, or Student Work.
 The trusted initialization seam inserts once and cannot overwrite a correction.
 It validates storage values, not semantic correctness or model origin. AI initial
 assignment during publication and required classification before Library entry remain
-the product contract, not completed runtime behavior. This foundation does not yet
-require every Revision to have a pair or hide unclassified Library entries. Atomic
-publication attachment, protected AI preparation bound to exact source, all Question
-and Pool creation/append/fork/adoption producers, legacy classification, typed
-read/correction routes, search, and reporting remain cutover dependencies. Forks need
-their own whole-Pool judgment; corrected source classification is not an automatic
-AI-assigned target classification. No default classification or provider is selected.
+the product contract, not completed runtime behavior. Current Question and Pool
+Library reads project the required pair and its independent Edit Number for the exact
+Revision requested, including the exact Pool Revision route. A Question summary's
+legacy `latestQuestionRevision` field carries that exact requested Revision on an
+exact-detail route; it does not trigger a second latest-Revision lookup.
+
+The B2 source boundary corrects the exact Question or Pool Revision through its
+dedicated `/bloom` route. An active vetted Instructor sends the complete pair and
+expected classification Edit Number; authority comes from current exact Library
+read access, not ownership. The pair is locked and checked for staleness before
+no-op handling. A stale request receives `412`; a current no-op retains the Edit
+Number and a changed pair advances it once. Sysadmins remain read-only. The browser
+does not retry or merge: it reloads the same exact Revision, keeps the draft pair,
+and requires explicit resave. No correction creates a content Revision.
+
+Question Library Browse accepts the two Bloom values as independent optional exact predicates.
+When either is present, it combines with every other normalized search predicate; neither changes
+the existing `titleAscending` or `publishedNewest` sorts. A saved `QuestionSearchFilter`, URL
+handoff, and opaque cursor retain the same normalized Bloom pair and sort; a cursor cannot continue
+a different normalized query. The server returns whole-matching-set Bloom facets in guide order:
+six Cognitive Process values and four Knowledge Dimension values, including zero counts and an
+empty result.
+
+Question Pool discovery applies the same two independent optional exact values to the current
+Pool Revision's own classification. Both values are part of the Pool cursor's normalized query
+binding. PostgreSQL applies every Pool-owned predicate before its page limit and returns the page
+with complete six-plus-four matching-set counts from that one filtered relation. Counts therefore
+remain available for an empty page and never derive from loaded rows or member Questions. Returning
+from exact Pool inspection retains the applied Pool filters, counts, results, and position; a
+classification correction refreshes the applied query before those results are shown again.
+
+The B1/B2 source paths still need connected two-Instructor, denied-role, and
+browser proof. Configured AI execution, complete publication orchestration, and
+legacy classification remain open product work. The source-approved Question and Pool
+Library filter/report paths still need connected multi-page, role, and browser
+proof. Forks need their own whole-Pool judgment; corrected source classification
+is not an automatic AI-assigned target classification. No default classification
+or provider is selected.
 
 ## Assessment selection and Student Work
 

@@ -60,7 +60,7 @@ pub(super) async fn import(
     };
     let receipt = match state
         .blueprints
-        .import_blueprint_course(session, checksum, exchange)
+        .import_blueprint_course(session, checksum, exchange, Default::default())
         .await
     {
         Ok(value) => value,
@@ -80,12 +80,7 @@ fn valid_question_ids(exchange: &CanonicalBlueprintCourse) -> bool {
         .flat_map(|module| module.assessments())
         .flat_map(|assessment| assessment.entries())
         .all(|entry| match entry {
-            CanonicalBlueprintAssessmentEntry::Fixed {
-                published_question, ..
-            } => true,
-            CanonicalBlueprintAssessmentEntry::Pool {
-                question_pool_revision,
-                ..
-            } => true,
+            CanonicalBlueprintAssessmentEntry::Fixed { .. } => true,
+            CanonicalBlueprintAssessmentEntry::Pool { .. } => true,
         })
 }

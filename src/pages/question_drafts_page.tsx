@@ -3,15 +3,14 @@
 import { A, useNavigate } from "@solidjs/router";
 import { For, Show, createMemo, createResource, createSignal, type JSX } from "solid-js";
 
-import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
 import { createDefaultPleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_defaults";
 import { PLE_QUESTION_JSON_MEDIA_TYPE } from "../features/ple_question_json_authoring/question_json_source";
 import { serializePleQuestionJsonSource } from "../features/ple_question_json_authoring/question_json_codec";
-import { parseDraftQuestionReference } from "../navigation/public_route";
+import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
 import "./question_drafts_page.css";
 
 type DraftSummary = {
-  readonly draftQuestion: DraftQuestionReference;
+  readonly draftQuestion: DraftQuestionRouteId;
   readonly editNumber: number;
   readonly questionTitle: string;
   readonly questionDescription: string;
@@ -44,7 +43,7 @@ function isDraftList(value: unknown): value is { readonly items: ReadonlyArray<D
     return (
       Object.keys(summary).length === 4 &&
       typeof summary.draftQuestion === "string" &&
-      parseDraftQuestionReference(summary.draftQuestion) !== null &&
+      parseDraftQuestionId(summary.draftQuestion) !== null &&
       Number.isSafeInteger(summary.editNumber) &&
       typeof summary.questionTitle === "string" &&
       typeof summary.questionDescription === "string"
@@ -52,7 +51,7 @@ function isDraftList(value: unknown): value is { readonly items: ReadonlyArray<D
   });
 }
 
-function createdDraftReference(value: unknown): DraftQuestionReference | null {
+function createdDraftId(value: unknown): DraftQuestionRouteId | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const record = value as Record<string, unknown>;
   if (
@@ -62,7 +61,7 @@ function createdDraftReference(value: unknown): DraftQuestionReference | null {
   ) {
     return null;
   }
-  return parseDraftQuestionReference(record.draftQuestion);
+  return parseDraftQuestionId(record.draftQuestion);
 }
 
 /** Lists only the signed-in Instructor's private Draft Questions. */
@@ -92,9 +91,11 @@ export function QuestionDraftsPage(): JSX.Element {
         cache: "no-store",
       });
       if (!response.ok) throw new Error("A new private draft could not be created.");
-      const reference = createdDraftReference(await response.json());
-      if (reference === null) throw new Error("A new private draft returned an invalid response.");
-      navigate(`/authoring/drafts/${encodeURIComponent(reference)}`);
+      const draftQuestionId = createdDraftId(await response.json());
+      if (draftQuestionId === null) {
+        throw new Error("A new private draft returned an invalid response.");
+      }
+      navigate(`/authoring/drafts/${encodeURIComponent(draftQuestionId)}`);
     } catch (error: unknown) {
       setMessage({
         kind: "error",
@@ -226,7 +227,6 @@ export function QuestionDraftsPage(): JSX.Element {
                     </div>
                     <p class="draft-question-metadata">
                       <span>Private draft</span>
-                      <span>Reference {draft.draftQuestion}</span>
                       <span>Edit Number {draft.editNumber}</span>
                     </p>
                     <div class="draft-question-actions">

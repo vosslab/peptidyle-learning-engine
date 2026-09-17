@@ -22,10 +22,7 @@ CREATE TABLE ple_data.blueprint_course (
     blueprint_id uuid PRIMARY KEY,
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL,
     public_reference text NOT NULL UNIQUE CHECK (
-        public_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
-        AND right(public_reference, 1) = ple_private.crockford_checksum_character(
-            left(public_reference, char_length(public_reference) - 1)
-        )
+        ple_private.is_canonical_prefixed_public_id(public_reference, 'BP')
     ),
     owner_account_id uuid NOT NULL REFERENCES ple_private.account (account_id),
     short_name text NOT NULL CHECK (char_length(btrim(short_name)) BETWEEN 1 AND 500),

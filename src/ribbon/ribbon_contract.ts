@@ -14,13 +14,14 @@ import {
   parseBlueprintChangeProposalHandle,
   parseCourseInstanceReference,
   parseCourseMembershipReference,
-  parseDraftQuestionReference,
+  parseDraftQuestionId,
   parseQuestionRouteReference,
 } from "../navigation/public_route";
 import {
   ROUTE_CONTRACT,
   productRoleMayAccessRoute,
   productRoleHomeRouteId,
+  productRoleHomePath,
   routeContractForPathname,
   type ContentLayout,
   type RibbonScope,
@@ -136,7 +137,7 @@ export interface RibbonTaskAreaModel {
 /** A shell-owned location in the route-derived breadcrumb trail. */
 export interface RibbonBreadcrumbModel {
   readonly label: string;
-  readonly href?: string;
+  readonly href: string;
   readonly current: boolean;
 }
 
@@ -147,12 +148,9 @@ export interface RibbonModel {
   readonly context: RibbonContextModel;
   readonly tabs: ReadonlyArray<RibbonControlModel<RibbonTabId>>;
   readonly taskAreas: ReadonlyArray<RibbonTaskAreaModel>;
-  /**
-   * A route-derived content prelude. An empty trail reserves no landmark, but
-   * lets the shell retain its declared prelude geometry while labels resolve.
-   */
+  /** Role-home-rooted locations; unresolved scopes retain the home link. */
   readonly breadcrumbs: ReadonlyArray<RibbonBreadcrumbModel>;
-  /** Route topology reserves the content-prelude footprint while labels resolve. */
+  /** Every signed-in route reserves the same breadcrumb footprint. */
   readonly breadcrumbPreludeReserved: boolean;
 }
 
@@ -210,7 +208,7 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   assessmentAttemptRef: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
   questionRef: parseQuestionRouteReference,
-  draftQuestionRef: parseDraftQuestionReference,
+  draftQuestionId: parseDraftQuestionId,
   blueprintCourseRef: parseBlueprintCourseReference,
   proposalId: parseBlueprintChangeProposalHandle,
 };
@@ -471,23 +469,49 @@ function breadcrumbLink(
   return buildRoutePath(routeId, params);
 }
 
-function breadcrumbCurrent(label: string): RibbonBreadcrumbModel {
-  return Object.freeze({ label, current: true });
-}
-
 function breadcrumbLinkItem(label: string, href: string): RibbonBreadcrumbModel {
   return Object.freeze({ label, href, current: false });
 }
 
+/**
+ * Breadcrumbs use the Course's human-readable title, not the public reference
+ * sometimes prepended by legacy display projections. Only the resolved route's
+ * own reference is eligible, so title text that merely resembles an ID remains
+ * untouched.
+ */
+function courseBreadcrumbLabel(
+  courseLongName: string | undefined,
+  courseReference: string | undefined,
+): string {
+  if (courseLongName === undefined || courseReference === undefined)
+    return courseLongName ?? "Course";
+  const prefixes = [
+    `Course ${courseReference}:`,
+    `Course ${courseReference} -`,
+    `${courseReference}:`,
+    `${courseReference} -`,
+  ];
+  const prefix = prefixes.find((candidate) => courseLongName.startsWith(candidate));
+  if (prefix === undefined) return courseLongName;
+  const title = courseLongName.slice(prefix.length).trim();
+  return title === "" ? "Course" : title;
+}
+
 function breadcrumbsFor(
   routeState: RibbonRouteState,
+  productRole: ProductRole,
   labels: RibbonContextLabels,
 ): ReadonlyArray<RibbonBreadcrumbModel> {
+  if (routeState.route.id === "signIn") return Object.freeze([]);
+  const homeHref = productRoleHomePath(productRole);
+  const home = breadcrumbLinkItem("Home", homeHref);
+  const currentHref = canonicalPathForRouteState(routeState);
   // A malformed declared route must never surface a reference-shaped label or
-  // a guessed ancestor. The shell retains its route-class geometry separately.
-  if (canonicalPathForRouteState(routeState) === undefined) return Object.freeze([]);
+  // a guessed ancestor. The known role home remains reachable while scope resolves.
+  if (currentHref === undefined) return Object.freeze([home]);
+  const breadcrumbCurrent = (label: string): RibbonBreadcrumbModel =>
+    Object.freeze({ label, href: currentHref, current: true });
 
-  const courses = breadcrumbLink("courses");
   const library = breadcrumbLink("library");
   const drafts = breadcrumbLink("questionDrafts");
   const blueprints = breadcrumbLink("blueprintCourses");
@@ -500,33 +524,80 @@ function breadcrumbsFor(
   };
   const instructorAssessment = breadcrumbLink("assessmentWorkspaceOverview", assessmentParams);
   const studentAssessment = breadcrumbLink("assessmentOverview", assessmentParams);
+  const courseLabel = courseBreadcrumbLabel(labels.courseLongName, routeState.params.courseRef);
   const assessmentLabel = labels.assessmentTitle ?? "Assessment";
   const studentAssessmentAccessLabel = labels.assessmentTitle ?? "Before you start";
 
   function courseTrail(current: string, courseHref: string | undefined): RibbonBreadcrumbModel[] {
-    if (courses === undefined || courseHref === undefined || labels.courseLongName === undefined)
-      return [];
-    return [
-      breadcrumbLinkItem("Courses", courses),
-      breadcrumbLinkItem(labels.courseLongName, courseHref),
-      breadcrumbCurrent(current),
-    ];
+    if (courseHref === undefined) return [];
+    return [home, breadcrumbLinkItem(courseLabel, courseHref), breadcrumbCurrent(current)];
   }
 
   switch (routeState.route.id) {
+    case "courses":
+    case "instructorHome":
+    case "studentHome":
+    case "sysadminHome":
+      return Object.freeze([{ ...home, current: true }]);
+    case "instructorInactiveCourses":
+      return Object.freeze([home, breadcrumbCurrent("My Inactive Courses")]);
+    case "profile":
+      return Object.freeze([home, breadcrumbCurrent("Profile settings")]);
+    case "accountSettings":
+      return Object.freeze([home, breadcrumbCurrent("Account settings")]);
+    case "pendingCourseInvitations":
+    case "studentCourseInvitations":
+      return Object.freeze([home, breadcrumbCurrent("Course Invitations")]);
+    case "studentCourseInvitation":
+      return Object.freeze([
+        home,
+        breadcrumbLinkItem(
+          "Course Invitations",
+          productRole === "student" ? "/student/course-invitations" : "/account/course-invitations",
+        ),
+        breadcrumbCurrent("Course Invitation"),
+      ]);
+    case "instructorAccounts":
+      return Object.freeze([home, breadcrumbCurrent("Instructor Accounts")]);
+    case "contentDisciplines":
+      return Object.freeze([home, breadcrumbCurrent("Disciplines")]);
+    case "library":
+      return Object.freeze([home, breadcrumbCurrent("Question Library")]);
+    case "libraryBrowse":
+    case "libraryWatchNotifications":
+      return Object.freeze([
+        home,
+        breadcrumbLinkItem("Question Library", library ?? homeHref),
+        breadcrumbCurrent(
+          routeState.route.id === "libraryBrowse"
+            ? "Browse Question Library"
+            : "Watch notifications",
+        ),
+      ]);
+    case "questionDrafts":
+      return Object.freeze([home, breadcrumbCurrent("My Draft Questions")]);
+    case "blueprintCourses":
+      return Object.freeze([home, breadcrumbCurrent("My Blueprint Courses")]);
+    case "myChangeProposals":
+      return Object.freeze([home, breadcrumbCurrent("My Change Proposals")]);
+    case "changeProposalDetail":
+      return Object.freeze([
+        home,
+        breadcrumbLinkItem("My Change Proposals", breadcrumbLink("myChangeProposals") ?? homeHref),
+        breadcrumbCurrent("Change Proposal"),
+      ]);
+    case "assessmentsDueSoon":
+      return Object.freeze([home, breadcrumbCurrent("Assessments Due Soon")]);
+    case "assessmentTemplates":
+      return Object.freeze([home, breadcrumbCurrent("My Assessment Templates")]);
     case "courseAssessments":
     case "studentCourseLanding":
-      return courses !== undefined && labels.courseLongName !== undefined
-        ? Object.freeze([
-            breadcrumbLinkItem("Courses", courses),
-            breadcrumbCurrent(labels.courseLongName),
-          ])
-        : Object.freeze([]);
+      return Object.freeze([home, breadcrumbCurrent(courseLabel)]);
     case "questionDetail":
       return library === undefined
         ? Object.freeze([])
         : Object.freeze([
-            breadcrumbLinkItem("Questions", library),
+            home,
             breadcrumbLinkItem("Question Library", library),
             breadcrumbCurrent("Question"),
           ]);
@@ -534,22 +605,17 @@ function breadcrumbsFor(
       return drafts === undefined
         ? Object.freeze([])
         : Object.freeze([
-            breadcrumbLinkItem("Questions", library ?? drafts),
+            home,
             breadcrumbLinkItem("My Draft Questions", drafts),
-            breadcrumbCurrent("Question authoring"),
+            breadcrumbCurrent("Question"),
           ]);
     case "publicBlueprintSearch":
-      return courses === undefined
-        ? Object.freeze([])
-        : Object.freeze([
-            breadcrumbLinkItem("Courses", courses),
-            breadcrumbCurrent("Search Public Blueprint Courses"),
-          ]);
+      return Object.freeze([home, breadcrumbCurrent("Search Public Blueprint Courses")]);
     case "blueprintCourseDetail":
       return blueprints === undefined
         ? Object.freeze([])
         : Object.freeze([
-            breadcrumbLinkItem("Courses", courses ?? blueprints),
+            home,
             breadcrumbLinkItem("My Blueprint Courses", blueprints),
             breadcrumbCurrent("Blueprint Course"),
           ]);
@@ -582,60 +648,24 @@ function breadcrumbsFor(
     case "courseRoster":
       return Object.freeze(courseTrail("Students", courseAssessments));
     case "assessmentAttempt":
-      if (
-        courses === undefined ||
-        studentCourse === undefined ||
-        studentAssessment === undefined ||
-        labels.courseLongName === undefined ||
-        labels.assessmentAttemptTitle === undefined
-      ) {
-        return Object.freeze([]);
+      if (studentCourse === undefined || studentAssessment === undefined) {
+        return Object.freeze([home, breadcrumbCurrent("Attempt")]);
       }
       return Object.freeze([
-        breadcrumbLinkItem("Courses", courses),
-        breadcrumbLinkItem(labels.courseLongName, studentCourse),
-        breadcrumbLinkItem(labels.assessmentAttemptTitle, studentAssessment),
+        home,
+        breadcrumbLinkItem(courseLabel, studentCourse),
+        breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
         breadcrumbCurrent("Attempt"),
       ]);
     case "assessmentAttemptSummary":
-      return courses !== undefined &&
-        studentCourse !== undefined &&
-        studentAssessment !== undefined &&
-        labels.courseLongName !== undefined &&
-        labels.assessmentAttemptTitle !== undefined
+      return studentCourse !== undefined && studentAssessment !== undefined
         ? Object.freeze([
-            breadcrumbLinkItem("Courses", courses),
-            breadcrumbLinkItem(labels.courseLongName, studentCourse),
-            breadcrumbLinkItem(labels.assessmentAttemptTitle, studentAssessment),
+            home,
+            breadcrumbLinkItem(courseLabel, studentCourse),
+            breadcrumbLinkItem(labels.assessmentAttemptTitle ?? "Assessment", studentAssessment),
             breadcrumbCurrent("Attempt history"),
           ])
-        : Object.freeze([]);
-    default:
-      return Object.freeze([]);
-  }
-}
-
-function breadcrumbPreludeReservedFor(route: RouteContract): boolean {
-  switch (route.id) {
-    case "courseAssessments":
-    case "studentCourseLanding":
-    case "questionDetail":
-    case "questionDraftEditor":
-    case "blueprintCourseDetail":
-    case "assessmentCreate":
-    case "assessmentWorkspaceOverview":
-    case "assessmentWorkspaceQuestions":
-    case "assessmentWorkspacePolicies":
-    case "assessmentWorkspaceStudentView":
-    case "gradebook":
-    case "courseAppearance":
-    case "courseRoster":
-    case "assessmentOverview":
-    case "assessmentAttempt":
-    case "assessmentAttemptSummary":
-      return true;
-    default:
-      return false;
+        : Object.freeze([home, breadcrumbCurrent("Attempt history")]);
   }
 }
 
@@ -660,15 +690,20 @@ export function deriveRibbonModel<
   });
   const taskAreas = taskAreasFor(routeState, viewerIdentity.productRole);
   const context = contextFor(routeState.route, viewerIdentity.productRole, contextLabels);
-  const breadcrumbs = breadcrumbsFor(routeState, contextLabels);
+  const breadcrumbs = breadcrumbsFor(routeState, viewerIdentity.productRole, contextLabels);
   return Object.freeze({
     scope: routeState.route.ribbon.scope,
     contentLayout: routeState.route.ribbon.contentLayout,
     context,
     tabs: Object.freeze(tabs),
     taskAreas,
-    breadcrumbs,
-    breadcrumbPreludeReserved: breadcrumbPreludeReservedFor(routeState.route),
+    breadcrumbs:
+      breadcrumbs.length > 0 || routeState.route.id === "signIn"
+        ? breadcrumbs
+        : Object.freeze([
+            breadcrumbLinkItem("Home", productRoleHomePath(viewerIdentity.productRole)),
+          ]),
+    breadcrumbPreludeReserved: routeState.route.id !== "signIn",
   });
 }
 

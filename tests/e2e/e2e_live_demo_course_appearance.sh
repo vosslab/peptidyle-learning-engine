@@ -180,7 +180,7 @@ matches=[item for item in value["items"] if isinstance(item,dict) and item.get("
 if len(matches)!=1 or set(matches[0])!={"reference","shortName","longName","term","theme"}:
     raise SystemExit("Live Demo Course is absent, duplicated, or malformed")
 reference=matches[0]["reference"]
-if not isinstance(reference,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}",reference):
+if not isinstance(reference,str) or not re.fullmatch(r"CI[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}",reference):
     raise SystemExit("Live Demo Course has no canonical public reference")
 print(reference)
 ' "$1" "$live_demo_course_long_name"
@@ -287,7 +287,7 @@ fi
 anonymous="$(request "$path")"
 sysadmin="$(request "$path" "$sysadmin_cookie")"
 foreign="$(request "/api/course-instances/$foreign_reference/appearance" "$instructor_cookie")"
-blueprint="$(request "/api/course-instances/BP7K3M2Q/appearance" "$instructor_cookie")"
+blueprint="$(request "/api/course-instances/BP7K3M2QAF/appearance" "$instructor_cookie")"
 assert_no_store "$anonymous" 404
 assert_no_store "$sysadmin" 404
 assert_no_store "$foreign" 404

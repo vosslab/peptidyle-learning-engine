@@ -101,6 +101,18 @@
   margin-block: var(--ple-space-3);
 }
 
+.question-pool-from-question-control,
+.question-fork-control {
+  margin-block: var(--ple-space-5, 1.25rem);
+}
+
+.question-pool-from-question-control h2,
+.question-pool-from-question-control p,
+.question-fork-control h2,
+.question-fork-control p {
+  margin-block: var(--ple-space-2);
+}
+
 .question-star-control {
   margin-block: var(--ple-space-3);
 }

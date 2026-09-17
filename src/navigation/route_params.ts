@@ -7,7 +7,7 @@ import {
   parseBlueprintChangeProposalHandle,
   parseCourseInstanceReference,
   parseCourseMembershipReference,
-  parseDraftQuestionReference,
+  parseDraftQuestionId,
   parseQuestionRouteReference,
   type AssessmentAttemptRouteReference,
   type CourseInstanceRouteReference,
@@ -22,7 +22,7 @@ export type RouteParamName =
   | "assessmentAttemptRef"
   | "membershipRef"
   | "questionRef"
-  | "draftQuestionRef"
+  | "draftQuestionId"
   | "blueprintCourseRef"
   | "proposalId";
 
@@ -55,7 +55,7 @@ const ROUTE_PARAM_PARSERS: Readonly<Record<RouteParamName, RouteParamParser>> = 
   assessmentAttemptRef: parseAssessmentAttemptReference,
   membershipRef: parseCourseMembershipReference,
   questionRef: parseQuestionRouteReference,
-  draftQuestionRef: parseDraftQuestionReference,
+  draftQuestionId: parseDraftQuestionId,
   blueprintCourseRef: parseBlueprintCourseReference,
   proposalId: parseBlueprintChangeProposalHandle,
 };

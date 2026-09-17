@@ -49,6 +49,7 @@ export interface RouteContract {
   readonly id:
     | "courses"
     | "instructorHome"
+    | "instructorInactiveCourses"
     | "studentHome"
     | "sysadminHome"
     | "courseAssessments"
@@ -132,6 +133,18 @@ export const ROUTE_CONTRACT = [
     id: "instructorHome",
     path: "/instructor",
     surface: "Instructor Course Instance home dashboard",
+    requiredProductRoles: ["instructor"],
+    ribbon: {
+      scope: "product",
+      tab: "courses",
+      taskGroup: "instructorCourses",
+      contentLayout: "reading",
+    },
+  },
+  {
+    id: "instructorInactiveCourses",
+    path: "/instructor/courses/inactive",
+    surface: "Instructor past Course Instance list",
     requiredProductRoles: ["instructor"],
     ribbon: {
       scope: "product",
@@ -320,7 +333,7 @@ export const ROUTE_CONTRACT = [
   },
   {
     id: "questionDraftEditor",
-    path: "/authoring/drafts/:draftQuestionRef",
+    path: "/authoring/drafts/:draftQuestionId",
     surface: "Private Draft Question editor",
     requiredProductRoles: ["instructor"],
     ribbon: {

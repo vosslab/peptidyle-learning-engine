@@ -32,8 +32,13 @@ export interface CreateCourseInstanceInput {
 }
 
 /** Browser-safe Course Instance landing-page identity. */
+export type CourseInstanceLifecycleState = "active" | "inactive";
+
+/** Browser-safe Course Instance landing-page identity. */
 export interface CourseInstanceSummary {
   readonly classification: CourseClassification;
+  /** Stored activity state; it is not inferred from dates or retention state. */
+  readonly lifecycleState: CourseInstanceLifecycleState;
   readonly metadataEtag: string;
   readonly reference: CourseInstanceReference;
   readonly shortName: string;

@@ -181,20 +181,25 @@ export function BlueprintCourseCreateDialog(props: BlueprintCourseCreateDialogPr
         <p class="blueprint-course-notice" role="status">
           {message()}
         </p>
-        <label>
+        <label for="blueprint-course-create-short-name">
           Blueprint Course short name
           <input
+            id="blueprint-course-create-short-name"
             ref={(element) => {
               shortNameInput = element;
             }}
             value={shortName()}
             maxlength="200"
+            aria-describedby="blueprint-course-create-short-name-help"
             onInput={(event) => {
               setShortName(event.currentTarget.value);
               setDirty(true);
             }}
           />
         </label>
+        <small id="blueprint-course-create-short-name-help">
+          For compact navigation; about 16 characters when practical.
+        </small>
         <label>
           Blueprint Course long name
           <input

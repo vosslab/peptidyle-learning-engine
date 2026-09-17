@@ -7,6 +7,8 @@ import { useSessionBootstrap } from "../auth/session_context";
 import { productRoleHomePath } from "../route_contract";
 import { CourseListPage } from "./course_list_page";
 import { StudentCoursesPage } from "./student_courses_page";
+import { useApplicationApi } from "../api/application_api";
+import { BlueprintPromotion } from "../features/blueprint_course/blueprint_promotion";
 
 /** Resolves the persistent Peptidyle home link to the signed-in role's dashboard. */
 export function RoleHomeResolutionPage(): JSX.Element {
@@ -64,8 +66,9 @@ export function StudentHomePage(): JSX.Element {
   return <StudentCoursesPage />;
 }
 
-/** Sysadmin home presents the two backed operations without inventing a new workflow. */
+/** Sysadmin home presents the backed administration operations. */
 export function SysadminHomePage(): JSX.Element {
+  const runtime = useApplicationApi();
   return (
     <section class="page" data-route-surface="sysadminHome" aria-labelledby="sysadmin-home-heading">
       <p class="eyebrow">System administration</p>
@@ -101,6 +104,7 @@ export function SysadminHomePage(): JSX.Element {
           </A>
         </article>
       </nav>
+      <BlueprintPromotion client={runtime.client} />
     </section>
   );
 }

@@ -309,7 +309,8 @@ BEGIN
                 (entry_json ->> 'forkQuestionPoolId')::uuid,
                 entry_json ->> 'forkPublicQuestionPoolId',
                 source_question_pool_id,
-                (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint
+                (entry_json ->> 'sourceQuestionPoolRevisionNumber')::bigint,
+                (entry_json ->> 'bloomPreparationReceiptId')::uuid
             );
             IF (entry_json ->> 'selectionCount')::integer > (
                 SELECT member_count FROM ple_data.question_pool_revision

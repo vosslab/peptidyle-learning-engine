@@ -17,6 +17,11 @@ function row(displayId, questionTitle = "Question", revisionNumber = 1) {
     questionRevision: { questionId: displayId, revisionNumber },
     questionTitle,
     summary: "Answer-free summary.",
+    bloom: {
+      cognitiveProcess: "Understand",
+      knowledgeDimension: "Conceptual Knowledge",
+      classificationEditNumber: "1",
+    },
     disciplineName: "Biology",
     disciplineIsRetired: false,
     questionFormat: "pleQuestionJson",

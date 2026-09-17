@@ -1,4 +1,4 @@
--- Executor-owned, one-way Course retention transitions.  The preceding
+-- Executor-owned, one-way Course inactivity and retention transitions. The preceding
 -- course_retention.sql owns policy/due calculation; this late module owns the
 -- exact destructive capability after every Course Student-Work child exists.
 
@@ -167,6 +167,48 @@ RESET ROLE;
 
 SET LOCAL ROLE ple_course_retention_executor;
 
+CREATE FUNCTION ple_api.mark_course_instance_inactive(
+    p_course_id uuid,
+    p_evaluated_at timestamp with time zone
+) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, ple_api, ple_data
+AS $$
+DECLARE
+    course_row ple_data.course_instance%ROWTYPE;
+BEGIN
+    IF p_course_id IS NULL OR p_evaluated_at IS NULL THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Course inactivity arguments are invalid';
+    END IF;
+
+    -- ASVS 2.3.3/15.4.2: check and change the lifecycle under one row lock.
+    SELECT * INTO course_row
+      FROM ple_data.course_instance
+     WHERE course_id = p_course_id
+     FOR UPDATE;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION USING ERRCODE = '42501',
+            MESSAGE = 'Course is unavailable';
+    END IF;
+    IF course_row.course_lifecycle_state = 'inactive' THEN
+        RETURN false;
+    END IF;
+    -- ASVS 2.3.2: the immutable Active cutoff governs timely and late execution.
+    IF p_evaluated_at < course_row.active_until_at THEN
+        RAISE EXCEPTION USING ERRCODE = '22023',
+            MESSAGE = 'Course inactivity is not due';
+    END IF;
+
+    -- ASVS 8.2.3: inactivity changes only these Course lifecycle fields.
+    UPDATE ple_data.course_instance
+       SET course_lifecycle_state = 'inactive',
+           course_became_inactive_at = active_until_at
+     WHERE course_id = course_row.course_id;
+    RETURN true;
+END
+$$;
+
 CREATE FUNCTION ple_api.archive_course_student_records(
     p_course_id uuid,
     p_evaluated_at timestamp with time zone
@@ -328,7 +370,9 @@ BEGIN
 END
 $$;
 
-REVOKE ALL ON FUNCTION ple_api.archive_course_student_records(uuid, timestamp with time zone),
+-- ASVS 8.2.1: these functions belong only to the isolated executor capability.
+REVOKE ALL ON FUNCTION ple_api.mark_course_instance_inactive(uuid, timestamp with time zone),
+    ple_api.archive_course_student_records(uuid, timestamp with time zone),
     ple_api.delete_course_student_records(uuid, timestamp with time zone) FROM PUBLIC;
 
 RESET ROLE;

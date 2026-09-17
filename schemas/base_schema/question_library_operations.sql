@@ -9,6 +9,8 @@ CREATE FUNCTION ple_private.question_library_entries(
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
     discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, used_in_current_account_courses boolean,
+    bloom_cognitive_process text, bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint,
     source_object_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text
 ) LANGUAGE plpgsql SECURITY DEFINER
@@ -61,10 +63,15 @@ BEGIN
            license.spdx_expression, lineage.availability, lineage.availability_edit_number,
            metadata.metadata_edit_number, metadata.tags, metadata.discipline_uuid, metadata.subject_uuid, metadata.topic_uuid, metadata.subtopic_uuid,
            authorized_course_question.question_id IS NOT NULL,
+           bloom.cognitive_process::text, bloom.knowledge_dimension::text,
+           bloom.classification_edit_number,
            binding.source_object_id, binding.source_object_checksum, record.media_type,
            binding.webwork_pg_path
       FROM ple_data.question_revision AS revision
       JOIN ple_data.published_question AS lineage ON lineage.question_id = revision.question_id
+      JOIN ple_data.question_revision_bloom AS bloom
+        ON bloom.question_id = revision.question_id
+       AND bloom.revision_number = revision.revision_number
       JOIN ple_data.published_question_metadata AS metadata ON metadata.question_id = revision.question_id
       JOIN ple_data.question_revision_license AS license
         ON license.question_id = revision.question_id AND license.revision_number = revision.revision_number
@@ -112,6 +119,8 @@ RETURNS TABLE (
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
     discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, used_in_current_account_courses boolean,
+    bloom_cognitive_process text, bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint,
     source_object_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$
@@ -125,6 +134,8 @@ RETURNS TABLE (
     question_license text, availability text,
     availability_edit_number bigint, metadata_edit_number bigint, tags text[],
     discipline_uuid uuid, subject_uuid uuid, topic_uuid uuid, subtopic_uuid uuid, used_in_current_account_courses boolean,
+    bloom_cognitive_process text, bloom_knowledge_dimension text,
+    bloom_classification_edit_number bigint,
     source_object_id uuid, source_object_checksum text, source_media_type text,
     webwork_pg_path text
 ) LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog, ple_api, ple_private AS $$

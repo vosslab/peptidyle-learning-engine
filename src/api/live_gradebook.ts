@@ -29,7 +29,13 @@ export interface CourseGradebook {
   readonly studentWork: ReadonlyArray<CourseGradebookStudentWork>;
 }
 
-/** Same-origin current-Instructor Gradebook read capability. */
+export type GradebookExportFormat = "csv" | "tsv";
+
+/** Same-origin current-Instructor Gradebook read and point-export capability. */
 export interface CourseGradebookClient {
   readonly getCourseGradebook: (course: CourseInstanceReference) => Promise<CourseGradebook>;
+  readonly downloadCourseGradebook: (
+    course: CourseInstanceReference,
+    format: GradebookExportFormat,
+  ) => Promise<Blob>;
 }

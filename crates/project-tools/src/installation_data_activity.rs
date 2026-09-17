@@ -435,7 +435,7 @@ async fn resolve_graph(api: &ProductApi, instructor: &TemporarySession) -> Resul
                 "Assessment",
             )?;
             Ok((object.get("assessmentType").and_then(Value::as_str)
-                == Some(AssessmentType::RegularAssignment.as_str())
+                == Some(AssessmentType::PracticeQuestionAssignment.as_str())
                 && object.get("title").and_then(Value::as_str) == Some(LIVE_DEMO_ASSESSMENT_TITLE)
                 && object.get("status").and_then(Value::as_str) == Some("released"))
             .then_some(object))

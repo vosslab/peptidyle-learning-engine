@@ -17,7 +17,7 @@ use question_model::{
 };
 use uuid::Uuid;
 
-use crate::{SessionTokenHash, StoreError};
+use crate::{BloomPreparationReceiptId, SessionTokenHash, StoreError};
 
 /// Server-only UUID identity for one private mutable Draft Question.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -231,6 +231,8 @@ pub struct NewQuestionLineagePublicationInput {
     pub question_publication_event_id: Uuid,
     /// Fresh initial Available-event identity.
     pub question_availability_event_id: Uuid,
+    /// One-use prepared Bloom Classification receipt for this exact first Revision.
+    pub bloom_preparation_receipt_id: BloomPreparationReceiptId,
 }
 
 impl NewQuestionLineagePublicationInput {
@@ -355,6 +357,8 @@ pub struct ExistingQuestionRevisionPublicationInput {
     pub question_revision_reason: QuestionRevisionReason,
     /// Fresh immutable Question Publication Event identity.
     pub question_publication_event_id: Uuid,
+    /// One-use prepared Bloom Classification receipt for this exact successor Revision.
+    pub bloom_preparation_receipt_id: BloomPreparationReceiptId,
 }
 
 /// Failure from an existing-lineage publication after the target object has
@@ -562,6 +566,7 @@ mod tests {
             question_ownership_event_id: Uuid::from_u128(8),
             question_publication_event_id: Uuid::from_u128(9),
             question_availability_event_id: Uuid::from_u128(10),
+            bloom_preparation_receipt_id: BloomPreparationReceiptId::from_uuid(Uuid::from_u128(11)),
         }
     }
 
@@ -672,6 +677,7 @@ mod tests {
             )
             .expect("reviewed Question Revision Reason"),
             question_publication_event_id: Uuid::from_u128(9),
+            bloom_preparation_receipt_id: BloomPreparationReceiptId::from_uuid(Uuid::from_u128(10)),
         };
         assert_eq!(input.validate(), Ok(()));
 

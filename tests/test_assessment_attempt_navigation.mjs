@@ -18,6 +18,23 @@ function noStoreJson(value, status = 200) {
   });
 }
 
+test("author-content document URLs select only canonical Attempts and positive positions", () => {
+  const client = createHttpApiClient({
+    basePath: "/ple",
+    fetch: () => assert.fail("an iframe URL must not fetch source into the parent"),
+  });
+  assert.equal(
+    client.studentAuthorContentDocumentUrl("R-12", 2),
+    "/ple/api/assessment-attempts/R-12/questions/2/author-content-document",
+  );
+  for (const attempt of ["R-0", "R-012", "R-2147483648", "R-12/../context", "https://other.test"]) {
+    assert.throws(() => client.studentAuthorContentDocumentUrl(attempt, 2), ApiProtocolError);
+  }
+  for (const position of [0, -1, 1.5, NaN, Infinity, 2147483648]) {
+    assert.throws(() => client.studentAuthorContentDocumentUrl("R-12", position), ApiProtocolError);
+  }
+});
+
 test("Assessment Attempt context retains one strict server expiry and display zone", () => {
   const context = {
     assessmentAttempt: "R-12",

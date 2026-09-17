@@ -21,7 +21,7 @@ DECLARE
 BEGIN
     v_actor := ple_api.current_session_account_id();
     IF p_source_reference IS NULL
-       OR p_source_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_source_reference, 'BP')
        OR v_actor IS NULL
        OR NOT ple_api.current_session_account_is_instructor()
        OR ple_private.verified_instructor_display_name(v_actor) IS NULL THEN
@@ -79,8 +79,8 @@ DECLARE
     v_locked_reference bigint;
 BEGIN
     IF p_left_reference IS NULL OR p_right_reference IS NULL
-       OR p_left_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
-       OR p_right_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_left_reference, 'BP')
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_right_reference, 'BP')
        OR NOT ple_api.current_session_account_is_instructor() THEN
         RETURN;
     END IF;
@@ -239,7 +239,7 @@ DECLARE
     v_source_reference bigint;
 BEGIN
     IF p_source_reference IS NULL
-       OR p_source_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_source_reference, 'BP')
        OR p_source_revision_number IS NULL OR p_source_revision_number <= 0
        OR p_request_checksum IS NULL OR octet_length(p_request_checksum) <> 32
        OR NOT ple_api.current_session_account_is_instructor() THEN
@@ -312,7 +312,7 @@ DECLARE
     v_source_pool_revision bigint;
 BEGIN
     IF p_blueprint_id IS NULL
-       OR p_source_reference !~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+       OR NOT ple_private.is_canonical_prefixed_public_id(p_source_reference, 'BP')
        OR p_source_revision_number <= 0
        OR octet_length(p_request_checksum) <> 32
        OR NOT ple_api.current_session_account_is_instructor() THEN

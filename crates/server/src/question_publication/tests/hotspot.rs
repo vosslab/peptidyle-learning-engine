@@ -23,11 +23,11 @@ impl AuthoringAssetsStore for DraftImageStore {
     async fn load_draft_question_asset(
         &self,
         session: SessionTokenHash,
-        reference: DraftQuestionReference,
+        draft_question_uuid: DraftQuestionUuid,
         asset: QuestionAssetId,
     ) -> Result<OwnedDraftQuestionAsset, StoreError> {
         if session != SessionTokenHash::compute(b"session")
-            || reference.number() != 1
+            || draft_question_uuid.as_uuid() != Uuid::from_u128(2)
             || asset != self.0.asset_id
         {
             return Err(StoreError::NotFound);
@@ -102,7 +102,7 @@ async fn fixture(
 fn context(asset: OwnedDraftQuestionAsset) -> AuthoringAssetContext {
     AuthoringAssetContext {
         store: Arc::new(DraftImageStore(asset)),
-        reference: DraftQuestionReference::new(1).expect("real Draft reference"),
+        draft_question_uuid: DraftQuestionUuid::from_uuid(Uuid::from_u128(2)),
     }
 }
 
@@ -128,6 +128,7 @@ async fn hotspot_collision_retries_exact_bytes_and_cleans_both_rolled_back_targe
         objects.clone(),
         store,
         fixed_issuer(&["0000000", "0000001"]),
+        super::bloom_provider_evidence::bloom_preparation(),
         Some(context(asset)),
     )
     .publish(
@@ -217,6 +218,7 @@ async fn hotspot_successor_stale_removes_source_and_image_but_retains_private_dr
             publications: publications.clone(),
             outcome: Err(ExistingQuestionRevisionPublicationError::Stale),
         },
+        super::bloom_provider_evidence::bloom_preparation(),
         Some(context(asset)),
     );
     assert_eq!(
@@ -266,13 +268,19 @@ async fn native_hotspot_without_a_real_authoring_context_fails_before_any_public
     let workspace = WorkspaceId::from_uuid(Uuid::from_u128(1));
     let (source, _, _) = fixture(&objects, workspace).await;
     let (store, publications) = scripted_store(source, [Ok(())]);
-    let result = NewQuestionLineagePublisher::new(objects, store, fixed_issuer(&["0000000"]), None)
-        .publish(
-            SessionTokenHash::compute(b"session"),
-            command(workspace),
-            Timestamp::from_unix_millis(2_000),
-        )
-        .await;
+    let result = NewQuestionLineagePublisher::new(
+        objects,
+        store,
+        fixed_issuer(&["0000000"]),
+        super::bloom_provider_evidence::bloom_preparation(),
+        None,
+    )
+    .publish(
+        SessionTokenHash::compute(b"session"),
+        command(workspace),
+        Timestamp::from_unix_millis(2_000),
+    )
+    .await;
     assert!(matches!(
         result,
         Err(QuestionPublicationError::Store(StoreError::InvalidRecord(

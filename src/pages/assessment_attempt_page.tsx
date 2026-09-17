@@ -19,6 +19,7 @@ import type {
 import type { StudentResponseFormatCheck } from "../api/decoders/student_response_format_check";
 import { ApiRequestError } from "../api/http_client";
 import { useApplicationApi } from "../api/application_api";
+import { AuthorContentFrame } from "../components/author_content_frame";
 import { StudentAssessmentAttemptNavigation } from "../components/student_assessment_attempt_navigation";
 import type { StudentAssessmentAttemptQuestionState } from "../components/student_assessment_attempt_navigation";
 import { formatAssessmentDeliveryTime } from "../components/student_assessment_presentation";
@@ -488,6 +489,17 @@ function AttemptExperience(props: {
                     }
                   />
                 </ErrorBoundary>
+                <Show
+                  when={
+                    currentPresentation.presentation.response.kind !== "backendOwned" &&
+                    currentPresentation.presentation.authorContentDigest !== undefined
+                  }
+                >
+                  <AuthorContentFrame
+                    assessmentAttempt={props.context.assessmentAttempt}
+                    position={currentPresentation.position}
+                  />
+                </Show>
               </div>
               <div class="attempt-response">
                 <QuestionPresentationResponseControl

@@ -1,7 +1,13 @@
 // blueprint_assessment_content_editor.tsx - task-focused editing for one Blueprint Assessment.
 
-import { For, Show, createSignal, onCleanup, type JSX } from "solid-js";
-import { assessmentDurationDefaultDescription } from "../../assessment_duration";
+import { For, Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
+import {
+  ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES,
+  assessmentDurationDefaultDescription,
+  assessmentDurationOverrideMinutesDraft,
+  assessmentDurationOverrideMinutesError,
+  assessmentDurationOverrideSecondsFromMinutesDraft,
+} from "../../assessment_duration";
 
 import type { BlueprintAssessmentContentInput } from "../../../generated/api/BlueprintAssessmentContentInput";
 import type { BlueprintAssessmentContentView } from "../../../generated/api/BlueprintAssessmentContentView";
@@ -73,11 +79,23 @@ export function BlueprintAssessmentContentEditor(
   const [poolPickerOpen, setPoolPickerOpen] = createSignal(false);
   const [memberPoolId, setMemberPoolId] = createSignal<string>();
   const [invalidMembers, setInvalidMembers] = createSignal(false);
+  const [timeLimit, setTimeLimit] = createSignal(
+    assessmentDurationOverrideMinutesDraft(
+      props.content.defaults.assessment_attempt_time_limit_seconds,
+    ),
+  );
+  const [legacyTimeLimitSeconds, setLegacyTimeLimitSeconds] = createSignal<number | null>(null);
   const questionPoolClient = props.questionPoolClient ?? createQuestionPoolLibraryClient();
   let fixedPickerTrigger: HTMLButtonElement | undefined;
   let poolPickerTrigger: HTMLButtonElement | undefined;
   let editor!: HTMLElement;
   onCleanup(() => props.onInvalidDraftChange?.(false));
+
+  createEffect(() => {
+    const seconds = props.content.defaults.assessment_attempt_time_limit_seconds;
+    setTimeLimit(assessmentDurationOverrideMinutesDraft(seconds));
+    setLegacyTimeLimitSeconds(seconds !== null && seconds % 60 !== 0 ? seconds : null);
+  });
 
   function validNumber(input: HTMLInputElement): boolean {
     input.setCustomValidity("");
@@ -113,6 +131,26 @@ export function BlueprintAssessmentContentEditor(
     props.onChange(
       updateReusableDefaults(props.content, { ...props.content.defaults, [field]: parsed }),
       "Reusable defaults updated. Questions and defaults remain unsaved until you Save the Blueprint Course.",
+    );
+  }
+
+  function changeDuration(input: HTMLInputElement): void {
+    const minutes = input.value;
+    const seconds = assessmentDurationOverrideSecondsFromMinutesDraft(minutes);
+    const error = assessmentDurationOverrideMinutesError(minutes, null);
+    setTimeLimit(minutes);
+    setLegacyTimeLimitSeconds(null);
+    input.setCustomValidity(error ?? "");
+    if (seconds === undefined) {
+      props.onChange(props.content, error ?? "Enter a whole number of minutes.");
+      return;
+    }
+    props.onChange(
+      updateReusableDefaults(props.content, {
+        ...props.content.defaults,
+        assessment_attempt_time_limit_seconds: seconds,
+      }),
+      "Reusable duration default updated. Questions and defaults remain unsaved until you Save the Blueprint Course.",
     );
   }
 
@@ -449,16 +487,25 @@ export function BlueprintAssessmentContentEditor(
             <span>Randomize question order</span>
           </label>
           <label>
-            Assessment duration override in seconds (optional, maximum 12 hours)
+            Assessment duration override in minutes (optional, maximum 720 minutes / 12 hours)
             <input
               type="number"
               min="1"
-              max="43200"
+              max={ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES}
               step="1"
-              value={props.content.defaults.assessment_attempt_time_limit_seconds ?? ""}
-              onInput={(event) =>
-                changeNumber("assessment_attempt_time_limit_seconds", event.currentTarget)
+              inputmode="numeric"
+              value={timeLimit()}
+              aria-invalid={
+                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) !==
+                undefined
               }
+              aria-describedby={
+                assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds()) ===
+                undefined
+                  ? undefined
+                  : "blueprint-assessment-duration-override-error"
+              }
+              onInput={(event) => changeDuration(event.currentTarget)}
             />
             <small>
               {assessmentDurationDefaultDescription(
@@ -467,8 +514,19 @@ export function BlueprintAssessmentContentEditor(
                   0,
                 ),
               )}{" "}
-              Leave the override blank to use this default.
+              Leave the override blank to use this calculated default. Enter a whole number of
+              minutes from 1 to {ASSESSMENT_DURATION_OVERRIDE_MAXIMUM_MINUTES} for a specific
+              override.
             </small>
+            <Show
+              when={assessmentDurationOverrideMinutesError(timeLimit(), legacyTimeLimitSeconds())}
+            >
+              {(error) => (
+                <small id="blueprint-assessment-duration-override-error" role="alert">
+                  {error()}
+                </small>
+              )}
+            </Show>
           </label>
           <label>
             Assessment Attempt limit

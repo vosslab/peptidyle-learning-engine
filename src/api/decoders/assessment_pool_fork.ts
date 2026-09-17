@@ -17,6 +17,7 @@ import {
 import { decodeBoundedArray, decodeQuestionId, field, requireOnlyFields } from "./shared";
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { ImportedAssessmentQuestionPoolFork } from "../assessment_pool_fork";
+import { decodeBloomClassificationView } from "./bloom_classification";
 
 function assessmentEditNumber(value: unknown, path: string): string {
   const decoded = decodeString(value, path);
@@ -52,6 +53,7 @@ export function decodeAssessmentQuestionPoolForkView(
     "questionPoolRevision",
     "poolMetadataEtag",
     "selectionCount",
+    "bloom",
     "metadata",
     "members",
   ]);
@@ -87,6 +89,7 @@ export function decodeAssessmentQuestionPoolForkView(
       field(record, "selectionCount", path),
       `${path}.selectionCount`,
     ),
+    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
     members,
   };
 }

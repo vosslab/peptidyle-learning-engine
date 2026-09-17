@@ -1,0 +1,54 @@
+/* Compact inspection controls share the surrounding light/dark theme. */
+.question-response-preview {
+  min-inline-size: 0;
+  margin-block: var(--ple-space-3);
+  padding: var(--ple-space-3);
+  border: 1px solid var(--ple-border);
+}
+
+.question-response-preview > p {
+  margin-block-start: 0;
+  color: var(--ple-muted);
+}
+
+.question-preview-choice {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ple-space-2);
+}
+
+.question-preview-matching {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: var(--ple-space-3);
+}
+
+.question-preview-matching h3 {
+  margin-block-start: 0;
+}
+
+.question-response-preview input[type="text"] {
+  max-inline-size: 100%;
+  box-sizing: border-box;
+}
+
+.question-preview-hotspot {
+  position: relative;
+  inline-size: fit-content;
+  max-inline-size: 100%;
+}
+
+.question-preview-hotspot img {
+  display: block;
+  max-inline-size: 100%;
+}
+
+.question-preview-region {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  color: var(--ple-ink);
+  background: var(--ple-surface);
+  opacity: 0.7;
+  pointer-events: none;
+}

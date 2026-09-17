@@ -1,6 +1,6 @@
 // Public composition contract for the ple-question-json editor surface.
 
-import type { DraftQuestionReference } from "../../../generated/api/DraftQuestionReference";
+import type { DraftQuestionRouteId } from "../../navigation/public_route";
 import type { WasmFacade } from "../../wasm/index";
 import type { ContentClassificationClient } from "../../api/content_classification";
 import type { PleQuestionJsonRead, PleQuestionJsonClient } from "./question_json_client";
@@ -37,7 +37,7 @@ type PleQuestionJsonResponseMemberRolesAreDistinct = Assert<
 void (undefined as unknown as PleQuestionJsonResponseMemberRolesAreDistinct);
 
 export interface PleQuestionJsonEditorPageProps {
-  readonly draftQuestion: DraftQuestionReference;
+  readonly draftQuestion: DraftQuestionRouteId;
   readonly initial: PleQuestionJsonRead;
   readonly initialGeneralFeedback: PleQuestionGeneralFeedbackRead;
   readonly generalFeedbackClient: PleQuestionGeneralFeedbackClient;

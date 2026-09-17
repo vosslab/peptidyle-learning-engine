@@ -13,11 +13,11 @@ pub struct LibraryDiscussionTarget {
     pub public_id: QuestionId,
 }
 
-/// Retained state of one improvement thread.
+/// Retained lifecycle of one improvement thread.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LibraryImprovementThreadState {
+pub enum LibraryImprovementThreadLifecycle {
     Open,
-    Resolved,
+    Resolved { resolved_at: Timestamp },
 }
 
 /// One retained post with only its approved visible author identity.
@@ -36,18 +36,17 @@ pub struct LibraryImprovementPost {
 pub struct LibraryImprovementThread {
     pub thread_id: Uuid,
     pub creation_revision_number: u64,
-    pub state: LibraryImprovementThreadState,
+    pub lifecycle: LibraryImprovementThreadLifecycle,
     pub created_at: Timestamp,
-    pub resolved_at: Option<Timestamp>,
     pub viewer_may_resolve: bool,
     pub posts: Vec<LibraryImprovementPost>,
 }
 
-/// Retained lifecycle state of an impact notice.
+/// Retained lifecycle of an impact notice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LibraryImpactNoticeState {
+pub enum LibraryImpactNoticeLifecycle {
     Active,
-    Cancelled,
+    Cancelled { cancelled_at: Timestamp },
 }
 
 /// A maintained impact notice. Cancellation retains this record and its text.
@@ -57,10 +56,9 @@ pub struct LibraryImpactNotice {
     pub affected_revision_number: Option<u64>,
     pub author_display_name: String,
     pub body: String,
-    pub state: LibraryImpactNoticeState,
+    pub lifecycle: LibraryImpactNoticeLifecycle,
     pub created_at: Timestamp,
     pub updated_at: Timestamp,
-    pub cancelled_at: Option<Timestamp>,
     pub viewer_may_manage: bool,
 }
 

@@ -6,6 +6,7 @@ import type { AssessmentEntryId } from "../../../generated/api/AssessmentEntryId
 import type { AssessmentQuestionPoolForkView } from "../../../generated/api/AssessmentQuestionPoolForkView";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type {
   AssessmentQuestionPickerEntry,
   AssessmentBlueprintUpdateReview,
@@ -24,10 +25,12 @@ import {
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import {
   appendAvailableFixedQuestion,
+  deliveredAssessmentQuestionCount,
   moveAssessmentEntry,
   questionSaveInput,
   questionRevisionKey,
   removeAssessmentEntry,
+  sortAssessmentEntriesByBloom,
 } from "./assessment_workspace_questions_model";
 import { UnsavedChangesGuard } from "./unsaved_changes_guard";
 import {
@@ -39,7 +42,7 @@ const MAX_ASSIGNMENT_ENTRIES = 1024;
 const MAX_ASSESSMENT_QUESTIONS = 250;
 
 export type QuestionEditDirtyEvent =
-  "title" | "move" | "remove" | "add" | "saveSucceeded" | "saveFailed";
+  "title" | "move" | "sort" | "remove" | "add" | "saveSucceeded" | "saveFailed";
 
 /** Keeps the leave guard active until the current structural edit was persisted successfully. */
 export function nextQuestionEditDirty(current: boolean, event: QuestionEditDirtyEvent): boolean {
@@ -103,6 +106,39 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       known.set(questionRevisionKey(question.reference), question.description);
     return known;
   });
+  const fixedBlooms = createMemo(() => {
+    const known = new Map<string, BloomClassificationView>();
+    for (const question of workspace.assessment().workspace.questions)
+      known.set(questionRevisionKey(question.reference), question.bloom);
+    for (const question of available())
+      known.set(questionRevisionKey(question.reference), question.bloom);
+    return known;
+  });
+  const entryBlooms = createMemo(() => {
+    const known = new Map<AssessmentEntryId, BloomClassificationView>();
+    for (const entry of entries()) {
+      const bloom =
+        entry.kind === "fixedQuestion"
+          ? fixedBlooms().get(questionRevisionKey(entry.reference))
+          : poolForks().get(entry.id)?.bloom;
+      if (bloom !== undefined) known.set(entry.id, bloom);
+    }
+    return known;
+  });
+  const bloomSortUnavailableReason = createMemo(() => {
+    const missingPool = entries().some(
+      (entry) => entry.kind === "questionPool" && !poolForks().has(entry.id),
+    );
+    if (missingPool && poolForkLoadFailed()) {
+      return "Exact Bloom Classification for a Question Pool could not load. Reload the latest Assessment.";
+    }
+    if (missingPool)
+      return "Loading exact Bloom Classification for Assessment-owned Question Pools.";
+    if (entryBlooms().size !== entries().length) {
+      return "Exact Bloom Classification for a fixed Question could not load. Reload the latest Assessment.";
+    }
+    return undefined;
+  });
   const availableToAdd = createMemo(() =>
     available().filter(
       (candidate) =>
@@ -114,10 +150,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     ),
   );
   const remainingQuestionCapacity = createMemo(() => {
-    const questionCount = entries().reduce(
-      (count, entry) => count + (entry.kind === "fixedQuestion" ? 1 : entry.selectionCount),
-      0,
-    );
+    const questionCount = deliveredAssessmentQuestionCount(entries());
     return Math.max(
       0,
       Math.min(MAX_ASSIGNMENT_ENTRIES - entries().length, MAX_ASSESSMENT_QUESTIONS - questionCount),
@@ -200,9 +233,33 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage("Entry order changed. Save Questions when ready.");
   }
 
+  function sortByBloomClassification(): void {
+    if (busy() || needsReload()) return;
+    const current = entries();
+    const sorted = sortAssessmentEntriesByBloom(current, entryBlooms());
+    if (sorted === undefined) {
+      setMessage(
+        bloomSortUnavailableReason() ??
+          "Exact Bloom Classification could not load. Reload the latest Assessment.",
+      );
+      return;
+    }
+    if (sorted === current) {
+      setMessage("Entries already follow Bloom Classification guide order. No changes were made.");
+      return;
+    }
+    setEntries(sorted);
+    setDirty((dirtyState) => nextQuestionEditDirty(dirtyState, "sort"));
+    setMessage("Entries sorted by Bloom Classification. Save Questions when ready.");
+  }
+
   function remove(index: number): void {
     if (needsReload()) {
       setMessage("Reload the latest Assessment before removing an entry.");
+      return;
+    }
+    if (entries()[index]?.availability !== "available") {
+      setMessage("Retained unavailable Entries remain read-only evidence and cannot be removed.");
       return;
     }
     setEntries((current) => removeAssessmentEntry(current, index));
@@ -660,6 +717,23 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       </label>
       <section class="assessment-editor-panel" aria-labelledby="selected-questions-heading">
         <h2 id="selected-questions-heading">Ordered Assessment Entries</h2>
+        <p class="assessment-editor-actions">
+          <button
+            type="button"
+            disabled={
+              busy() ||
+              needsReload() ||
+              entries().length < 2 ||
+              bloomSortUnavailableReason() !== undefined
+            }
+            onClick={sortByBloomClassification}
+          >
+            Sort by Bloom Classification
+          </button>
+        </p>
+        <Show when={bloomSortUnavailableReason()}>
+          {(reason) => <p class="assessment-editor-note">{reason()}</p>}
+        </Show>
         <Show when={entries().length > 0} fallback={<p>No Entries are selected.</p>}>
           <ol class="assessment-editor-list">
             <For each={entries()}>
@@ -675,6 +749,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                     entry={entry}
                     entryNumber={index() + 1}
                     description={description}
+                    bloom={entryBlooms().get(entry.id)}
                   />
                   <div
                     class="assessment-editor-row-actions"
@@ -700,11 +775,15 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                     <button
                       class="quiet-action"
                       type="button"
-                      disabled={busy() || needsReload()}
-                      aria-label={`Remove Assessment Entry ${index() + 1}`}
+                      disabled={busy() || needsReload() || entry.availability !== "available"}
+                      aria-label={
+                        entry.availability === "available"
+                          ? `Remove Assessment Entry ${index() + 1}`
+                          : `Retained unavailable Assessment Entry ${index() + 1} cannot be removed`
+                      }
                       onClick={() => remove(index())}
                     >
-                      Remove
+                      {entry.availability === "available" ? "Remove" : "Retained unavailable"}
                     </button>
                   </div>
                   <Show when={questionPoolEntry(entry)}>
@@ -714,7 +793,9 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                         fork={poolForks().get(poolEntry().id)}
                         exactMembersUnavailable={poolForkLoadFailed()}
                         availableQuestions={available()}
-                        mutationsEnabled={!dirty() && !needsReload()}
+                        mutationsEnabled={
+                          !dirty() && !needsReload() && poolEntry().availability === "available"
+                        }
                         busy={busy()}
                         onSelectionCount={(selectionCount) =>
                           void updatePoolSelectionCount(poolEntry(), selectionCount)
@@ -785,6 +866,10 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                   <strong>{candidate.reference.questionId}</strong> * Revision{" "}
                   {candidate.reference.revisionNumber}: {candidate.description}{" "}
                   <A href={questionRevisionInspectionPath(candidate.reference)}>Inspect</A>{" "}
+                  <span>
+                    Bloom Cognitive Process: {candidate.bloom.cognitiveProcess}; Bloom Knowledge
+                    Dimension: {candidate.bloom.knowledgeDimension}
+                  </span>{" "}
                   <button
                     type="button"
                     disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
@@ -815,7 +900,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                 {(pool) => (
                   <option value={pool.questionPoolRevision.questionPoolId}>
                     {pool.metadata.title} - {pool.questionPoolRevision.questionPoolId} Revision{" "}
-                    {pool.questionPoolRevision.revisionNumber} ({pool.memberCount} Questions)
+                    {pool.questionPoolRevision.revisionNumber} ({pool.memberCount} Questions) -{" "}
+                    {pool.bloom.cognitiveProcess} / {pool.bloom.knowledgeDimension}
                   </option>
                 )}
               </For>

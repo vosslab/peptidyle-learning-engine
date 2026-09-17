@@ -14,7 +14,11 @@ import type { StudentRecordId } from "../../../generated/api/StudentRecordId";
 import type { QuestionId } from "../../../generated/api/QuestionId";
 import type { QuestionAttemptId } from "../../../generated/api/QuestionAttemptId";
 import type { ApiClient } from "../client";
-import type { ProfileAvatarView, SelectProvidedProfileAvatarInput } from "../profile_avatar";
+import type {
+  ProfileAvatarView,
+  ProfileImageCropInput,
+  SelectProvidedProfileAvatarInput,
+} from "../profile_avatar";
 import type { ProfileSettings, UpdateAccountSettingsInput } from "../profile_settings";
 import type { StudentQuestionAttempt } from "../contracts";
 import { questionReferencePath, questionSearchPath } from "../question_search_query";
@@ -45,6 +49,7 @@ import {
 } from "../decoders/profile_settings";
 import {
   decodeProfileAvatarView,
+  decodeProfileImageCropInput,
   decodeSelectProvidedProfileAvatarInput,
 } from "../decoders/profile_avatar";
 import { ApiProtocolError, ApiRequestError } from "./error";
@@ -245,11 +250,20 @@ async function replaceProfileAvatarImage(
   fetchImplementation: ApiFetch,
   basePath: string,
   image: Blob,
+  crop: ProfileImageCropInput,
 ): Promise<ProfileAvatarView> {
   const path = "/api/profile/avatar/profile-image";
+  const geometry = decodeProfileImageCropInput(crop);
+  if (image.size === 0 || image.size > 8 * 1_024 * 1_024) {
+    throw new ApiProtocolError("Profile image must contain at most 8 MiB of original image bytes");
+  }
   const response = await fetchImplementation(requestPath(basePath, path), {
     method: "POST",
-    headers: { accept: "application/json", "content-type": "application/octet-stream" },
+    headers: {
+      accept: "application/json",
+      "content-type": "application/octet-stream",
+      "x-ple-profile-crop": JSON.stringify(geometry),
+    },
     body: image,
     credentials: "same-origin",
     cache: "no-store",
@@ -454,8 +468,8 @@ export function createResponseClient(
     getProfileAvatar: () => profileAvatar(fetchImplementation, basePath),
     selectProvidedProfileAvatar: (input) =>
       selectProvidedProfileAvatar(fetchImplementation, basePath, input),
-    replaceProfileAvatarImage: (image) =>
-      replaceProfileAvatarImage(fetchImplementation, basePath, image),
+    replaceProfileAvatarImage: (image, crop) =>
+      replaceProfileAvatarImage(fetchImplementation, basePath, image, crop),
     fetchProfileAvatarImage: (reference) =>
       fetchProfileAvatarImage(fetchImplementation, basePath, reference),
     resolveNavigation: (reference) =>

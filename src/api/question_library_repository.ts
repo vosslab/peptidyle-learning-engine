@@ -6,6 +6,12 @@ import type { QuestionId } from "../../generated/api/QuestionId";
 import type { Capability } from "../../generated/api/Capability";
 import type { QuestionLicense } from "../../generated/api/QuestionLicense";
 import type { QuestionType } from "../../generated/api/QuestionType";
+import type { BloomCognitiveProcess } from "../../generated/api/BloomCognitiveProcess";
+import type { BloomKnowledgeDimension } from "../../generated/api/BloomKnowledgeDimension";
+import {
+  isBloomCognitiveProcess,
+  isBloomKnowledgeDimension,
+} from "./decoders/bloom_classification";
 import { MAX_BULK_QUESTION_METADATA_ITEMS } from "../../generated/api/MAX_BULK_QUESTION_METADATA_ITEMS";
 import type { ApiClient } from "./client";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
@@ -126,6 +132,16 @@ function selectedPublicTexts(values: ReadonlyArray<string>): Array<string> {
   return [...values];
 }
 
+function selectedBloomCognitiveProcess(value: string | null): BloomCognitiveProcess | null {
+  if (value === null || isBloomCognitiveProcess(value)) return value;
+  throw new Error("Question Library Bloom Cognitive Process selection is invalid");
+}
+
+function selectedBloomKnowledgeDimension(value: string | null): BloomKnowledgeDimension | null {
+  if (value === null || isBloomKnowledgeDimension(value)) return value;
+  throw new Error("Question Library Bloom Knowledge Dimension selection is invalid");
+}
+
 function facets(
   page: Awaited<ReturnType<ApiClient["searchQuestionLibrary"]>>,
 ): ReadonlyArray<QuestionLibraryBrowseFacetAggregate> {
@@ -172,6 +188,16 @@ function facets(
       value: facet.questionLicense,
       count: facet.count,
     })),
+    ...page.facets.bloomCognitiveProcesses.map((facet) => ({
+      facet: "bloomCognitiveProcess" as const,
+      value: facet.cognitiveProcess,
+      count: facet.count,
+    })),
+    ...page.facets.bloomKnowledgeDimensions.map((facet) => ({
+      facet: "bloomKnowledgeDimension" as const,
+      value: facet.knowledgeDimension,
+      count: facet.count,
+    })),
     { facet: "usedInMyCourses" as const, value: "used", count: page.facets.usedInMyCourses.used },
   ];
 }
@@ -190,6 +216,8 @@ export function questionSearchRequest(
     tags: selectedPublicText(query.tag),
     subjects: selectedPublicTexts(query.subjects),
     topics: selectedPublicTexts(query.topics),
+    bloom_cognitive_process: selectedBloomCognitiveProcess(query.bloomCognitiveProcess),
+    bloom_knowledge_dimension: selectedBloomKnowledgeDimension(query.bloomKnowledgeDimension),
     question_types: selectedQuestionType(query.questionType),
     capabilities: selectedCapability(query.capability),
     question_licenses: selectedQuestionLicense(query.questionLicense),
@@ -216,6 +244,7 @@ export function createQuestionLibraryRepository(
           questionRevision: item.summary.latestQuestionRevision,
           questionTitle: item.summary.metadata.questionTitle,
           summary: item.summary.metadata.questionDescription,
+          bloom: item.summary.bloom,
           disciplineName: item.disciplineName,
           disciplineIsRetired: item.disciplineIsRetired,
           questionFormat: item.summary.questionFormat,

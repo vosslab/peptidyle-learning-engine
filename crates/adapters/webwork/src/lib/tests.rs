@@ -40,6 +40,15 @@ impl WebworkRenderer for RecordedRenderer {
         &self.identity
     }
 
+    async fn render_answer_review(
+        &self,
+        request: RenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        assert_eq!(request.seed, 17);
+        assert_eq!(request.question_revision, &question_revision());
+        self.render(request).await
+    }
+
     async fn render(
         &self,
         request: RenderRequest<'_>,
@@ -113,6 +122,13 @@ impl WebworkRenderer for NativeResponseRejectingRenderer {
         &self.identity
     }
 
+    async fn render_answer_review(
+        &self,
+        _: RenderRequest<'_>,
+    ) -> Result<RenderedWebworkQuestion, RendererFailure> {
+        panic!("native PLE response validation must reject before review")
+    }
+
     async fn render(
         &self,
         _: RenderRequest<'_>,
@@ -162,6 +178,28 @@ async fn source(store: &MemoryObjectStore) -> ResolvedWebworkQuestionSource {
     )
     .await
     .expect("source resolves through trusted storage")
+}
+
+#[tokio::test]
+/// Protects exact source/seed review and the stateless document-only adapter contract.
+async fn answer_review_returns_only_the_bound_document_and_refuses_lifecycle_state() {
+    let source = source(&MemoryObjectStore::default()).await;
+    let mut renderer = recorded_renderer();
+    let adapter = WebworkAdapter::new(renderer.clone());
+    assert_eq!(
+        adapter
+            .answer_review_document(QuestionSeed::new(17), &source)
+            .await
+            .unwrap(),
+        DOCUMENT
+    );
+    renderer.lifecycle_state = BackendOwnedLifecycleState::from_bytes(vec![1]).unwrap();
+    assert!(
+        WebworkAdapter::new(renderer)
+            .answer_review_document(QuestionSeed::new(17), &source)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]

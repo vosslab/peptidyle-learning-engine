@@ -1,10 +1,10 @@
 // gradebook_page.tsx - focused answer-free Instructor Gradebook.
 
 import { useParams } from "@solidjs/router";
-import { For, Show, createResource, type JSX } from "solid-js";
+import { For, Show, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
-import type { CourseGradebook } from "../api/live_gradebook";
+import type { CourseGradebook, GradebookExportFormat } from "../api/live_gradebook";
 import { useApplicationApi } from "../api/application_api";
 import { parseCourseInstanceReference } from "../navigation/public_route";
 import { formatPointScore } from "../score_format";
@@ -75,6 +75,46 @@ function GradebookEvidence(props: { readonly gradebook: CourseGradebook }): JSX.
 function GradebookCoursePage(props: { readonly course: CourseInstanceReference }): JSX.Element {
   const runtime = useApplicationApi();
   const [gradebook] = createResource(() => props.course, runtime.client.getCourseGradebook);
+  const [downloading, setDownloading] = createSignal(false);
+  const [downloadMessage, setDownloadMessage] = createSignal("");
+  const [downloadError, setDownloadError] = createSignal("");
+  let disposed = false;
+  onCleanup(() => {
+    disposed = true;
+  });
+
+  async function download(format: GradebookExportFormat): Promise<void> {
+    if (downloading()) return;
+    setDownloading(true);
+    setDownloadMessage(`Preparing ${format.toUpperCase()} download...`);
+    setDownloadError("");
+    try {
+      const exportBlob = await runtime.client.downloadCourseGradebook(props.course, format);
+      if (disposed) return;
+      // ASVS 14.3.3: keep sensitive bytes only in this short-lived download URL.
+      const downloadUrl = URL.createObjectURL(exportBlob);
+      const link = document.createElement("a");
+      try {
+        link.href = downloadUrl;
+        link.download = `ple_${props.course}_grades.${format}`;
+        document.body.append(link);
+        link.click();
+      } finally {
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+      }
+      setDownloadMessage(`${format.toUpperCase()} download started.`);
+    } catch {
+      if (disposed) return;
+      setDownloadMessage("");
+      setDownloadError(
+        "Gradebook could not be downloaded. Try again or reload to check your access.",
+      );
+    } finally {
+      if (!disposed) setDownloading(false);
+    }
+  }
+
   return (
     <section class="page gradebook-page" data-route-surface="gradebook">
       <p class="eyebrow">Course progress</p>
@@ -91,7 +131,30 @@ function GradebookCoursePage(props: { readonly course: CourseInstanceReference }
           <p>This Course Instance is not available through your current Instructor access.</p>
         </section>
       </Show>
-      <Show when={gradebook()}>{(loaded) => <GradebookEvidence gradebook={loaded()} />}</Show>
+      <Show when={gradebook()}>
+        {(loaded) => (
+          <>
+            <section class="gradebook-export" aria-label="Download point grades">
+              <p>
+                Export Assessment points. Handle Course weighting and percentages in your home LMS.
+              </p>
+              <div class="gradebook-export-actions" aria-busy={downloading()}>
+                <button type="button" disabled={downloading()} onClick={() => void download("csv")}>
+                  Download CSV
+                </button>
+                <button type="button" disabled={downloading()} onClick={() => void download("tsv")}>
+                  Download TSV
+                </button>
+              </div>
+              <p role="status">{downloadMessage()}</p>
+              <Show when={downloadError()}>
+                <p role="alert">{downloadError()}</p>
+              </Show>
+            </section>
+            <GradebookEvidence gradebook={loaded()} />
+          </>
+        )}
+      </Show>
     </section>
   );
 }

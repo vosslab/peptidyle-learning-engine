@@ -7,8 +7,8 @@ use sqlx::{Postgres, Row, Transaction};
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
     BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchEvent,
-    BlueprintCourseWatchEventKind, BlueprintCourseWatchProjection, BlueprintStewardshipState,
-    BlueprintStewardshipStore, SessionTokenHash, StoreError,
+    BlueprintCourseWatchEventKind, BlueprintCourseWatchProjection, BlueprintStewardshipStore,
+    SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for one active Instructor's Blueprint Course stewardship.
@@ -47,25 +47,6 @@ impl PostgresBlueprintStewardshipStore {
             .await
             .map_err(map_sqlx_error)?;
         Ok(tx)
-    }
-
-    async fn read_in(
-        tx: &mut Transaction<'_, Postgres>,
-        reference: BlueprintCourseReference,
-    ) -> Result<BlueprintStewardshipState, StoreError> {
-        // ASVS 8.2.1--8.3.1: this procedure takes no Account or role value;
-        // PostgreSQL derives the subject from the installed session.
-        let row =
-            sqlx::query("SELECT * FROM ple_api.read_current_blueprint_course_stewardship($1)")
-                .bind(reference.as_string())
-                .fetch_optional(&mut **tx)
-                .await
-                .map_err(map_sqlx_error)?
-                .ok_or(StoreError::NotFound)?;
-        Ok(BlueprintStewardshipState {
-            starred: row.try_get("starred").map_err(map_sqlx_error)?,
-            watching: row.try_get("watching").map_err(map_sqlx_error)?,
-        })
     }
 
     async fn read_star_in(
@@ -251,52 +232,5 @@ impl BlueprintStewardshipStore for PostgresBlueprintStewardshipStore {
             .collect::<Result<Vec<_>, StoreError>>()?;
         tx.commit().await.map_err(map_sqlx_error)?;
         Ok(events)
-    }
-
-    async fn blueprint_stewardship_state(
-        &self,
-        session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
-    ) -> Result<BlueprintStewardshipState, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
-        let state = Self::read_in(&mut tx, blueprint_course_reference).await?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(state)
-    }
-
-    async fn set_current_blueprint_course_star(
-        &self,
-        session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
-        starred: bool,
-    ) -> Result<BlueprintStewardshipState, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
-        sqlx::query("SELECT ple_api.set_current_blueprint_course_star($1, $2)")
-            .bind(blueprint_course_reference.as_string())
-            .bind(starred)
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let state = Self::read_in(&mut tx, blueprint_course_reference).await?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(state)
-    }
-
-    async fn set_current_blueprint_course_watch(
-        &self,
-        session_token_hash: SessionTokenHash,
-        blueprint_course_reference: BlueprintCourseReference,
-        watching: bool,
-    ) -> Result<BlueprintStewardshipState, StoreError> {
-        let mut tx = self.begin(session_token_hash).await?;
-        sqlx::query("SELECT ple_api.set_current_blueprint_course_watch($1, $2)")
-            .bind(blueprint_course_reference.as_string())
-            .bind(watching)
-            .execute(&mut *tx)
-            .await
-            .map_err(map_sqlx_error)?;
-        let state = Self::read_in(&mut tx, blueprint_course_reference).await?;
-        tx.commit().await.map_err(map_sqlx_error)?;
-        Ok(state)
     }
 }

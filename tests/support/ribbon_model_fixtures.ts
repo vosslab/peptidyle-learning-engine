@@ -30,7 +30,7 @@ const CANONICAL_FIXTURE_PARAMS = {
   assessmentAttemptRef: "R-1",
   membershipRef: "M-1",
   questionRef: "7K3M-79QP",
-  draftQuestionRef: "D-1",
+  draftQuestionId: "0198e000-0000-7000-8000-000000000001",
   blueprintCourseRef: "BP7K3M2QAF",
   proposalId: "e3396265-6653-4c65-bc9b-8d869c142d87",
 } as const satisfies Readonly<Record<RouteParamName, string>>;

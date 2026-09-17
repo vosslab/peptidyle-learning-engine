@@ -6,6 +6,7 @@ import test from "node:test";
 import { createHttpApiClient } from "../src/api/http_client.ts";
 import {
   decodeAssessmentUnreleaseImpact,
+  decodeAssessmentQuestionPicker,
   decodeCreateLiveAssessmentInput,
   decodeLiveAssessmentWorkspace,
 } from "../src/api/decoders/assessment_release.ts";
@@ -14,6 +15,11 @@ import { createRecordingFetch } from "./http_client_test_support.mjs";
 const course = "CI7K3M2QAZ";
 const assessment = "A8H4N6PA6";
 const directOrigin = { kind: "direct" };
+const bloom = {
+  cognitiveProcess: "Understand",
+  knowledgeDimension: "Conceptual Knowledge",
+  classificationEditNumber: "3",
+};
 
 function createdWorkspace(
   displayTimeZone = "America/Chicago",
@@ -81,6 +87,7 @@ function createdWorkspace(
       {
         reference: { questionId: "7K3M-79QP", revisionNumber: 1 },
         description: "A fixed question.",
+        bloom,
       },
     ],
   };
@@ -189,7 +196,24 @@ test("current adopted Assessment workspace retains exact origin and normalized f
   assert.equal(workspace.entries[0].kind, "fixedQuestion");
   assert.equal(workspace.entries[1].kind, "questionPool");
   assert.equal(workspace.entries[1].questionPoolRevision.questionPoolId, "2R5X-E7YA");
+  assert.deepEqual(workspace.questions[0].bloom, bloom);
   assert.throws(() => decodeLiveAssessmentWorkspace({ ...createdWorkspace(), revisionNumber: 1 }));
+  const missingBloom = createdWorkspace();
+  delete missingBloom.questions[0].bloom;
+  assert.throws(() => decodeLiveAssessmentWorkspace(missingBloom));
+});
+
+test("Assessment picker requires the exact closed Bloom pair", () => {
+  const row = {
+    reference: { questionId: "7K3M-79QP", revisionNumber: 1 },
+    description: "A fixed question.",
+    bloom,
+  };
+  assert.deepEqual(decodeAssessmentQuestionPicker([row]), [row]);
+  assert.throws(() => decodeAssessmentQuestionPicker([{ ...row, bloom: undefined }]));
+  assert.throws(() =>
+    decodeAssessmentQuestionPicker([{ ...row, bloom: { ...bloom, difficulty: "Hard" } }]),
+  );
 });
 
 test("current direct Assessment workspace accepts only the closed tagged origin", () => {

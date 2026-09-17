@@ -55,6 +55,17 @@ what a task in a matrix position might look like. Many different learning object
 can occupy the same position, so those examples are reference guidance rather than a third
 classification field.
 
+## Assessment item order
+
+An Instructor may use Bloom Classification to organize the current Entries in an Assessment. The
+order is Cognitive Process first (Remember through Create), then Knowledge Dimension (Factual
+through Metacognitive). Entries with the same pair retain their immediately prior relative order.
+
+A fixed Question Entry uses the pair on its exact pinned Question Revision. A Question Pool Entry
+uses the pair on the exact Assessment-owned fork Pool Revision. Do not substitute the reusable
+source Pool's current pair or infer a Pool pair from its members. Sorting changes only the pending
+Assessment Entry sequence; the ordinary Assessment Save and its Edit Number CAS persist it.
+
 ## Cognitive process dimension
 
 The Cognitive Process Dimension uses six closed values.
@@ -192,9 +203,18 @@ Question Library search exposes two independent facets:
 - Cognitive Process Dimension;
 - Knowledge Dimension.
 
-The interface may also show a 4 by 6 matrix. A matrix selection applies both facets together. The
-matrix position, combined label, and result count are derived from the same two values rather than
-maintained as separate object metadata.
+Each selected facet is an exact filter and combines with every other active Question Library
+predicate. It neither replaces the other Bloom facet nor broadens text, hierarchy, Tag, Question
+Type, capability, license, course-use, authorship, or other existing filters. Saved searches, URL
+handoff, and an opaque continuation cursor retain the normalized pair and existing sort; a cursor
+is valid only for that same normalized query. Bloom filtering does not add, remove, or redefine
+Question Library sorts.
+
+The server reports the whole matching set, not only the loaded cursor page: all six Cognitive
+Process counts and all four Knowledge Dimension counts are present in guide order, including zeros
+and an empty-result search. The interface may also show a 4 by 6 matrix. A matrix selection applies
+both facets together. The matrix position, combined label, and result count are derived from the
+same two values rather than maintained as separate object metadata.
 
 Report both dimensions when precision matters. "Analyze / Conceptual Knowledge" communicates more
 than a one-dimensional phrase such as "Bloom level 4." The pair also prevents the cognitive process
@@ -233,6 +253,8 @@ color does not represent correctness, Question Difficulty, point value, or maste
 - [ ] The classification remains separate from Question Difficulty and Question Type.
 - [ ] Every color-coded presentation also displays both dimension labels.
 - [ ] An Instructor can edit either assigned value later without creating a Question or Pool Revision.
+- [ ] Assessment sorting uses the exact fixed or Assessment-owned Pool pair, guide order, and a
+  stable prior-position tie-break.
 
 ## Sources
 

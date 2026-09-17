@@ -3,6 +3,50 @@ import test from "node:test";
 
 import { DecodeError } from "../src/api/decoder.ts";
 import { decodeStudentAssessmentAttemptHistory } from "../src/api/decoders/assessment_attempt_history.ts";
+import { backendAnswerReviewDocumentUrl } from "../src/api/assessment_attempt_history.ts";
+
+test("backend answer review accepts only availability and derives its authorized route", () => {
+  const original = history();
+  assert.equal(
+    "backendAnswerReview" in decodeStudentAssessmentAttemptHistory(original).questions[0],
+    false,
+  );
+  const permitted = {
+    ...original,
+    questions: [
+      { ...original.questions[0], responseState: "closed", backendAnswerReview: "available" },
+    ],
+  };
+  const decoded = decodeStudentAssessmentAttemptHistory(permitted);
+  assert.equal(decoded.questions[0].backendAnswerReview, "available");
+  assert.equal(decoded.questions[0].questionAnswer, undefined);
+  assert.equal(decoded.score, undefined);
+  assert.equal(
+    backendAnswerReviewDocumentUrl(decoded.assessmentAttempt, 1),
+    "/api/assessment-attempts/R-12/questions/1/answer-review-document",
+  );
+  for (const marker of [
+    null,
+    false,
+    true,
+    "withheld",
+    "https://renderer.example",
+    { url: "/answer" },
+  ]) {
+    assert.throws(
+      () =>
+        decodeStudentAssessmentAttemptHistory({
+          ...original,
+          questions: [{ ...original.questions[0], backendAnswerReview: marker }],
+        }),
+      DecodeError,
+    );
+  }
+  for (const position of [0, -1, 1.5, Number.NaN, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => backendAnswerReviewDocumentUrl(decoded.assessmentAttempt, position));
+  }
+  assert.throws(() => backendAnswerReviewDocumentUrl("R-12?reveal=1", 1));
+});
 
 function history() {
   return {

@@ -1,8 +1,8 @@
 //! Strict HTTP transport and trusted normalization for Library search.
 use axum::http::StatusCode;
 use question_model::{
-    Capability, QuestionBackend, QuestionSearchAuthorship, QuestionSearchCourseUse,
-    QuestionSearchRequest, QuestionSearchSort,
+    BloomCognitiveProcess, BloomKnowledgeDimension, Capability, QuestionBackend,
+    QuestionSearchAuthorship, QuestionSearchCourseUse, QuestionSearchRequest, QuestionSearchSort,
 };
 use serde::Deserialize;
 
@@ -39,6 +39,10 @@ pub(super) struct QuestionSearchQuery {
     #[serde(default)]
     cross_discipline: bool,
     #[serde(default)]
+    bloom_cognitive_process: Vec<BloomCognitiveProcess>,
+    #[serde(default)]
+    bloom_knowledge_dimension: Vec<BloomKnowledgeDimension>,
+    #[serde(default)]
     question_types: Vec<question_model::QuestionType>,
     #[serde(default)]
     capabilities: Vec<Capability>,
@@ -71,6 +75,12 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
                 "Question Library page size is invalid",
             ));
         }
+        if query.bloom_cognitive_process.len() > 1 || query.bloom_knowledge_dimension.len() > 1 {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Question Library Bloom filter is invalid",
+            ));
+        }
         QuestionSearchRequest {
             text: query.text,
             author_names: query.author_names,
@@ -83,6 +93,8 @@ impl TryFrom<QuestionSearchQuery> for QuestionSearchRequest {
             topic_uuid: query.topic_uuid,
             subtopic_uuid: query.subtopic_uuid,
             cross_discipline: query.cross_discipline,
+            bloom_cognitive_process: query.bloom_cognitive_process.into_iter().next(),
+            bloom_knowledge_dimension: query.bloom_knowledge_dimension.into_iter().next(),
             question_types: query.question_types,
             capabilities: query.capabilities,
             question_licenses: query.question_licenses,

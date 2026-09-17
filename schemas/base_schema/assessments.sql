@@ -10,10 +10,7 @@ CREATE TABLE ple_data.assessment (
     reference_number bigint GENERATED ALWAYS AS IDENTITY UNIQUE NOT NULL
         CHECK (reference_number BETWEEN 1 AND 2147483647),
     public_reference text NOT NULL UNIQUE CHECK (
-        public_reference ~ '^A[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
-        AND right(public_reference, 1) = ple_private.crockford_checksum_character(
-            left(public_reference, char_length(public_reference) - 1)
-        )
+        ple_private.is_canonical_prefixed_public_id(public_reference, 'A')
     ),
     origin_kind text NOT NULL CHECK (origin_kind IN ('direct', 'adopted')),
     source_blueprint_course_reference_number bigint,

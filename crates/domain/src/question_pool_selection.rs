@@ -138,14 +138,14 @@ mod tests {
         QuestionPoolSelectedItem {
             pool_revision_member: PoolRevisionMemberReference {
                 question_pool_revision: QuestionPoolRevisionReference {
-                    question_pool_id: "7K3M-X9QP".parse::<QuestionId>().expect("Pool ID"),
+                    question_pool_id: QuestionId::from_random_identifier("7K3M9QP")
+                        .expect("Pool ID"),
                     revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
                 },
                 member_position: number,
             },
             reference: QuestionRevisionReference {
-                question_id: format!("7K3M-X9Q{number}")
-                    .parse()
+                question_id: QuestionId::from_random_identifier(format!("7K3M9Q{number}"))
                     .expect("valid Question ID"),
                 revision_number: QuestionRevisionNumber::new(1).expect("positive version"),
             },
@@ -158,7 +158,7 @@ mod tests {
             availability: AssessmentEntryAvailability::Available,
             scoring_rule: AssessmentEntryScoringRule::Normal,
             question_pool_revision: QuestionPoolRevisionReference {
-                question_pool_id: "7K3M-X9QP".parse().expect("Pool ID"),
+                question_pool_id: QuestionId::from_random_identifier("7K3M9QP").expect("Pool ID"),
                 revision_number: QuestionPoolRevisionNumber::new(1).expect("revision"),
             },
             selection_count: std::num::NonZeroU32::new(2).expect("positive count"),

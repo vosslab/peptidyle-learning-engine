@@ -141,14 +141,21 @@ async fn import_fork(
             Some(value) => value,
             None => return concealed(),
         };
+    // Trusted preparation must classify the exact resolved source Pool candidate.
+    let bloom_preparation_receipt_id =
+        match learning_data_access::PoolBloomPreparationReceipts::default().take_next() {
+            Ok(receipt) => receipt,
+            Err(error) => return store_error(error),
+        };
     for _ in 0..POOL_IDENTITY_ATTEMPTS {
         let fork_public_question_pool_id = match state.issuer.issue_question_id() {
             Ok(value) => value,
             Err(_) => return unavailable(),
         };
         let input = ImportAssessmentPoolForkInput {
-            course,
-            assessment,
+            bloom_preparation_receipt_id,
+            course: course.clone(),
+            assessment: assessment.clone(),
             assessment_entry: AssessmentEntryId::from_uuid(Uuid::now_v7()),
             expected_assessment_edit_number,
             fork_question_pool_id: Uuid::now_v7(),
@@ -225,11 +232,18 @@ async fn append_fork_revision(
         Some(value) if !value.is_empty() && request.interchangeability_attested => value,
         _ => return invalid(),
     };
+    // Trusted preparation must classify the replacement membership before appending.
+    let bloom_preparation_receipt_id =
+        match learning_data_access::PoolBloomPreparationReceipts::default().take_next() {
+            Ok(receipt) => receipt,
+            Err(error) => return store_error(error),
+        };
     match state
         .forks
         .append_assessment_question_pool_fork_revision(
             token,
             AppendAssessmentPoolForkRevisionInput {
+                bloom_preparation_receipt_id,
                 course,
                 assessment,
                 assessment_entry: entry,

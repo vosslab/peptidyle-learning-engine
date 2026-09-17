@@ -12,6 +12,13 @@ function InvitationCard(props: {
   return (
     <article class="course-card">
       <h2>{props.invitation.longName}</h2>
+      <p>Instructor: {props.invitation.instructorDisplayName}</p>
+      <p>
+        Term:{" "}
+        <time dateTime={props.invitation.term.startDate}>{props.invitation.term.startDate}</time>
+        {" to "}
+        <time dateTime={props.invitation.term.endDate}>{props.invitation.term.endDate}</time>
+      </p>
       <A class="primary-link" href={`/courses/${props.invitation.reference}/invitation`}>
         Review invitation
       </A>

@@ -1,0 +1,26 @@
+.blueprint-stewardship {
+  display: grid;
+  gap: 0.75rem;
+  padding-block: 1rem;
+}
+
+.blueprint-stewardship h2,
+.blueprint-stewardship p {
+  margin: 0;
+}
+
+.blueprint-stewardship__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.blueprint-stewardship details > p {
+  margin-block-start: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.blueprint-stewardship > button {
+  justify-self: start;
+}

@@ -5,6 +5,10 @@ import { MAX_QUESTION_SEARCH_AUTHOR_NAME_FILTERS } from "../../generated/api/MAX
 import { MAX_QUESTION_SEARCH_TAG_FILTERS } from "../../generated/api/MAX_QUESTION_SEARCH_TAG_FILTERS";
 import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import { appendLibraryClassificationParameters } from "./library_classification_filter";
+import {
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
+} from "./decoders/bloom_classification";
 import { PRODUCTION_QUESTION_BACKENDS } from "./decoders/shared";
 
 const MAX_QUESTION_SEARCH_TEXT_UNICODE_SCALARS = 256;
@@ -42,6 +46,8 @@ const QUESTION_SEARCH_QUERY_FIELDS = [
   "topic_uuid",
   "subtopic_uuid",
   "cross_discipline",
+  "bloom_cognitive_process",
+  "bloom_knowledge_dimension",
   "question_types",
   "capabilities",
   "question_licenses",
@@ -178,6 +184,26 @@ export function questionSearchPath(query: QuestionSearchRequest): string {
     parameters.append(
       "topics",
       normalizedQuestionSearchFilterText(topic, "Question Library topic", 256),
+    );
+  }
+  if (query.bloom_cognitive_process !== null) {
+    parameters.set(
+      "bloom_cognitive_process",
+      questionSearchEnum(
+        query.bloom_cognitive_process,
+        BLOOM_COGNITIVE_PROCESSES,
+        "Question Library Bloom Cognitive Process",
+      ),
+    );
+  }
+  if (query.bloom_knowledge_dimension !== null) {
+    parameters.set(
+      "bloom_knowledge_dimension",
+      questionSearchEnum(
+        query.bloom_knowledge_dimension,
+        BLOOM_KNOWLEDGE_DIMENSIONS,
+        "Question Library Bloom Knowledge Dimension",
+      ),
     );
   }
   boundedQuestionSearchFilterValues(

@@ -3,15 +3,14 @@
 use async_trait::async_trait;
 use objects::{ObjectAddress, ObjectDataClass, ObjectRecord, ObjectStorageArea, Sha256Checksum};
 use question_model::{
-    DraftQuestionReference, ObjectId, QuestionAssetId, QuestionRevisionReference, Timestamp,
-    WorkspaceId,
+    ObjectId, QuestionAssetId, QuestionRevisionReference, Timestamp, WorkspaceId,
 };
 use sqlx::{Postgres, Row, Transaction, types::Json};
 
 use super::{Pool, connection::map_sqlx_error};
 use crate::{
-    ForkPublishedQuestionError, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
-    PublishedQuestionForkAsset, QuestionForkStore, SessionTokenHash, StoreError,
+    ForkPublishedQuestionInput, ForkedPublishedQuestionDraft, PublishedQuestionForkAsset,
+    QuestionForkStore, SessionTokenHash, StoreError,
 };
 
 /// PostgreSQL Store for source resolution and one atomic Draft fork.
@@ -90,33 +89,25 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         &self,
         session_token_hash: SessionTokenHash,
         input: ForkPublishedQuestionInput,
-    ) -> Result<ForkedPublishedQuestionDraft, ForkPublishedQuestionError> {
-        input
-            .validate()
-            .map_err(ForkPublishedQuestionError::Store)?;
+    ) -> Result<ForkedPublishedQuestionDraft, StoreError> {
+        input.validate()?;
         let source_revision_number =
             i32::try_from(input.source_question_revision.revision_number.get()).map_err(|_| {
-                ForkPublishedQuestionError::Store(StoreError::InvalidRecord(
+                StoreError::InvalidRecord(
                     "Question Fork Revision Number exceeds PostgreSQL integer".to_owned(),
-                ))
+                )
             })?;
         let target = &input.target_source_record;
         let target_address = serde_json::to_value(&target.address).map_err(|_| {
-            ForkPublishedQuestionError::Store(StoreError::InvalidRecord(
-                "Question Fork target address cannot be encoded".to_owned(),
-            ))
+            StoreError::InvalidRecord("Question Fork target address cannot be encoded".to_owned())
         })?;
         let target_size = i64::try_from(target.size_bytes).map_err(|_| {
-            ForkPublishedQuestionError::Store(StoreError::InvalidRecord(
+            StoreError::InvalidRecord(
                 "Question Fork target size exceeds PostgreSQL bigint".to_owned(),
-            ))
+            )
         })?;
-        let hotspot_asset = encode_hotspot_asset(input.hotspot_asset.as_ref())
-            .map_err(ForkPublishedQuestionError::Store)?;
-        let mut transaction = self
-            .begin(session_token_hash)
-            .await
-            .map_err(ForkPublishedQuestionError::Store)?;
+        let hotspot_asset = encode_hotspot_asset(input.hotspot_asset.as_ref())?;
+        let mut transaction = self.begin(session_token_hash).await?;
         let row = sqlx::query(
             "SELECT * FROM ple_api.fork_published_question_to_draft(\
                 $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12\
@@ -136,35 +127,16 @@ impl QuestionForkStore for PostgresQuestionForkStore {
         .bind(hotspot_asset)
         .fetch_one(&mut *transaction)
         .await
-        .map_err(map_fork_error)?;
-        let reference_number: i64 = row
-            .try_get("reference_number")
-            .map_err(map_sqlx_error)
-            .map_err(ForkPublishedQuestionError::Store)?;
-        let draft_question = u64::try_from(reference_number)
-            .ok()
-            .and_then(DraftQuestionReference::new)
-            .ok_or_else(|| {
-                ForkPublishedQuestionError::Store(StoreError::InvalidRecord(
-                    "Question Fork returned an invalid Draft Question Reference".to_owned(),
-                ))
-            })?;
-        let workspace = WorkspaceId::from_uuid(
-            row.try_get("workspace_id")
-                .map_err(map_sqlx_error)
-                .map_err(ForkPublishedQuestionError::Store)?,
+        .map_err(map_sqlx_error)?;
+        let draft_question_uuid = crate::DraftQuestionUuid::from_uuid(
+            row.try_get("draft_question_uuid").map_err(map_sqlx_error)?,
         );
-        let created_new: bool = row
-            .try_get("created_new")
-            .map_err(map_sqlx_error)
-            .map_err(ForkPublishedQuestionError::Store)?;
-        transaction
-            .commit()
-            .await
-            .map_err(map_sqlx_error)
-            .map_err(ForkPublishedQuestionError::Store)?;
+        let workspace =
+            WorkspaceId::from_uuid(row.try_get("workspace_id").map_err(map_sqlx_error)?);
+        let created_new: bool = row.try_get("created_new").map_err(map_sqlx_error)?;
+        transaction.commit().await.map_err(map_sqlx_error)?;
         Ok(ForkedPublishedQuestionDraft {
-            draft_question,
+            draft_question_uuid,
             workspace,
             created_new,
         })
@@ -247,13 +219,4 @@ fn encode_hotspot_asset(
             }))
         })
         .transpose()
-}
-
-fn map_fork_error(error: sqlx::Error) -> ForkPublishedQuestionError {
-    if let sqlx::Error::Database(database_error) = &error
-        && database_error.code().as_deref() == Some("QF002")
-    {
-        return ForkPublishedQuestionError::Store(StoreError::NotFound);
-    }
-    ForkPublishedQuestionError::Store(map_sqlx_error(error))
 }

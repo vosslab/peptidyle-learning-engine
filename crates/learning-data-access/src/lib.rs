@@ -21,6 +21,7 @@ mod authentication_ceremony;
 mod authentication_email;
 mod authoring;
 mod authoring_assets;
+mod bloom_preparation;
 mod blueprint_change_proposal;
 mod blueprint_course;
 mod blueprint_history;
@@ -39,6 +40,7 @@ mod library_discussion;
 mod library_watch_notification;
 mod live_gradebook;
 mod live_student_course_landing;
+mod pool_bloom_preparation;
 pub use archived_student_work_recovery::{
     ArchivedStudentWorkRecoveryStore, RecoveredAttempt, RecoveredQuestion, RecoverySummary,
 };
@@ -83,15 +85,15 @@ pub use assessment_attempt::{
     PreparedIssuedQuestion, PreparedQuestionPoolSelection,
 };
 pub use assessment_delivery::{
-    IssuedQuestionPresentation, LiveAssessmentAccess, LiveAssessmentAttempt,
-    LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore, LiveAssessmentPreviousAttempt,
-    LiveAssessmentPreviousAttemptState, NativeAssessmentIssuanceBatch, NativePleIssuanceSource,
-    NativePresentationInput, NativeWebworkIssuanceSource, QuestionIssuanceReproductionInput,
-    ReadyQuestionAssetRendition, StudentAssessmentAttemptBackendDocument,
-    StudentAssessmentAttemptBackendDocumentResume, StudentAssessmentAttemptContext,
-    StudentAssessmentAttemptFinalization, StudentAssessmentAttemptFinalizationBackend,
-    StudentAssessmentAttemptFinalizationEvaluation, StudentAssessmentAttemptFinalizationKind,
-    StudentAssessmentAttemptFinalizationPreparation,
+    BackendAnswerReviewAvailability, IssuedQuestionPresentation, LiveAssessmentAccess,
+    LiveAssessmentAttempt, LiveAssessmentAttemptScore, LiveAssessmentDeliveryStore,
+    LiveAssessmentPreviousAttempt, LiveAssessmentPreviousAttemptState,
+    NativeAssessmentIssuanceBatch, NativePleIssuanceSource, NativePresentationInput,
+    NativeWebworkIssuanceSource, QuestionIssuanceReproductionInput, ReadyQuestionAssetRendition,
+    StudentAssessmentAttemptBackendDocument, StudentAssessmentAttemptBackendDocumentResume,
+    StudentAssessmentAttemptContext, StudentAssessmentAttemptFinalization,
+    StudentAssessmentAttemptFinalizationBackend, StudentAssessmentAttemptFinalizationEvaluation,
+    StudentAssessmentAttemptFinalizationKind, StudentAssessmentAttemptFinalizationPreparation,
     StudentAssessmentAttemptFinalizationPreparationOutcome,
     StudentAssessmentAttemptFinalizationSource, StudentAssessmentAttemptHistory,
     StudentAssessmentAttemptHistoryAssessment, StudentAssessmentAttemptHistoryCourse,
@@ -144,6 +146,10 @@ pub use authoring::{
 pub use authoring_assets::{
     AuthoringAssetsStore, OwnedDraftQuestionAsset, RegisterDraftQuestionAssetInput,
 };
+pub use bloom_preparation::{
+    BloomClassificationPreparationStore, BloomPreparationCandidate, BloomPreparationReceiptId,
+    BloomPreparationTargetKind, PrepareBloomClassificationInput,
+};
 pub use blueprint_change_proposal::{
     AcceptBlueprintChangeProposalInput, AcceptedBlueprintChangeProposal,
     BlueprintChangeProposalAcceptedDecision, BlueprintChangeProposalAcceptedSummary,
@@ -165,8 +171,7 @@ pub use blueprint_lineage::{
 };
 pub use blueprint_stewardship::{
     BlueprintCourseStarProjection, BlueprintCourseStarredInstructor, BlueprintCourseWatchEvent,
-    BlueprintCourseWatchEventKind, BlueprintCourseWatchProjection, BlueprintStewardshipState,
-    BlueprintStewardshipStore,
+    BlueprintCourseWatchEventKind, BlueprintCourseWatchProjection, BlueprintStewardshipStore,
 };
 pub use browser_api_contract::student_assessment_decision::{
     AssessmentStartDecision, StudentAssessmentDecisionSummary,
@@ -180,8 +185,8 @@ pub use course_banner::{
 pub use course_blueprint_publication::CourseBlueprintPublicationStore;
 pub use course_instance::{
     CourseClassificationUpdate, CourseCreationInstructor, CourseInstanceCreationSource,
-    CourseInstancePoolIdIssuer, CourseInstanceStore, CourseInstanceSummary, CourseInstanceView,
-    CreateCourseInstanceInput, CreatedCourseInstance,
+    CourseInstanceLifecycleState, CourseInstancePoolIdIssuer, CourseInstanceStore,
+    CourseInstanceSummary, CourseInstanceView, CreateCourseInstanceInput, CreatedCourseInstance,
 };
 pub use course_roster::{
     ClaimedCourseInvitation, CourseRosterEntry, CourseRosterEntryState, CourseRosterImportEntry,
@@ -218,11 +223,11 @@ pub use invitation_export::{
 };
 pub use library_discussion::{
     LibraryDiscussionStore, LibraryDiscussionTarget, LibraryDiscussionView, LibraryImpactNotice,
-    LibraryImpactNoticeState, LibraryImprovementPost, LibraryImprovementThread,
-    LibraryImprovementThreadState,
+    LibraryImpactNoticeLifecycle, LibraryImprovementPost, LibraryImprovementThread,
+    LibraryImprovementThreadLifecycle,
 };
 pub use library_watch_notification::{
-    LibraryWatchEventKind, LibraryWatchInboxStore, LibraryWatchNotification,
+    LibraryWatchActivity, LibraryWatchInboxStore, LibraryWatchNotification,
     LibraryWatchNotificationStore, LibraryWatchTargetKind,
 };
 pub use live_gradebook::{CourseGradebook, CourseGradebookStore, CourseGradebookStudentWork};
@@ -235,6 +240,7 @@ pub use object_record::{
     WorkspaceQuestionSourceObjectRecordStore, validate_workspace_question_source_object_record,
 };
 pub use pagination::{Cursor, Page, PageRequest, PageSize, PaginationError};
+pub use pool_bloom_preparation::PoolBloomPreparationReceipts;
 pub use public_asset_publication::{ClaimedQuestionAssetPublication, PublicAssetPublicationStore};
 pub use question_asset_delivery::{QuestionAssetDeliveryStore, ReadyQuestionAssetDelivery};
 pub use question_bulk_metadata::{
@@ -243,8 +249,8 @@ pub use question_bulk_metadata::{
     BulkPublishedQuestionMetadataStore,
 };
 pub use question_fork::{
-    ForkPublishedQuestionAssetInput, ForkPublishedQuestionError, ForkPublishedQuestionInput,
-    ForkedPublishedQuestionDraft, PublishedQuestionForkAsset, QuestionForkStore,
+    ForkPublishedQuestionAssetInput, ForkPublishedQuestionInput, ForkedPublishedQuestionDraft,
+    PublishedQuestionForkAsset, QuestionForkStore,
 };
 pub use question_library::{
     PublishedQuestionAvailability, PublishedQuestionLibraryEntry, QuestionLibraryStore,
@@ -255,7 +261,8 @@ pub use question_pool_creation::{
 };
 pub use question_pool_library::{
     AssessmentQuestionPoolForkRecord, PublishedQuestionPoolRevision, QuestionPoolDiscoveryFilter,
-    QuestionPoolLibraryStore, QuestionPoolTextField, QuestionPoolTextFilter, QuestionPoolTextTerm,
+    QuestionPoolDiscoveryPage, QuestionPoolLibraryStore, QuestionPoolTextField,
+    QuestionPoolTextFilter, QuestionPoolTextTerm,
 };
 pub use question_source::{
     DraftQuestionEditNumber, DraftQuestionPublicationSource, DraftQuestionPublicationSourceStore,

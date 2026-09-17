@@ -275,7 +275,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "myActiveCourses",
     label: "My Active Courses",
-    destination: { kind: "future", futureId: "myActiveCourses" },
+    destination: { kind: "route", routeId: "instructorHome" },
     requiredParams: [],
     taskGroup: "instructorCourses",
     area: "instructorCourses",
@@ -287,7 +287,7 @@ export const RIBBON_TASK_CATALOG = [
   {
     id: "myInactiveCourses",
     label: "My Inactive Courses",
-    destination: { kind: "future", futureId: "myInactiveCourses" },
+    destination: { kind: "route", routeId: "instructorInactiveCourses" },
     requiredParams: [],
     taskGroup: "instructorCourses",
     area: "instructorCourses",

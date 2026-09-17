@@ -2,11 +2,14 @@
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { QuestionPoolLibrarySummary } from "../../../generated/api/QuestionPoolLibrarySummary";
+import type { QuestionPoolBloomFacets } from "../../../generated/api/QuestionPoolBloomFacets";
 import type { QuestionPoolMetadata } from "../../../generated/api/QuestionPoolMetadata";
 import type { QuestionPoolRevisionMemberView } from "../../../generated/api/QuestionPoolRevisionMemberView";
 import type { QuestionPoolRevisionReference } from "../../../generated/api/QuestionPoolRevisionReference";
 import type { QuestionPoolRevisionView } from "../../../generated/api/QuestionPoolRevisionView";
 import type { ReusableQuestionView } from "../../../generated/api/ReusableQuestionView";
+import type { QuestionSearchBloomCognitiveProcessFacet } from "../../../generated/api/QuestionSearchBloomCognitiveProcessFacet";
+import type { QuestionSearchBloomKnowledgeDimensionFacet } from "../../../generated/api/QuestionSearchBloomKnowledgeDimensionFacet";
 import type { QuestionPoolLibraryPage } from "../question_pool_library";
 import {
   DecodeError,
@@ -21,6 +24,11 @@ import {
   decodeUuid,
 } from "../decoder";
 import { decodeQuestionSearchResult } from "./question_library";
+import {
+  BLOOM_COGNITIVE_PROCESSES,
+  BLOOM_KNOWLEDGE_DIMENSIONS,
+  decodeBloomClassificationView,
+} from "./bloom_classification";
 import {
   decodeBoundedArray,
   decodeCursor,
@@ -110,7 +118,7 @@ export function decodeQuestionPoolMetadata(value: unknown, path: string): Questi
   };
 }
 
-function decodeQuestionPoolRevisionReference(
+export function decodeQuestionPoolRevisionReference(
   value: unknown,
   path: string,
 ): QuestionPoolRevisionReference {
@@ -133,7 +141,7 @@ function decodeQuestionPoolLibrarySummary(
   path: string,
 ): QuestionPoolLibrarySummary {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "memberCount"]);
+  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "memberCount", "bloom"]);
   return {
     metadata: decodeQuestionPoolMetadata(field(record, "metadata", path), `${path}.metadata`),
     questionPoolRevision: decodeQuestionPoolRevisionReference(
@@ -141,7 +149,80 @@ function decodeQuestionPoolLibrarySummary(
       `${path}.questionPoolRevision`,
     ),
     memberCount: decodePositiveInteger(field(record, "memberCount", path), `${path}.memberCount`),
+    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
   };
+}
+
+function decodePoolCognitiveFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchBloomCognitiveProcessFacet {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["cognitiveProcess", "count"]);
+  return {
+    cognitiveProcess: decodeStringEnum(
+      field(record, "cognitiveProcess", path),
+      `${path}.cognitiveProcess`,
+      BLOOM_COGNITIVE_PROCESSES,
+    ),
+    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
+  };
+}
+
+function decodePoolKnowledgeFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchBloomKnowledgeDimensionFacet {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["knowledgeDimension", "count"]);
+  return {
+    knowledgeDimension: decodeStringEnum(
+      field(record, "knowledgeDimension", path),
+      `${path}.knowledgeDimension`,
+      BLOOM_KNOWLEDGE_DIMENSIONS,
+    ),
+    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
+  };
+}
+
+function decodeQuestionPoolBloomFacets(value: unknown, path: string): QuestionPoolBloomFacets {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["cognitiveProcesses", "knowledgeDimensions"]);
+  const cognitiveProcesses = decodeBoundedArray(
+    field(record, "cognitiveProcesses", path),
+    `${path}.cognitiveProcesses`,
+    BLOOM_COGNITIVE_PROCESSES.length,
+    decodePoolCognitiveFacet,
+  );
+  const knowledgeDimensions = decodeBoundedArray(
+    field(record, "knowledgeDimensions", path),
+    `${path}.knowledgeDimensions`,
+    BLOOM_KNOWLEDGE_DIMENSIONS.length,
+    decodePoolKnowledgeFacet,
+  );
+  if (
+    cognitiveProcesses.length !== BLOOM_COGNITIVE_PROCESSES.length ||
+    cognitiveProcesses.some(
+      (facet, index) => facet.cognitiveProcess !== BLOOM_COGNITIVE_PROCESSES[index],
+    )
+  ) {
+    throw new DecodeError(
+      `${path}.cognitiveProcesses`,
+      "all Bloom Cognitive Processes in teaching-guide order",
+    );
+  }
+  if (
+    knowledgeDimensions.length !== BLOOM_KNOWLEDGE_DIMENSIONS.length ||
+    knowledgeDimensions.some(
+      (facet, index) => facet.knowledgeDimension !== BLOOM_KNOWLEDGE_DIMENSIONS[index],
+    )
+  ) {
+    throw new DecodeError(
+      `${path}.knowledgeDimensions`,
+      "all Bloom Knowledge Dimensions in teaching-guide order",
+    );
+  }
+  return { cognitiveProcesses, knowledgeDimensions };
 }
 
 function decodeReusableQuestionView(value: unknown, path: string): ReusableQuestionView {
@@ -191,7 +272,7 @@ export function decodeQuestionPoolLibraryPage(
   path = "response",
 ): QuestionPoolLibraryPage {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["items", "nextCursor"]);
+  requireOnlyFields(record, path, ["items", "nextCursor", "bloomFacets"]);
   return {
     items: decodeBoundedArray(
       field(record, "items", path),
@@ -204,6 +285,10 @@ export function decodeQuestionPoolLibraryPage(
       `${path}.nextCursor`,
       decodeCursor,
     ),
+    bloomFacets: decodeQuestionPoolBloomFacets(
+      field(record, "bloomFacets", path),
+      `${path}.bloomFacets`,
+    ),
   };
 }
 
@@ -213,7 +298,7 @@ export function decodeQuestionPoolRevisionView(
   path = "response",
 ): QuestionPoolRevisionView {
   const record = decodeRecord(value, path);
-  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "members"]);
+  requireOnlyFields(record, path, ["questionPoolRevision", "metadata", "bloom", "members"]);
   const members = decodeBoundedArray(
     field(record, "members", path),
     `${path}.members`,
@@ -237,6 +322,7 @@ export function decodeQuestionPoolRevisionView(
       field(record, "questionPoolRevision", path),
       `${path}.questionPoolRevision`,
     ),
+    bloom: decodeBloomClassificationView(field(record, "bloom", path), `${path}.bloom`),
     members,
   };
 }

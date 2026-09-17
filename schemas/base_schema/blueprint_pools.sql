@@ -1,7 +1,7 @@
 -- Blueprint-owned Pools use exact current Assessment membership, not a second ownership table.
 SET LOCAL ROLE ple_data_owner;
-GRANT EXECUTE ON FUNCTION ple_data.fork_question_pool_revision(uuid,text,uuid,bigint),
-    ple_data.append_question_pool_revision(uuid,uuid,text[],integer[],boolean) TO ple_api_owner;
+GRANT EXECUTE ON FUNCTION ple_data.fork_question_pool_revision(uuid,text,uuid,bigint,uuid),
+    ple_data.append_question_pool_revision(uuid,uuid,text[],integer[],boolean,uuid) TO ple_api_owner;
 SET LOCAL ROLE ple_api_owner;
 
 -- A retry is resolved before any fresh child identities or member revisions are materialized.
@@ -39,7 +39,8 @@ REVOKE ALL ON FUNCTION ple_api.blueprint_pool_write_receipt(text,bytea) FROM PUB
 GRANT EXECUTE ON FUNCTION ple_api.blueprint_pool_write_receipt(text,bytea) TO ple_app;
 
 CREATE FUNCTION ple_api.fork_blueprint_question_pool(
-    p_source_public_id text, p_source_revision bigint, p_child_id uuid, p_child_public_id text
+    p_source_public_id text, p_source_revision bigint, p_child_id uuid, p_child_public_id text,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE source_id uuid; forked record;
@@ -50,7 +51,8 @@ BEGIN
     SELECT question_pool_id INTO source_id FROM ple_data.question_pool
       WHERE public_question_pool_id = p_source_public_id;
     SELECT * INTO forked FROM ple_data.fork_question_pool_revision(
-        p_child_id, p_child_public_id, source_id, p_source_revision);
+        p_child_id, p_child_public_id, source_id, p_source_revision,
+        p_bloom_preparation_receipt_id);
     RETURN forked.revision_number;
 END $$;
 
@@ -97,7 +99,8 @@ END $$;
 CREATE FUNCTION ple_api.append_blueprint_pool_revision(
     p_reference text, p_assessment uuid, p_expected_revision bigint,
     p_public_pool_id text, p_expected_pool_revision bigint,
-    p_question_ids text[], p_revision_numbers integer[], p_attested boolean
+    p_question_ids text[], p_revision_numbers integer[], p_attested boolean,
+    p_bloom_preparation_receipt_id uuid
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
 DECLARE pool_row ple_data.question_pool%ROWTYPE; appended record;
@@ -106,16 +109,17 @@ BEGIN
         p_public_pool_id, true, p_expected_revision, p_expected_pool_revision);
     SELECT * INTO pool_row FROM ple_data.question_pool WHERE public_question_pool_id = p_public_pool_id;
     SELECT * INTO appended FROM ple_data.append_question_pool_revision(pool_row.question_pool_id,
-        pool_row.metadata_etag, p_question_ids, p_revision_numbers, p_attested);
+        pool_row.metadata_etag, p_question_ids, p_revision_numbers, p_attested,
+        p_bloom_preparation_receipt_id);
     RETURN appended.revision_number;
 END $$;
 
-REVOKE ALL ON FUNCTION ple_api.fork_blueprint_question_pool(text,bigint,uuid,text),
+REVOKE ALL ON FUNCTION ple_api.fork_blueprint_question_pool(text,bigint,uuid,text,uuid),
     ple_api.blueprint_pool_members(text,uuid,text,boolean,bigint,bigint),
-    ple_api.append_blueprint_pool_revision(text,uuid,bigint,text,bigint,text[],integer[],boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION ple_api.fork_blueprint_question_pool(text,bigint,uuid,text),
+    ple_api.append_blueprint_pool_revision(text,uuid,bigint,text,bigint,text[],integer[],boolean,uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ple_api.fork_blueprint_question_pool(text,bigint,uuid,text,uuid),
     ple_api.blueprint_pool_members(text,uuid,text,boolean,bigint,bigint),
-    ple_api.append_blueprint_pool_revision(text,uuid,bigint,text,bigint,text[],integer[],boolean) TO ple_app;
+    ple_api.append_blueprint_pool_revision(text,uuid,bigint,text,bigint,text[],integer[],boolean,uuid) TO ple_app;
 RESET ROLE;
 
 SET LOCAL ROLE ple_data_owner;

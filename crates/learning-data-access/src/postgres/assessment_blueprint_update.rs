@@ -100,8 +100,8 @@ pub(super) async fn review(
     assessment: AssessmentReference,
 ) -> Result<AssessmentBlueprintUpdateReview, StoreError> {
     let mut tx = store.begin(token).await?;
-    let source = load_source(&mut tx, course, assessment).await?;
-    let assessment = load_workspace(&mut tx, course, assessment).await?;
+    let source = load_source(&mut tx, &course, &assessment).await?;
+    let assessment = load_workspace(&mut tx, &course, &assessment).await?;
     let proposed = source.member.as_ref().map(public_content);
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(AssessmentBlueprintUpdateReview {
@@ -118,12 +118,13 @@ pub(super) async fn apply(
     course: CourseInstanceReference,
     assessment: AssessmentReference,
     input: ApplyAssessmentBlueprintUpdateInput,
+    mut bloom_receipts: crate::PoolBloomPreparationReceipts,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
     let mut tx = store.begin(token).await?;
     // ASVS 8.3.1, 15.4.2: the procedure reauthorizes and holds parent,
     // Course and Assessment locks before either qualified precondition is tested.
-    let source = load_source(&mut tx, course, assessment).await?;
-    let workspace = load_workspace(&mut tx, course, assessment).await?;
+    let source = load_source(&mut tx, &course, &assessment).await?;
+    let workspace = load_workspace(&mut tx, &course, &assessment).await?;
     if source.revision != input.expected_source_revision
         || workspace.edit_number != input.expected_edit_number
     {
@@ -148,7 +149,11 @@ pub(super) async fn apply(
     let materialized = if equivalent {
         reusable
     } else {
-        materialize_assessment(&member, store.pool_id_issuer.as_deref())?
+        materialize_assessment(
+            &member,
+            store.pool_id_issuer.as_deref(),
+            &mut bloom_receipts,
+        )?
     };
     // ASVS 1.2.4, 2.3.3: parameterized exact-source projection; the database
     // validates it, preserves locked dates, establishes forks, and saves once.
@@ -167,15 +172,15 @@ pub(super) async fn apply(
         .execute(&mut *tx)
         .await
         .map_err(update_error)?;
-    let workspace = load_workspace(&mut tx, course, assessment).await?;
+    let workspace = load_workspace(&mut tx, &course, &assessment).await?;
     tx.commit().await.map_err(map_sqlx_error)?;
     Ok(workspace)
 }
 
 async fn load_source(
     tx: &mut Transaction<'_, Postgres>,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: &CourseInstanceReference,
+    assessment: &AssessmentReference,
 ) -> Result<UpdateSource, StoreError> {
     let row = sqlx::query("SELECT * FROM ple_api.load_assessment_blueprint_update($1, $2)")
         .bind(course.as_string())
@@ -229,8 +234,8 @@ async fn load_source(
 
 async fn load_workspace(
     tx: &mut Transaction<'_, Postgres>,
-    course: CourseInstanceReference,
-    assessment: AssessmentReference,
+    course: &CourseInstanceReference,
+    assessment: &AssessmentReference,
 ) -> Result<LiveAssessmentWorkspace, StoreError> {
     let context = schedule_context(tx, course).await?;
     let rows = workspace_rows(tx, course, assessment).await?;

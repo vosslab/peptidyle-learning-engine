@@ -50,6 +50,7 @@ upload() {
     podman exec "$gateway" curl --silent --show-error --insecure --max-time 12 --write-out $'\n%{http_code}' \
         --header "Host: localhost:$port" --header "Origin: https://localhost:$port" \
         --header 'Content-Type: application/octet-stream' --header "Cookie: $cookie" \
+        --header 'X-PLE-Profile-Crop: {"sourceWidth":128,"sourceHeight":128,"horizontal":50,"vertical":50,"zoomPercent":100}' \
         --request POST --data-binary "@$image_path" \
         'https://localhost:8080/api/profile/avatar/profile-image'
 }
@@ -108,9 +109,9 @@ SELECT CASE WHEN count(*) = 1 AND min(state) = 'completed' THEN 'retired-exact-c
         rg -qx 'retired-exact-cleanup' || fail "replacement did not finish exact retired-image cleanup"
 }
 prepare_image() {
-    local gateway
+    local gateway image_base64="${1:-iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAIAAABMXPacAAAARElEQVR4nO3BAQEAAACAkP6v7ggKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYwIAAAWMWdQAAAAAASUVORK5CYII=}"
     gateway="$(service_id gateway)"
-    podman exec "$gateway" sh -lc "printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL6AAAAAElFTkSuQmCC' | base64 -d > '$image_path'"
+    podman exec "$gateway" sh -lc "printf '%s' '$image_base64' | base64 -d > '$image_path'"
 }
 
 require_live_demo
@@ -127,6 +128,11 @@ student_selected="$(request '/api/profile/avatar' "$student_cookie" PUT "{\"prov
 require_status "Student provided-avatar selection" "$student_selected" 204
 student_upload="$(upload "$student_cookie")"
 require_status "Student Profile-image upload denial" "$student_upload" 403
+
+prepare_image 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL6AAAAAElFTkSuQmCC'
+small_upload="$(upload "$instructor_cookie")"
+require_status "Undersized Profile-image upload" "$small_upload" 422
+prepare_image
 
 first_upload="$(upload "$instructor_cookie")"; require_status "Instructor image upload" "$first_upload" 200
 first_image="$(image_reference "$(body "$first_upload")")"

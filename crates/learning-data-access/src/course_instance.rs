@@ -76,6 +76,8 @@ impl CreateCourseInstanceInput {
 #[serde(rename_all = "camelCase")]
 pub struct CourseInstanceSummary {
     pub classification: question_model::CourseClassification,
+    /// Stored Course activity state; it is independent of Student-data retention.
+    pub lifecycle_state: CourseInstanceLifecycleState,
     pub metadata_etag: question_model::CourseMetadataEtag,
     /// Public C-reference only; internal Course IDs never enter this route.
     pub reference: CourseInstanceReference,
@@ -87,6 +89,14 @@ pub struct CourseInstanceSummary {
     pub term: CourseTerm,
     /// Course-owned identity for a list row; this does not establish route scope.
     pub theme: CourseTheme,
+}
+
+/// Closed stored activity state for a Course Instance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CourseInstanceLifecycleState {
+    Active,
+    Inactive,
 }
 
 fn valid_name(value: &str) -> bool {
@@ -177,6 +187,7 @@ pub trait CourseInstanceStore: Send + Sync {
         &self,
         session_token_hash: SessionTokenHash,
         input: CreateCourseInstanceInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreatedCourseInstance, StoreError>;
 
     /// Adds an active Instructor Course Membership when the current active

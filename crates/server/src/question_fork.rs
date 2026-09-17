@@ -18,9 +18,9 @@ use axum::{
     routing::post,
 };
 use learning_data_access::{
-    AuthoringDraftStore, ForkPublishedQuestionAssetInput, ForkPublishedQuestionError,
-    ForkPublishedQuestionInput, PublishedQuestionForkAsset, PublishedQuestionLibraryEntry,
-    QuestionForkStore, QuestionLibraryStore, SessionTokenHash, StoreError,
+    AuthoringDraftStore, ForkPublishedQuestionAssetInput, ForkPublishedQuestionInput,
+    PublishedQuestionForkAsset, PublishedQuestionLibraryEntry, QuestionForkStore,
+    QuestionLibraryStore, SessionTokenHash, StoreError,
     postgres::{
         PostgresAuthoringDraftStore, PostgresQuestionForkStore, PostgresQuestionLibraryStore,
         PostgresSessionStore,
@@ -31,8 +31,8 @@ use objects::{
     image_validation::verify_still_image, s3::S3ObjectStore,
 };
 use question_model::{
-    DraftQuestionReference, ObjectId, ProductRole, QuestionBackend, QuestionId,
-    QuestionResponseFormat, QuestionRevisionNumber, QuestionRevisionReference, QuestionType,
+    ObjectId, ProductRole, QuestionBackend, QuestionId, QuestionResponseFormat,
+    QuestionRevisionNumber, QuestionRevisionReference, QuestionType,
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -92,7 +92,7 @@ fn question_fork_router_with_trusted_dependencies(
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ForkedQuestionResponse {
-    draft_question: DraftQuestionReference,
+    draft_question: Uuid,
 }
 
 async fn fork_published_question(
@@ -117,7 +117,7 @@ async fn fork_published_question(
             );
         }
     };
-    let source_question_revision = match canonical_source(&state, question_id, revision_number) {
+    let source_question_revision = match canonical_source(question_id, revision_number) {
         Some(value) => value,
         None => return concealed(),
     };
@@ -163,29 +163,29 @@ async fn fork_published_question(
 
     let proposed_draft_question_id = Uuid::now_v7();
     let target_source_record = match state
-            .objects
-            .put(PutObject {
-                address: ObjectAddress::WorkspaceQuestionSource {
-                    workspace,
-                    object: ObjectId::generate(),
-                },
-                bytes: source.bytes().to_vec(),
-                media_type: source.media_type().to_owned(),
-                created_at: crate::authoring::now(),
-            })
-            .await
+        .objects
+        .put(PutObject {
+            address: ObjectAddress::WorkspaceQuestionSource {
+                workspace,
+                object: ObjectId::generate(),
+            },
+            bytes: source.bytes().to_vec(),
+            media_type: source.media_type().to_owned(),
+            created_at: crate::authoring::now(),
+        })
+        .await
     {
         Ok(value) => value,
         Err(_) => return unavailable(),
     };
     let target_source_address = target_source_record.address.clone();
     let target_hotspot_asset = match copy_hotspot_asset(
-            &state.objects,
-            workspace,
-            proposed_draft_question_id,
-            hotspot_asset.as_ref(),
-        )
-        .await
+        &state.objects,
+        workspace,
+        proposed_draft_question_id,
+        hotspot_asset.as_ref(),
+    )
+    .await
     {
         Ok(value) => value,
         Err(_) => {
@@ -196,20 +196,20 @@ async fn fork_published_question(
         }
     };
     let target_asset_address = target_hotspot_asset
-            .as_ref()
-            .map(|asset| asset.target_record.address.clone());
+        .as_ref()
+        .map(|asset| asset.target_record.address.clone());
     let input = ForkPublishedQuestionInput {
-            source_question_revision: source_question_revision.clone(),
-            workspace,
-            proposed_draft_question_id,
-            target_source_record,
-            hotspot_asset: target_hotspot_asset,
-            idempotency_key,
+        source_question_revision: source_question_revision.clone(),
+        workspace,
+        proposed_draft_question_id,
+        target_source_record,
+        hotspot_asset: target_hotspot_asset,
+        idempotency_key,
     };
     match state
-            .forks
-            .fork_published_question_to_draft(session, input)
-            .await
+        .forks
+        .fork_published_question_to_draft(session, input)
+        .await
     {
         Ok(fork) => {
             if !fork.created_new {
@@ -224,13 +224,13 @@ async fn fork_published_question(
                 (
                     StatusCode::CREATED,
                     Json(ForkedQuestionResponse {
-                        draft_question: fork.draft_question,
+                        draft_question: fork.draft_question_uuid.as_uuid(),
                     }),
                 )
                     .into_response(),
             )
         }
-        Err(ForkPublishedQuestionError::Store(error)) => store_error_response(error),
+        Err(error) => store_error_response(error),
     }
 }
 
@@ -348,7 +348,6 @@ async fn cleanup_replayed_candidates(
 }
 
 fn canonical_source(
-    state: &RouteState,
     question_id: String,
     revision_number: String,
 ) -> Option<QuestionRevisionReference> {

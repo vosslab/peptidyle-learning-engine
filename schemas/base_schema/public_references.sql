@@ -39,6 +39,24 @@ AS $$
     )
 $$;
 
+-- Prefixed public IDs have one stored ASCII form: their literal type prefix,
+-- seven random Crockford characters, and one checksum character.  Input
+-- normalization belongs only at explicit human-entry boundaries, never here.
+CREATE FUNCTION ple_private.is_canonical_prefixed_public_id(
+    p_public_id text, p_prefix text
+) RETURNS boolean LANGUAGE sql IMMUTABLE
+SET search_path = pg_catalog, ple_private
+AS $$
+    SELECT p_public_id IS NOT NULL
+       AND p_prefix IN ('BP', 'CI', 'A', 'U')
+       AND p_public_id ~ (
+           '^' || p_prefix || '[0-9ABCDEFGHJKMNPQRSTVWXYZ]{8}$'
+       )
+       AND right(p_public_id, 1) = ple_private.crockford_checksum_character(
+           left(p_public_id, char_length(p_public_id) - 1)
+       )
+$$;
+
 -- This append-only registry is the sole allocation authority for public IDs.
 -- Its primary key covers every public object type, including the shared
 -- Question/Question Pool namespace. Rows are deliberately never reclaimed:
@@ -153,6 +171,7 @@ $$;
 REVOKE ALL ON TABLE ple_private.public_id_reservation FROM PUBLIC;
 REVOKE ALL ON FUNCTION ple_private.crockford_reference_suffix(),
     ple_private.crockford_checksum_character(text),
+    ple_private.is_canonical_prefixed_public_id(text, text),
     ple_private.reject_public_id_reservation_change(),
     ple_private.reserve_public_id(text, text),
     ple_private.reserve_public_id_from_trigger(),
@@ -161,6 +180,7 @@ REVOKE ALL ON FUNCTION ple_private.crockford_reference_suffix(),
 GRANT USAGE ON SCHEMA ple_private TO ple_data_owner, ple_api_owner;
 GRANT EXECUTE ON FUNCTION ple_private.crockford_reference_suffix(),
     ple_private.crockford_checksum_character(text),
+    ple_private.is_canonical_prefixed_public_id(text, text),
     ple_private.reserve_public_id(text, text),
     ple_private.reserve_public_id_from_trigger(),
     ple_private.assign_human_reference()

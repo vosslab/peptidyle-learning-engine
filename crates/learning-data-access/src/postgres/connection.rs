@@ -29,7 +29,7 @@ pub enum ProductionLoginProfile {
     /// Assessment Attempt expiry worker: preparation and commit procedures only.
     AssessmentAttemptExpiryWorker,
     /// Course-retention executor: stored due-action reads and one-way Course
-    /// Student-record archive/delete procedures only.
+    /// mark-inactive, Student-record archive, and deletion procedures only.
     CourseRetentionExecutor,
     /// Retention notifier: three direct SECURITY DEFINER receipt procedures;
     /// it has no capability-role membership or raw-table authority.

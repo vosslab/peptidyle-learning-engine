@@ -16,6 +16,7 @@ import { QuestionDetailPage } from "./pages/question_detail_page";
 import { QuestionDraftEditorPage } from "./pages/question_draft_editor_page";
 import { QuestionDraftsPage } from "./pages/question_drafts_page";
 import { CourseInstancePage } from "./pages/course_instance_page";
+import { InactiveCourseListPage } from "./pages/course_list_page";
 import {
   InstructorHomePage,
   RoleHomeResolutionPage,
@@ -57,6 +58,7 @@ const routeComponents: Readonly<Record<RouteId, Component>> = {
   changeProposalDetail: ChangeProposalDetailLivePage,
   courses: RoleHomeResolutionPage,
   instructorHome: InstructorHomePage,
+  instructorInactiveCourses: InactiveCourseListPage,
   studentHome: StudentHomePage,
   sysadminHome: SysadminHomePage,
   profile: ProfilePage,

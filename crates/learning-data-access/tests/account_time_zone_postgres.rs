@@ -235,7 +235,7 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
     let imported = roster
         .import_course_roster(
             token(0xf1),
-            course,
+            course.clone(),
             CourseRosterImportInput {
                 entries: vec![
                     CourseRosterImportEntry {
@@ -262,7 +262,7 @@ async fn invitation_acceptance_defaults_only_a_new_student_account_to_the_inviti
         "new Student waits for the invitation default until acceptance"
     );
     roster
-        .claim_course_invitation(token(0xf3), course)
+        .claim_course_invitation(token(0xf3), course.clone())
         .await
         .expect("new Student invitation acceptance");
     roster

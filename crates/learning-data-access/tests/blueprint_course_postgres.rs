@@ -66,6 +66,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             token(),
             RequestChecksum::from_bytes([0x11; 32]),
             create_input.clone(),
+            Default::default(),
         )
         .await
         .expect("owner creates a new Blueprint through the application Store");
@@ -78,6 +79,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             token(),
             RequestChecksum::from_bytes([0x11; 32]),
             create_input,
+            Default::default(),
         )
         .await
         .expect("create request replay");
@@ -86,23 +88,23 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
         "create request replay returns its original Revision"
     );
     let blueprint_reference = created.blueprint_revision.reference;
-    let reference = blueprint_reference_number(blueprint_reference).await;
+    let reference = blueprint_reference_number(&blueprint_reference).await;
     let reader_store = PostgresBlueprintCourseStore::new(application_pool.clone());
-    promotion_boundary(&owner_store, blueprint_reference).await;
+    promotion_boundary(&owner_store, blueprint_reference.clone()).await;
     // Regression: a refactor could disclose Private immutable content or let
     // an adoption hide its source. These owner/non-owner lifecycle rules are
     // deliberate product and authorization contracts, so this connected
     // acceptance oracle earns permanent coverage. Failure action: repair the
     // lifecycle/persistence predicate; do not loosen this contract.
     let owner_private = owner_store
-        .load_blueprint_course(token(), blueprint_reference)
+        .load_blueprint_course(token(), blueprint_reference.clone())
         .await
         .expect("owner reads a new Private Blueprint");
     assert_eq!(owner_private.availability, BlueprintAvailability::Private);
     let revision_one = owner_private.content.clone();
     blueprint_course_postgres_exchange::assert_actual_role_round_trip(
         &owner_store,
-        blueprint_reference,
+        blueprint_reference.clone(),
         &owner_private,
     )
     .await;
@@ -138,7 +140,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     assert!(matches!(
         reader_store
-            .load_blueprint_course(reader_token(), blueprint_reference)
+            .load_blueprint_course(reader_token(), blueprint_reference.clone())
             .await,
         Err(StoreError::NotFound)
     ));
@@ -147,7 +149,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .load_blueprint_revision(
                 reader_token(),
                 question_model::BlueprintRevisionReference {
-                    reference: blueprint_reference,
+                    reference: blueprint_reference.clone(),
                     revision: BlueprintRevision::INITIAL,
                 },
             )
@@ -166,7 +168,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(availability, BlueprintAvailability::Public);
     assert_eq!(
         reader_store
-            .load_blueprint_course(reader_token(), blueprint_reference)
+            .load_blueprint_course(reader_token(), blueprint_reference.clone())
             .await
             .expect("Public Blueprint is readable by another Instructor")
             .availability,
@@ -187,7 +189,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course: blueprint_reference,
+                    blueprint_course: blueprint_reference.clone(),
                     blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT".into(),
@@ -195,6 +197,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 term: adoption_term.clone(),
                 assigned_instructor: None,
             },
+            Default::default(),
         )
         .await
         .expect("adopt all Blueprint Assessments");
@@ -210,7 +213,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     tags: Vec::new(),
                 },
                 source: CourseInstanceCreationSource::Adopted {
-                    blueprint_course: blueprint_reference,
+                    blueprint_course: blueprint_reference.clone(),
                     blueprint_revision: BlueprintRevision::new(1).expect("Revision 1"),
                 },
                 short_name: "ADOPT-2".into(),
@@ -218,6 +221,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 term: adoption_term.clone(),
                 assigned_instructor: None,
             },
+            Default::default(),
         )
         .await
         .expect("independently adopt the same Blueprint Revision");
@@ -232,7 +236,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     .expect_err("adopted Public Blueprint remains Public");
     assert_eq!(error_code(&public_to_private).as_deref(), Some("55000"));
     let owner_public = owner_store
-        .load_blueprint_course(token(), blueprint_reference)
+        .load_blueprint_course(token(), blueprint_reference.clone())
         .await
         .expect("owner reads adopted Public Blueprint");
     let public_save_checksum = request(0x19);
@@ -251,7 +255,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let archived = owner_store
         .archive_blueprint(
             token(),
-            blueprint_reference,
+            blueprint_reference.clone(),
             owner_public.metadata_etag,
             "Revision acceptance Blueprint",
         )
@@ -284,7 +288,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                 owner_store
                     .rename_blueprint_course(
                         token(),
-                        blueprint_reference,
+                        blueprint_reference.clone(),
                         archived.metadata_etag,
                         RenameBlueprintCourseInput {
                             short_name: short_name.to_owned(),
@@ -304,7 +308,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     );
     assert_eq!(
         reader_store
-            .load_blueprint_course(reader_token(), blueprint_reference)
+            .load_blueprint_course(reader_token(), blueprint_reference.clone())
             .await
             .expect("Archived Blueprint stays readable by another Instructor")
             .availability,
@@ -347,7 +351,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
             .load_blueprint_revision(
                 reader_token(),
                 question_model::BlueprintRevisionReference {
-                    reference: blueprint_reference,
+                    reference: blueprint_reference.clone(),
                     revision: BlueprintRevision::INITIAL,
                 },
             )
@@ -371,7 +375,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                         tags: Vec::new()
                     },
                     source: CourseInstanceCreationSource::Adopted {
-                        blueprint_course: blueprint_reference,
+                        blueprint_course: blueprint_reference.clone(),
                         blueprint_revision: BlueprintRevision::INITIAL,
                     },
                     short_name: "ARCH".into(),
@@ -379,13 +383,14 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
                     term: adoption_term,
                     assigned_instructor: None,
                 },
+                Default::default(),
             )
             .await
             .is_err(),
         "Archived Blueprint adoption is denied"
     );
     let restored = owner_store
-        .restore_blueprint(token(), blueprint_reference, archived.metadata_etag)
+        .restore_blueprint(token(), blueprint_reference.clone(), archived.metadata_etag)
         .await
         .expect("owner restores Archived Blueprint to Public");
     assert_eq!(restored.availability, BlueprintAvailability::Public);
@@ -398,7 +403,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let renamed = owner_store
         .rename_blueprint_course(
             token(),
-            blueprint_reference,
+            blueprint_reference.clone(),
             restored.metadata_etag,
             RenameBlueprintCourseInput {
                 short_name: "RESTORED".to_owned(),
@@ -473,7 +478,7 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     assert_eq!(reader_summary.total_adoptions, 2);
     assert_eq!(reader_summary.total_students_ever_enrolled, 1);
     let reader_view = reader_store
-        .load_blueprint_course(reader_token(), blueprint_reference)
+        .load_blueprint_course(reader_token(), blueprint_reference.clone())
         .await
         .expect("non-owner Instructor Blueprint load");
     assert_eq!(
@@ -595,10 +600,11 @@ async fn revision_only_blueprint_lifecycle_is_atomic_immutable_and_current_head_
     let moved_receipt = append_store
         .save_blueprint_course(
             token(),
-            blueprint_reference,
+            blueprint_reference.clone(),
             BlueprintRevision::new(2).expect("Revision two"),
             question_model::RequestChecksum::from_bytes([0x15; 32]),
             moved_input,
+            Default::default(),
         )
         .await
         .expect("Save moving retained Assessment and materializing a new daughter Assessment");

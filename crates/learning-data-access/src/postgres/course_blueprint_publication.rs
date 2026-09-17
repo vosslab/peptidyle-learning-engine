@@ -60,6 +60,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
         source_course: CourseInstanceReference,
         request_checksum: RequestChecksum,
         input: CreateBlueprintFromCourseInstanceInput,
+        mut bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError> {
         input.validate().map_err(|error| {
             StoreError::InvalidRecord(format!("Course Blueprint request is invalid: {error}"))
@@ -112,6 +113,7 @@ impl CourseBlueprintPublicationStore for PostgresCourseBlueprintPublicationStore
             &mut transaction,
             &mut content,
             self.blueprints.pool_id_issuer.as_deref(),
+            &mut bloom_receipts,
         )
         .await?;
         let encoded = encode_content(&content)?;

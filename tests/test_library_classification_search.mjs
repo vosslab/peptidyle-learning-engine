@@ -7,6 +7,7 @@ import {
 } from "../src/api/library_classification_filter.ts";
 import { questionSearchRequest } from "../src/api/question_library_repository.ts";
 import { questionSearchPath } from "../src/api/question_search_query.ts";
+import { decodeQuestionSearchFacets } from "../src/api/decoders/question_type_facets.ts";
 import {
   recoverLibrarySearch,
   searchHandoffQuery,
@@ -36,6 +37,8 @@ function query() {
     tag: "review",
     subjects: ["biochemistry"],
     topics: ["inheritance"],
+    bloomCognitiveProcess: "Analyze",
+    bloomKnowledgeDimension: "Procedural Knowledge",
     sort: "publishedNewest",
   };
 }
@@ -45,6 +48,11 @@ function row() {
     questionRevision: { questionId: "7K3M-79QP", revisionNumber: 1 },
     questionTitle: "Cell division",
     summary: "Answer-free summary",
+    bloom: {
+      cognitiveProcess: "Understand",
+      knowledgeDimension: "Conceptual Knowledge",
+      classificationEditNumber: "1",
+    },
     disciplineName: "Biology",
     disciplineIsRetired: false,
     questionFormat: "pleQuestionJson",
@@ -74,6 +82,8 @@ test("Library URL handoff and strict wire request retain hierarchy, filters, and
   assert.equal(parameters.get("text"), original.search);
   assert.equal(parameters.get("tags"), "review");
   assert.equal(parameters.get("subjects"), "biochemistry");
+  assert.equal(parameters.get("bloom_cognitive_process"), "Analyze");
+  assert.equal(parameters.get("bloom_knowledge_dimension"), "Procedural Knowledge");
   assert.equal(parameters.get("sort"), "publishedNewest");
   assert.equal(parameters.get("cursor"), "next-page");
   const empty = new URL(
@@ -113,6 +123,8 @@ test("Library request rejects malformed identities, incomplete chains, false boo
     { cross_discipline: "false" },
     { hidden: true },
     { backends: ["imathas"] },
+    { bloom_cognitive_process: "analyze" },
+    { bloom_knowledge_dimension: "Procedural" },
   ]) {
     assert.throws(() => questionSearchPath({ ...request, ...change }));
   }
@@ -120,6 +132,13 @@ test("Library request rejects malformed identities, incomplete chains, false boo
   assert.throws(() => searchHandoffQuery("?cross_discipline=1"));
   assert.throws(() => searchHandoffQuery("?sort=unknown"));
   assert.throws(() => searchHandoffQuery("?sort=titleAscending&sort=publishedNewest"));
+  assert.throws(() => searchHandoffQuery("?bloomCognitiveProcess=analyze"));
+  assert.throws(() => searchHandoffQuery("?bloomCognitiveProcess="));
+  assert.throws(() =>
+    searchHandoffQuery(
+      "?bloomKnowledgeDimension=Factual+Knowledge&bloomKnowledgeDimension=Procedural+Knowledge",
+    ),
+  );
 });
 
 test("Library malformed URL recovery removes only the rejected strict options", () => {
@@ -139,6 +158,12 @@ test("Library malformed URL recovery removes only the rejected strict options", 
     libraryClassificationFilter(recoveredClassification),
     libraryClassificationFilter(EMPTY_QUESTION_LIBRARY_BROWSE_QUERY),
   );
+
+  const recoveredBloom = searchHandoffQuery(
+    recoverLibrarySearch("?bloomCognitiveProcess=analyze&tag=review"),
+  );
+  assert.equal(recoveredBloom.bloomCognitiveProcess, null);
+  assert.equal(recoveredBloom.tag, "review");
 });
 
 test("Library continuation, Retry and detail return preserve identity and sort", async () => {
@@ -179,6 +204,17 @@ test("Library continuation, Retry and detail return preserve identity and sort",
     requests.map((request) => request.value.sort),
     ["publishedNewest", "publishedNewest", "publishedNewest"],
   );
+  assert.deepEqual(
+    requests.map((request) => [
+      request.value.bloomCognitiveProcess,
+      request.value.bloomKnowledgeDimension,
+    ]),
+    [
+      ["Analyze", "Procedural Knowledge"],
+      ["Analyze", "Procedural Knowledge"],
+      ["Analyze", "Procedural Knowledge"],
+    ],
+  );
   const scope = {};
   const token = "00000000-0000-0000-0000-000000000099";
   saveQuestionLibraryReturnState(scope, "search", token, query(), session.state, 224);
@@ -186,4 +222,49 @@ test("Library continuation, Retry and detail return preserve identity and sort",
   assert.deepEqual(returned.query, query());
   assert.equal(returned.scrollTop, 224);
   assert.deepEqual(returned.browseState, session.state);
+});
+
+test("Bloom facet decoder requires all guide values in guide order, including zeros", () => {
+  const facets = {
+    authorNames: [],
+    authorNamesTruncated: false,
+    backends: [],
+    tags: [],
+    tagsTruncated: false,
+    subjects: [],
+    subjectsTruncated: false,
+    topics: [],
+    topicsTruncated: false,
+    questionTypes: [],
+    capabilities: [],
+    questionLicenses: [],
+    usedInMyCourses: { used: 0 },
+    bloomCognitiveProcesses: [
+      "Remember",
+      "Understand",
+      "Apply",
+      "Analyze",
+      "Evaluate",
+      "Create",
+    ].map((cognitiveProcess, index) => ({ cognitiveProcess, count: index })),
+    bloomKnowledgeDimensions: [
+      "Factual Knowledge",
+      "Conceptual Knowledge",
+      "Procedural Knowledge",
+      "Metacognitive Knowledge",
+    ].map((knowledgeDimension) => ({ knowledgeDimension, count: 0 })),
+  };
+  assert.deepEqual(decodeQuestionSearchFacets(facets, "facets"), facets);
+  assert.throws(() =>
+    decodeQuestionSearchFacets(
+      { ...facets, bloomCognitiveProcesses: facets.bloomCognitiveProcesses.toReversed() },
+      "facets",
+    ),
+  );
+  assert.throws(() =>
+    decodeQuestionSearchFacets(
+      { ...facets, bloomKnowledgeDimensions: facets.bloomKnowledgeDimensions.slice(1) },
+      "facets",
+    ),
+  );
 });

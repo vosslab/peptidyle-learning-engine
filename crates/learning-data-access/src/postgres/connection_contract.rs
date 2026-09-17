@@ -110,6 +110,7 @@ impl LoginContract {
             Self::Production(ProductionLoginProfile::CourseRetentionExecutor) => &[
                 "ple_api.archive_course_student_records(uuid,timestamp with time zone)",
                 "ple_api.delete_course_student_records(uuid,timestamp with time zone)",
+                "ple_api.mark_course_instance_inactive(uuid,timestamp with time zone)",
                 "ple_api.read_archived_course_student_work_for_retention(uuid)",
                 "ple_data.course_retention_due_actions(timestamp with time zone)",
             ],

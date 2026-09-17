@@ -1,14 +1,12 @@
 // Instructor workflow for creating one reusable Published Question Pool.
 
-import { For, Show, createSignal, type JSX } from "solid-js";
+import { For, Show, createSignal, onMount, type JSX } from "solid-js";
 
 import { MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY } from "../../generated/api/MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY";
 import type { QuestionDetails } from "../../generated/api/QuestionDetails";
 import type { QuestionId } from "../../generated/api/QuestionId";
-import type { QuestionRevisionReference } from "../../generated/api/QuestionRevisionReference";
 import type { QuestionPoolCreationClient } from "../api/question_pool_creation";
 import { decodeQuestionPoolText } from "../api/decoders/question_pool_library";
-import { validateCanonicalQuestionIdSyntax } from "../question_id";
 import type { QuestionLibraryBrowseRepository } from "../pages/library_page_model";
 import {
   QuestionPicker,
@@ -16,6 +14,12 @@ import {
   questionLibraryPickerSources,
   type QuestionPickerSelection,
 } from "../features/question_picker";
+import {
+  questionPoolMemberReferences,
+  questionPoolSourcePickerRepository,
+  type QuestionPoolStartingQuestion,
+} from "./question_pool_create_model";
+import "./question_pool_create_dialog.css";
 
 type CreationState = "choosing" | "reviewing" | "creating" | "created";
 
@@ -28,39 +32,19 @@ export interface QuestionPoolCreateDialogProps {
   readonly questionPoolClient: QuestionPoolCreationClient;
   readonly questionLibrary: QuestionLibraryBrowseRepository;
   readonly getQuestionDetails: (questionId: QuestionId) => Promise<QuestionDetails>;
+  /** Exact Published Question that fixes source-bound Pool membership and classification. */
+  readonly startingQuestion?: QuestionPoolStartingQuestion;
   readonly onTaskPhaseChange: (active: boolean) => void;
   readonly onClose: () => void;
 }
 
-function canonicalQuestionId(value: string): QuestionId {
-  const questionId = validateCanonicalQuestionIdSyntax(value);
-  if (questionId === null || questionId !== value) {
-    throw new Error("The selected Question is no longer a canonical Published Question.");
-  }
-  return questionId;
-}
-
-async function latestSelectedRevisions(
-  selection: QuestionPickerSelection,
-  getQuestionDetails: QuestionPoolCreateDialogProps["getQuestionDetails"],
-): Promise<ReadonlyArray<QuestionRevisionReference>> {
-  return await Promise.all(
-    selection.questions.map(async (selected) => {
-      const questionId = canonicalQuestionId(selected.questionId);
-      const detail = await getQuestionDetails(questionId);
-      const reference = detail.summary.latestQuestionRevision;
-      if (reference.questionId !== questionId) {
-        throw new Error("The selected Question did not resolve to its current published Revision.");
-      }
-      return reference;
-    }),
-  );
-}
-
 /** Keeps ordered picker selection local until the Instructor explicitly attests and creates. */
 export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): JSX.Element {
-  const [state, setState] = createSignal<CreationState>("choosing");
-  const [selection, setSelection] = createSignal<QuestionPickerSelection>();
+  const sourceBound = props.startingQuestion !== undefined;
+  const [state, setState] = createSignal<CreationState>(sourceBound ? "reviewing" : "choosing");
+  const [selection, setSelection] = createSignal<QuestionPickerSelection | undefined>(
+    sourceBound ? { questionIds: [], questions: [] } : undefined,
+  );
   const [attested, setAttested] = createSignal(false);
   const [title, setTitle] = createSignal("");
   const [description, setDescription] = createSignal("");
@@ -70,17 +54,33 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     readonly revisionNumber: number;
   }>();
   let reviewHeading: HTMLHeadingElement | undefined;
-  const pickerRepository = questionLibraryPickerRepository(
-    props.questionLibrary,
-    props.questionLibrary,
-  );
+  const pickerRepository =
+    props.startingQuestion === undefined
+      ? questionLibraryPickerRepository(props.questionLibrary, props.questionLibrary)
+      : questionPoolSourcePickerRepository(props.questionLibrary, props.startingQuestion);
   const pickerSources = questionLibraryPickerSources(false);
+
+  onMount(() => {
+    if (!sourceBound) return;
+    props.onTaskPhaseChange(true);
+    queueMicrotask(() => reviewHeading?.focus());
+  });
 
   function chooseAgain(): void {
     setAttested(false);
     setError(undefined);
     setState("choosing");
     props.onTaskPhaseChange(false);
+  }
+
+  function cancelSelection(): void {
+    if (!sourceBound) {
+      props.onClose();
+      return;
+    }
+    setState("reviewing");
+    props.onTaskPhaseChange(true);
+    queueMicrotask(() => reviewHeading?.focus());
   }
 
   function acceptSelection(next: QuestionPickerSelection): void {
@@ -107,7 +107,11 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
     setState("creating");
     setError(undefined);
     try {
-      const members = await latestSelectedRevisions(selected, props.getQuestionDetails);
+      const members = await questionPoolMemberReferences(
+        selected,
+        props.getQuestionDetails,
+        props.startingQuestion,
+      );
       const created = await props.questionPoolClient.createQuestionPool({
         title: trimPoolDraft(title()),
         description: trimPoolDraft(description()),
@@ -131,14 +135,26 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
           repository={pickerRepository}
           sources={pickerSources}
           mode="many"
-          maximumSelection={MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY}
+          maximumSelection={
+            sourceBound
+              ? MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY - 1
+              : MAX_QUESTION_POOL_ITEMS_PER_ASSESSMENT_ENTRY
+          }
           initialSelection={selection()}
-          title="Choose published Questions for this Pool"
-          instructions="Select interchangeable published Questions and arrange their order before you attest to creating a reusable Pool."
+          title={
+            sourceBound
+              ? "Add published Questions to this Pool"
+              : "Choose published Questions for this Pool"
+          }
+          instructions={
+            props.startingQuestion === undefined
+              ? "Select interchangeable published Questions and arrange their order before you attest to creating a reusable Pool."
+              : `Results begin filtered to ${props.startingQuestion.disciplineName} / ${props.startingQuestion.subjectName}. The starting Question stays first.`
+          }
           confirmLabel="Review selected Questions"
           trigger={undefined}
           onConfirm={acceptSelection}
-          onCancel={props.onClose}
+          onCancel={cancelSelection}
         />
       </Show>
       <Show when={state() === "choosing" ? undefined : selection()}>
@@ -156,13 +172,23 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
               Create Question Pool
             </h1>
             <p class="question-pool-create-introduction">
-              Review the ordered Questions and describe the reusable Pool. Their current Revisions
-              are resolved when you create it.
+              {sourceBound
+                ? "The starting Published Question is fixed first. Add interchangeable Questions or create this reusable Pool with its starting Question."
+                : "Review the ordered Questions and describe the reusable Pool. Their current Revisions are resolved when you create it."}
             </p>
             <div class="question-pool-create-review-grid">
               <section aria-labelledby="question-pool-selected-heading">
                 <h3 id="question-pool-selected-heading">Selected Questions in order</h3>
                 <ol class="question-pool-member-list">
+                  <Show when={props.startingQuestion}>
+                    {(starting) => (
+                      <li>
+                        <strong>{starting().questionTitle}</strong> (
+                        {starting().questionRevision.questionId}, Revision{" "}
+                        {starting().questionRevision.revisionNumber})
+                      </li>
+                    )}
+                  </Show>
                   <For each={selected().questions}>
                     {(question) => (
                       <li>
@@ -175,14 +201,30 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
               <Show when={state() !== "created"}>
                 <fieldset disabled={state() === "creating"}>
                   <legend>Pool metadata</legend>
-                  <label class="assessment-editor-field">
-                    Title (required)
-                    <input
-                      required
-                      value={title()}
-                      onInput={(event) => setTitle(event.currentTarget.value)}
-                    />
-                  </label>
+                  <div class="question-pool-create-title-context">
+                    <label class="assessment-editor-field">
+                      Pool Title (required)
+                      <input
+                        required
+                        value={title()}
+                        onInput={(event) => setTitle(event.currentTarget.value)}
+                      />
+                    </label>
+                    <Show when={props.startingQuestion}>
+                      {(starting) => (
+                        <dl class="question-pool-starting-classification">
+                          <div>
+                            <dt>Discipline</dt>
+                            <dd>{starting().disciplineName}</dd>
+                          </div>
+                          <div>
+                            <dt>Subject</dt>
+                            <dd>{starting().subjectName}</dd>
+                          </div>
+                        </dl>
+                      )}
+                    </Show>
+                  </div>
                   <label class="assessment-editor-field">
                     Description (required)
                     <textarea
@@ -191,11 +233,24 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                       onInput={(event) => setDescription(event.currentTarget.value)}
                     />
                   </label>
-                  <p>
-                    The first Question, {selected().questions[0]?.row.questionTitle}, establishes
-                    this Pool's Discipline and Subject. Every additional Question must share both.
-                    The server checks this when you create the Pool.
-                  </p>
+                  <Show
+                    when={props.startingQuestion}
+                    fallback={
+                      <p>
+                        The first Question, {selected().questions[0]?.row.questionTitle},
+                        establishes this Pool's Discipline and Subject. Every additional Question
+                        must share both. The server checks this when you create the Pool.
+                      </p>
+                    }
+                  >
+                    {(starting) => (
+                      <p>
+                        <strong>{starting().questionTitle}</strong> establishes this Pool's{" "}
+                        {starting().disciplineName} Discipline and {starting().subjectName} Subject.
+                        Every additional Question must share both.
+                      </p>
+                    )}
+                  </Show>
                 </fieldset>
               </Show>
             </div>
@@ -219,7 +274,7 @@ export function QuestionPoolCreateDialog(props: QuestionPoolCreateDialogProps): 
                   disabled={state() === "creating"}
                   onClick={chooseAgain}
                 >
-                  Choose different Questions
+                  {sourceBound ? "Add or change Questions" : "Choose different Questions"}
                 </button>{" "}
                 <button
                   class="primary-action"

@@ -13,6 +13,8 @@ import type { QuestionSearchTagFacet } from "../../../generated/api/QuestionSear
 import type { QuestionSearchSubjectFacet } from "../../../generated/api/QuestionSearchSubjectFacet";
 import type { QuestionSearchTopicFacet } from "../../../generated/api/QuestionSearchTopicFacet";
 import type { QuestionSearchCourseUseFacet } from "../../../generated/api/QuestionSearchCourseUseFacet";
+import type { QuestionSearchBloomCognitiveProcessFacet } from "../../../generated/api/QuestionSearchBloomCognitiveProcessFacet";
+import type { QuestionSearchBloomKnowledgeDimensionFacet } from "../../../generated/api/QuestionSearchBloomKnowledgeDimensionFacet";
 import {
   DecodeError,
   decodeBoolean,
@@ -29,6 +31,7 @@ import {
   field,
   requireOnlyFields,
 } from "./shared";
+import { BLOOM_COGNITIVE_PROCESSES, BLOOM_KNOWLEDGE_DIMENSIONS } from "./bloom_classification";
 
 const MAX_QUESTION_SEARCH_BACKEND_FACETS = 5;
 export const MAX_QUESTION_SEARCH_QUESTION_TYPE_FACETS = 8;
@@ -161,6 +164,76 @@ function decodeQuestionSearchCourseUseFacet(
   };
 }
 
+function decodeBloomCognitiveProcessFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchBloomCognitiveProcessFacet {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["cognitiveProcess", "count"]);
+  return {
+    cognitiveProcess: decodeStringEnum(
+      field(record, "cognitiveProcess", path),
+      `${path}.cognitiveProcess`,
+      BLOOM_COGNITIVE_PROCESSES,
+    ),
+    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
+  };
+}
+
+function decodeBloomKnowledgeDimensionFacet(
+  value: unknown,
+  path: string,
+): QuestionSearchBloomKnowledgeDimensionFacet {
+  const record = decodeRecord(value, path);
+  requireOnlyFields(record, path, ["knowledgeDimension", "count"]);
+  return {
+    knowledgeDimension: decodeStringEnum(
+      field(record, "knowledgeDimension", path),
+      `${path}.knowledgeDimension`,
+      BLOOM_KNOWLEDGE_DIMENSIONS,
+    ),
+    count: decodeNonnegativeInteger(field(record, "count", path), `${path}.count`),
+  };
+}
+
+function decodeBloomCognitiveProcessFacets(
+  value: unknown,
+  path: string,
+): Array<QuestionSearchBloomCognitiveProcessFacet> {
+  const facets = decodeBoundedArray(
+    value,
+    path,
+    BLOOM_COGNITIVE_PROCESSES.length,
+    decodeBloomCognitiveProcessFacet,
+  );
+  if (
+    facets.length !== BLOOM_COGNITIVE_PROCESSES.length ||
+    facets.some((facet, index) => facet.cognitiveProcess !== BLOOM_COGNITIVE_PROCESSES[index])
+  ) {
+    throw new DecodeError(path, "all Bloom Cognitive Processes in teaching-guide order");
+  }
+  return facets;
+}
+
+function decodeBloomKnowledgeDimensionFacets(
+  value: unknown,
+  path: string,
+): Array<QuestionSearchBloomKnowledgeDimensionFacet> {
+  const facets = decodeBoundedArray(
+    value,
+    path,
+    BLOOM_KNOWLEDGE_DIMENSIONS.length,
+    decodeBloomKnowledgeDimensionFacet,
+  );
+  if (
+    facets.length !== BLOOM_KNOWLEDGE_DIMENSIONS.length ||
+    facets.some((facet, index) => facet.knowledgeDimension !== BLOOM_KNOWLEDGE_DIMENSIONS[index])
+  ) {
+    throw new DecodeError(path, "all Bloom Knowledge Dimensions in teaching-guide order");
+  }
+  return facets;
+}
+
 /**
  * ASVS 1.5.2 and 2.2.1: strictly decodes only the same-query, answer-free
  * Question Search facets generated from the Rust contract.
@@ -181,6 +254,8 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     "capabilities",
     "questionLicenses",
     "usedInMyCourses",
+    "bloomCognitiveProcesses",
+    "bloomKnowledgeDimensions",
   ]);
   return {
     authorNames: decodeBoundedArray(
@@ -247,6 +322,14 @@ export function decodeQuestionSearchFacets(value: unknown, path: string): Questi
     usedInMyCourses: decodeQuestionSearchCourseUseFacet(
       field(record, "usedInMyCourses", path),
       `${path}.usedInMyCourses`,
+    ),
+    bloomCognitiveProcesses: decodeBloomCognitiveProcessFacets(
+      field(record, "bloomCognitiveProcesses", path),
+      `${path}.bloomCognitiveProcesses`,
+    ),
+    bloomKnowledgeDimensions: decodeBloomKnowledgeDimensionFacets(
+      field(record, "bloomKnowledgeDimensions", path),
+      `${path}.bloomKnowledgeDimensions`,
     ),
   };
 }

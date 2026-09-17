@@ -23,7 +23,7 @@ BEGIN
     -- ASVS 8.2.1/2/3, 8.3.1/2: current ordinary visibility governs all history.
     SELECT course.reference_number INTO v_reference
       FROM ple_data.blueprint_course AS course
-     WHERE p_reference ~ '^BP[0-9ABCDEFGHJKMNPQRSTVWXYZ]{6}$'
+     WHERE ple_private.is_canonical_prefixed_public_id(p_reference, 'BP')
        AND course.public_reference = p_reference
        AND ple_api.current_session_account_is_instructor()
        AND (course.availability IN ('public', 'archived')

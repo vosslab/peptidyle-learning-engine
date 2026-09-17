@@ -47,7 +47,7 @@ pub(super) async fn read(
                     .map_err(map_sqlx_error)?
                     .as_deref()
                 {
-                    Some("ple") => Some(source_from_row(row)?),
+                    Some("ple" | "webwork") => Some(source_from_row(row)?),
                     _ => None,
                 },
             })

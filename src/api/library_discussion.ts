@@ -3,8 +3,6 @@
 import type { QuestionId } from "../../generated/api/QuestionId";
 
 export type LibraryObjectDiscussionKind = "question" | "questionPool";
-export type ImprovementThreadState = "open" | "resolved";
-export type ImpactNoticeState = "active" | "cancelled";
 
 export interface LibraryImprovementPost {
   readonly postId: string;
@@ -15,27 +13,48 @@ export interface LibraryImprovementPost {
   readonly viewerMayEdit: boolean;
 }
 
-export interface LibraryImprovementThread {
+type LibraryImprovementThreadBase = {
   readonly threadId: string;
   readonly creationRevisionNumber: number;
-  readonly state: ImprovementThreadState;
   readonly createdAt: number;
-  readonly resolvedAt: number | null;
   readonly viewerMayResolve: boolean;
   readonly posts: ReadonlyArray<LibraryImprovementPost>;
-}
+};
 
-export interface LibraryImpactNotice {
+export type LibraryImprovementThread =
+  | (LibraryImprovementThreadBase & {
+      readonly state: "open";
+      readonly resolvedAt: null;
+    })
+  | (LibraryImprovementThreadBase & {
+      readonly state: "resolved";
+      readonly resolvedAt: number;
+    });
+
+export type ImprovementThreadState = LibraryImprovementThread["state"];
+
+type LibraryImpactNoticeBase = {
   readonly impactNoticeId: string;
   readonly affectedRevisionNumber: number | null;
   readonly authorDisplayName: string;
   readonly body: string;
-  readonly state: ImpactNoticeState;
   readonly createdAt: number;
   readonly updatedAt: number;
-  readonly cancelledAt: number | null;
-  readonly viewerMayManage: boolean;
-}
+};
+
+export type LibraryImpactNotice =
+  | (LibraryImpactNoticeBase & {
+      readonly state: "active";
+      readonly cancelledAt: null;
+      readonly viewerMayManage: boolean;
+    })
+  | (LibraryImpactNoticeBase & {
+      readonly state: "cancelled";
+      readonly cancelledAt: number;
+      readonly viewerMayManage: false;
+    });
+
+export type ImpactNoticeState = LibraryImpactNotice["state"];
 
 export interface LibraryDiscussionView {
   readonly viewerMayManage: boolean;

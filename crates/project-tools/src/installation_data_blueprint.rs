@@ -77,7 +77,12 @@ pub(crate) fn create_live_demo_blueprint(
         let input = live_demo_blueprint_input(questions.clone(), classification.clone())?;
         let store = PostgresBlueprintCourseStore::new(pool);
         let receipt = store
-            .create_blueprint_course(session, LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM, input.clone())
+            .create_blueprint_course(
+                session,
+                LIVE_DEMO_BLUEPRINT_REQUEST_CHECKSUM,
+                input.clone(),
+                Default::default(),
+            )
             .await
             .context("creating the ordinary Live Demo Blueprint Course")?;
         ensure!(
@@ -85,7 +90,7 @@ pub(crate) fn create_live_demo_blueprint(
             "Live Demo Blueprint creation did not return Revision 1"
         );
         let blueprint = store
-            .load_blueprint_course(session, receipt.blueprint_revision.reference)
+            .load_blueprint_course(session, receipt.blueprint_revision.reference.clone())
             .await
             .context("reloading the ordinary Live Demo Blueprint Course")?;
         ensure!(
@@ -113,14 +118,14 @@ pub(crate) fn create_live_demo_blueprint(
             store
                 .publish_blueprint(
                     session,
-                    receipt.blueprint_revision.reference,
+                    receipt.blueprint_revision.reference.clone(),
                     blueprint.metadata_etag,
                 )
                 .await
                 .context("publishing the ordinary Live Demo Blueprint Course")?;
         }
         let blueprint = store
-            .load_blueprint_course(session, receipt.blueprint_revision.reference)
+            .load_blueprint_course(session, receipt.blueprint_revision.reference.clone())
             .await
             .context("reloading the published Live Demo Blueprint Course")?;
         ensure!(
@@ -217,7 +222,7 @@ fn live_demo_blueprint_input(
         modules: vec![CreateBlueprintModuleInput {
             label: LIVE_DEMO_BLUEPRINT_MODULE_LABEL.to_owned(),
             assessments: vec![BlueprintAssessmentContentInput {
-                assessment_type: question_model::AssessmentType::RegularAssignment,
+                assessment_type: question_model::AssessmentType::PracticeQuestionAssignment,
                 title: LIVE_DEMO_ASSESSMENT_TITLE.to_owned(),
                 instructions: AssessmentInstructions::try_new(
                     LIVE_DEMO_BLUEPRINT_INSTRUCTIONS.to_owned(),
@@ -262,9 +267,10 @@ mod tests {
 
     fn question(number: u8) -> QuestionRevisionReference {
         QuestionRevisionReference {
-            question_id: format!("ABCD-XEF{number}")
-                .parse()
-                .expect("test Question ID is valid"),
+            question_id: question_model::QuestionId::from_random_identifier(format!(
+                "ABCDEF{number}"
+            ))
+            .expect("test Question ID is valid"),
             revision_number: question_model::QuestionRevisionNumber::new(1)
                 .expect("test Revision is valid"),
         }
@@ -285,6 +291,10 @@ mod tests {
         .unwrap();
         assert_eq!(input.modules.len(), 1);
         assert_eq!(input.modules[0].assessments.len(), 1);
+        assert_eq!(
+            input.modules[0].assessments[0].assessment_type,
+            question_model::AssessmentType::PracticeQuestionAssignment
+        );
         assert_eq!(input.modules[0].assessments[0].entries.len(), 4);
         assert_eq!(input.modules[0].label, LIVE_DEMO_BLUEPRINT_MODULE_LABEL);
     }

@@ -5,6 +5,11 @@ import type { AssessmentTemplateSettings } from "../../generated/api/AssessmentT
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { LateWorkRule } from "../../generated/api/LateWorkRule";
 import type { StudentFeedbackReleaseRule } from "../../generated/api/StudentFeedbackReleaseRule";
+import {
+  assessmentDurationOverrideMinutesDraft,
+  assessmentDurationOverrideMinutesError,
+  assessmentDurationOverrideSecondsFromMinutesDraft,
+} from "../assessment_duration";
 import { optionalPositiveIntegerDraft } from "./assessment_workspace/assessment_workspace_policy_model";
 
 export function assessmentTypeHasOneAttempt(assessmentType: AssessmentType): boolean {
@@ -16,6 +21,8 @@ export interface AssessmentTemplateDraft {
   readonly assessmentType: AssessmentType;
   readonly instructions: string;
   readonly timeLimit: string;
+  /** Blocks an unrelated save from silently clearing a legacy non-minute duration. */
+  readonly legacyTimeLimitSeconds: number | null;
   readonly attemptLimit: string;
   readonly lateWorkRule: LateWorkRule;
   readonly variationRule: AssessmentTemplateSettings["activityRules"]["questionVariationRule"];
@@ -37,10 +44,14 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
     name: template.name,
     assessmentType: template.assessmentType,
     instructions: template.settings.instructions,
-    timeLimit:
-      template.settings.assessmentAttemptTimeLimitSeconds === null
-        ? ""
-        : (template.settings.assessmentAttemptTimeLimitSeconds / 60).toString(),
+    timeLimit: assessmentDurationOverrideMinutesDraft(
+      template.settings.assessmentAttemptTimeLimitSeconds,
+    ),
+    legacyTimeLimitSeconds:
+      template.settings.assessmentAttemptTimeLimitSeconds !== null &&
+      template.settings.assessmentAttemptTimeLimitSeconds % 60 !== 0
+        ? template.settings.assessmentAttemptTimeLimitSeconds
+        : null,
     attemptLimit: assessmentTypeHasOneAttempt(template.assessmentType)
       ? "1"
       : (template.settings.attemptLimit?.toString() ?? ""),
@@ -55,25 +66,23 @@ export function assessmentTemplateDraft(template: AssessmentTemplate): Assessmen
 export function assessmentTemplateSettings(
   draft: AssessmentTemplateDraft,
 ): AssessmentTemplateDraftResult {
-  const timeLimitSeconds = draft.timeLimit === "" ? null : Math.round(Number(draft.timeLimit) * 60);
-  const validTimeLimit =
-    draft.timeLimit === "" ||
-    (/^(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)$/u.test(draft.timeLimit) &&
-      Number(draft.timeLimit) >= 1 / 60 &&
-      Number(draft.timeLimit) <= 720);
+  const timeLimitSeconds = assessmentDurationOverrideSecondsFromMinutesDraft(draft.timeLimit);
+  const timeLimitError = assessmentDurationOverrideMinutesError(
+    draft.timeLimit,
+    draft.legacyTimeLimitSeconds,
+  );
   const attemptLimit = optionalPositiveIntegerDraft(
     assessmentTypeHasOneAttempt(draft.assessmentType) ? "1" : draft.attemptLimit,
   );
-  if (!validTimeLimit || !attemptLimit.valid) {
+  if (timeLimitSeconds === undefined || timeLimitError !== undefined || !attemptLimit.valid) {
     return {
-      error:
-        "Enter a duration override in minutes, from 1/60 minute (1 second) to 720 minutes (12 hours), or leave it blank for the calculated default. Fractional minutes are rounded to the nearest second. Attempt limits must be positive whole numbers or blank.",
+      error: timeLimitError ?? "Attempt limits must be positive whole numbers or blank.",
     };
   }
 
   const settings: AssessmentTemplateSettings = {
     instructions: draft.instructions,
-    assessmentAttemptTimeLimitSeconds: timeLimitSeconds,
+    assessmentAttemptTimeLimitSeconds: timeLimitSeconds ?? null,
     attemptLimit: attemptLimit.value,
     lateWorkRule: draft.lateWorkRule,
     activityRules: {

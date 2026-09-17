@@ -3,8 +3,10 @@
 use std::collections::BTreeMap;
 
 use question_model::{
-    Capability, MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_TAG_FACETS,
-    QuestionBackend, QuestionSearchAuthorFacet, QuestionSearchBackendFacet,
+    BloomCognitiveProcess, BloomKnowledgeDimension, Capability,
+    MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS, MAX_QUESTION_SEARCH_TAG_FACETS, QuestionBackend,
+    QuestionSearchAuthorFacet, QuestionSearchBackendFacet,
+    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
     QuestionSearchCapabilityFacet, QuestionSearchCourseUseFacet, QuestionSearchFacets,
     QuestionSearchQuestionLicenseFacet, QuestionSearchSubjectFacet, QuestionSearchTagFacet,
     QuestionSearchTopicFacet, QuestionTypeFacet, normalized_question_search_group_value,
@@ -23,6 +25,12 @@ pub(super) fn facets(entries: &[&ResolvedQuestionLibraryEntry]) -> QuestionSearc
     let mut question_types = BTreeMap::<question_model::QuestionType, u64>::new();
     let mut capabilities = BTreeMap::<Capability, u64>::new();
     let mut licenses = BTreeMap::<question_model::QuestionLicense, u64>::new();
+    let mut bloom_cognitive_processes = BTreeMap::<BloomCognitiveProcess, u64>::from_iter(
+        BloomCognitiveProcess::ALL.map(|value| (value, 0)),
+    );
+    let mut bloom_knowledge_dimensions = BTreeMap::<BloomKnowledgeDimension, u64>::from_iter(
+        BloomKnowledgeDimension::ALL.map(|value| (value, 0)),
+    );
     for entry in entries {
         let summary = &entry.summary;
         count_text_facets(
@@ -47,6 +55,12 @@ pub(super) fn facets(entries: &[&ResolvedQuestionLibraryEntry]) -> QuestionSearc
         if let Some(license) = &summary.metadata.question_license {
             *licenses.entry(license.clone()).or_default() += 1;
         }
+        *bloom_cognitive_processes
+            .get_mut(&summary.bloom.cognitive_process)
+            .expect("all Bloom Cognitive Processes are initialized") += 1;
+        *bloom_knowledge_dimensions
+            .get_mut(&summary.bloom.knowledge_dimension)
+            .expect("all Bloom Knowledge Dimensions are initialized") += 1;
     }
     QuestionSearchFacets {
         author_names_truncated: authors.len() > MAX_QUESTION_SEARCH_AUTHOR_NAME_FACETS,
@@ -99,6 +113,22 @@ pub(super) fn facets(entries: &[&ResolvedQuestionLibraryEntry]) -> QuestionSearc
                 .filter(|entry| entry.used_in_current_account_courses)
                 .count() as u64,
         },
+        bloom_cognitive_processes: BloomCognitiveProcess::ALL
+            .map(
+                |cognitive_process| QuestionSearchBloomCognitiveProcessFacet {
+                    cognitive_process,
+                    count: bloom_cognitive_processes[&cognitive_process],
+                },
+            )
+            .to_vec(),
+        bloom_knowledge_dimensions: BloomKnowledgeDimension::ALL
+            .map(
+                |knowledge_dimension| QuestionSearchBloomKnowledgeDimensionFacet {
+                    knowledge_dimension,
+                    count: bloom_knowledge_dimensions[&knowledge_dimension],
+                },
+            )
+            .to_vec(),
     }
 }
 
@@ -146,5 +176,35 @@ fn count_text_facets<'a>(
                 *count += 1;
             })
             .or_insert((display, 1));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bloom_facets_include_every_guide_value_in_guide_order_for_an_empty_match() {
+        let result = facets(&[]);
+        assert_eq!(
+            result
+                .bloom_cognitive_processes
+                .iter()
+                .map(|facet| (facet.cognitive_process, facet.count))
+                .collect::<Vec<_>>(),
+            BloomCognitiveProcess::ALL
+                .map(|cognitive_process| (cognitive_process, 0))
+                .to_vec()
+        );
+        assert_eq!(
+            result
+                .bloom_knowledge_dimensions
+                .iter()
+                .map(|facet| (facet.knowledge_dimension, facet.count))
+                .collect::<Vec<_>>(),
+            BloomKnowledgeDimension::ALL
+                .map(|knowledge_dimension| (knowledge_dimension, 0))
+                .to_vec()
+        );
     }
 }

@@ -309,6 +309,7 @@ BEGIN
     IF (SELECT count(*) FROM ple_data.assessment
              WHERE assessment_id = '00000000-0000-0000-0000-000000000270'
                AND assessment_status = 'released'
+               AND assessment_type = 'practice_question_assignment'
                AND course_id = '00000000-0000-0000-0000-000000000220'
                AND origin_kind = 'adopted'
                AND source_blueprint_course_reference_number = blueprint_reference

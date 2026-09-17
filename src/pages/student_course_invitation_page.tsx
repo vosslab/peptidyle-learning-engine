@@ -1,5 +1,5 @@
 import { A, useParams } from "@solidjs/router";
-import { Show, createEffect, createSignal, onCleanup, type JSX } from "solid-js";
+import { Show, createEffect, createResource, createSignal, onCleanup, type JSX } from "solid-js";
 
 import { useApplicationApi } from "../api/application_api";
 import { parseCourseInstanceReference } from "../navigation/public_route";
@@ -11,6 +11,10 @@ export function StudentCourseInvitationPage(): JSX.Element {
   function course(): ReturnType<typeof parseCourseInstanceReference> {
     return parseCourseInstanceReference(params["courseRef"] ?? "");
   }
+  const [invitation] = createResource(course, async (reference) => {
+    const invitations = await runtime.client.listPendingLiveStudentCourseInvitations();
+    return invitations.find((candidate) => candidate.reference === reference) ?? null;
+  });
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [acceptedCourse, setAcceptedCourse] =
@@ -30,7 +34,14 @@ export function StudentCourseInvitationPage(): JSX.Element {
 
   async function claim(): Promise<void> {
     const reference = course();
-    if (reference === null) return;
+    if (
+      reference === null ||
+      busy() ||
+      invitation.loading ||
+      invitation.error !== undefined ||
+      invitation()?.reference !== reference
+    )
+      return;
     const generation = ++claimGeneration;
     setBusy(true);
     setMessage("");
@@ -59,17 +70,54 @@ export function StudentCourseInvitationPage(): JSX.Element {
         when={acceptedCourse() === course() ? acceptedCourse() : null}
         fallback={
           <>
-            <h1>Join this course</h1>
-            <p>Accept this invitation to join the course.</p>
-            <Show when={message()}>{(value) => <p role="status">{value()}</p>}</Show>
-            <button
-              class="primary-action"
-              type="button"
-              disabled={busy() || course() === null}
-              onClick={() => void claim()}
+            <Show when={invitation.loading}>
+              <h1>Course invitation</h1>
+              <p role="status">Loading course invitation...</p>
+            </Show>
+            <Show
+              when={
+                !invitation.loading &&
+                (invitation.error !== undefined || invitation()?.reference !== course())
+              }
             >
-              Accept invitation
-            </button>
+              <h1>Course invitation unavailable</h1>
+              <p>This invitation is not available.</p>
+              <A class="quiet-link" href="/student/course-invitations">
+                Your course invitations
+              </A>
+            </Show>
+            <Show
+              when={
+                !invitation.loading &&
+                invitation.error === undefined &&
+                invitation()?.reference === course()
+                  ? invitation()
+                  : null
+              }
+            >
+              {(context) => (
+                <>
+                  <h1>{context().longName}</h1>
+                  <p>Instructor: {context().instructorDisplayName}</p>
+                  <p>
+                    Term:{" "}
+                    <time dateTime={context().term.startDate}>{context().term.startDate}</time>
+                    {" to "}
+                    <time dateTime={context().term.endDate}>{context().term.endDate}</time>
+                  </p>
+                  <p>Accept this invitation to join the course.</p>
+                  <Show when={message()}>{(value) => <p role="status">{value()}</p>}</Show>
+                  <button
+                    class="primary-action"
+                    type="button"
+                    disabled={busy()}
+                    onClick={() => void claim()}
+                  >
+                    Accept invitation
+                  </button>
+                </>
+              )}
+            </Show>
           </>
         }
       >

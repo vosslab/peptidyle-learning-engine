@@ -9,6 +9,10 @@ import {
   EMPTY_QUESTION_LIBRARY_BROWSE_QUERY,
   type QuestionLibraryBrowseQuery,
 } from "./library_page_model";
+import {
+  isBloomCognitiveProcess,
+  isBloomKnowledgeDimension,
+} from "../api/decoders/bloom_classification";
 
 /** Removes only rejected strict URL state while retaining valid Library options. */
 export function recoverLibrarySearch(search: string): string {
@@ -23,6 +27,16 @@ export function recoverLibrarySearch(search: string): string {
     librarySort(parameters);
   } catch {
     parameters.delete("sort");
+  }
+  try {
+    bloomCognitiveProcess(parameters);
+  } catch {
+    parameters.delete("bloomCognitiveProcess");
+  }
+  try {
+    bloomKnowledgeDimension(parameters);
+  } catch {
+    parameters.delete("bloomKnowledgeDimension");
   }
   const serialized = parameters.toString();
   return serialized === "" ? "" : `?${serialized}`;
@@ -45,6 +59,28 @@ function librarySort(parameters: URLSearchParams): QuestionLibraryBrowseQuery["s
   return value;
 }
 
+function bloomCognitiveProcess(
+  parameters: URLSearchParams,
+): QuestionLibraryBrowseQuery["bloomCognitiveProcess"] {
+  const values = parameters.getAll("bloomCognitiveProcess");
+  if (values.length > 1) throw new Error("Bloom Cognitive Process must appear at most once");
+  const value = values[0];
+  if (value === undefined) return null;
+  if (!isBloomCognitiveProcess(value)) throw new Error("Bloom Cognitive Process is invalid");
+  return value;
+}
+
+function bloomKnowledgeDimension(
+  parameters: URLSearchParams,
+): QuestionLibraryBrowseQuery["bloomKnowledgeDimension"] {
+  const values = parameters.getAll("bloomKnowledgeDimension");
+  if (values.length > 1) throw new Error("Bloom Knowledge Dimension must appear at most once");
+  const value = values[0];
+  if (value === undefined) return null;
+  if (!isBloomKnowledgeDimension(value)) throw new Error("Bloom Knowledge Dimension is invalid");
+  return value;
+}
+
 export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
   const parameters = new URLSearchParams(search);
   return {
@@ -53,6 +89,8 @@ export function searchHandoffQuery(search: string): QuestionLibraryBrowseQuery {
     search: boundedValues(parameters, "search")[0] ?? "",
     subjects: boundedValues(parameters, "subjects"),
     topics: boundedValues(parameters, "topics"),
+    bloomCognitiveProcess: bloomCognitiveProcess(parameters),
+    bloomKnowledgeDimension: bloomKnowledgeDimension(parameters),
     authorName: boundedValues(parameters, "authorName")[0] ?? null,
     backend: boundedValues(parameters, "backend")[0] ?? null,
     tag: boundedValues(parameters, "tag")[0] ?? null,
@@ -70,7 +108,9 @@ export function hasExactBrowseFilters(query: QuestionLibraryBrowseQuery): boolea
     query.subjects.length > 0 ||
     query.topics.length > 0 ||
     query.tag !== null ||
-    query.questionType !== null
+    query.questionType !== null ||
+    query.bloomCognitiveProcess !== null ||
+    query.bloomKnowledgeDimension !== null
   );
 }
 
@@ -87,6 +127,8 @@ export function searchWithinResultsPath(query: QuestionLibraryBrowseQuery): stri
     "capability",
     "questionLicense",
     "usedInMyCourses",
+    "bloomCognitiveProcess",
+    "bloomKnowledgeDimension",
   ] as const) {
     const value = query[field];
     if (value !== null) parameters.set(field, value);

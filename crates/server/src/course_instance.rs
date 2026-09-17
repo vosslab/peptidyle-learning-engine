@@ -112,7 +112,7 @@ async fn create_course_instance(
     };
     match state
         .courses
-        .create_course_instance(session_hash, input)
+        .create_course_instance(session_hash, input, Default::default())
         .await
     {
         Ok(created) => crate::auth::no_store((StatusCode::CREATED, Json(created)).into_response()),

@@ -5,6 +5,8 @@ import { For, Show, type JSX } from "solid-js";
 
 import type { QuestionContentBlock } from "../../generated/api/QuestionContentBlock";
 import type { StudentAssessmentAttemptHistory } from "../api/assessment_attempt_history";
+import { backendAnswerReviewDocumentUrl } from "../api/assessment_attempt_history";
+import { OpaqueWebworkPreviewFrame } from "../components/opaque_webwork_preview_frame";
 import { ContentBlockList } from "../components/student_feedback_panel";
 import { useApplicationApi } from "../api/application_api";
 import { ASSESSMENT_ATTEMPT_SUMMARY_STYLES } from "./assessment_attempt_summary_styles";
@@ -40,6 +42,7 @@ function AssessmentAttemptHistoryContent(props: {
   readonly history: StudentAssessmentAttemptHistory;
 }): JSX.Element {
   const applicationApi = useApplicationApi();
+  const retry = useRetryRouteScope();
   function assetUrlForQuestion(
     questionRevision: StudentAssessmentAttemptHistory["questions"][number]["questionRevision"],
   ): Parameters<typeof ContentBlockList>[0]["assetUrl"] {
@@ -143,6 +146,22 @@ function AssessmentAttemptHistoryContent(props: {
                 questionRevision={question.questionRevision}
                 assetUrl={assetUrlForQuestion(question.questionRevision)}
               />
+              <Show when={question.backendAnswerReview === "available"}>
+                <section class="attempt-summary__disclosure">
+                  <h4>Correct answer</h4>
+                  <OpaqueWebworkPreviewFrame
+                    class="attempt-history__answer-review"
+                    src={backendAnswerReviewDocumentUrl(
+                      props.history.assessmentAttempt,
+                      question.position,
+                    )}
+                    title="Correct answer"
+                  />
+                  <button class="quiet-action" type="button" onClick={retry}>
+                    Retry correct answer
+                  </button>
+                </section>
+              </Show>
             </article>
           )}
         </For>

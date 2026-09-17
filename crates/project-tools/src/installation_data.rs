@@ -221,7 +221,7 @@ fn publish_bundled_genetics(
             .context("bundled Genetics Blueprint database URL is invalid")?;
         let store = PostgresBlueprintCourseStore::new(pool);
         let blueprint = store
-            .load_blueprint_course(session, reference)
+            .load_blueprint_course(session, reference.clone())
             .await
             .context("loading the retained bundled Genetics Blueprint")?;
         // ASVS 8.2.2, 2.3.1: only the installation publisher's validated
@@ -239,7 +239,7 @@ fn publish_bundled_genetics(
         );
         if blueprint.availability == BlueprintAvailability::Private {
             store
-                .publish_blueprint(session, reference, blueprint.metadata_etag)
+                .publish_blueprint(session, reference.clone(), blueprint.metadata_etag)
                 .await
                 .context("making the bundled Genetics example Blueprint Public")?;
         }
@@ -489,11 +489,11 @@ mod tests {
                 ),
                 (
                     "pilot_question_publications",
-                    r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC1-X234","revisionNumber":1}}}"#.to_string(),
+                    r#"{"pilot":{"sourceSha256":"abc","questionRevision":{"questionId":"ABC1-J234","revisionNumber":1}}}"#.to_string(),
                 ),
                 (
                     "live_demo_blueprint_public_reference",
-                    "BP00000C".to_string(),
+                    "BPABCDEFGJ".to_string(),
                 ),
                 (
                     "live_demo_blueprint_assessment_reference",
@@ -504,7 +504,7 @@ mod tests {
         .unwrap();
         assert!(script.contains("\\set pilot_publication_session_id"));
         assert!(script.contains("\\set pilot_question_publications"));
-        assert!(script.contains("\\set live_demo_blueprint_public_reference 'BP00000C'"));
+        assert!(script.contains("\\set live_demo_blueprint_public_reference 'BPABCDEFGJ'"));
         assert!(script.contains(
             "\\set live_demo_blueprint_assessment_reference '00000000-0000-0000-0000-000000000012'"
         ));

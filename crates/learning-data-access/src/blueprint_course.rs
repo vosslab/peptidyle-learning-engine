@@ -498,6 +498,7 @@ pub trait BlueprintCourseStore: Send + Sync {
         &self,
         session: SessionTokenHash,
         input: ApplyBlueprintForkInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<ApplyBlueprintForkResult, StoreError>;
     async fn list_blueprint_courses(
         &self,
@@ -527,12 +528,14 @@ pub trait BlueprintCourseStore: Send + Sync {
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         exchange: CanonicalBlueprintCourse,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError>;
     async fn create_blueprint_course(
         &self,
         session: SessionTokenHash,
         request_checksum: RequestChecksum,
         input: CreateBlueprintCourseInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<CreateBlueprintCourseReceipt, StoreError>;
     async fn save_blueprint_course(
         &self,
@@ -541,6 +544,7 @@ pub trait BlueprintCourseStore: Send + Sync {
         expected_revision: BlueprintRevision,
         request_checksum: RequestChecksum,
         input: ReplaceBlueprintCourseContentInput,
+        bloom_receipts: crate::PoolBloomPreparationReceipts,
     ) -> Result<SaveBlueprintCourseReceipt, StoreError>;
     async fn rename_blueprint_course(
         &self,

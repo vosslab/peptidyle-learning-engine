@@ -2,7 +2,7 @@
 //!
 //! PostgreSQL owns the schedule and transition predicates.  This Store neither
 //! calculates dates nor sends notices: it can read already-due action records
-//! and invoke the two one-way transition procedures.
+//! and invoke the one-way inactivity, archive, and deletion procedures.
 
 use async_trait::async_trait;
 use question_model::{CourseId, Timestamp};
@@ -25,6 +25,8 @@ pub struct CourseRetentionDueAction {
 /// Closed stored retention action kinds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CourseRetentionDueActionKind {
+    /// Persist the Course's due Active-to-Inactive transition.
+    MarkInactive,
     WarnInactive,
     NotifyArchive,
     Archive,
@@ -42,6 +44,16 @@ pub trait CourseRetentionStore: Send + Sync {
         &self,
         evaluated_at: Timestamp,
     ) -> Result<Vec<CourseRetentionDueAction>, StoreError>;
+
+    /// Commits inactivity at the stored Active cutoff, independently of retention.
+    ///
+    /// Returns false when already Inactive; an early instant or unavailable Course
+    /// returns a Store error without changing the Course.
+    async fn mark_course_instance_inactive(
+        &self,
+        course: CourseId,
+        evaluated_at: Timestamp,
+    ) -> Result<bool, StoreError>;
 
     /// Commits the database-owned archive transition for one Course.
     async fn archive_course_student_records(

@@ -1,5 +1,15 @@
 /* instructor_data_tables.css - shared gradebook and roster scan surfaces. */
 
+.gradebook-export {
+  margin-block-end: var(--ple-layout-gap);
+}
+
+.gradebook-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ple-layout-gap);
+}
+
 .gradebook-table-wrap,
 .roster-table-wrap {
   overflow-x: auto;

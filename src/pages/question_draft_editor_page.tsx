@@ -14,9 +14,8 @@ import {
 import { PleQuestionJsonEditorPage } from "../features/ple_question_json_authoring/question_json_editor_page";
 import { createPleQuestionJsonRepository } from "../features/ple_question_json_authoring/question_json_repository";
 import { PLE_QUESTION_JSON_EDITOR_STYLES } from "../features/ple_question_json_authoring/question_json_editor_styles";
-import { parseDraftQuestionReference } from "../navigation/public_route";
+import { parseDraftQuestionId, type DraftQuestionRouteId } from "../navigation/public_route";
 import { useWasmFacade } from "../wasm/context";
-import type { DraftQuestionReference } from "../../generated/api/DraftQuestionReference";
 
 function authorSafeMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message.length > 0 && error.message.length < 240) {
@@ -30,7 +29,7 @@ function authorSafeMessage(error: unknown, fallback: string): string {
  * backend that this page deliberately does not parse or edit.
  */
 function GeneralFeedbackOnlyPage(props: {
-  readonly draftQuestion: DraftQuestionReference;
+  readonly draftQuestion: DraftQuestionRouteId;
   readonly initial: PleQuestionGeneralFeedbackRead;
   readonly client: PleQuestionGeneralFeedbackClient;
 }): JSX.Element {
@@ -142,7 +141,7 @@ function GeneralFeedbackOnlyPage(props: {
   );
 }
 
-/** Loads the private PLE Question JSON editor only after the route grammar accepts `D-...`. */
+/** Loads the private PLE Question JSON editor only after its UUID route grammar accepts the ID. */
 export function QuestionDraftEditorPage(): JSX.Element {
   const params = useParams();
   const wasm = useWasmFacade();
@@ -150,13 +149,13 @@ export function QuestionDraftEditorPage(): JSX.Element {
   const classificationClient = useApplicationApi().client;
   const generalFeedbackClient = createPleQuestionGeneralFeedbackClient();
   const repository = createPleQuestionJsonRepository(client);
-  const reference = createMemo(() => parseDraftQuestionReference(params.draftQuestionRef ?? ""));
+  const draftQuestionId = createMemo(() => parseDraftQuestionId(params.draftQuestionId ?? ""));
   const [initial, { refetch }] = createResource(
-    reference,
+    draftQuestionId,
     async (draftQuestion) => await repository.load(draftQuestion),
   );
   const [initialGeneralFeedback, { refetch: refetchGeneralFeedback }] = createResource(
-    reference,
+    draftQuestionId,
     async (draftQuestion) => await generalFeedbackClient.load(draftQuestion),
   );
   const initialLoadFailed = createMemo(
@@ -178,7 +177,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
 
   return (
     <Show
-      when={reference()}
+      when={draftQuestionId()}
       fallback={
         <main class="page route-error" data-route-surface="questionDraftEditorInvalid" role="alert">
           <h1>Draft Question not found</h1>
@@ -222,7 +221,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
           >
             {(generalFeedback) => (
               <GeneralFeedbackOnlyPage
-                draftQuestion={reference()!}
+                draftQuestion={draftQuestionId()!}
                 initial={generalFeedback()}
                 client={generalFeedbackClient}
               />
@@ -232,7 +231,7 @@ export function QuestionDraftEditorPage(): JSX.Element {
       >
         {(loaded) => (
           <PleQuestionJsonEditorPage
-            draftQuestion={reference()!}
+            draftQuestion={draftQuestionId()!}
             initial={loaded().source}
             initialGeneralFeedback={loaded().generalFeedback}
             generalFeedbackClient={generalFeedbackClient}

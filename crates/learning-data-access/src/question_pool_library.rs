@@ -6,13 +6,15 @@
 
 use async_trait::async_trait;
 use question_model::{
-    AssessmentEntryId, QuestionPoolLibrarySummary, QuestionPoolMetadata,
-    QuestionPoolRevisionReference, QuestionRevisionReference,
+    AssessmentEntryId, BloomClassificationEditNumber, BloomClassificationView,
+    BloomCognitiveProcess, BloomKnowledgeDimension, QuestionPoolLibrarySummary,
+    QuestionPoolMetadata, QuestionPoolRevisionReference, QuestionRevisionReference,
+    QuestionSearchBloomCognitiveProcessFacet, QuestionSearchBloomKnowledgeDimensionFacet,
 };
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::{Page, PageRequest, SessionTokenHash, StoreError};
+use crate::{PageRequest, SessionTokenHash, StoreError};
 
 /// Identity predicates against current Pool-owned lineage metadata.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
@@ -22,6 +24,8 @@ pub struct QuestionPoolDiscoveryFilter {
     pub topic_uuid: Option<Uuid>,
     pub subtopic_uuid: Option<Uuid>,
     pub cross_discipline: bool,
+    pub bloom_cognitive_process: Option<BloomCognitiveProcess>,
+    pub bloom_knowledge_dimension: Option<BloomKnowledgeDimension>,
 }
 
 /// Pool-owned substring predicates, parsed once by the shared Library grammar.
@@ -52,6 +56,15 @@ pub struct QuestionPoolTextFilter {
     pub tags: Vec<String>,
 }
 
+/// One bounded Pool page plus Bloom counts from its complete filtered relation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuestionPoolDiscoveryPage {
+    pub items: Vec<QuestionPoolLibrarySummary>,
+    pub next_cursor: Option<crate::Cursor>,
+    pub cognitive_processes: Vec<QuestionSearchBloomCognitiveProcessFacet>,
+    pub knowledge_dimensions: Vec<QuestionSearchBloomKnowledgeDimensionFacet>,
+}
+
 impl QuestionPoolDiscoveryFilter {
     /// Rejects skipped hierarchy levels and unanchored cross-Discipline searches.
     pub fn has_valid_structure(&self) -> bool {
@@ -68,6 +81,7 @@ impl QuestionPoolDiscoveryFilter {
 pub struct PublishedQuestionPoolRevision {
     pub metadata: QuestionPoolMetadata,
     pub question_pool_revision: QuestionPoolRevisionReference,
+    pub bloom: BloomClassificationView,
     pub members: Vec<QuestionRevisionReference>,
 }
 
@@ -79,6 +93,7 @@ pub struct AssessmentQuestionPoolForkRecord {
     pub question_pool_revision: QuestionPoolRevisionReference,
     pub pool_metadata_etag: Uuid,
     pub selection_count: std::num::NonZeroU32,
+    pub bloom: BloomClassificationView,
     pub members: Vec<QuestionRevisionReference>,
 }
 
@@ -93,7 +108,7 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
         page: PageRequest,
         filter: QuestionPoolDiscoveryFilter,
         text: QuestionPoolTextFilter,
-    ) -> Result<Page<QuestionPoolLibrarySummary>, StoreError>;
+    ) -> Result<QuestionPoolDiscoveryPage, StoreError>;
 
     /// Resolves the current Revision of one published Pool lineage.
     async fn load_current_published_question_pool(
@@ -108,6 +123,17 @@ pub trait QuestionPoolLibraryStore: Send + Sync {
         session_token_hash: SessionTokenHash,
         reference: &QuestionPoolRevisionReference,
     ) -> Result<PublishedQuestionPoolRevision, StoreError>;
+
+    /// Corrects both Bloom dimensions for one exact Pool Revision through the
+    /// classification-owned compare-and-swap number.
+    async fn correct_question_pool_revision_bloom(
+        &self,
+        session_token_hash: SessionTokenHash,
+        reference: &QuestionPoolRevisionReference,
+        expected_edit_number: BloomClassificationEditNumber,
+        cognitive_process: BloomCognitiveProcess,
+        knowledge_dimension: BloomKnowledgeDimension,
+    ) -> Result<BloomClassificationView, StoreError>;
 
     /// Derives one exact Assessment-owned fork through Course, Assessment,
     /// and Entry authorization; callers cannot select a Pool Revision.
@@ -159,6 +185,8 @@ mod tests {
                 topic_uuid: id,
                 subtopic_uuid: id,
                 cross_discipline: true,
+                bloom_cognitive_process: None,
+                bloom_knowledge_dimension: None,
             }
             .has_valid_structure()
         );

@@ -2,6 +2,7 @@
 
 import type { AssessmentEntry } from "../../../generated/api/AssessmentEntry";
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
+import type { BloomClassificationView } from "../../../generated/api/BloomClassificationView";
 import type { JSX } from "solid-js";
 
 function questionAttemptLimitLabel(entry: AssessmentEntry): string {
@@ -37,6 +38,23 @@ export interface SelectedAssessmentEntryIdentityProps {
   readonly entry: AssessmentEntry;
   readonly entryNumber: number;
   readonly description: (reference: QuestionRevisionReference) => string;
+  readonly bloom: BloomClassificationView | undefined;
+}
+
+function bloomFacts(bloom: BloomClassificationView | undefined): JSX.Element {
+  if (bloom === undefined) return <p>Bloom Classification unavailable</p>;
+  return (
+    <dl class="assessment-editor-row-facts">
+      <div>
+        <dt>Bloom Cognitive Process</dt>
+        <dd>{bloom.cognitiveProcess}</dd>
+      </div>
+      <div>
+        <dt>Bloom Knowledge Dimension</dt>
+        <dd>{bloom.knowledgeDimension}</dd>
+      </div>
+    </dl>
+  );
 }
 
 /** Keeps each selected Entry's visible identity and delivery facts easy to scan. */
@@ -52,6 +70,7 @@ export function SelectedAssessmentEntryIdentity(
           {question.reference.revisionNumber}
         </h3>
         <p class="assessment-editor-row-description">{props.description(question.reference)}</p>
+        {bloomFacts(props.bloom)}
         <dl class="assessment-editor-row-facts">
           <div>
             <dt>Points</dt>
@@ -89,6 +108,7 @@ export function SelectedAssessmentEntryIdentity(
           ? "Random selected Question order"
           : "Question Pool order"}
       </p>
+      {bloomFacts(props.bloom)}
       <dl class="assessment-editor-row-facts">
         <div>
           <dt>Questions selected</dt>

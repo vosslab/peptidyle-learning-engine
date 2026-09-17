@@ -36,3 +36,13 @@ export class BlueprintCourseConflictError extends ApiRequestError {
     this.name = "BlueprintCourseConflictError";
   }
 }
+
+/** An exact Revision's independent Bloom Classification CAS precondition is stale. */
+export class BloomClassificationConflictError extends ApiRequestError {
+  declare public readonly status: 412;
+
+  public constructor(path: string) {
+    super(412, path);
+    this.name = "BloomClassificationConflictError";
+  }
+}

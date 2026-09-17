@@ -236,24 +236,22 @@
 
 #### Published Question identity specifications
 
-- [ ] Published Questions receive a public `XXXX-ZXXX` Crockford Base32 ID.
-  - Mismatch: fresh exact canonical public-ID source and connected proof remain required.
-- [ ] Question IDs have the canonical form `XXXX-ZXXX`.
-  - Verification pending: replacement source and connected proof remain required.
-- [ ] The hyphen is part of the canonical ID and makes Question IDs immediately recognizable.
-  - Verification pending: replacement source and connected proof remain required.
-- [ ] Human-entered Question IDs may omit the hyphen.
-  - Verification pending: replacement source and connected proof remain required.
-- [ ] Normalize accepted human input to the canonical hyphenated form before validation and lookup.
-  - Verification pending: replacement source and connected proof remain required.
+- [x] Published Questions receive a public `XXXX-ZXXX` Crockford Base32 ID.
+  - Evidence (source): `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` mints the exact public form, and `schemas/base_schema/question_lineages.sql` `published_question_id_is_crockford_shape` enforces it on stored lineages.
+- [x] Question IDs have the canonical form `XXXX-ZXXX`.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `impl std::str::FromStr for QuestionId` accepts only the exact nine-character hyphenated syntax with its embedded checksum.
+- [x] The hyphen is part of the canonical ID and makes Question IDs immediately recognizable.
+  - Evidence (source): `crates/question_model/src/question_library.rs` `impl std::str::FromStr for QuestionId` requires the hyphen at `QUESTION_ID_HYPHEN_INDEX` in every canonical value.
+- [x] Human-entered Question IDs may omit the hyphen.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` accepts an eight-character explicit human-entry value and inserts the canonical hyphen before validation.
+- [x] Normalize accepted human input to the canonical hyphenated form before validation and lookup.
+  - Evidence (source): `src/question_id.ts` `normalizeHumanEnteredQuestionId` normalizes explicit human entry, inserts the hyphen, and invokes `validateCanonicalQuestionIdSyntax`.
 - [ ] PLE always stores, transmits, displays, and copies the canonical hyphenated form.
-  - Verification pending: replacement source and connected proof remain required.
-- [ ] Seven Crockford Base32 characters are cryptographically random and provide the identity.
-  - Verification pending: the replacement issuer and global registry need source and connected proof.
-- [ ] ID generation enforces global uniqueness across all public IDs and retries random collisions.
-  - Mismatch: fresh global-registry collision proof remains outstanding.
-- [ ] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
-  - Verification pending: the replacement issuer needs source and connected proof.
+  - Verification pending: strict model, SQL, and browser validators are current, but every storage, transport, display, and copy surface has not been inventoried.
+- [x] Seven Crockford Base32 characters are cryptographically random and provide the identity.
+  - Evidence (source): `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` draws seven characters from operating-system randomness before `QuestionId` appends the checksum.
+- [x] IDs never encode creation order, Question Type, ownership, subject, or other metadata.
+  - Evidence (source): `crates/server/src/question_publication.rs` `RandomQuestionIdIssuer` derives the seven identity characters only from operating-system random bytes.
 
 #### Published Question metadata
 
@@ -353,16 +351,16 @@
 - [x] Question Pools are available to all vetted **Instructors**.
   - Evidence (source): `schemas/base_schema/question_pools.sql` `list_published_question_pools` and `read_current_published_question_pool` authorize active Instructors and project only public Pool/Revision/member facts.
   - Evidence (runtime): `crates/server/src/question_pool_library.rs` `list_pools` passed accepted actual-server proof that a second vetted Instructor listed and read root Pool `1N6T-MZRD` and child Pool `J1BX-8V8F` with exact public member pins and no Course facts. A nonmember Assessment-fork PUT returned 404 without mutation; Student and anonymous Pool list/read calls returned no-store 404. Artifact: `/private/tmp/ple-course-empty-artifacts.hvS4KT`.
-- [ ] A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID and immutable Revisions.
-  - Mismatch: prior compact per-table Pool-ID evidence is superseded. Fresh proof must show exact canonical storage and shared Question/Pool namespace reservation.
+- [x] A Question Pool has its own public `XXXX-ZXXX` Crockford Base32 ID and immutable Revisions.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `question_pool` stores its canonical public identity, `question_pool_revision` stores sequential immutable Revisions, and `question_pool_public_id_is_reserved` enters the ID in the shared registry.
 - [x] Importing a Question Pool into a new Assessment automatically forks the Question Pool.
   - Evidence (source): `schemas/base_schema/assessment_pool_forks.sql` `import_assessment_question_pool_fork` atomically creates a fresh child Pool Revision and Assessment Entry from an exact reusable source Revision without accepting raw member pins.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `import_fork` passed accepted actual-server proof that imported source Pool `P8H3-QYX9` into a direct Assessment and returned distinct fork `VFH9-CQKS`, Revision 1, at Assessment Edit 2.
 - [x] The fork belongs to the new Assessment and can be changed without changing the source Question Pool.
   - Evidence (source): `schemas/base_schema/assessments.sql` `assessment_question_pool_fork` owns each child Pool through exactly one Assessment Entry, and `schemas/base_schema/question_pools.sql` retains exact source-Revision provenance.
   - Evidence (runtime): `crates/server/src/assessment_pool_fork.rs` `append_fork_revision` passed accepted actual-server proof that appended the fork's Revision 2 with the two exact member pins reversed, then reread the reusable source unchanged at Revision 1 with its original order. Artifact: `/private/tmp/ple-course-empty-artifacts.BbKFFd`.
-- [ ] Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
-  - Verification pending: former exact-pin behavior is relevant, but must be rechecked through the exact canonical ID and shared-namespace cutover.
+- [x] Forking a Question Pool preserves its list of Published Questions by their public `XXXX-ZXXX` IDs.
+  - Evidence (source): `schemas/base_schema/question_pools.sql` `construct_question_pool_revision_fork` copies the source Revision's ordered exact member Question IDs and Revision Numbers into the new Pool lineage.
 - [ ] Question Pools work the same way regardless of the Question Backend.
   - Mismatch: incomplete secondary backend delivery leaves this unverified.
 - [x] **Instructors** choose the contents of a Question Pool and how many Questions are selected.
@@ -523,14 +521,17 @@
 
 - [ ] Published Question Revisions and Question Pool Revisions have a Bloom Cognitive Process and Bloom
   Knowledge Dimension.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores non-null Cognitive Process and Knowledge Dimension pairs by exact immutable Question or Pool Revision, with an independent classification Edit Number.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved bounded Question and Pool storage/correction behavior, but publication-required attachment, AI initial assignment, typed API/UI projection, and search/reporting remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores non-null pairs by exact immutable Question or Pool Revision. `crates/question_model/src/bloom_classification.rs` defines the browser-safe pair and its independent Edit Number; Question and exact Pool reads project it through `src/pages/library_page_model.ts` and `src/pages/library_pool_discovery.tsx`.
+  - Verification pending: provider-backed publication, AI initial assignment, and connected actual-role/browser reads remain open.
 - [ ] The two Bloom dimensions are independent and together determine the object's Bloom Classification.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` validates the two independent closed-vocabulary fields and stores a complete pair rather than a derived matrix value.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved pair validation and bounded correction, but publication-required attachment, AI initial assignment, typed API/UI projection, and search/reporting remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` validates the two independent closed-vocabulary fields and stores a complete pair rather than a derived matrix value. `crates/learning-data-access/src/question_library.rs` and `crates/learning-data-access/src/question_pool_library.rs` return the pair with its exact-Revision Edit Number.
+  - Verification pending: provider-backed publication, AI initial assignment, and connected actual-role/browser reads remain open.
 - [ ] Bloom Classification describes the cognitive work required for full credit, not Question Difficulty.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores the two guide-defined classification dimensions separately from Question source, scoring, and immutable content Revision data.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves bounded metadata storage only; AI semantic classification, publication admission, Instructor-facing interpretation, and search/reporting remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` stores the two guide-defined classification dimensions separately from Question source, scoring, and immutable content Revision data. `src/components/bloom_classification.tsx` presents the exact pair and links its correction help to `docs/BLOOM_TAXONOMY_GUIDE.md`.
+  - Verification pending: AI semantic classification, provider-backed publication admission, and connected Instructor interpretation remain open.
+- [ ] Bloom Classification supports Question Library search and Assessment item sorting.
+  - Evidence (source): `src/pages/assessment_workspace/assessment_workspace_questions_page.tsx` projects every fixed Entry, including retained Entries, from its exact pinned Question Revision pair and every Pool Entry from its exact Assessment-owned fork Pool Revision pair. `src/pages/assessment_workspace/assessment_workspace_questions_model.ts` orders Cognitive Process, Knowledge Dimension, then prior position; equal pairs remain stable. The existing whole-Assessment Save retains its Edit Number CAS.
+  - Verification pending: source implementation is present, but connected Instructor proof must sort mixed fixed and Pool Entries, save, reload, and show persisted order plus a concurrent-save conflict. Library discovery has source evidence but still needs connected proof, so this combined requirement remains open.
 - [ ] A Question Pool's Bloom Classification describes the intended cognitive work of the Pool as a whole.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` stores a Pool Revision's own pair by `(question_pool_id, revision_number)`, rather than deriving it from member Questions.
   - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves bounded Pool pair storage/correction only; AI whole-Pool assignment, publication admission, typed API/UI projection, and search/reporting remain absent.
@@ -541,10 +542,11 @@
   - Mismatch: `schemas/base_schema/question_bloom.sql` has no protected AI preparation, model-origin evidence, source-bound stale-result handling, or atomic publication producer wiring. The 2026-09-16 actual-role gate used synthetic initial pairs, not AI output.
 - [ ] An **Instructor** can correct either Bloom dimension without creating a new Published Question or
   Question Pool Revision.
-  - Evidence (source): `schemas/base_schema/question_bloom.sql` `ple_api.correct_question_revision_bloom` and `ple_api.correct_question_pool_revision_bloom` CAS-update only the paired metadata and classification Edit Number, not the immutable content Revision.
-  - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proved Instructor allow/outsider denial, no-op/stale behavior, and immutable before/after snapshots; typed Store/server/API transport, read/token projection, and browser correction behavior remain absent.
+  - Evidence (source): `schemas/base_schema/question_bloom.sql` CAS-updates only paired metadata and its classification Edit Number. Typed Question and Pool Stores bind complete-pair commands to exact Revisions; `crates/server/src/question_library.rs` and `src/api/http_client/bloom_classification.ts` expose their routes. `src/components/bloom_classification.tsx` retains drafts, reloads stale state without retrying, and returns focus after completion; Question and Pool detail editors bind exact Revision targets.
+  - Verification pending: the 2026-09-16 PostgreSQL 17 gate proved bounded authorization/no-op/stale behavior. Connected two-Instructor, denied-role, and browser correction/focus proof remains open.
 - [ ] Question Library search and reporting should make both Bloom dimensions useful to **Instructors**.
-  - Mismatch: `schemas/base_schema/question_bloom.sql` supplies storage and correction only; no typed search/reporting query, API projection, or Instructor interface consumes either Bloom dimension.
+  - Evidence (source): `crates/question_model/src/question_search.rs` retains two independent exact Bloom filters, unchanged sorts, and normalized-query-bound cursors. `crates/learning-data-access/src/postgres/question_library.rs` applies them to the whole Library relation and computes all six plus all four guide-order counts; `src/pages/library_search_parameters.ts`, `src/pages/library_page.tsx`, and `src/components/library_bloom_discovery.tsx` retain URL/saved-search values, zeros, and empty results.
+  - Verification pending: connected multi-page, role, and browser proof remains required. It stays open independently of the connected mixed-entry Assessment-sort/save/reload/concurrent-save proof required by the preceding row.
 - [ ] Follow `docs/BLOOM_TAXONOMY_GUIDE.md` for Bloom classification and teaching interpretation.
   - Evidence (source): `schemas/base_schema/question_bloom.sql` accepts only the guide's six Cognitive Process and four Knowledge Dimension spellings.
   - Verification pending: the 2026-09-16 PostgreSQL 17 actual-role gate proves those bounded storage values only; AI classification, publication-required attachment, Instructor-facing teaching interpretation, and search/reporting remain absent.

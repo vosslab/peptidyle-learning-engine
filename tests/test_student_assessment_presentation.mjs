@@ -69,7 +69,8 @@ test("Student detail adapts available entries and Question Pool selections witho
   assert.equal("id" in presentation, false);
 });
 
-test("attempt-time copy stays readable across minute, hour, and second limits", () => {
+test("base duration defaults calculate from Questions while explicit and legacy durations remain stored", () => {
+  assert.equal(formatAssessmentAttemptTimeLimit(null, 3), "5 minutes per attempt");
   assert.equal(formatAssessmentAttemptTimeLimit(3_600), "1 hour per attempt");
   assert.equal(formatAssessmentAttemptTimeLimit(90), "90 seconds per attempt");
 });

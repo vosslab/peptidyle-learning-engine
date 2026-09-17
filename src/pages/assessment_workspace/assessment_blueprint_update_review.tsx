@@ -7,6 +7,10 @@ import type {
 import type { QuestionRevisionReference } from "../../../generated/api/QuestionRevisionReference";
 import type { AssessmentEntryAvailability } from "../../../generated/api/AssessmentEntryAvailability";
 import { assessmentTypePresentation } from "../../assessment_type_presentation";
+import {
+  assessmentDurationDefaultDescription,
+  assessmentDurationDisplay,
+} from "../../assessment_duration";
 
 /** Projects only reusable teaching content; Course delivery state stays outside the update. */
 export function currentBlueprintUpdateContent(
@@ -97,6 +101,16 @@ export function AssessmentBlueprintContentSummary(props: {
   readonly poolRole: "assessmentOwned" | "librarySource";
 }): JSX.Element {
   const defaults = (): AssessmentBlueprintUpdateContent["defaults"] => props.content.defaults;
+  const assessmentDuration = (): string => {
+    const seconds = defaults().assessment_attempt_time_limit_seconds;
+    if (seconds !== null) return assessmentDurationDisplay(seconds);
+    return assessmentDurationDefaultDescription(
+      props.content.entries.reduce(
+        (count, entry) => count + (entry.kind === "fixedQuestion" ? 1 : entry.selectionCount),
+        0,
+      ),
+    );
+  };
   // ASVS 1.2.1: titles, instructions, and Question descriptions remain escaped text nodes.
   return (
     <section class="assessment-editor-panel" aria-label={props.heading}>
@@ -116,11 +130,7 @@ export function AssessmentBlueprintContentSummary(props: {
         </div>
         <div>
           <dt>Assessment Attempt time limit</dt>
-          <dd>
-            {defaults().assessment_attempt_time_limit_seconds === null
-              ? "No time limit"
-              : `${defaults().assessment_attempt_time_limit_seconds}s`}
-          </dd>
+          <dd>{assessmentDuration()}</dd>
         </div>
         <div>
           <dt>Assessment Attempt limit</dt>

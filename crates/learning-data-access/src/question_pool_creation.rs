@@ -17,12 +17,14 @@ use crate::{SessionTokenHash, StoreError};
 /// Complete server-owned create input for the first immutable Pool Revision.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CreateQuestionPoolInput {
+    /// Trusted one-use classification for these exact Pool candidate facts.
+    pub bloom_preparation_receipt_id: crate::BloomPreparationReceiptId,
     /// Deliberate Pool-specific lineage Title and Description.
     pub title: String,
     pub description: String,
     /// Private stable storage identity minted by the trusted server operation.
     pub question_pool_id: Uuid,
-    /// Fresh HMAC-validated public Pool identity minted by the server issuer.
+    /// Fresh checksum-valid public Pool identity minted by the server issuer.
     pub public_question_pool_id: QuestionId,
     /// Ordered exact Published Question Revision pins.
     pub members: Vec<QuestionRevisionReference>,

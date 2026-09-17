@@ -21,6 +21,28 @@ deployment procedure.
   [Brewfile](../Brewfile) and [MACOS_PODMAN.md](MACOS_PODMAN.md).
 - PostgreSQL 17 is supplied by the local stack's migrator image; do not substitute
   an unreviewed client for canonical schema operations.
+- A native Ollama installation and an explicitly selected local model are required
+  for any workflow that publishes Questions, including fresh installation content.
+  PLE does not install or download a model.
+
+### Configure Question publication classification
+
+Question publication classifies the exact protected source with a private native
+Ollama provider before PostgreSQL prepares its one-use publication receipt. Set all
+three values in the operator-owned environment:
+
+```text
+PLE_BLOOM_OLLAMA_BASE_URL=https://ollama.example.edu/
+PLE_BLOOM_MODEL=operator-selected-model:tag
+PLE_BLOOM_CONTEXT_TOKENS=8192
+```
+
+The origin must be credential-free and HTTPS outside a verified disposable-local
+topology. Disposable-local operation may use a contained loopback, private-address,
+or single-label Compose service origin. The selected model must already appear in
+Ollama's local model list; PLE never pulls it. Omitting all three settings keeps
+non-publication use available, but every Question publication fails closed. A partial
+or malformed selection prevents composition from starting.
 
 ## Set up a checkout
 

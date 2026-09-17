@@ -127,6 +127,44 @@ row and passes `None` through the shared backend-state slot. The renderer's
 normalized score is validated and recorded as the PLE grading outcome; answer
 keys and renderer-private state never enter the Student response or document.
 
+## Completed-Attempt correct answers
+
+`WebworkRenderer::render_answer_review` and
+`WebworkAdapter::answer_review_document` are server-only operations. They reuse
+the verified immutable source, registered PG path, exact Revision, and stored
+Attempt seed. Their private form adds `showCorrectAnswers=1` and
+`showScoreSummary=0` while retaining `outputFormat=ple_embed`, `isInstructor=0`,
+disabled hints and solutions, and hidden summaries, messages, and controls.
+They supply no response pairs or submission flags. Ordinary issue, preview,
+resume, and grading omit `showCorrectAnswers`.
+
+The renderer preserves its embed format and lets PG present correct answers
+without enabling hints or solutions. Protected generated answer assets stay
+inline inside the authorized HTML; they are not published under `pg_files`.
+Unsupported asset handling and upstream PG errors fail review. The adapter
+checks the existing closed envelope, size/deadline bounds, private JWT
+reflection, and the upstream error flag. Only `renderedHTML` leaves the server.
+
+An owning Student fetches
+`GET /api/assessment-attempts/{assessment_attempt}/questions/{position}/answer-review-document`.
+The route accepts no query or body. It authorizes completed history and the
+copied answer-disclosure policy before resolving source or calling the renderer,
+then repeats the history/cohort decision after rendering. The final database
+read is the disclosure decision's read instant. It holds no database lock over
+renderer I/O. A newly current Student can reclose the Quiz/Exam gate; expiration
+alone does not replace committed automatic Submission evidence.
+
+The optional history marker `backendAnswerReview: "available"` means disclosure
+is permitted at that history read, not that rendering has succeeded. The Answer
+section uses `OpaqueWebworkPreviewFrame`, titled "Correct answer", with only the
+existing bounded resize message. Its frame and response-level CSP both grant
+`allow-scripts` without forms or same-origin access. Responses are UTF-8 HTML,
+`no-store`, `nosniff`, and `no-referrer`; direct navigation remains sandboxed.
+Withheld, foreign, unavailable, or wrong-backend positions return concealed
+404 without a renderer call. Authorized source/renderer failures return generic
+sandboxed 503 HTML. Retry reloads authorized history and the frame, without
+save, submission, or grading. The transient document replaces no retained work.
+
 ## Renderer fork and verification
 
 The maintained renderer fork carries only the PLE functionality needed for

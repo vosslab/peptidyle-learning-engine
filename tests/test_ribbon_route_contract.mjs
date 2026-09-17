@@ -71,6 +71,15 @@ test("each Product Role has an explicit selected Courses home route", () => {
   }
 });
 
+test("the Instructor inactive Course route retains the Courses task group", () => {
+  const route = ROUTE_CONTRACT.find((candidate) => candidate.id === "instructorInactiveCourses");
+  assert.ok(route);
+  assert.equal(route.path, "/instructor/courses/inactive");
+  assert.deepEqual(route.requiredProductRoles, ["instructor"]);
+  assert.equal(route.ribbon.tab, "courses");
+  assert.equal(route.ribbon.taskGroup, "instructorCourses");
+});
+
 // Permanent contract: the account menu has exactly two authenticated-self
 // destinations for every Product Role. A failure means restoring the common
 // route contract, rather than creating a role-specific account route.

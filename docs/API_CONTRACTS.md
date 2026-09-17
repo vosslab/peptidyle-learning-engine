@@ -38,15 +38,63 @@ lifecycle transition is `409`. Temporary dependency failure is `503`.
 | Health                     | `GET /health`                                                                                                                         | Reports bounded readiness only.                                                                                                                                                                                                                                                                                                                                                                                                |
 | Session                    | `GET /api/auth/session`, `POST /api/auth/logout`                                                                                      | Resolves the browser-safe session projection or revokes the presented session.                                                                                                                                                                                                                                                                                                                                                 |
 | Optional seeded-demo entry | `GET` / `POST /api/auth/live-demo/accounts`                                                                                           | When the installation includes configured demo accounts, lists the bounded eligible persona set or establishes an ordinary session for one selected persona. It grants no authority itself.                                                                                                                                                                                                                                    |
-| Question Library           | `GET /api/questions/search`, `GET /api/questions/by-id/{questionId}`, `GET /api/questions/by-id/{questionId}/detail`                  | Instructor-only answer-free discovery and current published Question detail.                                                                                                                                                                                                                                                                                                                                                   |
+| Question Library           | `GET /api/questions/search`, `GET /api/questions/by-id/{questionId}`, `GET /api/questions/by-id/{questionId}/detail`                  | Active vetted Instructors and Sysadmins receive answer-free discovery and current published Question detail.                                                                                                                                                                                                                                                                                                                    |
 | Exact Question Revision    | `GET /api/questions/by-id/{questionId}/revisions/{revisionNumber}`                                                                    | Resolves one immutable `QuestionRevisionReference`, including when its lineage is archived, for an authorized Instructor.                                                                                                                                                                                                                                                                                                      |
+| Question Bloom correction  | `POST /api/questions/by-id/{questionId}/revisions/{revisionNumber}/bloom`                                                            | An active vetted Instructor corrects one exact Question Revision with the complete Bloom pair and its expected classification Edit Number. A successful response returns that same exact Revision and current pair.                                                                                                                                                                                                                   |
 | Question availability      | `POST /api/questions/by-id/{questionId}/archive`, `POST /api/questions/by-id/{questionId}/restore`                                    | Archive requires the exact lineage Availability Edit Number and a clear confirmation; the current `confirmationTitle` request field is an implementation shape, not a Human Guidance requirement. Restore requires the exact Edit Number. Each returns current availability and its new Edit Number.                                                                                                                                  |
-| Draft Question             | `GET` / `POST /api/authoring/drafts`; `GET` / `PUT /api/authoring/drafts/{draftQuestionReference}/source`                             | An Instructor owns private canonical source through their Authoring Workspace. Source save uses its quoted Draft Edit Number ETag.                                                                                                                                                                                                                                                                                             |
-| Question publication       | `POST /api/authoring/drafts/{draftQuestionReference}/publish`, `POST /api/authoring/drafts/{draftQuestionReference}/publish-revision` | Validates the owned Draft and creates immutable published Question content. Publication copies the author-declared educational Question Type from the Draft source binding to the Published Question Revision. The first route creates a stable lineage; the second requires an exact parent `QuestionRevisionReference` and reviewed reason, then creates its successor Revision. Responses expose no private source binding. |
+| Draft Question             | `GET` / `POST /api/authoring/drafts`; `GET` / `PUT /api/authoring/drafts/{draftQuestionId}/source`                                    | An Instructor owns private canonical source through their Authoring Workspace. `draftQuestionId` is the native private UUID route value. Source save uses its quoted Draft Edit Number ETag.                                                                                                                                                                                                                                      |
+| Question publication       | `POST /api/authoring/drafts/{draftQuestionId}/publish`, `POST /api/authoring/drafts/{draftQuestionId}/publish-revision`               | Validates the owned Draft and creates immutable published Question content. Publication copies the author-declared educational Question Type from the Draft source binding to the Published Question Revision. The first route creates a stable lineage; the second requires an exact parent `QuestionRevisionReference` and reviewed reason, then creates its successor Revision. Responses expose no private source binding.   |
 
 Question availability belongs to the stable lineage; publishing another
 `QuestionRevisionReference` does not reset it. Ordinary selection admits only
 Published, non-archived Question lineages. Existing exact references remain resolvable.
+
+Active Instructors and Sysadmins receive answer-free Question and Pool Library
+read projections. Each carries its exact Revision's required two-value Bloom
+Classification and independent classification Edit Number. The legacy
+`latestQuestionRevision` field identifies the exact resolved Revision on an
+exact Question-detail route. `GET /api/question-pools`,
+`GET /api/question-pools/{questionPoolId}`, and
+`GET /api/question-pools/{questionPoolId}/revisions/{revisionNumber}` provide
+current and exact Pool reads. The exact Pool route uses the requested Pool
+Revision and retains current Pool lineage metadata under its separate contract;
+member pairs never substitute for its own Bloom Classification.
+
+Pool discovery accepts optional exact `bloom_cognitive_process` and
+`bloom_knowledge_dimension` query parameters. Each combines with every other applied Pool
+predicate. The opaque continuation is bound to both values, and the response carries all six
+Cognitive Process counts plus all four Knowledge Dimension counts from the complete filtered Pool
+set, including zeros and an empty page. Page position affects only `items`; the counts and rows come
+from the same authorized filtered SQL relation. These predicates and counts use the Pool Revision's
+own pair, never a member Question's pair.
+
+The corresponding Pool correction route is
+`POST /api/question-pools/{questionPoolId}/revisions/{revisionNumber}/bloom`.
+Both correction routes accept only the complete `cognitiveProcess`,
+`knowledgeDimension`, and `expectedClassificationEditNumber` command. The
+classification Edit Number is the pair's CAS precondition, not a content
+Revision or a lineage token. Either route first checks a stale expected number
+and returns `412`; only a current request may then return an unchanged pair
+without advancing it. A changed pair advances its classification Edit Number
+once. Active vetted Instructor authority is based on current exact Library read
+access, not target ownership. Sysadmins retain the read projection but cannot
+use either correction route.
+
+The client does not retry or merge a `412`. It reloads only the same exact
+Question or Pool Revision, retains the Instructor's draft pair for comparison,
+and requires an explicit later Save. Corrections do not create a Question or
+Pool content Revision, change Pool member pins, or alter retained Assessment or
+Student Work evidence.
+
+`GET /api/questions/search` accepts optional exact `bloom_cognitive_process` and
+`bloom_knowledge_dimension` filters. Each is independent and combines with every
+other active normalized Question Library predicate. Saved `QuestionSearchFilter`
+values, browser URL handoff, and opaque cursors retain both filters and the
+existing sort; a cursor is valid only for that exact normalized query. The route
+does not change the established `titleAscending` and `publishedNewest` sorts.
+Its facets report the whole matching set, not one cursor page, with all six
+Cognitive Process and all four Knowledge Dimension values in guide order,
+including zero counts and an empty result.
 
 ## Blueprint Courses
 
@@ -128,6 +176,28 @@ Assessment Revision reference field.
 
 ## Student delivery, grading, and Gradebook
 
+Completed history may include `backendAnswerReview: "available"` on an issued
+WeBWorK Question only when its independent `question_answer` decision permits
+disclosure. Withheld markers are absent; native `questionAnswer` stays unchanged.
+The browser derives
+`GET /api/assessment-attempts/{assessment_attempt}/questions/{position}/answer-review-document`
+from the validated Attempt reference and positive position. No query, body,
+source, seed, response, URL, or disclosure flag is accepted.
+
+That route requires the owning Student's current Course membership, ordinary
+Work visibility, committed Assessment Submission, and copied answer policy.
+Quiz/Exam disclosure also requires completion by the current Course's Students.
+The same completed-history decision runs before source/render I/O and again
+after rendering; a changed roster or access discards the result. Unknown,
+foreign, unsubmitted, archived/deleted, wrong-backend, and withheld positions
+return concealed `404` with no renderer call. Authorized source or renderer
+failure returns generic sandboxed `503` HTML. Successful output contains only
+backend `renderedHTML`, with UTF-8 HTML, `no-store`, `nosniff`, `no-referrer`, and
+response-level `sandbox allow-scripts` CSP. The existing opaque preview frame
+receives only bounded resize messages and exposes Retry correct answer through
+a fresh history read. Protected answer images stay inline inside the document;
+there are no public review-only assets, save/submit calls, or grading writes.
+
 | Surface                           | Route                                                                                                                                                                                                                                                                                                                    | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Assessment access                 | `GET /api/course-instances/{courseInstanceReference}/assignments/{assignmentReference}/access`                                                                                                                                                                                                                           | The exact active Student Course relationship receives answer-free Assessment facts, any active Attempt reference, authorized prior-Attempt history, and the server-owned availability decision. It carries the Assessment Type, dates, effective time and Attempt limits, Student display time zone, current Start Decision, and public reason without exposing accommodation identity.                                                                                                                                                                                                                                                                                                                               |
@@ -142,10 +212,89 @@ Assessment Revision reference field.
 | Question assets                   | `GET /api/questions/{questionId}/revisions/{revisionNumber}/assets/{assetId}`                                                                                                                                                                                                                                            | Delivers an immutable asset only after the authorized retained presentation relationship.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Student landing                   | `GET /api/student/course-instances`, `GET /api/student/course-invitations`, current Course landing route                                                                                                                                                                                                                  | Returns safe Course and Coursework data. Each item uses its specific Assessment Type label and shows due date and completion status. A released item may remain listed before availability so the Student can see the server-owned reason and schedule. |
 | Gradebook                         | `GET /api/course-instances/{courseInstanceReference}/gradebook`                                                                                                                                                                                                                                                          | A current Course co-Instructor receives the answer-free Course Gradebook projection. Scores are calculated on read from stored immutable credit fractions and current Question point values; when multiple Attempts are submitted, the highest Assessment Attempt score is used. It exposes no response, failure reason, Job, lease, or grading action. |
+| Gradebook point export | `GET /api/course-instances/{reference}/gradebook/export?format=csv` or `format=tsv` | The same current Course co-Instructor authorization and Gradebook projection produce the fixed point-only attachment described below. |
 
 The browser formats every decision instant in the supplied `displayTimeZone`, identifies that zone
 to the Student, and displays the server-owned Start Decision and public reason directly. Landing and
 pre-start pages share this presentation; browser time is never used to recompute permission.
+
+### Student invitation context
+
+`GET /api/student/course-invitations` returns only the signed-in active Student's pending,
+unexpired invitations without an active Student Course Membership. Each closed item carries
+`reference`, `shortName`, `longName`, `instructorDisplayName`, and `term` with inclusive `startDate`
+and `endDate`. The display name comes from the server-controlled verified identity of the Course's
+assigned Instructor. It exposes no Authentication Email, Account identity, internal Course or
+invitation identity, or roster. Responses use `no-store`; other product roles remain concealed.
+
+The invitation index and exact-reference detail page show the Course name, Instructor, and term
+before acceptance. The detail page resolves context from that same self-only list and exposes
+Accept only when the exact pending invitation is available. Missing and foreign invitations share
+the unavailable state. Acceptance still uses the separate authorized Course Roster transaction.
+
+### Gradebook point export
+
+The required `format` query accepts only lowercase `csv` or `tsv`. Missing, duplicate,
+malformed, unsupported, and unknown query fields return `400` without an attachment. Format
+validation discloses no Course facts. Each valid download resolves an ordinary Instructor session
+and reads the existing authorized Course Gradebook projection once. Students, unrelated Instructors,
+Sysadmins or support capabilities without ordinary Instructor access, expired sessions, and
+unavailable Courses receive the same concealed `404` as Gradebook. Ordinary retention visibility
+applies; this route does not grant archived Student Work recovery.
+
+Success is `200` with `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`, and
+`Content-Disposition: attachment; filename="ple_<canonical-course-reference>_grades.csv"`
+(or `.tsv`). CSV uses `text/csv; charset=utf-8`; TSV uses
+`text/tab-separated-values; charset=utf-8`. The canonical reference alone supplies the filename.
+Existing Gradebook store-error statuses are retained; unexpected serialization failure returns a
+generic `503` without partial bytes. Errors, including framework extraction failures, are no-store
+and carry no attachment. The browser checks status, no-store, media type, nosniff, and exact
+attachment filename before consuming bytes. There is no request body or Accept-based negotiation.
+
+The file has exactly these seven columns in this order:
+
+| Column | Value |
+| --- | --- |
+| `roster_id` | Course-local roster ID |
+| `roster_name` | Instructor-provided roster label |
+| `assessment_reference` | Canonical Assessment reference |
+| `assessment_title` | Assessment title |
+| `status` | `not_started`, `in_progress`, `expired_submitting`, or `submitted` |
+| `points_earned` | Selected submitted Attempt's earned points, or blank |
+| `points_possible` | Selected submitted Attempt's possible points, or blank |
+
+There is one row per active Student and released Assessment, including no-Attempt rows, sorted by
+exact `roster_id` then canonical `assessment_reference` in ascending ASCII byte order. An empty
+authorized Course produces the header alone. No Attempt maps to `not_started`; an unsubmitted
+Attempt maps to `in_progress` or, with the expiry flag, `expired_submitting`; a completed Attempt
+maps to `submitted`, including when its score is absent. Both point cells are blank when no score
+exists. A score on unsubmitted evidence fails closed. The selected submitted Attempt can coexist
+with a later open Attempt; the exported status describes the selected evidence.
+
+Point values are finite, nonnegative, locale-independent shortest round-trip decimal numbers
+without display rounding; exponent notation is permitted and numeric zero is `0`. Zero earned
+points remain distinct from blank. Bonus work may have zero possible points and extra credit may
+exceed possible points. Scores follow current point edits through the existing score read without
+backend interaction. PLE exports points; the Instructor handles weighting and percentages in the
+home LMS.
+
+Both files use UTF-8 without BOM, quote every cell with double quotes, double embedded quotes, and
+end every record with CRLF. CSV uses commas; TSV is a quoted tab-delimited dialect with identical
+escaping. Embedded commas, tabs, CR, and LF remain inside quoted cells. Before quoting, text cells
+receive an apostrophe prefix when they begin with `=`, `+`, `-`, `@`, tab, CR, LF, or NUL, or when
+removing leading whitespace and ASCII controls reveals `=`, `+`, `-`, or `@`. The original text
+follows unchanged. This includes roster IDs. Numeric cells come only from validated numbers. The
+safety marker may be visible outside spreadsheets; import roster IDs as text to preserve leading
+zeros and avoid date/number conversion. Protection is not guaranteed after another application
+strips the marker or re-saves a file.
+
+Only the seven fields above are exported: no Question content, answers, responses, per-Question
+outcomes, email, account IDs, private UUIDs, accommodations, invitations, tokens, Jobs, failure
+reasons, categories, weights, percentages, or Course totals. The explicit Gradebook download
+buttons fetch fresh bytes and revoke the temporary object URL. Export creates no server file,
+history, reusable URL, email, external LMS transfer, browser persistence, payload log, or additional
+retention record. Pending and failure feedback is accessible in-page; an error body is never saved
+as a grade file.
 
 ## Administration and support
 

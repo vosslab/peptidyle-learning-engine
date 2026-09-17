@@ -4,6 +4,7 @@ import type { AssessmentReference } from "../../generated/api/AssessmentReferenc
 import type { AssessmentAttemptCompletion } from "../../generated/api/AssessmentAttemptCompletion";
 import type { AssessmentType } from "../../generated/api/AssessmentType";
 import type { CourseInstanceReference } from "../../generated/api/CourseInstanceReference";
+import type { CourseTerm } from "../../generated/api/CourseTerm";
 import type { StudentAssessmentDecisionSummary } from "../../generated/api/StudentAssessmentDecisionSummary";
 
 /** One current Student-visible Course Instance, without membership or progress details. */
@@ -18,6 +19,8 @@ export interface LiveStudentCourseInvitationSummary {
   readonly reference: CourseInstanceReference;
   readonly shortName: string;
   readonly longName: string;
+  readonly instructorDisplayName: string;
+  readonly term: CourseTerm;
 }
 
 /** One current Student-visible Assessment with self-only, answer-free progress. */
