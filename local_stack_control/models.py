@@ -35,6 +35,7 @@ BASE_LONG_RUNNING_SERVICES = (
 	"webwork-renderer",
 	"api",
 	"worker",
+	"public-asset-publisher",
 	"gateway",
 )
 BASE_ONE_SHOT_SERVICES = (
@@ -43,7 +44,7 @@ BASE_ONE_SHOT_SERVICES = (
 	"identity-secret-init",
 )
 CLEANUP_ONLY_SERVICES = ("postgres-major-guard",)
-RESTARTABLE_SERVICES = ("api", "gateway", "webwork-renderer", "worker")
+RESTARTABLE_SERVICES = ("api", "gateway", "webwork-renderer", "worker", "public-asset-publisher")
 STOPPABLE_SERVICES = ("webwork-renderer",)
 
 

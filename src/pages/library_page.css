@@ -10,7 +10,7 @@
   gap: calc(var(--ple-layout-gap) - 0.45rem);
   margin-block: calc(var(--ple-section-gap) - 0.1rem);
   padding: calc(var(--ple-panel-padding) - 0.2rem);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 84%, transparent);
   box-shadow: var(--ple-shadow);
 }
@@ -28,6 +28,38 @@
   min-inline-size: 0;
 }
 
+.library-page .question-library-pool-search-control,
+.library-page .question-library-pool-search-help {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.library-page .question-library-controls .question-library-pool-search-control {
+  color: var(--ple-ink);
+  font-size: 0.92rem;
+}
+
+.library-page .question-library-pool-search-control input {
+  font-size: 1rem;
+}
+
+.library-page .question-library-pool-search-help {
+  margin: 0;
+  color: var(--ple-muted);
+  font-size: 0.85rem;
+}
+
+.library-page .question-library-controls button[type="submit"] {
+  border-color: var(--ple-accent);
+  background: var(--ple-accent);
+  color: var(--ple-on-action);
+}
+
+.library-page .question-library-controls button[type="submit"]:hover:not(:disabled) {
+  border-color: var(--ple-action-hover);
+  background: var(--ple-action-hover);
+}
+
 .library-page .question-library-controls-initial {
   grid-template-columns: minmax(0, 42rem);
   justify-content: center;
@@ -36,7 +68,7 @@
 
 .library-page .question-library-controls-initial .question-library-search-control {
   grid-column: 1;
-  color: var(--ple-text);
+  color: var(--ple-ink);
   font-size: 1rem;
 }
 
@@ -74,7 +106,7 @@
   margin-block-start: 0.35rem;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }
@@ -152,7 +184,7 @@
   min-inline-size: 0;
   padding: calc(var(--ple-panel-padding) - 0.2rem);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
   box-shadow: var(--ple-shadow);
 }
@@ -173,9 +205,9 @@
   min-block-size: 2.75rem;
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-control);
   background: var(--ple-card-surface);
-  color: var(--ple-text);
+  color: var(--ple-ink);
   text-align: start;
   cursor: pointer;
 }
@@ -225,7 +257,7 @@
   );
   overflow: auto;
   overscroll-behavior: contain;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 78%, transparent);
   box-shadow: var(--ple-shadow);
 }
@@ -237,7 +269,7 @@
   margin-block: var(--ple-section-gap);
   padding: calc(var(--ple-panel-padding) - 0.2rem);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
 }
 
@@ -361,7 +393,7 @@
   margin: 0;
   padding: calc(var(--ple-panel-padding) - 0.2rem);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 88%, transparent);
 }
 

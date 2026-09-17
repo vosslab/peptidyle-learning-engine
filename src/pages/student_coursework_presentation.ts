@@ -19,8 +19,8 @@ export function studentCourseworkDisplay(
   completion: AssessmentAttemptCompletion | null,
   canResumeAssessmentAttempt: boolean,
 ): StudentCourseworkDisplay {
-  // The overview redirects an authorized active Attempt; otherwise it exposes
-  // previous Attempts and any permitted start action without starting work.
+  // The overview offers authorized same-Attempt Resume issuance; otherwise it
+  // exposes previous Attempts and any permitted start action without starting work.
   const actionVerb = canResumeAssessmentAttempt
     ? "Resume"
     : completion === "completed"

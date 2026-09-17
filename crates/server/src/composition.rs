@@ -534,7 +534,22 @@ pub async fn run_attempt_expiry_worker_from_env() -> Result<()> {
 
 /// Runs the separate publisher with its one database capability and dedicated
 /// object-store identity. It constructs neither API/session state nor a listener.
-pub async fn publish_one_public_asset_from_env() -> Result<bool> {
+pub async fn run_public_asset_publisher_from_env() -> Result<()> {
+    let pool = public_asset_publisher_pool_from_env().await?;
+    let publication_store = PostgresPublicAssetPublicationStore::new(pool);
+    let objects = public_asset_publisher_object_store_from_env().await?;
+    crate::public_asset_publisher::run_until_shutdown(publication_store, objects).await
+}
+
+/// Attests only the dedicated publisher login, without claiming a Job.
+pub async fn verify_public_asset_publisher_database_login_from_env() -> Result<()> {
+    let _pool = public_asset_publisher_pool_from_env().await?;
+    Ok(())
+}
+
+// ASVS 13.2.2: both startup and probing attest the publisher-only login;
+// neither constructs the API, Account, session, or renderer capability.
+async fn public_asset_publisher_pool_from_env() -> Result<Pool> {
     let database_url = required_env("DATABASE_URL")?;
     let pool = if std::env::var("PLE_STORAGE_TOPOLOGY").ok().as_deref() == Some("disposable-local")
     {
@@ -546,9 +561,7 @@ pub async fn publish_one_public_asset_from_env() -> Result<bool> {
     pool.acquire()
         .await
         .context("the attested public-asset publisher database pool could not connect")?;
-    let publication_store = PostgresPublicAssetPublicationStore::new(pool);
-    let objects = public_asset_publisher_object_store_from_env().await?;
-    crate::public_asset_publisher::publish_one(&publication_store, &objects).await
+    Ok(pool)
 }
 
 async fn public_asset_publisher_object_store_from_env() -> Result<S3ObjectStore> {

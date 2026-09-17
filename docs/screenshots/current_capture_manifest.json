@@ -1095,6 +1095,40 @@
       }
     },
     {
+      "id": "student_question_hotspot_laptop",
+      "path": "student/question_hotspot_laptop.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered HOTSPOT question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_hotspot_laptop",
+      "viewport": "laptop",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2232,
+        "caption": "Student HOTSPOT uploaded-image response controls on a laptop"
+      }
+    },
+    {
+      "id": "student_question_hotspot_phone",
+      "path": "student/question_hotspot_phone.png",
+      "role": "student",
+      "routeId": "assessmentAttempt",
+      "area": "assessments",
+      "workflow": "native and WeBWorK response practice",
+      "state": "unanswered HOTSPOT question",
+      "scenario": "student_question_types",
+      "checkpoint": "question_unanswered_hotspot_phone",
+      "viewport": "phone",
+      "privacyProfile": "student_unanswered",
+      "gallery": {
+        "order": 2234,
+        "caption": "Student HOTSPOT uploaded-image response controls on a phone"
+      }
+    },
+    {
       "id": "student_question_webwork_laptop",
       "path": "student/question_webwork_laptop.png",
       "role": "student",

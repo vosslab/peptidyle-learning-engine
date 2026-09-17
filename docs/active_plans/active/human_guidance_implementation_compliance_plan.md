@@ -1,5 +1,24 @@
 # Plan: Human Guidance implementation compliance
 
+## Execution priority
+
+Start with the SQL foundation in
+[`sql_human_guidance_audit.md`](../audits/sql_human_guidance_audit.md), then the open
+interface work in [`UI_UX_USABILITY_AUDIT.md`](../audits/UI_UX_USABILITY_AUDIT.md).
+Independent UI work may proceed in parallel when it does not depend on the SQL foundation.
+This ordering excludes no Human Guidance scope, makes no all-SQL-locked claim, and leaves other
+compliance work pending.
+
+## Current bounded receipts
+
+Bulk Question-ID Assessment addition has accepted source review and isolated component proof;
+connected acceptance remains separate. The Next/Mono font cascade has accepted source/static
+review only. Live Demo `3831` is building, not acceptance. Nine private laptop Type captures
+succeeded, but they do not replace a full 77-capture refresh. Receipts:
+`/private/tmp/ple-assessment-bulk-add-20260916.md`,
+`/private/tmp/ple-bulk-id-editor-review-20260916.md`, and
+`/private/tmp/ple-typography-cascade-final-review-20260916.md`.
+
 ## Current bounded SQL corrections
 
 Accepted bounded corrections establish these narrow contracts: every finalized
@@ -19,6 +38,56 @@ unique indexes with no duplicate access paths; independent review accepted the t
 Residual audit work remains for Course/Pool classification, Bloom, Change Proposals, recovery,
 and resource-specific support authority. The current reconciliation receipt below supersedes the
 former generator-drift statement; it changes inventory accounting only, not product acceptance.
+
+## Current HOTSPOT delivery receipt
+
+All Instructor captures and 16 private Student checkpoints passed, but nine type captures are
+delivery-blocked: context returned 200 while progress returned 404 from an issue-only Attempt with
+nine issued positions and no Question Attempts. The first-issuance Ready asset-binding correction
+has independent source acceptance and fresh PostgreSQL 17 actual-role `ple_auth`/`ple_app` rollback
+proof for exact bindings, Pending refusal, retained-helper behavior, and outsider denial; the
+isolated container was stopped and auto-removed. Root Cargo plus three focused Rust tests predates
+the correction; Python passed 7,548 tests in 5.48 seconds. Normal publisher integration and resume
+recovery remain under review. No current live acceptance or 77-item capture refresh is claimed.
+Receipt: `/private/tmp/ple-hotspot-delivery-batch-receipt-20260916.md`.
+
+## Current preview delivery defect receipt
+
+Canonical runtime session 80773 reached `Ready` at `https://localhost:8126` and exited 0. Three
+actual Instructor WeBWorK previews returned documents, but their opaque sandbox blocked PLE CSS,
+framework CSS, bridge, and renderer scripts with `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`: the
+same-origin CORP policy conflicts with the opaque preview origin. Independent PLE CSS review still
+passes, but CSS-only authority cannot repair a delivery-policy defect. Ordinary Student delivery has
+a different source policy, not current runtime proof. Pytest session 35084 passed 7,548 tests in
+5.77 seconds. HOTSPOT remains independently sourced/offline with no PNG publication; its full
+capture is pending. The affected Instructor-inspection row remains open pending separately
+authorized resource-policy work, not a blanket compliance block. The earlier isolated
+`window.frameElement.id` failure remains unverified while scripts are blocked and needs retesting
+after resource delivery works. Connected Library probe 56322 passed only its narrow search receipt;
+full capture 83237 stopped at the stale `My Question Drafts` selector, so no corpus was published.
+Receipt:
+`/private/tmp/ple-preview-defect-evidence-receipt-20260916.md`.
+
+## Current Pool text/Tags and CSS receipt
+
+Pool text/Tags filtering is now implemented source with bounded backend, actual-role SQL, and
+frontend fixture evidence; the earlier "unavailable" statements below are historical receipts, not
+the current source status. Independent backend and frontend reviews accepted their bounded slices.
+After the proof-fixture correction and vocabulary-reader authority fix, root's fresh canonical
+PostgreSQL 17 `pool_text_fixed` proof passed as actual `ple_auth`/`ple_app` with rollback; the
+labelled `ple-pool-text-proof-20260916` tmpfs container was stopped and auto-removed. Root pytest
+session 43993 passed 7,545 tests in 5.75 seconds. Cargo session 18824's check plus 13 Question and
+four Pool tests predates the SQL-only wrapper fix and is historical rather than final compiler
+evidence. The frontend actual-component receipt covers submitted text/Tags, recovery, return focus,
+and 1280/390px overflow; it is not connected matching, deployed authorization, or broad closure.
+
+The bounded PLE-owned control-surface CSS correction and its independent review are accepted for
+the named PLE controls and Pool layout only, not the whole interface. Backend/iframe/WeBWorK CSS
+are outside that slice; independent WeBWorK CSS review and connected verification remain pending.
+Synthetic demo author/publish/release activity is now explicitly authorized for later evidence, but
+no such activity is claimed here. The generated checklist remains 1,009 occurrences: 450 verified,
+514 open, and 45 N/A; this receipt changes no row or status. Receipt:
+`/private/tmp/ple-pool-css-batch-receipt-20260916.md`.
 
 ## Current connected acceptance
 

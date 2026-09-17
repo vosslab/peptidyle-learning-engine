@@ -11,6 +11,69 @@
 
 ### Behavior or Interface Changes
 
+- Recorded audit-first Human Guidance execution priority: complete the SQL foundation audit, then
+  the open UI/UX audit, while allowing independent unblocked UI work in parallel. No Human
+  Guidance scope is excluded, no all-SQL-locked claim is made, and other compliance work remains
+  pending. Accepted bounded evidence covers bulk Question-ID Assessment source review plus
+  isolated component proof and Next/Mono source/static cascade review only. Live Demo `3831` is
+  building, not acceptance; nine private laptop Type captures do not replace a full 77-capture
+  refresh. Receipts: `/private/tmp/ple-assessment-bulk-add-20260916.md`,
+  `/private/tmp/ple-bulk-id-editor-review-20260916.md`, and
+  `/private/tmp/ple-typography-cascade-final-review-20260916.md`.
+
+- Tracked the new bulk Question-ID Assessment requirement as open: Course Instance bulk-ID addition
+  is under implementation, with independent review and connected proof pending. Recorded the
+  screenshot Question-button accessibility repair and the Next/Monosource work as isolated proof
+  only; neither establishes connected acceptance or all-Human-Guidance verification. Receipt:
+  `/private/tmp/ple-bulk-checklist-sync-20260916.md`.
+
+- Recorded the HOTSPOT delivery-batch receipt without changing checklist status. All Instructor
+  captures and 16 private Student checkpoints passed, but nine type captures remain genuinely
+  delivery-blocked: context returned 200 while progress returned 404 because the issue-only
+  Attempt had nine issued positions and no Question Attempts. The first-issuance Ready asset-binding
+  correction now has independent source acceptance and fresh PostgreSQL 17 actual-role
+  `ple_auth`/`ple_app` rollback proof of exact checksums/dimensions, Pending refusal, retained-helper
+  behavior, and outsider denial; the isolated container was stopped and auto-removed. Root Cargo
+  check plus three focused Rust tests passed before the later correction, while Python passed 7,548
+  tests in 5.48 seconds. Normal publisher integration and resume recovery remain under review; no
+  current live acceptance or 77-item capture refresh is claimed. Receipt:
+  `/private/tmp/ple-hotspot-delivery-batch-receipt-20260916.md`.
+
+- Recorded the bounded Template single-Attempt SQL receipt. Fresh canonical PostgreSQL 17
+  installation as `ple_migrator` and actual-role `ple_auth`/`ple_app` proof passed: Quiz NULL
+  create rejected with no row, Quiz/Exam limit-one round-tripped, Exam NULL save rejected with
+  unchanged data/Edit Number, and Regular Assignment NULL remained unlimited. The labelled
+  tmpfs container was verified stopped and auto-removed. The proof was one-time and rollback-only;
+  live `8126` was untouched, and this does not claim deployed or runtime-wide SQL lock. Receipt:
+  `/private/tmp/ple-template-constraint-receipt-20260916.md`.
+
+- Recorded the current connected Instructor WeBWorK preview delivery defect without changing a
+  checklist status. Canonical runtime session 80773 reached `Ready` at `https://localhost:8126` and
+  exited 0; three actual preview documents then blocked PLE CSS, framework CSS, bridge, and renderer
+  scripts with `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`, because same-origin CORP conflicts with the
+  opaque preview origin. Independent PLE CSS review remains accepted, but CSS-only authority cannot
+  repair this resource-policy defect. Ordinary Student delivery uses a different source policy and
+  is not current runtime proof. Pytest session 35084 passed 7,548 tests in 5.77 seconds. The one
+  Instructor-inspection row remains open pending separately authorized resource-policy work; this is
+  not a blanket compliance block. HOTSPOT remains independently sourced/offline with no PNG
+  publication and full capture pending. The earlier isolated `window.frameElement.id` failure
+  remains unverified while scripts are blocked and needs retesting after resource delivery works.
+  Connected Library probe 56322 passed only its narrow search receipt; full capture 83237 stopped
+  at the stale `My Question Drafts` selector, so no corpus was published. Receipt:
+  `/private/tmp/ple-preview-defect-evidence-receipt-20260916.md`.
+
+- Recorded the current bounded Pool text/Tags and control-surface CSS receipt. Pool text/Tags
+  filtering is implemented source with accepted backend/frontend review, a fresh canonical
+  PostgreSQL 17 actual-role `ple_auth`/`ple_app` rollback proof, and current-component fixture
+  evidence at 1280/390px; it is not connected matching, deployed authorization, or broad Human
+  Guidance closure. Root pytest session 43993 passed 7,545 tests in 5.75 seconds. Cargo session
+  18824 predates the final SQL-only wrapper fix and is retained as historical evidence. The named
+  PLE control/Pool CSS slice is accepted, while backend/iframe/WeBWorK CSS, independent WeBWorK
+  review, and connected verification remain open. Synthetic demo author/publish/release is now
+  authorized for later evidence, not claimed as performed. Checklist inventory is 1,009
+  occurrences: 450 verified, 514 open, and 45 N/A, with no row/status change. Receipt:
+  `/private/tmp/ple-pool-css-batch-receipt-20260916.md`.
+
 - Recorded the shared Library classification model plus bounded Question and Pool backend evidence
   without closing a Human Guidance row. Optional UUID hierarchy identity and the cross-Discipline
   Subject flag are preserved through strict chain/cursor contracts; Question matching uses current

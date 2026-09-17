@@ -15,6 +15,7 @@ import { useApplicationApi } from "../../api/application_api";
 import { LiveAssessmentWorkspaceConflictError } from "../../api/http_client/assessment_release";
 import { AssessmentPoolForkConflictError } from "../../api/http_client/assessment_pool_fork";
 import { AssessmentPoolEntryEditor } from "./assessment_pool_entry_editor";
+import { normalizeQuestionIdSyntax } from "../../question_id";
 import { useAssessmentWorkspace } from "./assessment_workspace_live_page";
 import { assessmentWorkspacePath } from "./assessment_workspace_paths";
 import {
@@ -32,6 +33,7 @@ import {
 } from "./assessment_blueprint_update_review";
 
 const MAX_ASSIGNMENT_ENTRIES = 1024;
+const MAX_ASSESSMENT_QUESTIONS = 250;
 
 export type QuestionEditDirtyEvent =
   "title" | "move" | "remove" | "add" | "saveSucceeded" | "saveFailed";
@@ -66,6 +68,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
   const [entries, setEntries] = createSignal<ReadonlyArray<AssessmentEntry>>(initial.entries);
   const [title, setTitle] = createSignal(initial.title);
   const [available, setAvailable] = createSignal<ReadonlyArray<AssessmentQuestionPickerEntry>>([]);
+  const [questionIdsToAdd, setQuestionIdsToAdd] = createSignal("");
   const [busy, setBusy] = createSignal(false);
   const [message, setMessage] = createSignal("");
   const [needsReload, setNeedsReload] = createSignal(false);
@@ -107,6 +110,16 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
         ),
     ),
   );
+  const remainingQuestionCapacity = createMemo(() => {
+    const questionCount = entries().reduce(
+      (count, entry) => count + (entry.kind === "fixedQuestion" ? 1 : entry.selectionCount),
+      0,
+    );
+    return Math.max(
+      0,
+      Math.min(MAX_ASSIGNMENT_ENTRIES - entries().length, MAX_ASSESSMENT_QUESTIONS - questionCount),
+    );
+  });
 
   onMount(() => {
     void loadAvailable();
@@ -194,15 +207,62 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     setMessage("Entry removed. Save Questions when ready.");
   }
 
-  function add(candidate: AssessmentQuestionPickerEntry): void {
+  function addQuestionsById(): void {
+    if (busy()) return;
     if (needsReload()) {
       setMessage("Reload the latest Assessment before adding an entry.");
       return;
     }
-    setEntries((current) => appendAvailableFixedQuestion(current, candidate, entryId()));
+    const rawIds = questionIdsToAdd()
+      .trim()
+      .split(/[\s,]+/u)
+      .filter(Boolean);
+    const invalidIds = rawIds.filter((id) => normalizeQuestionIdSyntax(id) === null);
+    if (invalidIds.length > 0) {
+      setMessage(
+        `Invalid Question IDs: ${invalidIds.join(", ")}. Use the IDs shown below; no Questions were added.`,
+      );
+      return;
+    }
+    const ids = rawIds.map((id) => normalizeQuestionIdSyntax(id)!);
+    if (ids.length === 0) return;
+    if (new Set(ids).size !== ids.length) {
+      setMessage(
+        "Question IDs must appear only once. Remove duplicate IDs and try again; no Questions were added.",
+      );
+      return;
+    }
+    const candidates: AssessmentQuestionPickerEntry[] = [];
+    const unresolved: string[] = [];
+    // ASVS 2.2.1: resolve IDs only against the available Published summaries, never invent pins.
+    for (const id of ids) {
+      const matches = availableToAdd().filter((candidate) => candidate.reference.questionId === id);
+      if (matches.length === 1) candidates.push(matches[0]!);
+      else unresolved.push(id);
+    }
+    if (unresolved.length > 0) {
+      setMessage(
+        `These IDs do not identify one available Published Question: ${unresolved.join(", ")}. Check the list below or remove Questions already added; no Questions were added.`,
+      );
+      return;
+    }
+    // ASVS 2.2.1, 2.2.2: bound the whole local batch; the existing Save API remains authoritative.
+    if (candidates.length > remainingQuestionCapacity()) {
+      setMessage(
+        "Enter fewer Question IDs. An Assessment may deliver at most 250 Questions, counting each Pool's selected Questions. No Questions were added.",
+      );
+      return;
+    }
+    setEntries((current) => {
+      let next = current;
+      for (const candidate of candidates)
+        next = appendAvailableFixedQuestion(next, candidate, entryId());
+      return next;
+    });
+    setQuestionIdsToAdd("");
     setDirty((current) => nextQuestionEditDirty(current, "add"));
     setMessage(
-      "Available published Question added with its exact revision pin. Save Questions when ready.",
+      `${candidates.length} published Questions added with their exact Revision pins. Save Questions when ready.`,
     );
   }
 
@@ -246,6 +306,7 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
     try {
       const latest = await workspace.reloadAssessment();
       setEntries(latest.workspace.entries);
+      setQuestionIdsToAdd("");
       setTitle(latest.workspace.title);
       if ((await loadPoolForks(latest.workspace.entries)) === "loaded") {
         setNeedsReload(false);
@@ -624,7 +685,8 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
       <section class="assessment-editor-panel" aria-labelledby="available-questions-heading">
         <h2 id="available-questions-heading">Available published Questions</h2>
         <p class="assessment-editor-note">
-          Adding a Question pins the exact Available revision shown here.
+          Enter Question IDs to add them together in the order entered. Each keeps the exact
+          Published Revision shown below; inspection is optional. Save Questions when ready.
         </p>
         <p>
           <A href="/library">Search Question Library</A> or{" "}
@@ -634,6 +696,39 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
           when={availableToAdd().length > 0}
           fallback={<p>No additional Available Questions are ready to add.</p>}
         >
+          <p role="status">
+            Room for {remainingQuestionCapacity()} more Questions, counting each Pool's selected
+            Questions.
+          </p>
+          <label class="assessment-editor-field">
+            Question IDs to add
+            <textarea
+              rows={3}
+              value={questionIdsToAdd()}
+              disabled={busy() || needsReload() || remainingQuestionCapacity() === 0}
+              aria-describedby="bulk-question-id-help"
+              onInput={(event) => setQuestionIdsToAdd(event.currentTarget.value)}
+            />
+          </label>
+          <p id="bulk-question-id-help" class="assessment-editor-note">
+            Separate IDs with commas, spaces, or new lines. Every ID must match a Question below;
+            the whole batch is checked before any Questions are added.
+          </p>
+          <div class="assessment-editor-actions">
+            <button
+              type="button"
+              class="primary-action"
+              disabled={
+                busy() ||
+                needsReload() ||
+                questionIdsToAdd().trim().length === 0 ||
+                remainingQuestionCapacity() === 0
+              }
+              onClick={addQuestionsById}
+            >
+              Add Questions by ID
+            </button>
+          </div>
           <ul>
             <For each={availableToAdd()}>
               {(candidate) => (
@@ -641,13 +736,6 @@ export function AssessmentWorkspaceQuestionsPage(): JSX.Element {
                   <strong>{candidate.reference.questionId}</strong> * Revision{" "}
                   {candidate.reference.revisionNumber}: {candidate.description}{" "}
                   <A href={questionRevisionInspectionPath(candidate.reference)}>Inspect</A>{" "}
-                  <button
-                    type="button"
-                    disabled={busy() || needsReload() || entries().length >= MAX_ASSIGNMENT_ENTRIES}
-                    onClick={() => add(candidate)}
-                  >
-                    Add Question
-                  </button>
                 </li>
               )}
             </For>

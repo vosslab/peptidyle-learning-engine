@@ -118,7 +118,7 @@ export async function openStudentAssignment(page: Page): Promise<void> {
 /** Opens the active Attempt through its Student Course landing and Assignment card. */
 export async function resumeStudentAssignmentAttempt(page: Page): Promise<void> {
   const card = assignmentCard(page);
-  await card.getByRole("link", { name: `Open ${ASSESSMENT_TYPE_LABEL}`, exact: true }).click();
+  await card.getByRole("link", { name: `Resume ${ASSESSMENT_TYPE_LABEL}`, exact: true }).click();
   await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
 }
 

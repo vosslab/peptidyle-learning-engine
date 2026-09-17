@@ -85,6 +85,7 @@ async function prepareStudentInvitation(
     await created.getByRole("link", { name: "Open Course Instance", exact: true }).click();
     await page.getByRole("link", { name: "Open Students", exact: true }).click();
     await page.getByRole("heading", { name: "Students", exact: true }).waitFor();
+    await page.getByText("Roster tools", { exact: true }).click();
     await page
       .getByLabel("Email, roster ID")
       .fill("mary.okafor@biology.roosevelt.edu,screenshot-invitation");
@@ -192,7 +193,7 @@ async function studentAssignmentHistory(runtime: ScenarioRuntime): Promise<void>
     await openStudentCourse(session.page);
     const assignment = assignmentCard(session.page);
     await assignment
-      .getByRole("link", { name: `Open ${ASSESSMENT_TYPE_LABEL}`, exact: true })
+      .getByRole("link", { name: `Review ${ASSESSMENT_TYPE_LABEL}`, exact: true })
       .click();
     await session.page.locator('[data-route-surface="assessmentOverview"]').waitFor();
     await session.page.getByRole("heading", { name: "Previous attempts", exact: true }).waitFor();
@@ -221,6 +222,13 @@ function attemptQuestion(session: CaptureSession, name: string): Locator {
 async function saveCurrentResponse(session: CaptureSession): Promise<void> {
   const responseControl = attemptSurface(session).locator("section.question-response-control");
   const matchingSlots = responseControl.locator(".matching-slot[data-prompt-id]:not(:disabled)");
+  const nativeChoices = responseControl.locator('input[type="radio"], input[type="checkbox"]');
+  await responseControl
+    .locator(
+      '.matching-slot[data-prompt-id]:not(:disabled), input[type="radio"], input[type="checkbox"]',
+    )
+    .first()
+    .waitFor();
   if ((await matchingSlots.count()) > 0) {
     const slotCount = await matchingSlots.count();
     for (let index = 0; index < slotCount; index += 1) {
@@ -235,7 +243,6 @@ async function saveCurrentResponse(session: CaptureSession): Promise<void> {
         .waitFor({ state: "detached" });
     }
   } else {
-    const nativeChoices = responseControl.locator('input[type="radio"], input[type="checkbox"]');
     await nativeChoices.first().check();
   }
   await responseControl.getByRole("button", { name: "Save response", exact: true }).click();

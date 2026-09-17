@@ -14,10 +14,11 @@ enum ProcessMode {
     WorkerHealthProbe,
     CourseRetentionWorker,
     PublicAssetPublisher,
+    PublicAssetPublisherHealthProbe,
     LocalSysadminTotpProvisioning,
 }
 
-const PROCESS_USAGE: &str = "peptidyle-api [--health-probe | --worker [--health-probe] | --course-retention-worker | --public-asset-publisher | --provision-local-sysadmin-totp]";
+const PROCESS_USAGE: &str = "peptidyle-api [--health-probe | --worker [--health-probe] | --course-retention-worker | --public-asset-publisher [--health-probe] | --provision-local-sysadmin-totp]";
 
 fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
     match arguments {
@@ -31,6 +32,11 @@ fn process_mode(arguments: &[String]) -> anyhow::Result<ProcessMode> {
         }
         [worker, probe] if worker == "--worker" && probe == "--health-probe" => {
             Ok(ProcessMode::WorkerHealthProbe)
+        }
+        [publisher, probe]
+            if publisher == "--public-asset-publisher" && probe == "--health-probe" =>
+        {
+            Ok(ProcessMode::PublicAssetPublisherHealthProbe)
         }
         _ => anyhow::bail!("usage: {PROCESS_USAGE}"),
     }
@@ -82,8 +88,12 @@ pub(crate) async fn run() -> anyhow::Result<()> {
     }
 
     if mode == ProcessMode::PublicAssetPublisher {
-        let _published = server_core::composition::publish_one_public_asset_from_env().await?;
-        return Ok(());
+        return server_core::composition::run_public_asset_publisher_from_env().await;
+    }
+
+    if mode == ProcessMode::PublicAssetPublisherHealthProbe {
+        return server_core::composition::verify_public_asset_publisher_database_login_from_env()
+            .await;
     }
 
     if mode == ProcessMode::LocalSysadminTotpProvisioning {
@@ -196,14 +206,26 @@ mod tests {
                 .expect("worker probe"),
             ProcessMode::WorkerHealthProbe
         );
+        assert_eq!(
+            process_mode(&["--public-asset-publisher".to_string()]).expect("publisher"),
+            ProcessMode::PublicAssetPublisher
+        );
+        assert_eq!(
+            process_mode(&[
+                "--public-asset-publisher".to_string(),
+                "--health-probe".to_string()
+            ])
+            .expect("publisher probe"),
+            ProcessMode::PublicAssetPublisherHealthProbe
+        );
         for invalid in [
             vec!["--unknown".to_string()],
             vec!["--local-worker".to_string()],
             vec!["--native-ple-worker".to_string()],
             vec!["--webwork-worker".to_string()],
             vec![
-                "--public-asset-publisher".to_string(),
                 "--health-probe".to_string(),
+                "--public-asset-publisher".to_string(),
             ],
             vec!["--local-invitation-delivery-worker".to_string()],
             vec!["--health-probe".to_string(), "--worker".to_string()],

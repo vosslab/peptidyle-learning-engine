@@ -637,8 +637,15 @@ RETURNS TABLE (
     member_count integer,
     title text, description text, discipline_uuid uuid, subject_uuid uuid,
     topic_uuid uuid, subtopic_uuid uuid, tags text[]
-) LANGUAGE sql STABLE SECURITY DEFINER
+) LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog, ple_api, ple_data AS $$
+BEGIN
+    -- ASVS 8.2.1: preserve empty non-Instructor discovery before invoking
+    -- the shared vocabulary readers, whose own boundary rejects those sessions.
+    IF NOT ple_api.current_session_account_is_instructor() THEN
+        RETURN;
+    END IF;
+    RETURN QUERY
     SELECT ple_data.canonical_public_crockford_display(pool.public_question_pool_id),
            pool.current_revision_number, revision.member_count,
            pool.title, pool.description, pool.discipline_uuid, pool.subject_uuid,
@@ -647,10 +654,18 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
       JOIN ple_data.question_pool_revision AS revision
         ON revision.question_pool_id = pool.question_pool_id
        AND revision.revision_number = pool.current_revision_number
-      LEFT JOIN ple_data.content_discipline AS discipline ON discipline.discipline_uuid = pool.discipline_uuid
-      LEFT JOIN ple_data.content_subject AS subject ON subject.subject_uuid = pool.subject_uuid
-      LEFT JOIN ple_data.content_topic AS topic ON topic.topic_uuid = pool.topic_uuid
-      LEFT JOIN ple_data.content_subtopic AS subtopic ON subtopic.subtopic_uuid = pool.subtopic_uuid
+      -- ASVS 8.2.2/8.2.3: reuse the authorized UUID/name projections instead
+      -- of widening API-owner or runtime-role privileges on vocabulary tables.
+      -- Parent arguments come from the Pool, not the selected search filters,
+      -- so cross-Discipline discovery still searches each Pool's own labels.
+      LEFT JOIN ple_api.list_content_disciplines() AS discipline
+        ON discipline.discipline_uuid = pool.discipline_uuid
+      LEFT JOIN LATERAL ple_api.list_content_subjects(pool.discipline_uuid) AS subject
+        ON subject.subject_uuid = pool.subject_uuid
+      LEFT JOIN LATERAL ple_api.list_content_topics(pool.subject_uuid) AS topic
+        ON topic.topic_uuid = pool.topic_uuid
+      LEFT JOIN LATERAL ple_api.list_content_subtopics(pool.topic_uuid) AS subtopic
+        ON subtopic.subtopic_uuid = pool.subtopic_uuid
      WHERE ple_api.current_session_account_is_instructor()
        AND p_page_size BETWEEN 1 AND 100
        AND (p_subject_uuid IS NULL OR p_discipline_uuid IS NOT NULL)
@@ -686,7 +701,8 @@ SET search_path = pg_catalog, ple_api, ple_data AS $$
        AND (p_after IS NULL OR pool.public_question_pool_id > replace(p_after, '-', ''))
        AND (p_after IS NULL OR p_after ~ '^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$')
      ORDER BY pool.public_question_pool_id
-     LIMIT p_page_size + 1
+     LIMIT p_page_size + 1;
+END
 $$;
 
 CREATE FUNCTION ple_api.read_current_published_question_pool(p_public_question_pool_id text)

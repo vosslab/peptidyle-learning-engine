@@ -512,6 +512,7 @@ origin belongs there too. Rules: [REPO_STYLE.md](REPO_STYLE.md).
 - The Assessment Question Editor should make Question order easy to understand at a glance.
 - Adding Questions should provide direct paths to Search and Browse Question Library.
 - Instructors should be able to inspect a Question before adding it to an Assessment.
+- Instructors should be able to quickly add questions by Question ID to an assessment in bulk.
 - Assessment Properties should group related settings so important settings are easy to find.
 - Present timing settings in familiar units such as minutes, with explicit units and clear
   meanings for optional or unlimited values.

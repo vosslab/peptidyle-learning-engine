@@ -251,8 +251,22 @@ BEGIN
         ON assessment_attempt.issued_question_id = issued.issued_question_id
       LEFT JOIN ple_private.question_attempt_presentation_binding AS binding
         ON binding.question_attempt_id = assessment_attempt.question_attempt_id
-      LEFT JOIN ple_private.question_attempt_presentation_asset_rendition AS rendition
-        ON rendition.question_attempt_id = assessment_attempt.question_attempt_id
+      -- First issuance uses only the exact issued Revision's Ready delivery.
+      -- Existing Attempts never refresh immutable evidence from publication.
+      -- ASVS 2.3.1/8.2.2: select only after the owning Attempt check above.
+      LEFT JOIN LATERAL (
+          SELECT retained.asset_id, retained.question_asset_checksum,
+                 retained.rendition_checksum, retained.intrinsic_width, retained.intrinsic_height
+            FROM ple_private.question_attempt_presentation_asset_rendition AS retained
+           WHERE retained.question_attempt_id = assessment_attempt.question_attempt_id
+          UNION ALL
+          SELECT ready.asset_id, decode(ready.question_asset_checksum, 'hex'),
+                 decode(ready.rendition_checksum, 'hex'), ready.intrinsic_width, ready.intrinsic_height
+            FROM ple_private.select_ready_question_asset_renditions(
+                issued.question_id, issued.revision_number
+            ) AS ready
+           WHERE assessment_attempt.question_attempt_id IS NULL
+      ) AS rendition ON true
      WHERE issued.assessment_attempt_id = p_assessment_attempt_id
        AND source.backend IN ('ple', 'webwork')
      GROUP BY issued.assessment_attempt_id, issued.issued_question_id, issued.issued_position,
@@ -472,13 +486,14 @@ BEGIN
                  WHERE supplied.asset_id IS NULL OR supplied.question_asset_checksum !~ '^[0-9a-f]{64}$' OR supplied.rendition_checksum !~ '^[0-9a-f]{64}$'
                     OR supplied.intrinsic_width IS NULL OR supplied.intrinsic_width <= 0 OR supplied.intrinsic_height IS NULL OR supplied.intrinsic_height <= 0
                     OR NOT EXISTS (
-                        SELECT 1 FROM ple_private.question_asset_publication AS publication
-                         WHERE publication.question_id = issued_row.question_id
-                           AND publication.revision_number = issued_row.revision_number
-                           AND publication.asset_id = supplied.asset_id
-                           AND publication.publication_state = 'ready'
-                           AND encode(publication.source_object_checksum, 'hex') = supplied.question_asset_checksum
-                           AND encode(publication.public_object_checksum, 'hex') = supplied.rendition_checksum
+                        SELECT 1 FROM ple_private.select_ready_question_asset_renditions(
+                            issued_row.question_id, issued_row.revision_number
+                        ) AS ready
+                         WHERE ready.asset_id = supplied.asset_id
+                           AND ready.question_asset_checksum = supplied.question_asset_checksum
+                           AND ready.rendition_checksum = supplied.rendition_checksum
+                           AND ready.intrinsic_width = supplied.intrinsic_width
+                           AND ready.intrinsic_height = supplied.intrinsic_height
                     )
             ) OR EXISTS (
                 SELECT 1 FROM jsonb_to_recordset(item -> 'question_assets') AS supplied(asset_id uuid)

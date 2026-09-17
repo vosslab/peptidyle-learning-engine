@@ -1,6 +1,8 @@
 // Visible Instructor proof: Blueprint Revision 1 -> Course -> current Assignment.
 // Selector contract: accessible labels/headings/actions in the Blueprint, Course, and Assignment
-// workspaces; the Question picker discovers its seeded published Question through its visible result.
+// workspaces; assessment_workspace_policies_page.tsx renders the duration label with dynamic
+// calculated-default helper text, so its stable accessible-name prefix is selected here. The
+// Question picker discovers its seeded published Question through its visible result.
 
 import { chromium } from "playwright";
 
@@ -15,6 +17,7 @@ const blueprintTitle = `Browser current Blueprint ${runId}`;
 const courseShortName = `Current-${runId}`;
 const courseLongName = `Browser current Course ${runId}`;
 const assignmentTitle = `Browser current Assignment ${runId}`;
+const assessmentDurationOverrideLabel = /^Assessment duration override in seconds\b/u;
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ ignoreHTTPSErrors: true });
 const page = await context.newPage();
@@ -216,7 +219,7 @@ try {
     .getByLabel(/Due date/u)
     .fill("2026-12-01");
   await page.getByLabel("Due time", { exact: true }).fill("12:00");
-  await page.getByLabel("Time limit in seconds", { exact: true }).fill("1800");
+  await page.getByLabel(assessmentDurationOverrideLabel).fill("1800");
   await page.getByLabel("Late-work rule").selectOption("mark_late");
   await page.getByText("Saved", { exact: true }).waitFor();
 
@@ -275,13 +278,13 @@ try {
   )?.[1];
   if (courseReference === undefined)
     throw new Error("the assignment workspace lacked a Course reference");
-  if ((await page.getByLabel("Time limit in seconds", { exact: true }).inputValue()) !== "1800") {
+  if ((await page.getByLabel(assessmentDurationOverrideLabel).inputValue()) !== "1800") {
     throw new Error("the autosaved time limit did not persist after reload");
   }
   if ((await page.getByLabel("Late-work rule").inputValue()) !== "accept") {
     throw new Error("the autosaved Late-work rule did not persist after reload");
   }
-  await page.getByLabel("Time limit in seconds", { exact: true }).fill("0");
+  await page.getByLabel(assessmentDurationOverrideLabel).fill("0");
   await page.getByText("Invalid", { exact: true }).waitFor();
   if (!(await page.getByRole("button", { name: "Release assignment", exact: true }).isDisabled())) {
     throw new Error("Release was available while the visible policy value was invalid");
@@ -291,7 +294,7 @@ try {
   ) {
     throw new Error("Release readiness was available while the visible policy value was invalid");
   }
-  await page.getByLabel("Time limit in seconds", { exact: true }).fill("1800");
+  await page.getByLabel(assessmentDurationOverrideLabel).fill("1800");
   await page.getByText("Saved", { exact: true }).waitFor();
 
   const deliveryCheckPage = context.waitForEvent("page");

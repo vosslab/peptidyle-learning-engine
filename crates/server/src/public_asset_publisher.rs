@@ -1,4 +1,4 @@
-//! One-shot dedicated publisher for immutable public Question Asset renditions.
+//! Dedicated publisher for immutable public Question Asset renditions.
 //!
 //! It owns no listener, session, Account, generic Job, or caller-selected
 //! object key. The registry claim fixes the private source and final public
@@ -15,10 +15,15 @@ use objects::{
 use question_model::Timestamp;
 use uuid::Uuid;
 
+// The publisher's existing Compose stop grace is 30 seconds. Use that same
+// budget for a complete claim/read/write/activation operation, well inside
+// the database's 300-second Job lease. Shutdown cancels pending I/O immediately;
+// timeout cancellation leaves any claimed Job to the same lease recovery.
+const PUBLICATION_OPERATION_BOUND: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// Claims and publishes at most one registry-backed Question Asset Job.
 ///
-/// A supervisor may invoke a fresh one-shot process for subsequent work. This
-/// deliberately avoids a generic in-process queue or retry policy.
+/// PostgreSQL owns the existing Job lease, attempt limit, and recovery policy.
 pub async fn publish_one<S, O>(store: &S, objects: &O) -> Result<bool>
 where
     S: PublicAssetPublicationStore,
@@ -39,6 +44,78 @@ where
         .map_err(|_| anyhow!("could not activate a Question Asset Publication"))?;
     tracing::info!(event = "public_asset_publication_completed");
     Ok(true)
+}
+
+/// Poll one registry-backed Job at a time until the process is stopped.
+///
+/// The normal runtime uses the same fixed-address publication operation as
+/// the installation publisher. No generic queue or retry state is introduced.
+pub async fn run_until_shutdown<S, O>(store: S, objects: O) -> Result<()>
+where
+    S: PublicAssetPublicationStore,
+    O: ObjectStore,
+{
+    run_until_stopped(&store, &objects, shutdown_signal()).await
+}
+
+async fn run_until_stopped<S, O>(
+    store: &S,
+    objects: &O,
+    stop: impl std::future::Future<Output = ()>,
+) -> Result<()>
+where
+    S: PublicAssetPublicationStore,
+    O: ObjectStore,
+{
+    tokio::pin!(stop);
+    tracing::info!(event = "public_asset_publisher_started");
+    loop {
+        tokio::select! {
+            biased;
+            () = &mut stop => {
+                tracing::info!(event = "public_asset_publisher_shutdown_requested");
+                return Ok(());
+            }
+            () = tokio::time::sleep(std::time::Duration::from_secs(1)) => {}
+        }
+        // ASVS 16.2.5: publish_one returns redacted operation errors, not
+        // database URLs, object credentials, or private source content.
+        tokio::select! {
+            biased;
+            () = &mut stop => {
+                tracing::info!(event = "public_asset_publisher_shutdown_requested");
+                return Ok(());
+            }
+            result = tokio::time::timeout(PUBLICATION_OPERATION_BOUND, publish_one(store, objects)) => {
+                match result {
+                    Ok(Ok(_)) => {}
+                    Ok(Err(error)) => {
+                        tracing::warn!(event = "public_asset_publication_failed", error = %error);
+                    }
+                    Err(_) => {
+                        tracing::warn!(event = "public_asset_publication_timed_out");
+                    }
+                }
+            }
+        }
+    }
+}
+
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("SIGTERM signal handler installs");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {},
+            _ = terminate.recv() => {},
+        }
+    }
+    #[cfg(not(unix))]
+    if let Err(error) = tokio::signal::ctrl_c().await {
+        tracing::error!(event = "public_asset_publisher_shutdown_signal_unavailable", error = %error);
+    }
 }
 
 async fn publish_claim<O: ObjectStore>(
@@ -167,6 +244,64 @@ mod tests {
     };
 
     use super::*;
+
+    struct RecoveringPublicationStore {
+        claims: std::sync::atomic::AtomicUsize,
+        stop: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    }
+
+    #[async_trait]
+    impl PublicAssetPublicationStore for RecoveringPublicationStore {
+        async fn claim_question_asset_publication(
+            &self,
+            _lease_token: Uuid,
+        ) -> Result<Option<ClaimedQuestionAssetPublication>, StoreError> {
+            let claim = self
+                .claims
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if claim == 0 {
+                return Err(StoreError::Unavailable(
+                    "temporary store outage".to_string(),
+                ));
+            }
+            if claim == 1 {
+                // A stalled claim must release the runtime loop through its
+                // operation bound before the shutdown-producing claim below.
+                return std::future::pending().await;
+            }
+            self.stop
+                .lock()
+                .expect("stop lock")
+                .take()
+                .expect("stop sender")
+                .send(())
+                .expect("publisher still awaits shutdown");
+            // Shutdown must also cancel an operation that never completes.
+            std::future::pending().await
+        }
+
+        async fn activate_question_asset_publication(
+            &self,
+            _job_id: Uuid,
+            _lease_token: Uuid,
+        ) -> Result<(), StoreError> {
+            panic!("no publication was claimed");
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn runtime_recovers_from_failure_and_stall_then_stops_during_pending_io() {
+        let (stop_sender, stop_receiver) = tokio::sync::oneshot::channel();
+        let store = RecoveringPublicationStore {
+            claims: std::sync::atomic::AtomicUsize::new(0),
+            stop: Mutex::new(Some(stop_sender)),
+        };
+        run_until_stopped(&store, &MemoryObjectStore::default(), async {
+            stop_receiver.await.expect("stop requested");
+        })
+        .await
+        .expect("publisher shuts down");
+    }
 
     #[derive(Clone)]
     struct RecordingPublicationStore {

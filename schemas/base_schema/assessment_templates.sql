@@ -76,7 +76,11 @@ CREATE TABLE ple_private.assessment_template (
             'during_attempt', 'after_submit', 'after_due', 'after_close', 'never'
         )
     ),
-    CHECK (assessment_type NOT IN ('quiz', 'exam') OR assessment_attempt_limit = 1)
+    -- ASVS 2.2.1-2.2.3: mandatory variant fields cannot pass CHECK as unknown.
+    CHECK (
+        assessment_type NOT IN ('quiz', 'exam')
+        OR (assessment_attempt_limit IS NOT NULL AND assessment_attempt_limit = 1)
+    )
 );
 
 -- The owner predicate and stable list ordering are the complete collection

@@ -2,6 +2,48 @@
 
 ## Current connected acceptance
 
+Current HOTSPOT delivery receipt (2026-09-16): all Instructor captures and 16 private Student
+checkpoints passed, but nine type captures are delivery-blocked: context returned 200 while progress
+returned 404 from an issue-only Attempt with nine issued positions and no Question Attempts. The
+first-issuance Ready asset-binding correction has independent source acceptance and fresh PostgreSQL
+17 actual-role `ple_auth`/`ple_app` rollback proof for exact checksums/dimensions, Pending refusal,
+retained-helper behavior, and outsider denial; the isolated container was stopped and auto-removed.
+Root Cargo plus three focused Rust tests predates the correction; Python passed 7,548 tests in 5.48
+seconds. Normal publisher integration and resume recovery remain under review. No current live
+acceptance or 77-item capture refresh is claimed. Receipt:
+`/private/tmp/ple-hotspot-delivery-batch-receipt-20260916.md`.
+
+Current preview delivery defect receipt (2026-09-16): canonical runtime session 80773 reached
+`Ready` at `https://localhost:8126` and exited 0. Three actual Instructor WeBWorK previews returned
+documents, but their opaque sandbox blocked PLE CSS, framework CSS, bridge, and renderer scripts
+with `ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`: same-origin CORP conflicts with the opaque preview
+origin. Independent PLE CSS review still passes, but CSS-only authority cannot repair this
+delivery-policy defect. Ordinary Student delivery has a different source policy, not current runtime
+proof. Pytest session 35084 passed 7,548 tests in 5.77 seconds. HOTSPOT remains independently
+sourced/offline with no PNG publication; full capture is pending. Only the affected
+Instructor-inspection row remains open pending separately authorized resource-policy work; this is
+not a blanket compliance block. The earlier isolated `window.frameElement.id` failure remains
+unverified while scripts are blocked and needs retesting after resource delivery works. Connected
+Library probe 56322 passed only its narrow search receipt; full capture 83237 stopped at the stale
+`My Question Drafts` selector, so no corpus was published. Receipt:
+`/private/tmp/ple-preview-defect-evidence-receipt-20260916.md`.
+
+Current Pool text/Tags and control-surface receipt (2026-09-16): Pool text/Tags filtering is
+implemented source with bounded backend, actual-role SQL, and frontend fixture evidence; the older
+"unavailable" statement below is historical, not current source status. Independent backend and
+frontend reviews accepted their bounded slices. After proof-fixture correction and the
+vocabulary-reader authority fix, root's fresh canonical PostgreSQL 17 `pool_text_fixed` proof passed
+as actual `ple_auth`/`ple_app` with rollback; labelled tmpfs container
+`ple-pool-text-proof-20260916` was stopped and auto-removed. Root pytest session 43993 passed 7,545
+tests in 5.75 seconds. Cargo session 18824 predates the SQL-only wrapper fix, so it is historical
+rather than final compiler evidence. The fixture proves current component behavior at 1280/390px,
+not connected matching, deployed authorization, or broad closure. The bounded PLE-owned control CSS
+slice is accepted only for named PLE controls and Pool layout; backend/iframe/WeBWorK CSS remain
+outside it, and independent WeBWorK CSS review plus connected verification are pending. Synthetic
+demo author/publish/release is now authorized for later evidence, not claimed as performed. Current
+generated inventory is 1,009 occurrences: 450 verified, 514 open, and 45 N/A, with no row/status
+change. Receipt: `/private/tmp/ple-pool-css-batch-receipt-20260916.md`.
+
 Root's canonical build session 51649 terminally exited 0 and reached `Ready` at
 `https://localhost:8147/sign-in`, including Pool metadata and the classification-selector fix.
 Root-supplied `/private/tmp/ple-pool-metadata-connected-report.md` records ordinary Elena login,

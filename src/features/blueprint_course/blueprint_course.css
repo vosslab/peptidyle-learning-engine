@@ -332,3 +332,69 @@
 .blueprint-course-assignment-list button {
   flex-shrink: 0;
 }
+
+/* Public discovery is one search workspace, not a card around every region. */
+.blueprint-public-search {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.blueprint-public-search > h2,
+.blueprint-public-search > p {
+  margin: 0;
+}
+
+.blueprint-public-search__form {
+  display: grid;
+  gap: 0.6rem;
+  padding-block-end: 0.85rem;
+  border-block-end: 1px solid var(--ple-border);
+}
+
+.blueprint-public-search__query-row,
+.blueprint-public-search__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+}
+
+.blueprint-public-search__query {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.65rem;
+  max-width: 100%;
+}
+
+.blueprint-public-search__query input {
+  width: 24rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.blueprint-public-search__classification > fieldset {
+  width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 0;
+}
+
+.blueprint-public-search__classification legend {
+  padding: 0;
+  color: var(--ple-muted);
+  font-size: 0.9rem;
+}
+
+.blueprint-public-search__classification .content-classification-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.blueprint-public-search__classification .content-classification-select select {
+  width: auto;
+  max-width: 100%;
+}

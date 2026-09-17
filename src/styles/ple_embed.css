@@ -1,16 +1,19 @@
 /* Shared baseline for backend-owned documents. Question-authored CSS follows this file. */
 :root {
+  --ple-font-text: "Atkinson Hyperlegible Next", Atkinson Hyperlegible, Arial, sans-serif;
+  --ple-font-mono:
+    "Atkinson Hyperlegible Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+  --bs-body-font-family: var(--ple-font-text);
+  --bs-font-monospace: var(--ple-font-mono);
   background: var(--ple-document-background, #ffffff);
   color: var(--ple-document-foreground, #1b1b1b);
-  font-family:
-    "Atkinson Hyperlegible Next",
-    Atkinson Hyperlegible,
-    Arial,
-    sans-serif;
+  font-family: var(--ple-font-text);
 }
 
 html,
 body {
+  font-family: var(--ple-font-text);
   box-sizing: border-box;
   max-width: 100%;
 }
@@ -30,4 +33,104 @@ textarea {
 :focus-visible {
   outline: 3px solid #005a9c;
   outline-offset: 2px;
+}
+
+/* Document defaults also cover renderer warnings and footers outside the form.
+ * Descendant math, icon, and Question-authored font rules remain in charge.
+ * Outer PLE theme tokens do not inherit into this backend-owned document. */
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Next";
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/assets/fonts/atkinson_hyperlegible_next/atkinson_hyperlegible_next_variable_italic.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable.woff2")
+    format("woff2");
+}
+
+@font-face {
+  font-family: "Atkinson Hyperlegible Mono";
+  font-style: italic;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/assets/fonts/atkinson_hyperlegible_mono/atkinson_hyperlegible_mono_variable_italic.woff2")
+    format("woff2");
+}
+
+.problem-main-form {
+  --ple-document-radius-control: 0.45rem;
+  --ple-document-border-control: #8b98a3;
+  font-family: var(--ple-font-text);
+}
+
+/* Normalize semantic code, not every descendant: MathJax/MathQuill and icon
+ * glyphs retain their own font families, including inside code examples.
+ * Low specificity lets later Question-authored font rules preserve meaning. */
+:is(code, kbd, pre, samp, .font-monospace) {
+  font-family: var(--ple-font-mono);
+}
+
+/* PG loads its Helvetica text-field rule after this baseline. The form/content
+ * scope deliberately wins that rule without touching specialized classed widgets
+ * or unknown Question-authored controls. Only the family changes here. */
+.problem-main-form
+  .problem-content
+  input[type="text"]:where(:not([class]), .codeshard, .form-control),
+.problem-main-form .problem-content textarea:where(:not([class]), .form-control) {
+  font-family: var(--ple-font-text);
+}
+
+/* Only ordinary rectangular answer fields: leave hidden fields, radio/checkbox
+ * shapes, file/range/color widgets, and renderer widget controls untouched.
+ * :where() keeps the wrapper and exclusions from increasing specificity. */
+:where(.problem-main-form)
+  input:where([type="text"], [type="number"], [type="email"], [type="url"]):not(:where([class])),
+:where(.problem-main-form) .codeshard:where(input[type="text"], input[type="number"]),
+:where(.problem-main-form) textarea:not(:where([class])),
+:where(.problem-main-form) select:not(:where([class])),
+:where(.problem-main-form)
+  .form-control:where(
+    input[type="text"],
+    input[type="number"],
+    input[type="email"],
+    input[type="url"],
+    textarea
+  ),
+:where(.problem-main-form) .form-select:where(select) {
+  border-radius: var(--ple-document-radius-control);
+}
+
+:where(.problem-main-form)
+  input:where([type="text"], [type="number"], [type="email"], [type="url"]):not(
+    :where([class], :disabled, [readonly])
+  ),
+:where(.problem-main-form)
+  .codeshard:where(input[type="text"], input[type="number"]):not(
+    :where(:disabled, [readonly], .is-invalid, .is-valid)
+  ),
+:where(.problem-main-form) textarea:not(:where([class], :disabled, [readonly])) {
+  border: 1px solid var(--ple-document-border-control);
+  padding: 0.25rem 0.45rem;
+}
+
+/* Preserve backend action colors, disabled states, and specialized widget buttons. */
+:where(.problem-main-form) .btn:where(button, input[type="button"], input[type="submit"]) {
+  border-radius: var(--ple-document-radius-control);
 }

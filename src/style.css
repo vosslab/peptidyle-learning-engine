@@ -25,7 +25,7 @@
   --ple-space-7: 2.25rem;
   --ple-radius-control: 0.45rem;
   --ple-radius-inset: 0.7rem;
-  --ple-radius-surface: 0.9rem;
+  --ple-radius-surface: 0.35rem;
   --ple-control-min-height: 2.25rem;
   --ple-response-min-height: 2.75rem;
   --ple-shadow: 0 1px 2px rgb(31 46 61 / 7%);
@@ -114,6 +114,36 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+/* Unclassified PLE actions are secondary, not browser-native. Zero specificity
+ * leaves component-owned geometry (including hotspot regions) and states in
+ * control; primary and quiet actions keep their explicit treatments below. */
+:where(button) {
+  appearance: none;
+  min-height: var(--ple-control-min-height);
+  padding: 0.34rem 0.72rem;
+  border: 1px solid var(--ple-border-strong);
+  border-radius: var(--ple-radius-control);
+  background: var(--ple-card-surface);
+  color: var(--ple-accent-strong);
+  font-size: 0.92rem;
+  font-weight: 680;
+  text-align: center;
+  cursor: pointer;
+}
+
+:where(button:hover:not(:disabled)) {
+  border-color: var(--ple-accent);
+  background: var(--ple-surface-soft);
+}
+
+:where(button:disabled) {
+  cursor: not-allowed;
+}
+
+:where(button:disabled:not([class])) {
+  opacity: 0.65;
 }
 
 button,
@@ -304,7 +334,7 @@ h3 {
   border: 1px solid var(--ple-border);
   border-inline-start: var(--ple-course-theme-rail-size) solid
     var(--ple-instructor-list-theme-accent, var(--ple-border-strong));
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-card-surface);
 }
 
@@ -368,7 +398,7 @@ h3 {
   min-height: 5.75rem;
   padding: var(--ple-section-gap) calc(var(--ple-row-padding-inline) + var(--ple-space-1));
   border: 1px solid transparent;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 82%, transparent);
 }
 
@@ -540,7 +570,7 @@ textarea:hover {
 .gradebook-empty,
 .empty-state {
   padding: 1rem;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-surface-soft);
 }
 
@@ -688,7 +718,7 @@ textarea:hover {
 .inline-error,
 .route-error {
   padding: 0.65rem 0.8rem;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
 }
 
 .inline-error {
@@ -700,7 +730,7 @@ textarea:hover {
 
 .loading-state {
   padding: 0.75rem;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: var(--ple-surface-soft);
   color: var(--ple-muted);
 }
@@ -769,7 +799,7 @@ textarea:hover {
 .auth-panel,
 .roster-section {
   padding: 0.85rem;
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-surface);
   background: color-mix(in srgb, var(--ple-card-surface) 82%, transparent);
   box-shadow: var(--ple-shadow);
 }
@@ -820,7 +850,7 @@ textarea:hover {
   padding: var(--ple-panel-padding);
   transform: translate(-50%, -50%);
   border: 1px solid var(--ple-border);
-  border-radius: var(--ple-radius-inset);
+  border-radius: var(--ple-radius-control);
   background: var(--ple-card-surface);
   box-shadow: var(--ple-shadow);
 }

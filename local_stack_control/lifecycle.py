@@ -406,7 +406,7 @@ def _start_lifecycle(
 	):
 		remove_live_demo_persona_configuration(selected)
 	compose_run(selected, runner, ["build", "gateway"])
-	application_services = ["api", "worker", "gateway"]
+	application_services = ["api", "worker", "public-asset-publisher", "gateway"]
 	application_scale_arguments = local_stack_control.lifecycle_profiles.application_scale_arguments(
 		target, tuple(application_services)
 	)

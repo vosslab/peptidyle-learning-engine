@@ -1,5 +1,4 @@
 // Actual enrolled Student delivery; preparation uses the ordinary Instructor workspace.
-// HOTSPOT is an explicit gap: the current editor has no image picker/asset upload workflow.
 
 import type { Locator, Page } from "playwright";
 
@@ -10,6 +9,7 @@ import { decodeStudentAssessmentAttemptPresentation } from "../../../src/api/dec
 import type { StudentAssessmentAttemptPresentation } from "../../../src/api/assessment_attempt_navigation";
 import type { CaptureSession, ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
+import { authorHotspot, exerciseHotspot } from "./hotspot_workflow";
 import {
   assignmentCard,
   choosePersona,
@@ -22,8 +22,10 @@ import {
 const SCENARIO = "student_question_types";
 const ASSESSMENT_TITLE = "Cell biology response practice";
 const PRACTICE_LABEL = "Practice Question Assignment";
+const EXPECTED_QUESTION_COUNT = 9;
 
-type ExampleSlug = "mc" | "ma" | "fib" | "multi_fib" | "num" | "match" | "order" | "webwork";
+type ExampleSlug =
+  "mc" | "ma" | "fib" | "multi_fib" | "num" | "match" | "order" | "hotspot" | "webwork";
 
 interface Example {
   readonly slug: ExampleSlug;
@@ -91,6 +93,14 @@ const EXAMPLES: ReadonlyArray<Example> = [
     prompt: "Arrange these stages of mitosis from earliest to latest.",
   },
   {
+    slug: "hotspot",
+    title: "Image region practice: one dot",
+    type: "hotspot",
+    backend: "ple",
+    format: "hotspot",
+    prompt: "Click the dot.",
+  },
+  {
     slug: "webwork",
     title: "Genetic Disorders from Descriptions",
     type: "multipleChoice",
@@ -148,6 +158,9 @@ async function fillItems(fields: Locator, values: ReadonlyArray<string>): Promis
 
 async function authorResponse(page: Page, example: Example): Promise<void> {
   switch (example.slug) {
+    case "hotspot":
+      await authorHotspot(page);
+      break;
     case "ma":
       await fillItems(page.getByLabel("Choice text", { exact: true }), [
         "Phospholipids",
@@ -171,7 +184,7 @@ async function authorResponse(page: Page, example: Example): Promise<void> {
       break;
     case "num":
       await page.getByLabel("Accepted numeric value", { exact: true }).fill("1");
-      await page.getByLabel("Unit (optional)", { exact: true }).fill("mM");
+      await page.getByLabel("Unit (optional)").fill("mM");
       break;
     case "order":
       await fillItems(page.getByLabel("Ordering Item text", { exact: true }), [
@@ -193,8 +206,8 @@ async function publish(page: Page, example: Example): Promise<void> {
   await page.getByRole("button", { name: "New Draft Question", exact: true }).click();
   await page.getByLabel("Question Title", { exact: true }).fill(example.title);
   await page.getByLabel("Student-facing prompt", { exact: true }).fill(example.prompt);
-  await page.getByLabel("Question License", { exact: true }).selectOption("CC-BY-4.0");
-  await page.getByLabel("Question format", { exact: true }).selectOption(example.format);
+  await page.getByLabel("Question License").selectOption("CC-BY-4.0");
+  await page.getByLabel("Question format").selectOption(example.format);
   // Resize the visible list to the three membrane options before writing their text.
   if (example.slug === "ma") {
     while ((await page.getByLabel("Choice text", { exact: true }).count()) > 3) {
@@ -215,7 +228,7 @@ async function publish(page: Page, example: Example): Promise<void> {
   await page.getByRole("button", { name: "Save private draft", exact: true }).click();
   await page.getByText("Private draft saved. It is not published.", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Review publication changes", exact: true }).click();
-  await page.getByLabel("Question Authors", { exact: true }).fill("Live Demo Instructor");
+  await page.getByLabel("Question Authors").fill("Live Demo Instructor");
   await page
     .getByRole("combobox", { name: "Discipline (required)", exact: true })
     .selectOption({ label: "Biology" });
@@ -273,6 +286,12 @@ async function prepare(runtime: ScenarioRuntime): Promise<ReadonlyMap<string, Ex
     await page
       .getByRole("heading", { name: "Assessment Properties Editor", exact: true })
       .waitFor();
+    await page
+      .getByRole("group", { name: "Due date and time", exact: true })
+      .locator('input[type="date"]')
+      .fill("2026-12-01");
+    await page.getByLabel("Due time").fill("12:00");
+    await page.getByText("Saved", { exact: true }).waitFor();
     await page.getByRole("button", { name: "Check release readiness", exact: true }).click();
     await page.getByRole("heading", { name: "Ready to release", exact: true }).waitFor();
     await page.getByRole("button", { name: "Release assessment", exact: true }).click();
@@ -304,6 +323,28 @@ async function readQuestion(
   return decodeStudentAssessmentAttemptPresentation(await (await delivered).json());
 }
 
+/** Follows the visible Student Course action without guessing from intermediate route timing. */
+async function openOrResumePracticeAssignment(page: Page, card: Locator): Promise<void> {
+  const action = card.getByRole("link", {
+    name: /^(Open|Resume) Practice Question Assignment$/u,
+  });
+  const open = card.getByRole("link", { name: `Open ${PRACTICE_LABEL}`, exact: true });
+  const resume = card.getByRole("link", { name: `Resume ${PRACTICE_LABEL}`, exact: true });
+  await action.first().waitFor();
+  const [canOpen, canResume] = await Promise.all([open.isVisible(), resume.isVisible()]);
+  if (canOpen === canResume) {
+    throw new Error("Student Course card must expose exactly one Open or Resume action.");
+  }
+  if (canOpen) {
+    await open.click();
+    await page.locator('[data-route-surface="assessmentOverview"]').waitFor();
+    await page.getByRole("button", { name: `Start ${PRACTICE_LABEL}`, exact: true }).click();
+  } else {
+    await resume.click();
+  }
+  await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
+}
+
 async function waitForControl(session: CaptureSession, example: Example): Promise<void> {
   const page = session.page;
   if (example.backend === "webwork") {
@@ -327,6 +368,7 @@ async function waitForControl(session: CaptureSession, example: Example): Promis
     num: "input",
     match: ".matching-bank button",
     order: "button",
+    hotspot: ".hotspot-image-region",
   };
   await response
     .locator(selector[example.slug as Exclude<ExampleSlug, "webwork">])
@@ -334,6 +376,11 @@ async function waitForControl(session: CaptureSession, example: Example): Promis
     .waitFor();
   if (example.slug === "multi_fib" && (await response.locator(selector.multi_fib).count()) < 2) {
     throw new Error("MULTI-FIB delivery did not provide independently identifiable blanks.");
+  }
+  if (example.slug === "hotspot") {
+    await response.locator(".hotspot-image-surface img").waitFor();
+    if ((await response.locator(".hotspot-image-region").count()) !== 1)
+      throw new Error("HOTSPOT did not deliver the uploaded dot region.");
   }
 }
 
@@ -346,38 +393,26 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
       await choosePersona(page, "Avery Thompson");
       await openStudentCourse(page);
       const card = assignmentCard(page, ASSESSMENT_TITLE);
-      let question = await readQuestion(page, async () => {
-        await card
-          .getByRole("link", { name: /^(Open|Resume) Practice Question Assignment$/u })
-          .click();
-        await Promise.race([
-          page.locator('[data-route-surface="assessmentOverview"]').waitFor(),
-          page.locator('[data-route-surface="assessmentAttempt"]').waitFor(),
-        ]);
-        if (await page.locator('[data-route-surface="assessmentOverview"]').isVisible()) {
-          await page.getByRole("button", { name: `Start ${PRACTICE_LABEL}`, exact: true }).click();
-        }
-      });
-      await page.locator('[data-route-surface="assessmentAttempt"]').waitFor();
+      let question = await readQuestion(page, () => openOrResumePracticeAssignment(page, card));
       const navigation = page.getByRole("navigation", {
         name: "Assessment questions",
         exact: true,
       });
-      const positions = await navigation.getByRole("button").allTextContents();
       const covered = new Set<ExampleSlug>();
-      for (const name of positions) {
-        const position = /^Question ([1-9][0-9]*):/u.exec(name)?.[1];
-        if (position === undefined)
-          throw new Error("Student navigation did not expose an issued Question position.");
-        if (Number(position) !== question.position) {
+      const first = navigation.getByRole("button", { name: /^Question 1:/u });
+      if (question.position !== 1) question = await readQuestion(page, () => first.click());
+      else await first.click();
+      for (let position = 1; position <= EXPECTED_QUESTION_COUNT; position += 1) {
+        if (position > 1) {
           question = await readQuestion(page, () =>
-            navigation
-              .getByRole("button", {
-                name: new RegExp(`^Question ${position}:`, "u"),
-              })
-              .click(),
+            navigation.getByRole("button", { name: "Next question", exact: true }).click(),
           );
         }
+        if (question.position !== position)
+          throw new Error("Student navigation did not deliver the next issued Question position.");
+        await page
+          .getByText(`Question ${position} of ${EXPECTED_QUESTION_COUNT}`, { exact: true })
+          .waitFor();
         const pin = question.presentation.questionRevision;
         const example = provenance.get(`${pin.questionId}:${pin.revisionNumber}`);
         if (example === undefined || covered.has(example.slug))
@@ -392,8 +427,26 @@ async function captureTypes(runtime: ScenarioRuntime): Promise<void> {
         );
         covered.add(example.slug);
       }
-      if (EXAMPLES.some((example) => !covered.has(example.slug)))
+      if (
+        covered.size !== EXPECTED_QUESTION_COUNT ||
+        EXAMPLES.some((example) => !covered.has(example.slug))
+      )
         throw new Error("Student delivery type coverage is incomplete.");
+    } finally {
+      await runtime.close(session);
+    }
+  }
+  // Interaction/submission proof is uncaptured and occurs after both unanswered captures.
+  for (const input of ["pointer", "keyboard"] as const) {
+    const session = await runtime.open(runtime.record(SCENARIO, checkpoint("hotspot", "laptop")));
+    try {
+      await choosePersona(session.page, input === "pointer" ? "Avery Thompson" : "Jack Nguyen");
+      await openStudentCourse(session.page);
+      await openOrResumePracticeAssignment(
+        session.page,
+        assignmentCard(session.page, ASSESSMENT_TITLE),
+      );
+      await exerciseHotspot(session.page, input);
     } finally {
       await runtime.close(session);
     }

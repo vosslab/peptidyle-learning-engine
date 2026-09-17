@@ -213,10 +213,10 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
           it or create a Course Instance.
         </p>
       </header>
-      <section class="blueprint-course-card" aria-labelledby="public-blueprint-results-heading">
+      <section class="blueprint-public-search" aria-labelledby="public-blueprint-results-heading">
         <form
           role="search"
-          style={{ display: "grid", gap: "0.75rem" }}
+          class="blueprint-public-search__form"
           onSubmit={(event) => {
             event.preventDefault();
             void load({
@@ -227,14 +227,16 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
             });
           }}
         >
-          <div class="blueprint-course-inline-actions">
-            <label for="public-blueprint-query">Blueprint Course name</label>
-            <input
-              id="public-blueprint-query"
-              type="search"
-              value={draft()}
-              onInput={(event) => setDraft(event.currentTarget.value)}
-            />
+          <div class="blueprint-public-search__query-row">
+            <label class="blueprint-public-search__query" for="public-blueprint-query">
+              <span>Blueprint Course name</span>
+              <input
+                id="public-blueprint-query"
+                type="search"
+                value={draft()}
+                onInput={(event) => setDraft(event.currentTarget.value)}
+              />
+            </label>
             <label>
               <input
                 type="checkbox"
@@ -244,16 +246,20 @@ export function PublicBlueprintSearchPage(props: PublicBlueprintSearchPageProps)
               Promoted only
             </label>
           </div>
-          <BlueprintSearchClassification
-            client={props.client}
-            value={draftClassification()}
-            onChange={(classification, description) => {
-              setDraftClassification(classification);
-              setDraftClassificationDescription(description);
-            }}
-          />
-          <div class="blueprint-course-inline-actions">
-            <button type="submit">Search</button>
+          <div class="blueprint-public-search__classification">
+            <BlueprintSearchClassification
+              client={props.client}
+              value={draftClassification()}
+              onChange={(classification, description) => {
+                setDraftClassification(classification);
+                setDraftClassificationDescription(description);
+              }}
+            />
+          </div>
+          <div class="blueprint-public-search__actions">
+            <button class="primary-action" type="submit">
+              Search
+            </button>
             <button type="button" onClick={resetSearch}>
               Clear search
             </button>

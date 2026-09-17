@@ -127,11 +127,13 @@ to make this audit look complete.
 
 ### Priority 3: strengthen SQL invariants and command boundaries
 
-- Close NULL holes in mandatory shape checks: the reproduced Quiz/Exam Attempt-
-  limit hole and the additionally reproduced fixed-entry/Pool-entry NULL shapes.
-  Use explicit
-  nullability in conditional shapes. Keep valid NULL-as-unlimited behavior for
-  Types that permit it. This protects the model as application callers change.
+- Close remaining NULL holes in mandatory shape checks. The historical Quiz/Exam
+  Template Attempt-limit hole is now corrected and has a fresh isolated
+  PostgreSQL 17 actual-role receipt: invalid Quiz creation and Exam save reject
+  atomically, while a Regular Assignment keeps NULL-as-unlimited behavior. The
+  fixed-entry/Pool-entry observations remain separate work. Use explicit
+  nullability in conditional shapes. This protects the model as application
+  callers change without treating the receipt as a runtime-wide SQL lock.
 - Review supported writes under the actual role graph: row-lock privileges,
   cross-schema ownership, fixed definer paths, private table grants and RLS
   predicates. The support failure shows why a successful superuser install alone
@@ -768,10 +770,10 @@ identify the SQL object or operation to inspect. The statuses mean:
 | HG requirement and locator | SQL evidence | Assessment |
 | --- | --- | --- |
 | Assessment model/content, 1272-1294: shared model, five types, ordered Question/Pool positions, exact pins, add/remove/reorder | [assessments.sql](../../../schemas/base_schema/assessments.sql): type CHECK and ordered entries; [assessment_operations.sql](../../../schemas/base_schema/assessment_operations.sql): atomic saves; Blueprint content validator | Supported source model; no separate Assignment category or weights hierarchy. |
-| Types, 1295-1318: settings changes do not change Type; Quiz/Exam one Attempt; Bonus zero denominator | [assessments.sql](../../../schemas/base_schema/assessments.sql): save allowed keys exclude Type; start policy; [grading.sql](../../../schemas/base_schema/grading.sql): contribution functions | Supported command semantics. Nullable Quiz/Exam raw CHECK is a defense gap; no unlimited-Attempt command exploit demonstrated. |
+| Types, 1295-1318: settings changes do not change Type; Quiz/Exam one Attempt; Bonus zero denominator | [assessments.sql](../../../schemas/base_schema/assessments.sql): save allowed keys exclude Type; start policy; [grading.sql](../../../schemas/base_schema/grading.sql): contribution functions | Supported command semantics. The historical sibling Template nullable-Quiz/Exam CHECK observation is separately corrected; its isolated PostgreSQL 17 actual-role receipt does not prove deployed or runtime-wide SQL acceptance. |
 | Blueprint Assessments, 1319-1329: published content/points/reusable defaults; no Students/dates/Templates | [blueprints.sql](../../../schemas/base_schema/blueprints.sql): closed reusable shape and pin integrity | Supported source validator/persistence. |
 | Instance Assessments, 1330-1338: delivery settings distinct; daughter copy editable; new Blueprint members copied unreleased | Assessment source/default fields and adoption/update operations | Supported SQL mechanisms; publication-trigger orchestration not certified. |
-| Templates, 1339-1351: own editable per-Instructor settings, one Type, no Questions/Pools, copy independent defaults | [assessment_templates.sql](../../../schemas/base_schema/assessment_templates.sql), [assessment_template_copy.sql](../../../schemas/base_schema/assessment_template_copy.sql) | Supported structure/commands. Templates are not a live settings link. |
+| Templates, 1339-1351: own editable per-Instructor settings, one Type, no Questions/Pools, copy independent defaults | [assessment_templates.sql](../../../schemas/base_schema/assessment_templates.sql), [assessment_template_copy.sql](../../../schemas/base_schema/assessment_template_copy.sql) | Supported structure/commands. The corrected Template CHECK rejects Quiz NULL creation and Exam NULL save without residue/change, accepts Quiz/Exam limit one, and preserves Regular Assignment NULL-as-unlimited in a fresh canonical PostgreSQL 17 `ple_auth`/`ple_app` rollback proof. Templates are not a live settings link; this is not deployed or runtime-wide SQL acceptance. |
 | Release, 1354-1369: start unreleased; Questions/settings valid; dates ordered; due at least 24h ahead and within Active cap | [assessment_creation.sql](../../../schemas/base_schema/assessment_creation.sql), [assessment_release_validation.sql](../../../schemas/base_schema/assessment_release_validation.sql): structured issues and hard validation | Supported source path. Error explanation/retry interaction outside SQL. Raw nullable Entry CHECKs warrant independent hardening review. |
 | Submission defaults, 1370-1375: late work rejected; no new starts/submissions beyond due by default | [assessment_creation.sql](../../../schemas/base_schema/assessment_creation.sql): reject default; Attempt start/finalization due logic | Supported source defaults. Live Demo's explicit late-work acceptance is an override, not a global-default defect. |
 | Disclosure, 1376-1390: independent policies; Practice answers after submit; Quiz/Exam only after all Students complete, not correctness | Attempt policy snapshots; [assessment_attempt_history.sql](../../../schemas/base_schema/assessment_attempt_history.sql): submission-based cohort predicate | Boundary. SQL supplies immutable policy/cohort facts; adapter/server enforcement of answer disclosure was not audited. Creation's `after_submit` alone is not proof of premature Quiz answers. |

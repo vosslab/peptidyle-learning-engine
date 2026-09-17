@@ -3,6 +3,9 @@
 // owned by src/pages/course_list_page.tsx:149, src/pages/library_page.tsx:163,
 // src/pages/question_drafts_page.tsx:102, assessment_workspace_create_page.tsx, and the focused
 // Assessment workspace pages.
+// Publication completion and its ordinary detail destination are owned by
+// src/features/ple_question_json_authoring/question_json_editor_page.tsx:908 and
+// src/pages/question_detail_page.tsx:306.
 
 import type { ScenarioRuntime } from "./runtime";
 import type { ScenarioDefinition } from "./scenario_types";
@@ -157,7 +160,7 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
       .getByRole("heading", { name: "Search Question Library", exact: true })
       .waitFor();
     await session.page.getByRole("link", { name: "My Draft Questions", exact: true }).click();
-    await session.page.getByRole("heading", { name: "My Question Drafts", exact: true }).waitFor();
+    await session.page.getByRole("heading", { name: "My Draft Questions", exact: true }).waitFor();
     await session.page
       .getByText("Loading your private Draft Questions...", { exact: true })
       .waitFor({ state: "hidden" });
@@ -189,10 +192,45 @@ async function instructorAuthoring(runtime: ScenarioRuntime): Promise<void> {
       .selectOption({ label: "Biochemistry" });
     await session.page.getByRole("button", { name: "Confirm and publish", exact: true }).click();
     await session.page.getByRole("heading", { name: "Published", exact: true }).waitFor();
+    const publication = session.page.getByRole("status").filter({
+      has: session.page.getByRole("heading", { name: "Published", exact: true }),
+    });
+    await publication.getByText(`Question: ${AUTHORING_TITLE}`, { exact: true }).waitFor();
+    const publishedId = (await publication.locator("code").innerText()).trim();
+    const publishedRevision = (
+      await publication
+        .locator("p")
+        .filter({ has: session.page.getByText("Published Revision:", { exact: true }) })
+        .innerText()
+    )
+      .replace("Published Revision:", "")
+      .trim();
+    if (publishedId === "" || !/^[1-9][0-9]*$/u.test(publishedRevision)) {
+      throw new Error("Publication completion did not expose its Question ID and Revision.");
+    }
+    const publishedQuestion = publication.getByRole("link", {
+      name: "Open published Question",
+      exact: true,
+    });
+    const detailPath = `/library/${encodeURIComponent(publishedId)}`;
+    if ((await publishedQuestion.getAttribute("href")) !== detailPath) {
+      throw new Error("Publication completion did not link to its exact published Question.");
+    }
     await captureCheckpoint(runtime, scenario, "published_result", session);
-    await session.page.getByRole("link", { name: "Open question library", exact: true }).click();
-    await session.page.getByLabel("Search published questions").fill(AUTHORING_TITLE);
-    await session.page.getByRole("heading", { name: AUTHORING_TITLE, exact: true }).waitFor();
+    await publishedQuestion.click();
+    await session.page.waitForURL((url) => url.pathname === detailPath && url.search === "");
+    const detail = session.page.locator('[data-route-surface="questionDetail"]');
+    await detail.getByRole("heading", { level: 1, name: AUTHORING_TITLE, exact: true }).waitFor();
+    await detail.getByText(publishedId, { exact: true }).waitFor();
+    const revision = detail.locator(".question-detail-metadata > div").filter({
+      has: session.page.getByText("Revision", { exact: true }),
+    });
+    await revision.locator("dd").waitFor();
+    if ((await revision.locator("dd").innerText()).trim() !== publishedRevision) {
+      throw new Error(
+        "Published Question details did not match the completed publication Revision.",
+      );
+    }
   } finally {
     await runtime.close(session);
   }
@@ -265,7 +303,12 @@ async function instructorPublicBlueprintSearch(runtime: ScenarioRuntime): Promis
     await session.page.getByRole("button", { name: "Search", exact: true }).click();
     await session.page
       .getByRole("status")
-      .filter({ hasText: /Public Blueprint Courses? shown for "Biochemistry"\./u })
+      .filter({ hasText: /^[0-9,]+ Public Blueprint Courses? shown\.$/u })
+      .waitFor();
+    await session.page
+      .getByText('Applied search: "Biochemistry"; all promotions; all classifications.', {
+        exact: true,
+      })
       .waitFor();
     await session.page
       .getByRole("heading", { level: 3, name: COURSE_TITLE, exact: true })
@@ -307,7 +350,9 @@ async function instructorAssignment(runtime: ScenarioRuntime): Promise<void> {
       .locator('input[type="date"]')
       .fill("2026-12-01");
     await page.getByLabel("Due time").fill("12:00");
-    await page.getByLabel("Time limit in seconds").fill("1800");
+    await page
+      .getByLabel(/^Assessment duration override in seconds \(optional, maximum 12 hours\)/u)
+      .fill("1800");
     await page.getByRole("combobox", { name: /^Late-work rule/u }).selectOption("mark_late");
     await page.getByText("Saved", { exact: true }).waitFor();
     await page.getByRole("link", { name: "Open Student View", exact: true }).click();
